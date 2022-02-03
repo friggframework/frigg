@@ -1,0 +1,22 @@
+{
+    "name": "@friggframework/test-environment",
+    "version": "1.0.2",
+    "description": "",
+    "main": "index.js",
+    "prettier": "@friggframework/prettier-config",
+    "scripts": {
+        "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
+        "test": "jest --passWithNoTests # TODO"
+    },
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+        "mongodb-memory-server": "^8.2.0"
+    },
+    "devDependencies": {
+        "@friggframework/eslint-config": "^1.0.0",
+        "eslint": "^7.32.0",
+        "jest": "^27.4.7",
+        "prettier": "^2.5.1"
+    }
+}

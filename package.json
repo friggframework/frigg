@@ -1,0 +1,31 @@
+{
+  "name": "frigg-monorepo",
+  "version": "1.0.0",
+  "description": "This repo contains starter code for javascript backends in `/backend` and a front end react/redux app in `/frontend`",
+  "main": "index.js",
+  "private": true,
+  "scripts": {
+    "test:all": "npm test --foreground-scripts --workspaces",
+    "use:engine": "n install $npm_package_engines_node && npm install -g npm@$npm_package_engines_npm"
+  },
+  "engines": {
+    "node": "14",
+    "npm": "7.20.2"
+  },
+  "author": "",
+  "license": "MIT",
+  "workspaces": [
+    "test-environment",
+    "logs",
+    "backend",
+    "database",
+    "frigg",
+    "encrypt",
+    "errors",
+    "modules",
+    "eslint-config",
+    "prettier-config",
+    "assertions",
+    "lambda"
+  ]
+}
