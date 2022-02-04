@@ -64,12 +64,20 @@ When making a change that alters the public interface use `npm version major`.
 
 After merging or rebasing a branch into main:
 
-`git checkout main`
-`npm test --workspace=logs`
-`npm version patch --workspace=logs # or major or minor`
-`git commit -am'chore: release' && git push`
-`npm publish --workspace=logs --access public`
+```sh
+git checkout main
+npm test --workspace=logs
+npm version patch --workspace=logs # or major or minor
+git commit -am'chore: release' && git push
+npm publish --workspace=logs --access public
+```
+
+## Unpublishing
 
 72 hours are given to unpublish a version without complications: https://docs.npmjs.com/policies/unpublish
 
-`cd logs; npm unpublish @friggframework/logs@0.0.1; cd ..;`
+```sh
+cd logs
+npm unpublish @friggframework/logs@0.0.1
+cd ..
+```
