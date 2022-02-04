@@ -25,7 +25,7 @@ module.exports = {
         },
     ],
     rules: {
-        indent: ['error', 4],
+        indent: ['error', 4, { SwitchCase: 1 }],
         'no-only-tests/no-only-tests': ['error', { fix: false }],
         'no-unused-vars': [
             'warn',
