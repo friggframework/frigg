@@ -25,7 +25,6 @@ module.exports = {
         },
     ],
     rules: {
-        indent: ['error', 4, { SwitchCase: 1 }],
         'no-only-tests/no-only-tests': ['error', { fix: false }],
         'no-unused-vars': [
             'warn',
@@ -33,7 +32,7 @@ module.exports = {
         ],
         'no-console': ['warn'],
         camelcase: ['warn'],
-        'no-mixed-requires': ['error'],
+        'no-mixed-requires': ['warn'],
         'no-warning-comments': ['warn'],
     },
 };
