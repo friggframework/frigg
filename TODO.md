@@ -4,9 +4,15 @@
 
 ### Tasks
 
-- [ ] Add Frontend skeleton
-- [ ] Design Frontend screens
-- [ ] Add updated CSS
+- [x] Add Frontend skeleton
+- [x] Design Frontend screens
+- [x] Add updated CSS
+- [ ] Add design spec
+- [ ] Add redux
+- [ ] Add authentication
+- [ ] Implement user registration
+- [ ] Create Card componnets
+- [ ] Create Modal components
 
 ### Stories (Priority)
 
