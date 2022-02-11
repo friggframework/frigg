@@ -1,18 +1,19 @@
 const fetch = require('node-fetch');
-const OAuth2Base = require('frigg/auth/OAuth2Base.js');
+const OAuth2Base = require('@friggframework/core/auth/OAuth2Base.js');
+const { get } = require('@friggframework/assertions');
 
 class Api extends OAuth2Base {
     constructor(params) {
         super(params);
-        this.apiKey = this.getParam(params, 'apiKey', null);
+        this.apiKey = get(params, 'apiKey', null);
         this.baseUrl = process.env.SALESRIGHT_BASE_URL;
         this.clientId = process.env.SALESRIGHT_CLIENT_ID;
         this.key = process.env.SALESRIGHT_CLIENT_ID;
         this.clientSecret = process.env.SALESRIGHT_CLIENT_SECRET;
         this.secret = process.env.SALESRIGHT_CLIENT_SECRET;
         this.redirectUri = process.env.SALESRIGHT_REDIRECT_URI;
-        this.state = this.getParam(params, 'state', null);
-        this.delegate = this.getParam(params, 'delegate', null);
+        this.state = get(params, 'state', null);
+        this.delegate = get(params, 'delegate', null);
         this.scope = 'full_access';
 
         // Endpoints appended to baseUrl
@@ -69,8 +70,8 @@ class Api extends OAuth2Base {
 
     // REGULAR USER AUTH REQUESTS
     async signInUser(params) {
-        const email = this.getParam(params, 'email');
-        const password = this.getParam(params, 'password');
+        const email = get(params, 'email');
+        const password = get(params, 'password');
 
         const body = {
             email,
@@ -83,7 +84,7 @@ class Api extends OAuth2Base {
     }
 
     async getApiKeyFromJwt(params) {
-        const jwt = this.getParam(params, 'jwt');
+        const jwt = get(params, 'jwt');
 
         await this.setAccessToken(jwt);
         const res = await this._get(this.URLs.auth.me);
@@ -420,7 +421,7 @@ class Api extends OAuth2Base {
     // Return array of contact objects, optionally filtered by companyId
 
     async listContacts(filter) {
-        const companyId = this.getParam(filter, 'companyId', null);
+        const companyId = get(filter, 'companyId', null);
         const params = {};
         if (companyId) {
             params.companyId = companyId;
@@ -431,14 +432,14 @@ class Api extends OAuth2Base {
 
     // Creates and returns a Contact from the provided data
     async createContact(data) {
-        const firstName = this.getParam(data, 'firstName');
-        const lastName = this.getParam(data, 'lastName');
-        const email = this.getParam(data, 'email');
-        const sourceId = this.getParam(data, 'sourceId', null);
-        const sourceType = this.getParam(data, 'sourceType', null);
-        const phone = this.getParam(data, 'phone', null);
-        const sourceLink = this.getParam(data, 'sourceLink', null);
-        const companyId = this.getParam(data, 'companyId');
+        const firstName = get(data, 'firstName');
+        const lastName = get(data, 'lastName');
+        const email = get(data, 'email');
+        const sourceId = get(data, 'sourceId', null);
+        const sourceType = get(data, 'sourceType', null);
+        const phone = get(data, 'phone', null);
+        const sourceLink = get(data, 'sourceLink', null);
+        const companyId = get(data, 'companyId');
 
         const res = await this._post(this.URLs.contacts, {
             firstName,
@@ -455,15 +456,15 @@ class Api extends OAuth2Base {
 
     // Updates and returns a Contact with the provided data
     async updateContact(data) {
-        const firstName = this.getParam(data, 'firstName');
-        const lastName = this.getParam(data, 'lastName');
-        const email = this.getParam(data, 'email');
-        const sourceId = this.getParam(data, 'sourceId', null);
-        const sourceType = this.getParam(data, 'sourceType', null);
-        const sourceLink = this.getParam(data, 'sourceLink', null);
-        const phone = this.getParam(data, 'phone', null);
-        const companyId = this.getParam(data, 'companyId');
-        const id = this.getParam(data, 'id');
+        const firstName = get(data, 'firstName');
+        const lastName = get(data, 'lastName');
+        const email = get(data, 'email');
+        const sourceId = get(data, 'sourceId', null);
+        const sourceType = get(data, 'sourceType', null);
+        const sourceLink = get(data, 'sourceLink', null);
+        const phone = get(data, 'phone', null);
+        const companyId = get(data, 'companyId');
+        const id = get(data, 'id');
 
         const res = await this._put(this.URLs.contact(id), {
             firstName,
@@ -486,11 +487,11 @@ class Api extends OAuth2Base {
 
     // Creates and returns a Company from the provided data
     async createCompany(data) {
-        const name = this.getParam(data, 'name');
-        const website = this.getParam(data, 'website', null);
-        const sourceId = this.getParam(data, 'sourceId', null);
-        const sourceType = this.getParam(data, 'sourceType', null);
-        const address = this.getParam(data, 'address', null);
+        const name = get(data, 'name');
+        const website = get(data, 'website', null);
+        const sourceId = get(data, 'sourceId', null);
+        const sourceType = get(data, 'sourceType', null);
+        const address = get(data, 'address', null);
         const body = {
             name,
             sourceId,
@@ -505,13 +506,13 @@ class Api extends OAuth2Base {
 
     // Updates and returns a Company with the provided data
     async updateCompany(data) {
-        const name = this.getParam(data, 'name');
-        const website = this.getParam(data, 'website', null);
-        const sourceId = this.getParam(data, 'sourceId', null);
-        const sourceType = this.getParam(data, 'sourceType', null);
-        const sourceLink = this.getParam(data, 'sourceLink', null);
-        const address = this.getParam(data, 'address', null);
-        const id = this.getParam(data, 'id');
+        const name = get(data, 'name');
+        const website = get(data, 'website', null);
+        const sourceId = get(data, 'sourceId', null);
+        const sourceType = get(data, 'sourceType', null);
+        const sourceLink = get(data, 'sourceLink', null);
+        const address = get(data, 'address', null);
+        const id = get(data, 'id');
         const body = {
             name,
             sourceId,

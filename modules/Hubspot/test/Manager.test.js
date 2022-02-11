@@ -1,4 +1,3 @@
-const chai = require('chai');
 const ManagerClass = require('../Manager');
 // const Authenticator = require('../../../../test/utils/Authenticator');
 // const {getLoggedInTestUserManagerInstance } = require('../../../../test/utils/TestUtils');

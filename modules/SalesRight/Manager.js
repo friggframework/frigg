@@ -1,13 +1,14 @@
 const Api = require('./Api.js');
-const Entity = require('./models/Entity');
-const Credential = require('./models/Credential');
-const LHModuleManager = require('frigg/managers/LHModuleManager');
+const Entity = require('@friggframework/models/Entity');
+const Credential = require('@friggframework/models/Credential');
+const ModuleManager = require('@friggframework/core/managers/ModuleManager');
 const ModuleConstants = require('../ModuleContants');
+const { get } = require('@friggframework/assertions');
 
 // name used as the entity type
 const MANAGER_NAME = 'salesright';
 
-class Manager extends LHModuleManager {
+class Manager extends ModuleManager {
     static Entity = Entity;
 
     static Credential = Credential;
@@ -77,8 +78,8 @@ class Manager extends LHModuleManager {
     }
 
     async processAuthorizationCallback(params) {
-        const data = this.getParam(params, 'data');
-        const code = this.getParam(data, 'code');
+        const data = get(params, 'data');
+        const code = get(data, 'code');
 
         await this.getAccessToken(code);
         const entity = await this.entityMO.getByUserId(this.userId);

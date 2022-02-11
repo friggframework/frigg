@@ -19,13 +19,14 @@
     "logs",
     "backend",
     "database",
-    "frigg",
     "encrypt",
     "errors",
     "modules",
     "eslint-config",
     "prettier-config",
     "assertions",
-    "lambda"
+    "lambda",
+    "models",
+    "core"
   ]
 }
