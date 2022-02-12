@@ -1,12 +1,13 @@
 const jsforce = require('jsforce');
-const OAuth2Base = require('frigg/auth/OAuth2Base');
+const OAuth2Base = require('@friggframework/core/auth/OAuth2Base');
+const { get } = require('@friggframework/assertions');
 
 class SalesforceApi extends OAuth2Base {
     constructor(params) {
         super(params);
         this.jsforce = jsforce;
-        this.instanceUrl = this.getParam(params, 'instanceUrl', null);
-        this.isSandbox = this.getParam(params, 'isSandbox', false);
+        this.instanceUrl = get(params, 'instanceUrl', null);
+        this.isSandbox = get(params, 'isSandbox', false);
         if (this.isSandbox) {
             this.loginUrl = 'https://test.salesforce.com';
         } else {

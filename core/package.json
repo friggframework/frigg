@@ -1,0 +1,33 @@
+{
+  "name": "@friggframework/core",
+  "prettier": "@friggframework/prettier-config",
+  "version": "1.0.0",
+  "private": true,
+  "devDependencies": {
+    "@friggframework/eslint-config": "^1.0.0",
+    "eslint": "^7.32.0",
+    "jest": "^27.4.7",
+    "prettier": "^2.5.1"
+  },
+  "scripts": {
+    "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
+    "test": "jest --passWithNoTests # TODO"
+  },
+  "author": "",
+  "license": "MIT",
+  "main": "   ",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/friggframework/frigg.git"
+  },
+  "bugs": {
+    "url": "https://github.com/friggframework/frigg/issues"
+  },
+  "homepage": "https://github.com/friggframework/frigg#readme",
+  "dependencies": {
+    "@friggframework/assertions": "^1.0.0",
+    "moment": "^2.29.1",
+    "node-fetch": "^2.6.7"
+  },
+  "description": ""
+}

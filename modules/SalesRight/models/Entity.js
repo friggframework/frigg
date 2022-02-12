@@ -1,7 +1,7 @@
 'use strict';
 const mongoose = require('mongoose');
 const { createModel } = require('@friggframework/database/mongo');
-const Parent = require('frigg/models/Entity');
+const Parent = require('@friggframework/models/Entity');
 
 const collectionName = 'salesrightEntity';
 const parentModelObject = new Parent();

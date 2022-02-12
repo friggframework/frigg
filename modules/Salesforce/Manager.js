@@ -1,13 +1,14 @@
 const Api = require('./Api.js');
-const Entity = require('./models/Entity');
-const Credential = require('./models/Credential');
-const LHModuleManager = require('frigg/managers/LHModuleManager');
+const Entity = require('@friggframework/models/Entity');
+const Credential = require('@friggframework/models/Credential');
+const ModuleManager = require('@friggframework/core/managers/ModuleManager');
 const ModuleConstants = require('../ModuleContants');
+const { get } = require('@friggframework/assertions');
 
 // the name used for the entity type, generally
 const MANAGER_NAME = 'salesforce';
 
-class Manager extends LHModuleManager {
+class Manager extends ModuleManager {
     static Entity = Entity;
 
     static Credential = Credential;
@@ -93,9 +94,9 @@ class Manager extends LHModuleManager {
     }
 
     async processAuthorizationCallback(params) {
-        const userId = this.getParam(params, 'userId');
-        const data = this.getParam(params, 'data');
-        const code = this.getParam(data, 'code');
+        const userId = get(params, 'userId');
+        const data = get(params, 'data');
+        const code = get(data, 'code');
         let isSandbox = false;
 
         // try to get access token.

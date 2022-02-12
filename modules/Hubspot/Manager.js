@@ -1,14 +1,15 @@
 const Api = require('./Api');
-const Entity = require('./models/Entity');
-const Credential = require('./models/Credential');
-const LHModuleManager = require('frigg/managers/LHModuleManager');
+const Entity = require('@friggframework/models/Entity');
+const Credential = require('@friggframework/models/Credential');
+const ModuleManager = require('@friggframework/core/managers/ModuleManager');
 const ModuleConstants = require('../ModuleConstants');
 const { debug, flushDebugLog } = require('@friggframework/logs');
+const { get } = require('@friggframework/assertions');
 
 // the name used for the entity type, generally
 const MANAGER_NAME = 'hubspot';
 
-class Manager extends LHModuleManager {
+class Manager extends ModuleManager {
     static Entity = Entity;
 
     static Credential = Credential;
@@ -62,7 +63,7 @@ class Manager extends LHModuleManager {
     }
 
     async processAuthorizationCallback(params) {
-        const code = this.getParam(params.data, 'code');
+        const code = get(params.data, 'code');
         await this.getAccessToken(code);
         const userDetails = await this.api.getUserDetails();
 
@@ -78,8 +79,8 @@ class Manager extends LHModuleManager {
     }
 
     async findOrCreateEntity(params) {
-        const portalId = this.getParam(params, 'portalId');
-        const domainName = this.getParam(params, 'domainName');
+        const portalId = get(params, 'portalId');
+        const domainName = get(params, 'domainName');
 
         const search = await this.entityMO.list({
             user: this.userId,
