@@ -15,5 +15,8 @@
         "test": "jest"
     },
     "author": "",
-    "license": "MIT"
+    "license": "MIT",
+    "dependencies": {
+        "@friggframework/core": "^1.0.0"
+    }
 }

@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const { createModel } = require('@friggframework/database/mongo');
-const Parent = require('frigg/models/Credential');
+const Parent = require('@friggframework/models/Credential');
 
 const collectionName = 'salesrightCredentials';
 const parentModelObject = new Parent();

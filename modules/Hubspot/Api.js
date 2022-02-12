@@ -1,4 +1,5 @@
-const OAuth2Base = require('frigg/auth/OAuth2Base');
+const OAuth2Base = require('@friggframework/core/auth/OAuth2Base');
+const { get } = require('@friggframework/assertions');
 
 class Api extends OAuth2Base {
     constructor(params) {
@@ -52,9 +53,9 @@ class Api extends OAuth2Base {
         );
         this.tokenUri = 'https://api.hubapi.com/oauth/v1/token';
 
-        this.access_token = this.getParam(params, 'access_token', null);
-        this.refresh_token = this.getParam(params, 'refresh_token', null);
-        this.api_key = this.getParam(params, 'api_key', null);
+        this.access_token = get(params, 'access_token', null);
+        this.refresh_token = get(params, 'refresh_token', null);
+        this.api_key = get(params, 'api_key', null);
     }
 
     async setAccessToken(accessToken) {
@@ -116,8 +117,8 @@ class Api extends OAuth2Base {
 
     async batchGetCompaniesById(params) {
         // inputs.length should be < 100
-        const inputs = this.getParam(params, 'inputs');
-        const properties = this.getParam(params, 'properties', []);
+        const inputs = get(params, 'inputs');
+        const properties = get(params, 'properties', []);
 
         const body = {
             inputs,
@@ -283,12 +284,12 @@ class Api extends OAuth2Base {
     }
 
     async searchDeals(params) {
-        const allProps = this.getParam(params, 'allProps', true);
-        const propsArray = this.getParam(params, 'props', []);
-        const limit = this.getParam(params, 'limit', 10);
-        const after = this.getParam(params, 'after', 0);
-        const filterGroups = this.getParam(params, 'filterGroups', []);
-        const sorts = this.getParam(params, 'sorts', []);
+        const allProps = get(params, 'allProps', true);
+        const propsArray = get(params, 'props', []);
+        const limit = get(params, 'limit', 10);
+        const after = get(params, 'after', 0);
+        const filterGroups = get(params, 'filterGroups', []);
+        const sorts = get(params, 'sorts', []);
 
         if (allProps && propsArray.length === 0) {
             const dealProps = await this.listProperties('deal');
@@ -316,8 +317,8 @@ class Api extends OAuth2Base {
     }
 
     async updateDeal(params) {
-        const dealId = this.getParam(params, 'dealId');
-        const properties = this.getParam(params, 'properties');
+        const dealId = get(params, 'dealId');
+        const properties = get(params, 'properties');
         const body = { properties };
         const options = {
             url: this.baseUrl + this.URLs.getDealById(dealId),
@@ -681,9 +682,9 @@ class Api extends OAuth2Base {
     }
 
     async batchGetAssociations(params) {
-        const fromObject = this.getParam(params, 'fromObject');
-        const toObject = this.getParam(params, 'toObject');
-        const inputs = this.getParam(params, 'inputs');
+        const fromObject = get(params, 'fromObject');
+        const toObject = get(params, 'toObject');
+        const inputs = get(params, 'inputs');
 
         const postBody = { inputs };
 

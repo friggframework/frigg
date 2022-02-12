@@ -1,5 +1,4 @@
 const SalesRightAPI = require('../Api');
-require('dotenv').config();
 
 // Make sure that quote's properties are all there and the correct type
 function validateQuote(quoteData) {
