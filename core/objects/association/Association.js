@@ -14,7 +14,6 @@ class Association {
         reverseModuleMap: {},
     };
     constructor(params) {
-        super(params);
         this.data = {};
 
         let data = get(params, 'data');

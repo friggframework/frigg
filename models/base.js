@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { createModel } = require('@friggframework/database/mongo');
+const { createModel } = require('./create-model');
 
 const collectionName = 'Base';
 
@@ -14,7 +14,7 @@ _schema.pre('save', async () => {
 
 const _model = createModel(collectionName, _schema);
 
-class BaseModelObject {
+class Base {
     static Schema = _schema;
     static Model = _model;
 
@@ -67,4 +67,4 @@ class BaseModelObject {
     }
 }
 
-module.exports = BaseModelObject;
+module.exports = { Base };

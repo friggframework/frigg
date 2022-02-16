@@ -6,8 +6,6 @@ const { get, getAndVerifyType } = require('@friggframework/assertions');
 
 class Options {
     constructor(params) {
-        super(params);
-
         this.module = getAndVerifyType(params, 'module', ModuleManager);
         this.integrations = getAndVerifyType(
             params,

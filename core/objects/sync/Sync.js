@@ -30,7 +30,6 @@ class Sync {
         reverseModuleMap: {},
     };
     constructor(params) {
-        super(params);
         this.data = {};
 
         let data = get(params, 'data');

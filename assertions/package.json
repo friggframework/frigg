@@ -3,7 +3,6 @@
     "prettier": "@friggframework/prettier-config",
     "version": "1.0.0",
     "description": "",
-    "private": true,
     "devDependencies": {
         "@friggframework/eslint-config": "^1.0.0",
         "eslint": "^7.32.0",

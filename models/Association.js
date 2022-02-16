@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
-const { createModel } = require('@friggframework/database/mongo');
-const BaseModelObject = require('../BaseModelObject');
+const { Base } = require('./base');
+const { createModel } = require('./create-model');
 
 const collectionName = 'Association';
-let _schema = BaseModelObject.Schema.clone();
+let _schema = Base.Schema.clone();
 
 _schema.add({
     integration: {
@@ -34,7 +34,7 @@ _schema.add({
 
 const _model = createModel(collectionName, _schema);
 
-class Association extends BaseModelObject {
+class Association extends Base {
     static Schema = _schema;
     static Model = _model;
 
@@ -65,4 +65,4 @@ class Association extends BaseModelObject {
     }
 }
 
-module.exports = Association;
+module.exports = { Association };

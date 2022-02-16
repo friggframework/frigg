@@ -3,8 +3,6 @@ const { get, getAndVerifyType } = require('@friggframework/assertions');
 
 class Options {
     constructor(params) {
-        super(params);
-
         this.integrationManager = getAndVerifyType(
             params,
             'integrationManager',

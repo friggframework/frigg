@@ -1,7 +1,5 @@
 const Delegate = require('../Delegate');
-const Integration = require('@friggframework/models/Integration');
-const Entity = require('@friggframework/models/Entity');
-const Credential = require('@friggframework/models/Credential');
+const { Credential, Entity, Integration } = require('@friggframework/models');
 
 class IntegrationManager extends Delegate {
     static Config = {
