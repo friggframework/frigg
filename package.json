@@ -6,7 +6,8 @@
   "private": true,
   "scripts": {
     "test:all": "npm test --foreground-scripts --workspaces",
-    "use:engine": "n install $npm_package_engines_node && npm install -g npm@$npm_package_engines_npm"
+    "use:engine": "n install $npm_package_engines_node && npm run use:npm",
+    "use:npm": "npm install -g npm@$npm_package_engines_npm"
   },
   "engines": {
     "node": "14",

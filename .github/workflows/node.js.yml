@@ -19,18 +19,21 @@ jobs:
         node-version: [14.x]
 
     steps:
-    - name: Check Out Code
+    - name: Check Out Code ⤵️
       uses: actions/checkout@v2
       with:
         # Full git history is needed to get a proper list of changed files within `super-linter`
         fetch-depth: 0
 
-    - name: Use Node.js ${{ matrix.node-version }}
+    - name: Use Node.js ${{ matrix.node-version }} 🛠
       uses: actions/setup-node@v2
       with:
         node-version: ${{ matrix.node-version }}
 
-    - name: Cache node modules
+    - name: Use correct NPM version 🛠
+      run: npm run use:npm
+
+    - name: Cache node modules 📦
       uses: actions/cache@v2
       env:
         cache-name: cache-node-modules
@@ -43,16 +46,16 @@ jobs:
           ${{ runner.os }}-build-
           ${{ runner.os }}-
 
-    - name: Install Dependencies
+    - name: Install Dependencies 🛠
       run: npm ci
 
-    - name: Tests
+    - name: Tests 🧪
       run: npm run test:all
       timeout-minutes: 10
 
     # NOTE: Linter steps should run last.  If the linter auto-fixes files and pushes the fixes, the result is that any errors that may occur in previous steps may be hidden in the pull request because tests will not be run on the auto-fix commits.
 
-    - name: Linter
+    - name: Linter 🔍
       run: npm run lint:fix --workspaces
 
     - uses: stefanzweifel/git-auto-commit-action@v4
