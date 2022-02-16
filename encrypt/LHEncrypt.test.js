@@ -571,7 +571,7 @@ describe('LHEncrypt', () => {
         });
     });
 
-    describe('Using KMS', () => {
+    describe.skip('Using KMS', () => {
         beforeAll(() => {
             process.env = {
                 ...originalEnv,
