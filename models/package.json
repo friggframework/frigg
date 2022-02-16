@@ -1,9 +1,8 @@
 {
     "name": "@friggframework/models",
     "prettier": "@friggframework/prettier-config",
-    "version": "1.0.0",
+    "version": "1.0.7",
     "description": "",
-    "private": true,
     "devDependencies": {
         "@friggframework/eslint-config": "^1.0.0",
         "eslint": "^7.32.0",
@@ -17,6 +16,9 @@
     "author": "",
     "license": "MIT",
     "dependencies": {
+        "@friggframework/encrypt": "^1.0.0"
+    },
+    "peerDependencies": {
         "mongoose": "^6.2.1"
     }
 }

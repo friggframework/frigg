@@ -1,11 +1,11 @@
 'use strict';
 const mongoose = require('mongoose');
-const { createModel } = require('@friggframework/database/mongo');
-const BaseModelObject = require('./BaseModelObject');
 const LHEncrypt = require('@friggframework/encrypt');
+const { Base } = require('./base');
+const { createModel } = require('./create-model');
 
-const collectionName = 'Credentials';
-const _schema = BaseModelObject.Schema.clone();
+const collectionName = 'Credential';
+const _schema = Base.Schema.clone();
 
 _schema.add({
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -17,7 +17,7 @@ _schema.plugin(LHEncrypt);
 
 const _model = createModel(collectionName, _schema);
 
-class Credentials extends BaseModelObject {
+class Credential extends Base {
     static Schema = _schema;
     static Model = _model;
 
@@ -26,4 +26,4 @@ class Credentials extends BaseModelObject {
     }
 }
 
-module.exports = Credentials;
+module.exports = { Credential };

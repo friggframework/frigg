@@ -1,10 +1,10 @@
 'use strict';
 const mongoose = require('mongoose');
-const { createModel } = require('@friggframework/database/mongo');
-const BaseModelObject = require('./BaseModelObject');
-const collectionName = 'Entity';
+const { Base } = require('./base');
+const { createModel } = require('./create-model');
 
-let _schema = BaseModelObject.Schema.clone();
+const collectionName = 'Entity';
+let _schema = Base.Schema.clone();
 
 _schema.add({
     credential: {
@@ -27,7 +27,7 @@ _schema.static('upsert', async function upsert(filter, obj) {
 
 const _model = createModel(collectionName, _schema);
 
-class Entity extends BaseModelObject {
+class Entity extends Base {
     static Schema = _schema;
     static Model = _model;
 
@@ -47,4 +47,4 @@ class Entity extends BaseModelObject {
     }
 }
 
-module.exports = Entity;
+module.exports = { Entity };

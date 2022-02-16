@@ -1,10 +1,10 @@
 'use strict';
 const mongoose = require('mongoose');
-const { createModel } = require('@friggframework/database/mongo');
-const BaseModelObject = require('./BaseModelObject');
+const { Base } = require('./base');
+const { createModel } = require('./create-model');
 
 const collectionName = 'Sync';
-let _schema = BaseModelObject.Schema.clone();
+let _schema = Base.Schema.clone();
 
 _schema.add({
     entities: [
@@ -27,7 +27,7 @@ _schema.add({
 
 const _model = createModel(collectionName, _schema);
 
-class Sync extends BaseModelObject {
+class Sync extends Base {
     static Schema = _schema;
     static Model = _model;
 
@@ -73,4 +73,4 @@ class Sync extends BaseModelObject {
     }
 }
 
-module.exports = Sync;
+module.exports = { Sync };

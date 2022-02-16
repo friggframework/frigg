@@ -34,14 +34,6 @@ const connectToDatabase = async () => {
     mongoose.connection.on('error', (error) => flushDebugLog(error));
 };
 
-const createModel = (collectionName, schema, parentModelObject) => {
-    if (!parentModelObject || !parentModelObject.model) {
-        return mongoose.model(collectionName, schema);
-    }
-    return parentModelObject.model.discriminator(collectionName, schema);
-};
-
 module.exports = {
     connectToDatabase,
-    createModel,
 };

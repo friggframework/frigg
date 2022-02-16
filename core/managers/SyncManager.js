@@ -1,11 +1,10 @@
-const moment = require('moment');
 const _ = require('lodash');
+const moment = require('moment');
 const mongoose = require('mongoose');
 const Delegate = require('../Delegate');
 const SyncObject = require('../objects/sync/Sync');
 const ModuleManager = require('./ModuleManager');
-const Sync = require('@friggframework/models/Sync');
-const Integration = require('@friggframework/models/Integration');
+const { Integration, Sync } = require('@friggframework/models');
 const { debug } = require('@friggframework/logs');
 const { get } = require('@friggframework/assertions');
 

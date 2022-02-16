@@ -1,5 +1,5 @@
 const Delegate = require('../Delegate');
-const Integration = require('@friggframework/models/Integration');
+const { Integration } = require('@friggframework/models');
 const { get } = require('@friggframework/assertions');
 
 class Migrator extends Delegate {

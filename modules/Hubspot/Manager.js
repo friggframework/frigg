@@ -1,6 +1,5 @@
 const Api = require('./Api');
-const Entity = require('@friggframework/models/Entity');
-const Credential = require('@friggframework/models/Credential');
+const { Credential, Entity } = require('@friggframework/models');
 const ModuleManager = require('@friggframework/core/managers/ModuleManager');
 const ModuleConstants = require('../ModuleConstants');
 const { debug, flushDebugLog } = require('@friggframework/logs');
