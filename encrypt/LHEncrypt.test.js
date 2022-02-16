@@ -24,6 +24,11 @@ describe('LHEncrypt', () => {
         await mongoose.connect(process.env.MONGO_URI);
     });
 
+    afterAll(async () => {
+        await mongoose.disconnect();
+        await testMongo.stop();
+    });
+
     describe('Disabled mode', () => {
         it('can be disabled', async () => {
             process.env = {
@@ -571,7 +576,7 @@ describe('LHEncrypt', () => {
         });
     });
 
-    describe('Using KMS', () => {
+    describe.skip('Using KMS', () => {
         beforeAll(() => {
             process.env = {
                 ...originalEnv,

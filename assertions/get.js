@@ -46,7 +46,7 @@ const getAll = (o, requiredKeys) => {
     }
 
     return returnDict;
-}
+};
 
 const getAndVerifyType = (params, strKey, classType, defaultValue) => {
     const val = get(params, strKey, defaultValue);
@@ -57,8 +57,7 @@ const getAndVerifyType = (params, strKey, classType, defaultValue) => {
             if (
                 (val[index].prototype &&
                     !(val[index].prototype instanceof classType)) ||
-                (!val[index].prototype &&
-                    !(val[index] instanceof classType))
+                (!val[index].prototype && !(val[index] instanceof classType))
             ) {
                 throw new ParameterTypeError({
                     parent: this,
@@ -80,19 +79,19 @@ const getAndVerifyType = (params, strKey, classType, defaultValue) => {
         });
     }
     return val;
-}
+};
 
-const getArrayParamAndVerifyParamType = (params, strKey, paramType, defaultValue) => {
+const getArrayParamAndVerifyParamType = (
+    params,
+    strKey,
+    paramType,
+    defaultValue
+) => {
     const val = get(params, strKey, defaultValue);
 
     if (Array.isArray(val)) {
         for (const index in val) {
-            getParamAndVerifyParamType(
-                val,
-                index,
-                paramType,
-                defaultValue
-            );
+            getParamAndVerifyParamType(val, index, paramType, defaultValue);
         }
     } else {
         throw new ParameterTypeError({
@@ -103,9 +102,14 @@ const getArrayParamAndVerifyParamType = (params, strKey, paramType, defaultValue
         });
     }
     return val;
-}
+};
 
-const getParamAndVerifyParamType = (params, strKey, paramType, defaultValue) => {
+const getParamAndVerifyParamType = (
+    params,
+    strKey,
+    paramType,
+    defaultValue
+) => {
     const val = get(params, strKey, defaultValue);
 
     if (Array.isArray(val)) {
@@ -113,7 +117,7 @@ const getParamAndVerifyParamType = (params, strKey, paramType, defaultValue) => 
     }
     verifyType(val, paramType);
     return val;
-}
+};
 
 const verifyType = (val, paramType) => {
     if (typeof val !== paramType) {
@@ -123,6 +127,13 @@ const verifyType = (val, paramType) => {
             expectedType: paramType,
         });
     }
-}
+};
 
-module.exports = { get, getAll, verifyType, getParamAndVerifyParamType, getArrayParamAndVerifyParamType, getAndVerifyType }
+module.exports = {
+    get,
+    getAll,
+    verifyType,
+    getParamAndVerifyParamType,
+    getArrayParamAndVerifyParamType,
+    getAndVerifyType,
+};

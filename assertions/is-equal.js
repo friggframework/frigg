@@ -10,8 +10,8 @@ const expectShallowEqualDbObject = (modelObject, compareObject) => {
 
         expect(compareObject[key]).toBe(objVal);
     }
-}
+};
 
 // TODO not sure how much this is needed, but could rewrite with _.isEqualWith for deep equality with custom checks.
 
-module.exports = { expectShallowEqualDbObject }
+module.exports = { expectShallowEqualDbObject };
