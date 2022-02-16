@@ -17,6 +17,6 @@
     "author": "",
     "license": "MIT",
     "dependencies": {
-        "@friggframework/core": "^1.0.0"
+        "@friggframework/core": "^0.1.0"
     }
 }
