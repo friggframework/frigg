@@ -1,0 +1,15 @@
+{
+    "Records": [
+        {
+            "messageId": "aebead8e-5b96-4214-9bfb-0791a90c0015",
+            "receiptHandle": "AQEB4mNHadGiVJlrCyIaN0wKC27fd3CJk9A0serKPWvaEP9xACsO58DENmSEGbyylFGoCSGEg+t+8uQZoqEj41eZ95QtaBcUvfjFreqnRpyh6uD9vyAfwkOgVKY/rd+wAB3rcvPyzvmkEBJwDgAhTg5tH7HAQpBjy1MVCHfILDE6YCXiuQq047XSVTBD51yNN4KTlvhC0BnBmFy725xtwBg2x4lQTz3EDJb8Dp/u/U2IsFzpATa77LvU5qy7YwaxXAvOFb7jfDGU6QcNPkojJBAL1eyuR9jOfLNq26b7oobHHQj0y+Nd1u2N1E5+/vsTFavVe7mQZ4wc+75kRxAtAwU+vrBHLtJayR6WUvyk+/aYYaU9JNcO9Gm1BcTI7pDaQza+WzXX8iDBi2kaXAeDQU+uKA==",
+            "body": "{\"integration_id\":\"square\",\"obj\":{\"merchant_id\":\"S2TQ6G39YWFXD\",\"type\":\"payment.created\",\"event_id\":\"d64013c8-2233-4a8b-adb8-7c083c8e76f9\",\"created_at\":\"2020-03-30T17:56:44.036Z\",\"data\":{\"type\":\"payment\",\"id\":\"TJ0KudYC1BkgT21GWbkBg5TzJTdZY\",\"object\":{\"payment\":{\"amount_money\":{\"amount\":100,\"currency\":\"USD\"},\"card_details\":{\"avs_status\":\"AVS_ACCEPTED\",\"card\":{\"bin\":\"371263\",\"card_brand\":\"AMERICAN_EXPRESS\",\"card_type\":\"CREDIT\",\"exp_month\":3,\"exp_year\":2022,\"fingerprint\":\"sq-1-EM7wqerexQ8XV9Jgg4lIAtpNHzJ4JF_sNMMCHWipyriXy0ahXaB7Nv-MnWn_bZ3OyQ\",\"last_4\":\"6550\",\"prepaid_type\":\"NOT_PREPAID\"},\"cvv_status\":\"CVV_ACCEPTED\",\"entry_method\":\"KEYED\",\"statement_description\":\"SQ *DEFAULT TEST ACCOUNT\",\"status\":\"AUTHORIZED\"},\"created_at\":\"2020-03-30T17:56:43.921Z\",\"customer_id\":\"{{customer_id}}\",\"id\":\"TJ0KudYC1BkgT21GWbkBg5TzJTdZY\",\"location_id\":\"JK61C4XEWE0F7\",\"order_id\":\"2gttKBDFEEmwyd7hImUW1VhSyl9YY\",\"receipt_number\":\"TJ0K\",\"source_type\":\"CARD\",\"status\":\"COMPLETED\",\"total_money\":{\"amount\":100,\"currency\":\"USD\"},\"updated_at\":\"2020-03-30T17:56:44.028Z\",\"version\":1}}}}}",
+            "attributes": "[Object]",
+            "messageAttributes": {},
+            "md5OfBody": "976f34cae8aa7b654a09223d03dc3e2c",
+            "eventSource": "aws:sqs",
+            "eventSourceARN": "arn:aws:sqs:us-east-1:757210591029:dev-OngoingSyncWorker",
+            "awsRegion": "us-east-1"
+        }
+    ]
+}
