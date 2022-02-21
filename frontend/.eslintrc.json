@@ -1,0 +1,46 @@
+{
+    "env": {
+        "browser": true,
+        "commonjs": true,
+        "es2020": true,
+        "mocha": true
+    },
+    "extends": [
+        "react-app",
+        "airbnb-base",
+        "plugin:jsx-a11y/recommended",
+        "plugin:prettier/recommended",
+        "plugin:markdown/recommended"
+    ],
+    "plugins": ["jsx-a11y", "no-only-tests"],
+    "parserOptions": {
+        "ecmaVersion": 11,
+        "ecmaFeatures": {
+            "jsx": true
+        },
+        "requireConfigFile": false
+    },
+    "overrides": [
+        {
+            "files": ["*.json"],
+            "plugins": ["json"],
+            "extends": ["plugin:json/recommended"]
+        },
+        {
+            "files": ["*.yaml", "*.yml"],
+            "plugins": ["yaml"],
+            "extends": ["plugin:yaml/recommended"]
+        }
+    ],
+    "rules": {
+        "class-methods-use-this": "off",
+        "import/prefer-default-export": "off",
+        "jsx-a11y/label-has-associated-control": "off",
+        "no-alert": "off",
+        "no-console": "off",
+        "no-only-tests/no-only-tests": ["error", { "fix": true }],
+        "no-underscore-dangle": ["error", { "allowAfterThis": true }],
+        "react/jsx-indent-props": ["error", 4],
+        "react/jsx-indent": ["error", 4]
+    }
+}
