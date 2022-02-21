@@ -1,4 +1,4 @@
-const { LHError } = require('./LHError');
+const { BaseError } = require('./BaseError');
 const { stripIndent } = require('common-tags');
 
 // TODO hide header values
@@ -6,7 +6,7 @@ const { stripIndent } = require('common-tags');
 // Parameters names here are based on fetch.  See:
 // https://developer.mozilla.org/en-US/docs/Web/API/fetch
 
-class FetchError extends LHError {
+class FetchError extends BaseError {
     constructor(options = {}) {
         const { resource, init, response, responseBody } = options;
         const method = init?.method ?? 'GET';

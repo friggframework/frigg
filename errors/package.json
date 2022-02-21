@@ -1,9 +1,9 @@
 {
     "name": "@friggframework/errors",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "prettier": "@friggframework/prettier-config",
     "description": "",
-    "main": "FetchError.js",
+    "main": "index.js",
     "devDependencies": {
         "@friggframework/eslint-config": "^1.0.0",
         "eslint": "^7.32.0",

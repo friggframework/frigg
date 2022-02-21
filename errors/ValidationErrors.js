@@ -1,6 +1,6 @@
-const { LHError } = require('./LHError');
+const { BaseError } = require('./BaseError');
 
-class RequiredPropertyError extends LHError {
+class RequiredPropertyError extends BaseError {
     constructor(options = {}, ...parentOptions) {
         const { parent, key = '' } = options;
         const parentText = parent ? `(${parent.name}) ` : '';
@@ -9,7 +9,7 @@ class RequiredPropertyError extends LHError {
     }
 }
 
-class ParameterTypeError extends LHError {
+class ParameterTypeError extends BaseError {
     constructor(options = {}, ...parentOptions) {
         const { parent, key = '', value = '', expectedType } = options;
         const parentText = parent ? `(${parent.name}) ` : '';

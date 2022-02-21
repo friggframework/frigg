@@ -1,6 +1,6 @@
 const {
     RequiredPropertyError,
-} = require('@friggframework/errors/ValidationErrors');
+} = require('@friggframework/errors');
 const { get, getAndVerifyType } = require('@friggframework/assertions');
 
 class Options {

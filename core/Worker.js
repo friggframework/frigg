@@ -2,7 +2,7 @@ const AWS = require('aws-sdk');
 const _ = require('lodash');
 const {
     RequiredPropertyError,
-} = require('@friggframework/errors/ValidationErrors');
+} = require('@friggframework/errors');
 const { get } = require('@friggframework/assertions');
 
 AWS.config.update({ region: process.env.AWS_REGION });

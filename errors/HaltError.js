@@ -1,6 +1,6 @@
-const { LHError } = require('./LHError');
+const { BaseError } = require('./BaseError');
 
-class HaltError extends LHError {
+class HaltError extends BaseError {
     constructor(message, ...errorOptions) {
         super(message, ...errorOptions);
         this.isHaltError = true;

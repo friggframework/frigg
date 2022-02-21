@@ -1,6 +1,6 @@
 const fetch = require('node-fetch');
 const Delegate = require('./Delegate');
-const { FetchError } = require('@friggframework/errors/FetchError');
+const { FetchError } = require('@friggframework/errors');
 const { get } = require('@friggframework/assertions');
 
 class Requester extends Delegate {

@@ -1,5 +1,5 @@
 // See: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error#differentiate_between_similar_errors
-class LHError extends Error {
+class BaseError extends Error {
     constructor(message, options, ...moreOptions) {
         // Pass remaining arguments (including vendor specific ones) to parent constructor
         super(message, options, ...moreOptions);
@@ -12,7 +12,7 @@ class LHError extends Error {
 
         // Maintains proper stack trace for where our error was thrown (method only available under V8)
         if (Error.captureStackTrace) {
-            Error.captureStackTrace(this, LHError);
+            Error.captureStackTrace(this, BaseError);
         }
 
         // Set the error name for console output
@@ -20,4 +20,4 @@ class LHError extends Error {
     }
 }
 
-module.exports = { LHError };
+module.exports = { BaseError };
