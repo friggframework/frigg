@@ -1,0 +1,17 @@
+module.exports = {
+    labels: { singular: 'Overlap', plural: 'Overlaps' },
+    requiredProperties: ['partner', 'population'],
+    searchableProperties: ['partner', 'population'],
+    primaryDisplayProperty: 'partner',
+    secondaryDisplayProperties: [],
+    archived: false,
+    restorable: true,
+    metaType: 'PORTAL_SPECIFIC',
+    id: '3353964',
+    fullyQualifiedName: 'p20725338_crossbeam_overlaps',
+    createdAt: '2021-09-21T18:59:35.791Z',
+    updatedAt: '2021-09-21T18:59:36.964Z',
+    objectTypeId: '2-3353964',
+    name: 'crossbeam_overlaps',
+    portalId: 20725338,
+};
