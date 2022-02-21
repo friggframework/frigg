@@ -1,0 +1,18 @@
+{
+    "short_name": "Frigg Demo Site",
+    "name": "Left Hook Frigg Demo Site",
+    "icons": {
+        "16": "FriggLogo.svg",
+        "48": "FriggLogo.svg",
+        "128": "FriggLogo.svg"
+    },
+
+    "content_security_policy": "script-src 'self' 'sha256-WDhufSqZOEoWULzS4Nwz11MNyHzZClVYbQ2JSt1vfkw'; object-src 'self'",
+    "permissions": [],
+    "manifest_version": 2,
+    "version": "0.0.1",
+    "browser_action": {
+        "default_popup": "index.html",
+        "default_title": "Left Hook template"
+    }
+}
