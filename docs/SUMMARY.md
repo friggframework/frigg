@@ -1,6 +1,7 @@
 # Table of contents
 
 * [Introduction](README.md)
+  * [SubPage](readme/subpage.md)
 * [Frigg Support](SUPPORT.md)
 
 ## ✍ Contributing
