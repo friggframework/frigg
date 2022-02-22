@@ -4,6 +4,7 @@
     "description": "",
     "main": "index.js",
     "prettier": "@friggframework/prettier-config",
+
     "devDependencies": {
         "@friggframework/eslint-config": "^1.0.0"
     },

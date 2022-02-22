@@ -1,6 +1,7 @@
 {
     "name": "@friggframework/assertions",
     "prettier": "@friggframework/prettier-config",
+
     "version": "1.0.0",
     "description": "",
     "devDependencies": {
