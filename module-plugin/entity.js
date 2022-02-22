@@ -1,16 +1,22 @@
-'use strict';
 const mongoose = require('mongoose');
 
-const schema = new mongoose.Schema({
-    credential: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Credential',
-        required: false,
+const schema = new mongoose.Schema(
+    {
+        credential: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Credential',
+            required: false,
+        },
+        user: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            required: true,
+        },
+        name: { type: String },
+        externalId: { type: String },
     },
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    name: { type: String },
-    externalId: { type: String },
-}, { timestamps: true });
+    { timestamps: true }
+);
 
 schema.static({
     findByUserId: async function (userId) {
@@ -29,8 +35,8 @@ schema.static({
             upsert: true,
             setDefaultsOnInsert: true,
         });
-    }
+    },
 });
 
-const Entity = mongoose.model('Entity',schema);
+const Entity = mongoose.model('Entity', schema);
 module.exports = { Entity };

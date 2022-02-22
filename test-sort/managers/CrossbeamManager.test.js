@@ -10,7 +10,7 @@ chai.use(require('chai-url'));
 chai.use(chaiAsPromised);
 const _ = require('lodash');
 
-// const app = require('../../app.js');
+// const app = require('../../app');
 // const auth = require('../../src/routers/auth');
 // const user = require('../../src/routers/user');
 
@@ -19,7 +19,7 @@ const _ = require('lodash');
 
 const Authenticator = require('../utils/Authenticator');
 const UserManager = require('../../src/managers/UserManager');
-const CrossbeamManager = require('../../src/managers/entities/CrossbeamManager.js');
+const CrossbeamManager = require('../../src/managers/entities/CrossbeamManager');
 
 const loginCredentials = { username: 'test', password: 'test' };
 

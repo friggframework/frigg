@@ -1,4 +1,4 @@
-require('../../setupEnv.js');
+require('../../setupEnv');
 
 let chai = require('chai');
 let chaiHttp = require('chai-http');
@@ -32,7 +32,7 @@ describe.skip('Webhook Handler Tests', () => {
     });
 
     it('should process Square refund webhook', async () => {
-        let body = require('./SQSMessages/squareRefundCreatedWebhook.js');
+        let body = require('./SQSMessages/squareRefundCreatedWebhook');
         // let json = JSON.parse(body.Records[0].body);
         // body.Records[0].body = JSON.stringify(json);
         await this.worker.run(body);

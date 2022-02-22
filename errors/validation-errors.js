@@ -1,4 +1,4 @@
-const { BaseError } = require('./BaseError');
+const { BaseError } = require('./base-error');
 
 class RequiredPropertyError extends BaseError {
     constructor(options = {}, ...parentOptions) {

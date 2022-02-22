@@ -1,4 +1,4 @@
-const BaseModelObjectTest = require('@friggframework/core/BaseModelObjectTest');
+const { BaseModelObjectTest } = require('@friggframework/test-environment');
 
 class HubSpotCredentialsTest extends BaseModelObjectTest {
     constructor(params) {

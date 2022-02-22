@@ -26,4 +26,4 @@ class Delegate {
     }
 }
 
-module.exports = Delegate;
+module.exports = { Delegate };

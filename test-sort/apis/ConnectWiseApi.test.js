@@ -1,5 +1,5 @@
 const moment = require('moment');
-const ConnectWiseApi = require('../../src/modules/ConnectWise/Api.js');
+const ConnectWiseApi = require('../../src/modules/ConnectWise/Api');
 
 describe.skip('ConnectWiseApi', () => {
     let api;

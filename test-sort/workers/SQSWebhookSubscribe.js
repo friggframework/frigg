@@ -1,4 +1,4 @@
-require('../../setupEnv.js');
+require('../../setupEnv');
 
 let chai = require('chai');
 let chaiHttp = require('chai-http');
@@ -6,7 +6,7 @@ let should = chai.should();
 
 chai.use(chaiHttp);
 
-let WebhookWorker = require('../../src/workers/examples/WebhookWorker.js');
+let WebhookWorker = require('../../src/workers/examples/WebhookWorker');
 
 describe.skip('Webhook Handler Tests', () => {
     beforeEach(async () => {

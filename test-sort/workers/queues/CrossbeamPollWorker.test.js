@@ -27,7 +27,7 @@ const CrossbeamPollWorker = require('../../../src/workers/queues/CrossbeamPollWo
 /**
  * For Integration Creation purposes
  */
-const { createApp } = require('../../../app.js');
+const { createApp } = require('../../../app');
 const auth = require('../../../src/routers/auth');
 
 const app = createApp((app) => app.use(auth));
@@ -53,7 +53,7 @@ const EntityPairs = [
     { entityType: 'rollworks', connectingEntityType: 'crossbeam' },
 ];
 
-const IntegrationTestClass = require('../../utils/reusableTestFunctions/integration.js');
+const IntegrationTestClass = require('../../utils/reusableTestFunctions/integration');
 
 const IntegrationTests = new IntegrationTestClass({ app });
 

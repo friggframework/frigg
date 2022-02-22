@@ -9,10 +9,6 @@ AWS.config.update({ region: process.env.AWS_REGION });
 const sqs = new AWS.SQS({ apiVersion: '2012-11-05' });
 
 class Worker {
-    constructor(params) {
-        super(params);
-    }
-
     async getQueueURL(params) {
         // Passing params in because there will be multiple QueueNames
         // let params = {
@@ -88,4 +84,4 @@ class Worker {
     // }
 }
 
-module.exports = Worker;
+module.exports = { Worker };

@@ -1,5 +1,5 @@
 const chai = require('chai');
-const StackApi = require('../../src/modules/Stack/Api.js');
+const StackApi = require('../../src/modules/Stack/Api');
 const chaiAsPromised = require('chai-as-promised');
 
 chai.use(chaiAsPromised);

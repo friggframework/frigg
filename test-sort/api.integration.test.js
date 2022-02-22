@@ -2,7 +2,6 @@ const express = require('express');
 const puppeteer = require('puppeteer');
 const EntityManager = require('../src/managers/entities/EntityManager');
 const destroyer = require('server-destroy');
-const { createModel } = require('@friggframework/models');
 
 // TODO this should be packaged into a helper
 

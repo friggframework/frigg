@@ -23,13 +23,13 @@ const TestUtils = require('../../utils/TestUtils');
  * Worker being tested
  */
 const RollWorksQueuer = require('../../../src/workers/crons/RollWorksQueuer');
-const Worker = require('@friggframework/core/Worker');
-const { Integration } = require('@friggframework/models');
+const { Worker } = require('@friggframework/core');
+const { Integration } = require('@friggframework/integrations');
 
 /**
  * For Integration Creation purposes
  */
-// const app = require('../../../app.js');
+// const app = require('../../../app');
 // const auth = require('../../../src/routers/auth');
 
 // app.use(auth);

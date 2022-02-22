@@ -1,4 +1,4 @@
-const { BaseError } = require('./BaseError');
+const { BaseError } = require('./base-error');
 
 describe('BaseError', () => {
     it('can be inherited and instantiated', () => {
@@ -8,7 +8,7 @@ describe('BaseError', () => {
         expect(error).toHaveProperty('stack');
         expect(error.stack).toContain('XyzError');
         expect(error.stack).toContain('at new XyzError');
-        expect(error.stack).toContain('BaseError.test.js:');
+        expect(error.stack).toContain('base-error.test.js:');
     });
 
     it('can set the error message', () => {

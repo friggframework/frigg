@@ -1,7 +1,7 @@
 const AWS = require('aws-sdk');
 const mongoose = require('mongoose');
 const crypto = require('crypto');
-const LHEncrypt = require('./LHEncrypt');
+const { Encrypt } = require('./encrypt');
 
 const hexPattern = /^[a-f0-9]+$/i; // match hex strings of length >= 1
 
@@ -71,9 +71,9 @@ function createModel() {
         'deeply.nested.secret': { type: String, lhEncrypt: true },
     });
 
-    schema.plugin(LHEncrypt);
+    schema.plugin(Encrypt);
 
-    const Model = mongoose.model(`LHEncryptTest_${randomHex}`, schema);
+    const Model = mongoose.model(`EncryptTest_${randomHex}`, schema);
     return { schema, Model };
 }
 

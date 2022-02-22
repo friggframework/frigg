@@ -1,5 +1,5 @@
 const chai = require('chai');
-const SalesForceManager = require('../../src/modules/Salesforce/Manager.js');
+const SalesForceManager = require('../../src/modules/Salesforce/Manager');
 
 const chaiAsPromised = require('chai-as-promised');
 chai.use(chaiAsPromised);

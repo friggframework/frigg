@@ -3,7 +3,7 @@
  */
 
 const Authenticator = require('../utils/Authenticator');
-const RollWorksApiClass = require('../../src/modules/RollWorks/Api.js');
+const RollWorksApiClass = require('../../src/modules/RollWorks/Api');
 
 describe.skip('RollWorks API 2', () => {
     const rollworksApi = new RollWorksApiClass();

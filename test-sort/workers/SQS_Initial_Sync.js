@@ -1,11 +1,11 @@
-require('../../setupEnv.js');
+require('../../setupEnv');
 
 let chai = require('chai');
 let chaiHttp = require('chai-http');
 let should = chai.should();
 
 let Data = require('../SQSMessages/InitialSync.json');
-let InitialSyncWorker = require('../../src/workers/examples/InitialSync.js');
+let InitialSyncWorker = require('../../src/workers/examples/InitialSync');
 
 chai.use(chaiHttp);
 

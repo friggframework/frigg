@@ -3,7 +3,7 @@
  */
 
 const Authenticator = require('../utils/Authenticator');
-const CrossbeamApiClass = require('../../src/modules/Crossbeam/Api.js');
+const CrossbeamApiClass = require('../../src/modules/Crossbeam/Api');
 
 describe.skip('Crossbeam API 2', () => {
     const xbeamApi = new CrossbeamApiClass({ backOff: [1, 3, 10] });

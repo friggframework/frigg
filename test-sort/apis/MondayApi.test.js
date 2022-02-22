@@ -3,7 +3,7 @@
  */
 
 const Authenticator = require('../utils/Authenticator');
-const MondayApiClass = require('../../src/modules/Monday/Api.js');
+const MondayApiClass = require('../../src/modules/Monday/Api');
 
 describe.skip('Monday API 2', () => {
     const mondayApi = new MondayApiClass();

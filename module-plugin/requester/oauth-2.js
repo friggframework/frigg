@@ -1,8 +1,8 @@
 const moment = require('moment');
-const Requester = require('../Requester.js');
+const { Requester } = require('./requester');
 const { get } = require('@friggframework/assertions');
 
-class OAuth2Base extends Requester {
+class OAuth2Requester extends Requester {
     constructor(params) {
         super(params);
         this.DLGT_TOKEN_UPDATE = 'TOKEN_UPDATE';
@@ -200,4 +200,4 @@ class OAuth2Base extends Requester {
     }
 }
 
-module.exports = OAuth2Base;
+module.exports = { OAuth2Requester };

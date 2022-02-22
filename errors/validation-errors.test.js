@@ -1,7 +1,7 @@
 const {
     RequiredPropertyError,
     ParameterTypeError,
-} = require('./ValidationErrors');
+} = require('./validation-errors');
 
 describe('RequiredPropertyError', () => {
     it('can be instantiated with default arguments', () => {

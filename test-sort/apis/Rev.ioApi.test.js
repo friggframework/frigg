@@ -1,5 +1,5 @@
 const chai = require('chai');
-const RevIoApi = require('../../src/modules/Rev.io/Api.js');
+const RevIoApi = require('../../src/modules/Rev.io/Api');
 
 const { expect } = chai;
 const chaiAsPromised = require('chai-as-promised');

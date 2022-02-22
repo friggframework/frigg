@@ -1,4 +1,4 @@
-const { HaltError } = require('./HaltError');
+const { HaltError } = require('./halt-error');
 
 describe('HaltError', () => {
     it('can be instantiated', () => {

@@ -10,7 +10,7 @@ chai.use(chaiAsPromised);
 const _ = require('lodash');
 
 const UserManager = require('../../../src/managers/UserManager');
-const CrossbeamManager = require('../../../src/managers/entities/CrossbeamManager.js');
+const CrossbeamManager = require('../../../src/managers/entities/CrossbeamManager');
 const TestUtils = require('../../utils/TestUtils');
 
 const testSecretAndId = {

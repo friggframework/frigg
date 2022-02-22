@@ -1,4 +1,4 @@
-const IntegrationManager = require('@friggframework/core/managers/IntegrationManager');
+const { IntegrationManager } = require('@friggframework/integrations');
 
 class RollWorksIntegrationManager extends IntegrationManager {
     static Config = {

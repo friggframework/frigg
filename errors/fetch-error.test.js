@@ -1,6 +1,6 @@
 const fetch = require('node-fetch');
 const { stripIndent } = require('common-tags');
-const { FetchError } = require('./FetchError');
+const { FetchError } = require('./fetch-error');
 
 describe('FetchError', () => {
     it('can be instantiated with default arguments', () => {

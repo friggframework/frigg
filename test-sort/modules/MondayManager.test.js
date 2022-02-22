@@ -11,14 +11,14 @@ chai.use(require('chai-url'));
 
 chai.use(chaiAsPromised);
 const _ = require('lodash');
-// const app = require('../../../app.js');
+// const app = require('../../../app');
 // const auth = require('../../../src/routers/auth');
 
 // app.use(auth);
 
 const Authenticator = require('../../utils/Authenticator');
 const UserManager = require('../../../src/managers/UserManager');
-const MondayManager = require('../../../src/managers/entities/MondayManager.js');
+const MondayManager = require('../../../src/managers/entities/MondayManager');
 
 const loginCredentials = { username: 'test', password: 'test' };
 

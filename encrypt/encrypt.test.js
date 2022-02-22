@@ -7,7 +7,7 @@ const {
     expectValidRawDocById,
     createModel,
     saveTestDocument,
-} = require('./TestEncrypt');
+} = require('./test-encrypt');
 const { TestMongo } = require('@friggframework/test-environment');
 
 const testMongo = new TestMongo();
@@ -18,7 +18,7 @@ AWS.config.update({
     endpoint: 'localhost:4566',
 });
 
-describe('LHEncrypt', () => {
+describe('Encrypt', () => {
     beforeAll(async () => {
         await testMongo.start();
         await mongoose.connect(process.env.MONGO_URI);
@@ -328,7 +328,7 @@ describe('LHEncrypt', () => {
             } catch (error) {
                 expect(error).toHaveProperty(
                     'message',
-                    'Raw result not supported for insertMany with LHEncrypt plugin'
+                    'Raw result not supported for insertMany with Encrypt plugin'
                 );
             }
         });
@@ -841,7 +841,7 @@ describe('LHEncrypt', () => {
             } catch (error) {
                 expect(error).toHaveProperty(
                     'message',
-                    'Raw result not supported for insertMany with LHEncrypt plugin'
+                    'Raw result not supported for insertMany with Encrypt plugin'
                 );
             }
         });

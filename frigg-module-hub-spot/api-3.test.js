@@ -4,7 +4,7 @@
 
 const _ = require('lodash');
 
-// const app = require('../../app.js');
+// const app = require('../../app');
 // const auth = require('../../src/routers/auth');
 // const user = require('../../src/routers/user');
 

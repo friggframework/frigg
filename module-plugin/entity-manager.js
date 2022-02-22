@@ -1,40 +1,40 @@
-const { Entity } = require('@friggframework/models');
-const ModuleManager = require('@friggframework/core/managers/ModuleManager');
-const primaryEntity = require('./QBOManager');
-const mondayEntity = require('./MondayManager');
-const rollWorksEntity = require('./RollWorksManager');
-const hubSpotEntity = require('./HubSpotManager');
-const revioEntity = require('./RevioManager');
-const stackEntity = require('./StackManager');
-const crossbeamEntity = require('./CrossbeamManager');
-const salesloftEntity = require('./SalesloftManager');
-const fastSpringIQEntity = require('./FastSpringIQManager');
-const salesforceEntity = require('./SalesforceManager');
-const connectWiseEntity = require('./ConnectWiseManager');
-const activeCampaignEntity = require('./ActiveCampaignManager');
-const marketoEntity = require('./MarketoManager');
-const outreachEntity = require('./OutreachManager');
+const { Entity } = require('./entity');
+const { ModuleManager } = require('./manager');
+// const primaryEntity = require('./QBOManager');
+// const mondayEntity = require('./MondayManager');
+// const rollWorksEntity = require('./RollWorksManager');
+// const hubSpotEntity = require('./HubSpotManager');
+// const revioEntity = require('./RevioManager');
+// const stackEntity = require('./StackManager');
+// const crossbeamEntity = require('./CrossbeamManager');
+// const salesloftEntity = require('./SalesloftManager');
+// const fastSpringIQEntity = require('./FastSpringIQManager');
+// const salesforceEntity = require('./SalesforceManager');
+// const connectWiseEntity = require('./ConnectWiseManager');
+// const activeCampaignEntity = require('./ActiveCampaignManager');
+// const marketoEntity = require('./MarketoManager');
+// const outreachEntity = require('./OutreachManager');
 
-// TODO mvoe to core or ?
+// TODO load from installed modules
 
 class EntityManager {
-    static primaryEntityClass = primaryEntity;
+    static primaryEntityClass = null;//primaryEntity;
 
     static entityManagerClasses = [
-        primaryEntity,
-        stackEntity,
-        hubSpotEntity,
-        revioEntity,
-        crossbeamEntity,
-        salesloftEntity,
-        mondayEntity,
-        rollWorksEntity,
-        fastSpringIQEntity,
-        salesforceEntity,
-        connectWiseEntity,
-        marketoEntity,
-        activeCampaignEntity,
-        outreachEntity,
+        // primaryEntity,
+        // stackEntity,
+        // hubSpotEntity,
+        // revioEntity,
+        // crossbeamEntity,
+        // salesloftEntity,
+        // mondayEntity,
+        // rollWorksEntity,
+        // fastSpringIQEntity,
+        // salesforceEntity,
+        // connectWiseEntity,
+        // marketoEntity,
+        // activeCampaignEntity,
+        // outreachEntity,
     ];
 
     static entityTypes = EntityManager.entityManagerClasses.map(
@@ -47,10 +47,6 @@ class EntityManager {
             results.push(...(await Manager.getEntitiesForUserId(userId)));
         }
         return results;
-    }
-
-    constructor() {
-        // ...
     }
 
     static checkIsValidType(entityType) {
@@ -98,4 +94,4 @@ class EntityManager {
     }
 }
 
-module.exports = EntityManager;
+module.exports = { EntityManager };

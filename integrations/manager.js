@@ -1,6 +1,6 @@
-const Delegate = require('../Delegate');
+const { Delegate } = require('@friggframework/core');
 const { Credential, Entity } = require('@friggframework/module-plugin');
-const { Integration } = require('@friggframework/integrations');
+const { Integration } = require('./model');
 
 class IntegrationManager extends Delegate {
     static Config = {
@@ -307,111 +307,108 @@ class IntegrationManager extends Delegate {
     }
 }
 
-module.exports = IntegrationManager;
+module.exports = { IntegrationManager };
 
 
 
 
-/// ---- example from demo
+// /// ---- example from demo // TODO
 
-const Parent = require('@friggframework/core/managers/IntegrationManager');
-const EntityManager = require('../entities/EntityManager');
+// const Parent = require('@friggframework/core/managers/IntegrationManager');
+// const EntityManager = require('../entities/EntityManager');
 
-const rollWorksIntegrationManager = require('./RollWorksIntegrationManager');
-const mondayIntegrationManager = require('./MondayIntegrationManager');
-const salesloftIntegrationManager = require('./SalesloftIntegrationManager');
-const salesforceIntegrationManager = require('./SalesforceIntegrationManager');
-const qboIntegrationManager = require('./QBOIntegrationManager');
-const hubSpotIntegrationManager = require('./HubSpotIntegrationManager');
-const stackIntegrationManager = require('./StackIntegrationManager');
-const revioIntegrationManager = require('./RevioIntegrationManager');
-const connectWiseIntegrationManager = require('./ConnectWiseIntegrationManager');
-const crossbeamIntegrationManager = require('./CrossbeamIntegrationManager');
-const marketoIntegrationManager = require('./MarketoIntegrationManager');
-const activeCampaignIntegrationManager = require('./ActiveCampaignIntegrationManager');
-const outreachIntegrationManager = require('./OutreachIntegrationManager');
+// const rollWorksIntegrationManager = require('./RollWorksIntegrationManager');
+// const mondayIntegrationManager = require('./MondayIntegrationManager');
+// const salesloftIntegrationManager = require('./SalesloftIntegrationManager');
+// const salesforceIntegrationManager = require('./SalesforceIntegrationManager');
+// const qboIntegrationManager = require('./QBOIntegrationManager');
+// const hubSpotIntegrationManager = require('./HubSpotIntegrationManager');
+// const stackIntegrationManager = require('./StackIntegrationManager');
+// const revioIntegrationManager = require('./RevioIntegrationManager');
+// const connectWiseIntegrationManager = require('./ConnectWiseIntegrationManager');
+// const crossbeamIntegrationManager = require('./CrossbeamIntegrationManager');
+// const marketoIntegrationManager = require('./MarketoIntegrationManager');
+// const activeCampaignIntegrationManager = require('./ActiveCampaignIntegrationManager');
+// const outreachIntegrationManager = require('./OutreachIntegrationManager');
 
-// TODO this one too
+// // TODO this one too
 
-class IntegrationManager extends Parent {
-    static integrationManagerClasses = [
-        rollWorksIntegrationManager,
-        mondayIntegrationManager,
-        crossbeamIntegrationManager,
-        salesloftIntegrationManager,
-        salesforceIntegrationManager,
-        qboIntegrationManager,
-        hubSpotIntegrationManager,
-        stackIntegrationManager,
-        revioIntegrationManager,
-        connectWiseIntegrationManager,
-        marketoIntegrationManager,
-        activeCampaignIntegrationManager,
-        outreachIntegrationManager,
-    ];
+// class IntegrationManager extends Parent {
+//     static integrationManagerClasses = [
+//         rollWorksIntegrationManager,
+//         mondayIntegrationManager,
+//         crossbeamIntegrationManager,
+//         salesloftIntegrationManager,
+//         salesforceIntegrationManager,
+//         qboIntegrationManager,
+//         hubSpotIntegrationManager,
+//         stackIntegrationManager,
+//         revioIntegrationManager,
+//         connectWiseIntegrationManager,
+//         marketoIntegrationManager,
+//         activeCampaignIntegrationManager,
+//         outreachIntegrationManager,
+//     ];
 
-    static integrationTypes = IntegrationManager.integrationManagerClasses.map(
-        (ManagerClass) => ManagerClass.getName()
-    );
+//     static integrationTypes = IntegrationManager.integrationManagerClasses.map(
+//         (ManagerClass) => ManagerClass.getName()
+//     );
 
-    constructor(params) {
-        super(params);
-    }
+//     constructor(params) {
+//         super(params);
+//     }
 
-    static async getInstanceFromIntegrationId(params) {
-        const integration = await IntegrationManager.getIntegrationById(
-            params.integrationId
-        );
-        let { userId } = params;
-        if (!integration) {
-            throw new Error(
-                `No integration found by the ID of ${params.integrationId}`
-            );
-        }
+//     static async getInstanceFromIntegrationId(params) {
+//         const integration = await IntegrationManager.getIntegrationById(
+//             params.integrationId
+//         );
+//         let { userId } = params;
+//         if (!integration) {
+//             throw new Error(
+//                 `No integration found by the ID of ${params.integrationId}`
+//             );
+//         }
 
-        if (!userId) {
-            userId = integration.user._id.toString();
-        } else if (userId !== integration.user._id.toString()) {
-            throw new Error(
-                `Integration ${
-                    params.integrationId
-                } does not belong to User ${userId}, ${integration.user.id.toString()}`
-            );
-        }
+//         if (!userId) {
+//             userId = integration.user._id.toString();
+//         } else if (userId !== integration.user._id.toString()) {
+//             throw new Error(
+//                 `Integration ${
+//                     params.integrationId
+//                 } does not belong to User ${userId}, ${integration.user.id.toString()}`
+//             );
+//         }
 
-        const integrationManagerIndex =
-            IntegrationManager.integrationTypes.indexOf(
-                integration.config.type
-            );
-        const integrationManagerClass =
-            IntegrationManager.integrationManagerClasses[
-                integrationManagerIndex
-            ];
+//         const integrationManagerIndex =
+//             IntegrationManager.integrationTypes.indexOf(
+//                 integration.config.type
+//             );
+//         const integrationManagerClass =
+//             IntegrationManager.integrationManagerClasses[
+//                 integrationManagerIndex
+//             ];
 
-        const instance = await integrationManagerClass.getInstance({
-            userId,
-            integrationId: params.integrationId,
-        });
-        instance.integration = integration;
-        instance.delegateTypes.push(...integrationManagerClass.Config.events); // populates the events available
-        // Need to get special primaryInstance because it has an extra param to pass in
-        instance.primaryInstance =
-            await EntityManager.getEntityManagerInstanceFromEntityId(
-                instance.integration.entities[0],
-                instance.integration.user
-            );
-        // Now we can use the general ManagerGetter
-        instance.targetInstance =
-            await EntityManager.getEntityManagerInstanceFromEntityId(
-                instance.integration.entities[1],
-                instance.integration.user
-            );
-        instance.delegate = instance;
-        return instance;
-    }
-}
+//         const instance = await integrationManagerClass.getInstance({
+//             userId,
+//             integrationId: params.integrationId,
+//         });
+//         instance.integration = integration;
+//         instance.delegateTypes.push(...integrationManagerClass.Config.events); // populates the events available
+//         // Need to get special primaryInstance because it has an extra param to pass in
+//         instance.primaryInstance =
+//             await EntityManager.getEntityManagerInstanceFromEntityId(
+//                 instance.integration.entities[0],
+//                 instance.integration.user
+//             );
+//         // Now we can use the general ManagerGetter
+//         instance.targetInstance =
+//             await EntityManager.getEntityManagerInstanceFromEntityId(
+//                 instance.integration.entities[1],
+//                 instance.integration.user
+//             );
+//         instance.delegate = instance;
+//         return instance;
+//     }
+// }
 
-module.exports = IntegrationManager;
-
-/// example from demo
-
+// module.exports = { IntegrationManager };

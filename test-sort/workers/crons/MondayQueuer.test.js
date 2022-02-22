@@ -25,7 +25,7 @@ const MondayQueuer = require('../../../src/workers/crons/MondayQueuer');
 /**
  * For Integration Creation purposes
  */
-// const app = require('../../../app.js');
+// const app = require('../../../app');
 // const auth = require('../../../src/routers/auth');
 
 // app.use(auth);

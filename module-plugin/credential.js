@@ -1,12 +1,18 @@
-'use strict';
 const mongoose = require('mongoose');
-const Encrypt = require('@friggframework/encrypt');
+const { Encrypt } = require('@friggframework/encrypt');
 
-const schema = new mongoose.Schema({
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    auth_is_valid: { type: Boolean },
-    externalId: { type: String }, // Used for lookups, identifying the owner of the credential
-}, { timestamps: true });
+const schema = new mongoose.Schema(
+    {
+        user: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            required: true,
+        },
+        auth_is_valid: { type: Boolean },
+        externalId: { type: String }, // Used for lookups, identifying the owner of the credential
+    },
+    { timestamps: true }
+);
 
 schema.plugin(Encrypt);
 

@@ -1,7 +1,7 @@
 const { get } = require('@friggframework/assertions');
-const { OAuth2Base } = require('@friggframework/module-plugin');
+const { OAuth2Requester } = require('@friggframework/module-plugin');
 
-class Api extends OAuth2Base {
+class Api extends OAuth2Requester {
     constructor(params) {
         super(params);
         this.baseUrl = 'https://api.hubapi.com';

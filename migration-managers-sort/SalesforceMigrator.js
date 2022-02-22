@@ -1,6 +1,5 @@
-const Migrator = require('@friggframework/core/managers/Migrator');
+const { Migrator, Options } = require('@friggframework/migrations');
 const IntegrationManager = require('../integrations/SalesforceIntegrationManager');
-const Options = require('@friggframework/core/objects/migration/Options');
 const CompanySync = require('../../syncs/sync/CompanySync');
 const ContactSync = require('../../syncs/sync/ContactSync');
 const { debug } = require('@friggframework/logs');

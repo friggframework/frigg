@@ -1,4 +1,4 @@
-const Requester = require('@friggframework/core/Requester');
+const { Requester } = require('./requester');
 
 describe('429 and 5xx testing', () => {
     let backOffArray = [1, 1, 1];

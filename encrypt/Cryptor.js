@@ -233,4 +233,4 @@ class Cryptor {
     }
 }
 
-module.exports = Cryptor;
+module.exports = { Cryptor };

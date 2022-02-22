@@ -1,5 +1,5 @@
 const chai = require('chai');
-const SalesForceApi = require('../../src/modules/Salesforce/Api.js');
+const SalesForceApi = require('../../src/modules/Salesforce/Api');
 
 describe('SalesForceApi', () => {
     const api = new SalesForceApi({

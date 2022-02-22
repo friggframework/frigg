@@ -1,5 +1,5 @@
 // const Authenticator = require('../../../../test/utils/Authenticator');
-const ApiClass = require('../Api.js');
+const ApiClass = require('../Api');
 
 describe.skip('HubSpot Api Class Tests', () => {
     const api = new ApiClass({ backOff: [1, 3, 10] });

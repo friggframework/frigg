@@ -1,4 +1,4 @@
-const { BaseError } = require('./BaseError');
+const { BaseError } = require('./base-error');
 const { stripIndent } = require('common-tags');
 
 // TODO hide header values

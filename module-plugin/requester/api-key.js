@@ -1,6 +1,6 @@
-const Requester = require('../Requester.js');
+const { Requester } = require('./requester');
 
-class ApiKeyBase extends Requester {
+class ApiKeyRequester extends Requester {
     constructor(params) {
         super(params);
         this.API_KEY_NAME = 'key';
@@ -27,4 +27,4 @@ class ApiKeyBase extends Requester {
     }
 }
 
-module.exports = ApiKeyBase;
+module.exports = { ApiKeyRequester };

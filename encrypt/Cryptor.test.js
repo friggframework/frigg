@@ -1,4 +1,4 @@
-const Cryptor = require('./Cryptor');
+const { Cryptor } = require('./cryptor');
 
 describe('Cryptor', () => {
     describe('Permutations', () => {
