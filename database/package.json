@@ -2,7 +2,6 @@
     "name": "@friggframework/database",
     "version": "1.0.1",
     "prettier": "@friggframework/prettier-config",
-
     "description": "",
     "main": "index.js",
     "dependencies": {

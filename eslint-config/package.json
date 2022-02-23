@@ -2,7 +2,6 @@
     "name": "@friggframework/eslint-config",
     "version": "1.0.4",
     "prettier": "@friggframework/prettier-config",
-
     "description": "",
     "main": "index.js",
     "dependencies": {

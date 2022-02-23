@@ -16,5 +16,5 @@ const schema = new mongoose.Schema({
     expires_at: { type: Date },
 });
 
-const Credential = Parent.discriminator('hubspotCredentials', schema)
+const Credential = Parent.discriminator('hubspotCredentials', schema);
 module.exports = { Credential };

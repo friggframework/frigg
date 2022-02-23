@@ -2,7 +2,6 @@
     "name": "@friggframework/logs",
     "version": "1.0.2",
     "prettier": "@friggframework/prettier-config",
-
     "description": "",
     "main": "logger.js",
     "scripts": {

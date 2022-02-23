@@ -309,7 +309,6 @@ class IntegrationManager extends Delegate {
 
 module.exports = { IntegrationManager };
 
-
 // /// ---- example from demo // TODO
 
 // const Parent = require('@friggframework/core/managers/IntegrationManager');

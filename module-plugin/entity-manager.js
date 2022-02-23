@@ -18,7 +18,7 @@ const { ModuleManager } = require('./manager');
 // TODO load from installed modules
 
 class EntityManager {
-    static primaryEntityClass = null;//primaryEntity;
+    static primaryEntityClass = null; //primaryEntity;
 
     static entityManagerClasses = [
         // primaryEntity,

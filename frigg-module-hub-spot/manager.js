@@ -141,9 +141,7 @@ class Manager extends ModuleManager {
                         portalId: userDetails.portalId,
                     });
                     if (credentialSearch.length === 0) {
-                        this.credential = await Credential.create(
-                            updatedToken
-                        );
+                        this.credential = await Credential.create(updatedToken);
                     } else if (credentialSearch.length === 1) {
                         if (credentialSearch[0].user === this.userId) {
                             this.credential = await Credential.update(
