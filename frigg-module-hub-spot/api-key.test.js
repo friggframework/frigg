@@ -1,7 +1,7 @@
-const HubSpotApiClass = require('../Api');
+const { Api } = require('./api');
 
-describe.skip('HubSpotApiClass API', () => {
-    const hubSpotApi = new HubSpotApiClass({
+describe.skip('HubSpot API (API Key)', () => {
+    const hubSpotApi = new Api({
         backOff: [1, 3, 10],
         api_key: 'a3673629-9713-4c08-b332-f6ee7aa84147',
     });

@@ -114,7 +114,7 @@ class IntegrationManager extends Delegate {
     static async createIntegration(entities, userId, config) {
         // verify entity ids belong to the user
         for (const id of entities) {
-            const entity = await Entity.find(id);
+            const entity = await Entity.findById(id);
 
             if (!entity) {
                 throw new Error(`Entity with ID ${id} does not exist.`);
@@ -308,8 +308,6 @@ class IntegrationManager extends Delegate {
 }
 
 module.exports = { IntegrationManager };
-
-
 
 
 // /// ---- example from demo // TODO

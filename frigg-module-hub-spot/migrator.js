@@ -1,7 +1,7 @@
 const { Migrator, Options } = require('@friggframework/migrations');
-const IntegrationManager = require('../integrations/HubSpotIntegrationManager');
-const CompanySync = require('../../syncs/sync/CompanySync');
-const ContactSync = require('../../syncs/sync/ContactSync');
+const { IntegrationManager } = require('./integration-manager');
+// const CompanySync = require('../../syncs/sync/CompanySync');
+// const ContactSync = require('../../syncs/sync/ContactSync');
 const { debug } = require('@friggframework/logs');
 
 // TODO move to HubSpot module ?

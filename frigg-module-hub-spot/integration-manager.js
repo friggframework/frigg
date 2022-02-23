@@ -1,7 +1,5 @@
-const { IntegrationManager } = require('@friggframework/integrations');
 const _ = require('lodash');
-
-// TODO move to module HubSpot
+const { IntegrationManager } = require('@friggframework/integrations');
 
 class HubSpotIntegrationManager extends IntegrationManager {
     static Config = {
@@ -60,4 +58,4 @@ class HubSpotIntegrationManager extends IntegrationManager {
     }
 }
 
-module.exports = HubSpotIntegrationManager;
+module.exports = { IntegrationManager: HubSpotIntegrationManager };

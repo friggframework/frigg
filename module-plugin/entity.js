@@ -39,4 +39,5 @@ schema.static({
 });
 
 const Entity = mongoose.model('Entity', schema);
+
 module.exports = { Entity };

@@ -3,6 +3,9 @@
  */
 
 const _ = require('lodash');
+// const Authenticator = require('../utils/Authenticator');
+// const UserManager = require('../../src/managers/UserManager');
+const { Manager } = require('./manager');
 
 // const app = require('../../app');
 // const auth = require('../../src/routers/auth');
@@ -11,15 +14,9 @@ const _ = require('lodash');
 // app.use(auth);
 // app.use(user);
 
-// TODO move to module HubSpot
-
-const Authenticator = require('../utils/Authenticator');
-const UserManager = require('../../src/managers/UserManager');
-const HubSpotManager = require('../../src/managers/entities/HubSpotManager');
-
 const loginCredentials = { username: 'test', password: 'test' };
 
-describe.skip('Hubspot API', function () {
+describe.skip('Hubspot API ', function () {
     // this.timeout(20000);
     let hsManager;
     beforeAll(async () => {
@@ -62,7 +59,7 @@ describe.skip('Hubspot API', function () {
         chai.assert.hasAnyKeys(res.body, ['id', 'type']);
 
         let user_id = this.userManager.getUserId();
-        hsManager = await HubSpotManager.getInstance({
+        hsManager = await ModuleManager.getInstance({
             entity: res.body.id,
             userId: user_id,
         });

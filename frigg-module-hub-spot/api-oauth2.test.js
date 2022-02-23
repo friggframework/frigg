@@ -1,8 +1,8 @@
 // const Authenticator = require('../../../../test/utils/Authenticator');
-const ApiClass = require('../Api');
+const { Api } = require('./api');
 
-describe.skip('HubSpot Api Class Tests', () => {
-    const api = new ApiClass({ backOff: [1, 3, 10] });
+describe.skip('HubSpot API (OAuth2)', () => {
+    const api = new Api({ backOff: [1, 3, 10] });
 
     beforeAll(async () => {
         const url = api.authorizationUri;

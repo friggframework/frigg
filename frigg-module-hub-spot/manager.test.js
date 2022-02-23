@@ -1,4 +1,4 @@
-const ManagerClass = require('./manager');
+const { Manager } = require('./manager');
 // const Authenticator = require('../../../../test/utils/Authenticator');
 // const {getLoggedInTestUserManagerInstance } = require('../../../../test/utils/TestUtils');
 
@@ -6,7 +6,7 @@ describe.skip('should make HubSpot requests through the HubSpot Manager', () => 
     let manager, userManager;
     beforeAll(async () => {
         userManager = await getLoggedInTestUserManagerInstance();
-        manager = await ManagerClass.getInstance({
+        manager = await Manager.getInstance({
             userId: userManager.getUserId(),
         });
         const res = await manager.getAuthorizationRequirements();
@@ -24,15 +24,15 @@ describe.skip('should make HubSpot requests through the HubSpot Manager', () => 
         });
         chai.assert.hasAnyKeys(ids, ['credential_id', 'entity_id', 'type']);
 
-        manager = await ManagerClass.getInstance({
+        manager = await Manager.getInstance({
             entityId: ids.entity_id,
             userId: userManager.getUserId(),
         });
     });
 
     afterAll(async () => {
-        await ManagerClass.Credential.delete(manager.credential._id);
-        await ManagerClass.Entity.delete(manager.entity._id);
+        await Manager.Credential.delete(manager.credential._id);
+        await Manager.Entity.delete(manager.entity._id);
     });
 
     it('should go through Oauth flow', async () => {
@@ -46,7 +46,7 @@ describe.skip('should make HubSpot requests through the HubSpot Manager', () => 
     });
 
     it('should reinstantiate with an entity ID', async () => {
-        const newManager = await ManagerClass.getInstance({
+        const newManager = await Manager.getInstance({
             userId: userManager.getUserId(),
             entityId: manager.entity._id,
         });
@@ -91,9 +91,7 @@ describe.skip('should make HubSpot requests through the HubSpot Manager', () => 
         const response = await manager.testAuth();
 
         response.should.equal(false);
-        const credential = await ManagerClass.Credential.get(
-            manager.credential._id
-        );
+        const credential = await Manager.Credential.get(manager.credential._id);
         credential.auth_is_valid.should.equal(false);
     });
 });
