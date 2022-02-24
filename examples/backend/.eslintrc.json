@@ -1,32 +1,32 @@
-{
-    "env": {
-        "browser": true,
-        "commonjs": true,
-        "es2020": true,
-        "mocha": true
-    },
-    "extends": ["plugin:prettier/recommended", "plugin:markdown/recommended"],
-    "parser": "@babel/eslint-parser",
-    "parserOptions": {
-        "ecmaVersion": 11,
-        "requireConfigFile": false
-    },
-    "plugins": ["no-only-tests"],
-    "ignorePatterns": ["coverage/", ".nyc_output/"],
-    "overrides": [
-        {
-            "files": ["*.json"],
-            "plugins": ["json"],
-            "extends": ["plugin:json/recommended"]
-        },
-        {
-            "files": ["*.yaml", "*.yml"],
-            "plugins": ["yaml"],
-            "extends": ["plugin:yaml/recommended"]
-        }
-    ],
-    "rules": {
-        "no-only-tests/no-only-tests": ["error", { "fix": true }],
-        "no-console": ["error"]
-    }
-}
+// {
+//     "env": {
+//         "browser": true,
+//         "commonjs": true,
+//         "es2020": true,
+//         "mocha": true
+//     },
+//     "extends": ["plugin:prettier/recommended", "plugin:markdown/recommended"],
+//     "parser": "@babel/eslint-parser",
+//     "parserOptions": {
+//         "ecmaVersion": 11,
+//         "requireConfigFile": false
+//     },
+//     "plugins": ["no-only-tests"],
+//     "ignorePatterns": ["coverage/", ".nyc_output/"],
+//     "overrides": [
+//         {
+//             "files": ["*.json"],
+//             "plugins": ["json"],
+//             "extends": ["plugin:json/recommended"]
+//         },
+//         {
+//             "files": ["*.yaml", "*.yml"],
+//             "plugins": ["yaml"],
+//             "extends": ["plugin:yaml/recommended"]
+//         }
+//     ],
+//     "rules": {
+//         "no-only-tests/no-only-tests": ["error", { "fix": true }],
+//         "no-console": ["error"]
+//     }
+// }

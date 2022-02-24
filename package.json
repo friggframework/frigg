@@ -28,6 +28,7 @@
     "assertions",
     "lambda",
     "models",
-    "core"
+    "core",
+    "examples"
   ]
 }

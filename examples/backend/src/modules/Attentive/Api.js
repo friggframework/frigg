@@ -2,188 +2,182 @@ const OAuth2Base = require('../../base/auth/OAuth2Base');
 const { FetchError } = require('../../errors/FetchError');
 
 class AttentiveAPI extends OAuth2Base {
-    constructor(params) {
-        super(params);
+	constructor(params) {
+		super(params);
 
-        this.baseUrl = 'https://api.attentivemobile.com/v1';
-        this.client_id = '9f7a2f11a4f849f59268869ec766111c';
-        this.client_secret = '0FvaRpPi5KBC4Izj9ALA0AG8J2WdcBhU';
-        this.redirect_uri =
-            'http://localhost:3001/dev/api/integrations/attentive/callback';
-        this.scopes = [
-            'events:write',
-            'ecommerce:write',
-            'subscriptions:write',
-            'attributes:write',
-        ];
+		this.baseUrl = 'https://api.attentivemobile.com/v1';
+		this.client_id = '9ae9d8025eed477bb193b6135044932e';
+		this.client_secret = 'cVRXKgzy5XfcftqiA2koyLqGxurB8VlH';
+		// this.redirect_uri = 'https://db9f-96-32-68-235.ngrok.io/redirect/attentive';
+		this.redirect_uri = 'http://localhost:3000/redirect/attentive';
 
-        this.URLs = {
-            me: '/me',
+		this.scopes = ['events:write', 'ecommerce:write', 'subscriptions:write', 'attributes:write'];
 
-            // Subscriptions
-            subscribeUser: '/subscriptions',
-            unsubscribeUser: '/subscriptions/unsubscribe',
-            userSubsciptions: (user) =>
-                `/subscriptions?phone=${user.phone}&email=${user.email}`,
+		this.URLs = {
+			me: '/me',
 
-            // Product Catalogs
-            productCatalogs: '/product-catalog/uploads',
-            productCatalogById: (id) => `/product-catalog/uploads/${id}`,
+			// Subscriptions
+			subscribeUser: '/subscriptions',
+			unsubscribeUser: '/subscriptions/unsubscribe',
+			userSubsciptions: (user) => `/subscriptions?phone=${user.phone}&email=${user.email}`,
 
-            // Trigger Events
-            productView: '/ecommerce/product-view',
-            addToCart: '/ecommerce/add-to-cart',
-            purchase: '/ecommerce/purchase',
-            customEvent: '/events/custom',
+			// Product Catalogs
+			productCatalogs: '/product-catalog/uploads',
+			productCatalogById: (id) => `/product-catalog/uploads/${id}`,
 
-            // Custom Attributes
-            customAttributes: '/attributes/custom',
-        };
+			// Trigger Events
+			productView: '/ecommerce/product-view',
+			addToCart: '/ecommerce/add-to-cart',
+			purchase: '/ecommerce/purchase',
+			customEvent: '/events/custom',
 
-        this.authorizationUri = `https://ui.attentivemobile.com/integrations/oauth-install?client_id=${
-            this.client_id
-        }&redirect_uri=${this.redirect_uri}&scope=${this.scopes.join('+')}`;
+			// Custom Attributes
+			customAttributes: '/attributes/custom',
+		};
 
-        this.tokenUri =
-            'https://api.attentivemobile.com/v1/authorization-codes/tokens';
+		this.authorizationUri = `https://ui.attentivemobile.com/integrations/oauth-install?client_id=${
+			this.client_id
+		}&redirect_uri=${this.redirect_uri}&scope=${this.scopes.join('+')}`;
 
-        this.access_token = this.getParam(params, 'access_token', null);
-        this.refresh_token = this.getParam(params, 'refresh_token', null);
-    }
+		this.tokenUri = 'https://api.attentivemobile.com/v1/authorization-codes/tokens';
 
-    async getTokenFromCode(code) {
-        return this.getTokenFromCodeBasicAuthHeader(code);
-    }
+		this.access_token = this.getParam(params, 'access_token', null);
+		this.refresh_token = this.getParam(params, 'refresh_token', null);
+	}
 
-    async getTokenIdentity() {
-        const options = {
-            url: this.baseUrl + this.URLs.me,
-        };
+	async getTokenFromCode(code) {
+		return this.getTokenFromCodeBasicAuthHeader(code);
+	}
 
-        const res = await this._get(options);
-        return res;
-    }
+	async getTokenIdentity() {
+		const options = {
+			url: this.baseUrl + this.URLs.me,
+		};
 
-    async subscribeUser(body) {
-        const options = {
-            url: this.baseUrl + this.URLs.subscribeUser,
-            body: body,
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
-        };
-        const res = await this._post(options);
-        return res;
-    }
+		const res = await this._get(options);
+		return res;
+	}
 
-    async unsubscribeUser(body) {
-        const options = {
-            url: this.baseUrl + this.URLs.unsubscribeUser,
-            body: body,
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
-        };
-        const res = await this._post(options);
-        return res;
-    }
+	async subscribeUser(body) {
+		const options = {
+			url: this.baseUrl + this.URLs.subscribeUser,
+			body: body,
+			headers: {
+				'Content-Type': 'application/json',
+				Accept: 'application/json',
+			},
+		};
+		const res = await this._post(options);
+		return res;
+	}
 
-    async getUserSubsciptions(id) {
-        const options = {
-            url: this.baseUrl + this.URLs.userSubsciptions(id),
-        };
+	async unsubscribeUser(body) {
+		const options = {
+			url: this.baseUrl + this.URLs.unsubscribeUser,
+			body: body,
+			headers: {
+				'Content-Type': 'application/json',
+				Accept: 'application/json',
+			},
+		};
+		const res = await this._post(options);
+		return res;
+	}
 
-        const res = await this._get(options);
-        return res;
-    }
+	async getUserSubsciptions(id) {
+		const options = {
+			url: this.baseUrl + this.URLs.userSubsciptions(id),
+		};
 
-    // Upload catalog file url
-    // async createCatalogUpload() {}
+		const res = await this._get(options);
+		return res;
+	}
 
-    async getCatalogUploads() {
-        const options = {
-            url: this.baseUrl + this.URLs.productCatalogs,
-        };
+	// Upload catalog file url
+	// async createCatalogUpload() {}
 
-        const res = await this._get(options);
-        return res;
-    }
+	async getCatalogUploads() {
+		const options = {
+			url: this.baseUrl + this.URLs.productCatalogs,
+		};
 
-    async getCatalogUploads(id) {
-        const options = {
-            url: this.baseUrl + this.URLs.productCatalogs(id),
-        };
+		const res = await this._get(options);
+		return res;
+	}
 
-        const res = await this._get(options);
-        return res;
-    }
+	async getCatalogUploads(id) {
+		const options = {
+			url: this.baseUrl + this.URLs.productCatalogs(id),
+		};
 
-    async createProductViewEvent(body) {
-        const options = {
-            url: this.baseUrl + this.URLs.productView,
-            body: body,
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
-        };
-        const res = await this._post(options);
-        return res;
-    }
+		const res = await this._get(options);
+		return res;
+	}
 
-    async createAddToCartEvent(body) {
-        const options = {
-            url: this.baseUrl + this.URLs.addToCart,
-            body: body,
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
-        };
-        const res = await this._post(options);
-        return res;
-    }
+	async createProductViewEvent(body) {
+		const options = {
+			url: this.baseUrl + this.URLs.productView,
+			body: body,
+			headers: {
+				'Content-Type': 'application/json',
+				Accept: 'application/json',
+			},
+		};
+		const res = await this._post(options);
+		return res;
+	}
 
-    async createPurchaseEvent(body) {
-        const options = {
-            url: this.baseUrl + this.URLs.purchase,
-            body: body,
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
-        };
-        const res = await this._post(options);
-        return res;
-    }
+	async createAddToCartEvent(body) {
+		const options = {
+			url: this.baseUrl + this.URLs.addToCart,
+			body: body,
+			headers: {
+				'Content-Type': 'application/json',
+				Accept: 'application/json',
+			},
+		};
+		const res = await this._post(options);
+		return res;
+	}
 
-    async createCustomEvent(body) {
-        const options = {
-            url: this.baseUrl + this.URLs.customEvent,
-            body: body,
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
-        };
-        const res = await this._post(options);
-        return res;
-    }
+	async createPurchaseEvent(body) {
+		const options = {
+			url: this.baseUrl + this.URLs.purchase,
+			body: body,
+			headers: {
+				'Content-Type': 'application/json',
+				Accept: 'application/json',
+			},
+		};
+		const res = await this._post(options);
+		return res;
+	}
 
-    async createCustomAttribute(body) {
-        const options = {
-            url: this.baseUrl + this.URLs.customAttributes,
-            body: body,
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
-        };
-        const res = await this._post(options);
-        return res;
-    }
+	async createCustomEvent(body) {
+		const options = {
+			url: this.baseUrl + this.URLs.customEvent,
+			body: body,
+			headers: {
+				'Content-Type': 'application/json',
+				Accept: 'application/json',
+			},
+		};
+		const res = await this._post(options);
+		return res;
+	}
+
+	async createCustomAttribute(body) {
+		const options = {
+			url: this.baseUrl + this.URLs.customAttributes,
+			body: body,
+			headers: {
+				'Content-Type': 'application/json',
+				Accept: 'application/json',
+			},
+		};
+		const res = await this._post(options);
+		return res;
+	}
 }
 
 module.exports = AttentiveAPI;
