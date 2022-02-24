@@ -45,10 +45,6 @@ class AttentiveAPI extends OAuth2Base {
 		this.refresh_token = this.getParam(params, 'refresh_token', null);
 	}
 
-	async getTokenFromCode(code) {
-		return this.getTokenFromCodeBasicAuthHeader(code);
-	}
-
 	async getTokenIdentity() {
 		const options = {
 			url: this.baseUrl + this.URLs.me,
