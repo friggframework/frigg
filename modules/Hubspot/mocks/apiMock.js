@@ -1,77 +1,77 @@
 class MockApi {
-    constructor() {}
+  constructor() {}
 
-    /*** Contacts ***/
+  /*** Contacts ***/
 
-    async listContacts() {
-        return require('./contacts/listContacts');
-    }
+  async listContacts() {
+    return require("./contacts/listContacts");
+  }
 
-    /*** Contact Lists ***/
+  /*** Contact Lists ***/
 
-    async createContactList() {
-        return require('./contactLists/createContactList');
-    }
+  async createContactList() {
+    return require("./contactLists/createContactList");
+  }
 
-    async updateContactList() {
-        return require('./contactLists/updateContactList');
-    }
+  async updateContactList() {
+    return require("./contactLists/updateContactList");
+  }
 
-    async deleteContactList() {
-        return require('./contactLists/deleteContactList');
-    }
+  async deleteContactList() {
+    return require("./contactLists/deleteContactList");
+  }
 
-    /*** Custom Schemas ***/
+  /*** Custom Schemas ***/
 
-    async createCustomObjectSchema() {
-        return require('./customSchema/createCustomSchema');
-    }
+  async createCustomObjectSchema() {
+    return require("./customSchema/createCustomSchema");
+  }
 
-    async deleteCustomObjectSchema() {
-        return require('./customSchema/deleteCustomSchema');
-    }
+  async deleteCustomObjectSchema() {
+    return require("./customSchema/deleteCustomSchema");
+  }
 
-    async getCustomObjectSchema() {
-        return require('./customSchema/getCustomSchema');
-    }
+  async getCustomObjectSchema() {
+    return require("./customSchema/getCustomSchema");
+  }
 
-    async listCustomObjectSchemas() {
-        return require('./customSchema/listCustomSchemas');
-    }
+  async listCustomObjectSchemas() {
+    return require("./customSchema/listCustomSchemas");
+  }
 
-    async updateCustomObjectSchema() {
-        return require('./customSchema/updateCustomSchema');
-    }
+  async updateCustomObjectSchema() {
+    return require("./customSchema/updateCustomSchema");
+  }
 
-    /*** Custom Objects ***/
+  /*** Custom Objects ***/
 
-    async createCustomObject() {
-        return require('./customObjects/createCustomObject');
-    }
+  async createCustomObject() {
+    return require("./customObjects/createCustomObject");
+  }
 
-    async bulkCreateCustomObjects() {
-        return require('./customObjects/bulkCreateCustomObject');
-    }
+  async bulkCreateCustomObjects() {
+    return require("./customObjects/bulkCreateCustomObject");
+  }
 
-    async deleteCustomObject() {
-        return require('./customObjects/deleteCustomObject');
-    }
+  async deleteCustomObject() {
+    return require("./customObjects/deleteCustomObject");
+  }
 
-    async bulkArchiveCustomObjects() {
-        return '';
-    }
+  async bulkArchiveCustomObjects() {
+    return "";
+  }
 
-    async getCustomObjectByID() {
-        return require('./customObjects/getCustomObjectByID');
-    }
+  async getCustomObjectByID() {
+    return require("./customObjects/getCustomObjectByID");
+  }
 
-    async listCustomObjects() {
-        return require('./customObjects/listCustomObjects');
-    }
+  async listCustomObjects() {
+    return require("./customObjects/listCustomObjects");
+  }
 
-    async updateCustomObject() {
-        return require('./customObjects/updateCustomObject');
-    }
+  async updateCustomObject() {
+    return require("./customObjects/updateCustomObject");
+  }
 }
 
 module.exports = MockApi;

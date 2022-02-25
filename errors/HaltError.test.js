@@ -1,11 +1,11 @@
-const { HaltError } = require('./HaltError');
+const { HaltError } = require("./HaltError");
 
-describe('HaltError', () => {
-    it('can be instantiated', () => {
-        const rootError = new Error('Gremlinoids!!');
-        const error = new HaltError('STOP', { cause: rootError });
-        expect(error).toHaveProperty('message', 'STOP');
-        expect(error).toHaveProperty('cause', rootError);
-        expect(error).toHaveProperty('isHaltError', true);
-    });
+describe("HaltError", () => {
+  it("can be instantiated", () => {
+    const rootError = new Error("Gremlinoids!!");
+    const error = new HaltError("STOP", { cause: rootError });
+    expect(error).toHaveProperty("message", "STOP");
+    expect(error).toHaveProperty("cause", rootError);
+    expect(error).toHaveProperty("isHaltError", true);
+  });
 });

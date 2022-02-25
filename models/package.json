@@ -1,24 +1,24 @@
 {
-    "name": "@friggframework/models",
-    "prettier": "@friggframework/prettier-config",
-    "version": "1.0.7",
-    "description": "",
-    "devDependencies": {
-        "@friggframework/eslint-config": "^1.0.0",
-        "eslint": "^7.32.0",
-        "jest": "^27.4.7",
-        "prettier": "^2.5.1"
-    },
-    "scripts": {
-        "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
-        "test": "jest --passWithNoTests # TODO"
-    },
-    "author": "",
-    "license": "MIT",
-    "dependencies": {
-        "@friggframework/encrypt": "^1.0.0"
-    },
-    "peerDependencies": {
-        "mongoose": "^6.2.1"
-    }
+  "name": "@friggframework/models",
+  "prettier": "@friggframework/prettier-config",
+  "version": "1.0.7",
+  "description": "",
+  "devDependencies": {
+    "@friggframework/eslint-config": "^1.0.0",
+    "eslint": "^7.32.0",
+    "jest": "^27.4.7",
+    "prettier": "^2.5.1"
+  },
+  "scripts": {
+    "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
+    "test": "jest --passWithNoTests # TODO"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@friggframework/encrypt": "^1.0.0"
+  },
+  "peerDependencies": {
+    "mongoose": "^6.2.1"
+  }
 }

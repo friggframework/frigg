@@ -1,22 +1,22 @@
 {
-    "name": "@friggframework/modules",
-    "version": "1.0.0",
-    "prettier": "@friggframework/prettier-config",
-    "description": "",
-    "main": "ModuleConstants.js",
-    "devDependencies": {
-        "@friggframework/eslint-config": "^1.0.0",
-        "eslint": "^7.32.0",
-        "jest": "^27.4.7",
-        "prettier": "^2.5.1"
-    },
-    "scripts": {
-        "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
-        "test": "jest"
-    },
-    "author": "",
-    "license": "MIT",
-    "dependencies": {
-        "@friggframework/core": "^0.1.0"
-    }
+  "name": "@friggframework/modules",
+  "version": "1.0.0",
+  "prettier": "@friggframework/prettier-config",
+  "description": "",
+  "main": "ModuleConstants.js",
+  "devDependencies": {
+    "@friggframework/eslint-config": "^1.0.0",
+    "eslint": "^7.32.0",
+    "jest": "^27.4.7",
+    "prettier": "^2.5.1"
+  },
+  "scripts": {
+    "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
+    "test": "jest"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@friggframework/core": "^0.1.0"
+  }
 }

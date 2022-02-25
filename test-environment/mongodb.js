@@ -1,21 +1,21 @@
-const { MongoMemoryServer } = require('mongodb-memory-server');
+const { MongoMemoryServer } = require("mongodb-memory-server");
 
 class TestMongo {
-    #mongoServer;
+  #mongoServer;
 
-    // Start the in-memory mongo instance and set env variable for the app to use in its connection.
-    async start() {
-        this.#mongoServer = await MongoMemoryServer.create();
-        process.env.MONGO_URI = this.#mongoServer.getUri();
-    }
+  // Start the in-memory mongo instance and set env variable for the app to use in its connection.
+  async start() {
+    this.#mongoServer = await MongoMemoryServer.create();
+    process.env.MONGO_URI = this.#mongoServer.getUri();
+  }
 
-    async stop() {
-        await this.#mongoServer.stop();
-        process.env.MONGO_URI = undefined;
-        this.#mongoServer = undefined;
-    }
+  async stop() {
+    await this.#mongoServer.stop();
+    process.env.MONGO_URI = undefined;
+    this.#mongoServer = undefined;
+  }
 }
 
 module.exports = {
-    TestMongo,
+  TestMongo,
 };

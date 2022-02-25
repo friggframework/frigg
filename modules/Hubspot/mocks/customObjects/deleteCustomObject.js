@@ -1,3 +1,3 @@
 module.exports = {
-    status: 204,
+  status: 204,
 };

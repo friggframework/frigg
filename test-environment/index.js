@@ -1,7 +1,7 @@
-const { TestMongo } = require('./mongodb');
+const { TestMongo } = require("./mongodb");
 const {
-    overrideEnvironment,
-    restoreEnvironment,
-} = require('./override-environment');
+  overrideEnvironment,
+  restoreEnvironment,
+} = require("./override-environment");
 
 module.exports = { TestMongo, overrideEnvironment, restoreEnvironment };
