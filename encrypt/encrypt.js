@@ -35,6 +35,10 @@ function Encrypt(schema, options) {
         .map(({ path, options }) => (options.lhEncrypt === true ? path : ''))
         .filter(Boolean);
 
+    if (!fields.length) {
+        return;
+    }
+
     const cryptor = new Cryptor({
         // Use AWS if the CMK is present
         shouldUseAws: !!KMS_KEY_ARN,

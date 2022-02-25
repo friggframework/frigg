@@ -6,6 +6,9 @@
 const mongoose = require('mongoose'); // TODO maybe pass in / see what best way to make sure we have the same mongoose instance as the including package (something like peerDependencies but not deprecated)
 const { debug, flushDebugLog } = require('@friggframework/logs');
 
+mongoose.plugin(LHEncrypt);
+mongoose.set('applyPluginsToDiscriminators', true); // Needed for LHEncrypt 
+
 // Buffering means mongoose will queue up operations if it gets
 // With serverless, better to fail fast if not connected.
 // disconnected from MongoDB and send them when it reconnects.

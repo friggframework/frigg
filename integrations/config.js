@@ -1,15 +1,11 @@
-const Options = require('./options');
+const { loadInstalledModules } = require('@friggframework/core');
+const { Options } = require('./options');
 
 class IntegrationConfigManager {
     constructor(params) {
+        const configs = loadInstalledModules().map((m) => m.config);
+        this.options = configs.map((m) => new Options(m));
         this.primary = parentOverride.primary;
-
-        const installedModules = ['./entities/* #TODO'];
-        this.options = installedModules.map((m) => {
-            const config = m.getDefaultConfig();
-            const override = getOverride(m.name);
-            return new Options(deepMerge(config, override));
-        });
     }
 
     async getIntegrationOptions() {

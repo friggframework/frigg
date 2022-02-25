@@ -1,41 +1,12 @@
 const { Entity } = require('./entity');
 const { ModuleManager } = require('./manager');
-// const primaryEntity = require('./QBOManager');
-// const mondayEntity = require('./MondayManager');
-// const rollWorksEntity = require('./RollWorksManager');
-// const hubSpotEntity = require('./HubSpotManager');
-// const revioEntity = require('./RevioManager');
-// const stackEntity = require('./StackManager');
-// const crossbeamEntity = require('./CrossbeamManager');
-// const salesloftEntity = require('./SalesloftManager');
-// const fastSpringIQEntity = require('./FastSpringIQManager');
-// const salesforceEntity = require('./SalesforceManager');
-// const connectWiseEntity = require('./ConnectWiseManager');
-// const activeCampaignEntity = require('./ActiveCampaignManager');
-// const marketoEntity = require('./MarketoManager');
-// const outreachEntity = require('./OutreachManager');
-
-// TODO load from installed modules
 
 class EntityManager {
     static primaryEntityClass = null; //primaryEntity;
 
-    static entityManagerClasses = [
-        // primaryEntity,
-        // stackEntity,
-        // hubSpotEntity,
-        // revioEntity,
-        // crossbeamEntity,
-        // salesloftEntity,
-        // mondayEntity,
-        // rollWorksEntity,
-        // fastSpringIQEntity,
-        // salesforceEntity,
-        // connectWiseEntity,
-        // marketoEntity,
-        // activeCampaignEntity,
-        // outreachEntity,
-    ];
+    static entityManagerClasses = loadInstalledModules().map(
+        (m) => m.EntityManager
+    );
 
     static entityTypes = EntityManager.entityManagerClasses.map(
         (ManagerClass) => ManagerClass.getName()

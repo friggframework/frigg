@@ -29,11 +29,17 @@ class Authenticator {
 
                         const params =
                             Authenticator.searchParamsToDictionary(qs);
+
                         res.end(
-                            'Authentication successful! Please return to the console.'
+                            `<h1 style="position: absolute;top: 50%;left: 50%;transform: translate(-50%, -50%);">Feel free to close the Brow Brow now</h1>
+                                        <style>@media (prefers-color-scheme: dark) {
+                                            body {
+                                                color: #b0b0b0;
+                                                background-color: #101010;
+                                            }
+                                        </style>`
                         );
-                        server.destroy();
-                        console.info('Tokens acquired.');
+                        server.close();
                         resolve({
                             base: urlPostfix,
                             data: params,
@@ -44,9 +50,23 @@ class Authenticator {
                 })
                 .listen(port, () => {
                     // open the browser to the authorize url to start the workflow
-                    open(authorizeUrl).then((cp) => cp.unref());
+                    open(authorizeUrl).then((childProcess) => {
+                        childProcess.unref();
+                        clearTimeout(timeoutId);
+                    });
                 });
-            destroyer(server);
+
+            const timeoutId = setTimeout(() => {
+                if (server.listening) {
+                    try {
+                        server.close();
+                    } finally {
+                        throw new Error(
+                            'Authenticator timed out before authentication completed in the browser.'
+                        );
+                    }
+                }
+            }, 59_000);
         });
     }
 }
