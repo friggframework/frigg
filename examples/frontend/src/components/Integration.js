@@ -1,13 +1,11 @@
 import React, { Component } from 'react';
-import Col from 'react-bootstrap/Col';
-import Row from 'react-bootstrap/Row';
-import Image from 'react-bootstrap/Image';
-import Button from 'react-bootstrap/Button';
-import { Link, withRouter } from 'react-router-dom';
+import { withRouter } from 'react-router-dom';
 import { connect } from 'react-redux';
 import API from '../api/api';
 import { showModalForm } from '../actions/modalForm';
+import ToggleSwitch from './ToggleSwitch';
 import { setIntegrations } from '../actions/integrations';
+import { ExclamationCircleIcon } from '@heroicons/react/outline';
 
 class Integration extends Component {
 	constructor(props) {
@@ -79,106 +77,50 @@ class Integration extends Component {
 		const { name, category, icon } = display;
 		const { horizontal } = this.props;
 		return (
-			<Col md={horizontal ? 12 : 4} sm={horizontal ? 12 : 6}>
-				{horizontal ? (
-					<Row className="integration-row">
-						<Col className="integration-col-left">
-							<Image src={icon} className="mx-auto d-block" height={125} width={125} />
-						</Col>
-
-						<Col md={8} className="integration-col-middle">
-							<p className="integration-name font-weight-bold">{name}</p>
-
-							<p className="integration-text">{category}</p>
-						</Col>
-
-						<Col className="integration-col-right">
+			<>
+				<div className="flex p-4 bg-white rounded-lg shadow-xs dark:bg-gray-800 border-2 dark:border-gray-700">
+					<div className="mr-4 w-20 h-20 bg-white rounded-lg overflow-hidden">
+						<img className="w-full h-full object-center object-cover" alt={name} src={icon} />
+					</div>
+					<div>
+						<p className="text-lg font-semibold text-gray-700 dark:text-gray-200">
+							{name.length > 10 ? name.substring(0, 9) + '...' : name}
+						</p>
+						<p className="pt-2 text-sm font-medium text-gray-600 dark:text-gray-400">{category}</p>
+						{status && status === 'NEEDS_CONFIG' && (
+							<p className="inline-flex pt-2 text-xs font-medium text-red-300">
+								<ExclamationCircleIcon className="w-4 h-4 mr-1" /> Configure
+							</p>
+						)}
+					</div>
+					<div className="ml-auto">
+						<div className="relative">
 							{status && status === 'ENABLED' && (
-								<div className="integration-connected-portal">
-									<label className="text-secondary integration-connected">Connected!</label>
-									<br />
-
-									<Link className="integration-disconnect-link" onClick={this.disconnectIntegration}>
-										Disconnect?
-									</Link>
-									<Button onClick={this.enableModalForm} className={'integration-center-button-btn'}>
-										Configure
-									</Button>
-								</div>
+								<ToggleSwitch
+									getSampleData={this.getSampleData}
+									disconnectIntegration={this.disconnectIntegration}
+									name={name}
+								/>
 							)}
 							{status && status === 'NEEDS_CONFIG' && (
-								<div className="integration-connected-portal">
-									<label className="text-secondary integration-connected">Needs Setup!</label>
-									<br />
-
-									<Link className="integration-disconnect-link" onClick={this.disconnectIntegration}>
-										Disconnect?
-									</Link>
-
-									<Button onClick={this.getSampleData}>Get Sample Data</Button>
-
-									<Button onClick={this.enableModalForm} className={'integration-center-button-btn'}>
-										Configure
-									</Button>
-								</div>
-							)}
-
-							{status && status === 'PROCESSING' && (
-								<div className="integration-connected-portal">
-									<label className="text-secondary integration-processing integration-connected">Processing</label>
-									<br />
-
-									<Link className="integration-disconnect-link" onClick={this.disconnectIntegration}>
-										Disconnect?
-									</Link>
-
-									<Button onClick={this.enableModalForm} className={'integration-center-button-btn'} disabled>
-										Configure
-									</Button>
-								</div>
+								<ToggleSwitch
+									getSampleData={this.getSampleData}
+									disconnectIntegration={this.disconnectIntegration}
+									name={name}
+								/>
 							)}
 							{!status && (
-								<div className="integration-options-div">
-									<Button
-										onClick={this.getAuthorizeRequirements}
-										className="integration-center-button-btn"
-										variant="primary"
-									>
-										Connect
-									</Button>
-
-									<Link to="#" className="integration-details-link">
-										Details
-									</Link>
-								</div>
+								<button
+									onClick={this.getAuthorizeRequirements}
+									className="px-3 py-2 text-sm font-medium leading-5 text-center text-white transition-colors duration-150 bg-purple-600 border border-transparent rounded-lg active:bg-purple-600 hover:bg-purple-700 focus:outline-none focus:shadow-outline-purple"
+								>
+									Connect
+								</button>
 							)}
-						</Col>
-					</Row>
-				) : (
-					<Col md={12} className="h-100 integration-col-parent">
-						<Row className="integration-row1-vertical">
-							<Image src={icon} className="mx-auto d-block integration-img-vertical" height={125} width={125} />
-						</Row>
-						<Row className="integration-row2-vertical">
-							<p className="integration-name font-weight-bold">{name}</p>
-							<p className="integration-text">{category}</p>
-						</Row>
-						<Row className="integration-row3-vertical">
-							{status && <label className="text-secondary integration-connected-vertical">Connected!</label>}
-							{!status && (
-								<div className="integration-options-div-vertical">
-									<Link to="#" className="integration-details-link-vertical">
-										Details
-									</Link>
-									<Button className="integration-connect-button-vertical" variant="primary">
-										Connect
-									</Button>
-								</div>
-							)}
-						</Row>
-					</Col>
-				)}
-			</Col>
+						</div>
+					</div>
+				</div>
+			</>
 		);
 	}
 }

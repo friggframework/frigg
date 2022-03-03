@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { DotsHorizontalIcon } from '@heroicons/react/outline';
+import React, { useState } from 'react';
+import { DotsHorizontalIcon, DotsVerticalIcon } from '@heroicons/react/outline';
 import { Link } from 'react-router-dom';
 
 function ConnectButton() {
@@ -20,19 +20,48 @@ function ToggleSwitch({ integration }) {
 				<div className="block bg-purple-600 w-14 h-8 rounded-full"></div>
 				<div className="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"></div>
 			</label>
-			<svg onClick={() => setDropdown(!dropdown)} className="h-6 w-6 mt-5 ml-auto text-gray-500 cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-  				<path stroke-linecap="round" stroke-linejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-			</svg>
-			{dropdown ? 
-				<div className="origin-top-right absolute right-0 mt-2 w-40 z-50 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
+
+			<DotsVerticalIcon
+				onClick={() => setDropdown(!dropdown)}
+				className="h-6 w-6 mt-5 ml-auto text-gray-500 cursor-pointer"
+			/>
+
+			{dropdown ? (
+				<div
+					className="origin-top-right absolute right-0 mt-2 w-40 z-50 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none"
+					role="menu"
+					aria-orientation="vertical"
+					aria-labelledby="menu-button"
+					tabindex="-1"
+				>
 					<div className="py-1" role="none">
-						<span className="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-200" role="menuitem" tabindex="-1" id="menu-item-1">Configure</span>
-						<span className="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-200" role="menuitem" tabindex="-1" id="menu-item-2">Get Sample Data</span>
-						<span className="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-200" role="menuitem" tabindex="-1" id="menu-item-1">Disconnect</span>
+						<span
+							className="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-200"
+							role="menuitem"
+							tabindex="-1"
+							id="menu-item-1"
+						>
+							Configure
+						</span>
+						<span
+							className="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-200"
+							role="menuitem"
+							tabindex="-1"
+							id="menu-item-2"
+						>
+							Get Sample Data
+						</span>
+						<span
+							className="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-200"
+							role="menuitem"
+							tabindex="-1"
+							id="menu-item-1"
+						>
+							Disconnect
+						</span>
 					</div>
 				</div>
-				: null
-			}
+			) : null}
 		</>
 	);
 }

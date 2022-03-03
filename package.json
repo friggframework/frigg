@@ -30,5 +30,8 @@
     "models",
     "core",
     "examples"
-  ]
+  ],
+  "dependencies": {
+    "copy-webpack-plugin": "^10.2.4"
+  }
 }
