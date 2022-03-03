@@ -7,7 +7,7 @@ class LHBaseClass {
 
 	getParam(params, strKey, defaultValue) {
 		params = params || {};
-		console.log(params, strKey, defaultValue, 'getparams');
+
 		// if the key exists, returns its value
 		if (strKey in params) {
 			return params[strKey];

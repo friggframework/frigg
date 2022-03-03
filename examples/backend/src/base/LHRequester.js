@@ -41,8 +41,6 @@ class LHRequester extends LHDelegate {
 		const response = await this.fetch(encodedUrl, options);
 		const { status } = response;
 
-		console.log(response, encodedUrl, 'url2');
-
 		// If the status is retriable and there are back off requests left, retry the request
 		if ((status === 429 || status >= 500) && i < this.backOff.length) {
 			const delay = this.backOff[i] * 1000;

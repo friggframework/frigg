@@ -24,16 +24,18 @@ class Manager extends LHModuleManager {
 		const instance = new this(params);
 
 		const attentiveParams = { delegate: instance };
+
 		if (params.entityId) {
 			instance.entity = await instance.entityMO.get(params.entityId);
 			const credential = await instance.credentialMO.get(instance.entity.credential);
+			instance.credential = credential;
+			console.log(attentiveParams, 'params2');
+			console.log(credential, 'credential2');
 			attentiveParams.access_token = credential.access_token;
-			attentiveParams.refresh_token = credential.refresh_token;
-		} else if (params.credentialId) {
-			const credential = await instance.credentialMO.get(params.credentialId);
-			attentiveParams.access_token = credential.access_token;
-			attentiveParams.refresh_token = credential.refresh_token;
+			attentiveParams.id_token = credential.id_token;
+			attentiveParams.expires_in = credential.accessExpiresIn;
 		}
+
 		instance.api = await new Api(attentiveParams);
 
 		return instance;
@@ -47,10 +49,9 @@ class Manager extends LHModuleManager {
 	}
 
 	async processAuthorizationCallback(params) {
-		console.log(params, 'run2s');
-
 		const code = this.getParam(params.data, 'code');
 		const response = await this.api.getTokenFromCode(code);
+		const userDetails = await this.api.getTokenIdentity();
 
 		let credentials = await this.credentialMO.list({ user: this.userId });
 
@@ -62,7 +63,17 @@ class Manager extends LHModuleManager {
 		}
 
 		let entity = await this.entityMO.getByUserId(this.userId);
-		console.log(entity, code, credentials, 'credentials2');
+
+		if (!entity) {
+			entity = await this.entityMO.create({
+				user: this.userId,
+				credential: credentials[0]._id,
+				externalId: userDetails.companyId,
+				name: userDetails.companyName,
+				domain: userDetails.attentiveDomainName,
+			});
+		}
+
 		return {
 			credential_id: credentials[0]._id,
 			entity_id: entity._id,
@@ -72,6 +83,33 @@ class Manager extends LHModuleManager {
 
 	async testAuth() {
 		await this.api.getUserDetails();
+	}
+
+	async receiveNotification(notifier, delegateString, object = null) {
+		if (notifier instanceof Api) {
+			if (delegateString === this.api.DLGT_TOKEN_UPDATE) {
+				const updatedToken = {
+					user: this.userId,
+					access_token: this.api.access_token,
+					id_token: this.api.id_token,
+					// expires_in: this.api.accessExpiresIn,
+					auth_is_valid: true,
+				};
+
+				Object.keys(updatedToken).forEach((k) => updatedToken[k] === null && delete updatedToken[k]);
+
+				let credential = await this.entityMO.getByUserId(this.userId);
+
+				if (!credential) {
+					credential = await this.credentialMO.create(updatedToken);
+				} else {
+					credential = await this.credentialMO.update(credential, updatedToken);
+				}
+			}
+			if (delegateString === this.api.DLGT_TOKEN_DEAUTHORIZED) {
+				await this.deauthorize();
+			}
+		}
 	}
 
 	//------------------------------------------------------------

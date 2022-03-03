@@ -10,19 +10,16 @@ const router = express();
 router.all('/api/demo*', requireLoggedInUser);
 
 router.route('/api/demo/sample/:integrationId').get(
-    catchAsyncError(async (req, res) => {
-        const params = RouterUtil.checkRequiredParams(req.params, [
-            'integrationId',
-        ]);
-        const integrationManagerInstance =
-            await IntegrationManager.getInstanceFromIntegrationId({
-                integrationId: params.integrationId,
-                userId: req.userManager.getUserId(),
-            });
-
-        const sampleData = await integrationManagerInstance.getSampleData();
-        res.json(sampleData);
-    })
+	catchAsyncError(async (req, res) => {
+		const params = RouterUtil.checkRequiredParams(req.params, ['integrationId']);
+		const integrationManagerInstance = await IntegrationManager.getInstanceFromIntegrationId({
+			integrationId: params.integrationId,
+			userId: req.userManager.getUserId(),
+		});
+		console.log(integrationManagerInstance);
+		const sampleData = await integrationManagerInstance.getSampleData();
+		res.json(sampleData);
+	})
 );
 
 module.exports = router;

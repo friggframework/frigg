@@ -42,7 +42,7 @@ class AttentiveAPI extends OAuth2Base {
 		this.tokenUri = 'https://api.attentivemobile.com/v1/authorization-codes/tokens';
 
 		this.access_token = this.getParam(params, 'access_token', null);
-		this.refresh_token = this.getParam(params, 'refresh_token', null);
+		this.id_token = this.getParam(params, 'id_token', null);
 	}
 
 	async getTokenIdentity() {

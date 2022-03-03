@@ -108,7 +108,7 @@ class LHIntegrationManager extends LHDelegate {
 	static async createIntegration(entities, userId, config) {
 		// verify entity ids belong to the user
 		const entityMO = new Entity();
-		console.log(entities, userId, config, 'entities2');
+
 		for (const id of entities) {
 			const entity = await entityMO.get(id);
 

@@ -65,13 +65,12 @@ router.route('/api/authorize').post(
 	catchAsyncError(async (req, res) => {
 		const params = RouterUtil.checkRequiredParams(req.body, ['entityType', 'data']);
 		const instance = await getEntityFromType(req, params.entityType);
-		console.log(instance, 'params2');
 
 		const results = await instance.processAuthorizationCallback({
 			userId: req.userManager.getUserId(),
 			data: params.data,
 		});
-		console.log(results, 'results2');
+
 		res.json(results);
 	})
 );
@@ -117,7 +116,6 @@ router.route('/api/integrations').post(
 		if (params.entities.length !== 2) {
 			throw Boom.badRequest('entities array should have only two entities');
 		}
-		console.log(params.entities);
 		// create integration
 		const integrationManagerInstance = await IntegrationManager.createIntegration(
 			params.entities,
