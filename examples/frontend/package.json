@@ -30,6 +30,7 @@
         "react-responsive-modal": "^6.1.0",
         "react-router-dom": "^5.2.0",
         "react-scripts": "^5.0.0",
+        "react-toastify": "^8.2.0",
         "react-toggle": "^4.1.2",
         "redux": "^4.1.0",
         "redux-thunk": "^2.3.0",

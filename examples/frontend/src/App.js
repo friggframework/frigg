@@ -1,6 +1,8 @@
 import { Component, Fragment, React } from 'react';
 import { BrowserRouter as Router, Route, Redirect } from 'react-router-dom';
 import { connect } from 'react-redux';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import LoadingBar from 'react-redux-loading';
 import SiteNav from './components/SiteNav';
 import Sidebar from './components/Sidebar';
@@ -41,8 +43,8 @@ class App extends Component {
 				<Fragment>
 					{/* to show this will need a timeout method to spoof it */}
 					<LoadingBar />
-
 					<div className={jwt ? 'flex h-screen bg-gray-50 dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-900'}>
+						<ToastContainer autoClose={2500} position="top-right" closeButton={false} />
 						{jwt ? (
 							<>
 								<Sidebar />
