@@ -49,7 +49,7 @@ class Dashboard extends Component {
 							<h4 className="mb-4 text-lg font-semibold text-gray-600 dark:text-gray-500">Commerce</h4>
 							<h4 className="mb-4 text-lg font-semibold text-gray-600 dark:text-gray-500">Social</h4>
 							<h4 className="mb-4 text-lg font-semibold text-gray-600 dark:text-gray-500">Productivity</h4>
-							<h4 className="mb-4 text-lg font-semibold text-gray-600 dark:text-gray-500">Devops</h4>
+							<h4 className="mb-4 text-lg font-semibold text-gray-600 dark:text-gray-500">Finance</h4>
 						</div>
 						<div className="grid gap-6 col-span-3 grid-cols-3">
 							<IntegrationList />

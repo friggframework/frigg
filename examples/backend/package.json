@@ -9,7 +9,7 @@
         "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
         "lint:cloudformation": "sls package --stage dev && cfn-lint .serverless/cloudformation-template-*.json",
         "lint:markdown": "markdownlint --fix .",
-        "start:dev": "DEBUG_VERBOSE=1 sls offline --stage dev",
+        "start:dev": "DEBUG_VERBOSE=1 sls offline --useSeparateProcesses --stage dev",
         "start:staging": "sls offline --stage staging"
     },
     "mocha": {

@@ -4,6 +4,8 @@ const MongooseUtil = require('../utils/MongooseUtil');
 
 const collectionName = 'Base';
 
+delete mongoose.connection.models[collectionName];
+
 const _schema = new mongoose.Schema({
 	dateCreated: { type: Date, default: Date.now },
 	dateUpdated: { type: Date, default: Date.now },

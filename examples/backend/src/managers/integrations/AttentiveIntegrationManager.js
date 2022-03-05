@@ -30,15 +30,8 @@ class AttentiveIntegrationManager extends LHIntegrationManager {
 	}
 
 	async getSampleData() {
-		const contactsResponse = await this.targetInstance.api.me();
-		const slimResponse = contactsResponse.contacts.map((c) => ({
-			applicationName: c.applicationName,
-			attentiveDomainName: c.attentiveDomainName,
-			companyName: c.companyName,
-			contactEmail: c.contactEmail,
-			companyId: c.companyId,
-		}));
-		return { data: slimResponse };
+		const samepleResponse = await this.targetInstance.api.getTokenIdentity();
+		return { data: samepleResponse };
 	}
 }
 

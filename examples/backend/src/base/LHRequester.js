@@ -1,6 +1,7 @@
 const fetch = require('node-fetch');
 const LHDelegate = require('./LHDelegate');
 const { FetchError } = require('../errors/FetchError');
+const { rest } = require('lodash');
 
 class LHRequester extends LHDelegate {
 	constructor(params) {

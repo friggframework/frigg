@@ -26,9 +26,9 @@ class AttentiveAPI extends OAuth2Base {
 			productCatalogById: (id) => `/product-catalog/uploads/${id}`,
 
 			// Trigger Events
-			productView: '/ecommerce/product-view',
-			addToCart: '/ecommerce/add-to-cart',
-			purchase: '/ecommerce/purchase',
+			productView: '/events/ecommerce/product-view',
+			addToCart: '/events/ecommerce/add-to-cart',
+			purchase: '/events/ecommerce/purchase',
 			customEvent: '/events/custom',
 
 			// Custom Attributes
@@ -101,7 +101,7 @@ class AttentiveAPI extends OAuth2Base {
 		return res;
 	}
 
-	async getCatalogUploads(id) {
+	async getCatalogUploadById(id) {
 		const options = {
 			url: this.baseUrl + this.URLs.productCatalogs(id),
 		};
@@ -115,6 +115,7 @@ class AttentiveAPI extends OAuth2Base {
 			url: this.baseUrl + this.URLs.productView,
 			body: body,
 			headers: {
+				'User-Agent': '*',
 				'Content-Type': 'application/json',
 				Accept: 'application/json',
 			},
@@ -128,6 +129,7 @@ class AttentiveAPI extends OAuth2Base {
 			url: this.baseUrl + this.URLs.addToCart,
 			body: body,
 			headers: {
+				'User-Agent': '*',
 				'Content-Type': 'application/json',
 				Accept: 'application/json',
 			},
@@ -141,6 +143,7 @@ class AttentiveAPI extends OAuth2Base {
 			url: this.baseUrl + this.URLs.purchase,
 			body: body,
 			headers: {
+				'User-Agent': '*',
 				'Content-Type': 'application/json',
 				Accept: 'application/json',
 			},
@@ -154,6 +157,7 @@ class AttentiveAPI extends OAuth2Base {
 			url: this.baseUrl + this.URLs.customEvent,
 			body: body,
 			headers: {
+				'User-Agent': '*',
 				'Content-Type': 'application/json',
 				Accept: 'application/json',
 			},

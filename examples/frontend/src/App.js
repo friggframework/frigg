@@ -1,5 +1,5 @@
 import { Component, Fragment, React } from 'react';
-import { BrowserRouter as Router, Route, Redirect } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Redirect, Switch } from 'react-router-dom';
 import { connect } from 'react-redux';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -50,20 +50,23 @@ class App extends Component {
 								<Sidebar />
 								<div className="flex flex-col flex-1">
 									<SiteNav />
-									<Route path="/dashboard" exact component={DashboardPage} />
-									<Route path="/customers" exact component={CustomersPage} />
-									<Route path="/integrations" exact component={Dashboard} />
-									<Route path="/settings" exact component={SettingsPage} />
-									<Route path="/data/:integrationId" exact component={Data} />
-									<Route path="/redirect/:app" exact component={AuthRedirect} />
-									<Route path="/logout" exact component={Logout} />
-									<Redirect to="/dashboard" />
+									<Switch>
+										<Route path="/dashboard" exact component={DashboardPage} />
+										<Route path="/customers" exact component={CustomersPage} />
+										<Route path="/integrations" exact component={Dashboard} />
+										<Route path="/settings" exact component={SettingsPage} />
+										<Route path="/data/:integrationId" exact component={Data} />
+										<Route path="/redirect/:app" exact component={AuthRedirect} />
+										<Route path="/logout" exact component={Logout} />
+										<Redirect to="/dashboard" />
+									</Switch>
 								</div>
 							</>
 						) : (
 							<>
 								<Route path="/" exact component={Login} />
 								<Route path="/register" exact component={CreateUser} />
+								<Redirect to="/" />
 							</>
 						)}
 

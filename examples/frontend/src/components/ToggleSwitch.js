@@ -29,7 +29,7 @@ function ToggleSwitch({ getSampleData, disconnectIntegration, name }) {
 						<span
 							className="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-200"
 							role="menuitem"
-							tabindex="-1"
+							tabIndex="-1"
 							id="menu-item-1"
 						>
 							Configure
@@ -37,7 +37,7 @@ function ToggleSwitch({ getSampleData, disconnectIntegration, name }) {
 						<span
 							className="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-200"
 							role="menuitem"
-							tabindex="-1"
+							tabIndex="-1"
 							id="menu-item-2"
 							onClick={getSampleData}
 						>
@@ -46,7 +46,7 @@ function ToggleSwitch({ getSampleData, disconnectIntegration, name }) {
 						<span
 							className="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-200"
 							role="menuitem"
-							tabindex="-1"
+							tabIndex="-1"
 							id="menu-item-1"
 							onClick={disconnectIntegration}
 						>

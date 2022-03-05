@@ -70,7 +70,9 @@
     "OUTREACH_SCOPES": "prospects.all users.all teams.all accounts.all tasks.all email profile",
     "OUTREACH_MOCK_ACCESS_TOKEN": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJzZWFuLm1hdHRoZXdzQGxlZnRob29rLmNvbSIsImlhdCI6MTYzNTUzMDk3OCwiZXhwIjoxNjM1NTM4MTc4LCJiZW50byI6ImFwcDFlIiwiYWN0Ijp7InN1YiI6IlZob0NzMFNRZ25Fa2RDanRkaFZLemV5bXBjNW9valZoRXB2am03Rjh1UVEiLCJuYW1lIjoiTGVmdCBIb29rIiwiaXNzIjoiZmxhZ3NoaXAiLCJ0eXBlIjoiYXBwIn0sIm9yZ191c2VyX2lkIjoxLCJhdWQiOiJMZWZ0IEhvb2siLCJzY29wZXMiOiJBSkFBOEFIUUFCQUJRQT09Iiwib3JnX2d1aWQiOiJmNzY3MDEzZC1mNTBiLTRlY2QtYjM1My0zNWU0MWQ5Y2RjNGIiLCJvcmdfc2hvcnRuYW1lIjoibGVmdGhvb2tzYW5kYm94In0.XFmIai0GpAePsYeA4MjRntZS3iW6effmKmIhT7SBzTQ",
 
-    "ATTENTIVE_CLIENT_ID": "9f7a2f11a4f849f59268869ec766111c",
-    "ATTENTIVE_CLIENT_SECRET": "0FvaRpPi5KBC4Izj9ALA0AG8J2WdcBhU",
-    "ATTENTIVE_BASE_URL": "https://api.attentivemobile.com/v1"
+    "ATTENTIVE_CLIENT_ID": "9ae9d8025eed477bb193b6135044932e",
+    "ATTENTIVE_CLIENT_SECRET": "cVRXKgzy5XfcftqiA2koyLqGxurB8VlH",
+    "ATTENTIVE_BASE_URL": "https://api.attentivemobile.com/v1",
+    "ATTENTIVE_REDIRECT_UI": "http://localhost:3000/redirect/attentive",
+    "ATTENTIVE_SCOPES": "events:write+ecommerce:write+subscriptions:write+attributes:write"
 }

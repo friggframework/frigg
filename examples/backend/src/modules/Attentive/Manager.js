@@ -29,8 +29,6 @@ class Manager extends LHModuleManager {
 			instance.entity = await instance.entityMO.get(params.entityId);
 			const credential = await instance.credentialMO.get(instance.entity.credential);
 			instance.credential = credential;
-			console.log(attentiveParams, 'params2');
-			console.log(credential, 'credential2');
 			attentiveParams.access_token = credential.access_token;
 			attentiveParams.id_token = credential.id_token;
 			attentiveParams.expires_in = credential.accessExpiresIn;
