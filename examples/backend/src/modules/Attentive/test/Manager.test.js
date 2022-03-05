@@ -38,15 +38,6 @@ describe.skip('Attentive Entity Manager', async () => {
 		});
 		chai.assert.hasAnyKeys(ids, ['credential', 'entity', 'type']);
 
-		// Don't need these. Entity should already be created
-		// const options = await manager.getEntityOptions();
-
-		// const entity = await manager.findOrCreateEntity({
-		//     credential_id: ids.credential_id,
-		//     [options[0].key]: options[0].options[0],
-		//     // organization_id: ""
-		// });
-
 		manager = await Manager.getInstance({
 			entityId: ids.entity_id,
 			userId: this.userManager.getUserId(),
@@ -79,20 +70,4 @@ describe.skip('Attentive Entity Manager', async () => {
 		newManager.api.access_token.should.equal(manager.api.access_token);
 		newManager.credential._id.toString().should.equal(manager.credential._id.toString());
 	});
-
-	// it('should list all contacts', async () => {
-	//     const contacts = await manager.listAllContacts();
-	//     contacts.length.should.be.above(50);
-	// });
-
-	// it('should refresh and update invalid token', async () => {
-	//     manager.api.access_token = 'nolongervalid';
-	//     await manager.testAuth();
-
-	//     const credential = await manager.credentialMO.get(
-	//         manager.entity.credential
-	//     );
-	//     credential.access_token.should.equal(manager.api.access_token);
-	//     credential.access_token.should.not.equal('nolongervalid');
-	// });
 });
