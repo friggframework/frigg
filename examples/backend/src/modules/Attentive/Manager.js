@@ -42,7 +42,7 @@ class Manager extends LHModuleManager {
 	async getAuthorizationRequirements(params) {
 		return {
 			url: await this.api.authorizationUri,
-			type: 'oauth2',
+			type: ModuleConstants.authType.oauth2,
 		};
 	}
 
@@ -80,7 +80,7 @@ class Manager extends LHModuleManager {
 	}
 
 	async testAuth() {
-		await this.api.getUserDetails();
+		await this.api.getTokenIdentity();
 	}
 
 	async receiveNotification(notifier, delegateString, object = null) {

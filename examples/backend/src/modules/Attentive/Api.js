@@ -5,13 +5,12 @@ class AttentiveAPI extends OAuth2Base {
 	constructor(params) {
 		super(params);
 
-		this.baseUrl = 'https://api.attentivemobile.com/v1';
-		this.client_id = '9ae9d8025eed477bb193b6135044932e';
-		this.client_secret = 'cVRXKgzy5XfcftqiA2koyLqGxurB8VlH';
-		// this.redirect_uri = 'https://db9f-96-32-68-235.ngrok.io/redirect/attentive';
-		this.redirect_uri = 'http://localhost:3000/redirect/attentive';
+		this.baseUrl = process.env.ATTENTIVE_BASE_URL;
+		this.client_id = process.env.ATTENTIVE_CLIENT_ID;
+		this.client_secret = process.env.ATTENTIVE_CLIENT_SECRET;
+		this.redirect_uri = process.env.ATTENTIVE_REDIRECT_UI;
 
-		this.scopes = ['events:write', 'ecommerce:write', 'subscriptions:write', 'attributes:write'];
+		this.scopes = process.env.ATTENTIVE_SCOPES;
 
 		this.URLs = {
 			me: '/me',
@@ -35,9 +34,7 @@ class AttentiveAPI extends OAuth2Base {
 			customAttributes: '/attributes/custom',
 		};
 
-		this.authorizationUri = `https://ui.attentivemobile.com/integrations/oauth-install?client_id=${
-			this.client_id
-		}&redirect_uri=${this.redirect_uri}&scope=${this.scopes.join('+')}`;
+		this.authorizationUri = `https://ui.attentivemobile.com/integrations/oauth-install?client_id=${this.client_id}&redirect_uri=${this.redirect_uri}&scope=${this.scopes}`;
 
 		this.tokenUri = 'https://api.attentivemobile.com/v1/authorization-codes/tokens';
 

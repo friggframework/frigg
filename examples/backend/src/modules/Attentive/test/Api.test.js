@@ -165,8 +165,8 @@ describe.only('Attentive Api Class Tests', async () => {
 		});
 
 		it('should trigger a product view event', async () => {
-			console.log('Failing because Attentive API responding with malformed response?');
-			console.log('Debug at LHRequester.parsedBody?');
+			console.log('Failing because Attentive API responding with no or malformed response?');
+			console.log('Debug at LHRequester.parsedBody to handle no response?');
 			const response = await api.createProductViewEvent(body);
 		});
 		it('should trigger an add to cart event', async () => {
