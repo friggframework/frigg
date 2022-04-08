@@ -11,4 +11,4 @@ The Frigg Integration Framework powers integrations between software companies, 
 
 ## Developers
 
-See [CONTRIBUTING.md](contributing/contributing.md) for details about getting started as a Frigg contributor.
+See [CONTRIBUTING.md](development/contributing/) for details about getting started as a Frigg contributor.
