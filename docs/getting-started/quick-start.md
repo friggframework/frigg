@@ -24,7 +24,9 @@ Open a new shell and start the frontend app. Your app will be running at http://
 
 `cd frigg/frontend`&#x20;
 
-`npm install`&#x20;
+`cp .env.example .env`&#x20;
+
+`npm install`
 
 `npm run start`
 
