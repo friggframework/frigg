@@ -36,7 +36,10 @@ Once you are up and running, you'll notice the ability to login using a demo acc
 
 Once on the integrations page, you'll see Frigg's available integrations load through an `<IntegrationList />` component. This is the component that will live inside of your app.
 
+![](../.gitbook/assets/screencapture-demo-friggframework-org-integrations-2022.png)
+
 ### How it works
 
-As you might have noticed, you use both a \[serverless]\([https://aws.amazon.com/serverless/](https://aws.amazon.com/serverless/)) instance and a client side react app to access the Frigg API modules. The flow looks like this:
+As you might have noticed, you use both a [serverless](https://aws.amazon.com/serverless/) instance and a client side react app to access the Frigg API modules. The flow looks like this:
 
+![](<../.gitbook/assets/Screen Shot 2022-04-11 at 10.52.07 AM.png>)
