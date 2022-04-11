@@ -8,27 +8,24 @@ The quick start guide will provide a demo user account and API keys, however to 
 
 The quick start app will give you a brief overview of how a Frigg component is implemented within a SaaS. It will generate a dummy SaaS app with a variety of API modules already installed.&#x20;
 
-Clone and run quick start app&#x20;
+Clone and run quick start app.
 
-`git clone https://github.com/friggframework/frigg.git`&#x20;
-
-`cd frigg/backend`&#x20;
-
-`cp .env.example .env`&#x20;
-
-`npm install`&#x20;
-
-`npm run start:dev`
+```
+git clone https://github.com/friggframework/frigg.git 
+cd frigg/backend
+cp .env.example .env
+npm install
+npm run start:dev
+```
 
 Open a new shell and start the frontend app. Your app will be running at http://localhost:3000.
 
-`cd frigg/frontend`&#x20;
-
-`cp .env.example .env`&#x20;
-
-`npm install`
-
-`npm run start`
+```
+cd frigg/frontend
+cp .env.example .env 
+npm install
+npm run start
+```
 
 Go to http://localhost:3000.
 
