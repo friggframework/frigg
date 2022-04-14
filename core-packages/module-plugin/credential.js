@@ -1,0 +1,20 @@
+const mongoose = require('mongoose');
+const { Encrypt } = require('core-packages/encrypt');
+
+const schema = new mongoose.Schema(
+    {
+        user: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            required: true,
+        },
+        auth_is_valid: { type: Boolean },
+        externalId: { type: String }, // Used for lookups, identifying the owner of the credential
+    },
+    { timestamps: true }
+);
+
+schema.plugin(Encrypt);
+
+const Credential = mongoose.model('Credential', schema);
+module.exports = { Credential };
