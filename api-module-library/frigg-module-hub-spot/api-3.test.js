@@ -16,7 +16,7 @@ const { Manager } = require('./manager');
 
 const loginCredentials = { username: 'test', password: 'test' };
 
-describe.skip('Hubspot API ', function () {
+describe('Hubspot API ', () => {
     // this.timeout(20000);
     let hsManager;
     beforeAll(async () => {
@@ -136,14 +136,14 @@ describe.skip('Hubspot API ', function () {
                 domain: 'gitlab.com',
                 name: 'Gitlab',
             };
-            createRes = await hsManager.api.cretateCompany(body);
+            createRes = await hsManager.api.createCompany(body);
         });
 
         afterAll(async () => {
             await hsManager.api.deleteCompany(createRes.id);
         });
 
-        it('should cretate a Company', async () => {
+        it('should create a Company', async () => {
             expect(createRes.properties.domain).toBe('gitlab.com');
             expect(createRes.properties.name).toBe('Gitlab');
         });

@@ -1,5 +1,5 @@
-const md5 = require('md5');
-const { get } = require('core-packages/assertions');
+const md5 = require("md5");
+const { get } = require("../core-packages/assertions");
 
 /**
  * @file This file is meant to be the thing that enforces proper use of
@@ -9,16 +9,16 @@ const { get } = require('core-packages/assertions');
  */
 class Association {
     static Config = {
-        name: 'Association',
+        name: "Association",
 
         reverseModuleMap: {},
     };
     constructor(params) {
         this.data = {};
 
-        let data = get(params, 'data');
-        this.moduleName = get(params, 'moduleName');
-        this.dataIdentifier = get(params, 'dataIdentifier');
+        let data = get(params, "data");
+        this.moduleName = get(params, "moduleName");
+        this.dataIdentifier = get(params, "dataIdentifier");
 
         this.dataIdentifierHash = this.constructor.hashJSON(
             this.dataIdentifier
@@ -43,7 +43,7 @@ class Association {
         return this.matchHash === syncObj.matchHash;
     }
     dataKeyIsReplaceable(key) {
-        return this.data[key] === null || this.data[key] === '';
+        return this.data[key] === null || this.data[key] === "";
     }
 
     isModuleInMap(moduleName) {

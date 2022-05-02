@@ -1,0 +1,24 @@
+{
+  "0 debug pnpm:scope": {
+    "selected": 1
+  },
+  "1 warn pnpm": {
+    "message": "Unsupported engine: wanted: {\"node\":\"14\"} (current: {\"node\":\"v16.13.2\",\"pnpm\":\"6.32.7\"})",
+    "prefix": "/home/srussell/Development/lefthook/frigg"
+  },
+  "2 error pnpm": {
+    "errno": 1,
+    "code": "ELIFECYCLE",
+    "pkgid": "frigg-monorepo@1.0.0",
+    "stage": "test:all",
+    "script": "npm test --foreground-scripts --workspaces",
+    "pkgname": "frigg-monorepo",
+    "err": {
+      "name": "pnpm",
+      "message": "frigg-monorepo@1.0.0 test:all: `npm test --foreground-scripts --workspaces`\nExit status 1",
+      "code": "ELIFECYCLE",
+      "stack": "pnpm: frigg-monorepo@1.0.0 test:all: `npm test --foreground-scripts --workspaces`\nExit status 1\n    at EventEmitter.<anonymous> (/home/srussell/.nodenv/versions/16.13.2/pnpm-global/5/node_modules/.pnpm/pnpm@6.32.7/node_modules/pnpm/dist/pnpm.cjs:105738:20)\n    at EventEmitter.emit (node:events:390:28)\n    at ChildProcess.<anonymous> (/home/srussell/.nodenv/versions/16.13.2/pnpm-global/5/node_modules/.pnpm/pnpm@6.32.7/node_modules/pnpm/dist/pnpm.cjs:92299:18)\n    at ChildProcess.emit (node:events:390:28)\n    at maybeClose (node:internal/child_process:1064:16)\n    at Process.ChildProcess._handle.onexit (node:internal/child_process:301:5)"
+    }
+  },
+  "3 warn pnpm:global": " Local package.json exists, but node_modules missing, did you mean to install?"
+}

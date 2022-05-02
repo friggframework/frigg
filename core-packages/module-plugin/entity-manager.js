@@ -1,3 +1,5 @@
+const { loadInstalledModules, Delegate } = require('../core');
+
 const { Entity } = require('./entity');
 const { ModuleManager } = require('./manager');
 

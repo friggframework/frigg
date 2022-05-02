@@ -1,4 +1,4 @@
-const { BaseModelObjectTest } = require('core-packages/test-environment');
+const { BaseModelObjectTest } = require('../../core-packages/test-environment');
 
 describe('HubSpot Credential', () => {
     it.skip('does the test', () => {

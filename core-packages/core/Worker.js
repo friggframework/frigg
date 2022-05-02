@@ -1,7 +1,7 @@
 const AWS = require('aws-sdk');
 const _ = require('lodash');
-const { RequiredPropertyError } = require('core-packages/errors');
-const { get } = require('core-packages/assertions');
+const { RequiredPropertyError } = require('../errors');
+const { get } = require('../assertions');
 
 AWS.config.update({ region: process.env.AWS_REGION });
 const sqs = new AWS.SQS({ apiVersion: '2012-11-05' });

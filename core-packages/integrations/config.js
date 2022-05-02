@@ -1,4 +1,4 @@
-const { loadInstalledModules } = require('core-packages/core');
+const { loadInstalledModules } = require('../core');
 const { Options } = require('./options');
 
 class IntegrationConfigManager {

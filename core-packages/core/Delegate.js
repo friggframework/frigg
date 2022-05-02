@@ -1,4 +1,4 @@
-const { get } = require('core-packages/assertions');
+const { get } = require('..//assertions');
 
 class Delegate {
     constructor(params) {

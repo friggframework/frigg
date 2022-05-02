@@ -4,7 +4,7 @@
 // https://www.mongodb.com/blog/post/optimizing-aws-lambda-performance-with-mongodb-atlas-and-nodejs
 
 const mongoose = require('mongoose'); // TODO maybe pass in / see what best way to make sure we have the same mongoose instance as the including package (something like peerDependencies but not deprecated)
-const { debug, flushDebugLog } = require('core-packages/logs');
+const { debug, flushDebugLog } = require('../logs');
 
 mongoose.plugin(LHEncrypt);
 mongoose.set('applyPluginsToDiscriminators', true); // Needed for LHEncrypt

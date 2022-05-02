@@ -2,7 +2,7 @@ const lodashGet = require('lodash.get');
 const {
     RequiredPropertyError,
     ParameterTypeError,
-} = require('core-packages/errors');
+} = require('../errors');
 
 const get = (o, key, defaultValue) => {
     const value = lodashGet(o, key, defaultValue);

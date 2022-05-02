@@ -1,4 +1,4 @@
-const { Delegate } = require('core-packages/core');
+const { loadInstalledModules, Delegate } = require('../core');
 const { Credential, Entity } = require('@friggframework/module-plugin');
 const { Integration } = require('./model');
 

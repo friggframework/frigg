@@ -20,4 +20,13 @@ describe('Cryptor', () => {
             });
         });
     });
+
+    describe('Keys', () => {
+        it('raises error on missing environment', () => {
+            const cryptor = new Cryptor({ fields: ['a.b.c.d', 'e'] });
+            expect(cryptor.getKeyFromEnvironment).toThrow(
+                'No encryption key found with ID "undefined"'
+            );
+        });
+    });
 });

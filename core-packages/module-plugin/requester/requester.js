@@ -1,7 +1,7 @@
 const fetch = require('node-fetch');
-const { Delegate } = require('core-packages/core');
-const { FetchError } = require('core-packages/errors');
-const { get } = require('core-packages/assertions');
+const { Delegate } = require('../../core');
+const { FetchError } = require('../../errors');
+const { get } = require('../../assertions');
 
 class Requester extends Delegate {
     constructor(params) {

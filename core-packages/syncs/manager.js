@@ -1,12 +1,12 @@
-const _ = require('lodash');
-const moment = require('moment');
-const mongoose = require('mongoose');
-const SyncObject = require('./sync');
-const { debug } = require('core-packages/logs');
-const { get } = require('core-packages/assertions');
-const { Sync } = require('./model');
+const _ = require("lodash");
+const moment = require("moment");
+const mongoose = require("mongoose");
+const SyncObject = require("./sync");
+const { debug } = require("core-packages/logs");
+const { get } = require("../assertions");
+const { Sync } = require("./model");
 
-class SyncManager  {
+class SyncManager {
     constructor(params) {
         super(params);
         // TODO verify type????????
@@ -18,27 +18,27 @@ class SyncManager  {
         // );
         this.SyncObjectClass = getAndVerifyType(
             params,
-            'syncObjectClass',
+            "syncObjectClass",
             SyncObject
         );
         this.ignoreEmptyMatchValues = get(
             params,
-            'ignoreEmptyMatchValues',
+            "ignoreEmptyMatchValues",
             true
         );
-        this.isUnidirectionalSync = get(params, 'isUnidirectionalSync', false);
+        this.isUnidirectionalSync = get(params, "isUnidirectionalSync", false);
         this.useFirstMatchingDuplicate = get(
             params,
-            'useFirstMatchingDuplicate',
+            "useFirstMatchingDuplicate",
             true
         );
         this.omitEmptyStringsFromData = get(
             params,
-            'omitEmptyStringsFromData',
+            "omitEmptyStringsFromData",
             true
         );
 
-        this.integration = get(params, 'integration', null); // TODO Change to type validation
+        this.integration = get(params, "integration", null); // TODO Change to type validation
 
         Sync = new Sync();
     }
@@ -46,7 +46,7 @@ class SyncManager  {
     // calls getAllSyncObjects() on the modules and then finds the difference between each. The Primary Module
     // takes precedence unless the field is an empty string or null
     async initialSync() {
-        const time0 = parseInt(moment().format('x'));
+        const time0 = parseInt(moment().format("x"));
         const primaryEntityId = await this.primaryModule.entity.id;
         const secondaryEntityId = await this.secondaryModule.entity.id;
 
@@ -55,7 +55,7 @@ class SyncManager  {
             this.SyncObjectClass
         );
         const primaryArrayInitialCount = primaryArr.length;
-        const time1 = parseInt(moment().format('x'));
+        const time1 = parseInt(moment().format("x"));
         debug(
             `${primaryArr.length} number of ${
                 this.SyncObjectClass.name
@@ -67,7 +67,7 @@ class SyncManager  {
             this.SyncObjectClass
         );
         const secondaryArrayInitialCount = secondaryArr.length;
-        const time2 = parseInt(moment().format('x'));
+        const time2 = parseInt(moment().format("x"));
         debug(
             `${secondaryArr.length} number of ${
                 this.SyncObjectClass.name
@@ -96,11 +96,11 @@ class SyncManager  {
             );
         }
         if (this.useFirstMatchingDuplicate) {
-            primaryArr = _.uniqBy(primaryArr, 'matchHash');
+            primaryArr = _.uniqBy(primaryArr, "matchHash");
             debug(
                 `${primaryArr.length} Objects remaining after removing duplicates from Primary Array`
             );
-            secondaryArr = _.uniqBy(secondaryArr, 'matchHash');
+            secondaryArr = _.uniqBy(secondaryArr, "matchHash");
             debug(
                 `${secondaryArr.length} Objects remaining after removing duplicates from Secondary Array`
             );
@@ -142,8 +142,8 @@ class SyncManager  {
                     // This should basically tell us if both values are falsy, in which case we're good
                     valuesAreNotEquivalent = false;
                 } else if (
-                    typeof primaryObj.data[key] === 'number' ||
-                    typeof secondaryObj.data[key] === 'number'
+                    typeof primaryObj.data[key] === "number" ||
+                    typeof secondaryObj.data[key] === "number"
                 ) {
                     // This should try comparing if at least one of the two are numbers
                     valuesAreNotEquivalent =
@@ -202,7 +202,7 @@ class SyncManager  {
             } for creating in ${this.secondaryModule.constructor.getName()}`
         );
 
-        const time3 = parseInt(moment().format('x'));
+        const time3 = parseInt(moment().format("x"));
         debug(`Sorting complete in ${time3 - time2} ms`);
 
         // create the database entries for the
@@ -224,18 +224,18 @@ class SyncManager  {
             );
             primaryObj.setSyncId(createdObj.id);
         }
-        const time4 = parseInt(moment().format('x'));
+        const time4 = parseInt(moment().format("x"));
         debug(`Sync objects create in DB in ${time4 - time3} ms`);
 
         // call the batch update/creates
-        let time5 = parseInt(moment().format('x'));
-        let time6 = parseInt(moment().format('x'));
+        let time5 = parseInt(moment().format("x"));
+        let time6 = parseInt(moment().format("x"));
         if (!this.isUnidirectionalSync) {
             await this.primaryModule.batchUpdateSyncObjects(
                 primaryUpdate,
                 this
             );
-            time5 = parseInt(moment().format('x'));
+            time5 = parseInt(moment().format("x"));
             debug(
                 `Updated ${primaryUpdate.length} ${
                     this.SyncObjectClass.name
@@ -247,7 +247,7 @@ class SyncManager  {
                 primaryCreate,
                 this
             );
-            time6 = parseInt(moment().format('x'));
+            time6 = parseInt(moment().format("x"));
             debug(
                 `Created ${primaryCreate.length} ${
                     this.SyncObjectClass.name
@@ -261,7 +261,7 @@ class SyncManager  {
             secondaryUpdate,
             this
         );
-        const time7 = parseInt(moment().format('x'));
+        const time7 = parseInt(moment().format("x"));
         debug(
             `Updated ${secondaryUpdate.length} ${
                 this.SyncObjectClass.name
@@ -274,7 +274,7 @@ class SyncManager  {
             secondaryCreate,
             this
         );
-        const time8 = parseInt(moment().format('x'));
+        const time8 = parseInt(moment().format("x"));
         debug(
             `${primaryArrayInitialCount} number of ${
                 this.SyncObjectClass.name
@@ -381,7 +381,7 @@ class SyncManager  {
             );
 
             if (syncObj) {
-                debug('Sync object found, evaluating...');
+                debug("Sync object found, evaluating...");
                 const hashMatch = syncObj.hash === dataHash;
                 const dataIdentifierLength = syncObj.dataIdentifiers.length;
 
@@ -403,7 +403,7 @@ class SyncManager  {
                     batchUpdates.push(secondaryObj);
                 } else if (hashMatch && dataIdentifierLength > 1) {
                     debug(
-                        'Data hashes match, no updates or creates needed for this one.'
+                        "Data hashes match, no updates or creates needed for this one."
                     );
                     noChange.push(syncObj);
                 }
@@ -482,14 +482,14 @@ class SyncManager  {
 
     async confirmUpdate(syncObj) {
         debug(
-            'Successfully updated secondaryObject. Updating the hash in the DB'
+            "Successfully updated secondaryObject. Updating the hash in the DB"
         );
         const result = await Sync.update(syncObj.syncId, {
             hash: syncObj.getHashData({
                 omitEmptyStringsFromData: this.omitEmptyStringsFromData,
             }),
         });
-        debug('Success');
+        debug("Success");
 
         return result;
     }

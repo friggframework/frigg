@@ -1,5 +1,5 @@
-const { RequiredPropertyError } = require('core-packages/errors');
-const { get, getAndVerifyType } = require('core-packages/assertions');
+const { RequiredPropertyError } = require('../errors');
+const { get, getAndVerifyType } = require('../assertions');
 
 class Options {
     constructor(params) {

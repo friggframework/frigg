@@ -1,6 +1,6 @@
-const Delegate = require('../Delegate');
-const { Integration } = require('@friggframework/integrations');
-const { get } = require('core-packages/assertions');
+const Delegate = require("../Delegate");
+const { Integration } = require("@friggframework/integrations");
+const { get } = require("../core-packages/assertions");
 
 class Migrator extends Delegate {
     constructor(params) {
@@ -19,11 +19,11 @@ class Migrator extends Delegate {
 
     async migrate(params) {
         try {
-            const fromVersion = get(params, 'fromVersion', null);
-            const toVersion = get(params, 'toVersion');
+            const fromVersion = get(params, "fromVersion", null);
+            const toVersion = get(params, "toVersion");
 
             console.log(
-                'Migrate called. First validating whether it can be done.'
+                "Migrate called. First validating whether it can be done."
             );
             if (
                 !this.integrationManager.Config.supportedVersions.some(
@@ -32,9 +32,9 @@ class Migrator extends Delegate {
             ) {
                 return this.throwException(
                     `Attempting to migrate to an unsupported version. Current supported versions are ${this.integrationManager.Config.supportedVersions.join(
-                        ', '
+                        ", "
                     )}`,
-                    'Migration Error'
+                    "Migration Error"
                 );
             }
             const migrationOption = this.options
@@ -47,17 +47,17 @@ class Migrator extends Delegate {
             if (!migrationOption)
                 return this.throwException(
                     `No migration option found for version ${fromVersion} to ${toVersion}`,
-                    'Migration Error'
+                    "Migration Error"
                 );
             // Run all general functions
             for (const generalFunct of migrationOption.generalFunctions) {
-                console.log('Running general functions first');
+                console.log("Running general functions first");
                 const res = await generalFunct();
                 console.log(res);
             }
             // Get all integration records based on fromVersion
             const filter = {
-                'config.type': this.integrationManager.getName(),
+                "config.type": this.integrationManager.getName(),
             };
             console.log(
                 `Retrieved all ${this.integrationManager.getName()} integrations`
@@ -67,7 +67,7 @@ class Migrator extends Delegate {
             const filteredIntegrations = integrations.filter((int) => {
                 const isNotToVersion = int.version !== toVersion;
                 let isFromVersion = true;
-                if (fromVersion && fromVersion !== '*') {
+                if (fromVersion && fromVersion !== "*") {
                     isFromVersion = int.version === fromVersion;
                 }
                 return isNotToVersion && isFromVersion;
@@ -129,7 +129,7 @@ class Migrator extends Delegate {
                     // Run functions
                     if (
                         integrationManagerInstance.integration.status !==
-                        'ERROR'
+                        "ERROR"
                     ) {
                         for (const func of migrationOption.perIntegrationFunctions) {
                             const res = await func(integrationManagerInstance);
@@ -140,7 +140,7 @@ class Migrator extends Delegate {
                     // Validate Config
                     if (
                         integrationManagerInstance.integration.status !==
-                        'ERROR'
+                        "ERROR"
                     ) {
                         await integrationManagerInstance.validateConfig();
                     }
@@ -148,19 +148,19 @@ class Migrator extends Delegate {
                     // Add to results tally
                     const currentStatus =
                         integrationManagerInstance.integration.status;
-                    if (currentStatus === 'ENABLED') {
+                    if (currentStatus === "ENABLED") {
                         integrationManagerInstance.integration.version =
                             toVersion;
                         await integrationManagerInstance.integration.save();
                         results.migrationResults.success += 1;
                     }
-                    if (currentStatus === 'NEEDS_CONFIG') {
+                    if (currentStatus === "NEEDS_CONFIG") {
                         integrationManagerInstance.integration.version =
                             toVersion;
                         await integrationManagerInstance.integration.save();
                         results.migrationResults.needsConfig += 1;
                     }
-                    if (currentStatus === 'ERROR')
+                    if (currentStatus === "ERROR")
                         results.migrationResults.error += 1;
                 }
             }
@@ -181,7 +181,7 @@ class Migrator extends Delegate {
 
             return results;
         } catch (e) {
-            this.throwException(e.message, 'Migrate Error');
+            this.throwException(e.message, "Migrate Error");
         }
     }
 }
