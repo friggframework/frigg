@@ -8,73 +8,71 @@ const { get } = require("../core-packages/assertions");
  * later...
  */
 class Association {
-    static Config = {
-        name: "Association",
+  static Config = {
+    name: "Association",
 
-        reverseModuleMap: {},
-    };
-    constructor(params) {
-        this.data = {};
+    reverseModuleMap: {},
+  };
+  constructor(params) {
+    this.data = {};
 
-        let data = get(params, "data");
-        this.moduleName = get(params, "moduleName");
-        this.dataIdentifier = get(params, "dataIdentifier");
+    let data = get(params, "data");
+    this.moduleName = get(params, "moduleName");
+    this.dataIdentifier = get(params, "dataIdentifier");
 
-        this.dataIdentifierHash = this.constructor.hashJSON(
-            this.dataIdentifier
-        );
+    this.dataIdentifierHash = this.constructor.hashJSON(this.dataIdentifier);
 
-        for (let key of this.constructor.Config.keys) {
-            this.data[key] =
-                this.constructor.Config.moduleMap[this.moduleName][key](data);
-        }
-
-        // matchHash is used to find matches between two sync objects
-        let matchHashData = [];
-        for (let key of this.constructor.Config.matchOn) {
-            matchHashData.push(this.data[key]);
-        }
-        this.matchHash = this.constructor.hashJSON(matchHashData);
-
-        this.syncId = null;
+    for (let key of this.constructor.Config.keys) {
+      this.data[key] =
+        this.constructor.Config.moduleMap[this.moduleName][key](data);
     }
 
-    equals(syncObj) {
-        return this.matchHash === syncObj.matchHash;
+    // matchHash is used to find matches between two sync objects
+    let matchHashData = [];
+    for (let key of this.constructor.Config.matchOn) {
+      matchHashData.push(this.data[key]);
     }
-    dataKeyIsReplaceable(key) {
-        return this.data[key] === null || this.data[key] === "";
+    this.matchHash = this.constructor.hashJSON(matchHashData);
+
+    this.syncId = null;
+  }
+
+  equals(syncObj) {
+    return this.matchHash === syncObj.matchHash;
+  }
+  dataKeyIsReplaceable(key) {
+    return this.data[key] === null || this.data[key] === "";
+  }
+
+  isModuleInMap(moduleName) {
+    return this.constructor.Config.moduleMap[name];
+  }
+
+  getName() {
+    return this.name;
+  }
+
+  getHashData() {
+    let orderedData = [];
+    for (let key of this.constructor.Config.keys) {
+      orderedData.push(this.data[key]);
     }
 
-    isModuleInMap(moduleName) {
-        return this.constructor.Config.moduleMap[name];
-    }
+    return this.constructor.hashJSON(orderedData);
+  }
 
-    getName() {
-        return this.name;
-    }
+  setSyncId(syncId) {
+    this.syncId = syncId;
+  }
 
-    getHashData() {
-        let orderedData = [];
-        for (let key of this.constructor.Config.keys) {
-            orderedData.push(this.data[key]);
-        }
+  reverseModuleMap(moduleName) {
+    return this.constructor.Config.reverseModuleMap[moduleName](this.data);
+  }
 
-        return this.constructor.hashJSON(orderedData);
-    }
-
-    setSyncId(syncId) {
-        this.syncId = syncId;
-    }
-
-    reverseModuleMap(moduleName) {
-        return this.constructor.Config.reverseModuleMap[moduleName](this.data);
-    }
-
-    static hashJSON(data) {
-        let dataString = JSON.stringify(data, null, 2);
-        return md5(dataString);
-    }
+  static hashJSON(data) {
+    let dataString = JSON.stringify(data, null, 2);
+    return md5(dataString);
+  }
 }
 
 module.exports = Association;

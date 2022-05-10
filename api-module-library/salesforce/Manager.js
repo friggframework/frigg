@@ -1,13 +1,11 @@
-const Api = require("./Api");
-const {
-    Credential,
-    Entity,
-    ModuleManager,
-} = require("@friggframework/module-plugin");
-const { get } = require("../../core-packages/assertions");
+const Api = require('./Api');
+const { ModuleManager } = require('@friggframework/module-plugin');
+const Credential = require('./models/Credential');
+const Entity = require('./models/Entity');
+const { get } = require('../../core-packages/assertions');
 
 // the name used for the entity type, generally
-const MANAGER_NAME = "salesforce";
+const MANAGER_NAME = 'salesforce';
 
 class Manager extends ModuleManager {
     static Entity = Entity;
@@ -77,14 +75,14 @@ class Manager extends ModuleManager {
     async getAuthorizationRequirements() {
         return {
             url: await this.api.getAuthorizationUri(),
-            type: "oauth2",
+            type: 'oauth2',
         };
     }
 
     async testAuth() {
         let validAuth = false;
         try {
-            if (await this.api.find("Organization")) validAuth = true;
+            if (await this.api.find('Organization')) validAuth = true;
         } catch (e) {
             console.log(e);
         }
@@ -92,9 +90,9 @@ class Manager extends ModuleManager {
     }
 
     async processAuthorizationCallback(params) {
-        const userId = get(params, "userId");
-        const data = get(params, "data");
-        const code = get(data, "code");
+        const userId = get(params, 'userId');
+        const data = get(params, 'data');
+        const code = get(data, 'code');
         let isSandbox = false;
 
         // try to get access token.
@@ -112,10 +110,10 @@ class Manager extends ModuleManager {
 
         // Get Account details and save on Entity record to `name` and `externalId` field
         // Get Username details too
-        const orgResponse = await this.api.find("Organization");
+        const orgResponse = await this.api.find('Organization');
         const orgDetails = orgResponse[0];
         const sfUserResponse = await this.api.get(
-            "User",
+            'User',
             this.api.conn.userInfo.id
         );
 
@@ -184,7 +182,7 @@ class Manager extends ModuleManager {
                 }
             }
         } catch (e) {
-            console.log("error yo");
+            console.log('error yo');
         }
     }
 }

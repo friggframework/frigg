@@ -1,17 +1,17 @@
-const jsforce = require("jsforce");
-const { OAuth2Requester } = require("@friggframework/module-plugin");
-const { get } = require("../../core-packages/assertions");
+const jsforce = require('jsforce');
+const { OAuth2Requester } = require('@friggframework/module-plugin');
+const { get } = require('../../core-packages/assertions');
 
 class SalesforceApi extends OAuth2Requester {
     constructor(params) {
         super(params);
         this.jsforce = jsforce;
-        this.instanceUrl = get(params, "instanceUrl", null);
-        this.isSandbox = get(params, "isSandbox", false);
+        this.instanceUrl = get(params, 'instanceUrl', null);
+        this.isSandbox = get(params, 'isSandbox', false);
         if (this.isSandbox) {
-            this.loginUrl = "https://test.salesforce.com";
+            this.loginUrl = 'https://test.salesforce.com';
         } else {
-            this.loginUrl = "https://login.salesforce.com";
+            this.loginUrl = 'https://login.salesforce.com';
         }
         this.oauth2 = new jsforce.OAuth2({
             clientId: this.key,
@@ -25,13 +25,13 @@ class SalesforceApi extends OAuth2Requester {
             refreshToken: this.refresh_token,
             instanceUrl: this.instanceUrl,
         });
-        this.conn.on("refresh", (accessToken, res) => {
+        this.conn.on('refresh', (accessToken, res) => {
             console.log(accessToken);
             this.refreshAccessToken(res).then(() => {
-                console.log("Refreshed");
+                console.log('Refreshed');
             });
         });
-        this.conn.on("error", (error) => {
+        this.conn.on('error', (error) => {
             console.log(error);
         });
     }
@@ -49,7 +49,7 @@ class SalesforceApi extends OAuth2Requester {
             clientId: this.key,
             clientSecret: this.secret,
             redirectUri: this.redirectUri,
-            loginUrl: "https://test.salesforce.com",
+            loginUrl: 'https://test.salesforce.com',
         });
 
         this.conn = new jsforce.Connection({
@@ -64,7 +64,7 @@ class SalesforceApi extends OAuth2Requester {
         try {
             await this.conn.authorize(code);
         } catch (e) {
-            console.log("Error authing with the code. Trying to auth sandbox.");
+            console.log('Error authing with the code. Trying to auth sandbox.');
             this.throwException(
                 `Error Authing with Code, try Sandbox. ${JSON.stringify(e)}`
             );
@@ -107,7 +107,7 @@ class SalesforceApi extends OAuth2Requester {
     async find(
         object,
         findFilter = {},
-        returnFields = { "*": 1 },
+        returnFields = { '*': 1 },
         options = {}
     ) {
         const response = await this.conn

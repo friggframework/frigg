@@ -11,7 +11,7 @@
         "prettier": "^2.5.1"
     },
     "scripts": {
-        "lint:fix": "prettier --write --loglevel error  && eslint . --fix",
+        "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
         "test": "jest"
     },
     "author": "",

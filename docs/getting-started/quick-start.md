@@ -11,7 +11,7 @@ The quick start app will give you a brief overview of how a Frigg component is i
 Clone and run quick start app.
 
 ```
-git clone https://github.com/friggframework/frigg.git 
+git clone https://github.com/friggframework/frigg.git
 cd frigg/backend
 cp .env.example .env
 npm install
@@ -22,7 +22,7 @@ Open a new shell and start the frontend app. Your app will be running at http://
 
 ```
 cd frigg/frontend
-cp .env.example .env 
+cp .env.example .env
 npm install
 npm run start
 ```
