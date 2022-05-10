@@ -1,0 +1,43 @@
+const mongoose = require('mongoose');
+
+const schema = new mongoose.Schema(
+    {
+        credential: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Credential',
+            required: false,
+        },
+        user: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            required: true,
+        },
+        name: { type: String },
+        externalId: { type: String },
+    },
+    { timestamps: true }
+);
+
+schema.static({
+    findByUserId: async function (userId) {
+        const entities = await this.find({ user: userId });
+        if (entities.length === 0) {
+            return null;
+        } else if (entities.length === 1) {
+            return entities[0];
+        } else {
+            throw new Error('multiple entities with same userId');
+        }
+    },
+    upsert: async function (filter, obj) {
+        return this.findOneAndUpdate(filter, obj, {
+            new: true,
+            upsert: true,
+            setDefaultsOnInsert: true,
+        });
+    },
+});
+
+const Entity = mongoose.model('Entity', schema);
+
+module.exports = { Entity };

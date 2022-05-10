@@ -1,0 +1,16 @@
+{
+    "name": "@friggframework/prettier-config",
+    "version": "1.0.2",
+    "description": "",
+    "main": "index.js",
+    "prettier": "@friggframework/prettier-config",
+    "devDependencies": {
+        "@friggframework/eslint-config": "^1.0.0"
+    },
+    "scripts": {
+        "lint:fix": "prettier --write --loglevel error  && eslint . --fix",
+        "test": "jest --passWithNoTests # TODO"
+    },
+    "author": "",
+    "license": "MIT"
+}
