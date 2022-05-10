@@ -13,14 +13,10 @@ mongoose.set('applyPluginsToDiscriminators', true); // Needed for LHEncrypt
 // With serverless, better to fail fast if not connected.
 // disconnected from MongoDB and send them when it reconnects.
 const mongoConfig = {
-    useFindAndModify: false,
     useNewUrlParser: true,
     bufferCommands: false, // Disable mongoose buffering
-    bufferMaxEntries: 0, // and MongoDB driver buffering
     autoCreate: false, // Disable because auto creation does not work without buffering
     useUnifiedTopology: true,
-    useCreateIndex: true,
-    auto_reconnect: true,
     serverSelectionTimeoutMS: 5000,
 };
 
