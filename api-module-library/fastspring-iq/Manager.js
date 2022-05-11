@@ -1,13 +1,11 @@
 const { get } = require('../core-packages/assertions');
-const {
-    Credential,
-    Entity,
-    ModuleManager,
-} = require('@friggframework/module-plugin'); // TODO probably should be module cred/entity? (same in others)
+const { ModuleManager } = require('@friggframework/module-plugin');
+const Credential = require('./models/Credential');
+const Entity = require('./models/Entity');
 const Api = require('./Api');
 
 // name used as the entity type
-const MANAGER_NAME = 'salesright';
+const MANAGER_NAME = 'fastspring-iq';
 
 class Manager extends ModuleManager {
     static Entity = Entity;
