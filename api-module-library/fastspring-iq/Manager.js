@@ -1,13 +1,11 @@
-const { get } = require("../core-packages/assertions");
-const {
-    Credential,
-    Entity,
-    ModuleManager,
-} = require("@friggframework/module-plugin"); // TODO probably should be module cred/entity? (same in others)
-const Api = require("./Api");
+const { get } = require('../core-packages/assertions');
+const { ModuleManager } = require('@friggframework/module-plugin');
+const Credential = require('./models/Credential');
+const Entity = require('./models/Entity');
+const Api = require('./Api');
 
 // name used as the entity type
-const MANAGER_NAME = "salesright";
+const MANAGER_NAME = 'fastspring-iq';
 
 class Manager extends ModuleManager {
     static Entity = Entity;
@@ -71,13 +69,13 @@ class Manager extends ModuleManager {
     async getAuthorizationRequirements() {
         return {
             url: this.api.getAuthorizationUri(),
-            type: "oauth2",
+            type: 'oauth2',
         };
     }
 
     async processAuthorizationCallback(params) {
-        const data = get(params, "data");
-        const code = get(data, "code");
+        const data = get(params, 'data');
+        const code = get(data, 'code');
 
         await this.getAccessToken(code);
         const entity = await Entity.findByUserId(this.userId);
@@ -131,7 +129,7 @@ class Manager extends ModuleManager {
                     // We shouldn't ever get to this point vv but just in case
                     if (!this.entity) {
                         this.throwException(
-                            "No entity found on the Manager during Token Update... something is wrong"
+                            'No entity found on the Manager during Token Update... something is wrong'
                         );
                     }
                     const { credentials } = this.entity;
@@ -178,7 +176,7 @@ class Manager extends ModuleManager {
                 }
             }
         } catch (e) {
-            console.log("error yo");
+            console.log('error yo');
         }
     }
 }

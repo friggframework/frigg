@@ -1,46 +1,46 @@
-const fetch = require("node-fetch");
-const { OAuth2Requester } = require("@friggframework/module-plugin");
-const { get } = require("../../core-packages/assertions");
+const fetch = require('node-fetch');
+const { OAuth2Requester } = require('@friggframework/module-plugin');
+const { get } = require('../../core-packages/assertions');
 
 class Api extends OAuth2Requester {
     constructor(params) {
         super(params);
-        this.apiKey = get(params, "apiKey", null);
+        this.apiKey = get(params, 'apiKey', null);
         this.baseUrl = process.env.SALESRIGHT_BASE_URL;
         this.clientId = process.env.SALESRIGHT_CLIENT_ID;
         this.key = process.env.SALESRIGHT_CLIENT_ID;
         this.clientSecret = process.env.SALESRIGHT_CLIENT_SECRET;
         this.secret = process.env.SALESRIGHT_CLIENT_SECRET;
         this.redirectUri = process.env.SALESRIGHT_REDIRECT_URI;
-        this.state = get(params, "state", null);
-        this.delegate = get(params, "delegate", null);
-        this.scope = "full_access";
+        this.state = get(params, 'state', null);
+        this.delegate = get(params, 'delegate', null);
+        this.scope = 'full_access';
 
         // Endpoints appended to baseUrl
         this.URLs = {
             auth: {
-                signin: "/auth/signin", // sign in
-                me: "/auth/me", // exchange access token for API key
-                rotateKey: "/auth/rotatekey", // rotate API key
+                signin: '/auth/signin', // sign in
+                me: '/auth/me', // exchange access token for API key
+                rotateKey: '/auth/rotatekey', // rotate API key
             },
             oauth: {
-                authorizePage: "/oauth/index.html", // OAuth landing page for Authorization
-                authorize: "/oauth/authorize", // OAuth URL for retrieving code via 'direct'
-                token: "/oauth/token", // OAuth URL for retrieving access_token from `code` or `refresh_token`
+                authorizePage: '/oauth/index.html', // OAuth landing page for Authorization
+                authorize: '/oauth/authorize', // OAuth URL for retrieving code via 'direct'
+                token: '/oauth/token', // OAuth URL for retrieving access_token from `code` or `refresh_token`
             },
-            activities: "/activities",
-            webhooks: "/webhooks",
-            findQuote: "/quotes/search",
-            quotes: "/quotes",
-            organization: "/my-organization",
+            activities: '/activities',
+            webhooks: '/webhooks',
+            findQuote: '/quotes/search',
+            quotes: '/quotes',
+            organization: '/my-organization',
             getQuote: (quoteId) => `/quotes/${quoteId}`,
             closedWon: (quoteId) => `/quotes/${quoteId}/closed-won`,
             closedLost: (quoteId) => `/quotes/${quoteId}/closed-lost`,
             getPublishedQuote: (publishedQuoteId) =>
                 `/published-quotes/${publishedQuoteId}`,
-            companies: "/companies",
+            companies: '/companies',
             company: (companyId) => `/companies/${companyId}`,
-            contacts: "/contacts",
+            contacts: '/contacts',
             contact: (contactId) => `/contacts/${contactId}`,
             getQuoteBreakdown: (quoteId) => `/quotes/${quoteId}/breakdown`,
             getPublishedQuoteBreakdown: (publishedQuoteId) =>
@@ -49,9 +49,9 @@ class Api extends OAuth2Requester {
 
         // Webhook topics for events in SalesRight -- added to POST body for creating a webhook
         this.webhookTopics = {
-            createdQuote: "quotes/create",
-            updatedQuote: "quotes/update",
-            createdActivity: "activities/create", // when a new Activity for a Quote is created
+            createdQuote: 'quotes/create',
+            updatedQuote: 'quotes/update',
+            createdActivity: 'activities/create', // when a new Activity for a Quote is created
         };
     }
 
@@ -70,8 +70,8 @@ class Api extends OAuth2Requester {
 
     // REGULAR USER AUTH REQUESTS
     async signInUser(params) {
-        const email = get(params, "email");
-        const password = get(params, "password");
+        const email = get(params, 'email');
+        const password = get(params, 'password');
 
         const body = {
             email,
@@ -84,7 +84,7 @@ class Api extends OAuth2Requester {
     }
 
     async getApiKeyFromJwt(params) {
-        const jwt = get(params, "jwt");
+        const jwt = get(params, 'jwt');
 
         await this.setAccessToken(jwt);
         const res = await this._get(this.URLs.auth.me);
@@ -129,16 +129,16 @@ class Api extends OAuth2Requester {
 
     async getCodeFromJwt(jwt) {
         const params = new URLSearchParams();
-        params.append("jwt", jwt);
-        params.append("response_type", "code");
-        params.append("client_id", this.clientId);
-        params.append("redirect_uri", this.redirectUri);
-        params.append("scope", this.scope);
-        params.append("response_mode", "direct");
-        params.append("state", this.state);
+        params.append('jwt', jwt);
+        params.append('response_type', 'code');
+        params.append('client_id', this.clientId);
+        params.append('redirect_uri', this.redirectUri);
+        params.append('scope', this.scope);
+        params.append('response_mode', 'direct');
+        params.append('state', this.state);
         try {
             const options = {
-                method: "POST",
+                method: 'POST',
                 body: params,
             };
             console.log(options);
@@ -157,15 +157,15 @@ class Api extends OAuth2Requester {
     // OAuth Access Toekn Creation default
     async getTokenFromCode(code) {
         const params = new URLSearchParams();
-        params.append("grant_type", "authorization_code");
-        params.append("client_id", this.clientId);
-        params.append("client_secret", this.clientSecret);
-        params.append("redirect_uri", this.redirectUri);
-        params.append("scope", this.scope);
-        params.append("code", code);
+        params.append('grant_type', 'authorization_code');
+        params.append('client_id', this.clientId);
+        params.append('client_secret', this.clientSecret);
+        params.append('redirect_uri', this.redirectUri);
+        params.append('scope', this.scope);
+        params.append('code', code);
         try {
             const options = {
-                method: "POST",
+                method: 'POST',
                 body: params,
             };
             console.log(options);
@@ -185,14 +185,14 @@ class Api extends OAuth2Requester {
     // OAuth Access Token Refresh default
     async refreshAccessToken() {
         const params = new URLSearchParams();
-        params.append("grant_type", "refresh_token");
-        params.append("client_id", this.clientId);
-        params.append("client_secret", this.clientSecret);
-        params.append("refresh_token", this.refreshToken);
-        params.append("redirect_uri", this.redirectUri);
+        params.append('grant_type', 'refresh_token');
+        params.append('client_id', this.clientId);
+        params.append('client_secret', this.clientSecret);
+        params.append('refresh_token', this.refreshToken);
+        params.append('redirect_uri', this.redirectUri);
         try {
             const options = {
-                method: "POST",
+                method: 'POST',
                 body: params,
             };
             const response = await fetch(
@@ -254,7 +254,7 @@ class Api extends OAuth2Requester {
             if (response.status === 204) {
                 return response;
             }
-            if (response.headers.get("content-type") === "text/html")
+            if (response.headers.get('content-type') === 'text/html')
                 return response.text();
             return response.json();
         } catch (exception) {
@@ -274,18 +274,18 @@ class Api extends OAuth2Requester {
     // GET for all calls - Headers can include an API key or access token, usually API key
     async _get(url, params, retryCount = 3) {
         const esc = encodeURIComponent;
-        let query = "";
+        let query = '';
         if (params) {
-            query = "?";
+            query = '?';
             query += Object.keys(params)
                 .map((k) => `${esc(k)}=${esc(params[k])}`)
-                .join("&");
+                .join('&');
         }
 
         const headers = this.getAuthorizationHeaders();
-        headers["Content-Type"] = "application/json";
+        headers['Content-Type'] = 'application/json';
         const options = {
-            method: "GET",
+            method: 'GET',
             headers,
         };
 
@@ -302,18 +302,18 @@ class Api extends OAuth2Requester {
 
     async _getHtml(url, params, retryCount = 3) {
         const esc = encodeURIComponent;
-        let query = "";
+        let query = '';
         if (params) {
-            query = "?";
+            query = '?';
             query += Object.keys(params)
                 .map((k) => `${esc(k)}=${esc(params[k])}`)
-                .join("&");
+                .join('&');
         }
 
         const headers = this.getAuthorizationHeaders();
-        headers["Content-Type"] = "text/html";
+        headers['Content-Type'] = 'text/html';
         const options = {
-            method: "GET",
+            method: 'GET',
             headers,
         };
 
@@ -333,10 +333,10 @@ class Api extends OAuth2Requester {
         const newUrl = this.baseUrl + url;
 
         const headers = this.getAuthorizationHeaders();
-        headers["Content-Type"] = "application/json";
+        headers['Content-Type'] = 'application/json';
 
         const options = {
-            method: "POST",
+            method: 'POST',
             headers,
             body: JSON.stringify(body),
         };
@@ -354,10 +354,10 @@ class Api extends OAuth2Requester {
         const newUrl = this.baseUrl + url;
 
         const headers = this.getAuthorizationHeaders();
-        headers["Content-Type"] = "application/json";
+        headers['Content-Type'] = 'application/json';
 
         const options = {
-            method: "PATCH",
+            method: 'PATCH',
             headers,
             body: JSON.stringify(body),
         };
@@ -376,10 +376,10 @@ class Api extends OAuth2Requester {
         console.log(`Attempting a PUT with a body of ${JSON.stringify(body)}`);
 
         const headers = this.getAuthorizationHeaders();
-        headers["Content-Type"] = "application/json";
+        headers['Content-Type'] = 'application/json';
 
         const options = {
-            method: "PUT",
+            method: 'PUT',
             headers,
             body: JSON.stringify(body),
         };
@@ -397,10 +397,10 @@ class Api extends OAuth2Requester {
         const newUrl = this.baseUrl + url;
 
         const headers = this.getAuthorizationHeaders();
-        headers["Content-Type"] = "application/json";
+        headers['Content-Type'] = 'application/json';
 
         const options = {
-            method: "DELETE",
+            method: 'DELETE',
             headers,
         };
         const res = await fetch(newUrl, options);
@@ -421,7 +421,7 @@ class Api extends OAuth2Requester {
     // Return array of contact objects, optionally filtered by companyId
 
     async listContacts(filter) {
-        const companyId = get(filter, "companyId", null);
+        const companyId = get(filter, 'companyId', null);
         const params = {};
         if (companyId) {
             params.companyId = companyId;
@@ -432,14 +432,14 @@ class Api extends OAuth2Requester {
 
     // Creates and returns a Contact from the provided data
     async createContact(data) {
-        const firstName = get(data, "firstName");
-        const lastName = get(data, "lastName");
-        const email = get(data, "email");
-        const sourceId = get(data, "sourceId", null);
-        const sourceType = get(data, "sourceType", null);
-        const phone = get(data, "phone", null);
-        const sourceLink = get(data, "sourceLink", null);
-        const companyId = get(data, "companyId");
+        const firstName = get(data, 'firstName');
+        const lastName = get(data, 'lastName');
+        const email = get(data, 'email');
+        const sourceId = get(data, 'sourceId', null);
+        const sourceType = get(data, 'sourceType', null);
+        const phone = get(data, 'phone', null);
+        const sourceLink = get(data, 'sourceLink', null);
+        const companyId = get(data, 'companyId');
 
         const res = await this._post(this.URLs.contacts, {
             firstName,
@@ -456,15 +456,15 @@ class Api extends OAuth2Requester {
 
     // Updates and returns a Contact with the provided data
     async updateContact(data) {
-        const firstName = get(data, "firstName");
-        const lastName = get(data, "lastName");
-        const email = get(data, "email");
-        const sourceId = get(data, "sourceId", null);
-        const sourceType = get(data, "sourceType", null);
-        const sourceLink = get(data, "sourceLink", null);
-        const phone = get(data, "phone", null);
-        const companyId = get(data, "companyId");
-        const id = get(data, "id");
+        const firstName = get(data, 'firstName');
+        const lastName = get(data, 'lastName');
+        const email = get(data, 'email');
+        const sourceId = get(data, 'sourceId', null);
+        const sourceType = get(data, 'sourceType', null);
+        const sourceLink = get(data, 'sourceLink', null);
+        const phone = get(data, 'phone', null);
+        const companyId = get(data, 'companyId');
+        const id = get(data, 'id');
 
         const res = await this._put(this.URLs.contact(id), {
             firstName,
@@ -487,11 +487,11 @@ class Api extends OAuth2Requester {
 
     // Creates and returns a Company from the provided data
     async createCompany(data) {
-        const name = get(data, "name");
-        const website = get(data, "website", null);
-        const sourceId = get(data, "sourceId", null);
-        const sourceType = get(data, "sourceType", null);
-        const address = get(data, "address", null);
+        const name = get(data, 'name');
+        const website = get(data, 'website', null);
+        const sourceId = get(data, 'sourceId', null);
+        const sourceType = get(data, 'sourceType', null);
+        const address = get(data, 'address', null);
         const body = {
             name,
             sourceId,
@@ -506,13 +506,13 @@ class Api extends OAuth2Requester {
 
     // Updates and returns a Company with the provided data
     async updateCompany(data) {
-        const name = get(data, "name");
-        const website = get(data, "website", null);
-        const sourceId = get(data, "sourceId", null);
-        const sourceType = get(data, "sourceType", null);
-        const sourceLink = get(data, "sourceLink", null);
-        const address = get(data, "address", null);
-        const id = get(data, "id");
+        const name = get(data, 'name');
+        const website = get(data, 'website', null);
+        const sourceId = get(data, 'sourceId', null);
+        const sourceType = get(data, 'sourceType', null);
+        const sourceLink = get(data, 'sourceLink', null);
+        const address = get(data, 'address', null);
+        const id = get(data, 'id');
         const body = {
             name,
             sourceId,
@@ -543,7 +543,7 @@ class Api extends OAuth2Requester {
         const body = {
             url: webhookUrl,
             topic: this.webhookTopics.createdQuote,
-            method: "POST",
+            method: 'POST',
         };
 
         return this.createWebhook(body);
@@ -554,7 +554,7 @@ class Api extends OAuth2Requester {
         const body = {
             url: webhookUrl,
             topic: this.webhookTopics.updatedQuote,
-            method: "POST",
+            method: 'POST',
         };
         return this.createWebhook(body);
     }
@@ -564,7 +564,7 @@ class Api extends OAuth2Requester {
         const body = {
             url: webhookUrl,
             topic: this.webhookTopics.createdActivity,
-            method: "POST",
+            method: 'POST',
         };
         return this.createWebhook(body);
     }

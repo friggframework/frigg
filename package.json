@@ -4,7 +4,7 @@
   "description": "",
   "private": true,
   "scripts": {
-    "test:all": "npm test --foreground-scripts --workspaces",
+    "test:all": "npm test --foreground-scripts --workspaces --if-present",
     "use:engine": "n install $npm_package_engines_node && npm run use:npm",
     "use:npm": "npm install -g npm@$npm_package_engines_npm"
   },
@@ -22,9 +22,6 @@
     "core-packages/encrypt",
     "core-packages/errors",
     "core-packages/eslint-config",
-    "api-module-library/frigg-module-hub-spot",
-    "api-module-library/frigg-module-sales-right",
-    "api-module-library/frigg-module-salesforce",
     "core-packages/integrations",
     "core-packages/lambda",
     "core-packages/logs",
@@ -32,6 +29,9 @@
     "core-packages/module-plugin",
     "core-packages/prettier-config",
     "core-packages/syncs",
-    "core-packages/test-environment"
+    "core-packages/test-environment",
+    "api-module-library/hubspot",
+    "api-module-library/fastspring-iq",
+    "api-module-library/salesforce"
   ]
 }

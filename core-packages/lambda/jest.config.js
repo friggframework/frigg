@@ -1,3 +1,3 @@
 module.exports = async () => {
-    preset: '@friggframework/test-environment'
-}
+  preset: "@friggframework/test-environment";
+};

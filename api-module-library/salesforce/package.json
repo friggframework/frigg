@@ -1,11 +1,11 @@
 {
-    "name": "@friggframework/frigg-module-hub-spot",
+    "name": "@friggframework/api-module-salesforce",
     "version": "1.0.0",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
     "scripts": {
-        "lint:fix": "prettier --write --loglevel error  && eslint . --fix",
+        "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
         "test": "jest"
     },
     "author": "",
