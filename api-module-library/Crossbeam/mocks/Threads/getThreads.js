@@ -1,0 +1,26 @@
+module.exports = {
+    items: [
+        {
+            owner_id: 7798,
+            author_id: 7798,
+            organization_id: 63,
+            total_messages: 1,
+            company_domain: 'netchexonline.com',
+            company_name: 'Netchex',
+            title: null,
+            updated_at: '2021-04-27T16:10:29+00:00',
+            person_email: '',
+            id: '7de46e1b-7c42-533b-96c0-0aca37698a6e',
+            directionality: 'discussion',
+            last_viewed_at: '2021-04-27T16:10:29+00:00',
+            is_open: true,
+            last_comment_at: '2021-04-27T16:10:29+00:00',
+            record_id: '1336483866',
+            partner_organization_id: 19,
+            source_id: 132,
+            is_unread: false,
+            partner_owner_id: 3640,
+            created_at: '2021-04-27T16:10:29+00:00',
+        },
+    ],
+};

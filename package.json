@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "test:all": "npm test --foreground-scripts --workspaces --if-present",
-    "use:engine": "n install $npm_package_engines_node && npm run use:npm",
+    "use:engine": "sudo n install $npm_package_engines_node && npm run use:npm",
     "use:npm": "npm install -g npm@$npm_package_engines_npm"
   },
   "engines": {
@@ -32,6 +32,10 @@
     "core-packages/test-environment",
     "api-module-library/hubspot",
     "api-module-library/fastspring-iq",
-    "api-module-library/salesforce"
+    "api-module-library/salesforce",
+    "api-module-library/salesloft",
+    "api-module-library/activecampaign",
+    "api-module-library/terminus",
+    "api-module-library/rollworks"
   ]
 }

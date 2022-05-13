@@ -1,0 +1,8 @@
+{
+    "name": "salesloft",
+    "productUrl": "https://salesloft.com",
+    "apiDocs": "https://developer.salesloft.com",
+    "logoUrl": "https://friggframework.org/assets/img/salesloft.jpeg",
+    "categories": ["Sales"],
+    "description": "Salesloft’s Modern Revenue Workspace™ is the only complete sales engagement system. It gives sales teams everything they need, all in one place. "
+}

@@ -1,11 +1,9 @@
 const Api = require('./Api');
 const { ModuleManager } = require('@friggframework/module-plugin');
-const Credential = require('./models/Credential');
-const Entity = require('./models/Entity');
+const Credential = require('./models/credential');
+const Entity = require('./models/entity');
 const { get } = require('../../core-packages/assertions');
-
-// the name used for the entity type, generally
-const MANAGER_NAME = 'salesforce';
+const Config = require('./defaultConfig.json');
 
 class Manager extends ModuleManager {
     static Entity = Entity;
@@ -18,7 +16,7 @@ class Manager extends ModuleManager {
     //------------------------------------------------------------
     // Required methods
     static getName() {
-        return MANAGER_NAME;
+        return Config.name;
     }
 
     static async getInstance(params) {

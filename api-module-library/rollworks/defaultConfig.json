@@ -1,0 +1,8 @@
+{
+    "name": "rollworks",
+    "productUrl": "https://rollworks.com",
+    "apiDocs": "https://apidocs.nextroll.com/guides/get-started-rollworks.html",
+    "logoUrl": "https://friggframework.org/assets/img/rollworks.jpeg",
+    "categories": ["ABM"],
+    "description": "The account-based platform for B2B marketing & sales"
+}

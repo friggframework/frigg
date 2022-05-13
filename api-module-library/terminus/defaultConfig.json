@@ -1,0 +1,8 @@
+{
+    "name": "terminus",
+    "productUrl": "https://terminus.com",
+    "apiDocs": "https://terminus-devs.redoc.ly/",
+    "logoUrl": "https://friggframework.org/assets/img/terminus.jpeg",
+    "categories": ["ABM"],
+    "description": "Create, accelerate, and close more pipeline with Terminus."
+}

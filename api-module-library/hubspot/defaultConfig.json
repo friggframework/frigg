@@ -1,0 +1,8 @@
+{
+    "name": "hubspot",
+    "productUrl": "https://hubspot.com",
+    "apiDocs": "https://developers.hubspot.com",
+    "logoUrl": "https://friggframework.org/assets/img/hubspot.jpeg",
+    "categories": ["Marketing", "Sales", "CMS", "Marketing Automation"],
+    "description": "HubSpot is an all-in-one Marketing and Sales solution for scaling companies"
+}

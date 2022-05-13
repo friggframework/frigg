@@ -1,0 +1,55 @@
+module.exports = {
+    items: [
+        {
+            _xb_website: 'nationwide.com',
+            master_id: '1337581872',
+            partner_org_ids: [3610],
+            record_name: 'Nationwide Mutual Insurance Company',
+            partner_population_ids: [6666],
+            source_id: 132,
+            overlap_time: '2021-10-12T02:50:55+00:00',
+            population_ids: [120],
+            data: [
+                {
+                    source_id: 132,
+                    source_field_id: 612,
+                    display_name: 'Company Name',
+                    value: 'Nationwide Mutual Insurance Company',
+                    organization_id: 63,
+                    population_ids: [120],
+                },
+                {
+                    source_id: 132,
+                    source_field_id: 611,
+                    display_name: 'Company Website',
+                    value: 'nationwide.com',
+                    organization_id: 63,
+                    population_ids: [120],
+                },
+                {
+                    display_name: 'Account Website',
+                    value: 'nationwide.com',
+                    source_id: 9161,
+                    source_field_id: 1032305,
+                    organization_id: 3610,
+                    population_ids: [120],
+                },
+                {
+                    display_name: 'Account Name',
+                    value: 'Nationwide Mutual Insurance Company',
+                    source_id: 9161,
+                    source_field_id: 1032283,
+                    organization_id: 3610,
+                    population_ids: [120],
+                },
+            ],
+        },
+    ],
+    pagination: {
+        last_page: 0,
+        limit: 25,
+        next_href: null,
+        page: 1,
+        total_count: 0,
+    },
+};
