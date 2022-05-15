@@ -1,0 +1,8 @@
+{
+    "name": "pipedrive",
+    "productUrl": "https://pipedrive.com",
+    "apiDocs": "https://developer.pipedrive.com",
+    "logoUrl": "https://friggframework.org/assets/img/pipedrive.jpeg",
+    "categories": ["Sales"],
+    "description": "Pipedrive"
+}

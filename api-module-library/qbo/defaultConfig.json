@@ -1,0 +1,8 @@
+{
+    "name": "qbo",
+    "productUrl": "https://quickbooksonline.com",
+    "apiDocs": "https://developer.quickbooks.com",
+    "logoUrl": "https://friggframework.org/assets/img/qbo.jpeg",
+    "categories": ["Accounting"],
+    "description": "QuickBooks Online is the regular"
+}

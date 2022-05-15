@@ -1,0 +1,8 @@
+{
+    "name": "zoom",
+    "productUrl": "https://zoom.us",
+    "apiDocs": "https://developer.zoom.us",
+    "logoUrl": "https://friggframework.org/assets/img/zoom.jpeg",
+    "categories": ["Chat", "Team Messaging", "Video"],
+    "description": "Zoom"
+}

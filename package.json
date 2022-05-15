@@ -36,6 +36,23 @@
     "api-module-library/salesloft",
     "api-module-library/activecampaign",
     "api-module-library/terminus",
-    "api-module-library/rollworks"
+    "api-module-library/rollworks",
+    "api-module-library/zoom",
+    "api-module-library/revio",
+    "api-module-library/qbo",
+    "api-module-library/pipedrive",
+    "api-module-library/personio",
+    "api-module-library/outreach",
+    "api-module-library/netx",
+    "api-module-library/monday",
+    "api-module-library/marketo",
+    "api-module-library/huggg",
+    "api-module-library/gorgias",
+    "api-module-library/front",
+    "api-module-library/crossbeam",
+    "api-module-library/connectwise",
+    "api-module-library/clyde",
+    "api-module-library/attentive",
+    "api-module-library/airwallex"
   ]
 }

@@ -1,0 +1,8 @@
+{
+    "name": "connectwise",
+    "productUrl": "https://connectwise.com",
+    "apiDocs": "https://developer.connectwise.com",
+    "logoUrl": "https://friggframework.org/assets/img/connectwise.jpeg",
+    "categories": ["MSP"],
+    "description": "ConnectWise"
+}

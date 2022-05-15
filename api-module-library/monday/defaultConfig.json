@@ -1,0 +1,8 @@
+{
+    "name": "monday",
+    "productUrl": "https://monday.com",
+    "apiDocs": "https://developer.monday.com",
+    "logoUrl": "https://friggframework.org/assets/img/monday.jpeg",
+    "categories": ["Project Management", "Work OS"],
+    "description": "monday.com"
+}

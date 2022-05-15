@@ -1,0 +1,8 @@
+{
+    "name": "persionio",
+    "productUrl": "https://personio.com",
+    "apiDocs": "https://developer.personio.de",
+    "logoUrl": "https://friggframework.org/assets/img/personio.jpeg",
+    "categories": ["HR"],
+    "description": "Personio"
+}
