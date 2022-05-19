@@ -1,7 +1,7 @@
 const md5 = require("md5");
 const ModuleManager = require("../../managers/ModuleManager");
-const { debug } = require("core-packages/logs");
-const { get } = require("core-packages/assertions");
+const { debug } = require("packages/logs");
+const { get } = require("packages/assertions");
 
 class Sync {
   static Config = {

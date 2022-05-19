@@ -2,7 +2,7 @@ const _ = require("lodash");
 const moment = require("moment");
 const mongoose = require("mongoose");
 const SyncObject = require("./sync");
-const { debug } = require("core-packages/logs");
+const { debug } = require("packages/logs");
 const { get } = require("../assertions");
 const { Sync } = require("./model");
 

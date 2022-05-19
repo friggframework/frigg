@@ -1,5 +1,5 @@
-const { debug, flushDebugLog } = require('../../core-packages/logs');
-const { get } = require('../../core-packages/assertions');
+const { debug, flushDebugLog } = require('../../packages/logs');
+const { get } = require('../../packages/assertions');
 const { ModuleManager } = require('@friggframework/module-plugin');
 const { Api } = require('./api');
 const { Entity } = require('./entity');
