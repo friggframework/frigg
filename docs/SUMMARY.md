@@ -1,8 +1,9 @@
 # Table of contents
 
+* [Introduction](README.md)
+
 ## 🥳 Getting Started
 
-* [Introduction](README.md)
 * [Quick Start Tutorial](getting-started/quick-start.md)
   * [Create Frigg App](getting-started/quick-start/create-frigg-app.md)
   * [Exploring the App](getting-started/quick-start/exploring-the-app.md)
@@ -11,10 +12,14 @@
   * [Building your first integration](getting-started/quick-start/building-your-first-integration.md)
   * [Testing the Integration](getting-started/quick-start/testing-the-integration.md)
   * [Next Steps](getting-started/quick-start/next-steps.md)
+* [Architecture](getting-started/architecture.md)
+* [Core Concepts](getting-started/core-concepts.md)
+* [Contributing](getting-started/contributing/README.md)
+  * [Contributor Covenant Code of Conduct](getting-started/contributing/code\_of\_conduct.md)
+  * [PULL\_REQUEST\_TEMPLATE](getting-started/contributing/pull\_request\_template.md)
 
 ## 👩💻 Development
 
-* [Architecture](development/architecture.md)
 * [Framework Development Guide](development/framework-development-guide.md)
 * [API Module Development Guide](development/api-module-development-guide/README.md)
   * [Introduction](development/api-module-development-guide/introduction.md)
@@ -26,9 +31,6 @@
     * [Extending](development/api-module-development-guide/deployment/extending.md)
 * [Integration Development Guide](development/integration-development-guide.md)
 * [Authentication](development/authentication.md)
-* [Contributing](development/contributing/README.md)
-  * [Contributor Covenant Code of Conduct](development/contributing/code\_of\_conduct.md)
-  * [PULL\_REQUEST\_TEMPLATE](development/contributing/pull\_request\_template.md)
 
 ## 📖 API Reference
 

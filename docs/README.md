@@ -49,4 +49,4 @@ In the backend, Frigg is based on the serverless.com framework. This key piece o
 
 ## Developers
 
-See [CONTRIBUTING.md](development/contributing/) for details about getting started as a Frigg contributor.
+See [CONTRIBUTING.md](getting-started/contributing/) for details about getting started as a Frigg contributor.

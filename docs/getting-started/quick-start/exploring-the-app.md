@@ -4,7 +4,7 @@
 
 Running `npm start` at the root of your Frigg application repo will run `npm start` on both the `/backend` and `/frontend` directories. Let's unpack each.
 
-The frontend is a cookie cutter React application built with Create React App and Tailwind CSS and Tailwind UI, that leverages the Frigg React component library for the Integration Management page. This is the core piece to pay attention to for your own application. You can read more about Frontend options and concepts with [Frigg here.](../../development/architecture.md)
+The frontend is a cookie cutter React application built with Create React App and Tailwind CSS and Tailwind UI, that leverages the Frigg React component library for the Integration Management page. This is the core piece to pay attention to for your own application. You can read more about Frontend options and concepts with [Frigg here.](../architecture.md)
 
 We have provided a very lightweight/basic user login flow and dashboard. Go ahead and try logging in or creating an account.
 
