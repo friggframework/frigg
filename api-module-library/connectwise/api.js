@@ -1,5 +1,5 @@
-const Requester = require('@friggframework/core/Requester.js');
-const FormatPatchBody = require('../../utils/FormatPatchBody.js');
+const { Requester } = require('@friggframework/core');
+const FormatPatchBody = require('./formatPatchBody');
 
 class ConnectWiseApi extends Requester {
     constructor(params) {
