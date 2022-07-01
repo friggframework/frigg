@@ -1,6 +1,6 @@
 const moment = require('moment');
 const { Requester } = require('./requester');
-const { get } = require('../../assertions');
+const { get } = require('@friggframework/assertions');
 
 class OAuth2Requester extends Requester {
     constructor(params) {
