@@ -1,7 +1,7 @@
 const { get } = require('../core-packages/assertions');
 const { ModuleManager } = require('@friggframework/module-plugin');
-const Credential = require('./models/Credential');
-const Entity = require('./models/Entity');
+const Credential = require('./models/credential');
+const Entity = require('./models/entity');
 const Api = require('./Api');
 
 // name used as the entity type

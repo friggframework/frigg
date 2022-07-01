@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-attentive",
-    "version": "0.8.0",
+    "version": "0.8.1",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",

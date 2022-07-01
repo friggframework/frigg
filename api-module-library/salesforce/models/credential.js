@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { cCredential: Parent } = require('@friggframework/module-plugin');
+const { Credential: Parent } = require('@friggframework/module-plugin');
 
 const schema = new mongoose.Schema({
     accessToken: {

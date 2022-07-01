@@ -1,23 +1,7 @@
 const mongoose = require('mongoose');
-const { createModel, Entity: Parent } = require('@friggframework/models');
+const { Entity: Parent } = require('@friggframework/module-plugin');
 
-const collectionName = 'ConnectWiseEntity';
-const parentModelObject = new Parent();
+const schema = new mongoose.Schema({});
 
-const _schema = new mongoose.Schema({
-    company_id: { type: String },
-    webhook_subscriptions: [{ type: String }],
-});
-
-const _model = createModel(collectionName, _schema, parentModelObject);
-
-class Entity extends Parent {
-    static Schema = _schema;
-    static Model = _model;
-
-    constructor(model = _model) {
-        super(model);
-    }
-}
-
-module.exports = Entity;
+const Entity = Parent.discriminator('ConnectWiseEntity', schema);
+module.exports = { Entity };

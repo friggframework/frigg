@@ -1,12 +1,11 @@
+'use strict';
 const mongoose = require('mongoose');
 const { Credential: Parent } = require('@friggframework/module-plugin');
 
 const schema = new mongoose.Schema({
     access_token: { type: String, trim: true, lhEncrypt: true },
-    id_token: { type: String, trim: true, lhEncrypt: true },
-    token_type: { type: String, default: 'Bearer' },
-    expires_in: { type: Number },
+    refresh_token: { type: String, trim: true, lhEncrypt: true },
 });
 
-const Credential = Parent.discriminator('AttentiveCredentials', schema);
+const Credential = Parent.discriminator('ZoomCredentials', schema);
 module.exports = { Credential };

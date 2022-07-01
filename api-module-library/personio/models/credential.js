@@ -1,13 +1,13 @@
 const mongoose = require('mongoose');
 const { Credential: Parent } = require('@friggframework/module-plugin');
+
 const schema = new mongoose.Schema({
-    apiKey: {
+    access_token: {
         type: String,
         trim: true,
-        unique: true,
         lhEncrypt: true,
     },
 });
 
-const Credential = Parent.discriminator('TerminusCredentials', schema);
+const Credential = Parent.discriminator('PersonioCredentials', schema);
 module.exports = { Credential };

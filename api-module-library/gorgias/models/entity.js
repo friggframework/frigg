@@ -1,27 +1,7 @@
-'use strict';
 const mongoose = require('mongoose');
-const moment = require('moment');
-const MongooseUtil = require('../../../utils/MongooseUtil');
-const Parent = require('../../../base/models/Entity');
+const { Entity: Parent } = require('@friggframework/module-plugin');
 
-const collectionName = 'GorgiasEntity';
-const parentModelObject = new Parent();
+const schema = new mongoose.Schema({});
 
-const _schema = new mongoose.Schema({});
-
-const _model = MongooseUtil.createModel(
-    collectionName,
-    _schema,
-    parentModelObject
-);
-
-class Entity extends Parent {
-    static Schema = _schema;
-    static Model = _model;
-
-    constructor(model = _model) {
-        super(model);
-    }
-}
-
-module.exports = Entity;
+const Entity = Parent.discriminator('GorgiasEntity', schema);
+module.exports = { Entity };
