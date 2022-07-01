@@ -1,4 +1,4 @@
-const { get } = require('..//assertions');
+const { get } = require('@friggframework/assertions');
 
 class Delegate {
     constructor(params) {
