@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/module-plugin",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",

@@ -1,5 +1,5 @@
 const md5 = require("md5");
-const { get } = require("../core-packages/assertions");
+const { get } = require("@friggframework/assertions");
 
 /**
  * @file This file is meant to be the thing that enforces proper use of
