@@ -6,6 +6,9 @@ const schema = new mongoose.Schema({
     connectedUsername: String,
 });
 
-const Entity = Parent.discriminator('salesforceEntity', schema);
+const name = 'SalesforceEntity';
+const Entity =
+    Parent.discriminators?.[name] || Parent.discriminator(name, schema);
+module.exports = { Entity };
 
 module.exports = { Entity };

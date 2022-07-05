@@ -77,7 +77,7 @@ class Manager extends ModuleManager {
         }
 
         if (credentials.length === 0) {
-            throw new Error('Credentials failed to create');
+            throw new Error('Credential failed to create');
         }
         if (credentials.length > 1) {
             throw new Error('User has multiple credentials???');

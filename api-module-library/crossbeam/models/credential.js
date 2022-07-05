@@ -15,5 +15,7 @@ const schema = new mongoose.Schema({
     auth_is_valid: { type: Boolean, default: true },
 });
 
-const Credential = Parent.discriminator('CrossbeamCredentials', schema);
+const name = 'CrossbeamCredential';
+const Credential =
+    Parent.discriminators?.[name] || Parent.discriminator(name, schema);
 module.exports = { Credential };

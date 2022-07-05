@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-activecampaign",
-    "version": "0.8.5",
+    "version": "0.8.7",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",

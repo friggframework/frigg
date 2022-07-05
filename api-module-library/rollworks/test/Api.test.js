@@ -258,7 +258,7 @@ describe.skip('RollWorks API', () => {
                 throw new Error('Did not fail');
             } catch (e) {
                 expect(e.message).toBe(
-                    'Api -- Error: Error Refreshing Credentials'
+                    'Api -- Error: Error Refreshing Credential'
                 );
             }
         });

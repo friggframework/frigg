@@ -3,5 +3,7 @@ const { Entity: Parent } = require('@friggframework/module-plugin');
 
 const schema = new mongoose.Schema({});
 
-const Entity = Parent.discriminator('ConnectWiseEntity', schema);
+const name = 'ConnectWiseEntity';
+const Entity =
+    Parent.discriminators?.[name] || Parent.discriminator(name, schema);
 module.exports = { Entity };

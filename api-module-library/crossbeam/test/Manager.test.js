@@ -157,9 +157,7 @@ describe('Crossbeam Entity Manager', () => {
             await xbeamManager.testAuth();
             throw new Error('Why is this not hitting an auth error?');
         } catch (e) {
-            e.message.should.equal(
-                'Api -- Error: Error Refreshing Credentials'
-            );
+            e.message.should.equal('Api -- Error: Error Refreshing Credential');
             // e.message.should.equal('Api -- Error: Authentication is no longer valid');
             const credential = await xbeamManager.credentialMO.get(
                 xbeamManager.entity.credential

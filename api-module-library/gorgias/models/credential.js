@@ -1,11 +1,7 @@
 const mongoose = require('mongoose');
-const MongooseUtil = require('../../../utils/MongooseUtil');
-const Parent = require('../../../base/models/Credential');
+const { Credential: Parent } = require('@friggframework/module-plugin');
 
-const collectionName = 'GorgiasCredentials';
-const parentModelObject = new Parent();
-
-const _schema = new mongoose.Schema({
+const schema = new mongoose.Schema({
     accessToken: {
         type: String,
         trim: true,
@@ -24,20 +20,7 @@ const _schema = new mongoose.Schema({
     expires_at: { type: Date },
 });
 
-const _model = MongooseUtil.createModel(
-    collectionName,
-    _schema,
-    parentModelObject
-);
-
-class Credential extends Parent {
-    static Schema = _schema;
-
-    static Model = _model;
-
-    constructor(model = _model) {
-        super(model);
-    }
-}
-
+const name = 'GorgiasCredential';
+const Credential =
+    Parent.discriminators?.[name] || Parent.discriminator(name, schema);
 module.exports = { Credential };

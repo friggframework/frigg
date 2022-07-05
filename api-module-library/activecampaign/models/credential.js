@@ -12,6 +12,7 @@ const schema = new mongoose.Schema({
         required: true,
     },
 });
-
-const Credential = Parent.discriminator('ActiveCampaignCredentials', schema);
+const name = 'ActiveCampaignCredential';
+const Credential =
+    Parent.discriminators?.[name] || Parent.discriminator(name, schema);
 module.exports = { Credential };

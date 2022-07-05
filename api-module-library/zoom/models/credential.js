@@ -7,5 +7,7 @@ const schema = new mongoose.Schema({
     refresh_token: { type: String, trim: true, lhEncrypt: true },
 });
 
-const Credential = Parent.discriminator('ZoomCredentials', schema);
+const name = 'ZoomCredential';
+const Credential =
+    Parent.discriminators?.[name] || Parent.discriminator(name, schema);
 module.exports = { Credential };

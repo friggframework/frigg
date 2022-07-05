@@ -84,7 +84,7 @@ describe.skip('Huggg Manager', () => {
             manager.api.refresh_token = 'nolongervalid';
             const response = await manager.testAuth();
         } catch (e) {
-            expect(e.message).toBe('Api --Error: Error Refreshing Credentials');
+            expect(e.message).toBe('Api --Error: Error Refreshing Credential');
             const credential = await manager.credentialMO.get(
                 manager.entity.credential
             );

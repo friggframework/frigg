@@ -9,5 +9,7 @@ const schema = new mongoose.Schema({
     },
 });
 
-const Credential = Parent.discriminator('NetXCredentials', schema);
+const name = 'NetXCredential';
+const Credential =
+    Parent.discriminators?.[name] || Parent.discriminator(name, schema);
 module.exports = { Credential };

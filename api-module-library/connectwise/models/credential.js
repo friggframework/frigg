@@ -16,6 +16,7 @@ const schema = new mongoose.Schema({
     site: { type: String, required: true },
 });
 
-const Credential = Parent.discriminator('connectwiseCredentials', schema);
-
+const name = 'ConnectWiseCredential';
+const Credential =
+    Parent.discriminators?.[name] || Parent.discriminator(name, schema);
 module.exports = { Credential };

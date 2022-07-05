@@ -15,5 +15,7 @@ const schema = new mongoose.Schema({
     companyDomain: { type: String },
 });
 
-const Credential = Parent.discriminator('PipedriveCredentials', schema);
+const name = 'PipedriveCredential';
+const Credential =
+    Parent.discriminators?.[name] || Parent.discriminator(name, schema);
 module.exports = { Credential };

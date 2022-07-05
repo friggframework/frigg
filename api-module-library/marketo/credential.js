@@ -7,5 +7,7 @@ const schema = new mongoose.Schema({
     client_secret: { type: String, trim: true, lhEncrypt: true },
 });
 
-const Credential = Parent.discriminator('MarketoCredentials', schema);
+const name = 'MarketoCredential';
+const Credential =
+    Parent.discriminators?.[name] || Parent.discriminator(name, schema);
 module.exports = { Credential };

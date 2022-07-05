@@ -90,10 +90,10 @@ describe.only('NetX API class', () => {
                 api.access_token = 'nolongervalid';
                 api.refresh_token = 'nolongervalid';
                 await api.getAssets(2);
-                throw new Error('Api -- Error: Error Refreshing Credentials');
+                throw new Error('Api -- Error: Error Refreshing Credential');
             } catch (e) {
                 expect(e.message).to.eql(
-                    'Api -- Error: Error Refreshing Credentials'
+                    'Api -- Error: Error Refreshing Credential'
                 );
             }
         });

@@ -7,6 +7,7 @@ const schema = new mongoose.Schema({
     token_type: { type: String, default: 'Bearer' },
     expires_in: { type: Number },
 });
-
-const Credential = Parent.discriminator('AttentiveCredentials', schema);
+const name = 'AttentiveCredential';
+const Credential =
+    Parent.discriminators?.[name] || Parent.discriminator(name, schema);
 module.exports = { Credential };
