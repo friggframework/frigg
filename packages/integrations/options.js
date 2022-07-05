@@ -1,15 +1,10 @@
-const { RequiredPropertyError } = require('../errors');
-const { get, getAndVerifyType } = require('../assertions');
+const { RequiredPropertyError } = require('@friggframework/errors');
+const { get, getAndVerifyType } = require('@friggframework/assertions');
+const { ModuleManager } = require('@friggframework/module-plugin');
 
 class Options {
     constructor(params) {
-        // this.module = getAndVerifyType(params, 'module', ModuleManager);
-        // TODO
-        // this.integrations = getAndVerifyType(
-        //     params,
-        //     'integrations',
-        //     ModuleManager
-        // );
+        this.module = getAndVerifyType(params, 'module', ModuleManager);
         this.isMany = Boolean(get(params, 'isMany', false));
         this.hasUserConfig = Boolean(get(params, 'hasUserConfig', false));
         this.requiresNewEntity = Boolean(
@@ -27,18 +22,11 @@ class Options {
         this.display.description = get(params.display, 'description');
         this.display.detailsUrl = get(params.display, 'detailsUrl');
         this.display.icon = get(params.display, 'icon');
-        this.keys = get(params, 'keys', []);
     }
 
     get() {
         return {
             type: this.module.getName(),
-
-            // list of entities the module can connect to
-            integrations: this.integrations.map((val) => val.getName()),
-
-            // list of special data required to make an entity i.e. a shop id. This information should be sent back
-            keys: this.keys,
 
             // Flag for if the User can configure any settings
             hasUserConfig: this.hasUserConfig,
