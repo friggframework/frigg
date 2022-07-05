@@ -348,4 +348,4 @@ class Api extends OAuth2Base {
     }
 }
 
-module.exports = Api;
+module.exports = { Api };

@@ -1,7 +1,7 @@
 const _ = require('underscore');
 const moment = require('moment');
 const ModuleManager = require('@friggframework/core/managers/ModuleManager.js');
-const RevioApi = require('./api.js');
+const { Api } = require('./api.js');
 const Entity = require('./models/entity');
 const Credential = require('./models/credential');
 const ModuleConstants = require('../ModuleConstants');
@@ -45,9 +45,9 @@ class Manager extends ModuleManager {
             instance.credential = await instance.credentialMO.get(
                 instance.entity.credential
             );
-            instance.api = await new RevioApi(instance.credential);
+            instance.api = await new Api(instance.credential);
         } else {
-            // instance.api = new RevioApi();
+            // instance.api = new Api();
         }
 
         return instance;
@@ -59,7 +59,7 @@ class Manager extends ModuleManager {
         const password = get(params.data, 'password');
         const client_code = get(params.data, 'client_code');
 
-        this.api = new RevioApi({ username, password, client_code });
+        this.api = new Api({ username, password, client_code });
         const billProfile = await this.api.getBillProfile(); // May have a 401 error we'll need to catch in the route for bad credentials
 
         // add credentials to db
@@ -103,7 +103,7 @@ class Manager extends ModuleManager {
     }
 
     async notify(notifier, delegateString, object = null) {
-        if (notifier instanceof RevioApi) {
+        if (notifier instanceof Api) {
             if (delegateString === 'TOKEN_UPDATE') {
                 const updatedToken = {
                     user_name: object.user_name,

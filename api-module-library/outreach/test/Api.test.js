@@ -3,7 +3,7 @@
  */
 
 const Authenticator = require('../../../../test/utils/Authenticator');
-const OutreachAPI = require('../api');
+const Api = require('../api');
 
 describe('Outreach API class', () => {
     let testContext;
@@ -12,7 +12,7 @@ describe('Outreach API class', () => {
         testContext = {};
     });
 
-    const api = new OutreachAPI();
+    const api = new Api();
     beforeAll(async () => {
         const url = api.authorizationUri;
         const response = await Authenticator.oauth2(url);

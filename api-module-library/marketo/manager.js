@@ -1,4 +1,4 @@
-const Api = require('./api.js');
+const { Api } = require('./api.js');
 const Entity = require('./entity');
 const PrimaryEntity = require('../HubSpot/models/Entity');
 const Credential = require('./credential.js');

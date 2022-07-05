@@ -3,7 +3,7 @@
  */
 
 const Authenticator = require('../../../../test/utils/Authenticator');
-const SalesloftAPI = require('../api');
+const Api = require('../api');
 
 const TestUtils = require('../../../../test/utils/TestUtils');
 require('dotenv').config();
@@ -15,7 +15,7 @@ describe('Salesloft API class', () => {
         testContext = {};
     });
 
-    const api = new SalesloftAPI();
+    const api = new Api();
     beforeAll(async () => {
         const url = api.authorizationUri;
         const response = await Authenticator.oauth2(url);
@@ -197,7 +197,7 @@ describe('Salesloft API class', () => {
                 throw new Error('did not fail');
             } catch (e) {
                 expect(e.message).toBe(
-                    'SalesloftAPI -- Error: Error Refreshing Credentials'
+                    'Api -- Error: Error Refreshing Credentials'
                 );
             }
         });

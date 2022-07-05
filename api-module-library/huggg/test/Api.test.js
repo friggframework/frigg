@@ -3,12 +3,12 @@
  */
 
 const Authenticator = require('../../../../test/utils/Authenticator');
-const HugggAPI = require('../api');
+const Api = require('../api');
 
 const TestUtils = require('../../../../test/utils/TestUtils');
 
 describe('Huggg API class', () => {
-    const api = new HugggAPI({
+    const api = new Api({
         client_id: process.env.HUGGG_CLIENT_ID,
         client_secret: process.env.HUGGG_CLIENT_SECRET,
         username: process.env.HUGGG_TEST_USERNAME,
@@ -141,7 +141,7 @@ describe('Huggg API class', () => {
                 throw new Error('did not fail');
             } catch (e) {
                 expect(e.message).toBe(
-                    'HugggAPI -- Error: Error Refreshing Credentials'
+                    'Api -- Error: Error Refreshing Credentials'
                 );
             }
         });

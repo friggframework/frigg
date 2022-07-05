@@ -21,4 +21,4 @@ class Entity extends Parent {
     }
 }
 
-module.exports = Entity;
+module.exports = { Entity };

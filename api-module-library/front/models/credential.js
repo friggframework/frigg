@@ -22,4 +22,4 @@ class Credential extends Parent {
     }
 }
 
-module.exports = Credential;
+module.exports = { Credential };

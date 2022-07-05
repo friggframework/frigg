@@ -312,4 +312,4 @@ class Api extends BasicAuthBase {
     }
 }
 
-module.exports = Api;
+module.exports = { Api };

@@ -2,7 +2,7 @@ const ApiKeyBase = require('@friggframework/core/auth/ApiKeyBase');
 const moment = require('moment');
 const { get } = require('@friggframework/assertions');
 
-class PersonioAPI extends ApiKeyBase {
+class Api extends ApiKeyBase {
     constructor(params) {
         super(params);
 
@@ -281,4 +281,4 @@ class PersonioAPI extends ApiKeyBase {
     }
 }
 
-module.exports = PersonioAPI;
+module.exports = { Api };

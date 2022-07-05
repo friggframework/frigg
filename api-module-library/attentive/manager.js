@@ -1,5 +1,5 @@
 const _ = require('lodash');
-const Api = require('./api');
+const { Api } = require('./api');
 const Entity = require('./models/entity');
 const Credential = require('./models/credential');
 const LHModuleManager = require('../../base/managers/LHModuleManager');

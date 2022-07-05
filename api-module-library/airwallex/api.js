@@ -1,7 +1,7 @@
 const { parseZone } = require('moment');
 const OAuth2Base = require('../src/base/auth/OAuth2Base');
 
-class AirwallexAPI extends OAuth2Base {
+class Api extends OAuth2Base {
     constructor(params) {
         super(params);
         this.access_token = this.getParam(params, 'access_token', null);
@@ -264,4 +264,4 @@ class AirwallexAPI extends OAuth2Base {
     }
 }
 
-module.exports = AirwallexAPI;
+module.exports = { Api };

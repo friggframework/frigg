@@ -178,4 +178,4 @@ class Manager extends ModuleManager {
     }
 }
 
-module.exports = { Manager };
+module.exports = Manager;

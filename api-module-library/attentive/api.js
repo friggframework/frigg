@@ -1,7 +1,7 @@
 const OAuth2Base = require('../../base/auth/OAuth2Base');
 const { FetchError } = require('../../errors/FetchError');
 
-class AttentiveAPI extends OAuth2Base {
+class Api extends OAuth2Base {
     constructor(params) {
         super(params);
 
@@ -179,4 +179,4 @@ class AttentiveAPI extends OAuth2Base {
     }
 }
 
-module.exports = AttentiveAPI;
+module.exports = { Api };

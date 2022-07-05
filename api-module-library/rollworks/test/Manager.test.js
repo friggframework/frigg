@@ -131,7 +131,7 @@ describe.skip('RollWorks Manager', () => {
             throw new Error('goblinoids');
         } catch (e) {
             e.message.should.equal(
-                'RollWorksAPI -- Error: Error Refreshing Credentials'
+                'Api -- Error: Error Refreshing Credentials'
             );
             const credential = await rollworksManager.credentialMO.get(
                 rollworksManager.entity.credential

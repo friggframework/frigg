@@ -1,7 +1,7 @@
 const { Requester } = require('@friggframework/module-plugin');
 const FormatPatchBody = require('./formatPatchBody');
 
-class ConnectWiseApi extends Requester {
+class Api extends Requester {
     constructor(params) {
         super(params);
         this.COMPANY_ID = get(params, 'company_id', null);
@@ -598,4 +598,4 @@ class ConnectWiseApi extends Requester {
     }
 }
 
-module.exports = ConnectWiseApi;
+module.exports = { Api };

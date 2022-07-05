@@ -8,7 +8,7 @@ const marketoApiDefinition = require('./marketo-openapi-bulk.json');
 const bulkApi = new OpenAPIClientAxios({ definition: marketoApiDefinition });
 bulkApi.init();
 
-class MarketoAPI extends Requester {
+class Api extends Requester {
     constructor(params) {
         super(params);
         this.DLGT_TOKEN_UPDATE = 'TOKEN_UPDATE';
@@ -122,4 +122,4 @@ class MarketoAPI extends Requester {
     }
 }
 
-module.exports = MarketoAPI;
+module.exports = { Api };

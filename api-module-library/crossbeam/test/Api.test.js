@@ -244,7 +244,7 @@ describe.skip('Crossbeam API', () => {
                 await xbeamApi.getUserDetails();
                 throw new Error('did not fail');
             } catch (e) {
-                expect(e.message).toContain('CrossbeamAPI -- 401 Auth Error:');
+                expect(e.message).toContain('Api -- 401 Auth Error:');
             }
         });
     });

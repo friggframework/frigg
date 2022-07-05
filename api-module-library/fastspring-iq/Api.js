@@ -640,4 +640,4 @@ class Api extends OAuth2Requester {
     }
 }
 
-module.exports = Api;
+module.exports = { Api };

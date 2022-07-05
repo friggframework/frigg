@@ -3,7 +3,7 @@ const OAuth2Base = require('@friggframework/core/auth/OAuth2Base');
 
 const monday = mondaySdk();
 
-class MondayAPI extends OAuth2Base {
+class Api extends OAuth2Base {
     constructor(params) {
         super(params);
 
@@ -130,4 +130,4 @@ class MondayAPI extends OAuth2Base {
     }
 }
 
-module.exports = MondayAPI;
+module.exports = { Api };

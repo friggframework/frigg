@@ -2,24 +2,28 @@
 const mongoose = require('mongoose');
 const moment = require('moment');
 const MongooseUtil = require('../../../utils/MongooseUtil');
-const Parent = require("../../../base/models/Entity");
+const Parent = require('../../../base/models/Entity');
 
 const collectionName = 'ZoomEntity';
-const parentModelObject= new Parent();
+const parentModelObject = new Parent();
 
 const _schema = new mongoose.Schema({
     organization_id: { type: String, trim: true, unique: true },
 });
 
-const _model = MongooseUtil.createModel(collectionName, _schema, parentModelObject);
-  
-class Entity extends Parent{
+const _model = MongooseUtil.createModel(
+    collectionName,
+    _schema,
+    parentModelObject
+);
+
+class Entity extends Parent {
     static Schema = _schema;
     static Model = _model;
 
-    constructor(model=_model){
+    constructor(model = _model) {
         super(model);
     }
 }
 
-module.exports = Entity;
+module.exports = { Entity };
