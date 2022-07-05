@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-salesloft",
-    "version": "0.8.3",
+    "version": "0.8.4",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -19,6 +19,7 @@
         "sinon": "^12.0.1"
     },
     "dependencies": {
-        "@friggframework/module-plugin": "^1.0.0"
+        "@friggframework/module-plugin": "^1.0.4",
+        "@friggframework/assertions": "^1.0.1"
     }
 }

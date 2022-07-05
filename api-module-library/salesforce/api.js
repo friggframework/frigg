@@ -1,6 +1,6 @@
 const jsforce = require('jsforce');
 const { OAuth2Requester } = require('@friggframework/module-plugin');
-const { get } = require('../../packages/assertions');
+const { get } = require('@friggframework/assertions');
 
 class Api extends OAuth2Requester {
     constructor(params) {
