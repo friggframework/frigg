@@ -12,7 +12,9 @@ class IntegrationManager extends Delegate {
         events: [],
     };
 
-    static integrationManagerClasses = loadInstalledModules().map((m) => m.IntegrationManager);
+    static integrationManagerClasses = loadInstalledModules().map(
+        (m) => m.IntegrationManager
+    );
 
     static integrationTypes = IntegrationManager.integrationManagerClasses.map(
         (ManagerClass) => ManagerClass.getName()
@@ -73,11 +75,6 @@ class IntegrationManager extends Delegate {
         instance.delegate = instance;
         return instance;
     }
-
-    constructor(params) {
-        super(params);
-    }
-
 
     static getName() {
         return this.Config.name;
@@ -313,29 +310,6 @@ class IntegrationManager extends Delegate {
 
     static async listEntities(options) {
         return Entity.find(options);
-    }
-
-    static async getInstanceFromIntegrationId(params) {
-        const { integrationId } = params;
-        const integration = await this.getIntegrationById(integrationId);
-        const userId = integration.user;
-
-        const instance = await this.getInstance({ userId, integrationId });
-        instance.integration = integration;
-
-        instance.primaryInstance =
-            await this.EntityManagerClass.getEntityManagerInstanceFromEntityId(
-                instance.integration.entities[0],
-                instance.integration.user
-            );
-
-        instance.targetInstance =
-            await this.EntityManagerClass.getEntityManagerInstanceFromEntityId(
-                instance.integration.entities[1],
-                instance.integration.user
-            );
-
-        return instance;
     }
 
     // Children must implement
