@@ -1,7 +1,7 @@
 const _ = require('lodash');
 const { Api } = require('./api.js');
-const Entity = require('./models/entity');
-const Credential = require('./models/credential.js');
+const { Entity } = require('./models/entity');
+const { Credential } = require('./models/credential.js');
 const ModuleManager = require('@friggframework/core/managers/ModuleManager');
 const ModuleConstants = require('../ModuleConstants');
 const Config = require('./defaultConfig.json');

@@ -1,7 +1,7 @@
 const chai = require('chai');
 const { expect } = chai;
 const should = chai.should();
-const Api = require('../api');
+const { Api } = require('../api');
 const { mockApi } = require('../../../../test/utils/mockApi');
 
 const MockedApi = mockApi(Api, {

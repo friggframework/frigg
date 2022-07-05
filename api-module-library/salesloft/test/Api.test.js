@@ -3,7 +3,7 @@
  */
 
 const Authenticator = require('../../../../test/utils/Authenticator');
-const Api = require('../api');
+const { Api } = require('../api');
 
 const TestUtils = require('../../../../test/utils/TestUtils');
 require('dotenv').config();

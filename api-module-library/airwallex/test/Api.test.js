@@ -2,7 +2,7 @@ const chai = require('chai');
 
 const should = chai.should();
 const Authenticator = require('../../../../test/utils/Authenticator');
-const Api = require('../api');
+const { Api } = require('../api');
 
 const TestUtils = require('../../../../test/utils/TestUtils');
 

@@ -1,6 +1,6 @@
 const { Api } = require('./api');
-const Entity = require('./models/entity');
-const Credential = require('./models/credential');
+const { Entity } = require('./models/entity');
+const { Credential } = require('./models/credential');
 const LHModuleManager = require('../../base/managers/LHModuleManager');
 const ModuleConstants = require('../ModuleConstants');
 const { debug, flushDebugLog } = require('../../utils/logger');

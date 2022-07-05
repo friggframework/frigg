@@ -1,7 +1,7 @@
-const Api = require('./Api');
+const { Api } = require('./Api');
 const { ModuleManager } = require('@friggframework/module-plugin');
-const Credential = require('./models/credential');
-const Entity = require('./models/entity');
+const { Credential } = require('./models/credential');
+const { Entity } = require('./models/entity');
 const { get } = require('@friggframework/assertions');
 const Config = require('./defaultConfig.json');
 

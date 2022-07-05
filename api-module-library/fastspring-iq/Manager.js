@@ -1,8 +1,8 @@
 const { get } = require('@friggframework/assertions');
 const { ModuleManager } = require('@friggframework/module-plugin');
-const Credential = require('./models/credential');
-const Entity = require('./models/entity');
-const Api = require('./Api');
+const { Credential } = require('./models/credential');
+const { Entity } = require('./models/entity');
+const { Api } = require('./Api');
 
 // name used as the entity type
 const MANAGER_NAME = 'fastspring-iq';
