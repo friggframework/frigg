@@ -49,5 +49,6 @@ schema.statics({
   },
 });
 
-const Association = mongoose.model("Association", schema);
+const Association =
+  mongoose.models.Association || mongoose.model("Association", schema);
 module.exports = { Association };

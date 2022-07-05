@@ -58,5 +58,5 @@ schema.statics({
   },
 });
 
-const Sync = mongoose.model("Sync", schema);
+const Sync = mongoose.models.Sync || mongoose.model("Sync", schema);
 module.exports = { Sync };

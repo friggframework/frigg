@@ -16,5 +16,6 @@ const schema = new mongoose.Schema(
 
 schema.plugin(Encrypt);
 
-const Credential = mongoose.model('Credential', schema);
+const Credential =
+    mongoose.models.Credential || mongoose.model('Credential', schema);
 module.exports = { Credential };
