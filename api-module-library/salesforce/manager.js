@@ -4,6 +4,7 @@ const { Credential } = require('./models/credential');
 const { Entity } = require('./models/entity');
 const { get } = require('@friggframework/assertions');
 const Config = require('./defaultConfig.json');
+const { debug } = require('@friggframework/logs');
 
 class Manager extends ModuleManager {
     static Entity = Entity;
@@ -22,31 +23,16 @@ class Manager extends ModuleManager {
     static async getInstance(params) {
         const instance = new this(params);
 
-        if (params.userId && !params.entityId) {
-            instance.entity = await Entity.findByUserId(params.userId);
-        }
-
-        // // create an entry in the database if it does not exist
-        if (!params.entityId && !instance.entity) {
-            instance.entity = await Entity.create({
-                user: params.userId,
-            });
-        }
-
-        if (params.entityId) {
-            instance.entity = await Entity.get(params.entityId);
-        }
-
         // initializes the credentials and the Api
         const salesforceParams = { delegate: instance };
         salesforceParams.key = process.env.SALESFORCE_CLIENT_ID;
         salesforceParams.secret = process.env.SALESFORCE_CLIENT_SECRET;
         salesforceParams.redirectUri = process.env.SALESFORCE_REDIRECT_URI;
-        // salesforceParams.baseURL = process.env.SALESFORCE_API_BASE_URL;
 
-        if (instance.entity.credential) {
+        if (params.entityId) {
             try {
-                const salesforceToken = await Credential.find(
+                instance.entity = await Entity.get(params.entityId);
+                const salesforceToken = await Credential.findById(
                     instance.entity.credential
                 );
                 salesforceParams.access_token = salesforceToken.accessToken;
@@ -54,15 +40,10 @@ class Manager extends ModuleManager {
                 salesforceParams.instanceUrl = salesforceToken.instanceUrl;
                 salesforceParams.isSandbox = instance.entity.isSandbox;
             } catch (e) {
-                // instance.entity.credential = undefined;
-                // await instance.entity.save();
-                console.log(
+                debug(
                     `Error retrieving Salesforce credential for Entity ${instance.entity.id}`
                 );
-                console.log(JSON.stringify(e));
             }
-        } else {
-            // Otherwise if no creds?
         }
 
         instance.api = await new Api(salesforceParams);
@@ -115,19 +96,39 @@ class Manager extends ModuleManager {
             this.api.conn.userInfo.id
         );
 
-        const entity = await Entity.findByUserId(userId);
-        entity.name = orgDetails.Name;
-        entity.externalId = orgDetails.Id;
-        // Note that the Entity is a sandbox
-        entity.isSandbox = isSandbox;
-        entity.connectedUsername = sfUserResponse.Username;
-        await entity.save();
+        await this.findOrCreateEntity({
+            isSandbox,
+            orgDetails,
+            sfUserResponse,
+        });
         return {
-            id: entity.id,
+            entity_id: this.entity.id,
+            credential_id: this.credential.id,
             type: Manager.getName(),
         };
     }
 
+    async findOrCreateEntity(params) {
+        const orgDetails = get(params, 'orgDetails');
+        const sfUserResponse = get(params, 'sfUserResponse');
+        const isSandbox = get(params, isSandbox);
+
+        const createObj = {
+            credential: this.credential.id,
+            user: this.userId,
+            name: orgDetails.Name,
+            externalId: orgDetails.Id,
+            isSandbox,
+            connectedUsername: sfUserResponse.Username,
+        };
+        this.entity = await Entity.upsert(
+            {
+                user: this.userId,
+                externalId: orgDetails.id,
+            },
+            createObj
+        );
+    }
     //------------------------------------------------------------
 
     checkUserAuthorized() {
@@ -162,17 +163,18 @@ class Manager extends ModuleManager {
                         refreshToken: this.api.refresh_token,
                         instanceUrl: this.api.instanceUrl,
                     };
-                    if (!this.entity.credential) {
-                        this.entity.credential = await Credential.create(
-                            updatedToken
-                        );
-                    } else {
-                        this.entity.credential = await Credential.update(
-                            this.entity.credential,
-                            updatedToken
-                        );
-                    }
-                    await this.entity.save();
+                    this.credential = await Credential.findOneAndUpdate(
+                        {
+                            user: this.userId,
+                            instanceUrl: this.api.instanceUrl,
+                        },
+                        updatedToken,
+                        {
+                            new: true,
+                            upsert: true,
+                            setDefaultsOnInsert: true,
+                        }
+                    );
                 }
                 if (delegateString === this.api.DLGT_TOKEN_DEAUTHORIZED) {
                     await this.deauthorize();
