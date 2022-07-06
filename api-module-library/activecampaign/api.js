@@ -1,6 +1,6 @@
 const ApiKeyBase = require('@friggframework/core/auth/ApiKeyBase');
 
-class ActiveCampaignAPI extends ApiKeyBase {
+class Api extends ApiKeyBase {
     constructor(params) {
         super(params);
 
@@ -228,4 +228,4 @@ class ActiveCampaignAPI extends ApiKeyBase {
     }*/
 }
 
-module.exports = ActiveCampaignAPI;
+module.exports = { Api };

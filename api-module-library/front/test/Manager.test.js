@@ -110,10 +110,8 @@ describe.skip('Front Entity Manager', () => {
             await manager.testAuth();
             throw new Error('Why is this not hitting an auth error?');
         } catch (e) {
-            e.message.should.equal(
-                'FrontAPI -- Error: Error Refreshing Credentials'
-            );
-            // e.message.should.equal('FrontAPI -- Error: Authentication is no longer valid');
+            e.message.should.equal('Api -- Error: Error Refreshing Credential');
+            // e.message.should.equal('Api -- Error: Authentication is no longer valid');
             const credential = await manager.credentialMO.get(
                 manager.entity.credential
             );

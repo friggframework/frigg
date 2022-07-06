@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/module-plugin",
-    "version": "1.0.2",
+    "version": "1.0.6",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -11,7 +11,6 @@
     "author": "",
     "license": "MIT",
     "devDependencies": {
-        "@friggframework/core": "^0.2.0",
         "@friggframework/eslint-config": "^1.0.0",
         "@friggframework/test-environment": "^1.0.0",
         "eslint": "^7.32.0",
@@ -22,6 +21,7 @@
     "dependencies": {
         "aws-sdk": "^2.1073.0",
         "@friggframework/encrypt": "^1.0.0",
-        "mongoose": "^6.2.3"
+        "mongoose": "^6.2.3",
+        "@friggframework/core": "^0.2.1"
     }
 }

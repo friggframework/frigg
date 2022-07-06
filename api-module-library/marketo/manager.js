@@ -1,7 +1,7 @@
-const Api = require('./api.js');
-const Entity = require('./entity');
+const { Api } = require('./api.js');
+const { Entity } = require('./entity');
 const PrimaryEntity = require('../HubSpot/models/Entity');
-const Credential = require('./credential.js');
+const { Credential } = require('./credential.js');
 const ModuleManager = require('@friggframework/core/managers/ModuleManager');
 const Config = require('./defaultConfig.json');
 

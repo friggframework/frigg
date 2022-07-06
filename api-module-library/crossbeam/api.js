@@ -2,7 +2,7 @@ const moment = require('moment');
 const OAuth2Base = require('@friggframework/core/auth/OAuth2Base');
 const { get } = require('@friggframework/assertions');
 
-class CrossbeamAPI extends OAuth2Base {
+class Api extends OAuth2Base {
     constructor(params) {
         super(params);
 
@@ -160,4 +160,4 @@ class CrossbeamAPI extends OAuth2Base {
     }
 }
 
-module.exports = CrossbeamAPI;
+module.exports = { Api };

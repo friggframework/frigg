@@ -1,4 +1,4 @@
-const { get } = require('../../packages/assertions');
+const { get } = require('@friggframework/assertions');
 const { OAuth2Requester } = require('@friggframework/module-plugin');
 
 class Api extends OAuth2Requester {

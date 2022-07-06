@@ -1,4 +1,4 @@
-const { loadInstalledModules } = require('../core');
+const { loadInstalledModules } = require('@friggframework/core');
 const { Options } = require('./options');
 
 class IntegrationConfigManager {

@@ -2,12 +2,12 @@ const chai = require('chai');
 
 const should = chai.should();
 const Authenticator = require('../../../../test/utils/Authenticator');
-const AirwallexAPI = require('../api');
+const { Api } = require('../api');
 
 const TestUtils = require('../../../../test/utils/TestUtils');
 
 describe('Airwallex API class', async () => {
-    const api = new AirwallexAPI();
+    const api = new Api();
     before(async () => {
         const url = api.authorizationUri;
         const response = await Authenticator.oauth2(url);

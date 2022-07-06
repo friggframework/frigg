@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { cCredential: Parent } = require('@friggframework/module-plugin');
+const { Credential: Parent } = require('@friggframework/module-plugin');
 
 const schema = new mongoose.Schema({
     accessToken: {
@@ -15,6 +15,7 @@ const schema = new mongoose.Schema({
     instanceUrl: { type: String, required: true },
 });
 
-const Credential = Parent.discriminator('salesforceCredentials', schema);
-
+const name = 'SalesforceCredential';
+const Credential =
+    Parent.discriminators?.[name] || Parent.discriminator(name, schema);
 module.exports = { Credential };

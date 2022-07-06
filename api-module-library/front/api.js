@@ -1,7 +1,7 @@
 const OAuth2Base = require('@friggframework/core/auth/OAuth2Base');
 const { FetchError } = require('@friggframework/errors/FetchError');
 
-class FrontAPI extends OAuth2Base {
+class Api extends OAuth2Base {
     constructor(params) {
         super(params);
 
@@ -131,4 +131,4 @@ class FrontAPI extends OAuth2Base {
     }
 }
 
-module.exports = FrontAPI;
+module.exports = { Api };

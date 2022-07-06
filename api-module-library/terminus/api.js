@@ -116,4 +116,4 @@ class Api extends ApiKeyBase {
     }
 }
 
-module.exports = Api;
+module.exports = { Api };

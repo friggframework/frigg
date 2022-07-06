@@ -1,6 +1,6 @@
 const OAuth2Base = require('@friggframework/core/auth/OAuth2Base');
 
-class HugggAPI extends OAuth2Base {
+class Api extends OAuth2Base {
     constructor(params) {
         super(params);
         this.client_id = get(params, 'client_id', null);
@@ -164,4 +164,4 @@ class HugggAPI extends OAuth2Base {
         return res;
     }
 }
-module.exports = HugggAPI;
+module.exports = { Api };

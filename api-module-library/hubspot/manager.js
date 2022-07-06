@@ -1,5 +1,5 @@
-const { debug, flushDebugLog } = require('../../packages/logs');
-const { get } = require('../../packages/assertions');
+const { debug, flushDebugLog } = require('@friggframework/logs');
+const { get } = require('@friggframework/assertions');
 const { ModuleManager } = require('@friggframework/module-plugin');
 const { Api } = require('./api');
 const { Entity } = require('./entity');
@@ -178,4 +178,4 @@ class Manager extends ModuleManager {
     }
 }
 
-module.exports = { Manager };
+module.exports = Manager;

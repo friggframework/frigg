@@ -1,7 +1,7 @@
-const { Delegate } = require('../core');
+const { Delegate } = require('@friggframework/core');
 const { Credential } = require('./credential');
 const { Entity } = require('./entity');
-const { get } = require('../assertions');
+const { get } = require('@friggframework/assertions');
 
 class ModuleManager extends Delegate {
     static Entity = Entity;
@@ -23,8 +23,9 @@ class ModuleManager extends Delegate {
     }
 
     static async getEntitiesForUserId(userId) {
+        const entityMO = new this.Entity();
         // Only return non-internal fields. Leverages "select" and "options" to non-excepted fields and a pure object.
-        const list = await Entity.find(
+        const list = await entityMO.find(
             { user: userId },
             '-dateCreated -dateUpdated -user -credentials -credential -__t -__v',
             { lean: true }

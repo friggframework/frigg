@@ -1,12 +1,11 @@
-const _ = require('lodash');
-const Api = require('./api');
-const Entity = require('./models/entity');
-const Credential = require('./models/credential');
-const LHModuleManager = require('../../base/managers/LHModuleManager');
-const ModuleConstants = require('../ModuleConstants');
+const { Api } = require('./api');
+const { Entity } = require('./models/entity');
+const { Credential } = require('./models/credential');
+const { ModuleManager } = require('@friggframework/module-plugin');
+
 const Config = require('./defaultConfig.json');
 
-class Manager extends LHModuleManager {
+class Manager extends ModuleManager {
     static Entity = Entity;
 
     static Credential = Credential;
@@ -42,8 +41,8 @@ class Manager extends LHModuleManager {
 
     async getAuthorizationRequirements(params) {
         return {
-            url: await this.api.authorizationUri,
-            type: ModuleConstants.authType.oauth2,
+            url: this.api.authorizationUri,
+            type: 'oauth2',
         };
     }
 
@@ -55,7 +54,7 @@ class Manager extends LHModuleManager {
         let credentials = await this.credentialMO.list({ user: this.userId });
 
         if (credentials.length === 0) {
-            throw new Error('Credentials failed to create');
+            throw new Error('Credential failed to create');
         }
         if (credentials.length > 1) {
             throw new Error('User has multiple credentials???');

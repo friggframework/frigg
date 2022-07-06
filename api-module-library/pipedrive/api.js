@@ -1,6 +1,6 @@
 const OAuth2Base = require('../../base/auth/OAuth2Base');
 
-class PipedriveAPI extends OAuth2Base {
+class Api extends OAuth2Base {
     constructor(params) {
         super(params);
 
@@ -114,4 +114,4 @@ class PipedriveAPI extends OAuth2Base {
         return res;
     }
 }
-module.exports = PipedriveAPI;
+module.exports = { Api };

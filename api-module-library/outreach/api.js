@@ -1,6 +1,6 @@
 const OAuth2Base = require('@friggframework/core/auth/OAuth2Base');
 
-class OutreachAPI extends OAuth2Base {
+class Api extends OAuth2Base {
     constructor(params) {
         super(params);
         this.access_token = get(params, 'access_token', null);
@@ -110,4 +110,4 @@ class OutreachAPI extends OAuth2Base {
         return res;
     }
 }
-module.exports = OutreachAPI;
+module.exports = { Api };

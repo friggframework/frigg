@@ -1,5 +1,6 @@
 {
     "name": "activecampaign",
+    "label": "ActiveCampaign",
     "productUrl": "https://activecampaign.com",
     "apiDocs": "https://developers.activecampaign.com",
     "logoUrl": "https://friggframework.org/assets/img/activecampaign.jpeg",

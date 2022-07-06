@@ -1,7 +1,7 @@
 const _ = require('lodash');
-const Api = require('./api.js');
-const Entity = require('./models/entity');
-const Credential = require('./models/credential.js');
+const { Api } = require('./api.js');
+const { Entity } = require('./models/entity');
+const { Credential } = require('./models/credential.js');
 const ModuleManager = require('@friggframework/core/managers/ModuleManager');
 const ModuleConstants = require('../ModuleConstants');
 const Config = require('./defaultConfig.json');
@@ -60,7 +60,7 @@ class Manager extends ModuleManager {
         const credentials = await this.credentialMO.list({ user: this.userId });
 
         if (credentials.length === 0) {
-            throw new Error('Credentials failed to create');
+            throw new Error('Credential failed to create');
         }
         if (credentials.length > 1) {
             throw new Error('User has multiple credentials???');

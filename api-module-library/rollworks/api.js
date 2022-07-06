@@ -4,7 +4,7 @@ const {
     RequiredPropertyError,
 } = require('@friggframework/errors/ValidationErrors');
 
-class RollWorksAPI extends OAuth2Base {
+class Api extends OAuth2Base {
     constructor(params) {
         super(params);
 
@@ -148,4 +148,4 @@ class RollWorksAPI extends OAuth2Base {
     }
 }
 
-module.exports = RollWorksAPI;
+module.exports = { Api };

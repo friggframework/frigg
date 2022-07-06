@@ -1,10 +1,10 @@
 const _ = require('lodash');
 const moment = require('moment');
-const ModuleManager = require('@friggframework/core/managers/ModuleManager.js');
-const ConnectWiseApi = require('./api.js');
-const Entity = require('./models/entity');
-const Credential = require('./models/credential');
-const ModuleConstants = require('../ModuleConstants');
+const { get } = require('@friggframework/assertions');
+const { ModuleManager } = require('@friggframework/module-plugin');
+const { Api } = require('./api');
+const { Entity } = require('./models/entity');
+const { Credential } = require('./models/credential');
 const AuthFields = require('./authFields');
 const Config = require('./defaultConfig.json');
 
@@ -44,9 +44,9 @@ class Manager extends ModuleManager {
             instance.credential = await instance.credentialMO.get(
                 instance.entity.credential
             );
-            instance.api = await new ConnectWiseApi(instance.credential);
+            instance.api = await new Api(instance.credential);
         } else {
-            // instance.api = new ConnectWiseApi();
+            // instance.api = new Api();
         }
 
         // let connectWiseParams = {};
@@ -72,7 +72,7 @@ class Manager extends ModuleManager {
         };
 
         // verify credentials
-        this.api = new ConnectWiseApi(creds);
+        this.api = new Api(creds);
         const callbacks = await this.api.listCallbacks(); // May have a 401 error we'll need to catch in the route for bad credentials
 
         let entity = await this.entityMO.getByUserId(this.userId);
@@ -97,7 +97,7 @@ class Manager extends ModuleManager {
         // see parent class for docs, but these three fields should be the only top level keys
         return {
             url: null,
-            type: ModuleConstants.authType.basic,
+            type: 'basic',
             data: {
                 jsonSchema: AuthFields.jsonSchema,
                 uiSchema: AuthFields.uiSchema,
@@ -249,7 +249,7 @@ class Manager extends ModuleManager {
     }
 
     async notify(notifier, delegateString, object = null) {
-        if (notifier instanceof ConnectWiseApi) {
+        if (notifier instanceof Api) {
             if (delegateString === 'TOKEN_UPDATE') {
                 const updatedToken = {
                     company_id: object.company_id,
@@ -257,8 +257,8 @@ class Manager extends ModuleManager {
                     private_key: object.private_key,
                     clientID: object.client_id,
                 };
-                this.revIoCredentials = await this.ConnectWiseMO.update(
-                    this.revIoCredentials.id,
+                this.credential = await this.credentialMO.update(
+                    this.credential.id,
                     updatedToken
                 );
             }

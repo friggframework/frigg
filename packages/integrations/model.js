@@ -37,5 +37,6 @@ const schema = new mongoose.Schema(
     { timestamps: true }
 );
 
-const Integration = mongoose.model('Integration', schema);
+const Integration =
+    mongoose.models.Integration || mongoose.model('Integration', schema);
 module.exports = { Integration };

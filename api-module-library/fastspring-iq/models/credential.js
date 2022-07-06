@@ -8,6 +8,7 @@ const schema = new mongoose.Schema({
     refreshTokenExpire: { type: String },
 });
 
-const Credential = Parent.discriminator('salesrightCredentials', schema);
-
+const name = 'FastSpringIQCredential';
+const Credential =
+    Parent.discriminators?.[name] || Parent.discriminator(name, schema);
 module.exports = { Credential };

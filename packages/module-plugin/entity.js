@@ -38,6 +38,6 @@ schema.static({
     },
 });
 
-const Entity = mongoose.model('Entity', schema);
+const Entity = mongoose.models.Entity || mongoose.model('Entity', schema);
 
 module.exports = { Entity };

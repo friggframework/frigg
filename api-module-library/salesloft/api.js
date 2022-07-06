@@ -1,6 +1,6 @@
 const OAuth2Base = require('@friggframework/core/auth/OAuth2Base');
 
-class SalesloftAPI extends OAuth2Base {
+class Api extends OAuth2Base {
     constructor(params) {
         super(params);
         this.access_token = get(params, 'access_token', null);
@@ -176,4 +176,4 @@ class SalesloftAPI extends OAuth2Base {
         return res;
     }
 }
-module.exports = SalesloftAPI;
+module.exports = { Api };

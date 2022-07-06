@@ -1,7 +1,7 @@
 const chai = require('chai');
 const should = chai.should();
 const Authenticator = require('../../../../test/utils/Authenticator');
-const NetXAPI = require('../api');
+const { Api } = require('../api');
 
 const TestUtils = require('../../../../test/utils/TestUtils');
 const { expect } = require('chai');
@@ -11,7 +11,7 @@ const randomString = require('randomstring');
 const path = require('path');
 
 describe.only('NetX API class', () => {
-    const api = new NetXAPI({
+    const api = new Api({
         client_id: process.env.NETX_CLIENT_ID,
     });
     beforeAll(async () => {
@@ -90,12 +90,10 @@ describe.only('NetX API class', () => {
                 api.access_token = 'nolongervalid';
                 api.refresh_token = 'nolongervalid';
                 await api.getAssets(2);
-                throw new Error(
-                    'NetXAPI -- Error: Error Refreshing Credentials'
-                );
+                throw new Error('Api -- Error: Error Refreshing Credential');
             } catch (e) {
                 expect(e.message).to.eql(
-                    'NetXAPI -- Error: Error Refreshing Credentials'
+                    'Api -- Error: Error Refreshing Credential'
                 );
             }
         });
