@@ -1,7 +1,7 @@
-const OAuth2Base = require('../../base/auth/OAuth2Base');
-const { FetchError } = require('../../errors/FetchError');
+const { OAuth2Requester } = require('@friggframework/module-plugin');
+const { get } = require('@friggframework/assertions');
 
-class Api extends OAuth2Base {
+class Api extends OAuth2Requester {
     constructor(params) {
         super(params);
 
@@ -40,8 +40,8 @@ class Api extends OAuth2Base {
         this.tokenUri =
             'https://api.attentivemobile.com/v1/authorization-codes/tokens';
 
-        this.access_token = this.getParam(params, 'access_token', null);
-        this.id_token = this.getParam(params, 'id_token', null);
+        this.access_token = get(params, 'access_token', null);
+        this.id_token = get(params, 'id_token', null);
     }
 
     async getTokenIdentity() {
