@@ -111,7 +111,7 @@ class Manager extends ModuleManager {
     async findOrCreateEntity(params) {
         const orgDetails = get(params, 'orgDetails');
         const sfUserResponse = get(params, 'sfUserResponse');
-        const isSandbox = get(params, isSandbox);
+        const isSandbox = get(params, 'isSandbox');
 
         const createObj = {
             credential: this.credential.id,
