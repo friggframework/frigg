@@ -1,4 +1,4 @@
-const OAuth2Base = require('../../base/auth/OAuth2Base');
+const OAuth2Base = require('@friggframework/core/auth/OAuth2Base');
 const moment = require('moment');
 
 class Api extends OAuth2Base {

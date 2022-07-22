@@ -1,4 +1,4 @@
-const IntegrationManager = require("../../managers/IntegrationManager");
+const IntegrationManager = require("@friggframework/integrations");
 const { get, getAndVerifyType } = require("@friggframework/assertions");
 
 class Options {
