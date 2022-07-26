@@ -31,7 +31,7 @@ class Manager extends ModuleManager {
 
         if (params.entityId) {
             try {
-                instance.entity = await Entity.get(params.entityId);
+                instance.entity = await Entity.findById(params.entityId);
                 const salesforceToken = await Credential.findById(
                     instance.entity.credential
                 );

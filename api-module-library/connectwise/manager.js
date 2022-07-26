@@ -23,37 +23,13 @@ class Manager extends ModuleManager {
     static async getInstance(params) {
         const instance = new this(params);
 
-        if (params.userId && !params.entityId) {
-            instance.entity = await instance.entityMO.getByUserId(
-                params.userId
-            );
-        }
-        // create an entry in the database if it does not exist
-        if (!params.entityId && !instance.entity) {
-            instance.entity = await instance.entityMO.create({
-                user: params.userId,
-            });
-        }
-
         if (params.entityId) {
-            instance.entity = await instance.entityMO.get(params.entityId);
-        }
-
-        // initializes the credentials and the Api
-        if (instance.entity.credential) {
-            instance.credential = await instance.credentialMO.get(
+            instance.entity = await Entity.get(params.entityId);
+            instance.credential = await Credential.get(
                 instance.entity.credential
             );
             instance.api = await new Api(instance.credential);
-        } else {
-            // instance.api = new Api();
         }
-
-        // let connectWiseParams = {};
-        // connectWiseParams.COMPANY_ID = process.env.CONNECT_WISE_COMPANY_ID;
-        // connectWiseParams.PUBLIC_KEY = process.env.CONNECT_WISE_PUBLIC_KEY;
-        // connectWiseParams.PRIVATE_KEY = process.env.CONNECT_WISE_PRIVATE_KEY;
-        // connectWiseParams.clientId = process.env.clientID;
 
         return instance;
     }

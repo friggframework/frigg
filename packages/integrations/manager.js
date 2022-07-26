@@ -275,7 +275,7 @@ class IntegrationManager extends Delegate {
             _id: integrationId,
         });
         if (integrationList.length == 1) {
-            await Integration.delete(integrationId);
+            await Integration.deleteOne({ _id: integrationId });
         } else {
             throw new Error(
                 `Integration with id of ${integrationId} does not exist for this user`
