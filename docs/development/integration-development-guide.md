@@ -1,6 +1,7 @@
 # Integration Development Guide
 
-* Integration Lifecycle
+* Scoping/understanding the integration use case
+* Integration Lifecycle Methods
   * Create
   * Get Config Options
   * Update
