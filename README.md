@@ -42,15 +42,6 @@ use case for integrations.
 So, enter Frigg. We built what you would build, if you had the time to review hundreds or thousands of APIs and build a framework
 flexible enough to handle any workflow or use case thrown at it, able to scale from two to two million records passing through the pipes.
 
-
-## What does Frigg mean?
-
-Frigg (Frig, Frigga, Frija) was one of the mightiest gods in the Norse pantheon, as well as a Germaic Æsir. Her name comes from the proto-germanic word Frijjō, meaning 'Beloved' or 'Free'.
-
-We chose her as the patron of this project for her connection to love, her support of marriage and unions, and to honor those deep private conversations that take place between your integration partners that are no one else's business.
-
-Frigg was the Queen of Asgard and the highest of the goddesses. She and Her husband, Odin ruled the other gods of Olympus.
-
 ## Getting Started
 
 Best place to get started is to <a href="https://docs.friggframework.org">checkout our Docs</a>
