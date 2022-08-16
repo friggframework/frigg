@@ -23,9 +23,8 @@ class ModuleManager extends Delegate {
     }
 
     static async getEntitiesForUserId(userId) {
-        const entityMO = new this.Entity();
         // Only return non-internal fields. Leverages "select" and "options" to non-excepted fields and a pure object.
-        const list = await entityMO.find(
+        const list = await this.Entity.find(
             { user: userId },
             '-dateCreated -dateUpdated -user -credentials -credential -__t -__v',
             { lean: true }

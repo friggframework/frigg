@@ -171,7 +171,7 @@ class IntegrationManager extends Delegate {
     }
 
     // Takes entities, User, and Config, and returns an Instance of the IntegrationManager
-    static async createIntegration(entities, userId, config) {
+    static async createIntegration(entities, userId, config, EntityManager) {
         // verify entity ids belong to the user
         for (const id of entities) {
             const entity = await Entity.findById(id);
@@ -207,13 +207,13 @@ class IntegrationManager extends Delegate {
 
         // Need to get special primaryInstance because it has an extra param to pass in
         instance.primaryInstance =
-            await this.EntityManagerClass.getEntityManagerInstanceFromEntityId(
+            await EntityManager.getEntityManagerInstanceFromEntityId(
                 instance.integration.entities[0],
                 instance.integration.user
             );
         // Now we can use the general ManagerGetter
         instance.targetInstance =
-            await this.EntityManagerClass.getEntityManagerInstanceFromEntityId(
+            await EntityManager.getEntityManagerInstanceFromEntityId(
                 instance.integration.entities[1],
                 instance.integration.user
             );
@@ -275,7 +275,7 @@ class IntegrationManager extends Delegate {
             _id: integrationId,
         });
         if (integrationList.length == 1) {
-            await Integration.delete(integrationId);
+            await Integration.deleteOne({ _id: integrationId });
         } else {
             throw new Error(
                 `Integration with id of ${integrationId} does not exist for this user`
