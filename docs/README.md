@@ -6,7 +6,7 @@ description: We all need a starting point
 
 
 
-```
+```markdown
 // [![Dev Button](https://lefthook.com/wp-content/uploads/gitbookdocs-nondevbutton.png "Developers")](https://lefthook.com)
 
 ```
