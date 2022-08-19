@@ -4,11 +4,8 @@ description: We all need a starting point
 
 # Frigg Docs Introduction
 
-
-
-```markdown
+```
 // [![Dev Button](https://lefthook.com/wp-content/uploads/gitbookdocs-nondevbutton.png "Developers")](https://lefthook.com)
-
 ```
 
 Let's cut straight to the chase. You're either here as a technical Partner manager, wondering if Frigg can help your product team deliver integrations faster, with higher quality, and cheaper. Or you're here as a technical lead for your product (CTO, CPO, Product leader, engineer, etc.) and evaluating whether this framework is worth hitching your wagon to.
