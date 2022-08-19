@@ -4,7 +4,7 @@ description: We all need a starting point
 
 # Frigg Docs Introduction
 
-[![Frigg-image](https://lefthook.com/wp-content/uploads/gitbookdocs-devbutton.png)](https://lefthook.com)
+[![Frigg-image](https://friggframework.org/assets/img/frigg-logo.svg)](https://lefthook.com)
 
 
 
