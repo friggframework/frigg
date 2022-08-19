@@ -5,7 +5,7 @@ description: We all need a starting point
 # Frigg Docs Introduction
 
 {% code overflow="wrap" %}
-```markdown
+```
 ![Devs](https://lefthook.com/wp-content/uploads/gitbookdocs-nondevbutton.png)
 
 ```
