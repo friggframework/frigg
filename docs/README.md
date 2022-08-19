@@ -6,7 +6,7 @@ description: We all need a starting point
 
 {% code overflow="wrap" %}
 ```markdown
-![Image](https://lefthook.com/wp-content/uploads/gitbookdocs-nondevbutton.png)
+![Devs](https://lefthook.com/wp-content/uploads/gitbookdocs-nondevbutton.png)
 
 ```
 {% endcode %}
