@@ -6,7 +6,7 @@ description: We all need a starting point
 
 {% code overflow="wrap" %}
 ```html
-<img src="https://lefthook.com/wp-content/uploads/gitbookdocs-devbutton.png">
+<div><a href="https://lefthook.com"><img src="https://lefthook.com/wp-content/uploads/gitbookdocs-devbutton.png"></a></div>
 ```
 {% endcode %}
 
