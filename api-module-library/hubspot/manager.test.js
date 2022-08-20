@@ -2,9 +2,11 @@ const { Manager } = require('./manager');
 // const Authenticator = require('../../../../test/utils/Authenticator');
 // const {getLoggedInTestUserManagerInstance } = require('../../../../test/utils/TestUtils');
 
-describe.skip('should make HubSpot requests through the HubSpot Manager', () => {
+describe('should make HubSpot requests through the HubSpot Manager', () => {
     let manager, userManager;
+
     beforeAll(async () => {
+        await mongoose.connect(process.env.MONGO_URI);
         userManager = await getLoggedInTestUserManagerInstance();
         manager = await Manager.getInstance({
             userId: userManager.getUserId(),
@@ -33,6 +35,7 @@ describe.skip('should make HubSpot requests through the HubSpot Manager', () => 
     afterAll(async () => {
         await Manager.Credential.delete(manager.credential._id);
         await Manager.Entity.delete(manager.entity._id);
+        await mongoose.disconnect();
     });
 
     it('should go through Oauth flow', async () => {

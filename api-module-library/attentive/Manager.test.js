@@ -1,24 +1,24 @@
-require('../../../../test/utils/TestUtils');
-const chai = require('chai');
+// require('../../../../test/utils/TestUtils');
+// const chai = require('chai');
+//
+// const { expect } = chai;
+// const should = chai.should();
+// const chaiAsPromised = require('chai-as-promised');
+// chai.use(require('chai-url'));
+//
+// chai.use(chaiAsPromised);
+// const _ = require('lodash');
+//
+// const Authenticator = require('../../../../test/utils/Authenticator');
+// const UserManager = require('../../../managers/UserManager');
+const Manager = require('./manager.js');
+// const TestUtils = require('../../../../test/utils/TestUtils');
+//
+// const testType = 'local-dev';
 
-const { expect } = chai;
-const should = chai.should();
-const chaiAsPromised = require('chai-as-promised');
-chai.use(require('chai-url'));
-
-chai.use(chaiAsPromised);
-const _ = require('lodash');
-
-const Authenticator = require('../../../../test/utils/Authenticator');
-const UserManager = require('../../../managers/UserManager');
-const Manager = require('../manager.js');
-const TestUtils = require('../../../../test/utils/TestUtils');
-
-const testType = 'local-dev';
-
-describe.skip('Attentive Entity Manager', async () => {
+describe.skip('Attentive Entity Manager', () => {
     let manager;
-    before(async () => {
+    beforeAll(async () => {
         this.userManager = await TestUtils.getLoggedInTestUserManagerInstance();
         manager = await Manager.getInstance({
             userId: this.userManager.getUserId(),
