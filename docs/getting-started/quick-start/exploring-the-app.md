@@ -4,17 +4,17 @@
 
 Running `npm start` at the root of your Frigg application repo will run `npm start` on both the `/backend` and `/frontend` directories. Let's unpack each.
 
-The frontend is a cookie cutter React application built with Create React App and Tailwind CSS and Tailwind UI, that leverages the Frigg React component library for the Integration Management page. This is the core piece to pay attention to for your own application. You can read more about Frontend options and concepts with [Frigg here.](../architecture.md)
+The frontend is a cookie cutter React application built with Create React App and Tailwind CSS and Tailwind UI. It leverages the Frigg React component library for the Integration Management page. This is the core piece to pay attention to for your own application. You can read more about Frontend options and concepts with [Frigg here.](../architecture.md)
 
-We have provided a very lightweight/basic user login flow and dashboard. Go ahead and try logging in or creating an account.
+We provide a very lightweight/basic user login flow and dashboard. Go ahead and try logging in or creating an account.
 
-// Image of login screen
+<mark style="color:red;background-color:red;">// Image of login screen</mark>
 
-You'll note when you attempt to log in, you receive an error. We'll get to this is a moment, but the summary is that we need to plug in a database for the backend to talk to.
+Note that when you attempt to log in, you will receive an error. We'll come back to this in a moment, but the TL;DR  is that we need to plug in a database for the backend to talk to.
 
 ## Backend overview
 
-The backend is oriented around the serverless.com framework. When you run `npm start`, it runs the command to use the serverless-offline plugin. Critical to note is that this supports basic functionality (API => function invocation, or schedule => function invocation), it does not support all events that you may be relying on to power your integrations. In other words, you can run Authentication and Configuration, but the entirety of your Frigg applications' backend will not run using this command. For that, see "Running Frigg Locally".
+The backend is oriented around the serverless.com framework. When you run `npm start`, it runs the command to use the serverless-offline plugin. Critical to note is that this supports basic functionality (API => function invocation, or schedule => function invocation), it does not support all events that you may be relying on to power your integrations. In other words, you can run Authentication and Configuration, but the entirety of your Frigg applications' backend will not run using this command. For that, see "Running Frigg Locally."
 
 The Backend is comprised of the following folder structure:
 

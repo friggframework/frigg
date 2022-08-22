@@ -1,10 +1,8 @@
 # Introduction to Frigg
 
-
-
 <details>
 
-<summary>Frigg Explained to Partnership Leaders &#x26; Non-Technical People</summary>
+<summary><mark style="background-color:purple;">Frigg Explained to Partnership Leaders &#x26; Non-Technical People</mark></summary>
 
 The Frigg Integration Framework is a software development tool built to help engineers build integrations faster.
 

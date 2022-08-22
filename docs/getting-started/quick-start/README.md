@@ -14,4 +14,4 @@ You'll need to do the following before continuing:
 
 ### Overview
 
-Create Frigg App will generate a deployable Frigg application that within a few minutes can be deployed to your own accounts to power integrations for your application. Let's get it going and we'll unpack the "magic" as we go.
+Create Frigg App will generate a Frigg application that within a few minutes is deployable to your own infrastructure accounts. Let's get Create Frigg App going and unpack the "magic" as we go.
