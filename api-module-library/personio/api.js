@@ -1,8 +1,8 @@
-const ApiKeyBase = require('@friggframework/core/auth/ApiKeyBase');
+const { ApiKeyRequester } = require('@friggframework/module-plugin');
 const moment = require('moment');
 const { get } = require('@friggframework/assertions');
 
-class Api extends ApiKeyBase {
+class Api extends ApiKeyRequester {
     constructor(params) {
         super(params);
 

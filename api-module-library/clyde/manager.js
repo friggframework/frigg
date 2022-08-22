@@ -1,12 +1,15 @@
 const { Api } = require('./api');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
-const LHModuleManager = require('../../base/managers/LHModuleManager');
-const ModuleConstants = require('../ModuleConstants');
-const { debug, flushDebugLog } = require('../../utils/logger');
+const {
+    ModuleManager,
+    ModuleConstants,
+} = require('@friggframework/module-plugin');
+const { get } = require('@friggframework/assertions');
+const { debug, flushDebugLog } = require('@friggframework/logs');
 const Config = require('./defaultConfig.json');
 
-class Manager extends LHModuleManager {
+class Manager extends ModuleManager {
     static Entity = Entity;
 
     static Credential = Credential;
@@ -31,8 +34,8 @@ class Manager extends LHModuleManager {
         };
 
         if (params.entityId) {
-            instance.entity = await instance.entityMO.get(params.entityId);
-            const credential = await instance.credentialMO.get(
+            instance.entity = await Entity.findById(params.entityId);
+            const credential = await Credential.findById(
                 instance.entity.credential
             );
             instance.credential = credential;
@@ -91,8 +94,8 @@ class Manager extends LHModuleManager {
     }
 
     async processAuthorizationCallback(params) {
-        const clientKey = this.getParam(params.data, 'clientKey');
-        const secret = this.getParam(params.data, 'secret');
+        const clientKey = get(params.data, 'clientKey');
+        const secret = get(params.data, 'secret');
         this.api.setClientKey(clientKey);
         this.api.setSecret(secret);
         await this.testAuth();
@@ -114,8 +117,8 @@ class Manager extends LHModuleManager {
     }
 
     async findOrCreateCredential(params) {
-        const clientKey = this.getParam(params, 'clientKey');
-        const secret = this.getParam(params, 'secret');
+        const clientKey = get(params, 'clientKey');
+        const secret = get(params, 'secret');
 
         const search = await this.credentialMO.list({
             user: this.userId,
@@ -142,7 +145,7 @@ class Manager extends LHModuleManager {
     }
 
     async findOrCreateEntity(params) {
-        const clientKey = this.getParam(params, 'clientKey');
+        const clientKey = get(params, 'clientKey');
 
         const search = await this.entityMO.list({
             user: this.userId,

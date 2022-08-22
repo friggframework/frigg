@@ -1,10 +1,8 @@
-const moment = require('moment');
-const OAuth2Base = require('@friggframework/core/auth/OAuth2Base');
-const {
-    RequiredPropertyError,
-} = require('@friggframework/errors/ValidationErrors');
+const { OAuth2Requester } = require('@friggframework/module-plugin');
+const { RequiredPropertyError } = require('@friggframework/errors');
+const { get } = require('@friggframework/assertions');
 
-class Api extends OAuth2Base {
+class Api extends OAuth2Requester {
     constructor(params) {
         super(params);
 
@@ -92,7 +90,7 @@ class Api extends OAuth2Base {
     async createTargetAccount(data) {
         const advertisableEid = this.getAdvertisableEid();
         const body = {
-            name: this.getParamAndVerifyParamType(data, 'name', 'string'),
+            name: getAndVerifyParamType(data, 'name', 'string'),
             domains: this.getArrayParamAndVerifyParamType(
                 data,
                 'domains',

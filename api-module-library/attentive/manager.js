@@ -24,8 +24,8 @@ class Manager extends ModuleManager {
         const attentiveParams = { delegate: instance };
 
         if (params.entityId) {
-            instance.entity = await instance.entityMO.get(params.entityId);
-            const credential = await instance.credentialMO.get(
+            instance.entity = await Entity.findById(params.entityId);
+            const credential = await Credential.findById(
                 instance.entity.credential
             );
             instance.credential = credential;
@@ -47,7 +47,7 @@ class Manager extends ModuleManager {
     }
 
     async processAuthorizationCallback(params) {
-        const code = this.getParam(params.data, 'code');
+        const code = get(params.data, 'code');
         const response = await this.api.getTokenFromCode(code);
         const userDetails = await this.api.getTokenIdentity();
 

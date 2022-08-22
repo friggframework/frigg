@@ -1,12 +1,14 @@
 const { Api } = require('./api');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
-const LHModuleManager = require('../../base/managers/LHModuleManager');
-const ModuleConstants = require('../ModuleConstants');
-const { debug } = require('../../utils/logger');
+const {
+    ModuleManager,
+    ModuleConstants,
+} = require('@friggframework/module-plugin');
+const { debug } = require('@friggframework/logs');
 const Config = require('./defaultConfig.json');
 
-class Manager extends LHModuleManager {
+class Manager extends ModuleManager {
     static Entity = Entity;
 
     static Credential = Credential;
@@ -27,8 +29,8 @@ class Manager extends LHModuleManager {
         const apiParams = { delegate: instance };
 
         if (params.entityId) {
-            instance.entity = await instance.entityMO.get(params.entityId);
-            const credential = await instance.credentialMO.get(
+            instance.entity = await Entity.findById(params.entityId);
+            const credential = await Credential.findById(
                 instance.entity.credential
             );
             instance.credential = credential;
@@ -79,8 +81,8 @@ class Manager extends LHModuleManager {
     }
 
     async processAuthorizationCallback(params) {
-        const code = this.getParam(params.data, 'code');
-        this.api.setSubdomain(this.getParam(params.data, 'subdomain'));
+        const code = get(params.data, 'code');
+        this.api.setSubdomain(get(params.data, 'subdomain'));
 
         await this.getAccessToken(code);
 
@@ -98,7 +100,7 @@ class Manager extends LHModuleManager {
     }
 
     async findOrCreateEntity(params) {
-        const domainName = this.getParam(params, 'subdomain');
+        const domainName = get(params, 'subdomain');
 
         const search = await this.entityMO.list({
             user: this.userId,

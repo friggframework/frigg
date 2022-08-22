@@ -2,7 +2,7 @@ const { get } = require('@friggframework/assertions');
 const { ModuleManager } = require('@friggframework/module-plugin');
 const { Credential } = require('./models/credential');
 const { Entity } = require('./models/entity');
-const { Api } = require('./Api');
+const { Api } = require('./api');
 
 // name used as the entity type
 const MANAGER_NAME = 'fastspring-iq';
@@ -24,34 +24,21 @@ class Manager extends ModuleManager {
     static async getInstance(params) {
         const instance = new this(params);
 
-        if (params.userId && !params.entityId) {
-            instance.entity = await Entity.findByUserId(params.userId);
-        }
-        // create an entry in the database if it does not exist
-        if (!params.entityId && !instance.entity) {
-            instance.entity = await Entity.create({
-                userId: params.userId,
-            });
-        }
+        const apiParams = { delegate: instance };
 
         if (params.entityId) {
-            instance.entity = await Entity.find(params.entityId);
-        }
-
-        // initializes the credentials and the Api
-
-        if (instance.entity.credential) {
-            instance.credential = await Credential.find(
+            instance.entity = await Entity.findById(params.entityId);
+            const credential = await Credential.findById(
                 instance.entity.credential
             );
-            instance.api = await new Api({
-                access_token: instance.credential.accessToken,
-                refresh_token: instance.credential.refreshToken,
-            });
-        } else {
-            // Otherwise if no creds?
-            instance.api = await new Api();
+            instance.credential = credential;
+            apiParams.accessToken = credential.accessToken;
+            apiParams.refreshToken = credential.refreshToken;
+            apiParams.accessTokenExpire = credential.accessTokenExpire;
+            apiParams.refreshTokenExpire = credential.refreshTokenExpire;
+            apiParams.realmId = credential.realmId;
         }
+        instance.api = await new Api(apiParams);
 
         return instance;
     }

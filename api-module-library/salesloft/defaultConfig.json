@@ -1,5 +1,6 @@
 {
     "name": "salesloft",
+    "label": "Salesloft",
     "productUrl": "https://salesloft.com",
     "apiDocs": "https://developer.salesloft.com",
     "logoUrl": "https://friggframework.org/assets/img/salesloft.jpeg",

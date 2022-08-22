@@ -1,5 +1,6 @@
 {
-    "name": "persionio",
+    "name": "personio",
+    "label": "Personio",
     "productUrl": "https://personio.com",
     "apiDocs": "https://developer.personio.de",
     "logoUrl": "https://friggframework.org/assets/img/personio.jpeg",

@@ -1,8 +1,7 @@
 const util = require('util');
-const path = require('path');
-const moment = require('moment');
 const { default: OpenAPIClientAxios } = require('openapi-client-axios');
-const Requester = require('@friggframework/core/Requester.js');
+const { Requester } = require('@friggframework/module-plugin');
+const { get } = require('@friggframework/assertions');
 const marketoApiDefinition = require('./marketo-openapi-bulk.json');
 
 const bulkApi = new OpenAPIClientAxios({ definition: marketoApiDefinition });

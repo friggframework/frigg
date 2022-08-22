@@ -1,5 +1,6 @@
 {
     "name": "hubspot",
+    "label": "HubSpot",
     "productUrl": "https://hubspot.com",
     "apiDocs": "https://developers.hubspot.com",
     "logoUrl": "https://friggframework.org/assets/img/hubspot.jpeg",
