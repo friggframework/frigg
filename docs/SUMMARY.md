@@ -1,6 +1,6 @@
 # Table of contents
 
-* [Frigg Docs Introduction](README.md)
+* [Introduction to Frigg](README.md)
 
 ## 🥳 Getting Started
 

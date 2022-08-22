@@ -2,25 +2,33 @@
 description: We all need a starting point
 ---
 
-# Frigg Docs Introduction
-
-[![Frigg-image](https://friggframework.org/assets/img/frigg-logo.svg)](https://lefthook.com)
+# Introduction to Frigg
 
 
-
-Let's cut straight to the chase. You're either here as a technical Partner manager, wondering if Frigg can help your product team deliver integrations faster, with higher quality, and cheaper. Or you're here as a technical lead for your product (CTO, CPO, Product leader, engineer, etc.) and evaluating whether this framework is worth hitching your wagon to.
-
-```
-[![Frigg-image](https://friggframework.org/assets/img/frigg-logo.svg)](https://lefthook.com)
-```
-
-Let's cut straight to the chase. You're either here as a technical Partner manager, wondering if Frigg can help your product team deliver integrations faster, with higher quality, and cheaper. Or you're here as a technical lead for your product (CTO, CPO, Product leader, engineer, etc.) and evaluating whether this framework is worth hitching your wagon to.
-
-We're still early days, so you'll want to come back here often. But let's dive in.
 
 <details>
 
-<summary>What's in a name?</summary>
+<summary>"Frigg Explained" for Non-Technical People (TL;DR)</summary>
+
+The Frigg Integration Framework is a software development tool targeted at SaaS leaders seeking to build tech partnerships with/to other ISVs.
+
+While new integrations unlock fruitful business opportunities, their development is often challenging for the product/engineering team. A robust integration is usually required before two ISVs can co-promote or co-sell (aka forming a "tech partnership.")
+
+But because integration development is a complex, product-driven process performed by engineers and designers, few partnership or sales leaders can get integrations built internally at optimal speed (if at all).
+
+Given these dynamics, partnership/sales leaders often seek out external ways of getting an integration built. That desire often brings them to Frigg, which they then suggest to their colleagues in product & engineering for evaluation.
+
+To help a non-technical audience understand Frigg and its potential, we wrote this [Overview Doc](https://docs.google.com/document/d/e/2PACX-1vRzCTIUhUj5NC5CKIOhn36NGu6TbUPMwMF5-hFLJ2fuhfrCJ2VXnabtxqE429iP1CxPPgPyhzez41jk/pub). It's not "documentation," but it will help you  understand and position Frigg to your product/engineering colleagues.
+
+If you're ready to introduce Frigg to your product/engineering colleagues, this documentation site is the right place to point them. Our [live demo site](https://demo.friggframework.,org) is also instructive to both technical and non-technical audiences as well.
+
+Have questions? Chat with us!
+
+</details>
+
+<details>
+
+<summary>Frigg: What's in a name?</summary>
 
 Frigg Defintion:
 
@@ -33,7 +41,7 @@ The Frigg Integration Framework powers integrations between software companies, 
 
 </details>
 
-What is Frigg?
+### Frigg for Developers&#x20;
 
 The Frigg Framework is an opinionated integration framework built with modern software development teams in mind. The aim of the framework is to have you up and running out of the box with a flexible set of tools to help rapidly add integrations to your software that your end users can manage individually without any intervention.&#x20;
 
