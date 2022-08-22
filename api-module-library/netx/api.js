@@ -1,4 +1,4 @@
-const OAuth2Base = require('@friggframework/core/auth/OAuth2Base');
+const { OAuth2Requester } = require('@friggframework/module-plugin');
 const { get } = require('@friggframework/assertions');
 
 const uuid = require('uuid');
@@ -7,7 +7,7 @@ const FormData = require('form-data');
 const path = require('path');
 const fs = require('fs');
 
-class Api extends OAuth2Base {
+class Api extends OAuth2Requester {
     constructor(params) {
         super(params);
         this.client_id = get(params, 'client_id', null);

@@ -1,14 +1,15 @@
-const BasicAuthBase = require('../../base/auth/BasicAuthBase');
+const { BasicAuthRequester } = require('@friggframework/module-plugin');
 const crypto = require('crypto');
+const { get } = require('@friggframework/assertions');
 let nonce = crypto.randomBytes(16).toString('base64');
 
-class Api extends BasicAuthBase {
+class Api extends BasicAuthRequester {
     constructor(params) {
         super(params);
         this.baseUrl =
             process.env.CLYDE_API_BASE_URL || 'https://api.joinclyde.com';
-        this.clientKey = this.getParam(params, 'clientKey', null);
-        this.secret = this.getParam(params, 'secret', null);
+        this.clientKey = get(params, 'clientKey', null);
+        this.secret = get(params, 'secret', null);
         this.username = this.clientKey;
         this.password = this.secret;
 
@@ -120,8 +121,8 @@ class Api extends BasicAuthBase {
 
     async batchGetProductsById(params) {
         // inputs.length should be < 100
-        const inputs = this.getParam(params, 'inputs');
-        const contractSales = this.getParam(params, 'contractSales', []);
+        const inputs = get(params, 'inputs');
+        const contractSales = get(params, 'contractSales', []);
 
         const body = {
             inputs,

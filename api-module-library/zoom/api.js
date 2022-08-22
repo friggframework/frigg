@@ -1,7 +1,8 @@
-const OAuth2Base = require('@friggframework/core/auth/OAuth2Base');
+const { OAuth2Requester } = require('@friggframework/module-plugin');
 const moment = require('moment');
+const { get } = require('@friggframework/assertions');
 
-class Api extends OAuth2Base {
+class Api extends OAuth2Requester {
     constructor(params) {
         super(params);
 
@@ -16,8 +17,8 @@ class Api extends OAuth2Base {
 
         this.tokenUri = `https://zoom.us/oauth/token`;
 
-        this.access_token = this.getParam(params, 'access_token', null);
-        this.refresh_token = this.getParam(params, 'refresh_token', null);
+        this.access_token = get(params, 'access_token', null);
+        this.refresh_token = get(params, 'refresh_token', null);
     }
 
     async getTokenFromCode(code) {

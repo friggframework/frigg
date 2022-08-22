@@ -1,12 +1,13 @@
-const OAuth2Base = require('../../base/auth/OAuth2Base');
+const { OAuth2Requester } = require('@friggframework/module-plugin');
+const { get } = require('@friggframework/assertions');
 
-class Api extends OAuth2Base {
+class Api extends OAuth2Requester {
     constructor(params) {
         super(params);
 
-        this.access_token = this.getParam(params, 'access_token', null);
-        this.refresh_token = this.getParam(params, 'refresh_token', null);
-        this.companyDomain = this.getParam(params, 'companyDomain', null);
+        this.access_token = get(params, 'access_token', null);
+        this.refresh_token = get(params, 'refresh_token', null);
+        this.companyDomain = get(params, 'companyDomain', null);
         this.baseURL = () => `${this.companyDomain}/api`;
 
         this.client_id = process.env.PIPEDRIVE_CLIENT_ID;
@@ -84,9 +85,9 @@ class Api extends OAuth2Base {
     }
 
     async createActivity(params) {
-        const dealId = this.getParam(params, 'dealId', null);
-        const subject = this.getParam(params, 'subject');
-        const type = this.getParam(params, 'type');
+        const dealId = get(params, 'dealId', null);
+        const subject = get(params, 'subject');
+        const type = get(params, 'type');
         const options = {
             url: this.baseURL() + this.URLs.activities,
             body: { ...params },

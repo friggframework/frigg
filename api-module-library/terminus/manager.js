@@ -1,9 +1,12 @@
 const { Api } = require('./api.js');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
-const ModuleManager = require('@friggframework/core/managers/ModuleManager');
-const ModuleConstants = require('../ModuleConstants');
+const {
+    ModuleManager,
+    ModuleConstants,
+} = require('@friggframework/module-plugin');
 const Config = require('./defaultConfig.json');
+const { debug } = require('@friggframework/logs');
 
 class Manager extends ModuleManager {
     static Entity = Entity;
@@ -22,36 +25,20 @@ class Manager extends ModuleManager {
 
     static async getInstance(params) {
         const instance = new this(params);
-        // All async code here
-
-        if (params.userId && !params.entityId) {
-            instance.entity = await instance.entityMO.getByUserId(
-                params.userId
-            );
-        }
-
-        // // create an entry in the database if it does not exist
-        if (!params.entityId && !instance.entity) {
-            instance.entity = await instance.entityMO.create({
-                user: params.userId,
-            });
-        }
-
-        if (params.entityId) {
-            instance.entity = await instance.entityMO.get(params.entityId);
-        }
 
         // initializes the Api
         const terminusParams = { delegate: instance };
-        if (instance.entity && instance.entity.credential) {
+        if (params.entityId) {
             try {
-                let credential = await instance.credentialMO.get(
+                instance.entity = await Entity.findById(params.entityId);
+                let credential = await Credential.findById(
                     instance.entity.credential
                 );
                 terminusParams.api_key = credential.apiKey;
             } catch (e) {
-                instance.entity.credential = undefined;
-                await instance.entity.save();
+                debug(
+                    `Error retrieving Salesforce credential for Entity ${instance.entity.id}`
+                );
             }
         }
         instance.api = await new Api(terminusParams);

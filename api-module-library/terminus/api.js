@@ -1,7 +1,7 @@
-const ApiKeyBase = require('@friggframework/core/auth/ApiKeyBase');
+const { ApiKeyRequester } = require('@friggframework/module-plugin');
 const { FetchError } = require('@friggframework/errors');
 
-class Api extends ApiKeyBase {
+class Api extends ApiKeyRequester {
     constructor(params) {
         super(params);
         this.API_KEY_VALUE = `Bearer ${params.api_key}`;

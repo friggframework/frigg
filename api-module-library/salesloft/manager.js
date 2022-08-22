@@ -2,8 +2,10 @@ const _ = require('lodash');
 const { Api } = require('./api.js');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
-const ModuleManager = require('@friggframework/core/managers/ModuleManager');
-const ModuleConstants = require('../ModuleConstants');
+const {
+    ModuleManager,
+    ModuleConstants,
+} = require('@friggframework/module-plugin');
 const Config = require('./defaultConfig.json');
 
 class Manager extends ModuleManager {
@@ -23,8 +25,8 @@ class Manager extends ModuleManager {
 
         const slParams = { delegate: instance };
         if (params.entityId) {
-            instance.entity = await instance.entityMO.get(params.entityId);
-            const credential = await instance.credentialMO.get(
+            instance.entity = await Entity.findById(params.entityId);
+            const credential = await Credential.findById(
                 instance.entity.credential
             );
             slParams.access_token = credential.access_token;

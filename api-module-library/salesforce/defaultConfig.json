@@ -1,5 +1,6 @@
 {
     "name": "salesforce",
+    "label": "Salesforce",
     "productUrl": "https://salesforce.com",
     "apiDocs": "https://developer.salesforce.com",
     "logoUrl": "https://friggframework.org/assets/img/salesforce.jpeg",

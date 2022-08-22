@@ -1,4 +1,4 @@
-const SalesRightAPI = require('../Api');
+const SalesRightAPI = require('../api');
 
 // Make sure that quote's properties are all there and the correct type
 function validateQuote(quoteData) {
