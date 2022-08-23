@@ -29,6 +29,7 @@ class Api extends OAuth2Requester {
             getUser: '/api/v2/auth/me',
             getTeam: (teamId) => `/api/v2/teams/${teamId}`,
             getWallets: (teamId) => `/api/v2/teams/${teamId}/wallets`,
+            getCards: '/api/v2/cards',
             search: '/api/v2/search',
             getPurchasedHugggs: '/api/v2/hugggs/sent',
         };
@@ -71,6 +72,14 @@ class Api extends OAuth2Requester {
     async getWallets(teamId) {
         const options = {
             url: this.baseURL + this.URLs.getWallets(teamId),
+        };
+        const res = await this._get(options);
+        return res;
+    }
+
+    async getCards() {
+        const options = {
+            url: this.baseURL + this.URLs.getCards,
         };
         const res = await this._get(options);
         return res;
@@ -145,7 +154,7 @@ class Api extends OAuth2Requester {
                 },
                 sort: [
                     {
-                        'huggg.created_at': {
+                        'huggg.updated_at': {
                             order: 'desc',
                         },
                     },
