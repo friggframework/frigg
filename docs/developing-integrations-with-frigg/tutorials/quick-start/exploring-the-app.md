@@ -4,7 +4,7 @@
 
 Running `npm start` at the root of your Frigg application repo will run `npm start` on both the `/backend` and `/frontend` directories. Let's unpack each.
 
-The frontend is a cookie cutter React application built with Create React App and Tailwind CSS and Tailwind UI. It leverages the Frigg React component library for the Integration Management page. This is the core piece to pay attention to for your own application. You can read more about Frontend options and concepts with [Frigg here.](../architecture.md)
+The frontend is a cookie cutter React application built with Create React App and Tailwind CSS and Tailwind UI. It leverages the Frigg React component library for the Integration Management page. This is the core piece to pay attention to for your own application. You can read more about Frontend options and concepts with [Frigg here.](../../../frigg-reference/architecture.md)
 
 We provide a very lightweight/basic user login flow and dashboard. Go ahead and try logging in or creating an account.
 
@@ -180,10 +180,10 @@ The Backend is comprised of the following folder structure:
 └── package.json
 ```
 
-![](../../.gitbook/assets/screencapture-demo-friggframework-org-integrations-2022.png)
+![](../../../.gitbook/assets/screencapture-demo-friggframework-org-integrations-2022.png)
 
 ### How it works
 
 As you might have noticed, you use both a [serverless](https://aws.amazon.com/serverless/) instance and a client side react app to access the Frigg API modules. The flow looks like this:
 
-![](<../../.gitbook/assets/Screen Shot 2022-04-11 at 10.52.07 AM.png>)
+![](<../../../.gitbook/assets/Screen Shot 2022-04-11 at 10.52.07 AM.png>)

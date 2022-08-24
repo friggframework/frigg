@@ -1,4 +1,4 @@
-# Introduction to Frigg
+# 🥳 Introduction to Frigg
 
 <details>
 
@@ -35,24 +35,35 @@ The Frigg Integration Framework powers integrations between software companies, 
 
 </details>
 
-### Frigg Explained to Developers&#x20;
+## Frigg Explained to Developers&#x20;
+
+Simply put- Frigg is what you would build into your product if you had unlimited resources and time, with the added benefit of being Open Source, where it's not just you but a community of developers collaborating to solve the same core set of problems over and over again. Something you could never do internally.
 
 The Frigg Framework is an opinionated integration framework built with modern software development teams in mind. The aim of the framework is to have you up and running out of the box with a flexible set of tools to help rapidly add integrations to your software that your end users can manage individually without any intervention.&#x20;
 
-The framework handles integration listing, authentication, and configuration "out of the box," built on a scalable serverless architecture with a growing library of prebuilt API Modules to greatly reduce time to wow. Along with the core "out of the box" features, the framework contains primitives to help address and flex to any use case. Here's a quick list:
+The framework handles integration listing, authentication, and configuration "out of the box," built on a scalable serverless architecture with a growing library of prebuilt API Modules to greatly reduce time to wow. Along with the core "out of the box" features, the framework contains primitives to help address and flex to any use case.&#x20;
 
-* Eventing
-  * Webhooks/Callbacks
-  * Scheduled/Polling
-  * User initiated
-* Syncing
-  * Bi-directional
-  * Field-level selection
-* Easy Route Creation
-* Internal facing APIs
-* External facing APIs
-* Queues
-* Associations
+## Navigating the Docs
+
+We've got a lot to unpack!
+
+
+
+In general, there are three areas of the docs.
+
+Developing Integrations with Frigg
+
+Here you'll find Quick Start tutorials and examples, along with deeper dive documentation on how to develop integrations with Frigg.
+
+Frigg Reference
+
+This is the main area where you'll find documentation around all Frigg concepts
+
+Contributing to the Project
+
+Here's where we lay out how to get involved in contributing to the Frigg core project.
+
+
 
 #### Basic Architecture
 
@@ -67,4 +78,4 @@ In the backend, Frigg is based on the serverless.com framework. This key piece o
 
 ## Contributing Developers
 
-See [CONTRIBUTING.md](getting-started/contributing/) for details about getting started as a Frigg contributor.
+See [CONTRIBUTING.md](contributing/contributing/) for details about getting started as a Frigg contributor.
