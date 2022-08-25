@@ -45,27 +45,50 @@ The framework handles integration listing, authentication, and configuration "ou
 
 ## Navigating the Docs
 
-We've got a lot to unpack!
+We've got a lot to unpack! These docs should be your go-to resource for all things Frigg related. Over time, there will doubtless be other properties and places (courses?) where you'll get more deep dives into topics and example implementations (and we expect example implementations contributed by the community?), but for now, this is the place.
 
+In general, there are five main areas of the docs
 
+{% content-ref url="broken-reference" %}
+[Broken link](broken-reference)
+{% endcontent-ref %}
 
-In general, there are three areas of the docs.
+^ Here you'll find Quick Start tutorials and examples, along with deeper dive documentation on how to develop integrations with Frigg.
 
-Developing Integrations with Frigg
+{% content-ref url="broken-reference" %}
+[Broken link](broken-reference)
+{% endcontent-ref %}
 
-Here you'll find Quick Start tutorials and examples, along with deeper dive documentation on how to develop integrations with Frigg.
+^ This is the main area where you'll find documentation around all Frigg concepts
 
-Frigg Reference
+{% content-ref url="broken-reference" %}
+[Broken link](broken-reference)
+{% endcontent-ref %}
 
-This is the main area where you'll find documentation around all Frigg concepts
+^ Here's where we lay out how to get involved in contributing to the Frigg core project. And oh boy are we glad to have you!
 
-Contributing to the Project
+{% content-ref url="broken-reference" %}
+[Broken link](broken-reference)
+{% endcontent-ref %}
 
-Here's where we lay out how to get involved in contributing to the Frigg core project.
+^ Ah, the ever-expanding documentation section! At some point when we've reached critical mass (read: 1,000+ API Modules), "we're going to need a bigger boat". But for now, basic docs around any specific module live here.
 
+{% content-ref url="broken-reference" %}
+[Broken link](broken-reference)
+{% endcontent-ref %}
 
+^ Yup, we all need support sometimes. When it comes to Frigg-related support, you've got a few options. Hit us up in those places! Or in person. Novel concept these days.
 
-#### Basic Architecture
+{% content-ref url="broken-reference" %}
+[Broken link](broken-reference)
+{% endcontent-ref %}
+
+^ This is probably both the most exciting and most daunting part of the whole enterprise. So much possibility! We're using an external tool for now, so we're just linking out to there and giving a high level short-medium-long term road map on which you can anchor your expectations. Or if you want to sponsor pieces of the roadmap, you can greatly change its shape.
+
+{% hint style="info" %}
+<details>
+
+<summary>A Note on Basic Architecture</summary>
 
 A Frigg Application is predominantly a backend microservice, with an optional frontend. Most Frigg adopters already have an existing frontend UI built using a framework of their choice, or will bake integration UX into their product's core code. Frigg ships with a simple library of components to get you started quickly. See more details about frontend options here.
 
@@ -75,6 +98,11 @@ In the backend, Frigg is based on the serverless.com framework. This key piece o
 * Deployable to your favorite host- AWS, GCP, Azure, any a list of many more are available
 * Horizontal Scalability
 * Pay as you go
+
+</details>
+{% endhint %}
+
+
 
 ## Contributing Developers
 
