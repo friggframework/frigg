@@ -4,13 +4,13 @@
 
 <summary><mark style="background-color:purple;">Frigg Explained to Partnership Leaders &#x26; Non-Technical People</mark></summary>
 
-The Frigg Integration Framework is a software development tool built to help engineers build integrations faster.
+The Frigg Integration Framework is a software development tool intended to help engineers build integrations faster.
 
 While we all know that new "tech partnerships" unlock business opportunities, integration development is a complex, product-driven process performed by engineers and designers. Partnership leaders can't conjure new integrations into existence; product & engineering resources must be engaged and supported.
 
-Given these dynamics, partnership leaders often seek external vendors and tools to get integrations built. This search brings them to Frigg and [Left Hook](https://lefthook.com).
+Given these dynamics, partnership leaders often seek _external_ vendors and tools to get integrations built. This search brings them to Frigg and [Left Hook](https://lefthook.com).
 
-Before they can bring Frigg to their engineering colleagues, partnership leaders should understand Frigg at a non-technical level. Our [Non-Technical Overview Doc](https://docs.google.com/document/d/e/2PACX-1vRzCTIUhUj5NC5CKIOhn36NGu6TbUPMwMF5-hFLJ2fuhfrCJ2VXnabtxqE429iP1CxPPgPyhzez41jk/pub) is intended to provide this context and support your advocacy for using Frigg.
+Before you introduce Frigg to your engineering colleagues, partnership leaders should understand Frigg at a non-technical level. Our [Non-Technical Overview Doc](https://docs.google.com/document/d/e/2PACX-1vRzCTIUhUj5NC5CKIOhn36NGu6TbUPMwMF5-hFLJ2fuhfrCJ2VXnabtxqE429iP1CxPPgPyhzez41jk/pub) is intended to provide this context and support your internal advocacy for Frigg.
 
 Meanwhile, Frigg's documentation site is targeted at engineers and product leaders who will need to understand the framework as a development tool.&#x20;
 
