@@ -1,3 +1,15 @@
+# v1.0.2 (Wed Aug 31 2022)
+
+#### 🐛 Bug Fix
+
+- Add slack config [#33](https://github.com/friggframework/frigg/pull/33) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.0.1 (Wed Aug 31 2022)
 
 :tada: This release contains work from new contributors! :tada:
