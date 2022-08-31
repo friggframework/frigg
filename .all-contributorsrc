@@ -27,7 +27,9 @@
       "avatar_url": "https://avatars.githubusercontent.com/u/7811325?v=4",
       "profile": "https://github.com/seanspeaks",
       "contributions": [
-        "code"
+        "code",
+        "test",
+        "doc"
       ]
     }
   ],
