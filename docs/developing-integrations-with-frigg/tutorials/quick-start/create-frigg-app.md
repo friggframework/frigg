@@ -1,6 +1,6 @@
 # Create Frigg App
 
-Use `npx` to use the latest generator code, and just pass it whatever you want to name your frigg application.&#x20;
+Use `npx` to use the latest generator code, and just pass it whatever you want to name your Frigg application.&#x20;
 
 {% hint style="info" %}
 **Note on naming:** we recommend thinking of your Frigg app as a microservice that powers integrations; naming it something like "my-app-integrations" is a good fit
@@ -10,7 +10,7 @@ Use `npx` to use the latest generator code, and just pass it whatever you want t
 npx create-frigg-app [my-app-integrations]
 ```
 
-Congrats! You've just successfully scaffolded and installed your first Frigg application.
+Congrats! You've just successfully scaffolded and installed your Frigg application.
 
 Let's spin it up to explore more:
 
