@@ -1,6 +1,6 @@
 {
   "name": "frigg-monorepo",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "",
   "private": true,
   "scripts": {
@@ -38,7 +38,9 @@
         "slack",
         {
           "auth": "app",
-          "channels": ["lefthook-integration-framework-frigg"]
+          "channels": [
+            "lefthook-integration-framework-frigg"
+          ]
         }
       ]
     ]
