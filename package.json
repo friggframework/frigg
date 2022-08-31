@@ -34,7 +34,13 @@
       "conventional-commits",
       "first-time-contributor",
       "released",
-      "slack"
+      [
+        "slack",
+        {
+          "auth": "app",
+          "channels": ["lefthook-integration-framework-frigg"]
+        }
+      ]
     ]
   }
 }
