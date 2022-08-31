@@ -1,3 +1,46 @@
+# v1.0.3 (Wed Aug 31 2022)
+
+#### 🐛 Bug Fix
+
+- Starting to work on api tests [#35](https://github.com/friggframework/frigg/pull/35) ([@seanspeaks](https://github.com/seanspeaks))
+- GitBook: [#58] No subject [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#57] No subject [#34](https://github.com/friggframework/frigg/pull/34) ([@seanspeaks](https://github.com/seanspeaks))
+- GitBook: [#56] No subject [#34](https://github.com/friggframework/frigg/pull/34) ([@seanspeaks](https://github.com/seanspeaks))
+- GitBook: [#53] No subject [#34](https://github.com/friggframework/frigg/pull/34) ([@seanspeaks](https://github.com/seanspeaks))
+- GitBook: [#52] No subject [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#51] No subject [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#50] No subject [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#49] No subject [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#46] No subject [#34](https://github.com/friggframework/frigg/pull/34) ([@seanspeaks](https://github.com/seanspeaks))
+- GitBook: [#48] No subject [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#47] No subject [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#45] No subject [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#44] No subject [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#43] No subject [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#42] No subject [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#41] No subject [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#39] No subject [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#38] No subject [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#37] No subject [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#36] 4:12 [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#35] 4:11 test [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#34] More Markdown testing [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#33] 7 [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#32] 6 [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#31] Image with link 5 [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#30] Image with link attempt 4 [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#29] Image with Link via markdown attempt #3 [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#28] Image with Link (second attempt) [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#27] Remove Code Block 1 [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+- GitBook: [#26] Tom Button Test [#34](https://github.com/friggframework/frigg/pull/34) (tom.elliott@lefthook.com)
+
+#### Authors: 2
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+- Tom Elliott (tom.elliott@lefthook.com)
+
+---
+
 # v1.0.2 (Wed Aug 31 2022)
 
 #### 🐛 Bug Fix
