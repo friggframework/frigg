@@ -72,7 +72,7 @@
 
 ## 📞 Support
 
-* [Overview](support/support.md)
+* [Contact for Support](support/support.md)
 * [Frequently Asked Questions](support/frequently-asked-questions.md)
 
 ## 🗺 Roadmap
