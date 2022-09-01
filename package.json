@@ -10,8 +10,8 @@
     "use:npm": "npm install -g npm@$npm_package_engines_npm"
   },
   "engines": {
-    "node": "16",
-    "npm": "8.5.5"
+    "node": ">=14",
+    "npm": ">=7"
   },
   "author": "seanspeaks <sean.matthews@lefthook.co>",
   "license": "MIT",
@@ -25,7 +25,8 @@
     "@auto-it/first-time-contributor": "^10.37.4",
     "@auto-it/slack": "^10.37.4",
     "auto": "^10.37.4",
-    "lerna": "^5.5.0"
+    "lerna": "^5.5.0",
+    "nx": "^14.6.1"
   },
   "repository": "friggframework/frigg",
   "auto": {

@@ -1,5 +1,5 @@
 {
-    "version": "0.8.7",
+    "version": "0.8.8",
     "name": "@friggframework/api-module-pipedrive",
     "prettier": "@friggframework/prettier-config",
     "description": "",
@@ -19,7 +19,7 @@
         "sinon": "^14.0.0"
     },
     "dependencies": {
-        "@friggframework/module-plugin": "^1.0.11",
-        "@friggframework/assertions": "^1.0.4"
+        "@friggframework/assertions": "^1.0.4",
+        "@friggframework/module-plugin": "^1.0.11"
     }
 }
