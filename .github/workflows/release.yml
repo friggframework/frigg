@@ -6,12 +6,16 @@ jobs:
     if: "!contains(github.event.head_commit.message, 'ci skip') && !contains(github.event.head_commit.message, 'skip ci')"
     steps:
     - name: Checkout
-      uses: actions/checkout@v2
-    - run: git fetch --unshallow --tags
-    - name: Setup node
-      uses: actions/setup-node@v1
+      uses: actions/checkout@v3
       with:
-        node-version: '16.x'
+        # Ensure that git uses your token with admin access to the repo
+        token: ${{ secrets.ADMIN_TOKEN }}
+        fetch-depth: 0
+    - name: Setup node
+      uses: actions/setup-node@v3
+      with:
+        node-version: 16
+        cache: 'npm'
         registry-url: 'https://registry.npmjs.org'
     - name: Auto release
       env:
