@@ -13,5 +13,9 @@ jobs:
 
       - uses: auto-it/setup-auto@v1
 
+      - name: "NPM Identity"
+        run: |
+          echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
+
       - name: Release
         run: auto shipit
