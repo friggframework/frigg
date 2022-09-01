@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-salesforce",
-    "version": "0.8.13",
+    "version": "0.8.14",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -19,8 +19,8 @@
         "sinon": "^14.0.0"
     },
     "dependencies": {
-        "@friggframework/module-plugin": "^1.0.11",
         "@friggframework/assertions": "^1.0.4",
+        "@friggframework/module-plugin": "^1.0.11",
         "jsforce": "^1.11.0"
     }
 }
