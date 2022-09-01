@@ -1,3 +1,23 @@
+# (Thu Sep 01 2022)
+
+#### 🐛 Bug Fix
+
+- Slack channel and npm fix [#42](https://github.com/friggframework/frigg/pull/42) ([@seanspeaks](https://github.com/seanspeaks))
+- Slack channel and npm fix [#41](https://github.com/friggframework/frigg/pull/41) ([@seanspeaks](https://github.com/seanspeaks))
+- Slack channel and npm fix [#40](https://github.com/friggframework/frigg/pull/40) ([@seanspeaks](https://github.com/seanspeaks))
+- Maybe better Action setup [#39](https://github.com/friggframework/frigg/pull/39) ([@seanspeaks](https://github.com/seanspeaks))
+- Attempt npm setup [#38](https://github.com/friggframework/frigg/pull/38) ([@seanspeaks](https://github.com/seanspeaks))
+- Add lerna [#36](https://github.com/friggframework/frigg/pull/36) ([@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/api-module-activecampaign@0.8.11`, `@friggframework/api-module-airwallex@0.8.10`, `@friggframework/api-module-attentive@0.8.11`, `@friggframework/api-module-clyde@0.8.10`, `@friggframework/api-module-connectwise@0.8.13`, `@friggframework/api-module-crossbeam@0.8.10`, `@friggframework/api-module-fastspring-iq@0.8.11`, `@friggframework/api-module-front@0.8.10`, `@friggframework/api-module-gorgias@0.8.10`, `@friggframework/api-module-hubspot@0.8.10`, `@friggframework/api-module-huggg@0.8.11`, `@friggframework/api-module-marketo@0.8.11`, `@friggframework/api-module-monday@0.8.10`, `@friggframework/api-module-netx@0.8.10`, `@friggframework/api-module-outreach@0.8.10`, `@friggframework/api-module-personio@0.8.11`, `@friggframework/api-module-pipedrive@0.8.10`, `@friggframework/api-module-qbo@0.8.10`, `@friggframework/api-module-rev-io@0.8.10`, `@friggframework/api-module-rollworks@0.8.10`, `@friggframework/api-module-salesforce@0.8.16`, `@friggframework/api-module-salesloft@0.8.10`, `@friggframework/api-module-terminus@0.8.10`, `@friggframework/api-module-zoom@0.8.10`
+  - version bumped to address tag issue [#43](https://github.com/friggframework/frigg/pull/43) ([@seanspeaks](https://github.com/seanspeaks))
+  - Add nx and licenses [#37](https://github.com/friggframework/frigg/pull/37) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.0.3 (Wed Aug 31 2022)
 
 #### 🐛 Bug Fix
