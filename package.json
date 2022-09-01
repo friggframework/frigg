@@ -10,8 +10,8 @@
     "use:npm": "npm install -g npm@$npm_package_engines_npm"
   },
   "engines": {
-    "node": "16",
-    "npm": "8.5.5"
+    "node": ">=14",
+    "npm": ">=7"
   },
   "author": "seanspeaks <sean.matthews@lefthook.co>",
   "license": "MIT",
