@@ -72,8 +72,8 @@
 
 ## 📞 Support
 
-* [Chat with Us](support/chat-with-us.md)
-* [Contact for Support](support/support.md)
+* [Contact](support/support/README.md)
+  * [Chat with Us](support/support/chat-with-us.md)
 * [Frequently Asked Questions](support/frequently-asked-questions.md)
 
 ## 🗺 Roadmap
