@@ -61,7 +61,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 <table>
   <tr>
     <td align="center"><a href="https://queuetue.com/"><img src="https://avatars.githubusercontent.com/u/4491?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Scott Russell</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=queuetue" title="Documentation">📖</a> <a href="https://github.com/friggframework/frigg/commits?author=queuetue" title="Tests">⚠️</a> <a href="https://github.com/friggframework/frigg/commits?author=queuetue" title="Code">💻</a></td>
-    <td align="center"><a href="https://github.com/seanspeaks"><img src="https://avatars.githubusercontent.com/u/7811325?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Sean Matthews</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=seanspeaks" title="Code">💻</a> <a href="https://github.com/friggframework/frigg/commits?author=seanspeaks" title="Tests">⚠️</a> <a href="https://github.com/friggframework/frigg/commits?author=seanspeaks" title="Documentation">📖</a></td>
+    <td align="center"><a href="https://github.com/seanspeaks"><img src="https://avatars.githubusercontent.com/u/7811325?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Sean Matthews</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=seanspeaks" title="Code">💻</a> <a href="https://github.com/friggframework/frigg/commits?author=seanspeaks" title="Tests">⚠️</a> <a href="https://github.com/friggframework/frigg/commits?author=seanspeaks" title="Documentation">📖</a> <a href="#infra-seanspeaks" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
   </tr>
 </table>
 
