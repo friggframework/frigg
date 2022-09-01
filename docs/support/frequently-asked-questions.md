@@ -4,7 +4,9 @@
 
 <summary>How much does Frigg cost?</summary>
 
+Frigg is free, open source software under the MIT license. There is no fee to use it.
 
+Note that Frigg's creators ([Left Hook](https://lefthook.com)) sell professional services to help SaaS leaders implement Frigg, add features, and customize Frigg to your specific needs. Visit [Left Hook's website](https://lefthook.com) to connect and discuss your needs.
 
 </details>
 
@@ -58,7 +60,7 @@
 
 <summary>Do I need to use the Frigg frontend?</summary>
 
-
+No. Frigg can be used with any frontend system via API.
 
 </details>
 
@@ -74,7 +76,22 @@
 
 <summary>Which cloud providers are supported?</summary>
 
+Frigg leverages (and requires) the [Serverless.com framework](https://github.com/serverless/serverless), which means it can run on many different cloud services including:\
 
+
+AWS
+
+Microsoft Azure
+
+Google Cloud
+
+Tencent Cloud
+
+Cloudflare
+
+Alibaba Cloud
+
+twilio
 
 </details>
 
