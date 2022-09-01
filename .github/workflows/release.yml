@@ -5,17 +5,11 @@ jobs:
     runs-on: ubuntu-latest
     if: "!contains(github.event.head_commit.message, 'ci skip') && !contains(github.event.head_commit.message, 'skip ci')"
     steps:
-      - uses: actions/checkout@v3
-        with:
-          # Ensure that git uses your token with admin access to the repo
-          token: ${{ secrets.ADMIN_TOKEN }}
-          fetch-depth: 0
-
-      - uses: auto-it/setup-auto@v1
-
-      - name: "NPM Identity"
-        run: |
-          echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
-
-      - name: Release
-        run: auto shipit
+    - name: Checkout
+      uses: actions/checkout@v2
+    - run: git fetch --unshallow --tags
+    - name: auto shipit
+      uses: terradatum/auto-action@master
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
