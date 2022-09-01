@@ -25,7 +25,8 @@
     "@auto-it/first-time-contributor": "^10.37.4",
     "@auto-it/slack": "^10.37.4",
     "auto": "^10.37.4",
-    "lerna": "^5.5.0"
+    "lerna": "^5.5.0",
+    "nx": "^14.6.1"
   },
   "repository": "friggframework/frigg",
   "auto": {
