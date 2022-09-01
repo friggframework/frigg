@@ -2,6 +2,21 @@
 
 #### 🐛 Bug Fix
 
+- `@friggframework/api-module-clyde@0.8.12`
+  - fix: Making an excuse to release so we test slack message [#46](https://github.com/friggframework/frigg/pull/46) ([@seanspeaks](https://github.com/seanspeaks))
+  - fix: updated clyde API test instead of manager related items [#45](https://github.com/friggframework/frigg/pull/45) ([@seanspeaks](https://github.com/seanspeaks))
+  - test: added api.test.js to Clyde [#44](https://github.com/friggframework/frigg/pull/44) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Thu Sep 01 2022)
+
+#### 🐛 Bug Fix
+
 - `@friggframework/api-module-clyde@0.8.11`
   - fix: updated clyde API test instead of manager related items [#45](https://github.com/friggframework/frigg/pull/45) ([@seanspeaks](https://github.com/seanspeaks))
   - test: added api.test.js to Clyde [#44](https://github.com/friggframework/frigg/pull/44) ([@seanspeaks](https://github.com/seanspeaks))
