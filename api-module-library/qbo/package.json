@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-qbo",
-    "version": "0.8.9",
+    "version": "0.8.10",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
