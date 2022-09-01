@@ -23,5 +23,6 @@
     "dependencies": {
         "@friggframework/assertions": "^1.0.4",
         "@friggframework/module-plugin": "^1.0.11"
-    }
+    },
+    "gitHead": "1ff6f32fa238512761a9c361f0e07f49b6bf5ed7"
 }
