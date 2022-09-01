@@ -12,5 +12,6 @@ describe(`Should fully test the ${config.label} API Class`, () => {
     it('should return auth requirements', async () => {
         const authUri = await api.getAuthUri();
         expect(authUri).exists;
+        console.log(authUri);
     });
 });
