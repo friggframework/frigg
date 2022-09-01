@@ -72,6 +72,7 @@
 
 ## 📞 Support
 
+* [Chat with Us](support/chat-with-us.md)
 * [Contact for Support](support/support.md)
 * [Frequently Asked Questions](support/frequently-asked-questions.md)
 
