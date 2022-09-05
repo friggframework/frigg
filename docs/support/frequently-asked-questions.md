@@ -26,10 +26,6 @@ Frigg is **NOT** SaaS or hosted software. While it compares favorably to iPaaS s
 
 Yes. Frigg provides developers with an opinionated, ready-to-use framework, as well as several API Modules representing +20 different target partner APIs. These assets with help a product team save many hours of decision-making and code development.
 
-
-
-
-
 </details>
 
 <details>
@@ -175,3 +171,14 @@ Frigg was created by developers at [Left Hook](https://lefthook.com), who uses F
 
 </details>
 
+<details>
+
+<summary>How does Frigg accelerate Technical Partnerships?</summary>
+
+You should read our [Frigg Non-Technical Overview](https://docs.google.com/document/d/1lDHLSTfb05PxTTbjHECCKSkQwA7WQs4W94-9efhO-wo/export?format=pdf). But TLDR:
+
+When two partnership leaders seek to build an integration to co-market and co-sell around, their companies often struggle to muster the product management and development resources required to get a useful integration built. And as we've seen a 100 times: no tech, no partnership!
+
+With Frigg, the development process accelerates so that the business relationship can launch and flourish faster.
+
+</details>
