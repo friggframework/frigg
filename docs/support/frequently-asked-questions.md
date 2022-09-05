@@ -1,12 +1,14 @@
 # Frequently Asked Questions (FAQs)
 
+_Last Updated 9/6/2022_
+
 This FAQ page is divided into three sections: General, Technical/Product and Non-Technical questions.
 
 ### General FAQs
 
 <details>
 
-<summary>What exactly is Frigg?</summary>
+<summary>What exactly is the Frigg Integration Framework?</summary>
 
 Frigg is an open source software framework to help developers build and maintain direct/native integrations faster.
 
@@ -37,6 +39,20 @@ Yes. Frigg provides developers with an opinionated, ready-to-use framework, as w
 Frigg was first created by [Left Hook](https://lefthook.com). It is now used by several B2B SaaS companies to power more than 20 different direct/native integrations.
 
 An open source community of contributors and supporters is now forming around the Frigg Framework project. Please [join us](support.md)!
+
+</details>
+
+<details>
+
+<summary>Frigg vs Left Hook?</summary>
+
+Left Hook is software company that builds and maintains integrations for B2B SaaS companies.
+
+Left Hook created the Frigg Integration Framework as a way to accelerate development for its clients.
+
+Frigg is an open source software framework that is freely available without engaging with Left Hook or paying any licensing fee.
+
+While Left Hook is currently Frigg's primary developer, eventually Frigg will be improved and expanded by its open source community members.
 
 </details>
 
