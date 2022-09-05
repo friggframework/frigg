@@ -73,7 +73,7 @@
 
 * [Contact](support/support.md)
   * [Chat with Us](support/support/chat-with-us.md)
-* [Frequently Asked Questions (FAQs)](support/frequently-asked-questions-faqs.md)
+* [Frequently Asked Questions (FAQs)](support/frequently-asked-questions.md)
 
 ## 🗺 Roadmap
 

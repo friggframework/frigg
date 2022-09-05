@@ -8,21 +8,35 @@ This FAQ page is divided into three sections: General, Technical/Product and Non
 
 <summary>What exactly is Frigg?</summary>
 
-Frigg is an open source framework intended to help developers build and maintain direct/native integrations faster.
+Frigg is an open source software framework to help developers build and maintain direct/native integrations faster.
 
-Frigg is free to use and available under the MIT license. Developers can download it here.
+Frigg is free to use and available under the MIT license.
+
+Frigg is an installable _package_ that can be hosted/run on the cloud infrastructure provider of your choice.
+
+Frigg is **NOT** SaaS or hosted software. While it compares favorably to iPaaS solutions (either embedded or stand-alone like Zapier), it is fundamentally different in its architecture and cost approach.
 
 </details>
 
 <details>
 
-<summary>Can Frigg save our team time in building/improving integrations?</summary>
+<summary>Can Frigg save us time in building/improving integrations?</summary>
 
 Yes. Frigg provides developers with an opinionated, ready-to-use framework, as well as several API Modules representing +20 different target partner APIs. These assets with help a product team save many hours of decision-making and code development.
 
 
 
 
+
+</details>
+
+<details>
+
+<summary>Who is behind Frigg?</summary>
+
+Frigg was first created by [Left Hook](https://lefthook.com). It is now used by several B2B SaaS companies to power more than 20 different direct/native integrations.
+
+An open source community of contributors and supporters is now forming around the Frigg Framework project. Please [join us](support.md)!
 
 </details>
 
@@ -33,6 +47,14 @@ Yes. Frigg provides developers with an opinionated, ready-to-use framework, as w
 <summary>Where/how can I download Frigg?</summary>
 
 Frigg is available both as an [NPM package](../developing-integrations-with-frigg/tutorials/quick-start/) and on [Github](https://github.com/friggframework/frigg).
+
+</details>
+
+<details>
+
+<summary>What stack does Frigg use?</summary>
+
+Frigg is written in Node.js and relies on the Serverless.com framework, but is otherwise highly adaptable to your organization’s stack and CI/CD processes. Optional frontend components are written in React.JS, but Frigg's API-driven architecture allows it to be used by any front-end system.
 
 </details>
 
@@ -87,7 +109,7 @@ twilio
 
 <details>
 
-<summary>Can I use Frigg with Zapier/Tray/Workato/Embeddable-iPaaS-X</summary>
+<summary>Can I use Frigg alongside Zapier/Tray/Workato/Embeddable-iPaaS-X</summary>
 
 
 
