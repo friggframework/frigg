@@ -136,6 +136,17 @@
         "code",
         "test"
       ]
+    },
+    {
+      "login": "cgenesoniSouthWorks",
+      "name": "cgenesoniSouthWorks",
+      "avatar_url": "https://avatars.githubusercontent.com/u/108014154?v=4",
+      "profile": "https://github.com/cgenesoniSouthWorks",
+      "contributions": [
+        "code",
+        "research",
+        "test"
+      ]
     }
   ],
   "contributorsPerLine": 7
