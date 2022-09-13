@@ -161,6 +161,22 @@
         "review",
         "test"
       ]
+    },
+    {
+      "login": "cbanister",
+      "name": "Caleb",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1163670?v=4",
+      "profile": "http://www.coderden.com/",
+      "contributions": [
+        "code",
+        "design",
+        "ideas",
+        "platform",
+        "plugin",
+        "research",
+        "security",
+        "tool"
+      ]
     }
   ],
   "contributorsPerLine": 7
