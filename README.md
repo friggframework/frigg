@@ -1,6 +1,6 @@
 # Frigg Integration Framework
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-9-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-10-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 <img src="docs/FriggLogo.svg" style="width:250px">
@@ -71,6 +71,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
   <tr>
     <td align="center"><a href="https://github.com/gregoriomartin"><img src="https://avatars.githubusercontent.com/u/26978598?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Gregorio Martin</b></sub></a><br /><a href="https://github.com/friggframework/frigg/issues?q=author%3Agregoriomartin" title="Bug reports">🐛</a> <a href="https://github.com/friggframework/frigg/commits?author=gregoriomartin" title="Code">💻</a> <a href="https://github.com/friggframework/frigg/commits?author=gregoriomartin" title="Tests">⚠️</a></td>
     <td align="center"><a href="https://github.com/cgenesoniSouthWorks"><img src="https://avatars.githubusercontent.com/u/108014154?v=4?s=100" width="100px;" alt=""/><br /><sub><b>cgenesoniSouthWorks</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=cgenesoniSouthWorks" title="Code">💻</a> <a href="#research-cgenesoniSouthWorks" title="Research">🔬</a> <a href="https://github.com/friggframework/frigg/commits?author=cgenesoniSouthWorks" title="Tests">⚠️</a></td>
+    <td align="center"><a href="https://github.com/TrevorKiefaber"><img src="https://avatars.githubusercontent.com/u/25160918?v=4?s=100" width="100px;" alt=""/><br /><sub><b>TrevorKiefaber</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=TrevorKiefaber" title="Code">💻</a> <a href="#ideas-TrevorKiefaber" title="Ideas, Planning, & Feedback">🤔</a> <a href="#plugin-TrevorKiefaber" title="Plugin/utility libraries">🔌</a> <a href="#research-TrevorKiefaber" title="Research">🔬</a> <a href="https://github.com/friggframework/frigg/pulls?q=is%3Apr+reviewed-by%3ATrevorKiefaber" title="Reviewed Pull Requests">👀</a> <a href="https://github.com/friggframework/frigg/commits?author=TrevorKiefaber" title="Tests">⚠️</a></td>
   </tr>
 </table>
 

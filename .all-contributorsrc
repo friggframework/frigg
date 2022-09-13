@@ -147,6 +147,20 @@
         "research",
         "test"
       ]
+    },
+    {
+      "login": "TrevorKiefaber",
+      "name": "TrevorKiefaber",
+      "avatar_url": "https://avatars.githubusercontent.com/u/25160918?v=4",
+      "profile": "https://github.com/TrevorKiefaber",
+      "contributions": [
+        "code",
+        "ideas",
+        "plugin",
+        "research",
+        "review",
+        "test"
+      ]
     }
   ],
   "contributorsPerLine": 7
