@@ -2,7 +2,7 @@
 
 * [🥳 Introduction to Frigg](README.md)
 
-## 👩💻 Developing Integrations with Frigg
+## 👩💻 👩💻 Developing Integrations with Frigg
 
 * [Overview](developing-integrations-with-frigg/overview.md)
 * [Tutorials](developing-integrations-with-frigg/tutorials/README.md)

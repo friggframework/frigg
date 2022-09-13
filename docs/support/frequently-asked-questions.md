@@ -8,6 +8,37 @@ This FAQ page is divided into three sections: General, Technical/Product and Non
 
 <details>
 
+<summary>What SaaS companies are already using Frigg?</summary>
+
+Frigg is powering +10 integrations (total) for these early adopters:\
+
+
+### ****[**Crossbeam**](https://partnercloud.crossbeam.com/)****
+
+* **monday.com**
+* **ActiveCampaign**
+* **Rollworks**
+* **Salesloft**
+* **Hubspot**
+* **Terminus**
+* **Outreach.io**
+
+### ****[**Clyde**](https://partners.joinclyde.com/tech-partners/)****
+
+* **Gorgias**
+* **Attentive**
+
+### ****[**FastSpring Interactive Quotes**](https://fastspring.com/docs/interactive-quotes-overview/)
+
+* **SalesForce**
+* **HubSpot**
+
+****
+
+</details>
+
+<details>
+
 <summary>What exactly is the Frigg Integration Framework?</summary>
 
 Frigg is an open source software framework to help developers build and maintain direct/native integrations faster.
