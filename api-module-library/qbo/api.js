@@ -1,5 +1,5 @@
 const moment = require('moment');
-const OAuth2Base = require('@friggframework/core/auth/OAuth2Base');
+const { OAuth2Requester } = require('@friggframework/module-plugin');
 const { get } = require('@friggframework/assertions');
 const fetch = require('node-fetch');
 const OAuthClient = require('intuit-oauth');
@@ -66,7 +66,7 @@ class QuickBooksPromise {
     }
 }
 
-class Api extends OAuth2Base {
+class Api extends OAuth2Requester {
     constructor(params) {
         params = params === undefined ? {} : params;
         // gets the authorization URI for QBO based on the permissions we need

@@ -1,15 +1,15 @@
-const OAuth2Base = require('../../base/auth/OAuth2Base');
+const { OAuth2Requester } = require('@friggframework/module-plugin');
 const crypto = require('crypto');
-const { debug } = require('../../utils/logger');
+const { get } = require('@friggframework/assertions');
 const fs = require('fs');
 const path = require('path');
 const FormData = require('form-data');
 let nonce = crypto.randomBytes(16).toString('base64');
 
-class Api extends OAuth2Base {
+class Api extends OAuth2Requester {
     constructor(params) {
         super(params);
-        this.subdomain = this.getParam(params, 'subdomain', '{{subdomain}}');
+        this.subdomain = get(params, 'subdomain', '{{subdomain}}');
         this.baseUrl = `https://${this.subdomain}.gorgias.com`;
 
         this.client_id = process.env.GORGIAS_CLIENT_ID;
@@ -38,8 +38,8 @@ class Api extends OAuth2Base {
         );
         this.tokenUri = `${this.baseUrl}/oauth/token`;
 
-        this.access_token = this.getParam(params, 'access_token', null);
-        this.refresh_token = this.getParam(params, 'refresh_token', null);
+        this.access_token = get(params, 'access_token', null);
+        this.refresh_token = get(params, 'refresh_token', null);
     }
 
     async addAuthHeaders(headers) {

@@ -1,10 +1,11 @@
-const _ = require('underscore');
 const moment = require('moment');
-const ModuleManager = require('@friggframework/core/managers/ModuleManager.js');
+const {
+    ModuleManager,
+    ModuleConstants,
+} = require('@friggframework/module-plugin');
 const { Api } = require('./api.js');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
-const ModuleConstants = require('../ModuleConstants');
 const AuthFields = require('./authFields');
 const Config = require('./defaultConfig.json');
 
@@ -24,31 +25,23 @@ class Manager extends ModuleManager {
     static async getInstance(params) {
         const instance = new this(params);
 
-        if (params.userId && !params.entityId) {
-            instance.entity = await instance.entityMO.getByUserId(
-                params.userId
-            );
-        }
-        // create an entry in the database if it does not exist
-        if (!params.entityId && !instance.entity) {
-            instance.entity = await instance.entityMO.create({
-                user: params.userId,
-            });
-        }
-
         if (params.entityId) {
-            instance.entity = await instance.entityMO.get(params.entityId);
-        }
-
-        // initializes the credentials and the Api
-        if (instance.entity.credential) {
-            instance.credential = await instance.credentialMO.get(
+            instance.entity = await Entity.findById(params.entityId);
+            const credential = await Credential.findById(
                 instance.entity.credential
             );
-            instance.api = await new Api(instance.credential);
-        } else {
-            // instance.api = new Api();
+            instance.credential = credential;
+            apiParams.access_token = credential.accessToken;
+            apiParams.refresh_token = credential.refreshToken;
+            apiParams.subdomain = credential.subdomain;
+            apiParams.apiKey = credential.apiKey;
+            apiParams.apiUserEmail = credential.apiUserEmail;
         }
+
+        instance.api = await new Api({
+            delegate: instance,
+            ...instance.credential,
+        });
 
         return instance;
     }

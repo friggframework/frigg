@@ -1,11 +1,10 @@
 const { Api } = require('./api.js');
 const { Entity } = require('./entity');
-const PrimaryEntity = require('../HubSpot/models/Entity');
 const { Credential } = require('./credential.js');
-const ModuleManager = require('@friggframework/core/managers/ModuleManager');
+const { ModuleManager } = require('@friggframework/module-plugin');
 const Config = require('./defaultConfig.json');
 
-class MarketoManager extends ModuleManager {
+class Manager extends ModuleManager {
     static Credential = Credential;
     static Entity = Entity;
 
@@ -23,7 +22,7 @@ class MarketoManager extends ModuleManager {
         // Instantiating the API class with the args passed in, appending it to the instance of the manager (instance.api), and returning the instance.
         // (Noting for posterity... this is definitely based on a different module that uses a tangled concept... should be cleaner and hence the refactor you'll see in the crossbeam API module. Also may benefit from just removing altogether from the Manager class and making it part of the ModuleManager base class)
 
-        const instance = new MarketoManager(params);
+        const instance = new Manager(params);
 
         if (params.entityId) {
             instance.entity = await instance.entityMO.get(params.entityId);
@@ -144,15 +143,6 @@ class MarketoManager extends ModuleManager {
             created.push({ entity, credential });
         }
 
-        const primaryEntity = await PrimaryEntity.Model.upsert(
-            {
-                user: this.userId,
-            },
-            {
-                user: this.userId,
-            }
-        );
-
         // TODO how to pick one?
         const { entity, credential } = created[0];
 
@@ -167,8 +157,7 @@ class MarketoManager extends ModuleManager {
 
         // Return the credential_id, entity_id (null if not available yet), and type (just the Manager Name) as an object.
         return {
-            type: MarketoManager.getName(),
-            primary_entity_id: primaryEntity._id,
+            type: Manager.getName(),
             entity_id: entity._id,
             credential_id: credential._id,
         };
@@ -226,4 +215,4 @@ class MarketoManager extends ModuleManager {
     }
 }
 
-module.exports = MarketoManager;
+module.exports = Manager;

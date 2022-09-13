@@ -1,9 +1,9 @@
 const fetch = require('node-fetch');
-const Requester = require('@friggframework/core/Requester.js');
-const FormatPatchBody = require('../../utils/FormatPatchBody.js');
+const { Requester } = require('@friggframework/module-plugin');
+const FormatPatchBody = require('./formatPatchBody');
 const { get } = require('@friggframework/assertions');
 
-class RevIoApi extends Requester {
+class Api extends Requester {
     constructor(params) {
         super(params);
         this.USER_NAME = get(params, 'username', null);
@@ -422,4 +422,4 @@ class RevIoApi extends Requester {
     }
 }
 
-module.exports = RevIoApi;
+module.exports = { Api };

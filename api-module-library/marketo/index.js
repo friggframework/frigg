@@ -1,6 +1,6 @@
 const { Api } = require('./api');
-const { Credential } = require('./models/credential');
-const { Entity } = require('./models/entity');
+const { Credential } = require('./credential');
+const { Entity } = require('./entity');
 const ModuleManager = require('./manager');
 const Config = require('./defaultConfig');
 

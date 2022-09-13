@@ -5,7 +5,9 @@ const loadInstalledModules = () => {
     const pathToPackage = joinPathParts(process.cwd(), 'package.json');
     const contents = readFileSync(pathToPackage);
     const pkg = JSON.parse(contents);
-    const dependencyNames = Object.keys(pkg.dependencies);
+    const dependencyNames = pkg.dependencies
+        ? Object.keys(pkg.dependencies)
+        : [];
     const installedNames = dependencyNames.filter((name) => {
         const withoutOrganization = name.split('/').pop();
         return withoutOrganization.startsWith('frigg-module-');

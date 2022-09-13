@@ -2,13 +2,14 @@ const _ = require('lodash');
 const { Api } = require('./api.js');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
-const LHModuleManager = require('../../base/managers/LHModuleManager');
-const ModuleConstants = require('../ModuleConstants');
-const { update } = require('lodash');
-const { flushDebugLog, debug } = require('../../utils/logger');
+const {
+    ModuleManager,
+    ModuleConstants,
+} = require('@friggframework/module-plugin');
+const { flushDebugLog, debug } = require('@friggframework/logs');
 const Config = require('./defaultConfig.json');
 
-class Manager extends LHModuleManager {
+class Manager extends ModuleManager {
     static Entity = Entity;
 
     static Credential = Credential;
@@ -64,7 +65,7 @@ class Manager extends LHModuleManager {
     }
 
     async processAuthorizationCallback(params) {
-        const code = this.getParam(params.data, 'code');
+        const code = get(params.data, 'code');
         await this.api.getTokenFromCode(code);
         await this.testAuth();
 
@@ -82,8 +83,8 @@ class Manager extends LHModuleManager {
     }
 
     async findOrCreateEntity(params) {
-        const companyId = this.getParam(params, 'companyId');
-        const companyName = this.getParam(params, 'companyName');
+        const companyId = get(params, 'companyId');
+        const companyName = get(params, 'companyName');
 
         const search = await this.entityMO.list({
             user: this.userId,

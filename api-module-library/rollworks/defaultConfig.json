@@ -1,5 +1,6 @@
 {
     "name": "rollworks",
+    "label": "RollWorks",
     "productUrl": "https://rollworks.com",
     "apiDocs": "https://apidocs.nextroll.com/guides/get-started-rollworks.html",
     "logoUrl": "https://friggframework.org/assets/img/rollworks.jpeg",

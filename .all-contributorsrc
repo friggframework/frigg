@@ -1,0 +1,38 @@
+{
+  "projectName": "frigg",
+  "projectOwner": "friggframework",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "files": [
+    "README.md"
+  ],
+  "imageSize": 100,
+  "commit": true,
+  "commitConvention": "eslint",
+  "contributors": [
+    {
+      "login": "queuetue",
+      "name": "Scott Russell",
+      "avatar_url": "https://avatars.githubusercontent.com/u/4491?v=4",
+      "profile": "https://queuetue.com/",
+      "contributions": [
+        "doc",
+        "test",
+        "code"
+      ]
+    },
+    {
+      "login": "seanspeaks",
+      "name": "Sean Matthews",
+      "avatar_url": "https://avatars.githubusercontent.com/u/7811325?v=4",
+      "profile": "https://github.com/seanspeaks",
+      "contributions": [
+        "code",
+        "test",
+        "doc",
+        "infra"
+      ]
+    }
+  ],
+  "contributorsPerLine": 7
+}

@@ -1,12 +1,11 @@
-const { Api } = require('./api.js');
+const { Api } = require('./api');
 const { Entity } = require('./models/entity');
-const { Credential } = require('./models/credential.js');
-const ModuleManager = require('@friggframework/core/managers/ModuleManager');
-const ModuleConstants = require('../ModuleConstants');
-const _ = require('lodash');
+const { Credential } = require('./models/credential');
+const { ModuleManager } = require('@friggframework/module-plugin');
 const Config = require('./defaultConfig.json');
+const { get } = require('@friggframework/assertions');
 
-class Manager extends LHModuleManager {
+class Manager extends ModuleManager {
     static Entity = Entity;
     static Credential = Credential;
 
@@ -31,13 +30,26 @@ class Manager extends LHModuleManager {
     }
 
     async getAuthorizationRequirements(params) {
-        console.log(`getAuthorizationRequirements: params=${params}`);
-        return null;
+        return {
+            url: this.api.getAuthorizationUri(),
+            type: 'oauth2',
+        };
     }
 
     async processAuthorizationCallback(params) {
-        console.log(`processAuthorizationCallback: params=${params}`);
-        return null;
+        const code = get(params.data, 'code');
+        await this.getAccessToken(code);
+        const userDetails = await this.api.getUserDetails();
+
+        await this.findOrCreateEntity({
+            portalId: userDetails.portalId,
+            domainName: userDetails.hub_domain,
+        });
+        return {
+            entity_id: this.entity.id,
+            credential_id: this.credential.id,
+            type: Manager.getName(),
+        };
     }
 
     async getEntityOptions() {

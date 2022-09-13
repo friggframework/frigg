@@ -1,6 +1,6 @@
-const OAuth2Base = require('@friggframework/core/auth/OAuth2Base');
-
-class Api extends OAuth2Base {
+const { OAuth2Requester } = require('@friggframework/module-plugin');
+const { get } = require('@friggframework/assertions');
+class Api extends OAuth2Requester {
     constructor(params) {
         super(params);
         this.client_id = get(params, 'client_id', null);
@@ -29,6 +29,7 @@ class Api extends OAuth2Base {
             getUser: '/api/v2/auth/me',
             getTeam: (teamId) => `/api/v2/teams/${teamId}`,
             getWallets: (teamId) => `/api/v2/teams/${teamId}/wallets`,
+            getCards: '/api/v2/cards',
             search: '/api/v2/search',
             getPurchasedHugggs: '/api/v2/hugggs/sent',
         };
@@ -71,6 +72,14 @@ class Api extends OAuth2Base {
     async getWallets(teamId) {
         const options = {
             url: this.baseURL + this.URLs.getWallets(teamId),
+        };
+        const res = await this._get(options);
+        return res;
+    }
+
+    async getCards() {
+        const options = {
+            url: this.baseURL + this.URLs.getCards,
         };
         const res = await this._get(options);
         return res;
@@ -145,7 +154,7 @@ class Api extends OAuth2Base {
                 },
                 sort: [
                     {
-                        'huggg.created_at': {
+                        'huggg.updated_at': {
                             order: 'desc',
                         },
                     },

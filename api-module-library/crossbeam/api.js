@@ -1,8 +1,8 @@
 const moment = require('moment');
-const OAuth2Base = require('@friggframework/core/auth/OAuth2Base');
+const { OAuth2Requester } = require('@friggframework/module-plugin');
 const { get } = require('@friggframework/assertions');
 
-class Api extends OAuth2Base {
+class Api extends OAuth2Requester {
     constructor(params) {
         super(params);
 

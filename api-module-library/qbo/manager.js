@@ -1,8 +1,10 @@
 const { Api } = require('./api.js');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
-const ModuleManager = require('@friggframework/core/managers/ModuleManager');
-const ModuleConstants = require('../ModuleConstants');
+const {
+    ModuleManager,
+    ModuleConstants,
+} = require('@friggframework/module-plugin');
 const Config = require('./defaultConfig.json');
 
 class Manager extends ModuleManager {
@@ -11,40 +13,7 @@ class Manager extends ModuleManager {
     static Credential = Credential;
 
     constructor(params) {
-        super({ ...params, entityClass: Entity, credentialClass: Credential });
-
-        // asynchronous initialization
-        return (async () => {
-            // All async code here
-
-            const entity = await this.entityMO.getByUserId(this.userId);
-            //
-            // // create an entry in the database if it does not exist
-            // if(!entity){
-            //     entity = await  this.entityMO.create({userId:this.userIsd});
-            // }
-
-            // initializes the Api
-            const qboParams = { delegate: this };
-            if (entity && entity.credential) {
-                try {
-                    const qboToken = await this.credentialMO.get(
-                        entity.credential
-                    );
-                    qboParams.accessToken = qboToken.accessToken;
-                    qboParams.refreshToken = qboToken.refreshToken;
-                    qboParams.accessTokenExpire = qboToken.accessTokenExpire;
-                    qboParams.refreshTokenExpire = qboToken.refreshTokenExpire;
-                    qboParams.realmId = qboToken.realmId;
-                } finally {
-                    entity.credential = undefined;
-                    await entity.save();
-                }
-            }
-            this.api = await new Api(qboParams);
-
-            return this;
-        })();
+        super(params);
     }
 
     //------------------------------------------------------------
@@ -54,7 +23,25 @@ class Manager extends ModuleManager {
     }
 
     static async getInstance(params) {
-        return new Manager(params);
+        const instance = new this(params);
+        // initializes the Api
+        const apiParams = { delegate: instance };
+
+        if (params.entityId) {
+            instance.entity = await Entity.findById(params.entityId);
+            const credential = await Credential.findById(
+                instance.entity.credential
+            );
+            instance.credential = credential;
+            apiParams.accessToken = credential.accessToken;
+            apiParams.refreshToken = credential.refreshToken;
+            apiParams.accessTokenExpire = credential.accessTokenExpire;
+            apiParams.refreshTokenExpire = credential.refreshTokenExpire;
+            apiParams.realmId = credential.realmId;
+        }
+        instance.api = await new Api(apiParams);
+
+        return instance;
     }
 
     async getAuthorizationRequirements(params) {

@@ -1,5 +1,6 @@
 {
     "name": "monday",
+    "label": "monday",
     "productUrl": "https://monday.com",
     "apiDocs": "https://developer.monday.com",
     "logoUrl": "https://friggframework.org/assets/img/monday.jpeg",

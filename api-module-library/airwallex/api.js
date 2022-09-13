@@ -1,17 +1,17 @@
-const { parseZone } = require('moment');
-const OAuth2Base = require('../src/base/auth/OAuth2Base');
+const { OAuth2Requester } = require('@friggframework/module-plugin');
+const { get } = require('@friggframework/assertions');
 
-class Api extends OAuth2Base {
+class Api extends OAuth2Requester {
     constructor(params) {
         super(params);
-        this.access_token = this.getParam(params, 'access_token', null);
-        this.refresh_token = this.getParam(params, 'refresh_token', null);
+        this.access_token = get(params, 'access_token', null);
+        this.refresh_token = get(params, 'refresh_token', null);
         this.baseURL = process.env.AIRWALLEX_BASE_URL;
 
         //this.api_key = process.env.AIRWALLEX_API_KEY;
-        this.api_key = this.getParam(params, 'api_key', null);
+        this.api_key = get(params, 'api_key', null);
         //this.client_id = process.env.AIRWALLEX_CLIENT_ID;
-        this.client_id = this.getParam(params, 'client_id', null);
+        this.client_id = get(params, 'client_id', null);
         this.client_secret = process.env.AIRWALLEX_CLIENT_SECRET;
 
         this.accessTokenUri = `${this.baseURL}/api/v1/authentication/login`;
@@ -80,7 +80,7 @@ class Api extends OAuth2Base {
 
         if (params) {
             for (const param in params) {
-                options.query[param] = this.getParam(params, `${param}`, null);
+                options.query[param] = get(params, `${param}`, null);
             }
         }
         const res = await this._get(options);
