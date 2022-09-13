@@ -7,7 +7,9 @@
     "test:all": "npm test --foreground-scripts --workspaces --if-present",
     "test:api-module-managers": "jest --testMatch='<rootDir>/api-module-library/**/manager.test.js' --globalSetup='<rootDir>/scripts/set-up-tests.js' --globalTeardown='<rootDir>/scripts/tear-down-tests.js' --watch",
     "use:engine": "sudo n install $npm_package_engines_node && npm run use:npm",
-    "use:npm": "npm install -g npm@$npm_package_engines_npm"
+    "use:npm": "npm install -g npm@$npm_package_engines_npm",
+    "contributors:add": "all-contributors add",
+    "contributors:generate": "all-contributors generate"
   },
   "engines": {
     "node": ">=14",
