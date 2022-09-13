@@ -53,6 +53,20 @@
         "tutorial",
         "video"
       ]
+    },
+    {
+      "login": "tomlefthook",
+      "name": "Tom Elliott",
+      "avatar_url": "https://avatars.githubusercontent.com/u/22207033?v=4",
+      "profile": "https://www.lefthook.com/",
+      "contributions": [
+        "blog",
+        "business",
+        "content",
+        "design",
+        "doc",
+        "ideas"
+      ]
     }
   ],
   "contributorsPerLine": 7
