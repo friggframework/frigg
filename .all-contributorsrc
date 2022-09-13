@@ -112,6 +112,19 @@
         "code",
         "plugin"
       ]
+    },
+    {
+      "login": "JonathanEdMoore",
+      "name": "Jonathan Moore",
+      "avatar_url": "https://avatars.githubusercontent.com/u/48260787?v=4",
+      "profile": "https://github.com/JonathanEdMoore",
+      "contributions": [
+        "code",
+        "maintenance",
+        "plugin",
+        "review",
+        "test"
+      ]
     }
   ],
   "contributorsPerLine": 7
