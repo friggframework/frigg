@@ -101,6 +101,17 @@
         "test",
         "tool"
       ]
+    },
+    {
+      "login": "kad1001",
+      "name": "Kelly Davis",
+      "avatar_url": "https://avatars.githubusercontent.com/u/44247515?v=4",
+      "profile": "https://github.com/kad1001",
+      "contributions": [
+        "bug",
+        "code",
+        "plugin"
+      ]
     }
   ],
   "contributorsPerLine": 7
