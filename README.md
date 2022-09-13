@@ -3,7 +3,7 @@
 [![All Contributors](https://img.shields.io/badge/all_contributors-2-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
-<img src="docs/FriggLogo.svg">
+<img src="docs/FriggLogo.svg" style="width:250px">
 
 **Frigg** is a **Framework** that powers **Universal Integrations** between your app and external software partners.
 
