@@ -1,6 +1,6 @@
 # Frigg Integration Framework
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-7-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-8-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 <img src="docs/FriggLogo.svg" style="width:250px">
@@ -67,6 +67,9 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="https://github.com/wprl"><img src="https://avatars.githubusercontent.com/u/692511?v=4?s=100" width="100px;" alt=""/><br /><sub><b>William P. Riley-Land</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=wprl" title="Code">💻</a> <a href="#data-wprl" title="Data">🔣</a> <a href="#ideas-wprl" title="Ideas, Planning, & Feedback">🤔</a> <a href="#platform-wprl" title="Packaging/porting to new platform">📦</a> <a href="#plugin-wprl" title="Plugin/utility libraries">🔌</a> <a href="#research-wprl" title="Research">🔬</a> <a href="https://github.com/friggframework/frigg/pulls?q=is%3Apr+reviewed-by%3Awprl" title="Reviewed Pull Requests">👀</a> <a href="https://github.com/friggframework/frigg/commits?author=wprl" title="Tests">⚠️</a> <a href="#tool-wprl" title="Tools">🔧</a></td>
     <td align="center"><a href="https://github.com/kad1001"><img src="https://avatars.githubusercontent.com/u/44247515?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Kelly Davis</b></sub></a><br /><a href="https://github.com/friggframework/frigg/issues?q=author%3Akad1001" title="Bug reports">🐛</a> <a href="https://github.com/friggframework/frigg/commits?author=kad1001" title="Code">💻</a> <a href="#plugin-kad1001" title="Plugin/utility libraries">🔌</a></td>
     <td align="center"><a href="https://github.com/JonathanEdMoore"><img src="https://avatars.githubusercontent.com/u/48260787?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Jonathan Moore</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=JonathanEdMoore" title="Code">💻</a> <a href="#maintenance-JonathanEdMoore" title="Maintenance">🚧</a> <a href="#plugin-JonathanEdMoore" title="Plugin/utility libraries">🔌</a> <a href="https://github.com/friggframework/frigg/pulls?q=is%3Apr+reviewed-by%3AJonathanEdMoore" title="Reviewed Pull Requests">👀</a> <a href="https://github.com/friggframework/frigg/commits?author=JonathanEdMoore" title="Tests">⚠️</a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://github.com/gregoriomartin"><img src="https://avatars.githubusercontent.com/u/26978598?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Gregorio Martin</b></sub></a><br /><a href="https://github.com/friggframework/frigg/issues?q=author%3Agregoriomartin" title="Bug reports">🐛</a> <a href="https://github.com/friggframework/frigg/commits?author=gregoriomartin" title="Code">💻</a> <a href="https://github.com/friggframework/frigg/commits?author=gregoriomartin" title="Tests">⚠️</a></td>
   </tr>
 </table>
 

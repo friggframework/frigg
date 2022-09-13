@@ -125,6 +125,17 @@
         "review",
         "test"
       ]
+    },
+    {
+      "login": "gregoriomartin",
+      "name": "Gregorio Martin",
+      "avatar_url": "https://avatars.githubusercontent.com/u/26978598?v=4",
+      "profile": "https://github.com/gregoriomartin",
+      "contributions": [
+        "bug",
+        "code",
+        "test"
+      ]
     }
   ],
   "contributorsPerLine": 7
