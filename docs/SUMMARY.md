@@ -38,7 +38,6 @@
 * [Contributing](contributing/contributing/README.md)
   * [Contributor Covenant Code of Conduct](contributing/contributing/code\_of\_conduct.md)
   * [PULL\_REQUEST\_TEMPLATE](contributing/contributing/pull\_request\_template.md)
-* [Page 2](contributing/page-2.md)
 
 ## 🔌 API Module Library
 
@@ -72,8 +71,9 @@
 
 ## 📞 Support
 
-* [Overview](support/support.md)
-* [Frequently Asked Questions](support/frequently-asked-questions.md)
+* [Contact](support/support.md)
+  * [Chat with Us](support/support/chat-with-us.md)
+* [Frequently Asked Questions (FAQs)](support/frequently-asked-questions.md)
 
 ## 🗺 Roadmap
 

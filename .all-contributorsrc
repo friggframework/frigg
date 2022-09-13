@@ -11,26 +11,139 @@
   "commitConvention": "eslint",
   "contributors": [
     {
-      "login": "queuetue",
-      "name": "Scott Russell",
-      "avatar_url": "https://avatars.githubusercontent.com/u/4491?v=4",
-      "profile": "https://queuetue.com/",
-      "contributions": [
-        "doc",
-        "test",
-        "code"
-      ]
-    },
-    {
       "login": "seanspeaks",
       "name": "Sean Matthews",
       "avatar_url": "https://avatars.githubusercontent.com/u/7811325?v=4",
       "profile": "https://github.com/seanspeaks",
       "contributions": [
         "code",
-        "test",
+        "infra",
+        "business",
+        "ideas",
+        "doc"
+      ]
+    },
+    {
+      "login": "tomlefthook",
+      "name": "Tom Elliott",
+      "avatar_url": "https://avatars.githubusercontent.com/u/22207033?v=4",
+      "profile": "https://www.lefthook.com/",
+      "contributions": [
+        "blog",
+        "business",
+        "content",
         "doc",
-        "infra"
+        "ideas"
+      ]
+    },
+    {
+      "login": "sheehantoufiq",
+      "name": "Sheehan Toufiq Khan",
+      "avatar_url": "https://avatars.githubusercontent.com/u/931781?v=4",
+      "profile": "https://github.com/sheehantoufiq",
+      "contributions": [
+        "code",
+        "design",
+        "ideas",
+        "maintenance",
+        "review"
+      ]
+    },
+    {
+      "login": "wprl",
+      "name": "William P. Riley-Land",
+      "avatar_url": "https://avatars.githubusercontent.com/u/692511?v=4",
+      "profile": "https://github.com/wprl",
+      "contributions": [
+        "code",
+        "ideas",
+        "research",
+        "test",
+        "tool"
+      ]
+    },
+    {
+      "login": "kad1001",
+      "name": "Kelly Davis",
+      "avatar_url": "https://avatars.githubusercontent.com/u/44247515?v=4",
+      "profile": "https://github.com/kad1001",
+      "contributions": [
+        "bug",
+        "code",
+        "plugin"
+      ]
+    },
+    {
+      "login": "JonathanEdMoore",
+      "name": "Jonathan Moore",
+      "avatar_url": "https://avatars.githubusercontent.com/u/48260787?v=4",
+      "profile": "https://github.com/JonathanEdMoore",
+      "contributions": [
+        "code",
+        "maintenance",
+        "plugin",
+        "review",
+        "test"
+      ]
+    },
+    {
+      "login": "gregoriomartin",
+      "name": "Gregorio Martin",
+      "avatar_url": "https://avatars.githubusercontent.com/u/26978598?v=4",
+      "profile": "https://github.com/gregoriomartin",
+      "contributions": [
+        "bug",
+        "code",
+        "test"
+      ]
+    },
+    {
+      "login": "cgenesoniSouthWorks",
+      "name": "cgenesoniSouthWorks",
+      "avatar_url": "https://avatars.githubusercontent.com/u/108014154?v=4",
+      "profile": "https://github.com/cgenesoniSouthWorks",
+      "contributions": [
+        "code",
+        "research",
+        "test"
+      ]
+    },
+    {
+      "login": "TrevorKiefaber",
+      "name": "TrevorKiefaber",
+      "avatar_url": "https://avatars.githubusercontent.com/u/25160918?v=4",
+      "profile": "https://github.com/TrevorKiefaber",
+      "contributions": [
+        "code",
+        "ideas",
+        "plugin",
+        "research",
+        "test"
+      ]
+    },
+    {
+      "login": "cbanister",
+      "name": "Caleb",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1163670?v=4",
+      "profile": "http://www.coderden.com/",
+      "contributions": [
+        "code",
+        "ideas",
+        "platform",
+        "research"
+      ]
+    },
+    {
+      "login": "ryanzarick",
+      "name": "Ryan Zarick",
+      "avatar_url": "https://avatars.githubusercontent.com/u/37348875?v=4",
+      "profile": "https://github.com/ryanzarick",
+      "contributions": [
+        "code",
+        "ideas",
+        "platform",
+        "research",
+        "review"
       ]
     }
   ],
