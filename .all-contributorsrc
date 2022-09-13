@@ -177,6 +177,24 @@
         "security",
         "tool"
       ]
+    },
+    {
+      "login": "ryanzarick",
+      "name": "Ryan Zarick",
+      "avatar_url": "https://avatars.githubusercontent.com/u/37348875?v=4",
+      "profile": "https://github.com/ryanzarick",
+      "contributions": [
+        "code",
+        "design",
+        "ideas",
+        "platform",
+        "plugin",
+        "research",
+        "review",
+        "security",
+        "test",
+        "tool"
+      ]
     }
   ],
   "contributorsPerLine": 7
