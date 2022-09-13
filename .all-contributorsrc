@@ -67,6 +67,23 @@
         "doc",
         "ideas"
       ]
+    },
+    {
+      "login": "sheehantoufiq",
+      "name": "Sheehan Toufiq Khan",
+      "avatar_url": "https://avatars.githubusercontent.com/u/931781?v=4",
+      "profile": "https://github.com/sheehantoufiq",
+      "contributions": [
+        "code",
+        "content",
+        "data",
+        "design",
+        "doc",
+        "ideas",
+        "maintenance",
+        "research",
+        "review"
+      ]
     }
   ],
   "contributorsPerLine": 7
