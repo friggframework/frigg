@@ -84,6 +84,23 @@
         "research",
         "review"
       ]
+    },
+    {
+      "login": "wprl",
+      "name": "William P. Riley-Land",
+      "avatar_url": "https://avatars.githubusercontent.com/u/692511?v=4",
+      "profile": "https://github.com/wprl",
+      "contributions": [
+        "code",
+        "data",
+        "ideas",
+        "platform",
+        "plugin",
+        "research",
+        "review",
+        "test",
+        "tool"
+      ]
     }
   ],
   "contributorsPerLine": 7
