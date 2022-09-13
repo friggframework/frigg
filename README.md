@@ -5,7 +5,7 @@
 
 <img src="docs/FriggLogo.svg" style="width:250px">
 
-**Frigg** is a **Framework** that powers **Universal Integrations** between your app and external software partners.
+**Frigg** is a **Framework** that powers **direct/native integrations** between your product and external software partners.
 
 Build enterprise-grade integrations as simply as _`create-frigg-app`_.
 
@@ -20,8 +20,8 @@ That's our vision for Frigg.
 
 
 ## Background
-Software integrations have been a problem developers have been asked to solve since the very first "hello world". It's not new.
-However, in almost all cases, the most we could do was build our own home spun solution, read the API docs of our desired
+Software integrations have been a problem developers have been asked to solve since the very first "hello world." It's not new.
+However, in almost all cases, the most we could do was build our own homespun solution, read the API docs of our desired
 integration target, and then forever maintain and hope we built a repeatable process. This cost time and labor, and a headache.
 Developers spent time learning an API to only ever use it once. Maintaining the integrations over time becomes a headache.
 Each one has a risk of becoming its own special time suck in the organization.
