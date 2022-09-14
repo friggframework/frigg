@@ -49,7 +49,7 @@ flexible enough to handle any workflow or use case thrown at it, able to scale f
 
 Best place to get started is to <a href="https://docs.friggframework.org">checkout our Docs</a>
 
-Feel free to reach out and <a href="https://lefthook.com/#chat">contact us here.</a>
+Feel free to reach out and <a href="https://friggframework.org/#contact">contact us, and/or join our Frigg community shared Slack channel.</a>
 
 ## Contributors ✨
 
