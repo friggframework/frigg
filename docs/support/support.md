@@ -1,10 +1,9 @@
 # Contact
 
-We have three ways to interact with Frigg's creators and community:
+If you're looking for support for Frigg there are a lot of options, check out:
 
-
-
+* User Documentation — [The Frigg Manual](support.md)
+* Developer Documentation — [Frigg API Documentation](support.md)
 * Message Board — [Github Discussions, the official Frigg message board](https://github.com/frigg/frigg/discussions)
-* Slack Channel- [Invite yourself to the Frigg Community Slack Channel](https://friggframework.org/#contact)
-* Use the "**Chat with Us**" Widget in the lower-right-hand corner of this website
 
+On Frigg's Github Discussions board, there are a bunch of helpful community members that should be willing to point you in the right direction.

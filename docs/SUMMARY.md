@@ -72,8 +72,8 @@
 ## 📞 Support
 
 * [Contact](support/support.md)
-  * [Chat with Us](support/support/chat-with-us/README.md)
-    * [Join Slack Channel](support/support/chat-with-us/join-slack-channel.md)
+  * [Join Slack Channel](support/support/join-slack-channel.md)
+  * [Chat with Us](support/support/chat-with-us.md)
 * [Frequently Asked Questions (FAQs)](support/frequently-asked-questions.md)
 
 ## 🗺 Roadmap
