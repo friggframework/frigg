@@ -16,7 +16,7 @@ Meanwhile, Frigg's documentation site is targeted at engineers and product leade
 
 If you're ready to introduce Frigg to your technical colleagues, share this documentation site. Our [live demo site](https://demo.friggframework.,org) is also instructive to both technical and non-technical audiences as well.
 
-Have questions? Let's [connect](support/support.md)!
+Have questions? Chat with us
 
 </details>
 
