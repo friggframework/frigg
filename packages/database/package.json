@@ -1,11 +1,11 @@
 {
     "name": "@friggframework/database",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
     "dependencies": {
-        "@friggframework/logs": "^1.0.5"
+        "@friggframework/logs": "^1.0.6"
     },
     "devDependencies": {
         "@friggframework/eslint-config": "^1.0.7",
