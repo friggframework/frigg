@@ -1,3 +1,54 @@
+# (Mon Sep 19 2022)
+
+#### 🐛 Bug Fix
+
+- Updated Contributors [#48](https://github.com/friggframework/frigg/pull/48) ([@seanspeaks](https://github.com/seanspeaks))
+- Docs: Add @ryanzarick as a contributor [#48](https://github.com/friggframework/frigg/pull/48) ([@seanspeaks](https://github.com/seanspeaks))
+- Docs: Add @cbanister as a contributor [#48](https://github.com/friggframework/frigg/pull/48) ([@seanspeaks](https://github.com/seanspeaks))
+- Docs: Add @TrevorKiefaber as a contributor [#48](https://github.com/friggframework/frigg/pull/48) ([@seanspeaks](https://github.com/seanspeaks))
+- Docs: Add @cgenesoniSouthWorks as a contributor [#48](https://github.com/friggframework/frigg/pull/48) ([@seanspeaks](https://github.com/seanspeaks))
+- Docs: Add @gregoriomartin as a contributor [#48](https://github.com/friggframework/frigg/pull/48) ([@seanspeaks](https://github.com/seanspeaks))
+- Docs: Add @JonathanEdMoore as a contributor [#48](https://github.com/friggframework/frigg/pull/48) ([@seanspeaks](https://github.com/seanspeaks))
+- Docs: Add @kad1001 as a contributor [#48](https://github.com/friggframework/frigg/pull/48) ([@seanspeaks](https://github.com/seanspeaks))
+- Docs: Add @wprl as a contributor [#48](https://github.com/friggframework/frigg/pull/48) ([@seanspeaks](https://github.com/seanspeaks))
+- Docs: Add @sheehantoufiq as a contributor [#48](https://github.com/friggframework/frigg/pull/48) ([@seanspeaks](https://github.com/seanspeaks))
+- Docs: Add @tomlefthook as a contributor [#48](https://github.com/friggframework/frigg/pull/48) ([@seanspeaks](https://github.com/seanspeaks))
+- Docs: Update @seanspeaks as a contributor [#48](https://github.com/friggframework/frigg/pull/48) ([@seanspeaks](https://github.com/seanspeaks))
+- Update README.md [#47](https://github.com/friggframework/frigg/pull/47) ([@seanspeaks](https://github.com/seanspeaks))
+- GitBook: [#75] No subject [#48](https://github.com/friggframework/frigg/pull/48) ([@tomlefthook](https://github.com/tomlefthook))
+- GitBook: [#74] No subject [#48](https://github.com/friggframework/frigg/pull/48) ([@tomlefthook](https://github.com/tomlefthook))
+- GitBook: [#73] No subject [#48](https://github.com/friggframework/frigg/pull/48) ([@tomlefthook](https://github.com/tomlefthook))
+- GitBook: [#72] No subject [#48](https://github.com/friggframework/frigg/pull/48) ([@tomlefthook](https://github.com/tomlefthook))
+- GitBook: [#71] No subject [#48](https://github.com/friggframework/frigg/pull/48) ([@tomlefthook](https://github.com/tomlefthook))
+- GitBook: [#70] No subject [#48](https://github.com/friggframework/frigg/pull/48) ([@tomlefthook](https://github.com/tomlefthook))
+- GitBook: [#69] No subject [#48](https://github.com/friggframework/frigg/pull/48) ([@tomlefthook](https://github.com/tomlefthook))
+- GitBook: [#67] No subject [#48](https://github.com/friggframework/frigg/pull/48) ([@tomlefthook](https://github.com/tomlefthook))
+- GitBook: [#66] No subject [#48](https://github.com/friggframework/frigg/pull/48) ([@tomlefthook](https://github.com/tomlefthook))
+- GitBook: [#65] No subject [#48](https://github.com/friggframework/frigg/pull/48) ([@tomlefthook](https://github.com/tomlefthook))
+- GitBook: [#64] No subject [#48](https://github.com/friggframework/frigg/pull/48) ([@tomlefthook](https://github.com/tomlefthook))
+- GitBook: [#63] No subject [#48](https://github.com/friggframework/frigg/pull/48) ([@tomlefthook](https://github.com/tomlefthook))
+- GitBook: [#61] No subject [#48](https://github.com/friggframework/frigg/pull/48) ([@tomlefthook](https://github.com/tomlefthook))
+- `@friggframework/api-module-activecampaign@0.8.12`, `@friggframework/api-module-airwallex@0.8.11`, `@friggframework/api-module-attentive@0.8.12`, `@friggframework/api-module-clyde@0.8.13`, `@friggframework/api-module-connectwise@0.8.14`, `@friggframework/api-module-crossbeam@0.8.11`, `@friggframework/api-module-fastspring-iq@0.8.12`, `@friggframework/api-module-front@0.8.11`, `@friggframework/api-module-gorgias@0.8.11`, `@friggframework/api-module-hubspot@0.8.11`, `@friggframework/api-module-huggg@0.8.12`, `@friggframework/api-module-marketo@0.8.12`, `@friggframework/api-module-monday@0.8.11`, `@friggframework/api-module-netx@0.8.11`, `@friggframework/api-module-outreach@0.8.11`, `@friggframework/api-module-personio@0.8.12`, `@friggframework/api-module-pipedrive@0.8.11`, `@friggframework/api-module-qbo@0.8.11`, `@friggframework/api-module-rev-io@0.8.11`, `@friggframework/api-module-rollworks@0.8.11`, `@friggframework/api-module-salesforce@0.8.17`, `@friggframework/api-module-salesloft@0.8.11`, `@friggframework/api-module-terminus@0.8.11`, `@friggframework/api-module-zoom@0.8.11`, `@friggframework/test-environment@1.1.4`
+  - Test environment setup for all modules [#49](https://github.com/friggframework/frigg/pull/49) ([@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/api-module-activecampaign@0.8.12`, `@friggframework/api-module-airwallex@0.8.11`, `@friggframework/api-module-attentive@0.8.12`, `@friggframework/api-module-clyde@0.8.13`, `@friggframework/api-module-connectwise@0.8.14`, `@friggframework/api-module-crossbeam@0.8.11`, `@friggframework/api-module-fastspring-iq@0.8.12`, `@friggframework/api-module-front@0.8.11`, `@friggframework/api-module-gorgias@0.8.11`, `@friggframework/api-module-hubspot@0.8.11`, `@friggframework/api-module-huggg@0.8.12`, `@friggframework/api-module-marketo@0.8.12`, `@friggframework/api-module-monday@0.8.11`, `@friggframework/api-module-netx@0.8.11`, `@friggframework/api-module-outreach@0.8.11`, `@friggframework/api-module-personio@0.8.12`, `@friggframework/api-module-pipedrive@0.8.11`, `@friggframework/api-module-qbo@0.8.11`, `@friggframework/api-module-rev-io@0.8.11`, `@friggframework/api-module-rollworks@0.8.11`, `@friggframework/api-module-salesforce@0.8.17`, `@friggframework/api-module-salesloft@0.8.11`, `@friggframework/api-module-terminus@0.8.11`, `@friggframework/api-module-zoom@0.8.11`, `@friggframework/assertions@1.0.5`, `@friggframework/core@0.2.7`, `@friggframework/database@1.0.6`, `@friggframework/encrypt@1.1.4`, `@friggframework/errors@1.1.4`, `@friggframework/eslint-config@1.0.8`, `@friggframework/integrations@1.0.9`, `@friggframework/logs@1.0.6`, `@friggframework/module-plugin@1.0.12`, `@friggframework/prettier-config@1.0.6`, `@friggframework/test-environment@1.1.4`
+  - Merge remote-tracking branch 'origin/main' into gitbook-updates [#48](https://github.com/friggframework/frigg/pull/48) ([@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/api-module-clyde@0.8.13`
+  - fix: Making an excuse to release so we test slack message [#46](https://github.com/friggframework/frigg/pull/46) ([@seanspeaks](https://github.com/seanspeaks))
+  - fix: updated clyde API test instead of manager related items [#45](https://github.com/friggframework/frigg/pull/45) ([@seanspeaks](https://github.com/seanspeaks))
+  - test: added api.test.js to Clyde [#44](https://github.com/friggframework/frigg/pull/44) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### ⚠️ Pushed to `main`
+
+- Update README.md ([@tomlefthook](https://github.com/tomlefthook))
+- Update README.md ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+- Tom Elliott ([@tomlefthook](https://github.com/tomlefthook))
+
+---
+
 # (Thu Sep 01 2022)
 
 #### 🐛 Bug Fix
