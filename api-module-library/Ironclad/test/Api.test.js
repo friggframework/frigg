@@ -9,7 +9,7 @@ describe('Ironclad API class', () => {
         api_key: process.env.IRONCLAD_API_KEY,
     });
 
-    describe.only('Webhooks', () => {
+    describe('Webhooks', () => {
         let webhookID
         it('should list all webhooks', async () => {
             const response = await api.listWebhooks();
