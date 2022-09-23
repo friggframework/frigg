@@ -1,7 +1,7 @@
-const OAuth2Base = require('@friggframework/core/auth/OAuth2Base');
-const { FetchError } = require('@friggframework/errors/FetchError');
+const OAuth2Base = require('@friggframework/module-plugin');
+const { get } = require('@friggframework/assertions');
 
-class IroncladAPI extends OAuth2Base {
+class Api extends OAuth2Requester {
     constructor(params) {
         super(params);
         this.baseUrl = 'https://demo.ironcladapp.com';
@@ -22,19 +22,6 @@ class IroncladAPI extends OAuth2Base {
         return headers;
     }
 
-    async getTokenFromCode(code) {
-        return this.getTokenFromCodeBasicAuthHeader(code);
-    }
-
-    async getTokenIdentity() {
-        const options = {
-            url: this.baseUrl + this.URLs.me,
-        };
-
-        const res = await this._get(options);
-        return res;
-    }
-
     async exampleRequest() {
         const options = {
             url: this.baseUrl + this.URLs.exampleEndpont,
@@ -45,4 +32,4 @@ class IroncladAPI extends OAuth2Base {
     }
 }
 
-module.exports = IroncladAPI;
+module.exports = { Api };
