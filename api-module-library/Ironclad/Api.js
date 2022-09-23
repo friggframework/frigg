@@ -14,6 +14,14 @@ class IroncladAPI extends OAuth2Base {
         };
     }
 
+    async addAuthHeaders(headers) {
+        if (this.api_key) {
+            headers.Authorization = `Bearer ${this.api_key}`;
+        }
+
+        return headers;
+    }
+
     async getTokenFromCode(code) {
         return this.getTokenFromCodeBasicAuthHeader(code);
     }
