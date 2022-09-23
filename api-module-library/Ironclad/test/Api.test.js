@@ -1,10 +1,7 @@
 const chai = require('chai');
 const should = chai.should();
-//const Authenticator = require('../../../../test/utils/Authenticator');
 const { Api } = require('../api');
 require('dotenv').config()
-
-//const TestUtils = require('../../../../test/utils/TestUtils');
 const { expect } = require('chai');
 
 describe('Ironclad API class', () => {
