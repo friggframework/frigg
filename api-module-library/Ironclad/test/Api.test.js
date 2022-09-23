@@ -2,13 +2,14 @@ const chai = require('chai');
 const should = chai.should();
 //const Authenticator = require('../../../../test/utils/Authenticator');
 const { Api } = require('../api');
+require('dotenv').config()
 
 //const TestUtils = require('../../../../test/utils/TestUtils');
 const { expect } = require('chai');
 
 describe('Ironclad API class', () => {
     const api = new Api({
-        api_key: 'FsnPyagbghJPoZYf618X9F8EJXZUyZKRYsfbGr6kciq4',
+        api_key: process.env.IRONCLAD_API_KEY,
     });
 
     describe.only('Webhooks', () => {
