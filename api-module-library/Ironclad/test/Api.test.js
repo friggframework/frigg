@@ -12,6 +12,7 @@ describe('Ironclad API class', () => {
     });
 
     describe.only('Webhooks', () => {
+        let webhookID
         it('should list all webhooks', async () => {
             const response = await api.listWebhooks();
             expect(response).to.have.property('page');
@@ -23,25 +24,29 @@ describe('Ironclad API class', () => {
             const events = [
                 'workflow_cancelled'
             ];
-            const targetURL = 'https://webhook.site/d895e13f-ccee-47fc-9ba9-fc41a8f7fb5e';
+            const targetURL = 'https://webhook.site/a9a70c01-ba8a-4e28-8b6b-bafeda21284e';
             const response = await api.createWebhook(events, targetURL);
-            console.log(response);
             expect(response).to.have.property('id');
             expect(response).to.have.property('events');
             expect(response).to.have.property('targetURL');
             expect(response).to.have.property('companyId');
+            webhookID = response.id;
         });
 
+        it('should update a webhook', async () => {
+            const events = [
+                'workflow_launched'
+            ];
+            const response = await api.updateWebhook(webhookID, events)
+            expect(response).to.have.property('id');
+            expect(response).to.have.property('events');
+            expect(response).to.have.property('targetURL');
+            expect(response).to.have.property('companyId');
+        })
+
         it('should delete a webhook', async () => {
-            const id = '632de3658a95cb469df741e9';
-            const response = await api.deleteWebhook(id);
+            const response = await api.deleteWebhook(webhookID);
             expect(response.status).equal(204)
         })
-    });
-});
-
-describe('Ironclad Integration Tests', () => {
-    it('should work', async () => {
-        expect(1 + 1).toEqual(2);
     });
 });

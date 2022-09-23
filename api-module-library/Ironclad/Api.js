@@ -45,6 +45,27 @@ class Api extends OAuth2Requester {
         return response;
     }
 
+    async updateWebhook(webhookId, events = null, targetURL = null) {
+        const options = {
+            url: this.baseUrl + this.URLs.webhookByID(webhookId),
+            headers: {
+                'content-type': 'application/json',
+            },
+            body: {}
+        }
+
+        if (events.length > 0) {
+            options.body.events = events;
+        }
+
+        if (targetURL) {
+            options.body.targetURL = targetURL;
+        }
+
+        const response = await this._patch(options);
+        return response;
+
+    }
     async deleteWebhook(webhookId) {
         const options = {
             url: this.baseUrl + this.URLs.webhookByID(webhookId)
