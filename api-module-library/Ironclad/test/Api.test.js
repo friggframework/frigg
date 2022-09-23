@@ -20,7 +20,7 @@ describe('Ironclad API class', () => {
 
         it('should create a webhook', async () => {
             const events = [
-                'workflow_cancelled'
+                'workflow_launched'
             ];
             const targetURL = 'https://webhook.site/a9a70c01-ba8a-4e28-8b6b-bafeda21284e';
             const response = await api.createWebhook(events, targetURL);
@@ -33,7 +33,7 @@ describe('Ironclad API class', () => {
 
         it('should update a webhook', async () => {
             const events = [
-                'workflow_launched'
+                'workflow_cancelled'
             ];
             const response = await api.updateWebhook(webhookID, events)
             expect(response).to.have.property('id');
