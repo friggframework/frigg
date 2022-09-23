@@ -22,13 +22,35 @@ class Api extends OAuth2Requester {
         return headers;
     }
 
-    async exampleRequest() {
+    async listWebhooks() {
         const options = {
-            url: this.baseUrl + this.URLs.exampleEndpont,
+            url: this.baseUrl + this.URLs.webhooks,
         };
+        const response = await this._get(options);
+        return response;
+    }
 
-        const res = await this._get(options);
-        return res;
+    async createWebhook(events, targetURL) {
+        const options = {
+            url: this.baseUrl + this.URLs.webhooks,
+            headers: {
+                'content-type': 'application/json',
+            },
+            body: {
+                events,
+                targetURL
+            }
+        };
+        const response = await this._post(options);
+        return response;
+    }
+
+    async deleteWebhook(webhookId) {
+        const options = {
+            url: this.baseUrl + this.URLs.webhookByID(webhookId)
+        }
+        const response = await this._delete(options);
+        return response;
     }
 }
 
