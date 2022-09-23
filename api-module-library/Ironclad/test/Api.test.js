@@ -22,7 +22,7 @@ describe('Ironclad API class', () => {
             const events = [
                 'workflow_launched'
             ];
-            const targetURL = 'https://webhook.site/a9a70c01-ba8a-4e28-8b6b-bafeda21284e';
+            const targetURL = process.env.IRONCLAD_WEBHOOK_URL;
             const response = await api.createWebhook(events, targetURL);
             expect(response).to.have.property('id');
             expect(response).to.have.property('events');
