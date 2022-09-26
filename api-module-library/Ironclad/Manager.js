@@ -41,7 +41,7 @@ class Manager extends ModuleManager {
                 params.credentialId
             );
             ironcladParams = {
-                api_key: instance.credential.api_key,
+                apiKey: instance.credential.apiKey,
             };
         }
         if (ironcladParams) {
