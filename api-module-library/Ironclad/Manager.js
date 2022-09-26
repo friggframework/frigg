@@ -73,11 +73,11 @@ class Manager extends ModuleManager {
             api_key: apiKey,
         })
 
-        let entity = await this.entityMO.getByUserId(this.userId);
+        const entity = await this.entityMO.getByUserId(this.userId);
 
         return {
-            credential_id: credentials[0]._id,
-            entity_id: entity._id,
+            credential_id: credential.id,
+            entity_id: entity.id,
             type: Manager.getName(),
         };
     }
