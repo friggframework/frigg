@@ -7,10 +7,6 @@ const schema = new mongoose.Schema({
         trim: true,
         lhEncrypt: true,
     },
-    /* api_url: {
-        type: String,
-        required: true,
-    }, */
 });
 
 const name = 'IroncladCredential';
