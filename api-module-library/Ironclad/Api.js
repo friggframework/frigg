@@ -1,12 +1,13 @@
-const { OAuth2Requester } = require('@friggframework/module-plugin');
+const { ApiKeyRequester } = require('@friggframework/module-plugin');
 const { get } = require('@friggframework/assertions');
 
-class Api extends OAuth2Requester {
+class Api extends ApiKeyRequester {
     constructor(params) {
         super(params);
-        this.baseUrl = 'https://demo.ironcladapp.com';
 
-        this.api_key = get(params, 'api_key', null);
+        this.API_KEY_NAME = 'Bearer';
+        this.API_KEY_VALUE = get(params, 'apiKey', null);
+        this.baseUrl = 'https://demo.ironcladapp.com';
 
         this.URLs = {
             webhooks: '/public/api/v1/webhooks',
@@ -15,8 +16,8 @@ class Api extends OAuth2Requester {
     }
 
     async addAuthHeaders(headers) {
-        if (this.api_key) {
-            headers.Authorization = `Bearer ${this.api_key}`;
+        if (this.API_KEY_VALUE) {
+            headers.Authorization = `Bearer ${this.API_KEY_VALUE}`;
         }
 
         return headers;

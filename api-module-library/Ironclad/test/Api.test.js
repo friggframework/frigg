@@ -6,7 +6,7 @@ const { expect } = require('chai');
 
 describe('Ironclad API class', () => {
     const api = new Api({
-        api_key: process.env.IRONCLAD_API_KEY,
+        apiKey: process.env.IRONCLAD_API_KEY,
     });
 
     describe('Webhooks', () => {

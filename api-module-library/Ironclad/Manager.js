@@ -1,14 +1,16 @@
-const Api = require('./Api.js');
-const Entity = require('./models/Entity');
-const Credential = require('./models/Credential.js');
-const ModuleManager = require('@friggframework/core/managers/ModuleManager');
-const ModuleConstants = require('../ModuleConstants');
 const _ = require('lodash');
-
-const MANAGER_NAME = 'ironclad';
+const { Api } = require('./Api');
+const { Entity } = require('./models/Entity');
+const { Credential } = require('./models/Credential');
+const {
+    ModuleManager,
+    ModuleConstants,
+} = require('@friggframework/module-plugin');
+const Config = require('./defaultConfig.json');
 
 class Manager extends ModuleManager {
     static Entity = Entity;
+
     static Credential = Credential;
 
     constructor(params) {
@@ -16,28 +18,35 @@ class Manager extends ModuleManager {
     }
 
     static getName() {
-        return MANAGER_NAME;
+        return Config.name;
     }
 
     static async getInstance(params) {
-        let instance = new this(params);
+        const instance = new this(params);
 
-        const managerParams = { delegate: instance };
+        let ironcladParams;
+
         if (params.entityId) {
             instance.entity = await instance.entityMO.get(params.entityId);
-            instance.credential = await instance.credentialMO.get(
-                instance.entity.credential
-            );
-            managerParams.access_token = instance.credential.access_token;
-            managerParams.refresh_token = instance.credential.refresh_token;
+            if (instance.entity.credential) {
+                instance.credential = await instance.credentialMO.get(
+                    instance.entity.credential
+                );
+                ironcladParams = {
+                    api_key: instance.credential.api_key,
+                };
+            }
         } else if (params.credentialId) {
             instance.credential = await instance.credentialMO.get(
                 params.credentialId
             );
-            managerParams.access_token = instance.credential.access_token;
-            managerParams.refresh_token = instance.credential.refresh_token;
+            ironcladParams = {
+                api_key: instance.credential.api_key,
+            };
         }
-        instance.api = await new Api(managerParams);
+        if (ironcladParams) {
+            instance.api = await new Api(ironcladParams);
+        }
 
         return instance;
     }
