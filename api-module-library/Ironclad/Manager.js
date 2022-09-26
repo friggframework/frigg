@@ -53,23 +53,25 @@ class Manager extends ModuleManager {
 
     async getAuthorizationRequirements(params) {
         return {
-            url: await this.api.authorizationUri,
-            type: ModuleConstants.authType.oauth2,
+            url: null,
+            type: ModuleConstants.authType.apiKey,
         };
     }
 
     async processAuthorizationCallback(params) {
-        const code = get(params.data, 'code');
-        const response = await this.api.getTokenFromCode(code);
+        const apiKey = get(params.data, 'apiKey');
+        this.api = new Api({ apiKey });
 
-        let credentials = await this.credentialMO.list({ user: this.userId });
+        const credentials = await this.credentialMO.list({ user: this.userId });
 
-        if (credentials.length === 0) {
-            throw new Error('Credentials failed to create');
-        }
         if (credentials.length > 1) {
             throw new Error('User has multiple credentials???');
         }
+
+        const credential = await this.credentialMO.upsert({ user: this.userId }, {
+            user: this.userId,
+            api_key: apiKey,
+        })
 
         let entity = await this.entityMO.getByUserId(this.userId);
 
