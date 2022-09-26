@@ -1,6 +1,7 @@
 const Manager = require('../Manager');
 const mongoose = require('mongoose');
 const config = require('../defaultConfig.json');
+require('dotenv').config()
 
 describe(`Should fully test the ${config.label} Manager`, () => {
   let manager, userManager;
