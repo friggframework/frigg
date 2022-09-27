@@ -1,7 +1,7 @@
 const _ = require('lodash');
-const { Api } = require('./Api');
-const { Entity } = require('./models/Entity');
-const { Credential } = require('./models/Credential');
+const { Api } = require('./api');
+const { Entity } = require('./models/entity');
+const { Credential } = require('./models/credential');
 const {
     ModuleManager,
     ModuleConstants,
