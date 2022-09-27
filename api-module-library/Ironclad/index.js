@@ -1,17 +1,13 @@
-'use strict';
-
-const Api = require('./Api.js');
-const Options = require('./Options.js');
-const Credential = require('./Credential');
-const Entity = require('./Entity');
-const IntegrationManager = require('./IntegrationManager');
-const Manager = require('./Manager');
+const { Api } = require('./api');
+const { Credential } = require('./credential');
+const { Entity } = require('./entity');
+const ModuleManager = require('./manager');
+const Config = require('./defaultConfig');
 
 module.exports = {
     Api,
-    Options,
     Credential,
     Entity,
-    IntegrationManager,
-    Manager,
+    ModuleManager,
+    Config,
 };
