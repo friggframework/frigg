@@ -1,0 +1,16 @@
+{
+    "name": "@friggframework/api-module-ironclad",
+    "version": "0.0.1",
+    "prettier": "@friggframework/prettier-config",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
+        "test": "jest"
+    },
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+        "dotenv": "^16.0.2"
+    }
+}
