@@ -1,4 +1,4 @@
-const Manager = require('../Manager');
+const Manager = require('../manager');
 const mongoose = require('mongoose');
 const config = require('../defaultConfig.json');
 require('dotenv').config()
