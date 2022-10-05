@@ -49,7 +49,7 @@ describe('Ironclad API class', () => {
     });
 
     describe('Workflows', () => {
-        let workflowID
+        let workflowSchemaID
         it('should list all workflows', async () => {
             const response = await api.listAllWorkflows()
             expect(response).to.have.property('page');
@@ -94,6 +94,17 @@ describe('Ironclad API class', () => {
             }
             const response = await api.listAllWorkflowSchemas(params);
             expect(response).to.have.property('list');
+            workflowSchemaID = response.list[0].id
+        })
+
+        it('should retrieve a workflow schema', async () => {
+            const params = {
+                form: 'launch'
+            }
+            const response = await api.retrieveWorkflowSchema(params, workflowSchemaID);
+            expect(response).to.have.property('id');
+            expect(response).to.have.property('name');
+            expect(response).to.have.property('schema');
         })
     })
 });
