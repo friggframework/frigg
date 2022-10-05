@@ -50,12 +50,14 @@ describe('Ironclad API class', () => {
 
     describe('Workflows', () => {
         let workflowSchemaID
+        let workflowID
         it('should list all workflows', async () => {
             const response = await api.listAllWorkflows()
             expect(response).to.have.property('page');
             expect(response).to.have.property('pageSize');
             expect(response).to.have.property('count');
             expect(response).to.have.property('list');
+            workflowID = response.list[0].id
         })
 
         it('should create a workflow', async () => {
@@ -105,6 +107,14 @@ describe('Ironclad API class', () => {
             expect(response).to.have.property('id');
             expect(response).to.have.property('name');
             expect(response).to.have.property('schema');
+        })
+
+        it('should list all workflow approvals', async () => {
+            const response = await api.listAllWorkflowApprovals(workflowID);
+            expect(response).to.have.property('workflowId');
+            expect(response).to.have.property('title');
+            expect(response).to.have.property('approvalGroups');
+            expect(response).to.have.property('roles');
         })
     })
 });
