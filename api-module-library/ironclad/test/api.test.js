@@ -48,7 +48,44 @@ describe('Ironclad API class', () => {
         })
     });
 
-    describe('Workflows', async () => {
-        
+    describe('Workflows', () => {
+        let workflowID
+        it('should list all workflows', async () => {
+            const response = await api.listAllWorkflows()
+            expect(response).to.have.property('page');
+            expect(response).to.have.property('pageSize');
+            expect(response).to.have.property('count');
+            expect(response).to.have.property('list');
+        })
+
+        it('should create a workflow', async () => {
+            const body = {
+                creator: {
+                    type: "email",
+                    email: "projectteam@lefthook.com"
+                  },
+                  attributes: {
+                    counterpartyName: "Example Company",
+                    recordType: "NDAs",
+                    draft: [
+                      {
+                        version: "6IiS9B4hU",
+                        filename: "sample.pdf",
+                        url: "https://www.africau.edu/images/default/sample.pdf"
+                      }
+                    ],
+                    signerb441f3af431a4eba8231819722265373: "jonathan.moore@lefthook.com",
+                    signer7e741c328bd84d68a8f58f04449a5e50: "Jonathan Moore"
+                  },
+                  template: "62e407fdd2e5bbfc9bc7eeb6"
+            }
+            const response = await api.createWorkflow(body);
+            expect(response).to.have.property('id');
+            expect(response).to.have.property('title');
+            expect(response).to.have.property('template');
+            expect(response).to.have.property('step');
+            expect(response).to.have.property('schema');
+
+        })
     })
 });

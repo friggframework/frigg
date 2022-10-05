@@ -12,7 +12,10 @@ class Api extends ApiKeyRequester {
         this.URLs = {
             webhooks: '/public/api/v1/webhooks',
             webhookByID: (webhookId) => `/public/api/v1/webhooks/${webhookId}`,
-            workflows: '/public/api/v1/workflows'
+            workflows: '/public/api/v1/workflows',
+            workflowsByID: (workflowId) => `/public/api/v1/workflows/${workflowId}`,
+            workflowSchemas: '/public/api/v1/workflow-schemas',
+            workflowSchemaByID: (schemaId) => `/public/api/v1/workflow-schemas/${schemaId}`
         };
     }
 
@@ -78,7 +81,7 @@ class Api extends ApiKeyRequester {
 
     async listAllWorkflows() {
         const options = {
-            url: this.baseUrl + thie.URLs.workflows
+            url: this.baseUrl + this.URLs.workflows
         }
         const response = await this._get(options);
         return response;
@@ -93,6 +96,36 @@ class Api extends ApiKeyRequester {
             body
         }
         const response = await this._post(options);
+        return response;
+    }
+
+    async listAllWorkflowSchemas(params) {
+        const options = {
+            url: this.baseUrl + this.URLs.workflowSchemas,
+            query: {
+                params
+            }
+        }
+        const response = await this._get(options);
+        return response;
+    }
+
+    async retrieveWorkflowSchema(params, id) {
+        const options = {
+            url: this.baseUrl + this.URLs.workflowSchemaByID(id),
+            query: {
+                params
+            }
+        }
+        const response = await this._get(options);
+        return response;
+    }
+
+    async listAllWorkflowApprovals(id) {
+        const options = {
+            url: this.baseUrl + this.URLs.workflowsByID(id) + '/approvals',
+        }
+        const response = await this._get(options);
         return response;
     }
 }
