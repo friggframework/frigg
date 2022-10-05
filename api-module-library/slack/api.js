@@ -18,6 +18,7 @@ class Api extends OAuth2Requester {
             // Auth
             authorize: 'https://slack.com/oauth/v2/authorize',
             access_token: '/oauth.v2.access',
+            authTest: '/auth.test',
 
             // Chats
             getMessagePermalink: '/chat.getPermalink',
@@ -72,6 +73,19 @@ class Api extends OAuth2Requester {
     // 	const response = await this._post(options);
     // 	return response;
     // }
+
+    async authTest() {
+        const options = {
+            url: this.baseUrl + this.URLs.authTest,
+            body: null,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        };
+        const response = await this._post(options);
+        return response;
+    }
 
     // Args:
     // channel: string, required
