@@ -49,10 +49,11 @@ class Manager extends ModuleManager {
         return {
             url: this.api.getAuthUri(),
             type: ModuleConstants.authType.oauth2,
-            data: {
-                jsonSchema: AuthFields.jsonSchema,
-                uiSchema: AuthFields.uiSchema,
-            },
+            // Use for custom Slack Apps
+            // data: {
+            //     jsonSchema: AuthFields.jsonSchema,
+            //     uiSchema: AuthFields.uiSchema,
+            // },
         };
     }
 
