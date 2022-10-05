@@ -102,9 +102,7 @@ class Api extends ApiKeyRequester {
     async listAllWorkflowSchemas(params) {
         const options = {
             url: this.baseUrl + this.URLs.workflowSchemas,
-            query: {
-                params
-            }
+            query: params
         }
         const response = await this._get(options);
         return response;

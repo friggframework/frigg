@@ -87,5 +87,13 @@ describe('Ironclad API class', () => {
             expect(response).to.have.property('schema');
 
         })
+
+        it('should list all workflow schemas', async () => {
+            const params = {
+                form: 'launch'
+            }
+            const response = await api.listAllWorkflowSchemas(params);
+            expect(response).to.have.property('list');
+        })
     })
 });
