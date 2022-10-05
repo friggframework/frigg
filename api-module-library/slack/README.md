@@ -1,3 +1,3 @@
-# Frigg API Module Ironclad
+# Frigg API Module Slack
 
-A quick description of Ironclad.
+A quick description of Slack.
