@@ -175,7 +175,7 @@ class Manager extends ModuleManager {
                     // What are we identifying the credential by?
                     // TODO this needs to change for your API. This is how we do it for HubSpot ("Portal ID")
                     let credentialSearch = await Credential.list({
-                        identifier: userDetails.identifier,
+                        client_id: userDetails.client_id,
                     });
                     if (credentialSearch.length === 0) {
                         this.credential = await Credential.create(updatedToken);
@@ -187,15 +187,15 @@ class Manager extends ModuleManager {
                             );
                         } else {
                             debug(
-                                'Somebody else already created a credential with the same portal ID:',
-                                portalId
+                                'Somebody else already created a credential with the same client ID:',
+                                userDetails.client_id
                             );
                         }
                     } else {
                         // Handling multiple credentials found with an error for the time being
                         debug(
-                            'Multiple credentials found with the same portal ID:',
-                            portalId
+                            'Multiple credentials found with the same client ID:',
+                            userDetails.client_id
                         );
                     }
                 } else {
