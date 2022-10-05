@@ -46,7 +46,7 @@ class Api extends OAuth2Requester {
     }
 
     async addAuthHeaders(headers) {
-        if (this.API_KEY_VALUE) {
+        if (this.access_token) {
             headers.Authorization = `Bearer ${this.access_token}`;
         }
         return headers;
