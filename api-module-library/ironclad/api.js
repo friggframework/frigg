@@ -11,7 +11,8 @@ class Api extends ApiKeyRequester {
 
         this.URLs = {
             webhooks: '/public/api/v1/webhooks',
-            webhookByID: (webhookId) => `/public/api/v1/webhooks/${webhookId}`
+            webhookByID: (webhookId) => `/public/api/v1/webhooks/${webhookId}`,
+            workflows: '/public/api/v1/workflows'
         };
     }
 
@@ -72,6 +73,26 @@ class Api extends ApiKeyRequester {
             url: this.baseUrl + this.URLs.webhookByID(webhookId)
         }
         const response = await this._delete(options);
+        return response;
+    }
+
+    async listAllWorkflows() {
+        const options = {
+            url: this.baseUrl + thie.URLs.workflows
+        }
+        const response = await this._get(options);
+        return response;
+    }
+
+    async createWorkflow(body) {
+        const options = {
+            url: this.baseUrl + this.URLs.workflows,
+            headers: {
+                'content-type': 'application/json'
+            },
+            body
+        }
+        const response = await this._post(options);
         return response;
     }
 }
