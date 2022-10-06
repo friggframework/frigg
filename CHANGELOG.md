@@ -1,3 +1,25 @@
+# (Thu Oct 06 2022)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, Jonathan Moore ([@JonathanEdMoore](https://github.com/JonathanEdMoore)), for all your work!
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.2`
+  - Api module library ironclad [#51](https://github.com/friggframework/frigg/pull/51) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+
+#### ⚠️ Pushed to `main`
+
+- Update .gitignore ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Jonathan Moore ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Mon Sep 19 2022)
 
 #### 🐛 Bug Fix
