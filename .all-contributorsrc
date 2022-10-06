@@ -84,7 +84,8 @@
         "maintenance",
         "plugin",
         "review",
-        "test"
+        "test",
+        "doc"
       ]
     },
     {
