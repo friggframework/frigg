@@ -7,7 +7,7 @@ const {
 const { Api } = require('./api');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
-const AuthFields = require('./authFields');
+const { AuthFields, ConfigFields } = require('./authFields');
 const Config = require('./defaultConfig.json');
 
 class Manager extends ModuleManager {
@@ -27,14 +27,14 @@ class Manager extends ModuleManager {
 
         const managerParams = { delegate: instance };
         if (params.entityId) {
-            instance.entity = await instance.entityMO.get(params.entityId);
-            instance.credential = await instance.credentialMO.get(
+            instance.entity = await Entity.findById(params.entityId);
+            instance.credential = await Credential.findById(
                 instance.entity.credential
             );
             managerParams.access_token = instance.credential.access_token;
             managerParams.refresh_token = instance.credential.refresh_token;
         } else if (params.credentialId) {
-            instance.credential = await instance.credentialMO.get(
+            instance.credential = await Credential.findById(
                 params.credentialId
             );
             managerParams.access_token = instance.credential.access_token;
@@ -46,19 +46,40 @@ class Manager extends ModuleManager {
     }
 
     async getAuthorizationRequirements(params) {
+        console.log('test', this.api.getAuthUri());
         return {
-            url: this.api.getAuthUri(),
+            url: await this.api.getAuthUri(),
             type: ModuleConstants.authType.oauth2,
-            // Use for custom Slack Apps
-            // data: {
-            //     jsonSchema: AuthFields.jsonSchema,
-            //     uiSchema: AuthFields.uiSchema,
-            // },
+            // actions: [
+            //     {
+            //         description: 'Send message to Slack when Workflow launched',
+            //         event: 'workflow_launched',
+            //     },
+            //     {
+            //         description:
+            //             'Send message to Slack when Workflow completed',
+            //         event: 'workflow_completed',
+            //     },
+            //     {
+            //         description:
+            //             'Send message to Slack when document added to Workflow',
+            //         event: 'workflow_comment_added',
+            //     },
+            //     {
+            //         description:
+            //             'Send message to Slack when comment added to Workflow',
+            //         event: 'workflow_documents_added',
+            //     },
+            // ],
+            data: {
+                jsonSchema: ConfigFields.jsonSchema,
+                uiSchema: ConfigFields.uiSchema,
+            },
         };
     }
 
     async processAuthorizationCallback(params) {
-        const code = get(params.data, 'code');
+        const code = get(params.data, 'code', null);
         const clientId = this.api.client_id;
         const clientSecret = this.api.client_secret;
 
@@ -72,7 +93,7 @@ class Manager extends ModuleManager {
         await this.findOrCreateEntity({
             client_id: clientId,
         });
-
+        console.log('thisworks');
         return {
             credential_id: this.credential.id,
             entity_id: this.entity.id,
@@ -86,10 +107,12 @@ class Manager extends ModuleManager {
     }
 
     async findOrCreateCredential(params) {
-        const clientId = get(params, 'client_id');
-        const clientSecret = get(params, 'client_secret');
+        const clientId = get(params, 'client_id', null);
+        const clientSecret = get(params, 'client_secret', null);
+        console.log(this);
 
-        const search = await this.credentialMO.list({
+        const search = await Entity.find({
+            // const search = await this.credentialMO.list({
             user: this.userId,
             client_id: clientId,
         });
@@ -102,7 +125,8 @@ class Manager extends ModuleManager {
                 client_id: clientId,
                 client_secret: clientSecret,
             };
-            this.credential = await this.credentialMO.create(createObj);
+            this.credential = await Credential.create(createObj);
+            // this.credential = await this.credentialMO.create(createObj);
         } else if (search.length === 1) {
             this.credential = search[0];
         } else {
@@ -115,8 +139,8 @@ class Manager extends ModuleManager {
 
     async findOrCreateEntity(params) {
         // TODO this should be a changed to your entity needs
-        const clientId = get(params, 'client_id');
-        const name = get(params, 'name');
+        const clientId = get(params, 'client_id', null);
+        const name = get(params, 'name', null);
 
         const search = await Entity.find({
             user: this.userId,
@@ -174,7 +198,7 @@ class Manager extends ModuleManager {
                 if (!this.credential) {
                     // What are we identifying the credential by?
                     // TODO this needs to change for your API. This is how we do it for HubSpot ("Portal ID")
-                    let credentialSearch = await Credential.list({
+                    let credentialSearch = await Credential.find({
                         client_id: userDetails.client_id,
                     });
                     if (credentialSearch.length === 0) {
@@ -215,7 +239,7 @@ class Manager extends ModuleManager {
     }
 
     async mark_credentials_invalid() {
-        let credentials = await this.credentialMO.list({ user: this.userId });
+        let credentials = await Credential.find({ user: this.userId });
         if (credentials.length === 1) {
             return await this.credentialMO.update(credentials[0]._id, {
                 auth_is_valid: false,

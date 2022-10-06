@@ -11,7 +11,7 @@ class Api extends OAuth2Requester {
         // this.client_id = get(params, 'client_id');
         // this.client_secret = get(params, 'client_secret');
         this.scope = process.env.SLACK_SCOPE;
-        this.redirect_uri = process.env.REDIRECT_URI;
+        this.redirect_uri = `${process.env.REDIRECT_URI}/slack`;
         this.access_token = get(params, 'access_token', null);
 
         this.URLs = {
@@ -57,22 +57,22 @@ class Api extends OAuth2Requester {
         return this.authorizationUri;
     }
 
-    // async getTokenFromCode(code) {
-    // 	const options = {
-    // 		url: this.baseUrl + this.URLs.access_token,
-    // 		body: {
-    // 			client_id: this.client_id,
-    // 			client_secret: this.client_secret,
-    // 			code,
-    // 		},
-    // 		headers: {
-    // 			'Content-Type': 'application/json',
-    // 			Accept: 'application/json',
-    // 		},
-    // 	};
-    // 	const response = await this._post(options);
-    // 	return response;
-    // }
+    async getTokenFromCode(code) {
+        const options = {
+            url: this.baseUrl + this.URLs.access_token,
+            body: {
+                client_id: this.client_id,
+                client_secret: this.client_secret,
+                code,
+            },
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        };
+        const response = await this._post(options);
+        return response;
+    }
 
     async authTest() {
         const options = {

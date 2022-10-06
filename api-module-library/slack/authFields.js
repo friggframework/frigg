@@ -28,4 +28,27 @@ const AuthFields = {
     },
 };
 
-module.exports = AuthFields;
+const ConfigFields = {
+    jsonSchema: {
+        type: 'object',
+        required: ['channel'],
+        properties: {
+            channel: {
+                type: 'string',
+                title: 'Post to Channel:',
+                enum: [
+                    '#legal', // Call slack api for channels and add here
+                    '#random',
+                ],
+            },
+        },
+    },
+    uiSchema: {
+        channel: {
+            'ui:widget': 'select',
+            'ui:placeholder': 'Choose a #channel',
+        },
+    },
+};
+
+module.exports = { AuthFields, ConfigFields };
