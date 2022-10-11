@@ -110,7 +110,7 @@ describe('Ironclad API class', () => {
         })
 
         it('should retrieve a workflow', async () => {
-            const response = await api.retrireveWorkflow(workflowID);
+            const response = await api.retrieveWorkflow(workflowID);
             expect(response).to.have.property('id');
             expect(response).to.have.property('title');
             expect(response).to.have.property('template');
