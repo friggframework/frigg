@@ -87,7 +87,7 @@ class Api extends ApiKeyRequester {
         return response;
     }
 
-    async retrireveWorkflow(id) {
+    async retrieveWorkflow(id) {
         const options = {
             url: this.baseUrl + this.URLs.workflowsByID(id)
         }
