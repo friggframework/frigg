@@ -109,6 +109,26 @@ describe('Ironclad API class', () => {
             expect(response).to.have.property('schema');
         })
 
+        it('should retrieve a workflow', async () => {
+            const response = await api.retrieveWorkflow(workflowID);
+            expect(response).to.have.property('id');
+            expect(response).to.have.property('title');
+            expect(response).to.have.property('template');
+            expect(response).to.have.property('step');
+            expect(response).to.have.property('schema');
+            expect(response).to.have.property('attributes');
+            expect(response).to.have.property('isCancelled');
+            expect(response).to.have.property('isComplete');
+            expect(response).to.have.property('status');
+            expect(response).to.have.property('creator');
+            expect(response).to.have.property('created');
+            expect(response).to.have.property('lastUpdated');
+            expect(response).to.have.property('roles');
+            expect(response).to.have.property('approvals');
+            expect(response).to.have.property('signatures');
+            expect(response).to.have.property('isRevertibleToReview')
+        })
+
         it('should list all workflow approvals', async () => {
             const response = await api.listAllWorkflowApprovals(workflowID);
             expect(response).to.have.property('workflowId');
