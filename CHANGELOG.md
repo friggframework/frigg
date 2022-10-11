@@ -1,3 +1,16 @@
+# (Tue Oct 11 2022)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.3`
+  - Added method to retrieve a workflow [#53](https://github.com/friggframework/frigg/pull/53) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+
+#### Authors: 1
+
+- Jonathan Moore ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+
+---
+
 # (Thu Oct 06 2022)
 
 :tada: This release contains work from a new contributor! :tada:
