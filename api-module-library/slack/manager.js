@@ -7,7 +7,7 @@ const {
 const { Api } = require('./api');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
-const { AuthFields, ConfigFields } = require('./authFields');
+const { ConfigFields } = require('./authFields');
 const Config = require('./defaultConfig.json');
 
 class Manager extends ModuleManager {
@@ -50,27 +50,6 @@ class Manager extends ModuleManager {
         return {
             url: await this.api.getAuthUri(),
             type: ModuleConstants.authType.oauth2,
-            // actions: [
-            //     {
-            //         description: 'Send message to Slack when Workflow launched',
-            //         event: 'workflow_launched',
-            //     },
-            //     {
-            //         description:
-            //             'Send message to Slack when Workflow completed',
-            //         event: 'workflow_completed',
-            //     },
-            //     {
-            //         description:
-            //             'Send message to Slack when document added to Workflow',
-            //         event: 'workflow_comment_added',
-            //     },
-            //     {
-            //         description:
-            //             'Send message to Slack when comment added to Workflow',
-            //         event: 'workflow_documents_added',
-            //     },
-            // ],
             data: {
                 jsonSchema: ConfigFields.jsonSchema,
                 uiSchema: ConfigFields.uiSchema,
@@ -168,13 +147,12 @@ class Manager extends ModuleManager {
     }
 
     async deauthorize() {
-        // wipe api connection
         this.api = new Api();
 
         // delete credentials from the database
-        const entity = await this.entityMO.getByUserId(this.userId);
+        const entity = await Entity.find({ user: this.userId });
         if (entity.credential) {
-            await this.credentialMO.delete(entity.credential);
+            await Credential.deleteOne({ _id: entity.credential });
             entity.credential = undefined;
             await entity.save();
         }
@@ -241,9 +219,12 @@ class Manager extends ModuleManager {
     async mark_credentials_invalid() {
         let credentials = await Credential.find({ user: this.userId });
         if (credentials.length === 1) {
-            return await this.credentialMO.update(credentials[0]._id, {
-                auth_is_valid: false,
-            });
+            return await Credential.updateOne(
+                { _id: credentials[0]._id },
+                {
+                    auth_is_valid: false,
+                }
+            );
         } else if (credentials.length > 1) {
             throw new Error('User has multiple credentials???');
         } else if (credentials.length === 0) {
