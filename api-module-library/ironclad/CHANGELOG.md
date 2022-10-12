@@ -2,6 +2,17 @@
 
 #### 🐛 Bug Fix
 
+- Bug fixes and updates for Manager
+- Switched from credential model object to mongoose queries for Credential
+- Switched from credential model object to mongoose queries from Entity
+- Updated logic behind findOrCreateCredential and findOrCreateEntity
+- Added Authfield for Ironclad Api Key
+- Fixed deathorize bug
+
+# v0.0.3 (Tue Oct 11 2022)
+
+#### 🐛 Bug Fix
+
 - Added method to retrieve a workflow [#53](https://github.com/friggframework/frigg/pull/53) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
 - Fixed typo ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
 - Added method to retrieve a workflow ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
