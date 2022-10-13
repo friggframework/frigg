@@ -46,7 +46,6 @@ class Manager extends ModuleManager {
     }
 
     async getAuthorizationRequirements(params) {
-        console.log('test', this.api.getAuthUri());
         return {
             url: await this.api.getAuthUri(),
             type: ModuleConstants.authType.oauth2,
@@ -88,10 +87,8 @@ class Manager extends ModuleManager {
     async findOrCreateCredential(params) {
         const clientId = get(params, 'client_id', null);
         const clientSecret = get(params, 'client_secret', null);
-        console.log(this);
 
         const search = await Entity.find({
-            // const search = await this.credentialMO.list({
             user: this.userId,
             client_id: clientId,
         });
@@ -117,7 +114,6 @@ class Manager extends ModuleManager {
     }
 
     async findOrCreateEntity(params) {
-        // TODO this should be a changed to your entity needs
         const clientId = get(params, 'client_id', null);
         const name = get(params, 'name', null);
 
