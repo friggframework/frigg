@@ -2,94 +2,135 @@ const _ = require('lodash');
 const { Api } = require('./api');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
-const { ModuleManager, ModuleConstants } = require('@friggframework/module-plugin');
+const { get } = require('@friggframework/assertions');
+const {
+    ModuleManager,
+    ModuleConstants,
+} = require('@friggframework/module-plugin');
+const AuthFields = require('./authFields');
 const Config = require('./defaultConfig.json');
 
 class Manager extends ModuleManager {
-	static Entity = Entity;
+    static Entity = Entity;
+    static Credential = Credential;
 
-	static Credential = Credential;
+    constructor(params) {
+        super(params);
+    }
 
-	constructor(params) {
-		super(params);
-	}
+    static getName() {
+        return Config.name;
+    }
 
-	static getName() {
-		return Config.name;
-	}
+    static async getInstance(params) {
+        const instance = new this(params);
 
-	static async getInstance(params) {
-		const instance = new this(params);
+        let managerParams = { delegate: instance };
 
-		let ironcladParams;
+        if (params.entityId) {
+            instance.entity = await Entity.findById(params.entityId);
+            instance.credential = await Credential.findById(
+                instance.entity.credential
+            );
+            managerParams.apiKey = instance.credential.apiKey;
+        } else if (params.credentialId) {
+            instance.credential = await Credential.findById(
+                params.credentialId
+            );
+            managerParams.apiKey = instance.credential.apiKey;
+        }
+        instance.api = await new Api(managerParams);
 
-		if (params.entityId) {
-			instance.entity = await instance.entityMO.get(params.entityId);
-			if (instance.entity.credential) {
-				instance.credential = await instance.credentialMO.get(instance.entity.credential);
-				ironcladParams = {
-					apiKey: instance.credential.apiKey,
-				};
-			}
-		} else if (params.credentialId) {
-			instance.credential = await instance.credentialMO.get(params.credentialId);
-			ironcladParams = {
-				apiKey: instance.credential.apiKey,
-			};
-		}
-		if (ironcladParams) {
-			instance.api = await new Api(ironcladParams);
-		}
+        return instance;
+    }
 
-		return instance;
-	}
+    async getAuthorizationRequirements(params) {
+        return {
+            url: null,
+            type: ModuleConstants.authType.apiKey,
+            data: {
+                jsonSchema: AuthFields.jsonSchema,
+                uiSchema: AuthFields.uiSchema,
+            },
+        };
+    }
 
-	async getAuthorizationRequirements(params) {
-		return {
-			url: null,
-			type: ModuleConstants.authType.apiKey,
-		};
-	}
+    async processAuthorizationCallback(params) {
+        const apiKey = get(params.data, 'apiKey', null);
+        this.api = new Api({ apiKey });
 
-	async processAuthorizationCallback(params) {
-		const apiKey = get(params.data, 'apiKey');
-		this.api = new Api({ apiKey });
+        await this.findOrCreateCredential({
+            apiKey,
+        });
+        await this.findOrCreateEntity({
+            apiKey,
+        });
+        return {
+            credential_id: this.credential.id,
+            entity_id: this.entity.id,
+            type: Manager.getName(),
+        };
+    }
 
-		const credentials = await this.credentialMO.list({ user: this.userId });
+    async findOrCreateCredential(params) {
+        const apiKey = get(params.data, 'apiKey', null);
 
-		if (credentials.length > 1) {
-			throw new Error('User has multiple credentials???');
-		}
+        const search = await Entity.find({
+            user: this.userId,
+            apiKey,
+        });
 
-		const credential = await this.credentialMO.upsert(
-			{ user: this.userId },
-			{
-				user: this.userId,
-				api_key: apiKey,
-			}
-		);
+        if (search.length === 0) {
+            const createObj = {
+                user: this.userId,
+                apiKey,
+            };
+            this.credential = await Credential.create(createObj);
+        } else if (search.length === 1) {
+            this.credential = search[0];
+        } else {
+            debug(
+                'Multiple credentials found with the same Client ID:',
+                apiKey
+            );
+        }
+    }
 
-		const entity = await this.entityMO.getByUserId(this.userId);
+    async findOrCreateEntity(params) {
+        const apiKey = get(params.data, 'apiKey', null);
+        const name = get(params, 'name', null);
 
-		return {
-			credential_id: credential.id,
-			entity_id: entity.id,
-			type: Manager.getName(),
-		};
-	}
+        const search = await Entity.find({
+            user: this.userId,
+            externalId: apiKey,
+        });
+        if (search.length === 0) {
+            const createObj = {
+                credential: this.credential.id,
+                user: this.userId,
+                name,
+                externalId: apiKey,
+            };
+            this.entity = await Entity.create(createObj);
+        } else if (search.length === 1) {
+            this.entity = search[0];
+        } else {
+            debug('Multiple entities found with the same external ID:', apiKey);
+            this.throwException('');
+        }
+    }
 
-	async deauthorize() {
-		// wipe api connection
-		this.api = new Api();
+    async deauthorize() {
+        this.api = new Api();
 
-		// delete credentials from the database
-		const entity = await this.entityMO.getByUserId(this.userId);
-		if (entity.credential) {
-			await this.credentialMO.delete(entity.credential);
-			entity.credential = undefined;
-			await entity.save();
-		}
-	}
+        // delete credentials from the database
+        const entity = await Entity.find({ user: this.userId });
+        if (entity.credential) {
+            await Credential.deleteOne({ _id: entity.credential });
+            entity.credential = undefined;
+            await entity.save();
+        }
+    }
 }
 
 module.exports = Manager;

@@ -1,3 +1,17 @@
+# (Thu Oct 13 2022)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.5`, `@friggframework/assertions@1.0.5`
+  - Bf/ironclad credential entity bug [#54](https://github.com/friggframework/frigg/pull/54) ([@JonathanEdMoore](https://github.com/JonathanEdMoore) [@sheehantoufiq](https://github.com/sheehantoufiq))
+
+#### Authors: 2
+
+- Jonathan Moore ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Sheehan Toufiq Khan ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+---
+
 # (Tue Oct 11 2022)
 
 #### 🐛 Bug Fix

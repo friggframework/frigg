@@ -5,9 +5,9 @@ const ModuleManager = require('./manager');
 const Config = require('./defaultConfig');
 
 module.exports = {
-  Api,
-  Credential,
-  Entity,
-  ModuleManager,
-  Config,
+    Api,
+    Credential,
+    Entity,
+    ModuleManager,
+    Config,
 };
