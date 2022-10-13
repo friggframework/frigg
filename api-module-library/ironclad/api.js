@@ -13,9 +13,11 @@ class Api extends ApiKeyRequester {
             webhooks: '/public/api/v1/webhooks',
             webhookByID: (webhookId) => `/public/api/v1/webhooks/${webhookId}`,
             workflows: '/public/api/v1/workflows',
-            workflowsByID: (workflowId) => `/public/api/v1/workflows/${workflowId}`,
+            workflowsByID: (workflowId) =>
+                `/public/api/v1/workflows/${workflowId}`,
             workflowSchemas: '/public/api/v1/workflow-schemas',
-            workflowSchemaByID: (schemaId) => `/public/api/v1/workflow-schemas/${schemaId}`
+            workflowSchemaByID: (schemaId) =>
+                `/public/api/v1/workflow-schemas/${schemaId}`,
         };
     }
 
@@ -43,8 +45,8 @@ class Api extends ApiKeyRequester {
             },
             body: {
                 events,
-                targetURL
-            }
+                targetURL,
+            },
         };
         const response = await this._post(options);
         return response;
@@ -56,8 +58,8 @@ class Api extends ApiKeyRequester {
             headers: {
                 'content-type': 'application/json',
             },
-            body: {}
-        }
+            body: {},
+        };
 
         if (events.length > 0) {
             options.body.events = events;
@@ -69,28 +71,19 @@ class Api extends ApiKeyRequester {
 
         const response = await this._patch(options);
         return response;
-
     }
     async deleteWebhook(webhookId) {
         const options = {
-            url: this.baseUrl + this.URLs.webhookByID(webhookId)
-        }
+            url: this.baseUrl + this.URLs.webhookByID(webhookId),
+        };
         const response = await this._delete(options);
         return response;
     }
 
     async listAllWorkflows() {
         const options = {
-            url: this.baseUrl + this.URLs.workflows
-        }
-        const response = await this._get(options);
-        return response;
-    }
-
-    async retrieveWorkflow(id) {
-        const options = {
-            url: this.baseUrl + this.URLs.workflowsByID(id)
-        }
+            url: this.baseUrl + this.URLs.workflows,
+        };
         const response = await this._get(options);
         return response;
     }
@@ -99,10 +92,10 @@ class Api extends ApiKeyRequester {
         const options = {
             url: this.baseUrl + this.URLs.workflows,
             headers: {
-                'content-type': 'application/json'
+                'content-type': 'application/json',
             },
-            body
-        }
+            body,
+        };
         const response = await this._post(options);
         return response;
     }
@@ -110,8 +103,8 @@ class Api extends ApiKeyRequester {
     async listAllWorkflowSchemas(params) {
         const options = {
             url: this.baseUrl + this.URLs.workflowSchemas,
-            query: params
-        }
+            query: params,
+        };
         const response = await this._get(options);
         return response;
     }
@@ -119,8 +112,8 @@ class Api extends ApiKeyRequester {
     async retrieveWorkflowSchema(params, id) {
         const options = {
             url: this.baseUrl + this.URLs.workflowSchemaByID(id),
-            query: params
-        }
+            query: params,
+        };
         const response = await this._get(options);
         return response;
     }
@@ -128,7 +121,7 @@ class Api extends ApiKeyRequester {
     async listAllWorkflowApprovals(id) {
         const options = {
             url: this.baseUrl + this.URLs.workflowsByID(id) + '/approvals',
-        }
+        };
         const response = await this._get(options);
         return response;
     }

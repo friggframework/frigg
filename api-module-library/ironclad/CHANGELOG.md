@@ -1,3 +1,20 @@
+# v0.0.4 (Wed Oct 12 2022)
+
+#### 🐛 Bug Fix
+
+- Bug fixes and updates for Manager
+- Switched from credential model object to mongoose queries for Credential
+- Switched from credential model object to mongoose queries from Entity
+- Updated logic behind findOrCreateCredential and findOrCreateEntity
+- Added Authfield for Ironclad Api Key
+- Fixed deathorize bug
+
+#### Authors: 1
+
+- Sheehan Khan([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+---
+
 # v0.0.3 (Tue Oct 11 2022)
 
 #### 🐛 Bug Fix
