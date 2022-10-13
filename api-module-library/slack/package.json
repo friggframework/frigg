@@ -1,12 +1,12 @@
 {
 	"name": "@friggframework/api-module-slack",
-	"version": "0.1.2-canary",
+	"version": "0.1.2",
 	"prettier": "@friggframework/prettier-config",
 	"description": "",
 	"main": "index.js",
 	"scripts": {
-			"lint:fix": "prettier --write --loglevel error . && eslint . --fix",
-			"test": "jest"
+		"lint:fix": "prettier --write --loglevel error . && eslint . --fix",
+		"test": "jest"
 	},
 	"author": "",
 	"license": "MIT",
