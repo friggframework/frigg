@@ -118,65 +118,68 @@ describe('Ironclad API class', () => {
     });
 
     describe('Workflows', () => {
-        let workflowSchemaID
-        let workflowID
+        let workflowSchemaID;
+        let workflowID;
         it('should list all workflows', async () => {
-            const response = await api.listAllWorkflows()
+            const response = await api.listAllWorkflows();
             expect(response).to.have.property('page');
             expect(response).to.have.property('pageSize');
             expect(response).to.have.property('count');
             expect(response).to.have.property('list');
-            workflowID = response.list[0].id
-        })
+            workflowID = response.list[0].id;
+        });
 
         it('should create a workflow', async () => {
             const body = {
                 creator: {
-                    type: "email",
-                    email: "projectteam@lefthook.com"
-                  },
-                  attributes: {
-                    counterpartyName: "Example Company",
-                    recordType: "NDAs",
+                    type: 'email',
+                    email: 'projectteam@lefthook.com',
+                },
+                attributes: {
+                    counterpartyName: 'Example Company',
+                    recordType: 'NDAs',
                     draft: [
-                      {
-                        version: "6IiS9B4hU",
-                        filename: "sample.pdf",
-                        url: "https://www.africau.edu/images/default/sample.pdf"
-                      }
+                        {
+                            version: '6IiS9B4hU',
+                            filename: 'sample.pdf',
+                            url: 'https://www.africau.edu/images/default/sample.pdf',
+                        },
                     ],
-                    signerb441f3af431a4eba8231819722265373: "jonathan.moore@lefthook.com",
-                    signer7e741c328bd84d68a8f58f04449a5e50: "Jonathan Moore"
-                  },
-                  template: "62e407fdd2e5bbfc9bc7eeb6"
-            }
+                    signerb441f3af431a4eba8231819722265373:
+                        'jonathan.moore@lefthook.com',
+                    signer7e741c328bd84d68a8f58f04449a5e50: 'Jonathan Moore',
+                },
+                template: '62e407fdd2e5bbfc9bc7eeb6',
+            };
             const response = await api.createWorkflow(body);
             expect(response).to.have.property('id');
             expect(response).to.have.property('title');
             expect(response).to.have.property('template');
             expect(response).to.have.property('step');
             expect(response).to.have.property('schema');
-
-        })
+        });
 
         it('should list all workflow schemas', async () => {
             const params = {
-                form: 'launch'
-            }
+                form: 'launch',
+            };
             const response = await api.listAllWorkflowSchemas(params);
             expect(response).to.have.property('list');
-            workflowSchemaID = response.list[0].id
-        })
+            workflowSchemaID = response.list[0].id;
+        });
 
         it('should retrieve a workflow schema', async () => {
             const params = {
-                form: 'launch'
-            }
-            const response = await api.retrieveWorkflowSchema(params, workflowSchemaID);
+                form: 'launch',
+            };
+            const response = await api.retrieveWorkflowSchema(
+                params,
+                workflowSchemaID
+            );
             expect(response).to.have.property('id');
             expect(response).to.have.property('name');
             expect(response).to.have.property('schema');
-        })
+        });
 
         it('should retrieve a workflow', async () => {
             const response = await api.retrieveWorkflow(workflowID);
@@ -195,8 +198,8 @@ describe('Ironclad API class', () => {
             expect(response).to.have.property('roles');
             expect(response).to.have.property('approvals');
             expect(response).to.have.property('signatures');
-            expect(response).to.have.property('isRevertibleToReview')
-        })
+            expect(response).to.have.property('isRevertibleToReview');
+        });
 
         it('should list all workflow approvals', async () => {
             const response = await api.listAllWorkflowApprovals(workflowID);
@@ -204,6 +207,36 @@ describe('Ironclad API class', () => {
             expect(response).to.have.property('title');
             expect(response).to.have.property('approvalGroups');
             expect(response).to.have.property('roles');
-        })
-    })
+        });
+    });
+
+    describe('Records', () => {
+        let recordID;
+        it('should list all records', async () => {
+            const response = await api.listAllRecords();
+            expect(response).to.have.property('page');
+            expect(response).to.have.property('pageSize');
+            expect(response).to.have.property('count');
+            expect(response).to.have.property('list');
+            workflowID = response.list[0].id;
+        });
+
+        it('should list all record schemas', async () => {
+            const response = await api.listAllRecordSchemas();
+            expect(response).to.have.property('list');
+            workflowSchemaID = response.list[0].id;
+        });
+
+        it('should retrieve a record', async () => {
+            const response = await api.retrieveWorkflow(recordID);
+            expect(response).to.have.property('id');
+            expect(response).to.have.property('type');
+            expect(response).to.have.property('name');
+            expect(response).to.have.property('lastUpdated');
+            expect(response).to.have.property('properties');
+            expect(response).to.have.property('attachments');
+            expect(response).to.have.property('links');
+            expect(response).to.have.property('source');
+        });
+    });
 });
