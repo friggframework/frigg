@@ -218,13 +218,12 @@ describe('Ironclad API class', () => {
             expect(response).to.have.property('pageSize');
             expect(response).to.have.property('count');
             expect(response).to.have.property('list');
-            workflowID = response.list[0].id;
+            recordID = response.list[0].id;
         });
 
         it('should list all record schemas', async () => {
             const response = await api.listAllRecordSchemas();
             expect(response).to.have.property('list');
-            workflowSchemaID = response.list[0].id;
         });
 
         it('should retrieve a record', async () => {
