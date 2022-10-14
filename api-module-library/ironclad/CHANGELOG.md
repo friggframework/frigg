@@ -1,3 +1,18 @@
+# v0.0.6 (Thu Oct 13 2022)
+
+#### 🐛 Bug Fix
+
+- re-added retrieve workflow [#56](https://github.com/friggframework/frigg/pull/56) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- chai ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- re-added retrieve workflow ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- merge conflicts ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+#### Authors: 1
+
+- Sheehan Toufiq Khan ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+---
+
 # v0.0.5 (Thu Oct 13 2022)
 
 :tada: This release contains work from a new contributor! :tada:

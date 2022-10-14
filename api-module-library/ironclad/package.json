@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-ironclad",
-    "version": "0.0.5",
+    "version": "0.0.6",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -13,6 +13,7 @@
     "devDependencies": {
         "@friggframework/eslint-config": "^1.0.7",
         "@friggframework/test-environment": "^1.1.4",
+        "chai": "^4.3.6",
         "dotenv": "^16.0.2",
         "eslint": "^8.22.0",
         "jest": "^28.1.3",

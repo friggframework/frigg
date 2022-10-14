@@ -2,6 +2,21 @@
 
 #### 🐛 Bug Fix
 
+- `@friggframework/api-module-ironclad@0.0.6`
+  - re-added retrieve workflow [#56](https://github.com/friggframework/frigg/pull/56) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- `@friggframework/api-module-slack@0.1.2`
+  - Api module library slack [#52](https://github.com/friggframework/frigg/pull/52) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+#### Authors: 1
+
+- Sheehan Toufiq Khan ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+---
+
+# (Thu Oct 13 2022)
+
+#### 🐛 Bug Fix
+
 - `@friggframework/api-module-ironclad@0.0.5`, `@friggframework/assertions@1.0.5`
   - Bf/ironclad credential entity bug [#54](https://github.com/friggframework/frigg/pull/54) ([@JonathanEdMoore](https://github.com/JonathanEdMoore) [@sheehantoufiq](https://github.com/sheehantoufiq))
 
