@@ -7,6 +7,7 @@ class Api extends ApiKeyRequester {
 
         this.API_KEY_NAME = 'Bearer';
         this.API_KEY_VALUE = get(params, 'apiKey', null);
+
         this.baseUrl = 'https://demo.ironcladapp.com';
 
         this.URLs = {
@@ -19,7 +20,7 @@ class Api extends ApiKeyRequester {
             workflowSchemaByID: (schemaId) =>
                 `/public/api/v1/workflow-schemas/${schemaId}`,
             records: '/public/api/v1/records',
-            recordByID: (recordId) => `/public/api/v1/record/${recordId}`,
+            recordByID: (recordId) => `/public/api/v1/records/${recordId}`,
             recordSchemas: '/public/api/v1/records/metadata',
         };
     }
@@ -165,9 +166,17 @@ class Api extends ApiKeyRequester {
         return response;
     }
 
+    async retrieveRecord(recordId) {
+        const options = {
+            url: this.baseUrl + this.URLs.recordByID(recordId),
+        };
+        const response = await this._get(options);
+        return response;
+    }
+
     async updateRecord(recordId, body) {
         const options = {
-            url: this.baseUrl + this.URLs.records(recordId),
+            url: this.baseUrl + this.URLs.recordByID(recordId),
             headers: {
                 'content-type': 'application/json',
             },
@@ -179,7 +188,7 @@ class Api extends ApiKeyRequester {
 
     async deleteRecord(recordId) {
         const options = {
-            url: this.baseUrl + this.URLs.records(recordId),
+            url: this.baseUrl + this.URLs.recordByID(recordId),
             body,
         };
         const response = await this._delete(options);
