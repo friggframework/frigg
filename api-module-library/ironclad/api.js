@@ -182,14 +182,13 @@ class Api extends ApiKeyRequester {
             },
             body,
         };
-        const response = await this._post(options);
+        const response = await this._put(options);
         return response;
     }
 
     async deleteRecord(recordId) {
         const options = {
             url: this.baseUrl + this.URLs.recordByID(recordId),
-            body,
         };
         const response = await this._delete(options);
         return response;

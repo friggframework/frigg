@@ -187,5 +187,23 @@ describe('Ironclad API class', () => {
             expect(response).to.have.property('attachments');
             expect(response).to.have.property('links');
         });
+
+        it('should update a record', async () => {
+            const body = {
+                type: 'nDAs',
+                name: 'Updated Example Record',
+            };
+            const response = await api.updateRecord(recordID, body);
+            expect(response).to.have.property('id');
+            expect(response).to.have.property('type');
+            expect(response).to.have.property('name');
+            expect(response).to.have.property('lastUpdated');
+        });
+
+        it('should delete a record', async () => {
+            const response = await api.deleteRecord(recordID);
+            expect(response.status).to.equal(204);
+            expect(response.statusText).to.equal('No Content');
+        });
     });
 });
