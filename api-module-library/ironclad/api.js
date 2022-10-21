@@ -7,8 +7,16 @@ class Api extends ApiKeyRequester {
 
         this.API_KEY_NAME = 'Bearer';
         this.API_KEY_VALUE = get(params, 'apiKey', null);
+        this.SUBDOMAIN = get(params, 'subdomain', null);
 
-        this.baseUrl = 'https://demo.ironcladapp.com';
+        this.baseUrl = () => {
+            if (this.SUBDOMAIN) {
+                const subdomain = this.SUBDOMAIN.toLowerCase();
+                return `https://${subdomain}.ironcladapp.com`;
+            } else {
+                return 'https://ironcladapp.com';
+            }
+        };
 
         this.URLs = {
             webhooks: '/public/api/v1/webhooks',
@@ -29,13 +37,13 @@ class Api extends ApiKeyRequester {
         if (this.API_KEY_VALUE) {
             headers.Authorization = `Bearer ${this.API_KEY_VALUE}`;
         }
-
+        console.log(this.baseUrl);
         return headers;
     }
 
     async listWebhooks() {
         const options = {
-            url: this.baseUrl + this.URLs.webhooks,
+            url: this.baseUrl() + this.URLs.webhooks,
         };
         const response = await this._get(options);
         return response;
@@ -43,7 +51,7 @@ class Api extends ApiKeyRequester {
 
     async createWebhook(events, targetURL) {
         const options = {
-            url: this.baseUrl + this.URLs.webhooks,
+            url: this.baseUrl() + this.URLs.webhooks,
             headers: {
                 'content-type': 'application/json',
             },
@@ -58,7 +66,7 @@ class Api extends ApiKeyRequester {
 
     async updateWebhook(webhookId, events = null, targetURL = null) {
         const options = {
-            url: this.baseUrl + this.URLs.webhookByID(webhookId),
+            url: this.baseUrl() + this.URLs.webhookByID(webhookId),
             headers: {
                 'content-type': 'application/json',
             },
@@ -78,7 +86,7 @@ class Api extends ApiKeyRequester {
     }
     async deleteWebhook(webhookId) {
         const options = {
-            url: this.baseUrl + this.URLs.webhookByID(webhookId),
+            url: this.baseUrl() + this.URLs.webhookByID(webhookId),
         };
         const response = await this._delete(options);
         return response;
@@ -94,7 +102,7 @@ class Api extends ApiKeyRequester {
 
     async retrieveWorkflow(id) {
         const options = {
-            url: this.baseUrl + this.URLs.workflowsByID(id),
+            url: this.baseUrl() + this.URLs.workflowsByID(id),
         };
         const response = await this._get(options);
         return response;
@@ -102,7 +110,7 @@ class Api extends ApiKeyRequester {
 
     async createWorkflow(body) {
         const options = {
-            url: this.baseUrl + this.URLs.workflows,
+            url: this.baseUrl() + this.URLs.workflows,
             headers: {
                 'content-type': 'application/json',
             },
@@ -114,7 +122,7 @@ class Api extends ApiKeyRequester {
 
     async listAllWorkflowSchemas(params) {
         const options = {
-            url: this.baseUrl + this.URLs.workflowSchemas,
+            url: this.baseUrl() + this.URLs.workflowSchemas,
             query: params,
         };
         const response = await this._get(options);
@@ -123,7 +131,7 @@ class Api extends ApiKeyRequester {
 
     async retrieveWorkflowSchema(params, id) {
         const options = {
-            url: this.baseUrl + this.URLs.workflowSchemaByID(id),
+            url: this.baseUrl() + this.URLs.workflowSchemaByID(id),
             query: params,
         };
         const response = await this._get(options);
@@ -132,7 +140,7 @@ class Api extends ApiKeyRequester {
 
     async listAllWorkflowApprovals(id) {
         const options = {
-            url: this.baseUrl + this.URLs.workflowsByID(id) + '/approvals',
+            url: this.baseUrl() + this.URLs.workflowsByID(id) + '/approvals',
         };
         const response = await this._get(options);
         return response;
@@ -140,7 +148,7 @@ class Api extends ApiKeyRequester {
 
     async listAllRecords() {
         const options = {
-            url: this.baseUrl + this.URLs.records,
+            url: this.baseUrl() + this.URLs.records,
         };
         const response = await this._get(options);
         return response;
@@ -160,7 +168,7 @@ class Api extends ApiKeyRequester {
 
     async listAllRecordSchemas() {
         const options = {
-            url: this.baseUrl + this.URLs.recordSchemas,
+            url: this.baseUrl() + this.URLs.recordSchemas,
         };
         const response = await this._get(options);
         return response;
@@ -168,7 +176,7 @@ class Api extends ApiKeyRequester {
 
     async retrieveRecord(recordId) {
         const options = {
-            url: this.baseUrl + this.URLs.recordByID(recordId),
+            url: this.baseUrl() + this.URLs.recordByID(recordId),
         };
         const response = await this._get(options);
         return response;
@@ -176,7 +184,7 @@ class Api extends ApiKeyRequester {
 
     async updateRecord(recordId, body) {
         const options = {
-            url: this.baseUrl + this.URLs.recordByID(recordId),
+            url: this.baseUrl() + this.URLs.recordByID(recordId),
             headers: {
                 'content-type': 'application/json',
             },
@@ -188,7 +196,7 @@ class Api extends ApiKeyRequester {
 
     async deleteRecord(recordId) {
         const options = {
-            url: this.baseUrl + this.URLs.recordByID(recordId),
+            url: this.baseUrl() + this.URLs.recordByID(recordId),
         };
         const response = await this._delete(options);
         return response;
