@@ -1,3 +1,27 @@
+# v0.0.7 (Wed Oct 19 2022)
+
+#### 🐛 Bug Fix
+
+- Added records to Api.js [#55](https://github.com/friggframework/frigg/pull/55) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- Records Api Tests ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- merged record tests ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- merged retrieve workflow ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+- Update CHANGELOG.md \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+- re-added retrieve workflow [#56](https://github.com/friggframework/frigg/pull/56) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- chai ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- re-added retrieve workflow ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- added records tests ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- Added records to Api.js ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- merge conflicts ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+#### Authors: 2
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+- Sheehan Toufiq Khan ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+---
+
 # v0.0.6 (Thu Oct 13 2022)
 
 #### 🐛 Bug Fix
