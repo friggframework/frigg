@@ -156,7 +156,7 @@ class Api extends ApiKeyRequester {
 
     async createRecord(body) {
         const options = {
-            url: this.baseUrl + this.URLs.records,
+            url: this.baseUrl() + this.URLs.records,
             headers: {
                 'content-type': 'application/json',
             },
