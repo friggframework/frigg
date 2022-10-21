@@ -1,3 +1,19 @@
+# (Wed Oct 19 2022)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.7`
+  - Added records to Api.js [#55](https://github.com/friggframework/frigg/pull/55) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+  - re-added retrieve workflow [#56](https://github.com/friggframework/frigg/pull/56) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- `@friggframework/api-module-slack@0.1.3`
+  - Api module library slack [#52](https://github.com/friggframework/frigg/pull/52) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+#### Authors: 1
+
+- Sheehan Toufiq Khan ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+---
+
 # (Thu Oct 13 2022)
 
 #### 🐛 Bug Fix
