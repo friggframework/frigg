@@ -161,16 +161,26 @@ describe('Ironclad API class', () => {
             response.should.have.status(204);
         });
 
-        it('should update a workflow metadata', async () => {
-            // const body = {
-            //     creator: {
-            //         type: 'email',
-            //         email: 'projectteam@lefthook.com',
-            //     },
-            //     comment: 'Updated workflow',
-            // };
-            // const response = await api.createWorkflowComment(workflowID, body);
-            // response.should.have.status(204);
+        // Must be workflow in review step
+        it.skip('should update a workflow metadata', async () => {
+            const body = {
+                // Testing string, also should test:
+                //    Email, Number, Boolean, Date, Dynamic table, Monetary value, Address, General object
+                updates: [
+                    {
+                        action: 'set',
+                        path: 'counterpartyName',
+                        value: 'Updated Example Company',
+                    },
+                ],
+                comment: 'Updated workflow counterpartyName',
+            };
+            const response = await api.createWorkflowComment(workflowID, body);
+            expect(response).to.have.property('id');
+            expect(response).to.have.property('title');
+            expect(response).to.have.property('template');
+            expect(response).to.have.property('step');
+            expect(response).to.have.property('schema');
         });
     });
 
