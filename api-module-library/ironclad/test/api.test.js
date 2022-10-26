@@ -160,6 +160,18 @@ describe('Ironclad API class', () => {
             const response = await api.createWorkflowComment(workflowID, body);
             response.should.have.status(204);
         });
+
+        it('should update a workflow metadata', async () => {
+            // const body = {
+            //     creator: {
+            //         type: 'email',
+            //         email: 'projectteam@lefthook.com',
+            //     },
+            //     comment: 'Updated workflow',
+            // };
+            // const response = await api.createWorkflowComment(workflowID, body);
+            // response.should.have.status(204);
+        });
     });
 
     describe('Records', () => {

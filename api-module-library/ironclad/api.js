@@ -19,6 +19,8 @@ class Api extends ApiKeyRequester {
             workflowSchemas: '/public/api/v1/workflow-schemas',
             workflowSchemaByID: (schemaId) =>
                 `/public/api/v1/workflow-schemas/${schemaId}`,
+            workflowMetadata: (workflowId) =>
+                `/public/api/v1/workflows/${workflowId}/attributes`,
             workflowComment: (workflowId) =>
                 `/public/api/v1/workflows/${workflowId}/comment`,
             records: '/public/api/v1/records',
@@ -144,6 +146,18 @@ class Api extends ApiKeyRequester {
     async createWorkflowComment(id, body) {
         const options = {
             url: this.baseUrl + this.URLs.workflowComment(id),
+            headers: {
+                'content-type': 'application/json',
+            },
+            body,
+        };
+        const response = await this._post(options);
+        return response;
+    }
+
+    async updateWorkflow(id, body) {
+        const options = {
+            url: this.baseUrl + this.URLs.workflowMetadata(id),
             headers: {
                 'content-type': 'application/json',
             },
