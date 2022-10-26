@@ -56,6 +56,18 @@ describe('Ironclad API class', () => {
             workflowID = response.list[0].id;
         });
 
+        it('should return the second page of workflows', async () => {
+            let params = {
+                page: 1
+            }
+
+            const response = await api.listAllWorkflows(params);
+            expect(response).to.have.property('page');
+            expect(response).to.have.property('pageSize');
+            expect(response).to.have.property('count');
+            expect(response).to.have.property('list');
+        })
+
         it('should create a workflow', async () => {
             const body = {
                 creator: {
@@ -128,7 +140,7 @@ describe('Ironclad API class', () => {
             expect(response).to.have.property('isRevertibleToReview');
         });
 
-        it('should list all workflow approvals', async () => {
+        it.skip('should list all workflow approvals', async () => {
             const response = await api.listAllWorkflowApprovals(workflowID);
             expect(response).to.have.property('workflowId');
             expect(response).to.have.property('title');
