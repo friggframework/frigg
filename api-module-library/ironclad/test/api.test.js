@@ -58,15 +58,15 @@ describe('Ironclad API class', () => {
 
         it('should return the second page of workflows', async () => {
             let params = {
-                page: 1
-            }
+                page: 1,
+            };
 
             const response = await api.listAllWorkflows(params);
             expect(response).to.have.property('page');
             expect(response).to.have.property('pageSize');
             expect(response).to.have.property('count');
             expect(response).to.have.property('list');
-        })
+        });
 
         it('should create a workflow', async () => {
             const body = {
@@ -146,6 +146,19 @@ describe('Ironclad API class', () => {
             expect(response).to.have.property('title');
             expect(response).to.have.property('approvalGroups');
             expect(response).to.have.property('roles');
+        });
+
+        it('should create a workflow comment', async () => {
+            const body = {
+                creator: {
+                    type: 'email',
+                    email: 'projectteam@lefthook.com',
+                },
+                comment: 'Testing a comment',
+            };
+
+            const response = await api.createWorkflowComment(workflowID, body);
+            response.should.have.status(204);
         });
     });
 
