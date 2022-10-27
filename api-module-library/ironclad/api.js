@@ -6,7 +6,8 @@ class Api extends ApiKeyRequester {
         super(params);
 
         this.API_KEY_NAME = 'Bearer';
-        this.API_KEY_VALUE = get(params, 'apiKey', null);
+        // this.API_KEY_VALUE = get(params, 'apiKey', null);
+        this.API_KEY_VALUE = 'FsnPyagbghJPoZYf618X9F8EJXZUyZKRYsfbGr6kciq4';
 
         this.baseUrl = 'https://demo.ironcladapp.com';
 

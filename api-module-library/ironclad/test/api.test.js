@@ -158,7 +158,7 @@ describe('Ironclad API class', () => {
             };
 
             const response = await api.createWorkflowComment(workflowID, body);
-            response.should.have.status(204);
+            expect(response.status).to.equal(204);
         });
 
         // Must be workflow in review step
