@@ -40,7 +40,7 @@ describe('Ironclad API class', () => {
 
         it('should delete a webhook', async () => {
             const response = await api.deleteWebhook(webhookID);
-            expect(response.status).equal(204);
+            expect(response.status).to.equal(204);
         });
     });
 
@@ -158,19 +158,7 @@ describe('Ironclad API class', () => {
             };
 
             const response = await api.createWorkflowComment(workflowID, body);
-            response.should.have.status(204);
-        });
-
-        it('should update a workflow metadata', async () => {
-            // const body = {
-            //     creator: {
-            //         type: 'email',
-            //         email: 'projectteam@lefthook.com',
-            //     },
-            //     comment: 'Updated workflow',
-            // };
-            // const response = await api.createWorkflowComment(workflowID, body);
-            // response.should.have.status(204);
+            expect(response).to.equal('');
         });
     });
 
