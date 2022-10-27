@@ -135,6 +135,28 @@ describe('Ironclad API class', () => {
             expect(response).to.have.property('approvalGroups');
             expect(response).to.have.property('roles');
         });
+
+        it('should update a workflow approval', async () => {
+            workflowID = '635991f6c559b4d68a6a0d6a'
+            const roleID = 'approver6e66a44e134d400fbbd11374739cb35e';
+            const body = {
+                user: {
+                    type: 'email',
+                    email: 'james.baillie@ironcladapp.com'
+                },
+                status: 'approved'
+            }
+
+            const revertBody = {
+                user: {
+                    type: 'email',
+                    email: 'james.baillie@ironcladapp.com'
+                }
+            }
+            const response = await api.updateWorkflowApprovals(workflowID, roleID, body);
+            expect(response).to.equal(true);
+            const revertResponse = await api.revertWorkflowToReviewStep(workflowID, revertBody);
+        })
     });
 
     describe('Records', () => {
