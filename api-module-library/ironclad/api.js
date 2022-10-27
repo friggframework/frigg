@@ -152,7 +152,7 @@ class Api extends ApiKeyRequester {
 
     async revertWorkflowToReviewStep(id, body) {
         const options = {
-            url: this.baseUrl + this.URLs.workflowsByID(id) + 'revert-to-review',
+            url: this.baseUrl + this.URLs.workflowsByID(id) + '/revert-to-review',
             headers: {
                 'content-type': 'application/json'
             },

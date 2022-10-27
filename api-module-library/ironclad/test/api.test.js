@@ -137,25 +137,25 @@ describe('Ironclad API class', () => {
         });
 
         it('should update a workflow approval', async () => {
-            workflowID = '635991f6c559b4d68a6a0d6a'
-            const roleID = 'approver6e66a44e134d400fbbd11374739cb35e';
-            const body = {
-                user: {
-                    type: 'email',
-                    email: 'james.baillie@ironcladapp.com'
-                },
-                status: 'approved'
-            }
+            workflowID = process.env.WORKFLOW_ID;
+            const workflowApprovals = await api.listAllWorkflowApprovals(workflowID);
+            workflowApprovals.approvalGroups.forEach(async (approvalGroup) => {
+                let roleID = approvalGroup.reviewers[0].role;
+                let role = workflowApprovals.roles.find((role) => role.id === roleID)
+                let email = role.assignees[0].email
 
-            const revertBody = {
-                user: {
-                    type: 'email',
-                    email: 'james.baillie@ironcladapp.com'
+                let body = {
+                    user: {
+                        type: 'email',
+                        email
+                    },
+                    status: 'approved'
                 }
-            }
-            const response = await api.updateWorkflowApprovals(workflowID, roleID, body);
-            expect(response).to.equal(true);
-            const revertResponse = await api.revertWorkflowToReviewStep(workflowID, revertBody);
+
+                const response = await api.updateWorkflowApprovals(workflowID, roleID, body);
+                expect(response).to.equal(true)
+            })
+
         })
     });
 
