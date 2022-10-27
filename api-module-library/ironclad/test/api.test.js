@@ -185,6 +185,7 @@ describe('Ironclad API class', () => {
             expect(response).to.have.property('type');
             expect(response).to.have.property('name');
             expect(response).to.have.property('lastUpdated');
+            recordID = response.id;
         });
 
         it('should list all records', async () => {
@@ -193,7 +194,6 @@ describe('Ironclad API class', () => {
             expect(response).to.have.property('pageSize');
             expect(response).to.have.property('count');
             expect(response).to.have.property('list');
-            recordID = response.list[0].id;
         });
 
         it('should list all record schemas', async () => {
