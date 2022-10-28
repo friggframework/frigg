@@ -80,7 +80,6 @@ class Api extends ApiKeyRequester {
         const response = await this._patch(options);
         return response;
     }
-
     async deleteWebhook(webhookId) {
         const options = {
             url: this.baseUrl + this.URLs.webhookByID(webhookId),
@@ -156,14 +155,15 @@ class Api extends ApiKeyRequester {
         return response;
     }
 
-    async retrieveWorkflowDocument(workflowID, documentKey) {
+    async updateWorkflow(id, body) {
         const options = {
-            url:
-                this.baseUrl +
-                this.URLs.workflowsByID(workflowID) +
-                `/document/${documentKey}/download`,
+            url: this.baseUrl + this.URLs.workflowMetadata(id),
+            headers: {
+                'content-type': 'application/json',
+            },
+            body,
         };
-        const response = await this._get(options);
+        const response = await this._patch(options);
         return response;
     }
 
