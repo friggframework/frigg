@@ -166,6 +166,14 @@ class Api extends ApiKeyRequester {
         const response = await this._post(options);
         return response;
     }
+    
+    async retrieveWorkflowDocument(workflowID, documentKey) {
+        const options = {
+            url: this.baseUrl + this.URLs.workflowsByID(workflowID) + `/document/${documentKey}/download`
+        };
+        const response = await this._get(options);
+        return response;
+    }
 
     async listAllRecords() {
         const options = {
