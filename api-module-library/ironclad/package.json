@@ -24,8 +24,7 @@
     },
     "dependencies": {
         "@friggframework/assertions": "^1.0.5",
-        "@friggframework/module-plugin": "^1.0.13",
-        "jest-serial-runner": "^1.2.0"
+        "@friggframework/module-plugin": "^1.0.13"
     },
     "publishConfig": {
         "access": "public"
