@@ -276,31 +276,3 @@ describe('Ironclad API class', () => {
         });
     });
 });
-
-describe.skip('Workflows', () => {
-    const api = new Api({
-        apiKey: process.env.IRONCLAD_API_KEY,
-    });
-
-    it('should update a workflow metadata', async () => {
-        const body = {
-            // Testing string, also should test:
-            //    Email, Number, Boolean, Date, Dynamic table, Monetary value, Address, General object
-            updates: [
-                {
-                    action: 'set',
-                    path: 'counterpartyName',
-                    value: 'Updated Example Company',
-                },
-            ],
-            comment: 'Updated workflow counterpartyName',
-        };
-        const response = await api.updateWorkflow(
-            '635aa538ff19063aca4ad577',
-            body
-        );
-        expect(response).to.have.property('id');
-        expect(response).to.have.property('title');
-        expect(response).to.have.property('schema');
-    });
-});
