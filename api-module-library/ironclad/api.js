@@ -165,6 +165,9 @@ class Api extends ApiKeyRequester {
             body
         };
         const response = await this._patch(options);
+        return response;
+    }
+    
     async createWorkflowComment(id, body) {
         const options = {
             url: this.baseUrl + this.URLs.workflowComment(id),
