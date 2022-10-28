@@ -172,7 +172,21 @@ describe('Ironclad API class', () => {
         });
 
         // Must be workflow in review step
-        it.skip('should update a workflow metadata', async () => {
+        it('should update a workflow metadata', async () => {
+            const params = {
+                status: 'active',
+            };
+            const datetime = Date.now();
+            const getReviewWorkflows = await api.listAllWorkflows(params);
+            let reviewWorkflowId = null;
+
+            for (const workflow of getReviewWorkflows.list) {
+                if (workflow.step === 'Review') {
+                    reviewWorkflowId = workflow.id;
+                    break;
+                }
+            }
+
             const body = {
                 // Testing string, also should test:
                 //    Email, Number, Boolean, Date, Dynamic table, Monetary value, Address, General object
@@ -180,12 +194,12 @@ describe('Ironclad API class', () => {
                     {
                         action: 'set',
                         path: 'counterpartyName',
-                        value: 'Updated Example Company',
+                        value: `Updated Example Company ${datetime}`,
                     },
                 ],
                 comment: 'Updated workflow counterpartyName',
             };
-            const response = await api.updateWorlkflow(workflowID, body);
+            const response = await api.updateWorkflow(reviewWorkflowId, body);
             expect(response).to.have.property('id');
             expect(response).to.have.property('title');
             expect(response).to.have.property('schema');
@@ -260,5 +274,33 @@ describe('Ironclad API class', () => {
             expect(response.status).to.equal(204);
             expect(response.statusText).to.equal('No Content');
         });
+    });
+});
+
+describe.skip('Workflows', () => {
+    const api = new Api({
+        apiKey: process.env.IRONCLAD_API_KEY,
+    });
+
+    it('should update a workflow metadata', async () => {
+        const body = {
+            // Testing string, also should test:
+            //    Email, Number, Boolean, Date, Dynamic table, Monetary value, Address, General object
+            updates: [
+                {
+                    action: 'set',
+                    path: 'counterpartyName',
+                    value: 'Updated Example Company',
+                },
+            ],
+            comment: 'Updated workflow counterpartyName',
+        };
+        const response = await api.updateWorkflow(
+            '635aa538ff19063aca4ad577',
+            body
+        );
+        expect(response).to.have.property('id');
+        expect(response).to.have.property('title');
+        expect(response).to.have.property('schema');
     });
 });
