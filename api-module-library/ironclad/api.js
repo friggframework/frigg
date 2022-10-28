@@ -163,7 +163,7 @@ class Api extends ApiKeyRequester {
             },
             body,
         };
-        const response = await this._post(options);
+        const response = await this._patch(options);
         return response;
     }
 
