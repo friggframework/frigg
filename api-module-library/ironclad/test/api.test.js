@@ -162,11 +162,48 @@ describe('Ironclad API class', () => {
             const response = await api.createWorkflowComment(workflowID, body);
             expect(response).to.equal('');
         });
-        
+
         it('should retrieve a workflow document', async () => {
-            const response = await api.retrieveWorkflowDocument(workflowID, documentKey);
-            expect(response).to.exist
-        })
+            const response = await api.retrieveWorkflowDocument(
+                workflowID,
+                documentKey
+            );
+            expect(response).to.exist;
+        });
+
+        // Must be workflow in review step
+        it('should update a workflow metadata', async () => {
+            const params = {
+                status: 'active',
+            };
+            const datetime = Date.now();
+            const getReviewWorkflows = await api.listAllWorkflows(params);
+            let reviewWorkflowId = null;
+
+            for (const workflow of getReviewWorkflows.list) {
+                if (workflow.step === 'Review') {
+                    reviewWorkflowId = workflow.id;
+                    break;
+                }
+            }
+
+            const body = {
+                // Testing string, also should test:
+                //    Email, Number, Boolean, Date, Dynamic table, Monetary value, Address, General object
+                updates: [
+                    {
+                        action: 'set',
+                        path: 'counterpartyName',
+                        value: `Updated Example Company ${datetime}`,
+                    },
+                ],
+                comment: 'Updated workflow counterpartyName',
+            };
+            const response = await api.updateWorkflow(reviewWorkflowId, body);
+            expect(response).to.have.property('id');
+            expect(response).to.have.property('title');
+            expect(response).to.have.property('schema');
+        });
     });
 
     describe('Records', () => {
