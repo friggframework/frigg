@@ -175,11 +175,9 @@ describe('Ironclad API class', () => {
                 ],
                 comment: 'Updated workflow counterpartyName',
             };
-            const response = await api.createWorkflowComment(workflowID, body);
+            const response = await api.updateWorlkflow(workflowID, body);
             expect(response).to.have.property('id');
             expect(response).to.have.property('title');
-            expect(response).to.have.property('template');
-            expect(response).to.have.property('step');
             expect(response).to.have.property('schema');
         });
     });
