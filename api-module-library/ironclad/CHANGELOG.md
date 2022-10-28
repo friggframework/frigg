@@ -1,3 +1,19 @@
+# v0.0.10 (Fri Oct 28 2022)
+
+#### 🐛 Bug Fix
+
+- update workflow [#67](https://github.com/friggframework/frigg/pull/67) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- update workflow test ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- merge workflow document test ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- merge workflow documents ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- update workflow ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+#### Authors: 1
+
+- Sheehan Toufiq Khan ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+---
+
 # v0.0.9 (Fri Oct 28 2022)
 
 #### 🐛 Bug Fix

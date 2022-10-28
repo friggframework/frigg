@@ -2,6 +2,19 @@
 
 #### 🐛 Bug Fix
 
+- `@friggframework/api-module-ironclad@0.0.10`
+  - update workflow [#67](https://github.com/friggframework/frigg/pull/67) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+#### Authors: 1
+
+- Sheehan Toufiq Khan ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+---
+
+# (Fri Oct 28 2022)
+
+#### 🐛 Bug Fix
+
 - `@friggframework/api-module-ironclad@0.0.9`
   - Fr/create workflow comment [#63](https://github.com/friggframework/frigg/pull/63) ([@sheehantoufiq](https://github.com/sheehantoufiq))
 
