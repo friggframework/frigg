@@ -80,6 +80,7 @@ class Api extends ApiKeyRequester {
         const response = await this._patch(options);
         return response;
     }
+
     async deleteWebhook(webhookId) {
         const options = {
             url: this.baseUrl + this.URLs.webhookByID(webhookId),
