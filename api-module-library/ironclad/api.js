@@ -191,6 +191,18 @@ class Api extends ApiKeyRequester {
         return response;
     }
 
+    async updateWorkflow(id, body) {
+        const options = {
+            url: this.baseUrl + this.URLs.workflowMetadata(id),
+            headers: {
+                'content-type': 'application/json',
+            },
+            body,
+        };
+        const response = await this._patch(options);
+        return response;
+    }
+
     async listAllRecords() {
         const options = {
             url: this.baseUrl + this.URLs.records,
