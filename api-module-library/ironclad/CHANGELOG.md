@@ -1,3 +1,21 @@
+# v0.0.11 (Fri Oct 28 2022)
+
+#### 🐛 Bug Fix
+
+- Fr/update workflow approvals [#64](https://github.com/friggframework/frigg/pull/64) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Removed jest-serial-runner ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Merge branch 'main' of https://github.com/friggframework/frigg into fr/update-workflow-approvals ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Included return response ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Resolved conflicts ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Update Workflow Approval Test passing ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Added methods to update workflow approval ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+
+#### Authors: 1
+
+- Jonathan Moore ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+
+---
+
 # v0.0.10 (Fri Oct 28 2022)
 
 #### 🐛 Bug Fix

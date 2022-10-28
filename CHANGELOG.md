@@ -2,6 +2,19 @@
 
 #### 🐛 Bug Fix
 
+- `@friggframework/api-module-ironclad@0.0.11`
+  - Fr/update workflow approvals [#64](https://github.com/friggframework/frigg/pull/64) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+
+#### Authors: 1
+
+- Jonathan Moore ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+
+---
+
+# (Fri Oct 28 2022)
+
+#### 🐛 Bug Fix
+
 - `@friggframework/api-module-ironclad@0.0.10`
   - update workflow [#67](https://github.com/friggframework/frigg/pull/67) ([@sheehantoufiq](https://github.com/sheehantoufiq))
 
