@@ -40,13 +40,14 @@ describe('Ironclad API class', () => {
 
         it('should delete a webhook', async () => {
             const response = await api.deleteWebhook(webhookID);
-            expect(response.status).equal(204);
+            expect(response.status).to.equal(204);
         });
     });
 
     describe('Workflows', () => {
         let workflowSchemaID;
         let workflowID;
+        let documentKey;
         it('should list all workflows', async () => {
             const response = await api.listAllWorkflows();
             expect(response).to.have.property('page');
@@ -138,6 +139,7 @@ describe('Ironclad API class', () => {
             expect(response).to.have.property('approvals');
             expect(response).to.have.property('signatures');
             expect(response).to.have.property('isRevertibleToReview');
+            documentKey = response.attributes.draft[0].download.split('/')[7];
         });
 
         it.skip('should list all workflow approvals', async () => {
@@ -158,7 +160,15 @@ describe('Ironclad API class', () => {
             };
 
             const response = await api.createWorkflowComment(workflowID, body);
-            expect(response.status).to.equal(204);
+            expect(response).to.equal('');
+        });
+
+        it('should retrieve a workflow document', async () => {
+            const response = await api.retrieveWorkflowDocument(
+                workflowID,
+                documentKey
+            );
+            expect(response).to.exist;
         });
 
         // Must be workflow in review step
@@ -205,6 +215,7 @@ describe('Ironclad API class', () => {
             expect(response).to.have.property('type');
             expect(response).to.have.property('name');
             expect(response).to.have.property('lastUpdated');
+            recordID = response.id;
         });
 
         it('should list all records', async () => {
@@ -213,7 +224,6 @@ describe('Ironclad API class', () => {
             expect(response).to.have.property('pageSize');
             expect(response).to.have.property('count');
             expect(response).to.have.property('list');
-            recordID = response.list[0].id;
         });
 
         it('should list all record schemas', async () => {
