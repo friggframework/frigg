@@ -1,3 +1,21 @@
+# v0.0.9 (Fri Oct 28 2022)
+
+#### 🐛 Bug Fix
+
+- Fr/create workflow comment [#63](https://github.com/friggframework/frigg/pull/63) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- merge changes ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- Merge branch 'main' into fr/create-workflow-comment ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- test bug fix ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- testing bug ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- update workflow ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- create workflow comment ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+#### Authors: 1
+
+- Sheehan Toufiq Khan ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+---
+
 # v0.0.8 (Fri Oct 28 2022)
 
 #### 🐛 Bug Fix
