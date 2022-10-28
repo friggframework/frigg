@@ -1,3 +1,17 @@
+# (Fri Oct 28 2022)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.8`
+  - Ironclad - Retrieve Workflow Document [#58](https://github.com/friggframework/frigg/pull/58) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+  - Fix: Ironclad List All Workflows [#59](https://github.com/friggframework/frigg/pull/59) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+
+#### Authors: 1
+
+- Jonathan Moore ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+
+---
+
 # (Wed Oct 19 2022)
 
 #### 🐛 Bug Fix

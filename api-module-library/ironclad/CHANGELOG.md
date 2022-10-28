@@ -1,3 +1,20 @@
+# v0.0.8 (Fri Oct 28 2022)
+
+#### 🐛 Bug Fix
+
+- Ironclad - Retrieve Workflow Document [#58](https://github.com/friggframework/frigg/pull/58) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Fix: Ironclad List All Workflows [#59](https://github.com/friggframework/frigg/pull/59) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Passing Tests ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Added params to listAllWorkflows ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- tests Passing ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Added method to retrieve a workflow document ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+
+#### Authors: 1
+
+- Jonathan Moore ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+
+---
+
 # v0.0.7 (Wed Oct 19 2022)
 
 #### 🐛 Bug Fix
