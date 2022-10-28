@@ -150,6 +150,26 @@ describe('Ironclad API class', () => {
             expect(response).to.have.property('roles');
         });
 
+        it('should update a workflow approval', async () => {
+            workflowID = process.env.WORKFLOW_ID;
+            const workflowApprovals = await api.listAllWorkflowApprovals(workflowID);
+            workflowApprovals.approvalGroups.forEach(async (approvalGroup) => {
+                let roleID = approvalGroup.reviewers[0].role;
+                let role = workflowApprovals.roles.find((role) => role.id === roleID)
+                let email = role.assignees[0].email
+
+                let body = {
+                    user: {
+                        type: 'email',
+                        email
+                    },
+                    status: 'approved'
+                }
+
+                const response = await api.updateWorkflowApprovals(workflowID, roleID, body);
+                expect(response).to.equal(true)
+            })
+
         it('should create a workflow comment', async () => {
             const body = {
                 creator: {

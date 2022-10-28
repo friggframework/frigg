@@ -144,6 +144,30 @@ class Api extends ApiKeyRequester {
         return response;
     }
 
+    async updateWorkflowApprovals(id, roleID, body) {
+        const options = {
+            url: this.baseUrl + this.URLs.workflowsByID(id) + '/approvals/' + roleID,
+            headers: {
+                'content-type': 'application/json'
+            },
+            body,
+        };
+        const response = await this._patch(options);
+        return response;
+    }
+
+    async revertWorkflowToReviewStep(id, body) {
+        const options = {
+            url: this.baseUrl + this.URLs.workflowsByID(id) + '/revert-to-review',
+            headers: {
+                'content-type': 'application/json'
+            },
+            body
+        };
+        const response = await this._patch(options);
+        return response;
+    }
+    
     async createWorkflowComment(id, body) {
         const options = {
             url: this.baseUrl + this.URLs.workflowComment(id),
