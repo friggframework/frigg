@@ -41,7 +41,6 @@ class Api extends ApiKeyRequester {
         if (this.API_KEY_VALUE) {
             headers.Authorization = `Bearer ${this.API_KEY_VALUE}`;
         }
-        console.log(this.baseUrl);
         return headers;
     }
 
@@ -99,7 +98,7 @@ class Api extends ApiKeyRequester {
 
     async listAllWorkflows(params) {
         const options = {
-            url: this.baseUrl + this.URLs.workflows,
+            url: this.baseUrl() + this.URLs.workflows,
             query: params,
         };
         const response = await this._get(options);
@@ -154,9 +153,13 @@ class Api extends ApiKeyRequester {
 
     async updateWorkflowApprovals(id, roleID, body) {
         const options = {
-            url: this.baseUrl + this.URLs.workflowsByID(id) + '/approvals/' + roleID,
+            url:
+                this.baseUrl() +
+                this.URLs.workflowsByID(id) +
+                '/approvals/' +
+                roleID,
             headers: {
-                'content-type': 'application/json'
+                'content-type': 'application/json',
             },
             body,
         };
@@ -166,19 +169,22 @@ class Api extends ApiKeyRequester {
 
     async revertWorkflowToReviewStep(id, body) {
         const options = {
-            url: this.baseUrl + this.URLs.workflowsByID(id) + '/revert-to-review',
+            url:
+                this.baseUrl() +
+                this.URLs.workflowsByID(id) +
+                '/revert-to-review',
             headers: {
-                'content-type': 'application/json'
+                'content-type': 'application/json',
             },
-            body
+            body,
         };
         const response = await this._patch(options);
         return response;
     }
-    
+
     async createWorkflowComment(id, body) {
         const options = {
-            url: this.baseUrl + this.URLs.workflowComment(id),
+            url: this.baseUrl() + this.URLs.workflowComment(id),
             headers: {
                 'content-type': 'application/json',
             },
@@ -191,7 +197,7 @@ class Api extends ApiKeyRequester {
     async retrieveWorkflowDocument(workflowID, documentKey) {
         const options = {
             url:
-                this.baseUrl +
+                this.baseUrl() +
                 this.URLs.workflowsByID(workflowID) +
                 `/document/${documentKey}/download`,
         };
@@ -201,7 +207,7 @@ class Api extends ApiKeyRequester {
 
     async updateWorkflow(id, body) {
         const options = {
-            url: this.baseUrl + this.URLs.workflowMetadata(id),
+            url: this.baseUrl() + this.URLs.workflowMetadata(id),
             headers: {
                 'content-type': 'application/json',
             },
