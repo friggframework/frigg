@@ -7,9 +7,13 @@ const schema = new mongoose.Schema({
         trim: true,
         lhEncrypt: true,
     },
+    subdomain: {
+        type: String,
+        trim: true,
+    },
 });
 
 const name = 'IroncladCredential';
-const Credential = 
+const Credential =
     Parent.discriminators?.[name] || Parent.discriminator(name, schema);
 module.exports = { Credential };

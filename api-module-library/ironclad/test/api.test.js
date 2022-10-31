@@ -7,6 +7,7 @@ const { expect } = require('chai');
 describe('Ironclad API class', () => {
     const api = new Api({
         apiKey: process.env.IRONCLAD_API_KEY,
+        subdomain: process.env.IRONCLAD_SUBDOMAIN,
     });
 
     describe('Webhooks', () => {
@@ -152,23 +153,32 @@ describe('Ironclad API class', () => {
 
         it('should update a workflow approval', async () => {
             workflowID = process.env.WORKFLOW_ID;
-            const workflowApprovals = await api.listAllWorkflowApprovals(workflowID);
+            const workflowApprovals = await api.listAllWorkflowApprovals(
+                workflowID
+            );
             workflowApprovals.approvalGroups.forEach(async (approvalGroup) => {
                 let roleID = approvalGroup.reviewers[0].role;
-                let role = workflowApprovals.roles.find((role) => role.id === roleID)
-                let email = role.assignees[0].email
+                let role = workflowApprovals.roles.find(
+                    (role) => role.id === roleID
+                );
+                let email = role.assignees[0].email;
 
                 let body = {
                     user: {
                         type: 'email',
-                        email
+                        email,
                     },
-                    status: 'approved'
-                }
+                    status: 'approved',
+                };
 
-                const response = await api.updateWorkflowApprovals(workflowID, roleID, body);
-                expect(response).to.equal(true)
-            })
+                const response = await api.updateWorkflowApprovals(
+                    workflowID,
+                    roleID,
+                    body
+                );
+                expect(response).to.equal(true);
+            });
+        });
 
         it('should create a workflow comment', async () => {
             const body = {
@@ -198,11 +208,12 @@ describe('Ironclad API class', () => {
             };
             const datetime = Date.now();
             const getReviewWorkflows = await api.listAllWorkflows(params);
-            let reviewWorkflowId = null;
+            let reviewWorkflowId;
 
             for (const workflow of getReviewWorkflows.list) {
                 if (workflow.step === 'Review') {
                     reviewWorkflowId = workflow.id;
+                    console.log(workflow);
                     break;
                 }
             }
