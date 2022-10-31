@@ -1,3 +1,16 @@
+# (Mon Oct 31 2022)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.13`
+  - Fr/custom subdomains [#57](https://github.com/friggframework/frigg/pull/57) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+#### Authors: 1
+
+- Sheehan Toufiq Khan ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+---
+
 # (Fri Oct 28 2022)
 
 #### 🐛 Bug Fix

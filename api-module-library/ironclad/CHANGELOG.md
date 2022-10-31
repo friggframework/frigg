@@ -1,3 +1,21 @@
+# v0.0.13 (Mon Oct 31 2022)
+
+#### 🐛 Bug Fix
+
+- Fr/custom subdomains [#57](https://github.com/friggframework/frigg/pull/57) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- subdomain teat updates ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- merge main ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- missed parenthesis ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- Merge branch 'main' into fr/custom-subdomains ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- version bump ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- custom subdomains ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+#### Authors: 1
+
+- Sheehan Toufiq Khan ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+---
+
 # v0.0.11 (Fri Oct 28 2022)
 
 #### 🐛 Bug Fix
