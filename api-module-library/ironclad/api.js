@@ -27,6 +27,10 @@ class Api extends ApiKeyRequester {
             workflowSchemas: '/public/api/v1/workflow-schemas',
             workflowSchemaByID: (schemaId) =>
                 `/public/api/v1/workflow-schemas/${schemaId}`,
+            workflowMetadata: (workflowId) =>
+                `/public/api/v1/workflows/${workflowId}/attributes`,
+            workflowComment: (workflowId) =>
+                `/public/api/v1/workflows/${workflowId}/comment`,
             records: '/public/api/v1/records',
             recordByID: (recordId) => `/public/api/v1/records/${recordId}`,
             recordSchemas: '/public/api/v1/records/metadata',
@@ -84,6 +88,7 @@ class Api extends ApiKeyRequester {
         const response = await this._patch(options);
         return response;
     }
+
     async deleteWebhook(webhookId) {
         const options = {
             url: this.baseUrl() + this.URLs.webhookByID(webhookId),
@@ -92,9 +97,10 @@ class Api extends ApiKeyRequester {
         return response;
     }
 
-    async listAllWorkflows() {
+    async listAllWorkflows(params) {
         const options = {
             url: this.baseUrl + this.URLs.workflows,
+            query: params,
         };
         const response = await this._get(options);
         return response;
@@ -143,6 +149,65 @@ class Api extends ApiKeyRequester {
             url: this.baseUrl() + this.URLs.workflowsByID(id) + '/approvals',
         };
         const response = await this._get(options);
+        return response;
+    }
+
+    async updateWorkflowApprovals(id, roleID, body) {
+        const options = {
+            url: this.baseUrl + this.URLs.workflowsByID(id) + '/approvals/' + roleID,
+            headers: {
+                'content-type': 'application/json'
+            },
+            body,
+        };
+        const response = await this._patch(options);
+        return response;
+    }
+
+    async revertWorkflowToReviewStep(id, body) {
+        const options = {
+            url: this.baseUrl + this.URLs.workflowsByID(id) + '/revert-to-review',
+            headers: {
+                'content-type': 'application/json'
+            },
+            body
+        };
+        const response = await this._patch(options);
+        return response;
+    }
+    
+    async createWorkflowComment(id, body) {
+        const options = {
+            url: this.baseUrl + this.URLs.workflowComment(id),
+            headers: {
+                'content-type': 'application/json',
+            },
+            body,
+        };
+        const response = await this._post(options);
+        return response;
+    }
+
+    async retrieveWorkflowDocument(workflowID, documentKey) {
+        const options = {
+            url:
+                this.baseUrl +
+                this.URLs.workflowsByID(workflowID) +
+                `/document/${documentKey}/download`,
+        };
+        const response = await this._get(options);
+        return response;
+    }
+
+    async updateWorkflow(id, body) {
+        const options = {
+            url: this.baseUrl + this.URLs.workflowMetadata(id),
+            headers: {
+                'content-type': 'application/json',
+            },
+            body,
+        };
+        const response = await this._patch(options);
         return response;
     }
 
