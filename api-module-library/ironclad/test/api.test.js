@@ -288,16 +288,26 @@ describe('Ironclad API class', () => {
             expect(response).to.have.property('links');
         });
 
-        it('should update a record', async () => {
+        it('should update a record metadata', async () => {
             const body = {
                 type: 'nDAs',
                 name: 'Updated Example Record',
+                addProperties: {
+                    counterpartyName: {
+                        type: 'string',
+                        value: 'Jane Doe',
+                    },
+                },
             };
             const response = await api.updateRecord(recordID, body);
             expect(response).to.have.property('id');
             expect(response).to.have.property('type');
             expect(response).to.have.property('name');
+            expect(response).to.have.property('properties');
             expect(response).to.have.property('lastUpdated');
+            expect(response.properties.counterpartyName.value).to.equal(
+                'Jane Doe'
+            );
         });
 
         it('should delete a record', async () => {

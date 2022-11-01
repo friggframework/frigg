@@ -261,7 +261,7 @@ class Api extends ApiKeyRequester {
             },
             body,
         };
-        const response = await this._put(options);
+        const response = await this._patch(options);
         return response;
     }
 
