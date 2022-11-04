@@ -43,7 +43,7 @@
 
 * [Overview](api-module-library/overview.md)
 * [Building Your Own Module](api-module-library/building-your-own-module.md)
-* [Module List](api-module-library/module-list/README.md)
+* [API Module Library](api-module-library/module-list/README.md)
   * [ActiveCampaign](api-module-library/module-list/activecampaign/README.md)
     * [Configuration](api-module-library/module-list/activecampaign/configuration.md)
     * [ActiveCampaign Docs](https://developers.activecampaign.com/reference/overview)
