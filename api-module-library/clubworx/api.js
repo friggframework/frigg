@@ -9,12 +9,13 @@ class Api extends ApiKeyRequester {
 
         // Keep as function going forward?
         this.baseUrl = () => {
+            // return 'https://app.cwx-staging.com';
             return 'https://app.clubworx.com';
         };
 
         this.URLs = {
-            webhooks: '/api/v2/hooks',
-            webhookByID: (webhookId) => `/api/v2/hooks/${webhookId}`,
+            // webhooks: '/api/v2/hooks',
+            // webhookByID: (webhookId) => `/api/v2/hooks/${webhookId}`,
             members: '/api/v2/members',
             memberByID: (memberId) => `/api/v2/members/${memberId}`,
             prospects: '/api/v2/prospects',
@@ -33,50 +34,50 @@ class Api extends ApiKeyRequester {
         return headers;
     }
 
-    async createWebhook(event, targetURL) {
-        const options = {
-            url: this.baseUrl() + this.URLs.webhooks,
-            headers: {
-                'content-type': 'application/json',
-            },
-            query: {
-                account_key: this.ACCOUNT_KEY,
-            },
-            body: {
-                event,
-                targetURL,
-            },
-        };
-        const response = await this._post(options);
-        return response;
-    }
+    // async createWebhook(event, targetURL) {
+    //     const options = {
+    //         url: this.baseUrl() + this.URLs.webhooks,
+    //         headers: {
+    //             'content-type': 'application/json',
+    //         },
+    //         query: {
+    //             account_key: this.ACCOUNT_KEY,
+    //         },
+    //         body: {
+    //             event,
+    //             targetURL,
+    //         },
+    //     };
+    //     const response = await this._post(options);
+    //     return response;
+    // }
 
-    async deleteWebhook(webhookId) {
-        const options = {
-            url: this.baseUrl() + this.URLs.webhookByID(webhookId),
-            headers: {
-                'content-type': 'application/json',
-            },
-            query: {
-                account_key: this.ACCOUNT_KEY,
-            },
-        };
-        const response = await this._delete(options);
-        return response;
-    }
+    // async deleteWebhook(webhookId) {
+    //     const options = {
+    //         url: this.baseUrl() + this.URLs.webhookByID(webhookId),
+    //         headers: {
+    //             'content-type': 'application/json',
+    //         },
+    //         query: {
+    //             account_key: this.ACCOUNT_KEY,
+    //         },
+    //     };
+    //     const response = await this._delete(options);
+    //     return response;
+    // }
 
-    async listAllMembers({ page, page_size }) {
+    async listAllMembers(query) {
         const options = {
             url: this.baseUrl() + this.URLs.members,
             query: {
                 account_key: this.ACCOUNT_KEY,
             },
         };
-        if (page) {
-            options.query.page = page;
-        }
-        if (page_size) {
-            options.query.page_size = page_size;
+        // for pagination
+        if (query) {
+            for (const [key, value] of Object.entries(query)) {
+                options.query[key] = value;
+            }
         }
 
         const response = await this._get(options);
@@ -95,44 +96,42 @@ class Api extends ApiKeyRequester {
         return response;
     }
 
-    async createMember(body) {
+    async createMember(params) {
         const options = {
             url: this.baseUrl() + this.URLs.members,
-            query: {
-                account_key: this.ACCOUNT_KEY,
-            },
-            body,
+            query: params,
         };
+
+        options.query.account_key = this.ACCOUNT_KEY;
 
         const response = await this._post(options);
         return response;
     }
 
-    async updateMember(contactKey, body) {
+    async updateMember(contactKey, params) {
         const options = {
             url: this.baseUrl() + this.URLs.memberByID(contactKey),
-            query: {
-                account_key: this.ACCOUNT_KEY,
-            },
-            body,
+            query: params,
         };
+
+        options.query.account_key = this.ACCOUNT_KEY;
 
         const response = await this._put(options);
         return response;
     }
 
-    async listAllProspects({ page, page_size }) {
+    async listAllProspects(query) {
         const options = {
             url: this.baseUrl() + this.URLs.prospects,
             query: {
                 account_key: this.ACCOUNT_KEY,
             },
         };
-        if (page) {
-            options.query.page = page;
-        }
-        if (page_size) {
-            options.query.page_size = page_size;
+        // for pagination
+        if (query) {
+            for (const [key, value] of Object.entries(query)) {
+                options.query[key] = value;
+            }
         }
 
         const response = await this._get(options);
@@ -151,44 +150,40 @@ class Api extends ApiKeyRequester {
         return response;
     }
 
-    async createProspect(body) {
+    async createProspect(params) {
         const options = {
             url: this.baseUrl() + this.URLs.prospects,
-            query: {
-                account_key: this.ACCOUNT_KEY,
-            },
-            body,
+            query: params,
         };
+        options.query.account_key = this.ACCOUNT_KEY;
 
         const response = await this._post(options);
         return response;
     }
 
-    async updateProspect(contactKey, body) {
+    async updateProspect(contactKey, params) {
         const options = {
             url: this.baseUrl() + this.URLs.prospectByID(contactKey),
-            query: {
-                account_key: this.ACCOUNT_KEY,
-            },
-            body,
+            query: params,
         };
+        options.query.account_key = this.ACCOUNT_KEY;
 
         const response = await this._put(options);
         return response;
     }
 
-    async listAllNonAttendingContacts({ page, page_size }) {
+    async listAllNonAttendingContacts(query) {
         const options = {
             url: this.baseUrl() + this.URLs.nonAttendingContacts,
             query: {
                 account_key: this.ACCOUNT_KEY,
             },
         };
-        if (page) {
-            options.query.page = page;
-        }
-        if (page_size) {
-            options.query.page_size = page_size;
+        // for pagination
+        if (query) {
+            for (const [key, value] of Object.entries(query)) {
+                options.query[key] = value;
+            }
         }
 
         const response = await this._get(options);
@@ -207,27 +202,23 @@ class Api extends ApiKeyRequester {
         return response;
     }
 
-    async createNonAttendingContact(body) {
+    async createNonAttendingContact(params) {
         const options = {
             url: this.baseUrl() + this.URLs.nonAttendingContacts,
-            query: {
-                account_key: this.ACCOUNT_KEY,
-            },
-            body,
+            query: params,
         };
+        options.query.account_key = this.ACCOUNT_KEY;
 
         const response = await this._post(options);
         return response;
     }
 
-    async updateNonAttendingContact(contactKey, body) {
+    async updateNonAttendingContact(contactKey, params) {
         const options = {
             url: this.baseUrl() + this.URLs.nonAttendingContactByID(contactKey),
-            query: {
-                account_key: this.ACCOUNT_KEY,
-            },
-            body,
+            query: params,
         };
+        options.query.account_key = this.ACCOUNT_KEY;
 
         const response = await this._put(options);
         return response;

@@ -32,12 +32,12 @@ class Manager extends ModuleManager {
             instance.credential = await Credential.findById(
                 instance.entity.credential
             );
-            managerParams.accessToken = instance.credential.accessToken;
+            managerParams.accountKey = instance.credential.accountKey;
         } else if (params.credentialId) {
             instance.credential = await Credential.findById(
                 params.credentialId
             );
-            managerParams.accessToken = instance.credential.accessToken;
+            managerParams.accountKey = instance.credential.accountKey;
         }
         instance.api = await new Api(managerParams);
 
@@ -47,7 +47,7 @@ class Manager extends ModuleManager {
     async getAuthorizationRequirements(params) {
         return {
             url: null,
-            type: ModuleConstants.authType.accessToken,
+            type: ModuleConstants.authType.apiKey,
             data: {
                 jsonSchema: AuthFields.jsonSchema,
                 uiSchema: AuthFields.uiSchema,
@@ -56,14 +56,14 @@ class Manager extends ModuleManager {
     }
 
     async processAuthorizationCallback(params) {
-        const apiKey = get(params.data, 'accessToken', null);
+        const accountKey = get(params.data, 'accountKey', null);
         this.api = new Api({ apiKey });
 
         await this.findOrCreateCredential({
-            accessToken,
+            accountKey,
         });
         await this.findOrCreateEntity({
-            accessToken,
+            accountKey,
         });
         return {
             credential_id: this.credential.id,
@@ -73,17 +73,17 @@ class Manager extends ModuleManager {
     }
 
     async findOrCreateCredential(params) {
-        const accessToken = get(params.data, 'accessToken', null);
+        const accountKey = get(params.data, 'accountKey', null);
 
         const search = await Entity.find({
             user: this.userId,
-            accessToken,
+            accountKey,
         });
 
         if (search.length === 0) {
             const createObj = {
                 user: this.userId,
-                accessToken,
+                accountKey,
             };
             this.credential = await Credential.create(createObj);
         } else if (search.length === 1) {
@@ -91,25 +91,25 @@ class Manager extends ModuleManager {
         } else {
             debug(
                 'Multiple credentials found with the same Client ID:',
-                accessToken
+                accountKey
             );
         }
     }
 
     async findOrCreateEntity(params) {
-        const accessToken = get(params.data, 'accessToken', null);
+        const accountKey = get(params.data, 'accountKey', null);
         const name = get(params, 'name', null);
 
         const search = await Entity.find({
             user: this.userId,
-            externalId: accessToken,
+            externalId: accountKey,
         });
         if (search.length === 0) {
             const createObj = {
                 credential: this.credential.id,
                 user: this.userId,
                 name,
-                externalId: accessToken,
+                externalId: accountKey,
             };
             this.entity = await Entity.create(createObj);
         } else if (search.length === 1) {
@@ -117,7 +117,7 @@ class Manager extends ModuleManager {
         } else {
             debug(
                 'Multiple entities found with the same external ID:',
-                accessToken
+                accountKey
             );
             this.throwException('');
         }
