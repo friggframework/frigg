@@ -89,7 +89,7 @@ While Left Hook is currently Frigg's primary developer, eventually Frigg will be
 
 <summary>Where/how can I download Frigg?</summary>
 
-Frigg is available both as an [NPM package](../developing-integrations-with-frigg/tutorials/quick-start/) and on [Github](https://github.com/friggframework/frigg).
+Frigg is available both as an [NPM package](../develop/tutorials/quick-start/) and on [Github](https://github.com/friggframework/frigg).
 
 </details>
 
