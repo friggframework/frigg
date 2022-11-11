@@ -10,28 +10,22 @@ class Api extends ApiKeyRequester {
         // Keep as function going forward?
         this.baseUrl = () => {
             // return 'https://app.cwx-staging.com';
-            return 'https://app.clubworx.com';
+            return 'https://app.clubworx.com/api/v2';
         };
 
         this.URLs = {
-            // webhooks: '/api/v2/hooks',
-            // webhookByID: (webhookId) => `/api/v2/hooks/${webhookId}`,
-            members: '/api/v2/members',
-            memberByID: (memberId) => `/api/v2/members/${memberId}`,
-            prospects: '/api/v2/prospects',
-            prospectByID: (prospectId) => `/api/v2/prospects/${prospectId}`,
-            nonAttendingContacts: '/api/v2/non_attending_contacts',
+            // webhooks: '/hooks',
+            // webhookByID: (webhookId) => `/hooks/${webhookId}`,
+            members: '/members',
+            memberByID: (memberId) => `/members/${memberId}`,
+            membershipPlans: '/membership_plans',
+            prospects: '/prospects',
+            prospectByID: (prospectId) => `/prospects/${prospectId}`,
+            prospectStatuses: '/prospect_statuses',
+            nonAttendingContacts: '/non_attending_contacts',
             nonAttendingContactByID: (nonAttendingContactId) =>
-                `/api/v2/non_attending_contacts/${nonAttendingContactId}`,
+                `/non_attending_contacts/${nonAttendingContactId}`,
         };
-    }
-
-    // Don't need this
-    async addAuthHeaders(headers) {
-        if (this.ACCOUNT_KEY) {
-            headers.Authorization = `Bearer ${this.ACCOUNT_KEY}`;
-        }
-        return headers;
     }
 
     // async createWebhook(event, targetURL) {
@@ -65,6 +59,24 @@ class Api extends ApiKeyRequester {
     //     const response = await this._delete(options);
     //     return response;
     // }
+
+    async listAllMembershipPlans(query) {
+        const options = {
+            url: this.baseUrl() + this.URLs.membershipPlans,
+            query: {
+                account_key: this.ACCOUNT_KEY,
+            },
+        };
+        // for pagination
+        if (query) {
+            for (const [key, value] of Object.entries(query)) {
+                options.query[key] = value;
+            }
+        }
+
+        const response = await this._get(options);
+        return response;
+    }
 
     async listAllMembers(query) {
         const options = {
@@ -117,6 +129,24 @@ class Api extends ApiKeyRequester {
         options.query.account_key = this.ACCOUNT_KEY;
 
         const response = await this._put(options);
+        return response;
+    }
+
+    async listAllProspectStatuses(query) {
+        const options = {
+            url: this.baseUrl() + this.URLs.prospectStatuses,
+            query: {
+                account_key: this.ACCOUNT_KEY,
+            },
+        };
+        // for pagination
+        if (query) {
+            for (const [key, value] of Object.entries(query)) {
+                options.query[key] = value;
+            }
+        }
+
+        const response = await this._get(options);
         return response;
     }
 
