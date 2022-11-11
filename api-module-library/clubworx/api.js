@@ -28,37 +28,40 @@ class Api extends ApiKeyRequester {
         };
     }
 
-    // async createWebhook(event, targetURL) {
-    //     const options = {
-    //         url: this.baseUrl() + this.URLs.webhooks,
-    //         headers: {
-    //             'content-type': 'application/json',
-    //         },
-    //         query: {
-    //             account_key: this.ACCOUNT_KEY,
-    //         },
-    //         body: {
-    //             event,
-    //             targetURL,
-    //         },
-    //     };
-    //     const response = await this._post(options);
-    //     return response;
-    // }
+    async createWebhook(event, targetURL) {
+        const options = {
+            url: this.baseUrl() + this.URLs.webhooks,
+            headers: {
+                'content-type': 'application/json',
+            },
+            query: {
+                account_key: this.ACCOUNT_KEY,
+            },
+            body: {
+                target_url: targetURL,
+                event,
+            },
+        };
+        const response = await this._post(options);
+        return response;
+    }
 
-    // async deleteWebhook(webhookId) {
-    //     const options = {
-    //         url: this.baseUrl() + this.URLs.webhookByID(webhookId),
-    //         headers: {
-    //             'content-type': 'application/json',
-    //         },
-    //         query: {
-    //             account_key: this.ACCOUNT_KEY,
-    //         },
-    //     };
-    //     const response = await this._delete(options);
-    //     return response;
-    // }
+    async deleteWebhook(webhookId) {
+        const options = {
+            url:
+                this.baseUrl() +
+                this.URLs.webhookByID(webhookId) +
+                '/unsubscribe',
+            headers: {
+                'content-type': 'application/json',
+            },
+            query: {
+                account_key: this.ACCOUNT_KEY,
+            },
+        };
+        const response = await this._delete(options);
+        return response;
+    }
 
     async listAllMembershipPlans(query) {
         const options = {
