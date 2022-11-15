@@ -14,10 +14,11 @@ class Api extends ApiKeyRequester {
         };
 
         this.URLs = {
-            // webhooks: '/hooks',
-            // webhookByID: (webhookId) => `/hooks/${webhookId}`,
+            webhooks: '/hooks',
+            webhookByID: (webhookId) => `/hooks/${webhookId}`,
             members: '/members',
             memberByID: (memberId) => `/members/${memberId}`,
+            memberships: '/memberships',
             membershipPlans: '/membership_plans',
             prospects: '/prospects',
             prospectByID: (prospectId) => `/prospects/${prospectId}`,
@@ -66,11 +67,13 @@ class Api extends ApiKeyRequester {
     async listAllMembershipPlans(query) {
         const options = {
             url: this.baseUrl() + this.URLs.membershipPlans,
+            headers: {
+                'content-type': 'application/json',
+            },
             query: {
                 account_key: this.ACCOUNT_KEY,
             },
         };
-        // for pagination
         if (query) {
             for (const [key, value] of Object.entries(query)) {
                 options.query[key] = value;
@@ -84,11 +87,13 @@ class Api extends ApiKeyRequester {
     async listAllMembers(query) {
         const options = {
             url: this.baseUrl() + this.URLs.members,
+            headers: {
+                'content-type': 'application/json',
+            },
             query: {
                 account_key: this.ACCOUNT_KEY,
             },
         };
-        // for pagination
         if (query) {
             for (const [key, value] of Object.entries(query)) {
                 options.query[key] = value;
@@ -102,6 +107,9 @@ class Api extends ApiKeyRequester {
     async retrieveMember(contactKey) {
         const options = {
             url: this.baseUrl() + this.URLs.memberByID(contactKey),
+            headers: {
+                'content-type': 'application/json',
+            },
             query: {
                 account_key: this.ACCOUNT_KEY,
             },
@@ -114,9 +122,11 @@ class Api extends ApiKeyRequester {
     async createMember(params) {
         const options = {
             url: this.baseUrl() + this.URLs.members,
+            headers: {
+                'content-type': 'application/json',
+            },
             query: params,
         };
-
         options.query.account_key = this.ACCOUNT_KEY;
 
         const response = await this._post(options);
@@ -126,23 +136,41 @@ class Api extends ApiKeyRequester {
     async updateMember(contactKey, params) {
         const options = {
             url: this.baseUrl() + this.URLs.memberByID(contactKey),
+            headers: {
+                'content-type': 'application/json',
+            },
             query: params,
         };
-
         options.query.account_key = this.ACCOUNT_KEY;
 
         const response = await this._put(options);
         return response;
     }
 
+    async addMembership(params) {
+        const options = {
+            url: this.baseUrl() + this.URLs.memberships,
+            headers: {
+                'content-type': 'application/json',
+            },
+            query: params,
+        };
+        options.query.account_key = this.ACCOUNT_KEY;
+
+        const response = await this._post(options);
+        return response;
+    }
+
     async listAllProspectStatuses(query) {
         const options = {
             url: this.baseUrl() + this.URLs.prospectStatuses,
+            headers: {
+                'content-type': 'application/json',
+            },
             query: {
                 account_key: this.ACCOUNT_KEY,
             },
         };
-        // for pagination
         if (query) {
             for (const [key, value] of Object.entries(query)) {
                 options.query[key] = value;
@@ -156,11 +184,13 @@ class Api extends ApiKeyRequester {
     async listAllProspects(query) {
         const options = {
             url: this.baseUrl() + this.URLs.prospects,
+            headers: {
+                'content-type': 'application/json',
+            },
             query: {
                 account_key: this.ACCOUNT_KEY,
             },
         };
-        // for pagination
         if (query) {
             for (const [key, value] of Object.entries(query)) {
                 options.query[key] = value;
@@ -174,6 +204,9 @@ class Api extends ApiKeyRequester {
     async retrieveProspect(contactKey) {
         const options = {
             url: this.baseUrl() + this.URLs.prospectByID(contactKey),
+            headers: {
+                'content-type': 'application/json',
+            },
             query: {
                 account_key: this.ACCOUNT_KEY,
             },
@@ -186,6 +219,9 @@ class Api extends ApiKeyRequester {
     async createProspect(params) {
         const options = {
             url: this.baseUrl() + this.URLs.prospects,
+            headers: {
+                'content-type': 'application/json',
+            },
             query: params,
         };
         options.query.account_key = this.ACCOUNT_KEY;
@@ -197,6 +233,9 @@ class Api extends ApiKeyRequester {
     async updateProspect(contactKey, params) {
         const options = {
             url: this.baseUrl() + this.URLs.prospectByID(contactKey),
+            headers: {
+                'content-type': 'application/json',
+            },
             query: params,
         };
         options.query.account_key = this.ACCOUNT_KEY;
@@ -208,11 +247,13 @@ class Api extends ApiKeyRequester {
     async listAllNonAttendingContacts(query) {
         const options = {
             url: this.baseUrl() + this.URLs.nonAttendingContacts,
+            headers: {
+                'content-type': 'application/json',
+            },
             query: {
                 account_key: this.ACCOUNT_KEY,
             },
         };
-        // for pagination
         if (query) {
             for (const [key, value] of Object.entries(query)) {
                 options.query[key] = value;
@@ -226,6 +267,9 @@ class Api extends ApiKeyRequester {
     async retrieveNonAttendingContact(contactKey) {
         const options = {
             url: this.baseUrl() + this.URLs.nonAttendingContactByID(contactKey),
+            headers: {
+                'content-type': 'application/json',
+            },
             query: {
                 account_key: this.ACCOUNT_KEY,
             },
@@ -238,6 +282,9 @@ class Api extends ApiKeyRequester {
     async createNonAttendingContact(params) {
         const options = {
             url: this.baseUrl() + this.URLs.nonAttendingContacts,
+            headers: {
+                'content-type': 'application/json',
+            },
             query: params,
         };
         options.query.account_key = this.ACCOUNT_KEY;
@@ -249,6 +296,9 @@ class Api extends ApiKeyRequester {
     async updateNonAttendingContact(contactKey, params) {
         const options = {
             url: this.baseUrl() + this.URLs.nonAttendingContactByID(contactKey),
+            headers: {
+                'content-type': 'application/json',
+            },
             query: params,
         };
         options.query.account_key = this.ACCOUNT_KEY;
