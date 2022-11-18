@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-clyde",
-    "version": "0.8.14",
+    "version": "0.8.15",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
