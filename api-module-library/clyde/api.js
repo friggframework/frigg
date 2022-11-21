@@ -1,6 +1,7 @@
 const { BasicAuthRequester } = require('@friggframework/module-plugin');
 const crypto = require('crypto');
 const { get } = require('@friggframework/assertions');
+
 let nonce = crypto.randomBytes(16).toString('base64');
 
 class Api extends BasicAuthRequester {
@@ -24,9 +25,13 @@ class Api extends BasicAuthRequester {
             orderHistoryEvent: (orderId, lineItemId) =>
                 `/orders/${orderId}/lineItem/${lineItemId}`,
             contractSales: '/contract-sales',
-            contractSaleById: (id) => `/contract-sales/${id}`,
+            contractSaleById: (contractSaleId) =>
+                `/contract-sales/${contractSaleId}`,
+            createClaim: (contractSaleId) =>
+                `/contract-sales/${contractSaleId}/claims`,
             claims: '/claims',
-            claimById: (claimId) => `/claims/${claimId}`,
+            claimById: (contractSaleId, claimId) =>
+                `/contract-sales/${contractSaleId}/claims/${claimId}`,
             vouchers: `/vouchers`,
             voucherByCode: (code) => `/vouchers/${code}`,
             bulkCreateVouchers: '/vouchers/bulk',
@@ -59,21 +64,10 @@ class Api extends BasicAuthRequester {
 
     // **************************   Products   **********************************
 
-    async listProducts(query) {
-        const options = {
-            url: this.baseUrl + this.URLs.products,
-            query,
-        };
-
-        return this._get(options);
-    }
-
     async createProduct(body) {
         const options = {
-            url: this.baseUrl + this.URLs.companies,
-            body: {
-                contractSales: body,
-            },
+            url: this.baseUrl + this.URLs.products,
+            body,
             headers: {
                 'Content-Type': 'application/json',
                 Accept: 'application/json',
@@ -83,40 +77,56 @@ class Api extends BasicAuthRequester {
         return this._post(options);
     }
 
-    async deleteProduct(productId) {
+    async listProducts(query) {
         const options = {
-            url: this.baseUrl + this.URLs.productById(productId),
+            url: this.baseUrl + this.URLs.products,
+            query,
+        };
+
+        return this._get(options);
+    }
+
+    async getProductById(id) {
+        const options = {
+            url: this.baseUrl + this.URLs.productById(id),
+        };
+
+        return this._get(options);
+    }
+
+    async updateProduct(id, body) {
+        const options = {
+            url: this.baseUrl + this.URLs.productById(id),
+            body,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        };
+
+        return this._post(options);
+    }
+
+    async deleteProduct(id) {
+        const options = {
+            url: this.baseUrl + this.URLs.productById(id),
         };
 
         return this._delete(options);
     }
 
-    async getProductById(productId) {
+    // **************************   Contracts  **********************************
+
+    async listContracts(query) {
         const options = {
-            url: this.baseUrl + this.URLs.productById(productId),
+            url: this.baseUrl + this.URLs.contracts,
+            query,
         };
 
         return this._get(options);
     }
 
     // **************************    Orders    **********************************
-
-    async getOrderById(orderId) {
-        const options = {
-            url: this.baseUrl + this.URLs.orderById(orderId),
-        };
-
-        return this._get(options);
-    }
-
-    async listOrders(query) {
-        const options = {
-            url: this.baseUrl + this.URLs.orders,
-            query,
-        };
-
-        return this._get(options);
-    }
 
     async createOrder(body) {
         const options = {
@@ -131,9 +141,26 @@ class Api extends BasicAuthRequester {
         return this._post(options);
     }
 
-    async updateOrder(orderId, body) {
+    async getOrderById(id) {
         const options = {
-            url: this.baseUrl + this.URLs.orderById(orderId),
+            url: this.baseUrl + this.URLs.orderById(id),
+        };
+
+        return this._get(options);
+    }
+
+    async listOrders(query) {
+        const options = {
+            url: this.baseUrl + this.URLs.orders,
+            query,
+        };
+
+        return this._get(options);
+    }
+
+    async updateOrder(id, body) {
+        const options = {
+            url: this.baseUrl + this.URLs.orderById(id),
             body,
             headers: {
                 'Content-Type': 'application/json',
@@ -144,70 +171,15 @@ class Api extends BasicAuthRequester {
         return this._put(options);
     }
 
-    async deleteOrder(orderId) {
+    async deleteOrder(id) {
         const options = {
-            url: this.baseUrl + this.URLs.orderById(orderId),
-            query: {},
-        };
-
-        if (this.api_key) {
-            options.query.hapikey = this.api_key;
-        }
-
-        return this._delete(options);
-    }
-
-    // **************************   Contracts  **********************************
-
-    async createContract(body) {
-        const options = {
-            url: this.baseUrl + this.URLs.contracts,
-            body: {
-                contractSales: body,
-            },
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
-        };
-
-        return this._post(options);
-    }
-
-    async listContracts() {
-        const options = {
-            url: this.baseUrl + this.URLs.contracts,
-        };
-
-        return this._get(options);
-    }
-
-    async archiveContract(id) {
-        const options = {
-            url: this.baseUrl + this.URLs.contractById(id),
+            url: this.baseUrl + this.URLs.orderById(id),
         };
 
         return this._delete(options);
     }
 
-    async getContractById(contractId) {
-        const props = await this.listContractSales('contract');
-        let propsString = '';
-        for (let i = 0; i < props.results.length; i++) {
-            propsString += `${props.results[i].name},`;
-        }
-        propsString = propsString.slice(0, propsString.length - 1);
-        const options = {
-            url: this.baseUrl + this.URLs.contractById(contractId),
-            query: {
-                contractSales: propsString,
-            },
-        };
-
-        return this._get(options);
-    }
-
-    // ************************* Contract Sales *********************************
+    // *************************    Contract Sales    *********************************
 
     async listContractSales(query) {
         const options = {
@@ -218,11 +190,100 @@ class Api extends BasicAuthRequester {
         return this._get(options);
     }
 
+    async getContractSaleById(id) {
+        const options = {
+            url: this.baseUrl + this.URLs.contractSaleById(id),
+        };
+
+        return this._get(options);
+    }
+
+    async updateContractSale(id, body) {
+        const options = {
+            url: this.baseUrl + this.URLs.contractSaleById(id),
+            body,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        };
+
+        return this._put(options);
+    }
+
+    async deleteContractSale(id) {
+        const options = {
+            url: this.baseUrl + this.URLs.contractSaleById(id),
+        };
+
+        return this._delete(options);
+    }
+
     // **************************    Claims    **********************************
+
+    async createClaim(contractSaleId, body) {
+        const options = {
+            url: this.baseUrl + this.URLs.createClaim(contractSaleId),
+            body,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        };
+
+        return this._post(options);
+    }
 
     async listClaims(query) {
         const options = {
             url: this.baseUrl + this.URLs.claims,
+            query,
+        };
+
+        return this._get(options);
+    }
+
+    // **************************    Vouchers    **********************************
+
+    async bulkCreateVouchers(body) {
+        const options = {
+            url: this.baseUrl + this.URLs.bulkCreateVouchers,
+            body,
+        };
+
+        return this._post(options);
+    }
+
+    async listVouchers() {
+        const options = {
+            url: this.baseUrl + this.URLs.vouchers,
+        };
+
+        return this._get(options);
+    }
+
+    async updateVoucher(code, body) {
+        const options = {
+            url: this.baseUrl + this.URLs.voucherByCode(code),
+            body,
+        };
+
+        return this._put(options);
+    }
+
+    async getVoucherByCode(code) {
+        const options = {
+            url: this.baseUrl + this.URLs.voucherByCode(code),
+        };
+
+        return this._get(options);
+    }
+
+    // **************************    Registrations    **********************************
+
+    async listRegistrations(query) {
+        const options = {
+            url: this.baseUrl + this.URLs.registrations,
             query,
         };
 

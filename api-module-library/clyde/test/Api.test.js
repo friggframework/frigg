@@ -1,8 +1,25 @@
 const chai = require('chai');
-const TestUtils = require('../../../../test/utils/TestUtils');
 
 const should = chai.should();
 const ApiClass = require('../api.js');
+
+// const { Api } = require('./api');
+// const config = require('./defaultConfig.json');
+
+// describe(`Should fully test the ${config.label} API Class`, () => {
+//     let api;
+//     beforeAll(async () => {
+//         api = new Api();
+//     });
+
+//     afterAll(async () => {});
+
+//     it('should return auth requirements', async () => {
+//         const authUri = await api.getAuthUri();
+//         expect(authUri).exists;
+//         console.log(authUri);
+//     });
+// });
 
 describe('Clyde Api Class Tests', async () => {
     const api = new ApiClass({
