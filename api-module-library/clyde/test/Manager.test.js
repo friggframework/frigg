@@ -2,12 +2,12 @@
 const chai = require('chai');
 
 const ManagerClass = require('../manager');
-const Authenticator = require('../../../../test/utils/Authenticator');
-const TestUtils = require('../../../../test/utils/TestUtils');
+// const Authenticator = require('../../../../test/utils/Authenticator');
+// const TestUtils = require('../../../../test/utils/TestUtils');
 
-describe('should make Clyde requests through the Clyde Manager', async () => {
+describe.skip('should make Clyde requests through the Clyde Manager', () => {
     let manager;
-    before(async () => {
+    beforeAll(async () => {
         this.userManager = await TestUtils.getLoggedInTestUserManagerInstance();
         manager = await ManagerClass.getInstance({
             userId: this.userManager.getUserId(),
@@ -32,7 +32,7 @@ describe('should make Clyde requests through the Clyde Manager', async () => {
         return 'done';
     });
 
-    after(async () => {
+    afterAll(async () => {
         const removeCred = await manager.credentialMO.delete(
             manager.credential._id
         );

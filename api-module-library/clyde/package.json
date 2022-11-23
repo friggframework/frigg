@@ -16,7 +16,8 @@
         "eslint": "^8.22.0",
         "jest": "^28.1.3",
         "prettier": "^2.7.1",
-        "sinon": "^14.0.0"
+        "sinon": "^14.0.0",
+        "nock": "^13.2.9"
     },
     "dependencies": {
         "@friggframework/assertions": "^1.0.5",

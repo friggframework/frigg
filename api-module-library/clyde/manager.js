@@ -7,6 +7,7 @@ const {
 } = require('@friggframework/module-plugin');
 const { get } = require('@friggframework/assertions');
 const { debug, flushDebugLog } = require('@friggframework/logs');
+const AuthFields = require('./authFields');
 const Config = require('./defaultConfig.json');
 
 class Manager extends ModuleManager {
@@ -26,23 +27,24 @@ class Manager extends ModuleManager {
 
     static async getInstance(params) {
         const instance = new this(params);
-        // All async code here
 
-        // initializes the Api
-        const apiParams = {
-            delegate: instance,
-        };
+        let managerParams = { delegate: instance };
 
         if (params.entityId) {
             instance.entity = await Entity.findById(params.entityId);
-            const credential = await Credential.findById(
+            instance.credential = await Credential.findById(
                 instance.entity.credential
             );
-            instance.credential = credential;
-            apiParams.clientKey = credential.clientKey;
-            apiParams.secret = credential.secret;
+            managerParams.clientKey = instance.credential.clientKey;
+            managerParams.secret = instance.credential.secret;
+        } else if (params.credentialId) {
+            instance.credential = await Credential.findById(
+                params.credentialId
+            );
+            managerParams.clientKey = instance.credential.clientKey;
+            managerParams.secret = instance.credential.secret;
         }
-        instance.api = await new Api(apiParams);
+        instance.api = await new Api(managerParams);
 
         return instance;
     }
@@ -62,33 +64,8 @@ class Manager extends ModuleManager {
             url: null,
             type: ModuleConstants.authType.basic,
             data: {
-                jsonSchema: {
-                    type: 'object',
-                    required: ['clientKey', 'secret'],
-                    properties: {
-                        clientKey: {
-                            type: 'string',
-                            title: 'Client Key',
-                        },
-                        secret: {
-                            type: 'string',
-                            title: 'Secret',
-                        },
-                    },
-                },
-                uiSchema: {
-                    clientKey: {
-                        'ui:help':
-                            'To obtain your Client Key and Secret, log in and head to settings. You can find your Keys in the "Developers" section.',
-                        'ui:placeholder': 'Client Key',
-                    },
-                    secret: {
-                        'ui:widget': 'password',
-                        'ui:help':
-                            'Your secret is obtained along with your Client Key',
-                        'ui:placeholder': 'secret',
-                    },
-                },
+                jsonSchema: AuthFields.jsonSchema,
+                uiSchema: AuthFields.uiSchema,
             },
         };
     }
@@ -110,8 +87,8 @@ class Manager extends ModuleManager {
         });
 
         return {
-            entity_id: this.entity.id,
             credential_id: this.credential.id,
+            entity_id: this.entity.id,
             type: Manager.getName(),
         };
     }
@@ -120,20 +97,18 @@ class Manager extends ModuleManager {
         const clientKey = get(params, 'clientKey');
         const secret = get(params, 'secret');
 
-        const search = await this.credentialMO.list({
+        const search = await Entity.find({
             user: this.userId,
             clientKey,
         });
 
         if (search.length === 0) {
-            // validate choices!!!
-            // create entity
             const createObj = {
                 user: this.userId,
                 clientKey,
                 secret,
             };
-            this.credential = await this.credentialMO.create(createObj);
+            this.credential = await Credential.create(createObj);
         } else if (search.length === 1) {
             this.credential = search[0];
         } else {
@@ -147,20 +122,18 @@ class Manager extends ModuleManager {
     async findOrCreateEntity(params) {
         const clientKey = get(params, 'clientKey');
 
-        const search = await this.entityMO.list({
+        const search = await Entity.find({
             user: this.userId,
             externalId: clientKey,
         });
         if (search.length === 0) {
-            // validate choices!!!
-            // create entity
             const createObj = {
                 credential: this.credential.id,
                 user: this.userId,
                 name: clientKey,
                 externalId: clientKey,
             };
-            this.entity = await this.entityMO.create(createObj);
+            this.entity = await Entity.create(createObj);
         } else if (search.length === 1) {
             this.entity = search[0];
         } else {
@@ -178,9 +151,9 @@ class Manager extends ModuleManager {
         this.api = new Api();
 
         // delete credentials from the database
-        const entity = await this.entityMO.getByUserId(this.userId);
+        const entity = await Entity.find({ user: this.userId });
         if (entity.credential) {
-            await this.credentialMO.delete(entity.credential);
+            await Credential.deleteOne({ _id: entity.credential });
             entity.credential = undefined;
             await entity.save();
         }
