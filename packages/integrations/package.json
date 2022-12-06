@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/integrations",
-    "version": "1.0.11",
+    "version": "1.0.12",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -19,6 +19,6 @@
         "sinon": "^14.0.0"
     },
     "dependencies": {
-        "@friggframework/module-plugin": "^1.0.14"
+        "@friggframework/module-plugin": "^1.0.15"
     }
 }
