@@ -2,9 +2,9 @@
 // https://dev.to/adnanrahic/building-a-serverless-rest-api-with-nodejs-and-mongodb-43db
 // https://mongoosejs.com/docs/lambda.html
 // https://www.mongodb.com/blog/post/optimizing-aws-lambda-performance-with-mongodb-atlas-and-nodejs
-const { Encrypt } = require('../encrypt');
+const { Encrypt } = require('@friggframework/encrypt');
 const mongoose = require('mongoose'); // TODO maybe pass in / see what best way to make sure we have the same mongoose instance as the including package (something like peerDependencies but not deprecated)
-const { debug, flushDebugLog } = require('../logs');
+const { debug, flushDebugLog } = require('@friggframework/logs');
 
 mongoose.plugin(Encrypt);
 mongoose.set('applyPluginsToDiscriminators', true); // Needed for LHEncrypt

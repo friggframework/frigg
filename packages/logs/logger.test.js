@@ -3,7 +3,7 @@ const sinon = require('sinon');
 const {
     overrideEnvironment,
     restoreEnvironment,
-} = require('../test-environment');
+} = require('@friggframework/test-environment');
 
 /* eslint-disable no-console */
 
