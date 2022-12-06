@@ -1,3 +1,21 @@
+# (Tue Dec 06 2022)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/core@0.2.8`
+  - fix imports Worker.js [#73](https://github.com/friggframework/frigg/pull/73) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+#### ⚠️ Pushed to `main`
+
+- Create codeql.yml ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+- Sheehan Toufiq Khan ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+---
+
 # (Tue Nov 01 2022)
 
 :tada: This release contains work from new contributors! :tada:
