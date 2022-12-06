@@ -1,3 +1,17 @@
+# v0.0.16 (Tue Dec 06 2022)
+
+#### 🐛 Bug Fix
+
+- fix modules to @friggframework [#74](https://github.com/friggframework/frigg/pull/74) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+- Sheehan Toufiq Khan ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+---
+
 # v0.0.14 (Tue Nov 01 2022)
 
 :tada: This release contains work from new contributors! :tada:
