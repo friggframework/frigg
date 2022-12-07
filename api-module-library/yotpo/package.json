@@ -20,6 +20,7 @@
     },
     "dependencies": {
         "@friggframework/assertions": "^1.0.5",
-        "@friggframework/module-plugin": "^1.0.13"
+        "@friggframework/module-plugin": "^1.0.13",
+        "nock": "^13.2.9"
     }
 }
