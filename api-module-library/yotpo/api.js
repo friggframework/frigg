@@ -47,7 +47,8 @@ class Api extends ApiKeyRequester {
             return this._request(url, options, i + 1);
             //If the status is 401, run getToken method. -JM
         } else if (status === 401) {
-            await this.getToken;
+            await this.getToken();
+            return
         }
 
         // If the error wasn't retried, throw.
@@ -75,7 +76,7 @@ class Api extends ApiKeyRequester {
         };
 
         const res = await this._request(options.url, options);
-        const { access_token } = await res.json();
+        const { access_token } = await res;
         this.setApiKey(access_token);
     }
 
