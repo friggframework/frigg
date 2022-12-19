@@ -1,3 +1,20 @@
+# (Mon Dec 19 2022)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/database@1.0.8`
+  - Add MIT [#77](https://github.com/friggframework/frigg/pull/77) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### ⚠️ Pushed to `main`
+
+- Create dependabot.yml ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Tue Dec 06 2022)
 
 #### 🐛 Bug Fix

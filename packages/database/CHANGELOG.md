@@ -1,3 +1,16 @@
+# v1.0.8 (Mon Dec 19 2022)
+
+#### 🐛 Bug Fix
+
+- Add MIT [#77](https://github.com/friggframework/frigg/pull/77) ([@seanspeaks](https://github.com/seanspeaks))
+- Add MIT ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.0.7 (Tue Dec 06 2022)
 
 #### 🐛 Bug Fix
