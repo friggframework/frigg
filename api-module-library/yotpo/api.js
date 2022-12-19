@@ -1,70 +1,38 @@
-const { ApiKeyRequester } = require('@friggframework/module-plugin');
+const { OAuth2Requester } = require('@friggframework/module-plugin');
 const { get } = require('@friggframework/assertions');
 
-class Api extends ApiKeyRequester {
+class Api extends OAuth2Requester {
     constructor(params) {
         super(params);
 
-        this.API_KEY_VALUE;
+        // Support two different authorization types
+        this.apiKey = get(params, 'apiKey');
+        this.apiKeySecret = get(params, 'apiKeySecret');
 
-        this.baseUrl = 'https://api.yotpo.com/core';
+        this.baseUrl = 'https://api.yotpo.com/';
 
         this.STORE_ID = get(params, 'store_id');
         this.SECRET = get(params, 'secret');
 
         this.URLs = {
-            createOrderFulfillment: (yotpo_order_id) =>
-                `/v3/stores/${this.STORE_ID}/orders/${yotpo_order_id}/fulfillments`,
+            core: {
+                baseUrl: `https://api.yotpo.com/core`,
+
+                createOrderFulfillment: (yotpo_order_id) =>
+                    `${this.URLs.core.baseUrl}/v3/stores/${this.STORE_ID}/orders/${yotpo_order_id}/fulfillments`,
+            },
+            appDeveloper: {
+                baseUrl: `https://developers.yotpo.com`,
+            },
+            UGC: {},
+            loyalty: {},
         };
 
         this.authorizationUri = encodeURI(
-            `https://api.yotpo.com/core/v3/stores/${this.STORE_ID}/access_tokens`
+            `https://yap.yotpo.com/#/app_market_authorization?app_market_mode&application_id=${this.CLIENT_ID}`
         );
-        this.tokenUri = 'https://app.example.com/oauth/token';
+        this.tokenUri = 'https://developers.yotpo.com/v2/oauth2/token';
     }
-    //Overwrites the request method.
-    async _request(url, options, i = 0) {
-        let encodedUrl = encodeURI(url);
-        if (options.query) {
-            let queryBuild = '?';
-            for (const key in options.query) {
-                queryBuild += `${encodeURIComponent(key)}=${encodeURIComponent(
-                    options.query[key]
-                )}&`;
-            }
-            encodedUrl += queryBuild.slice(0, -1);
-        }
-
-        options.headers = await this.addAuthHeaders(options.headers);
-
-        const response = await this.fetch(encodedUrl, options);
-        const { status } = response;
-
-        // If the status is retriable and there are back off requests left, retry the request
-        if ((status === 429 || status >= 500) && i < this.backOff.length) {
-            const delay = this.backOff[i] * 1000;
-            await new Promise((resolve) => setTimeout(resolve, delay));
-            return this._request(url, options, i + 1);
-            //If the status is 401, run getToken method. -JM
-        } else if (status === 401) {
-            await this.getToken();
-            return
-        }
-
-        // If the error wasn't retried, throw.
-        if (status >= 400) {
-            throw await FetchError.create({
-                resource: encodedUrl,
-                init: options,
-                response,
-            });
-        }
-
-        return options.returnFullRes
-            ? response
-            : await this.parsedBody(response);
-    }
-
     async getToken() {
         const options = {
             url: this.authorizationUri,
