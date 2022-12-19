@@ -1,3 +1,116 @@
+# v0.0.16 (Tue Dec 06 2022)
+
+#### 🐛 Bug Fix
+
+- fix modules to @friggframework [#74](https://github.com/friggframework/frigg/pull/74) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+- Sheehan Toufiq Khan ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+---
+
+# v0.0.14 (Tue Nov 01 2022)
+
+:tada: This release contains work from new contributors! :tada:
+
+Thanks for all your work!
+
+:heart: Sheehan Toufiq Khan ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+:heart: Jonathan Moore ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+
+#### 🐛 Bug Fix
+
+- Fix/update record fixes [#68](https://github.com/friggframework/frigg/pull/68) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- update record fixes ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- subdomain teat updates [#57](https://github.com/friggframework/frigg/pull/57) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- merge main [#57](https://github.com/friggframework/frigg/pull/57) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+- missed parenthesis [#57](https://github.com/friggframework/frigg/pull/57) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- Merge branch 'main' into fr/custom-subdomains [#57](https://github.com/friggframework/frigg/pull/57) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- version bump [#57](https://github.com/friggframework/frigg/pull/57) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- custom subdomains [#57](https://github.com/friggframework/frigg/pull/57) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- Records Api Tests [#55](https://github.com/friggframework/frigg/pull/55) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- merged record tests [#55](https://github.com/friggframework/frigg/pull/55) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- merged retrieve workflow [#55](https://github.com/friggframework/frigg/pull/55) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- added records tests [#55](https://github.com/friggframework/frigg/pull/55) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- Added records to Api.js [#55](https://github.com/friggframework/frigg/pull/55) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- merge conflicts [#52](https://github.com/friggframework/frigg/pull/52) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- merge conflicts [#54](https://github.com/friggframework/frigg/pull/54) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- git cache duplicates [#54](https://github.com/friggframework/frigg/pull/54) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- Merge branch 'api-module-library-ironclad' of https://github.com/friggframework/frigg into api-module-library-ironclad [#54](https://github.com/friggframework/frigg/pull/54) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- Cleaned up package.json [#51](https://github.com/friggframework/frigg/pull/51) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Corrected file paths [#51](https://github.com/friggframework/frigg/pull/51) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Modified file paths [#51](https://github.com/friggframework/frigg/pull/51) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Modified file paths in index.js [#51](https://github.com/friggframework/frigg/pull/51) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Deleted node_modules [#51](https://github.com/friggframework/frigg/pull/51) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Merge branch 'main' of https://github.com/friggframework/frigg into api-module-library-ironclad [#51](https://github.com/friggframework/frigg/pull/51) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Added publishConfig to package.json [#51](https://github.com/friggframework/frigg/pull/51) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Tests passing [#51](https://github.com/friggframework/frigg/pull/51) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+
+#### Authors: 3
+
+- Jonathan Moore ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+- Sheehan Toufiq Khan ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+---
+
+# v0.0.13 (Mon Oct 31 2022)
+
+#### 🐛 Bug Fix
+
+- Fr/custom subdomains [#57](https://github.com/friggframework/frigg/pull/57) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- subdomain teat updates ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- merge main ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- missed parenthesis ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- Merge branch 'main' into fr/custom-subdomains ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- version bump ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- custom subdomains ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+#### Authors: 1
+
+- Sheehan Toufiq Khan ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+---
+
+# v0.0.11 (Fri Oct 28 2022)
+
+#### 🐛 Bug Fix
+
+- Fr/update workflow approvals [#64](https://github.com/friggframework/frigg/pull/64) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Removed jest-serial-runner ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Merge branch 'main' of https://github.com/friggframework/frigg into fr/update-workflow-approvals ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Included return response ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Resolved conflicts ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Update Workflow Approval Test passing ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Added methods to update workflow approval ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+
+#### Authors: 1
+
+- Jonathan Moore ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+
+---
+
+# v0.0.10 (Fri Oct 28 2022)
+
+#### 🐛 Bug Fix
+
+- update workflow [#67](https://github.com/friggframework/frigg/pull/67) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- update workflow test ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- merge workflow document test ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- merge workflow documents ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- update workflow ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+#### Authors: 1
+
+- Sheehan Toufiq Khan ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+---
+
 # v0.0.9 (Fri Oct 28 2022)
 
 #### 🐛 Bug Fix

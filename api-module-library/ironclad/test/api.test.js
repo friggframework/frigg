@@ -7,6 +7,7 @@ const { expect } = require('chai');
 describe('Ironclad API class', () => {
     const api = new Api({
         apiKey: process.env.IRONCLAD_API_KEY,
+        subdomain: process.env.IRONCLAD_SUBDOMAIN,
     });
 
     describe('Webhooks', () => {
@@ -150,6 +151,35 @@ describe('Ironclad API class', () => {
             expect(response).to.have.property('roles');
         });
 
+        it('should update a workflow approval', async () => {
+            workflowID = process.env.WORKFLOW_ID;
+            const workflowApprovals = await api.listAllWorkflowApprovals(
+                workflowID
+            );
+            workflowApprovals.approvalGroups.forEach(async (approvalGroup) => {
+                let roleID = approvalGroup.reviewers[0].role;
+                let role = workflowApprovals.roles.find(
+                    (role) => role.id === roleID
+                );
+                let email = role.assignees[0].email;
+
+                let body = {
+                    user: {
+                        type: 'email',
+                        email,
+                    },
+                    status: 'approved',
+                };
+
+                const response = await api.updateWorkflowApprovals(
+                    workflowID,
+                    roleID,
+                    body
+                );
+                expect(response).to.equal(true);
+            });
+        });
+
         it('should create a workflow comment', async () => {
             const body = {
                 creator: {
@@ -162,11 +192,49 @@ describe('Ironclad API class', () => {
             const response = await api.createWorkflowComment(workflowID, body);
             expect(response).to.equal('');
         });
-        
+
         it('should retrieve a workflow document', async () => {
-            const response = await api.retrieveWorkflowDocument(workflowID, documentKey);
-            expect(response).to.exist
-        })
+            const response = await api.retrieveWorkflowDocument(
+                workflowID,
+                documentKey
+            );
+            expect(response).to.exist;
+        });
+
+        // Must be workflow in review step
+        it('should update a workflow metadata', async () => {
+            const params = {
+                status: 'active',
+            };
+            const datetime = Date.now();
+            const getReviewWorkflows = await api.listAllWorkflows(params);
+            let reviewWorkflowId;
+
+            for (const workflow of getReviewWorkflows.list) {
+                if (workflow.step === 'Review') {
+                    reviewWorkflowId = workflow.id;
+                    console.log(workflow);
+                    break;
+                }
+            }
+
+            const body = {
+                // Testing string, also should test:
+                //    Email, Number, Boolean, Date, Dynamic table, Monetary value, Address, General object
+                updates: [
+                    {
+                        action: 'set',
+                        path: 'counterpartyName',
+                        value: `Updated Example Company ${datetime}`,
+                    },
+                ],
+                comment: 'Updated workflow counterpartyName',
+            };
+            const response = await api.updateWorkflow(reviewWorkflowId, body);
+            expect(response).to.have.property('id');
+            expect(response).to.have.property('title');
+            expect(response).to.have.property('schema');
+        });
     });
 
     describe('Records', () => {
@@ -220,16 +288,26 @@ describe('Ironclad API class', () => {
             expect(response).to.have.property('links');
         });
 
-        it('should update a record', async () => {
+        it('should update a record metadata', async () => {
             const body = {
                 type: 'nDAs',
                 name: 'Updated Example Record',
+                addProperties: {
+                    counterpartyName: {
+                        type: 'string',
+                        value: 'Jane Doe',
+                    },
+                },
             };
             const response = await api.updateRecord(recordID, body);
             expect(response).to.have.property('id');
             expect(response).to.have.property('type');
             expect(response).to.have.property('name');
+            expect(response).to.have.property('properties');
             expect(response).to.have.property('lastUpdated');
+            expect(response.properties.counterpartyName.value).to.equal(
+                'Jane Doe'
+            );
         });
 
         it('should delete a record', async () => {

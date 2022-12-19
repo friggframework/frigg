@@ -57,7 +57,8 @@ class Manager extends ModuleManager {
 
     async processAuthorizationCallback(params) {
         const apiKey = get(params.data, 'apiKey', null);
-        this.api = new Api({ apiKey });
+        const subdomain = get(params.data, 'subdomain', null);
+        this.api = new Api({ apiKey, subdomain });
 
         await this.findOrCreateCredential({
             apiKey,

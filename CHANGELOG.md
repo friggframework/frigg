@@ -1,3 +1,152 @@
+# (Tue Dec 06 2022)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/database@1.0.7`, `@friggframework/encrypt@1.1.4`, `@friggframework/logs@1.0.7`
+  - fix modules to @friggframework [#74](https://github.com/friggframework/frigg/pull/74) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- `@friggframework/core@0.2.9`
+  - fix imports Worker.js [#73](https://github.com/friggframework/frigg/pull/73) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+#### ⚠️ Pushed to `main`
+
+- Create codeql.yml ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+- Sheehan Toufiq Khan ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+---
+
+# (Tue Dec 06 2022)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/core@0.2.8`
+  - fix imports Worker.js [#73](https://github.com/friggframework/frigg/pull/73) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+#### ⚠️ Pushed to `main`
+
+- Create codeql.yml ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+- Sheehan Toufiq Khan ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+---
+
+# (Tue Nov 01 2022)
+
+:tada: This release contains work from new contributors! :tada:
+
+Thanks for all your work!
+
+:heart: Sheehan Toufiq Khan ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+:heart: Jonathan Moore ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+
+#### 🐛 Bug Fix
+
+- package-lock update [#55](https://github.com/friggframework/frigg/pull/55) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- merge conflicts [#54](https://github.com/friggframework/frigg/pull/54) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- Merge branch 'main' of https://github.com/friggframework/frigg into api-module-library-ironclad [#51](https://github.com/friggframework/frigg/pull/51) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- ran npm install [#51](https://github.com/friggframework/frigg/pull/51) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Stuck on test writing [#54](https://github.com/friggframework/frigg/pull/54) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Added webhook methods [#54](https://github.com/friggframework/frigg/pull/54) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Modified imports [#54](https://github.com/friggframework/frigg/pull/54) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Added addAuthHeaders method [#54](https://github.com/friggframework/frigg/pull/54) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Added this.URLs [#54](https://github.com/friggframework/frigg/pull/54) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Added API Module [#54](https://github.com/friggframework/frigg/pull/54) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- `@friggframework/api-module-ironclad@0.0.14`
+  - Fix/update record fixes [#68](https://github.com/friggframework/frigg/pull/68) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+  - subdomain teat updates [#57](https://github.com/friggframework/frigg/pull/57) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+  - merge main [#57](https://github.com/friggframework/frigg/pull/57) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+  - missed parenthesis [#57](https://github.com/friggframework/frigg/pull/57) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+  - Merge branch 'main' into fr/custom-subdomains [#57](https://github.com/friggframework/frigg/pull/57) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+  - version bump [#57](https://github.com/friggframework/frigg/pull/57) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+  - custom subdomains [#57](https://github.com/friggframework/frigg/pull/57) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+  - Records Api Tests [#55](https://github.com/friggframework/frigg/pull/55) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+  - merged record tests [#55](https://github.com/friggframework/frigg/pull/55) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+  - added records tests [#55](https://github.com/friggframework/frigg/pull/55) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+  - Added records to Api.js [#55](https://github.com/friggframework/frigg/pull/55) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+  - git cache duplicates [#54](https://github.com/friggframework/frigg/pull/54) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+  - merge conflicts [#54](https://github.com/friggframework/frigg/pull/54) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+  - Merge branch 'api-module-library-ironclad' of https://github.com/friggframework/frigg into api-module-library-ironclad [#54](https://github.com/friggframework/frigg/pull/54) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+  - Cleaned up package.json [#51](https://github.com/friggframework/frigg/pull/51) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+  - Corrected file paths [#51](https://github.com/friggframework/frigg/pull/51) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+  - Modified file paths [#51](https://github.com/friggframework/frigg/pull/51) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+  - Modified file paths in index.js [#51](https://github.com/friggframework/frigg/pull/51) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+  - Deleted node_modules [#51](https://github.com/friggframework/frigg/pull/51) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+  - Added publishConfig to package.json [#51](https://github.com/friggframework/frigg/pull/51) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+  - Tests passing [#51](https://github.com/friggframework/frigg/pull/51) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- `@friggframework/api-module-ironclad@0.0.14`, `@friggframework/api-module-slack@0.1.3`
+  - merged retrieve workflow [#55](https://github.com/friggframework/frigg/pull/55) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+  - merge conflicts [#54](https://github.com/friggframework/frigg/pull/54) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- `@friggframework/api-module-slack@0.1.3`
+  - changelog update [#52](https://github.com/friggframework/frigg/pull/52) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+  - missing files, slack manager updates [#52](https://github.com/friggframework/frigg/pull/52) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+  - merge conflift, bug fixes, code cleanup [#52](https://github.com/friggframework/frigg/pull/52) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+  - WIP Slack Api Module [#54](https://github.com/friggframework/frigg/pull/54) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- `@friggframework/api-module-activecampaign@0.8.14`, `@friggframework/api-module-airwallex@0.8.13`, `@friggframework/api-module-attentive@0.8.14`, `@friggframework/api-module-clyde@0.8.15`, `@friggframework/api-module-connectwise@0.8.16`, `@friggframework/api-module-crossbeam@0.8.13`, `@friggframework/api-module-fastspring-iq@0.8.14`, `@friggframework/api-module-front@0.8.13`, `@friggframework/api-module-gorgias@0.8.13`, `@friggframework/api-module-hubspot@0.8.13`, `@friggframework/api-module-huggg@0.8.14`, `@friggframework/api-module-ironclad@0.0.14`, `@friggframework/api-module-marketo@0.8.14`, `@friggframework/api-module-monday@0.8.13`, `@friggframework/api-module-netx@0.8.13`, `@friggframework/api-module-outreach@0.8.13`, `@friggframework/api-module-personio@0.8.14`, `@friggframework/api-module-pipedrive@0.8.13`, `@friggframework/api-module-qbo@0.8.13`, `@friggframework/api-module-rev-io@0.8.13`, `@friggframework/api-module-rollworks@0.8.13`, `@friggframework/api-module-salesforce@0.8.19`, `@friggframework/api-module-salesloft@0.8.13`, `@friggframework/api-module-slack@0.1.3`, `@friggframework/api-module-terminus@0.8.13`, `@friggframework/api-module-zoom@0.8.13`, `@friggframework/assertions@1.0.6`, `@friggframework/core@0.2.8`, `@friggframework/integrations@1.0.11`, `@friggframework/module-plugin@1.0.14`
+  - merge conflicts [#52](https://github.com/friggframework/frigg/pull/52) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- `@friggframework/api-module-ironclad@0.0.14`, `@friggframework/api-module-slack@0.1.3`, `@friggframework/assertions@1.0.6`
+  - merge conflicts [#54](https://github.com/friggframework/frigg/pull/54) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- `@friggframework/api-module-slack@0.1.3`, `@friggframework/assertions@1.0.6`
+  - slack module changes [#54](https://github.com/friggframework/frigg/pull/54) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+#### ⚠️ Pushed to `main`
+
+- Update release.yml ([@seanspeaks](https://github.com/seanspeaks))
+- Update .gitignore ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 3
+
+- Jonathan Moore ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+- Sheehan Toufiq Khan ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+---
+
+# (Mon Oct 31 2022)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.13`
+  - Fr/custom subdomains [#57](https://github.com/friggframework/frigg/pull/57) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+#### Authors: 1
+
+- Sheehan Toufiq Khan ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+---
+
+# (Fri Oct 28 2022)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.11`
+  - Fr/update workflow approvals [#64](https://github.com/friggframework/frigg/pull/64) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+
+#### Authors: 1
+
+- Jonathan Moore ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+
+---
+
+# (Fri Oct 28 2022)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.10`
+  - update workflow [#67](https://github.com/friggframework/frigg/pull/67) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+#### Authors: 1
+
+- Sheehan Toufiq Khan ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+---
+
 # (Fri Oct 28 2022)
 
 #### 🐛 Bug Fix

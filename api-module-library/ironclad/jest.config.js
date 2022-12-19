@@ -11,7 +11,7 @@ module.exports = {
             branches: 0,
             functions: 1,
             lines: 13,
-        },
+        }
     },
     // A path to a module which exports an async function that is triggered once before all test suites
     globalSetup: './jest-setup.js',
