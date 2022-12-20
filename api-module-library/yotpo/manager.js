@@ -1,6 +1,9 @@
 const { debug, flushDebugLog } = require('@friggframework/logs');
 const { get } = require('@friggframework/assertions');
-const { ModuleManager, ModuleConstants } = require('@friggframework/module-plugin');
+const {
+    ModuleManager,
+    ModuleConstants,
+} = require('@friggframework/module-plugin');
 const { Api } = require('./api');
 const { Entity } = require('./entity');
 const { Credential } = require('./credential');
@@ -26,7 +29,7 @@ class Manager extends ModuleManager {
         let managerParams = { delegate: instance };
         if (params.entityId) {
             instance.entity = await Entity.findById(params.entityId);
-            instance.credential = await await Credential.findById(
+            instance.credential = await Credential.findById(
                 instance.entity.credential
             );
             managerParams.store_id = instance.credential.store_id;
@@ -56,12 +59,12 @@ class Manager extends ModuleManager {
 
     async getAuthorizationRequirements(params) {
         return {
-            url: null,
-            type: ModuleConstants.authType.apiKey,
+            url: this.api.authorizationUri,
+            type: ModuleConstants.authType.oauth2,
             data: {
                 jsonSchema: AuthFields.jsonSchema,
                 uiSchema: AuthFields.uiSchema,
-            }
+            },
         };
     }
 
@@ -72,12 +75,12 @@ class Manager extends ModuleManager {
 
         await this.findOrCreateCredential({
             store_id,
-            secret
+            secret,
         });
 
         await this.findOrCreateEntity({
             store_id,
-            secret
+            secret,
         });
         return {
             credential_id: this.credential.id,
@@ -86,7 +89,7 @@ class Manager extends ModuleManager {
         };
     }
 
-    async findOrCreateCredential(params){
+    async findOrCreateCredential(params) {
         const store_id = get(params.data, 'store_id', null);
         const secret = get(params.data, 'secret', null);
 
@@ -94,9 +97,9 @@ class Manager extends ModuleManager {
             user: this.userId,
             store_id,
             secret,
-        })
+        });
 
-        if (search.length === 0){
+        if (search.length === 0) {
             const createObj = {
                 user: this.userId,
                 store_id,
@@ -105,12 +108,12 @@ class Manager extends ModuleManager {
             this.credential = await Credential.create(createObj);
         } else if (search.length === 1) {
             this.credential = search[0];
-        }else {
+        } else {
             debug(
                 'Multiple credentials found with the same Client ID',
                 store_id,
                 secret
-            )
+            );
         }
     }
 
@@ -134,11 +137,13 @@ class Manager extends ModuleManager {
         } else if (search.length === 1) {
             this.entity = search[0];
         } else {
-            debug('Multiple entities found with the same external ID:', store_id);
+            debug(
+                'Multiple entities found with the same external ID:',
+                store_id
+            );
             this.throwException('');
         }
     }
-
 
     async deauthorize() {
         // wipe api connection
