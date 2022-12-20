@@ -4,6 +4,10 @@
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
+    "publishConfig": {
+        "registry": "https://registry.npmjs.org/",
+        "access": "public"
+    },
     "scripts": {
         "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
         "test": "jest"
