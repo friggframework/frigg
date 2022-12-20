@@ -1,3 +1,22 @@
+# (Tue Dec 20 2022)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-yotpo@0.0.2`
+  - publishConfig [#79](https://github.com/friggframework/frigg/pull/79) ([@seanspeaks](https://github.com/seanspeaks))
+  - Api module library yotpo [#78](https://github.com/friggframework/frigg/pull/78) ([@JonathanEdMoore](https://github.com/JonathanEdMoore) [@seanspeaks](https://github.com/seanspeaks))
+
+#### ⚠️ Pushed to `main`
+
+- Create dependabot.yml ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Jonathan Moore ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Mon Dec 19 2022)
 
 #### 🐛 Bug Fix
