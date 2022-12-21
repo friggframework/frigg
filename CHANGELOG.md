@@ -1,3 +1,16 @@
+# (Wed Dec 21 2022)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/core@0.2.9`
+  - Delegate now returns whatever the response is from the receiveNotific… [#80](https://github.com/friggframework/frigg/pull/80) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Tue Dec 20 2022)
 
 #### 🐛 Bug Fix
