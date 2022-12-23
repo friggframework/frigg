@@ -1,3 +1,16 @@
+# v1.0.17 (Fri Dec 23 2022)
+
+#### 🐛 Bug Fix
+
+- this may break folks' implementations, but that's what unit tests are… [#81](https://github.com/friggframework/frigg/pull/81) ([@seanspeaks](https://github.com/seanspeaks))
+- this may break folks' implementations, but that's what unit tests are for. ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.0.15 (Tue Dec 06 2022)
 
 #### 🐛 Bug Fix

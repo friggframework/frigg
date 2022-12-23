@@ -1,3 +1,16 @@
+# (Fri Dec 23 2022)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/module-plugin@1.0.17`
+  - this may break folks' implementations, but that's what unit tests are… [#81](https://github.com/friggframework/frigg/pull/81) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Wed Dec 21 2022)
 
 #### 🐛 Bug Fix
