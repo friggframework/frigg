@@ -11,10 +11,11 @@ class OAuth2Requester extends Requester {
         this.delegateTypes.push(this.DLGT_TOKEN_UPDATE);
         this.delegateTypes.push(this.DLGT_TOKEN_DEAUTHORIZED);
 
-        this.grantType = get(params, 'grantType', 'authorization_code');
-        this.key = get(params, 'key', null);
-        this.secret = get(params, 'secret', null);
-        this.redirectUri = get(params, 'redirectUri', null);
+        this.grant_type = get(params, 'grant_type', 'authorization_code');
+        this.client_id = get(params, 'client_id', null);
+        this.client_secret = get(params, 'client_secret', null);
+        this.redirect_uri = get(params, 'redirect_uri', null);
+        this.scope = get(params, 'scope', null);
         this.authorizationUri = get(params, 'authorizationUri', null);
         this.baseURL = get(params, 'baseURL', null);
         this.access_token = get(params, 'access_token', null);
@@ -56,6 +57,7 @@ class OAuth2Requester extends Requester {
         params.append('client_id', this.client_id);
         params.append('client_secret', this.client_secret);
         params.append('redirect_uri', this.redirect_uri);
+        params.append('scope', this.scope);
         params.append('code', code);
         const options = {
             body: params,
