@@ -8,7 +8,7 @@ The frontend is a cookie cutter React application built with Create React App an
 
 We provide a very lightweight/basic user login flow and dashboard. Go ahead and try logging in or creating an account.
 
-<mark style="color:red;background-color:red;">// Image of login screen</mark>
+<img width="461" alt="Frigg-login-page" src="https://user-images.githubusercontent.com/3011407/210785998-457ab95f-7b7c-4f02-892b-57477c75708a.png">
 
 Note that when you attempt to log in, you will receive an error. We'll come back to this in a moment, but the TL;DR  is that we need to plug in a database for the backend to talk to.
 
