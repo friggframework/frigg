@@ -7,6 +7,7 @@ Use `npx` to use the latest generator code, and just pass it whatever you want t
 {% endhint %}
 
 ```
+npm i frigg
 npx create-frigg-app [my-app-integrations]
 ```
 
