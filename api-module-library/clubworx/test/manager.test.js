@@ -22,6 +22,6 @@ describe(`Should fully test the ${config.label} Manager`, () => {
     it('should return auth requirements', async () => {
         const requirements = await manager.getAuthorizationRequirements();
         expect(requirements).exists;
-        expect(requirements.type).toEqual('accessToken');
+        expect(requirements.type).toEqual('apiKey');
     });
 });

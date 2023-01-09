@@ -1,12 +1,12 @@
 {
     "name": "@friggframework/api-module-clubworx",
-    "version": "0.0.1",
+    "version": "0.0.3",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
     "scripts": {
         "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
-        "test": "jest"
+        "test": "jest --testTimeout 10000"
     },
     "author": "",
     "license": "MIT",
