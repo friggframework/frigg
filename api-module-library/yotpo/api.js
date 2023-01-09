@@ -6,32 +6,38 @@ class Api extends OAuth2Requester {
         super(params);
 
         // Support two different authorization types
-        this.apiKey = get(params, 'apiKey');
-        this.apiKeySecret = get(params, 'apiKeySecret');
+        this.apiKey = get(params, 'apiKey', null);
+        this.apiKeySecret = get(params, 'apiKeySecret', null);
 
         this.baseUrl = 'https://api.yotpo.com/';
 
         this.STORE_ID = get(params, 'store_id');
         this.SECRET = get(params, 'secret');
+        this.baseURLs = {
+            core: 'https://api.yotpo.com/core',
+            appDeveloper: `https://developers.yotpo.com`,
+            UGC: '',
+            loyalty: 'https://api.yotpo.com/',
+        };
 
         this.URLs = {
             core: {
-                baseUrl: `https://api.yotpo.com/core`,
+                tokenUri: `${this.baseURLs.core}/v3/stores/${this.STORE_ID}/access_tokens`,
 
                 createOrderFulfillment: (yotpo_order_id) =>
-                    `${this.URLs.core.baseUrl}/v3/stores/${this.STORE_ID}/orders/${yotpo_order_id}/fulfillments`,
+                    `${this.baseURLs.core}/v3/stores/${this.STORE_ID}/orders/${yotpo_order_id}/fulfillments`,
             },
             appDeveloper: {
-                baseUrl: `https://developers.yotpo.com`,
+                authorizationUri: encodeURI(
+                    `https://integrations-center.yotpo.com/app/#/install/applications/${this.client_id}?redirect_uri=${this.redirect_uri}`
+                ),
+                tokenUri: `${this.baseURLs.appDeveloper}/v2/oauth2/token`,
             },
             UGC: {},
-            loyalty: {},
+            loyalty: {
+                tokenUri: `${this.baseURLs.loyalty}/oauth/token`,
+            },
         };
-
-        this.authorizationUri = encodeURI(
-            `https://yap.yotpo.com/#/app_market_authorization?app_market_mode&application_id=${this.CLIENT_ID}`
-        );
-        this.tokenUri = 'https://developers.yotpo.com/v2/oauth2/token';
     }
     async getToken() {
         const options = {
