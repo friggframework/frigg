@@ -8,14 +8,33 @@ Use `npx` to use the latest generator code, and just pass it whatever you want t
 
 ```
 npx create-frigg-app [my-app-integrations]
+cd [my-app-integrations]
 ```
 
 Congrats! You've just successfully scaffolded and installed your Frigg application.
 
+## Configuration
+
+### Frontend
+You will have to set up your own config files for the frontend of your applicaiton with: 
+
+```
+cd frontend
+cp .env.example .env
+```
+
+### Backend
+Currently, configuration is managed in two places for the backend. You can see the backend configuration here: `backend/src/configs/*.json` but you will also need a `.env` file in `/backend`.
+
+```
+cd backend
+cp .env.example .env
+```
+
+## Start Your Application
 Let's spin it up to explore more:
 
 ```
-cd [my-app-integrations]
 npm run start
 ```
 
