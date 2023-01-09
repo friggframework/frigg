@@ -11,7 +11,7 @@ jobs:
         # Ensure that git uses your token with admin access to the repo
         token: ${{ secrets.ADMIN_TOKEN }}
         fetch-depth: 0
-    - run: git fetch --tags
+    - run: git fetch --tags --depth=1 origin +refs/tags/*:refs/tags/*
     - name: Setup node
       uses: actions/setup-node@v3
       with:

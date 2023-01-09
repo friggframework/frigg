@@ -20,7 +20,8 @@
         "infra",
         "business",
         "ideas",
-        "doc"
+        "doc",
+        "test"
       ]
     },
     {
@@ -46,7 +47,10 @@
         "design",
         "ideas",
         "maintenance",
-        "review"
+        "review",
+        "doc",
+        "test",
+        "infra"
       ]
     },
     {
@@ -83,7 +87,8 @@
         "maintenance",
         "plugin",
         "review",
-        "test"
+        "test",
+        "doc"
       ]
     },
     {

@@ -1,5 +1,8 @@
 const lodashGet = require('lodash.get');
-const { RequiredPropertyError, ParameterTypeError } = require('@friggframework/errors');
+const {
+    RequiredPropertyError,
+    ParameterTypeError,
+} = require('@friggframework/errors');
 
 const get = (o, key, defaultValue) => {
     const value = lodashGet(o, key, defaultValue);

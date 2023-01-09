@@ -1,0 +1,30 @@
+{
+    "name": "@friggframework/api-module-yotpo",
+    "version": "0.0.4",
+    "prettier": "@friggframework/prettier-config",
+    "description": "",
+    "main": "index.js",
+    "publishConfig": {
+        "registry": "https://registry.npmjs.org/",
+        "access": "public"
+    },
+    "scripts": {
+        "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
+        "test": "jest"
+    },
+    "author": "",
+    "license": "MIT",
+    "devDependencies": {
+        "@friggframework/eslint-config": "^1.0.7",
+        "@friggframework/test-environment": "^1.1.4",
+        "eslint": "^8.29.0",
+        "jest": "^29.3.1",
+        "prettier": "^2.8.0",
+        "sinon": "^15.0.0"
+    },
+    "dependencies": {
+        "@friggframework/assertions": "^1.0.5",
+        "@friggframework/module-plugin": "^1.0.17",
+        "nock": "^13.2.9"
+    }
+}

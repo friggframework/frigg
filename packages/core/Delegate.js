@@ -13,7 +13,7 @@ class Delegate {
             );
         }
         if (this.delegate) {
-            await this.delegate.receiveNotification(
+            return this.delegate.receiveNotification(
                 this,
                 delegateString,
                 object

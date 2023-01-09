@@ -8,7 +8,7 @@ const {
     createModel,
     saveTestDocument,
 } = require('./test-encrypt');
-const { TestMongo } = require('../test-environment');
+const { TestMongo } = require('@friggframework/test-environment');
 
 const testMongo = new TestMongo();
 const originalEnv = process.env;

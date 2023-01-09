@@ -1,3 +1,39 @@
+# v0.8.16 (Tue Dec 06 2022)
+
+#### 🐛 Bug Fix
+
+- fix modules to @friggframework [#74](https://github.com/friggframework/frigg/pull/74) ([@sheehantoufiq](https://github.com/sheehantoufiq))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+- Sheehan Toufiq Khan ([@sheehantoufiq](https://github.com/sheehantoufiq))
+
+---
+
+# v0.8.13 (Mon Sep 19 2022)
+
+#### 🐛 Bug Fix
+
+- Test environment setup for all modules [#49](https://github.com/friggframework/frigg/pull/49) ([@seanspeaks](https://github.com/seanspeaks))
+- Test environment setup for all modules ([@seanspeaks](https://github.com/seanspeaks))
+- Merge remote-tracking branch 'origin/main' into gitbook-updates [#48](https://github.com/friggframework/frigg/pull/48) ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+- Update CHANGELOG.md \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+- fix: Making an excuse to release so we test slack message [#46](https://github.com/friggframework/frigg/pull/46) ([@seanspeaks](https://github.com/seanspeaks))
+- fix: Making an excuse to release so we test slack message ([@seanspeaks](https://github.com/seanspeaks))
+- fix: updated clyde API test instead of manager related items [#45](https://github.com/friggframework/frigg/pull/45) ([@seanspeaks](https://github.com/seanspeaks))
+- fix: updated clyde API test instead of manager related items ([@seanspeaks](https://github.com/seanspeaks))
+- test: added api.test.js to Clyde [#44](https://github.com/friggframework/frigg/pull/44) ([@seanspeaks](https://github.com/seanspeaks))
+- test: added api.test.js to Clyde ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.8.12 (Thu Sep 01 2022)
 
 #### 🐛 Bug Fix
