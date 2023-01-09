@@ -150,6 +150,17 @@
         "research",
         "review"
       ]
+    },
+    {
+      "login": "queuetue",
+      "name": "Scott Russell",
+      "avatar_url": "https://avatars.githubusercontent.com/u/4491?v=4",
+      "profile": "https://queuetue.com/",
+      "contributions": [
+        "doc",
+        "test",
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7
