@@ -1,5 +1,5 @@
-# Module List
+# API Module Library
 
-Each module has its own working page.
+View and search for all our available API Modules in our[ interactive library](https://friggframework.partnerpage.io/api-modules). Thanks to our friends at [PartnerPage](https://www.partnerpage.io/) for their directory tool.
 
-For any OAuth app, you'll need to create your own set of OAuth credentials to store in the ENVs of your Frigg deployment
+Each API Module has its own page in this documentation. Over time we'll add helpful notes about each module listed.

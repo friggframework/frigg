@@ -1,3 +1,15 @@
+# v0.0.19 (Mon Jan 09 2023)
+
+#### ⚠️ Pushed to `main`
+
+- Merge branch 'main' into gitbook-updates ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.16 (Tue Dec 06 2022)
 
 #### 🐛 Bug Fix

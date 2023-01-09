@@ -2,4 +2,4 @@
 
 Any time you want to use Frigg/have Frigg talk to your own App/API, you'll need your own API module.
 
-See the [API Module Development](../developing-integrations-with-frigg/api-module-development-guide/) section
+See the [API Module Development](../develop/api-module-development-guide/) section

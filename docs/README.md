@@ -16,7 +16,7 @@ Meanwhile, Frigg's documentation site is targeted at engineers and product leade
 
 If you're ready to introduce Frigg to your technical colleagues, share this documentation site. Our [live demo site](https://demo.friggframework.,org) is also instructive to both technical and non-technical audiences as well.
 
-Have questions? Chat with us
+Have questions? Let's [connect](support/support.md)!
 
 </details>
 
@@ -24,14 +24,14 @@ Have questions? Chat with us
 
 <summary>Frigg: What's in a name?</summary>
 
-Frigg Defintion:
-
-* Frigg \*\*\*\*is the Norse goddess of **marriage** and **partnerships**
-* Frigg means **“Beloved”** in Old Norse
+* Frigg is Odin's wife in Norse mythology
+* Goddess of **marriage** and **partnerships**
 * She flies the earthly skies as a falcon
-* She is known in folklore as the **“weaver of the clouds”**
+* She is known in folklore as the **“weaver of clouds”**
 
 The Frigg Integration Framework powers integrations between software companies, the majority of which are in the cloud, speeding up time to live on tech partnerships.
+
+Read more about Frigg on [Wikipedia](https://en.wikipedia.org/wiki/Frigg).&#x20;
 
 </details>
 
