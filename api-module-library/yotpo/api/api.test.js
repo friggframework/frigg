@@ -5,8 +5,8 @@ const should = chai.should();
 const { Api } = require('./api');
 const { expect } = require('chai');
 const nock = require('nock');
-const authResponse = require('./fixtures/responses/authResponse.json');
-const createOrderFulfillmentResponse = require('./fixtures/responses/createOrderFulfillmentResponse.json');
+const authResponse = require('../fixtures/responses/authResponse.json');
+const createOrderFulfillmentResponse = require('../fixtures/responses/createOrderFulfillmentResponse.json');
 const Authenticator = require('@friggframework/test-environment/Authenticator');
 
 describe('Yotpo API class', () => {
@@ -21,7 +21,7 @@ describe('Yotpo API class', () => {
 
     describe.skip('Core API', () => {
         describe('Authentication', () => {
-            const authResponse = require('./fixtures/responses/authResponse.json');
+            const authResponse = require('../fixtures/responses/authResponse.json');
             let createOrderFulfillmentCall;
             let getTokenCall;
             let result;
@@ -67,7 +67,7 @@ describe('Yotpo API class', () => {
 
         describe('Order Fulfillments', () => {
             api.API_KEY_VALUE = 'abcdefghijk';
-            const createOrderFulfillmentResponse = require('./fixtures/responses/createOrderFulfillmentResponse.json');
+            const createOrderFulfillmentResponse = require('../fixtures/responses/createOrderFulfillmentResponse.json');
             let createOrderFulfillmentCall;
             let result;
             let requestBody = {
@@ -113,21 +113,24 @@ describe('Yotpo API class', () => {
     });
     describe('App Developer API', () => {
         describe('Authentication', () => {
-            const authResponse = require('./fixtures/responses/authResponse.json');
+            const authResponse = require('../fixtures/responses/authResponse.json');
 
             it('should get Token if no token is set', async () => {
-                const url = api.URLs.appDeveloper.authorizationUri;
+                const url = api.appDeveloperApi.authorizationUri;
                 const response = await Authenticator.oauth2(url);
                 const baseArr = response.base.split('/');
                 response.entityType = baseArr[baseArr.length - 1];
                 delete response.base;
 
-                await api.getTokenFromCode(response.data.code);
+                await api.appDeveloperApi.getTokenFromCode(
+                    response.data.code,
+                    response.data.app_key
+                );
+                expect(api.appDeveloperApi.access_token).to.exist;
             });
 
             it('calls the expected endpoint', () => {
-                expect(createOrderFulfillmentCall.isDone()).to.be.true;
-                expect(getTokenCall.isDone()).to.be.true;
+                expect(api.appDeveloperApi.access_token).to.exist;
             });
 
             it('should return the correct response', () => {
