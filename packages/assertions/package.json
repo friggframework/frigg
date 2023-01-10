@@ -1,7 +1,7 @@
 {
     "name": "@friggframework/assertions",
     "prettier": "@friggframework/prettier-config",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "description": "",
     "dependencies": {
         "lodash.get": "^4.4.2"

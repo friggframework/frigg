@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/module-plugin",
-    "version": "1.0.18",
+    "version": "1.0.19",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -19,7 +19,7 @@
         "sinon": "^14.0.0"
     },
     "dependencies": {
-        "@friggframework/core": "^0.2.10",
+        "@friggframework/core": "^0.2.11",
         "@friggframework/encrypt": "^1.1.5",
         "aws-sdk": "^2.1200.0",
         "mongoose": "^6.5.2"
