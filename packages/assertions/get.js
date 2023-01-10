@@ -14,7 +14,7 @@ const get = (o, key, defaultValue) => {
     if (defaultValue === undefined) {
         throw new RequiredPropertyError({
             parent: this,
-            key: strKey,
+            key,
         });
     }
 
