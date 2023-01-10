@@ -1,3 +1,23 @@
+# v1.0.7 (Tue Jan 10 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, Jonathan O'Donnell ([@joncodo](https://github.com/joncodo)), for all your work!
+
+#### 🐛 Bug Fix
+
+- strKey is not defined [#90](https://github.com/friggframework/frigg/pull/90) ([@seanspeaks](https://github.com/seanspeaks))
+- strKey is not defined ([@seanspeaks](https://github.com/seanspeaks))
+- Merge branch 'main' of github.com:friggframework/frigg into doc-updates ([@joncodo](https://github.com/joncodo))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Jonathan O'Donnell ([@joncodo](https://github.com/joncodo))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.0.6 (Mon Jan 09 2023)
 
 :tada: This release contains work from new contributors! :tada:

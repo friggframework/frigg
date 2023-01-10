@@ -1,3 +1,18 @@
+# (Tue Jan 10 2023)
+
+#### 🐛 Bug Fix
+
+- update docs related to configuration [#88](https://github.com/friggframework/frigg/pull/88) ([@joncodo](https://github.com/joncodo))
+- `@friggframework/assertions@1.0.7`
+  - strKey is not defined [#90](https://github.com/friggframework/frigg/pull/90) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Jonathan O'Donnell ([@joncodo](https://github.com/joncodo))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Mon Jan 09 2023)
 
 :tada: This release contains work from new contributors! :tada:
