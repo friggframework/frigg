@@ -7,6 +7,7 @@ const schema = new mongoose.Schema(
             ref: 'Credential',
             required: false,
         },
+        subType: { type: String },
         user: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User',
