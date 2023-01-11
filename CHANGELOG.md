@@ -1,3 +1,20 @@
+# (Wed Jan 11 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.21`, `@friggframework/module-plugin@1.0.20`
+  - Ironclad updates and sub type [#91](https://github.com/friggframework/frigg/pull/91) ([@JonathanEdMoore](https://github.com/JonathanEdMoore) [@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/api-module-ironclad@0.0.21`
+  - Passing Tests [#59](https://github.com/friggframework/frigg/pull/59) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+  - Added params to listAllWorkflows [#59](https://github.com/friggframework/frigg/pull/59) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+
+#### Authors: 2
+
+- Jonathan Moore ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Tue Jan 10 2023)
 
 #### 🐛 Bug Fix

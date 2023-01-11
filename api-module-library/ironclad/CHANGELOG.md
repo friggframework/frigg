@@ -1,3 +1,20 @@
+# v0.0.21 (Wed Jan 11 2023)
+
+#### 🐛 Bug Fix
+
+- Ironclad updates and sub type [#91](https://github.com/friggframework/frigg/pull/91) ([@JonathanEdMoore](https://github.com/JonathanEdMoore) [@seanspeaks](https://github.com/seanspeaks))
+- subType support for ironclad ([@seanspeaks](https://github.com/seanspeaks))
+- Passing Tests [#59](https://github.com/friggframework/frigg/pull/59) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Added params to listAllWorkflows [#59](https://github.com/friggframework/frigg/pull/59) ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Jonathan Moore ([@JonathanEdMoore](https://github.com/JonathanEdMoore))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.20 (Tue Jan 10 2023)
 
 :tada: This release contains work from a new contributor! :tada:
