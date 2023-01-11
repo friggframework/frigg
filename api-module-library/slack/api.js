@@ -19,6 +19,7 @@ class Api extends OAuth2Requester {
             authorize: 'https://slack.com/oauth/v2/authorize',
             access_token: '/oauth.v2.access',
             authTest: '/auth.test',
+            listTeams: '/auth.teams.list',
 
             // Chats
             getMessagePermalink: '/chat.getPermalink',
@@ -43,7 +44,10 @@ class Api extends OAuth2Requester {
             sharedFilePublicURL: '/files.sharedPublicURL', // Enables a file for public/external sharing.
         };
 
-        this.authorizationUri = `${this.URLs.authorize}?state=FRIGGSLACKAPP&client_id=${this.client_id}&scope=${this.scope}&redirect_uri=${this.redirect_uri}`;
+        this.tokenUri = this.baseUrl + this.URLs.access_token;
+        this.authorizationUri = encodeURI(
+            `${this.URLs.authorize}?state=&client_id=${this.client_id}&scope=${this.scope}&redirect_uri=${this.redirect_uri}`
+        );
     }
 
     async addAuthHeaders(headers) {
@@ -56,21 +60,11 @@ class Api extends OAuth2Requester {
     async getAuthUri() {
         return this.authorizationUri;
     }
-
-    async getTokenFromCode(code) {
+    async listTeams() {
         const options = {
-            url: this.baseUrl + this.URLs.access_token,
-            body: {
-                client_id: this.client_id,
-                client_secret: this.client_secret,
-                code,
-            },
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
+            url: this.baseUrl + this.URLs.listTeams,
         };
-        const response = await this._post(options);
+        const response = await this._get(options);
         return response;
     }
 
