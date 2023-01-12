@@ -1,3 +1,16 @@
+# v1.0.18 (Thu Jan 12 2023)
+
+#### 🐛 Bug Fix
+
+- Slack, Ironclad, and "IntegrationManager" updates [#92](https://github.com/friggframework/frigg/pull/92) ([@seanspeaks](https://github.com/seanspeaks))
+- Fix the output from entity hydration on the getFormattedIntegration method ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.0.17 (Wed Jan 11 2023)
 
 #### 🐛 Bug Fix

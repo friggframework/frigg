@@ -1,3 +1,16 @@
+# v0.0.22 (Thu Jan 12 2023)
+
+#### 🐛 Bug Fix
+
+- Slack, Ironclad, and "IntegrationManager" updates [#92](https://github.com/friggframework/frigg/pull/92) ([@seanspeaks](https://github.com/seanspeaks))
+- - Update Slack to retrieve workspace information and use OAuth2Requester's standard getAuthFromCode (name is wrong), and we were storing the wrong information ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.21 (Wed Jan 11 2023)
 
 #### 🐛 Bug Fix
