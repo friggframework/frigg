@@ -1,3 +1,16 @@
+# v0.1.11 (Thu Jan 12 2023)
+
+#### 🐛 Bug Fix
+
+- slack redirect URI [#93](https://github.com/friggframework/frigg/pull/93) ([@seanspeaks](https://github.com/seanspeaks))
+- slack redirect URI ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.1.10 (Thu Jan 12 2023)
 
 #### 🐛 Bug Fix

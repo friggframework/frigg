@@ -2,6 +2,19 @@
 
 #### 🐛 Bug Fix
 
+- `@friggframework/api-module-slack@0.1.11`
+  - slack redirect URI [#93](https://github.com/friggframework/frigg/pull/93) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Thu Jan 12 2023)
+
+#### 🐛 Bug Fix
+
 - `@friggframework/api-module-ironclad@0.0.22`, `@friggframework/api-module-slack@0.1.10`, `@friggframework/integrations@1.0.18`
   - Slack, Ironclad, and "IntegrationManager" updates [#92](https://github.com/friggframework/frigg/pull/92) ([@seanspeaks](https://github.com/seanspeaks))
 
