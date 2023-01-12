@@ -12,7 +12,11 @@ class Api extends OAuth2Requester {
         // this.client_id = get(params, 'client_id');
         // this.client_secret = get(params, 'client_secret');
         this.scope = process.env.SLACK_SCOPE;
-        this.redirect_uri = `${process.env.REDIRECT_URI}/slack`;
+        this.redirect_uri = get(
+            params,
+            'redirect_uri',
+            `${process.env.REDIRECT_URI}/slack`
+        );
         this.access_token = get(params, 'access_token', null);
 
         this.URLs = {

@@ -16,6 +16,7 @@ class Manager extends ModuleManager {
 
     constructor(params) {
         super(params);
+        this.redirect_uri = get(params, 'redirect_uri', null);
     }
 
     static getName() {
@@ -25,16 +26,17 @@ class Manager extends ModuleManager {
     static async getInstance(params) {
         let instance = new this(params);
 
-        const managerParams = { delegate: instance };
+        const apiParams = { delegate: instance };
+        if (this.redirect_uri) apiParams.redirect_uri = this.redirect_uri;
         if (params.entityId) {
             instance.entity = await Entity.findById(params.entityId);
             instance.credential = await Credential.findById(
                 instance.entity.credential
             );
-            managerParams.access_token = instance.credential.access_token;
-            managerParams.refresh_token = instance.credential.refresh_token;
+            apiParams.access_token = instance.credential.access_token;
+            apiParams.refresh_token = instance.credential.refresh_token;
         }
-        instance.api = await new Api(managerParams);
+        instance.api = await new Api(apiParams);
 
         return instance;
     }
