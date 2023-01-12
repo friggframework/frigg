@@ -26,68 +26,81 @@ describe(`Should fully test the ${config.label} Manager`, () => {
         expect(requirements.type).to.equal('apiKey');
     });
     describe('processAuthorizationCallback()', () => {
-        it('should return client', async () => {
-            const authRes = await manager.processAuthorizationCallback({
-                data: {
-                    apiKey: process.env.IRONCLAD_API_KEY,
-                    subdomain: process.env.IRONCLAD_SUBDOMAIN,
-                },
-            });
-            expect(authRes).exists;
-            expect(authRes).to.have.property('entity_id');
-            expect(authRes).to.have.property('credential_id');
-            expect(authRes).to.have.property('type');
-        });
-        it('should error if incorrect auth data', async () => {
-            try {
-                const authRes = await manager.processAuthorizationCallback({
+        describe('normalCallbacks', () => {
+            let authRes;
+            beforeAll(async () => {
+                authRes = await manager.processAuthorizationCallback({
                     data: {
-                        apiKey: 'bad',
+                        apiKey: process.env.IRONCLAD_API_KEY,
                         subdomain: process.env.IRONCLAD_SUBDOMAIN,
                     },
                 });
-                expect(authRes).to.not.exist;
-            } catch (e) {
-                expect(e.message).to.contain('Auth Error');
-            }
+            });
+            it('should return entity, credential, and type info', async () => {
+                expect(authRes).exists;
+                expect(authRes).to.have.property('entity_id');
+                expect(authRes).to.have.property('credential_id');
+                expect(authRes).to.have.property('type');
+            });
+            it('should create a hash of the API key to use for the externalId of the entity', async () => {
+                const entity = await Manager.Entity.findById(authRes.entity_id);
+                expect(entity).exists;
+                // assert that entity.externalId does not equal apiKey
+                expect(entity.externalId).to.not.equal(
+                    process.env.IRONCLAD_API_KEY
+                );
+            });
+
+            it('should error if incorrect auth data', async () => {
+                try {
+                    const authRes = await manager.processAuthorizationCallback({
+                        data: {
+                            apiKey: 'bad',
+                            subdomain: process.env.IRONCLAD_SUBDOMAIN,
+                        },
+                    });
+                    expect(authRes).to.not.exist;
+                } catch (e) {
+                    expect(e.message).to.contain('Auth Error');
+                }
+            });
         });
-        it('should return store subType', async () => {
-            const authRes = await manager.processAuthorizationCallback({
-                data: {
-                    apiKey: process.env.IRONCLAD_API_KEY,
-                    subdomain: process.env.IRONCLAD_SUBDOMAIN,
-                    subType: process.env.IRONCLAD_SUBTYPE,
-                },
+
+        describe('subType tests', () => {
+            let authRes;
+            beforeAll(async () => {
+                authRes = await manager.processAuthorizationCallback({
+                    data: {
+                        apiKey: process.env.IRONCLAD_API_KEY,
+                        subdomain: process.env.IRONCLAD_SUBDOMAIN,
+                        subType: process.env.IRONCLAD_SUBTYPE,
+                    },
+                });
             });
-            expect(authRes).exists;
-            expect(authRes).to.have.property('entity_id');
-            expect(authRes).to.have.property('credential_id');
-            expect(authRes).to.have.property('type');
-        });
-        it('should return distinguish between subTypes', async () => {
-            const authRes = await manager.processAuthorizationCallback({
-                data: {
-                    apiKey: process.env.IRONCLAD_API_KEY,
-                    subdomain: process.env.IRONCLAD_SUBDOMAIN,
-                    subType: process.env.IRONCLAD_SUBTYPE,
-                },
+            it('should return store subType', async () => {
+                expect(authRes).exists;
+                expect(authRes).to.have.property('entity_id');
+                expect(authRes).to.have.property('credential_id');
+                expect(authRes).to.have.property('type');
+                expect(authRes.subType).to.equal(process.env.IRONCLAD_SUBTYPE);
+                expect(authRes.subType).to.not.be.null;
             });
-            expect(authRes).exists;
-            expect(authRes).to.have.property('entity_id');
-            expect(authRes).to.have.property('credential_id');
-            expect(authRes).to.have.property('type');
-            const secondAuthRes = await manager.processAuthorizationCallback({
-                data: {
-                    apiKey: process.env.IRONCLAD_API_KEY,
-                    subdomain: process.env.IRONCLAD_SUBDOMAIN,
-                    subType: 'fresh',
-                },
+
+            it('should return distinguish between subTypes', async () => {
+                const secondAuthRes =
+                    await manager.processAuthorizationCallback({
+                        data: {
+                            apiKey: process.env.IRONCLAD_API_KEY,
+                            subdomain: process.env.IRONCLAD_SUBDOMAIN,
+                            subType: 'fresh',
+                        },
+                    });
+                expect(secondAuthRes).exists;
+                expect(secondAuthRes).to.have.property('entity_id');
+                expect(secondAuthRes).to.have.property('credential_id');
+                expect(secondAuthRes).to.have.property('type');
+                expect(secondAuthRes.entity_id).to.not.equal(authRes.entity_id);
             });
-            expect(secondAuthRes).exists;
-            expect(secondAuthRes).to.have.property('entity_id');
-            expect(secondAuthRes).to.have.property('credential_id');
-            expect(secondAuthRes).to.have.property('type');
-            expect(secondAuthRes.entity_id).to.not.equal(authRes.entity_id);
         });
     });
 });

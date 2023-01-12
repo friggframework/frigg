@@ -76,11 +76,17 @@ class Manager extends ModuleManager {
             subType,
             subdomain,
         });
-        return {
+        const returnObj = {
             credential_id: this.credential.id,
             entity_id: this.entity.id,
             type: Manager.getName(),
         };
+        // TODO this... kinda sucks (we don't want subType to be returned normally, however,
+        //  there's probably a cleaner code pattern. But also, we're probably
+        //  getting rid of Manager classes altogether
+        if (subType) returnObj.subType = subType;
+
+        return returnObj;
     }
 
     async findOrCreateCredential(params) {
@@ -117,7 +123,7 @@ class Manager extends ModuleManager {
         const apiKey = get(params, 'apiKey', null);
         const name = get(params, 'name', null);
         const subType = get(params, 'subType', null);
-        const externalId = createHash('sha256', apiKey)
+        const externalId = createHash('sha256', apiKey);
 
         const search = await Entity.find({
             user: this.userId,
