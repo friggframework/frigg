@@ -50,9 +50,6 @@ class Api extends OAuth2Requester {
         };
 
         this.tokenUri = this.baseUrl + this.URLs.access_token;
-        this.authorizationUri = encodeURI(
-            `${this.URLs.authorize}?state=&client_id=${this.client_id}&scope=${this.scope}&redirect_uri=${this.redirect_uri}`
-        );
     }
 
     async _request(url, options, i = 0) {
@@ -113,7 +110,10 @@ class Api extends OAuth2Requester {
     }
 
     async getAuthUri() {
-        return this.authorizationUri;
+        const authUri = encodeURI(
+            `${this.URLs.authorize}?state=&client_id=${this.client_id}&scope=${this.scope}&redirect_uri=${this.redirect_uri}`
+        );
+        return authUri;
     }
     async listTeams() {
         const options = {
