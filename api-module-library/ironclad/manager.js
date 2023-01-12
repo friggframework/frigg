@@ -10,6 +10,7 @@ const {
 const AuthFields = require('./authFields');
 const Config = require('./defaultConfig.json');
 const { flushDebugLog } = require('@friggframework/logs');
+const { createHash } = require('crypto');
 
 class Manager extends ModuleManager {
     static Entity = Entity;
@@ -75,11 +76,17 @@ class Manager extends ModuleManager {
             subType,
             subdomain,
         });
-        return {
+        const returnObj = {
             credential_id: this.credential.id,
             entity_id: this.entity.id,
             type: Manager.getName(),
         };
+        // TODO this... kinda sucks (we don't want subType to be returned normally, however,
+        //  there's probably a cleaner code pattern. But also, we're probably
+        //  getting rid of Manager classes altogether
+        if (subType) returnObj.subType = subType;
+
+        return returnObj;
     }
 
     async findOrCreateCredential(params) {
@@ -113,13 +120,14 @@ class Manager extends ModuleManager {
     }
 
     async findOrCreateEntity(params) {
-        const apiKey = get(params.data, 'apiKey', null);
+        const apiKey = get(params, 'apiKey', null);
         const name = get(params, 'name', null);
         const subType = get(params, 'subType', null);
+        const externalId = createHash('sha256', apiKey);
 
         const search = await Entity.find({
             user: this.userId,
-            externalId: apiKey,
+            externalId,
             subType,
         });
         if (search.length === 0) {
@@ -128,7 +136,7 @@ class Manager extends ModuleManager {
                 user: this.userId,
                 name,
                 subType,
-                externalId: apiKey,
+                externalId,
             };
             this.entity = await Entity.create(createObj);
         } else if (search.length === 1) {

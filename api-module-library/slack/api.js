@@ -1,5 +1,6 @@
 const { OAuth2Requester } = require('@friggframework/module-plugin');
 const { get } = require('@friggframework/assertions');
+const { FetchError } = require('@friggframework/errors');
 
 class Api extends OAuth2Requester {
     constructor(params) {
@@ -19,6 +20,7 @@ class Api extends OAuth2Requester {
             authorize: 'https://slack.com/oauth/v2/authorize',
             access_token: '/oauth.v2.access',
             authTest: '/auth.test',
+            listTeams: '/auth.teams.list',
 
             // Chats
             getMessagePermalink: '/chat.getPermalink',
@@ -43,7 +45,60 @@ class Api extends OAuth2Requester {
             sharedFilePublicURL: '/files.sharedPublicURL', // Enables a file for public/external sharing.
         };
 
-        this.authorizationUri = `${this.URLs.authorize}?state=FRIGGSLACKAPP&client_id=${this.client_id}&scope=${this.scope}&redirect_uri=${this.redirect_uri}`;
+        this.tokenUri = this.baseUrl + this.URLs.access_token;
+        this.authorizationUri = encodeURI(
+            `${this.URLs.authorize}?state=&client_id=${this.client_id}&scope=${this.scope}&redirect_uri=${this.redirect_uri}`
+        );
+    }
+
+    async _request(url, options, i = 0) {
+        let encodedUrl = encodeURI(url);
+        if (options.query) {
+            let queryBuild = '?';
+            for (const key in options.query) {
+                queryBuild += `${encodeURIComponent(key)}=${encodeURIComponent(
+                    options.query[key]
+                )}&`;
+            }
+            encodedUrl += queryBuild.slice(0, -1);
+        }
+
+        options.headers = await this.addAuthHeaders(options.headers);
+
+        const response = await this.fetch(encodedUrl, options);
+        const { status } = response;
+        const { ok } = response.body;
+
+        // If the status is retriable and there are back off requests left, retry the request
+        if ((status === 429 || status >= 500) && i < this.backOff.length) {
+            const delay = this.backOff[i] * 1000;
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            return this._request(url, options, i + 1);
+        } else if (status === 401) {
+            if (!this.isRefreshable || this.refreshCount > 0) {
+                await this.notify(this.DLGT_INVALID_AUTH);
+            } else {
+                this.refreshCount++;
+                // this.isRefreshable = false; // Set so that if we 401 during refresh request, we hit the above block
+                await this.refreshAuth();
+                // this.isRefreshable = true;// Set so that we can retry later? in case it's a fast expiring auth
+                this.refreshCount = 0;
+                return this._request(url, options, i + 1); // Retries
+            }
+        }
+
+        // If the error wasn't retried, throw.
+        if (status >= 400) {
+            throw await FetchError.create({
+                resource: encodedUrl,
+                init: options,
+                response,
+            });
+        }
+
+        return options.returnFullRes
+            ? response
+            : await this.parsedBody(response);
     }
 
     async addAuthHeaders(headers) {
@@ -56,21 +111,11 @@ class Api extends OAuth2Requester {
     async getAuthUri() {
         return this.authorizationUri;
     }
-
-    async getTokenFromCode(code) {
+    async listTeams() {
         const options = {
-            url: this.baseUrl + this.URLs.access_token,
-            body: {
-                client_id: this.client_id,
-                client_secret: this.client_secret,
-                code,
-            },
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
+            url: this.baseUrl + this.URLs.listTeams,
         };
-        const response = await this._post(options);
+        const response = await this._get(options);
         return response;
     }
 
