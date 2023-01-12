@@ -1,5 +1,6 @@
 const { OAuth2Requester } = require('@friggframework/module-plugin');
 const { get } = require('@friggframework/assertions');
+const { FetchError } = require('@friggframework/errors');
 
 class Api extends OAuth2Requester {
     constructor(params) {
@@ -48,6 +49,56 @@ class Api extends OAuth2Requester {
         this.authorizationUri = encodeURI(
             `${this.URLs.authorize}?state=&client_id=${this.client_id}&scope=${this.scope}&redirect_uri=${this.redirect_uri}`
         );
+    }
+
+    async _request(url, options, i = 0) {
+        let encodedUrl = encodeURI(url);
+        if (options.query) {
+            let queryBuild = '?';
+            for (const key in options.query) {
+                queryBuild += `${encodeURIComponent(key)}=${encodeURIComponent(
+                    options.query[key]
+                )}&`;
+            }
+            encodedUrl += queryBuild.slice(0, -1);
+        }
+
+        options.headers = await this.addAuthHeaders(options.headers);
+
+        const response = await this.fetch(encodedUrl, options);
+        const { status } = response;
+        const { ok } = response.body;
+
+        // If the status is retriable and there are back off requests left, retry the request
+        if ((status === 429 || status >= 500) && i < this.backOff.length) {
+            const delay = this.backOff[i] * 1000;
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            return this._request(url, options, i + 1);
+        } else if (status === 401) {
+            if (!this.isRefreshable || this.refreshCount > 0) {
+                await this.notify(this.DLGT_INVALID_AUTH);
+            } else {
+                this.refreshCount++;
+                // this.isRefreshable = false; // Set so that if we 401 during refresh request, we hit the above block
+                await this.refreshAuth();
+                // this.isRefreshable = true;// Set so that we can retry later? in case it's a fast expiring auth
+                this.refreshCount = 0;
+                return this._request(url, options, i + 1); // Retries
+            }
+        }
+
+        // If the error wasn't retried, throw.
+        if (status >= 400) {
+            throw await FetchError.create({
+                resource: encodedUrl,
+                init: options,
+                response,
+            });
+        }
+
+        return options.returnFullRes
+            ? response
+            : await this.parsedBody(response);
     }
 
     async addAuthHeaders(headers) {

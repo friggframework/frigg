@@ -10,6 +10,7 @@ const {
 const AuthFields = require('./authFields');
 const Config = require('./defaultConfig.json');
 const { flushDebugLog } = require('@friggframework/logs');
+const { createHash } = require('crypto');
 
 class Manager extends ModuleManager {
     static Entity = Entity;
@@ -113,13 +114,14 @@ class Manager extends ModuleManager {
     }
 
     async findOrCreateEntity(params) {
-        const apiKey = get(params.data, 'apiKey', null);
+        const apiKey = get(params, 'apiKey', null);
         const name = get(params, 'name', null);
         const subType = get(params, 'subType', null);
+        const externalId = createHash('sha256', apiKey)
 
         const search = await Entity.find({
             user: this.userId,
-            externalId: apiKey,
+            externalId,
             subType,
         });
         if (search.length === 0) {
@@ -128,7 +130,7 @@ class Manager extends ModuleManager {
                 user: this.userId,
                 name,
                 subType,
-                externalId: apiKey,
+                externalId,
             };
             this.entity = await Entity.create(createObj);
         } else if (search.length === 1) {

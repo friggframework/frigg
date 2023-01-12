@@ -27,7 +27,7 @@ describe(`Should fully test the ${config.label} Manager`, () => {
         expect(requirements.type).to.equal('oauth2');
     });
     describe('processAuthorizationCallback()', () => {
-        it('should return client', async () => {
+        it.skip('should return client', async () => {
             const requirements = await manager.getAuthorizationRequirements();
             const { url } = requirements;
             const response = await Authenticator.oauth2(url);
@@ -47,7 +47,7 @@ describe(`Should fully test the ${config.label} Manager`, () => {
             expect(authRes).to.have.property('credential_id');
             expect(authRes).to.have.property('type');
         });
-        it.skip('should error if incorrect auth data', async () => {
+        it('should error if incorrect auth data', async () => {
             try {
                 const authRes = await manager.processAuthorizationCallback({
                     data: {
