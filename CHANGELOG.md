@@ -2,6 +2,20 @@
 
 #### 🐛 Bug Fix
 
+- `@friggframework/api-module-slack@0.1.12`
+  - Slack authUri [#94](https://github.com/friggframework/frigg/pull/94) ([@seanspeaks](https://github.com/seanspeaks))
+  - slack redirect URI [#93](https://github.com/friggframework/frigg/pull/93) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Thu Jan 12 2023)
+
+#### 🐛 Bug Fix
+
 - `@friggframework/api-module-slack@0.1.11`
   - slack redirect URI [#93](https://github.com/friggframework/frigg/pull/93) ([@seanspeaks](https://github.com/seanspeaks))
 

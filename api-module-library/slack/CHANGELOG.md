@@ -1,3 +1,18 @@
+# v0.1.12 (Thu Jan 12 2023)
+
+#### 🐛 Bug Fix
+
+- Slack authUri [#94](https://github.com/friggframework/frigg/pull/94) ([@seanspeaks](https://github.com/seanspeaks))
+- authUri ([@seanspeaks](https://github.com/seanspeaks))
+- slack redirect URI [#93](https://github.com/friggframework/frigg/pull/93) ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.1.11 (Thu Jan 12 2023)
 
 #### 🐛 Bug Fix
