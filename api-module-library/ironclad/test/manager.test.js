@@ -64,6 +64,18 @@ describe(`Should fully test the ${config.label} Manager`, () => {
                     expect(e.message).to.contain('Auth Error');
                 }
             });
+            it('should CastError', async () => {
+                try {
+                    const authRes = await manager.processAuthorizationCallback({
+                        data: {
+                            subdomain: process.env.IRONCLAD_SUBDOMAIN,
+                        },
+                    });
+                    expect(authRes).to.not.exist;
+                } catch (e) {
+                    expect(e.message).to.contain('Auth Error');
+                }
+            });
         });
 
         describe('subType tests', () => {
