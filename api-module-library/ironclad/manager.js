@@ -94,7 +94,7 @@ class Manager extends ModuleManager {
         const subdomain = get(params, 'subdomain', null);
         const subType = get(params, 'subType', null);
 
-        const search = await Entity.find({
+        const search = await Credential.find({
             user: this.userId,
             apiKey,
             subType,
@@ -123,7 +123,7 @@ class Manager extends ModuleManager {
         const apiKey = get(params, 'apiKey', null);
         const name = get(params, 'name', null);
         const subType = get(params, 'subType', null);
-        const externalId = createHash('sha256', apiKey);
+        const externalId = createHash('sha256').update(apiKey).digest('hex');
 
         const search = await Entity.find({
             user: this.userId,

@@ -67,39 +67,39 @@ class Api extends OAuth2Requester {
         options.headers = await this.addAuthHeaders(options.headers);
 
         const response = await this.fetch(encodedUrl, options);
+        const parsedResponse = await this.parsedBody(response);
         const { status } = response;
-        const { ok } = response.body;
+        const { ok, error } = parsedResponse;
 
         // If the status is retriable and there are back off requests left, retry the request
         if ((status === 429 || status >= 500) && i < this.backOff.length) {
             const delay = this.backOff[i] * 1000;
             await new Promise((resolve) => setTimeout(resolve, delay));
             return this._request(url, options, i + 1);
-        } else if (status === 401) {
+        } else if (
+            parsedResponse.error === 'invalid_auth' ||
+            parsedResponse.error === 'auth_expired'
+        ) {
             if (!this.isRefreshable || this.refreshCount > 0) {
                 await this.notify(this.DLGT_INVALID_AUTH);
             } else {
                 this.refreshCount++;
-                // this.isRefreshable = false; // Set so that if we 401 during refresh request, we hit the above block
                 await this.refreshAuth();
-                // this.isRefreshable = true;// Set so that we can retry later? in case it's a fast expiring auth
-                this.refreshCount = 0;
                 return this._request(url, options, i + 1); // Retries
             }
         }
 
         // If the error wasn't retried, throw.
-        if (status >= 400) {
+        if (!ok) {
             throw await FetchError.create({
                 resource: encodedUrl,
                 init: options,
                 response,
+                body: parsedResponse,
             });
         }
 
-        return options.returnFullRes
-            ? response
-            : await this.parsedBody(response);
+        return parsedResponse;
     }
 
     async addAuthHeaders(headers) {
