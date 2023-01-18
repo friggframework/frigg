@@ -56,7 +56,8 @@ class FetchError extends BaseError {
 
     static async create(options = {}) {
         const { response } = options;
-        const responseBody = response?.bodyUsed ? null : await response?.text();
+        let responseBody = response?.bodyUsed ? null : await response?.text();
+        if (!responseBody && options.body) responseBody = options.body;
         return new FetchError({ ...options, responseBody });
     }
 }

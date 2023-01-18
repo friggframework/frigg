@@ -45,18 +45,14 @@ class Manager extends ModuleManager {
         return {
             url: await this.api.getAuthUri(),
             type: ModuleConstants.authType.oauth2,
-            data: {
-                jsonSchema: ConfigFields.jsonSchema,
-                uiSchema: ConfigFields.uiSchema,
-            },
+            data: {},
         };
     }
 
     async testAuth() {
         let validAuth = false;
         try {
-            const authRes = await this.api.authTest();
-            if (authRes.ok) validAuth = true;
+            if (await this.api.authTest()) validAuth = true;
         } catch (e) {
             flushDebugLog(e);
         }
@@ -66,7 +62,12 @@ class Manager extends ModuleManager {
         const code = get(params.data, 'code', null);
 
         // For OAuth2, generate the token and store in this.credential and the DB
-        await this.api.getTokenFromCode(code);
+
+        try {
+            await this.api.getTokenFromCode(code);
+        } catch (e) {
+            throw new Error('Auth Error');
+        }
         const authRes = await this.testAuth();
         if (!authRes) throw new Error('Auth Error');
 
@@ -94,7 +95,7 @@ class Manager extends ModuleManager {
         const access_token = get(params, 'access_token', null);
         const refresh_token = get(params, 'access_token', null);
 
-        const search = await Entity.find({
+        const search = await Credential.find({
             user: this.userId,
         });
 
