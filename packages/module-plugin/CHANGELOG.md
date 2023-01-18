@@ -1,3 +1,17 @@
+# v1.0.21 (Wed Jan 18 2023)
+
+#### 🐛 Bug Fix
+
+- Ironclad and slack updates [#96](https://github.com/friggframework/frigg/pull/96) ([@seanspeaks](https://github.com/seanspeaks))
+- Refresh Auth attempt only once, instead of potential for infinite loop [#95](https://github.com/friggframework/frigg/pull/95) ([@seanspeaks](https://github.com/seanspeaks))
+- Refresh Auth attempt only once, instead of potential for infinite loop ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.0.20 (Wed Jan 11 2023)
 
 #### 🐛 Bug Fix

@@ -1,3 +1,18 @@
+# (Wed Jan 18 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.23`, `@friggframework/api-module-slack@0.1.13`, `@friggframework/errors@1.1.5`
+  - Ironclad and slack updates [#96](https://github.com/friggframework/frigg/pull/96) ([@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/module-plugin@1.0.21`
+  - Refresh Auth attempt only once, instead of potential for infinite loop [#95](https://github.com/friggframework/frigg/pull/95) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Thu Jan 12 2023)
 
 #### 🐛 Bug Fix

@@ -1,3 +1,16 @@
+# v1.1.5 (Wed Jan 18 2023)
+
+#### 🐛 Bug Fix
+
+- Ironclad and slack updates [#96](https://github.com/friggframework/frigg/pull/96) ([@seanspeaks](https://github.com/seanspeaks))
+- Fetch Error fix to also log a body if already used (and passed in) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.1.4 (Mon Jan 09 2023)
 
 #### 🐛 Bug Fix

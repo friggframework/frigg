@@ -1,3 +1,16 @@
+# v0.0.23 (Wed Jan 18 2023)
+
+#### 🐛 Bug Fix
+
+- Ironclad and slack updates [#96](https://github.com/friggframework/frigg/pull/96) ([@seanspeaks](https://github.com/seanspeaks))
+- Hash fix ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.22 (Thu Jan 12 2023)
 
 #### 🐛 Bug Fix
