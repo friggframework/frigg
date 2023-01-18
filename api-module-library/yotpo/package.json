@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-yotpo",
-    "version": "0.0.7",
+    "version": "0.0.8",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -24,7 +24,7 @@
     },
     "dependencies": {
         "@friggframework/assertions": "^1.0.7",
-        "@friggframework/module-plugin": "^1.0.20",
+        "@friggframework/module-plugin": "^1.0.21",
         "nock": "^13.2.9"
     }
 }
