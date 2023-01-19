@@ -1,11 +1,11 @@
 {
     "name": "@friggframework/prettier-config",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "description": "",
     "main": "index.js",
     "prettier": "@friggframework/prettier-config",
     "devDependencies": {
-        "@friggframework/eslint-config": "^1.0.7"
+        "@friggframework/eslint-config": "^1.0.8"
     },
     "scripts": {
         "lint:fix": "prettier --write --loglevel error . && eslint . --fix",

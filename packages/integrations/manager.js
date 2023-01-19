@@ -234,9 +234,9 @@ class IntegrationManager extends Delegate {
         };
         for (const entityId of integration.entities) {
             // Only return non-internal fields. Leverages "select" and "options" to non-excepted fields and a pure object.
-            const entity = await Entity.find(
+            const entity = await Entity.findById(
                 entityId,
-                '-dateCreated -dateUpdated -user -credentials -credential -_id -__t -__v',
+                '-createdAt -updatedAt -user -credentials -credential -_id -__t -__v',
                 { lean: true }
             );
             integrationObj.entities.push({

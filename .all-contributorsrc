@@ -150,6 +150,27 @@
         "research",
         "review"
       ]
+    },
+    {
+      "login": "queuetue",
+      "name": "Scott Russell",
+      "avatar_url": "https://avatars.githubusercontent.com/u/4491?v=4",
+      "profile": "https://queuetue.com/",
+      "contributions": [
+        "doc",
+        "test",
+        "code"
+      ]
+    },
+    {
+      "login": "joncodo",
+      "name": "Jonathan O'Donnell",
+      "avatar_url": "https://avatars.githubusercontent.com/u/3011407?v=4",
+      "profile": "https://github.com/joncodo",
+      "contributions": [
+        "doc",
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7

@@ -16,6 +16,7 @@ class Manager extends ModuleManager {
 
     constructor(params) {
         super(params);
+        this.redirect_uri = get(params, 'redirect_uri', null);
     }
 
     static getName() {
@@ -25,22 +26,17 @@ class Manager extends ModuleManager {
     static async getInstance(params) {
         let instance = new this(params);
 
-        const managerParams = { delegate: instance };
+        const apiParams = { delegate: instance };
+        if (this.redirect_uri) apiParams.redirect_uri = this.redirect_uri;
         if (params.entityId) {
             instance.entity = await Entity.findById(params.entityId);
             instance.credential = await Credential.findById(
                 instance.entity.credential
             );
-            managerParams.access_token = instance.credential.access_token;
-            managerParams.refresh_token = instance.credential.refresh_token;
-        } else if (params.credentialId) {
-            instance.credential = await Credential.findById(
-                params.credentialId
-            );
-            managerParams.access_token = instance.credential.access_token;
-            managerParams.refresh_token = instance.credential.refresh_token;
+            apiParams.access_token = instance.credential.access_token;
+            apiParams.refresh_token = instance.credential.refresh_token;
         }
-        instance.api = await new Api(managerParams);
+        instance.api = await new Api(apiParams);
 
         return instance;
     }
@@ -49,29 +45,40 @@ class Manager extends ModuleManager {
         return {
             url: await this.api.getAuthUri(),
             type: ModuleConstants.authType.oauth2,
-            data: {
-                jsonSchema: ConfigFields.jsonSchema,
-                uiSchema: ConfigFields.uiSchema,
-            },
+            data: {},
         };
     }
 
+    async testAuth() {
+        let validAuth = false;
+        try {
+            if (await this.api.authTest()) validAuth = true;
+        } catch (e) {
+            flushDebugLog(e);
+        }
+        return validAuth;
+    }
     async processAuthorizationCallback(params) {
         const code = get(params.data, 'code', null);
-        const clientId = this.api.client_id;
-        const clientSecret = this.api.client_secret;
 
         // For OAuth2, generate the token and store in this.credential and the DB
-        await this.api.getTokenFromCode(code);
+
+        try {
+            await this.api.getTokenFromCode(code);
+        } catch (e) {
+            throw new Error('Auth Error');
+        }
+        const authRes = await this.testAuth();
+        if (!authRes) throw new Error('Auth Error');
+
         // get entity identifying information from the api. You'll need to format this.
-        await this.findOrCreateCredential({
-            client_id: clientId,
-            client_secret: clientSecret,
-        });
+
+        const workspaceInfo = this.api.authTest();
+
         await this.findOrCreateEntity({
-            client_id: clientId,
+            externalId: workspaceInfo.team_id,
+            name: workspaceInfo.team,
         });
-        console.log('thisworks');
         return {
             credential_id: this.credential.id,
             entity_id: this.entity.id,
@@ -85,12 +92,11 @@ class Manager extends ModuleManager {
     }
 
     async findOrCreateCredential(params) {
-        const clientId = get(params, 'client_id', null);
-        const clientSecret = get(params, 'client_secret', null);
+        const access_token = get(params, 'access_token', null);
+        const refresh_token = get(params, 'access_token', null);
 
-        const search = await Entity.find({
+        const search = await Credential.find({
             user: this.userId,
-            client_id: clientId,
         });
 
         if (search.length === 0) {
@@ -98,28 +104,25 @@ class Manager extends ModuleManager {
             // create credential
             const createObj = {
                 user: this.userId,
-                client_id: clientId,
-                client_secret: clientSecret,
+                access_token,
+                refresh_token,
             };
             this.credential = await Credential.create(createObj);
             // this.credential = await this.credentialMO.create(createObj);
         } else if (search.length === 1) {
             this.credential = search[0];
         } else {
-            debug(
-                'Multiple credentials found with the same Client ID:',
-                clientId
-            );
+            debug('Multiple credentials found for this user');
         }
     }
 
     async findOrCreateEntity(params) {
-        const clientId = get(params, 'client_id', null);
+        const externalId = get(params, 'externalId', null);
         const name = get(params, 'name', null);
 
         const search = await Entity.find({
             user: this.userId,
-            externalId: clientId,
+            externalId,
         });
         if (search.length === 0) {
             // validate choices!!!
@@ -128,7 +131,7 @@ class Manager extends ModuleManager {
                 credential: this.credential.id,
                 user: this.userId,
                 name,
-                externalId: clientId,
+                externalId,
             };
             this.entity = await Entity.create(createObj);
         } else if (search.length === 1) {
@@ -136,7 +139,7 @@ class Manager extends ModuleManager {
         } else {
             debug(
                 'Multiple entities found with the same external ID:',
-                clientId
+                externalId
             );
             this.throwException('');
         }
@@ -157,7 +160,6 @@ class Manager extends ModuleManager {
     async receiveNotification(notifier, delegateString, object = null) {
         if (notifier instanceof Api) {
             if (delegateString === this.api.DLGT_TOKEN_UPDATE) {
-                const userDetails = await this.api.getTokenIdentity();
                 const updatedToken = {
                     user: this.userId.toString(),
                     access_token: this.api.access_token,
@@ -170,10 +172,8 @@ class Manager extends ModuleManager {
                 );
 
                 if (!this.credential) {
-                    // What are we identifying the credential by?
-                    // TODO this needs to change for your API. This is how we do it for HubSpot ("Portal ID")
                     let credentialSearch = await Credential.find({
-                        client_id: userDetails.client_id,
+                        user: this.userId.toString(),
                     });
                     if (credentialSearch.length === 0) {
                         this.credential = await Credential.create(updatedToken);
@@ -185,15 +185,13 @@ class Manager extends ModuleManager {
                             );
                         } else {
                             debug(
-                                'Somebody else already created a credential with the same client ID:',
-                                userDetails.client_id
+                                'Somebody else already created a credential with the same client ID:'
                             );
                         }
                     } else {
                         // Handling multiple credentials found with an error for the time being
                         debug(
-                            'Multiple credentials found with the same client ID:',
-                            userDetails.client_id
+                            'Multiple credentials found with the same client ID:'
                         );
                     }
                 } else {

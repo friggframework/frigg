@@ -8,6 +8,7 @@ const schema = new mongoose.Schema(
             ref: 'User',
             required: true,
         },
+        subType: { type: String },
         auth_is_valid: { type: Boolean },
         externalId: { type: String }, // Used for lookups, identifying the owner of the credential
     },

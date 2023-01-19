@@ -57,10 +57,7 @@ class Requester extends Delegate {
                 await this.notify(this.DLGT_INVALID_AUTH);
             } else {
                 this.refreshCount++;
-                // this.isRefreshable = false; // Set so that if we 401 during refresh request, we hit the above block
                 await this.refreshAuth();
-                // this.isRefreshable = true;// Set so that we can retry later? in case it's a fast expiring auth
-                this.refreshCount = 0;
                 return this._request(url, options, i + 1); // Retries
             }
         }

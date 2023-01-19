@@ -1,5 +1,6 @@
 const { OAuth2Requester } = require('@friggframework/module-plugin');
 const { get } = require('@friggframework/assertions');
+const { FetchError } = require('@friggframework/errors');
 
 class Api extends OAuth2Requester {
     constructor(params) {
@@ -11,7 +12,11 @@ class Api extends OAuth2Requester {
         // this.client_id = get(params, 'client_id');
         // this.client_secret = get(params, 'client_secret');
         this.scope = process.env.SLACK_SCOPE;
-        this.redirect_uri = `${process.env.REDIRECT_URI}/slack`;
+        this.redirect_uri = get(
+            params,
+            'redirect_uri',
+            `${process.env.REDIRECT_URI}/slack`
+        );
         this.access_token = get(params, 'access_token', null);
 
         this.URLs = {
@@ -19,6 +24,7 @@ class Api extends OAuth2Requester {
             authorize: 'https://slack.com/oauth/v2/authorize',
             access_token: '/oauth.v2.access',
             authTest: '/auth.test',
+            listTeams: '/auth.teams.list',
 
             // Chats
             getMessagePermalink: '/chat.getPermalink',
@@ -43,7 +49,57 @@ class Api extends OAuth2Requester {
             sharedFilePublicURL: '/files.sharedPublicURL', // Enables a file for public/external sharing.
         };
 
-        this.authorizationUri = `${this.URLs.authorize}?state=FRIGGSLACKAPP&client_id=${this.client_id}&scope=${this.scope}&redirect_uri=${this.redirect_uri}`;
+        this.tokenUri = this.baseUrl + this.URLs.access_token;
+    }
+
+    async _request(url, options, i = 0) {
+        let encodedUrl = encodeURI(url);
+        if (options.query) {
+            let queryBuild = '?';
+            for (const key in options.query) {
+                queryBuild += `${encodeURIComponent(key)}=${encodeURIComponent(
+                    options.query[key]
+                )}&`;
+            }
+            encodedUrl += queryBuild.slice(0, -1);
+        }
+
+        options.headers = await this.addAuthHeaders(options.headers);
+
+        const response = await this.fetch(encodedUrl, options);
+        const parsedResponse = await this.parsedBody(response);
+        const { status } = response;
+        const { ok, error } = parsedResponse;
+
+        // If the status is retriable and there are back off requests left, retry the request
+        if ((status === 429 || status >= 500) && i < this.backOff.length) {
+            const delay = this.backOff[i] * 1000;
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            return this._request(url, options, i + 1);
+        } else if (
+            parsedResponse.error === 'invalid_auth' ||
+            parsedResponse.error === 'auth_expired'
+        ) {
+            if (!this.isRefreshable || this.refreshCount > 0) {
+                await this.notify(this.DLGT_INVALID_AUTH);
+            } else {
+                this.refreshCount++;
+                await this.refreshAuth();
+                return this._request(url, options, i + 1); // Retries
+            }
+        }
+
+        // If the error wasn't retried, throw.
+        if (!ok) {
+            throw await FetchError.create({
+                resource: encodedUrl,
+                init: options,
+                response,
+                body: parsedResponse,
+            });
+        }
+
+        return parsedResponse;
     }
 
     async addAuthHeaders(headers) {
@@ -54,23 +110,16 @@ class Api extends OAuth2Requester {
     }
 
     async getAuthUri() {
-        return this.authorizationUri;
+        const authUri = encodeURI(
+            `${this.URLs.authorize}?state=&client_id=${this.client_id}&scope=${this.scope}&redirect_uri=${this.redirect_uri}`
+        );
+        return authUri;
     }
-
-    async getTokenFromCode(code) {
+    async listTeams() {
         const options = {
-            url: this.baseUrl + this.URLs.access_token,
-            body: {
-                client_id: this.client_id,
-                client_secret: this.client_secret,
-                code,
-            },
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
+            url: this.baseUrl + this.URLs.listTeams,
         };
-        const response = await this._post(options);
+        const response = await this._get(options);
         return response;
     }
 

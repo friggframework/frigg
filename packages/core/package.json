@@ -1,9 +1,9 @@
 {
     "name": "@friggframework/core",
     "prettier": "@friggframework/prettier-config",
-    "version": "0.2.9",
+    "version": "0.2.11",
     "devDependencies": {
-        "@friggframework/eslint-config": "^1.0.7",
+        "@friggframework/eslint-config": "^1.0.8",
         "eslint": "^8.22.0",
         "jest": "^28.1.3",
         "prettier": "^2.7.1"
@@ -24,7 +24,7 @@
     },
     "homepage": "https://github.com/friggframework/frigg#readme",
     "dependencies": {
-        "@friggframework/assertions": "^1.0.5",
+        "@friggframework/assertions": "^1.0.7",
         "moment": "^2.29.4",
         "node-fetch": "^2.6.7"
     },

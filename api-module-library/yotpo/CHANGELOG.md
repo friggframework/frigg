@@ -1,3 +1,33 @@
+# v0.0.6 (Tue Jan 10 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, Jonathan O'Donnell ([@joncodo](https://github.com/joncodo)), for all your work!
+
+#### 🐛 Bug Fix
+
+- Merge branch 'main' of github.com:friggframework/frigg into doc-updates ([@joncodo](https://github.com/joncodo))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Jonathan O'Donnell ([@joncodo](https://github.com/joncodo))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.0.5 (Mon Jan 09 2023)
+
+#### ⚠️ Pushed to `main`
+
+- Merge branch 'main' into gitbook-updates ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.2 (Tue Dec 20 2022)
 
 #### 🐛 Bug Fix
