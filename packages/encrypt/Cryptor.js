@@ -20,7 +20,7 @@ class Cryptor {
     }
 
     async generateDataKey() {
-        if (this.shouldUseAws) {
+        if (this?.shouldUseAws) {
             const kmsClient = new AWS.KMS();
             const dataKey = await kmsClient
                 .generateDataKey({
@@ -36,7 +36,14 @@ class Cryptor {
         }
 
         const { AES_KEY, AES_KEY_ID } = process.env;
+        console.log('JON >>> process.env.AES_KEY', process.env.AES_KEY);
         const randomKey = crypto.randomBytes(32).toString('hex').slice(0, 32);
+
+        if (!AES_KEY || !AES_KEY_ID) {
+            throw new Error(
+                `Environment variables not set for AES_KEY or AES_KEY_ID`
+            );
+        }
 
         return {
             keyId: Buffer.from(AES_KEY_ID).toString('base64'),
