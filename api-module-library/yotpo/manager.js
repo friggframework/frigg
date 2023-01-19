@@ -4,7 +4,8 @@ const {
     ModuleManager,
     ModuleConstants,
 } = require('@friggframework/module-plugin');
-const { Api } = require('./api');
+const { Api } = require('./api/api');
+const { appDeveloperApi } = require('./api/appDeveloperApi');
 const { Entity } = require('./entity');
 const { Credential } = require('./credential');
 
@@ -26,22 +27,24 @@ class Manager extends ModuleManager {
     static async getInstance(params) {
         const instance = new this(params);
 
-        let managerParams = { delegate: instance };
+        let apiParams = {
+            client_id: process.env.YOTPO_CLIENT_ID,
+            client_secret: process.env.YOTPO_CLIENT_SECRET,
+            redirect_uri: `${process.env.REDIRECT_URI}/yotpo`,
+            delegate: instance,
+        };
         if (params.entityId) {
             instance.entity = await Entity.findById(params.entityId);
             instance.credential = await Credential.findById(
                 instance.entity.credential
             );
-            managerParams.store_id = instance.credential.store_id;
-            managerParams.secret = instance.credential.secret;
-        } else if (params.credentialId) {
-            instance.credential = await Credential.findById(
-                params.credentialId
-            );
-            managerParams.store_id = instance.credential.store_id;
-            managerParams.secret = instance.credential.secret;
+            apiParams = {
+                ...apiParams,
+                ...instance.credential.toObject(),
+            };
+            apiParams.API_KEY_VALUE = apiParams.coreApiAccessToken;
         }
-        instance.api = await new Api(managerParams);
+        instance.api = await new Api(apiParams);
 
         return instance;
     }
@@ -50,7 +53,11 @@ class Manager extends ModuleManager {
     async testAuth() {
         let validAuth = false;
         try {
-            if (await this.api.getUserDetails()) validAuth = true;
+            if (
+                (await this.api.coreApi.listOrders()) &&
+                (await this.api.appDeveloperApi.listOrders())
+            )
+                validAuth = true;
         } catch (e) {
             flushDebugLog(e);
         }
@@ -59,7 +66,7 @@ class Manager extends ModuleManager {
 
     async getAuthorizationRequirements(params) {
         return {
-            url: this.api.authorizationUri,
+            url: this.api.appDeveloperApi.authorizationUri,
             type: ModuleConstants.authType.oauth2,
             data: {
                 jsonSchema: AuthFields.jsonSchema,
@@ -71,12 +78,15 @@ class Manager extends ModuleManager {
     async processAuthorizationCallback(params) {
         const store_id = get(params.data, 'store_id', null);
         const secret = get(params.data, 'secret', null);
-        this.api = new Api({ store_id, secret });
-
-        await this.findOrCreateCredential({
-            store_id,
-            secret,
-        });
+        const code = get(params.data, 'code', null);
+        const appKey = get(params.data, 'app_key', null);
+        this.api.coreApi.store_id = store_id;
+        this.api.coreApi.apiKeySecret = secret;
+        this.api.appDeveloperApi.appKey = appKey;
+        await this.api.coreApi.getToken();
+        await this.api.appDeveloperApi.getTokenFromCode(code);
+        const authRes = await this.testAuth();
+        if (!authRes) throw new Error('Authentication failed');
 
         await this.findOrCreateEntity({
             store_id,
@@ -89,11 +99,12 @@ class Manager extends ModuleManager {
         };
     }
 
+    // Maybe need this if we want to offer JUST Core API
     async findOrCreateCredential(params) {
         const store_id = get(params.data, 'store_id', null);
         const secret = get(params.data, 'secret', null);
 
-        const search = await Entity.find({
+        const search = await Credential.find({
             user: this.userId,
             store_id,
             secret,
@@ -119,7 +130,6 @@ class Manager extends ModuleManager {
 
     async findOrCreateEntity(params) {
         const store_id = get(params.data, 'store_id', null);
-        const secret = get(params.data, 'secret', null);
         const name = get(params, 'name', null);
 
         const search = await Entity.find({
@@ -142,6 +152,56 @@ class Manager extends ModuleManager {
                 store_id
             );
             this.throwException('');
+        }
+    }
+    async receiveNotification(notifier, delegateString, object = null) {
+        if (delegateString === this.api.appDeveloperApi.DLGT_TOKEN_UPDATE) {
+            const updatedToken = {
+                user: this.userId.toString(),
+                access_token: this.api.appDeveloperApi.access_token,
+                refresh_token: this.api.appDeveloperApi.refresh_token,
+                auth_is_valid: true,
+                store_id: this.api.coreApi.store_id,
+                secret: this.api.coreApi.secret,
+                coreApiAccessToken: this.api.coreApi.API_KEY_VALUE,
+                appKey: this.api.appDeveloperApi.appKey,
+            };
+
+            Object.keys(updatedToken).forEach(
+                (k) => updatedToken[k] == null && delete updatedToken[k]
+            );
+            // TODO-new globally... multiple credentials should be allowed, this is 1:1
+            if (!this.credential) {
+                let credentialSearch = await Credential.find({
+                    user: this.userId.toString(),
+                });
+                if (credentialSearch.length === 0) {
+                    this.credential = await Credential.create(updatedToken);
+                } else if (credentialSearch.length === 1) {
+                    this.credential = await Credential.update(
+                        credentialSearch[0],
+                        updatedToken
+                    );
+                } else {
+                    // Handling multiple credentials found with an error for the time being
+                    debug(
+                        'Multiple credentials found with the same client ID:'
+                    );
+                }
+            } else {
+                this.credential = await Credential.update(
+                    this.credential,
+                    updatedToken
+                );
+            }
+        }
+        if (
+            delegateString === this.api.appDeveloperApi.DLGT_TOKEN_DEAUTHORIZED
+        ) {
+            await this.deauthorize();
+        }
+        if (delegateString === this.api.appDeveloperApi.DLGT_INVALID_AUTH) {
+            return this.markCredentialsInvalid();
         }
     }
 
