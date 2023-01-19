@@ -1,3 +1,21 @@
+# v0.0.9 (Thu Jan 19 2023)
+
+#### 🐛 Bug Fix
+
+- Proper export [#99](https://github.com/friggframework/frigg/pull/99) ([@seanspeaks](https://github.com/seanspeaks))
+- Proper export ([@seanspeaks](https://github.com/seanspeaks))
+- Api module library yotpo [#98](https://github.com/friggframework/frigg/pull/98) ([@seanspeaks](https://github.com/seanspeaks))
+- Yotpo updates to accomodate the multiple APIs that use different Auth patterns. ([@seanspeaks](https://github.com/seanspeaks))
+- Breaking up apis into groupings. ([@seanspeaks](https://github.com/seanspeaks))
+- Still working through items ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.6 (Tue Jan 10 2023)
 
 :tada: This release contains work from a new contributor! :tada:
