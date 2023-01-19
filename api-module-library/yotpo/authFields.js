@@ -17,7 +17,7 @@ const AuthFields = {
         store_id: {
             'ui:help':
                 'Log into your Yotpo admin. At the top right corner of the screen, click the Profile icon. Select Store Settings. You’ll find your app key at the bottom of the General Settings section.',
-            'ui:placeholder': 'Your Yotpo Store ID',
+            'ui:placeholder': 'Your Yotpo App Key',
         },
         secret: {
             'ui:help':

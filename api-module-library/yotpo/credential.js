@@ -2,14 +2,25 @@ const mongoose = require('mongoose');
 const { Credential: Parent } = require('@friggframework/module-plugin');
 
 const schema = new mongoose.Schema({
-    api_key: {
+    access_token: {
         type: String,
         trim: true,
         lhEncrypt: true,
     },
-    api_url: {
+    appKey: {
         type: String,
-        required: true,
+        trim: true,
+    },
+    store_id: {
+        type: String,
+    },
+    secret: {
+        type: String,
+    },
+    coreApiAccessToken: {
+        type: String,
+        trim: true,
+        lhEncrypt: true,
     },
 });
 
