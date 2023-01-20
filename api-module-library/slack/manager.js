@@ -66,6 +66,7 @@ class Manager extends ModuleManager {
         try {
             await this.api.getTokenFromCode(code);
         } catch (e) {
+            flushDebugLog(e);
             throw new Error('Auth Error');
         }
         const authRes = await this.testAuth();
