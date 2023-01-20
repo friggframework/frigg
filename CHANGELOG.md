@@ -1,3 +1,20 @@
+# (Fri Jan 20 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, null[@debbie-yu](https://github.com/debbie-yu), for all your work!
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.14`
+  - log error thrown from slack get token from code call [#101](https://github.com/friggframework/frigg/pull/101) ([@debbie-yu](https://github.com/debbie-yu))
+
+#### Authors: 1
+
+- [@debbie-yu](https://github.com/debbie-yu)
+
+---
+
 # (Thu Jan 19 2023)
 
 #### 🐛 Bug Fix
