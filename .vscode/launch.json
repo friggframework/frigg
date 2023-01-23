@@ -1,0 +1,38 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch Program",
+      "skipFiles": ["<node_internals>/**"],
+      "program": "${workspaceFolder}/packages/encrypt/Cryptor.test.js"
+    },
+    {
+      "args": [
+        "-u",
+        "tdd",
+        "--testTimeout",
+        "999999",
+        "--detectOpenHandles",
+        "--colors",
+        "${file}"
+      ],
+      "internalConsoleOptions": "openOnSessionStart",
+      "name": "Single Test File",
+      "program": "node_modules/jest/bin/jest",
+      "request": "launch",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      "type": "node",
+      "env": {
+        "NODE_ENV": "test",
+        "AES_KEY": "Testing123456789Testing123456789",
+        "AES_KEY_ID": "873c84b8-4ab6-4fff-8aff-da2d0aa55bc3"
+      }
+    }
+  ]
+}
