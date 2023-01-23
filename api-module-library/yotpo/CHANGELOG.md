@@ -1,3 +1,22 @@
+# v0.0.10 (Mon Jan 23 2023)
+
+#### 🐛 Bug Fix
+
+- Api module library yotpo [#103](https://github.com/friggframework/frigg/pull/103) ([@seanspeaks](https://github.com/seanspeaks))
+- Merge branch 'main' into api-module-library-yotpo ([@seanspeaks](https://github.com/seanspeaks))
+- appKey and store_id are the same, map for now. ([@seanspeaks](https://github.com/seanspeaks))
+- Proper export [#99](https://github.com/friggframework/frigg/pull/99) ([@seanspeaks](https://github.com/seanspeaks))
+- Yotpo updates to accomodate the multiple APIs that use different Auth patterns. [#98](https://github.com/friggframework/frigg/pull/98) ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+- Breaking up apis into groupings. [#98](https://github.com/friggframework/frigg/pull/98) ([@seanspeaks](https://github.com/seanspeaks))
+- Still working through items [#98](https://github.com/friggframework/frigg/pull/98) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.9 (Thu Jan 19 2023)
 
 #### 🐛 Bug Fix

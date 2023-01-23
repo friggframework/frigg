@@ -1,3 +1,28 @@
+# (Mon Jan 23 2023)
+
+#### 🐛 Bug Fix
+
+- Update package-lock for deploy [#100](https://github.com/friggframework/frigg/pull/100) ([@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/api-module-yotpo@0.0.10`
+  - Api module library yotpo [#103](https://github.com/friggframework/frigg/pull/103) ([@seanspeaks](https://github.com/seanspeaks))
+  - Proper export [#99](https://github.com/friggframework/frigg/pull/99) ([@seanspeaks](https://github.com/seanspeaks))
+  - Yotpo updates to accomodate the multiple APIs that use different Auth patterns. [#98](https://github.com/friggframework/frigg/pull/98) ([@seanspeaks](https://github.com/seanspeaks))
+  - Breaking up apis into groupings. [#98](https://github.com/friggframework/frigg/pull/98) ([@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/api-module-activecampaign@0.8.22`, `@friggframework/api-module-airwallex@0.8.21`, `@friggframework/api-module-attentive@0.8.22`, `@friggframework/api-module-clyde@0.8.23`, `@friggframework/api-module-connectwise@0.8.24`, `@friggframework/api-module-crossbeam@0.8.21`, `@friggframework/api-module-fastspring-iq@0.8.22`, `@friggframework/api-module-front@0.8.21`, `@friggframework/api-module-gorgias@0.8.21`, `@friggframework/api-module-hubspot@0.8.21`, `@friggframework/api-module-huggg@0.8.22`, `@friggframework/api-module-ironclad@0.0.24`, `@friggframework/api-module-marketo@0.8.22`, `@friggframework/api-module-monday@0.8.21`, `@friggframework/api-module-netx@0.8.21`, `@friggframework/api-module-outreach@0.8.21`, `@friggframework/api-module-personio@0.8.22`, `@friggframework/api-module-pipedrive@0.8.21`, `@friggframework/api-module-qbo@0.8.21`, `@friggframework/api-module-rev-io@0.8.21`, `@friggframework/api-module-rollworks@0.8.21`, `@friggframework/api-module-salesforce@0.8.27`, `@friggframework/api-module-salesloft@0.8.21`, `@friggframework/api-module-slack@0.1.15`, `@friggframework/api-module-terminus@0.8.21`, `@friggframework/api-module-yotpo@0.0.10`, `@friggframework/api-module-zoom@0.8.21`, `@friggframework/assertions@1.0.8`, `@friggframework/core@0.2.12`, `@friggframework/database@1.0.10`, `@friggframework/encrypt@1.1.6`, `@friggframework/errors@1.1.6`, `@friggframework/eslint-config@1.0.9`, `@friggframework/integrations@1.0.20`, `@friggframework/logs@1.0.9`, `@friggframework/module-plugin@1.0.22`, `@friggframework/prettier-config@1.0.7`, `@friggframework/test-environment@1.1.6`
+  - Merge remote-tracking branch 'origin/main' into api-module-library-yotpo [#98](https://github.com/friggframework/frigg/pull/98) ([@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/api-module-yotpo@0.0.10`, `@friggframework/assertions@1.0.8`
+  - Still working through items [#98](https://github.com/friggframework/frigg/pull/98) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### ⚠️ Pushed to `main`
+
+- Add community channel for frigg release notifications ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Fri Jan 20 2023)
 
 :tada: This release contains work from a new contributor! :tada:
