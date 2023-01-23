@@ -79,7 +79,9 @@ class Manager extends ModuleManager {
         const store_id = get(params.data, 'store_id', null);
         const secret = get(params.data, 'secret', null);
         const code = get(params.data, 'code', null);
-        const appKey = get(params.data, 'app_key', null);
+        // const appKey = get(params.data, 'app_key', null);
+        // vv TDOO temporary for specific implementation override. Don't do this at home.
+        const appKey = get(params.data, 'store_id', null);
         this.api.coreApi.store_id = store_id;
         this.api.coreApi.apiKeySecret = secret;
         this.api.appDeveloperApi.appKey = appKey;
