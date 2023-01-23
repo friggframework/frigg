@@ -55,13 +55,15 @@ class Manager extends ModuleManager {
         return validAuth;
     }
 
+    //
     async getAuthorizationRequirements(params) {
+        const connectionName = params.connectionName
         return {
             url: this.api.getAuthUri(),
             type: ModuleConstants.authType.oauth2,
             data: {
                 jsonSchema: {
-                    type: 'object',
+                    type: 'custom',
                     required: ['subdomain'],
                     properties: {
                         subdomain: {
@@ -81,9 +83,13 @@ class Manager extends ModuleManager {
     }
 
     async processAuthorizationCallback(params) {
-        const code = get(params.data, 'code');
+        this.api.client_id = get(params.data, 'client_id');
+        this.api.client_secret = get(params.data, 'client_secret');
+        this.api.connectionName = get(params.data, 'connectionName');
         this.api.setSubdomain(get(params.data, 'subdomain'));
 
+        await this.api.getTokenFromClientCredentials();
+        
         await this.getAccessToken(code);
 
         await this.testAuth();
