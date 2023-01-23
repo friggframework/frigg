@@ -1,3 +1,35 @@
+# (Fri Jan 20 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, null[@debbie-yu](https://github.com/debbie-yu), for all your work!
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.14`
+  - log error thrown from slack get token from code call [#101](https://github.com/friggframework/frigg/pull/101) ([@debbie-yu](https://github.com/debbie-yu))
+
+#### Authors: 1
+
+- [@debbie-yu](https://github.com/debbie-yu)
+
+---
+
+# (Thu Jan 19 2023)
+
+#### 🐛 Bug Fix
+
+- Update package-lock for deploy [#100](https://github.com/friggframework/frigg/pull/100) ([@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/api-module-yotpo@0.0.9`
+  - Proper export [#99](https://github.com/friggframework/frigg/pull/99) ([@seanspeaks](https://github.com/seanspeaks))
+  - Api module library yotpo [#98](https://github.com/friggframework/frigg/pull/98) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Wed Jan 18 2023)
 
 #### 🐛 Bug Fix
