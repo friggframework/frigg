@@ -74,7 +74,7 @@ class Manager extends ModuleManager {
 
         // get entity identifying information from the api. You'll need to format this.
 
-        const workspaceInfo = this.api.authTest();
+        const workspaceInfo = await this.api.authTest();
 
         await this.findOrCreateEntity({
             externalId: workspaceInfo.team_id,
@@ -90,31 +90,6 @@ class Manager extends ModuleManager {
     async getEntityOptions() {
         // No entity options to get. Probably won't even hit this
         return [];
-    }
-
-    async findOrCreateCredential(params) {
-        const access_token = get(params, 'access_token', null);
-        const refresh_token = get(params, 'access_token', null);
-
-        const search = await Credential.find({
-            user: this.userId,
-        });
-
-        if (search.length === 0) {
-            // validate choices!!!
-            // create credential
-            const createObj = {
-                user: this.userId,
-                access_token,
-                refresh_token,
-            };
-            this.credential = await Credential.create(createObj);
-            // this.credential = await this.credentialMO.create(createObj);
-        } else if (search.length === 1) {
-            this.credential = search[0];
-        } else {
-            debug('Multiple credentials found for this user');
-        }
     }
 
     async findOrCreateEntity(params) {
@@ -179,16 +154,11 @@ class Manager extends ModuleManager {
                     if (credentialSearch.length === 0) {
                         this.credential = await Credential.create(updatedToken);
                     } else if (credentialSearch.length === 1) {
-                        if (credentialSearch[0].user === this.userId) {
-                            this.credential = await Credential.update(
-                                credentialSearch[0],
-                                updatedToken
-                            );
-                        } else {
-                            debug(
-                                'Somebody else already created a credential with the same client ID:'
-                            );
-                        }
+                        this.credential = await Credential.findOneAndUpdate(
+                            { _id: credentialSearch[0] },
+                            { $set: updatedToken },
+                            { useFindAndModify: true, new: true }
+                        );
                     } else {
                         // Handling multiple credentials found with an error for the time being
                         debug(
@@ -196,9 +166,10 @@ class Manager extends ModuleManager {
                         );
                     }
                 } else {
-                    this.credential = await Credential.update(
-                        this.credential,
-                        updatedToken
+                    this.credential = await Credential.findOneAndUpdate(
+                        { _id: this.credential },
+                        { $set: updatedToken },
+                        { useFindAndModify: true, new: true }
                     );
                 }
             }
