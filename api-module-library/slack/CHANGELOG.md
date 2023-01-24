@@ -1,3 +1,16 @@
+# v0.1.15 (Tue Jan 24 2023)
+
+#### 🐛 Bug Fix
+
+- .update is not a mongoose model method [#104](https://github.com/friggframework/frigg/pull/104) ([@seanspeaks](https://github.com/seanspeaks))
+- .update is not a mongoose model method ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.1.14 (Fri Jan 20 2023)
 
 :tada: This release contains work from a new contributor! :tada:

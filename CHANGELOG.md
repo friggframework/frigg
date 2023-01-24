@@ -1,3 +1,16 @@
+# (Tue Jan 24 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.15`
+  - .update is not a mongoose model method [#104](https://github.com/friggframework/frigg/pull/104) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Mon Jan 23 2023)
 
 #### 🐛 Bug Fix
