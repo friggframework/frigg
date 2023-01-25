@@ -25,6 +25,7 @@ class OAuth2Requester extends Requester {
         this.audience = get(params, 'audience', null);
         this.username = get(params, 'username', null);
         this.password = get(params, 'password', null);
+        this.state = get(params, 'state', null);
 
         this.isRefreshable = true;
     }
