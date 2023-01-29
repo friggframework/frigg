@@ -50,6 +50,9 @@ class loyaltyApi extends ApiKeyRequester {
         const opts = {
             url: `${this.baseUrl}${this.URLs.customers.createOrUpdate}`,
             body: params,
+            headers: {
+                'Content-Type': 'application/json',
+            },
         };
         return this._post(opts);
     }

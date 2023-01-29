@@ -11,6 +11,8 @@ const Authenticator = require('@friggframework/test-environment/Authenticator');
 
 const testCustomer = {
     email: process.env.TEST_CUSTOMER_EMAIL || 'test@example.com',
+    first_name: process.env.TEST_CUSTOMER_FIRST_NAME || 'Tester',
+    last_name: process.env.TEST_CUSTOMER_LAST_NAME || 'McTesterson',
 };
 
 const testOrder = {};
@@ -154,6 +156,63 @@ describe('Yotpo API class', () => {
                 expect(res).to.be.an('array');
             });
         });
+
+        describe('Customers', () => {
+            it('Should list recent customers', async () => {
+                const res = await api.loyaltyApi.listRecentCustomers();
+                expect(res).to.be.an('object');
+                expect(res).to.have.property('customers');
+                expect(res.customers).to.be.an('array');
+            });
+            it('Should create a new customer with minimum required fields', async () => {
+                const res = await api.loyaltyApi.createOrUpdateCustomer(
+                    testCustomer
+                );
+                expect(res).to.be.an('object');
+                await new Promise((resolve) => {
+                    return setTimeout(resolve, 2000);
+                });
+                const recentUpdates =
+                    await api.loyaltyApi.listRecentCustomers();
+                expect(recentUpdates.customers).to.be.an('array');
+                expect(recentUpdates.customers[0].first_name).to.equal(
+                    testCustomer.first_name
+                );
+                expect(recentUpdates.customers[0].last_name).to.equal(
+                    testCustomer.last_name
+                );
+            });
+            it('Should update a customer with minimum required fields', async () => {
+                const customerUpdate = {
+                    ...testCustomer,
+                    first_name: 'Updated',
+                    last_name: 'Name',
+                };
+                const res = await api.loyaltyApi.createOrUpdateCustomer(
+                    customerUpdate
+                );
+                expect(res).to.be.an('object');
+                await new Promise((resolve) => {
+                    return setTimeout(resolve, 2000);
+                });
+                const recentUpdates =
+                    await api.loyaltyApi.listRecentCustomers();
+                expect(recentUpdates.customers).to.be.an('array');
+                expect(recentUpdates.customers[0].first_name).to.equal(
+                    customerUpdate.first_name
+                );
+                expect(recentUpdates.customers[0].last_name).to.equal(
+                    customerUpdate.last_name
+                );
+            });
+        });
+        describe('Campaigns', () => {
+            it('Should list available active campaigns', async () => {
+                const res = await api.loyaltyApi.listActiveCampaigns();
+                expect(res).to.be.an('array');
+            });
+        });
+        describe('Actions', () => {});
 
         describe.skip('Orders', () => {
             let requestBody = {
