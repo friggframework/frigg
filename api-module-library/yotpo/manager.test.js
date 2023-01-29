@@ -2,6 +2,7 @@ const Manager = require('./manager');
 const mongoose = require('mongoose');
 const config = require('./defaultConfig.json');
 const Authenticator = require('@friggframework/test-environment/Authenticator');
+const authFields = require('./authFields');
 
 const yotpoCreds = {
     store_id: process.env.YOTPO_STORE_ID,
@@ -28,6 +29,7 @@ describe(`Should fully test the ${config.label} Manager`, () => {
             const requirements = await manager.getAuthorizationRequirements();
             expect(requirements).toBeDefined();
             expect(requirements.type).toEqual('oauth2');
+            expect(requirements.data).toEqual(authFields);
             authUrl = requirements.url;
         });
     });

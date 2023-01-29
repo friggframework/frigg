@@ -52,12 +52,14 @@ class Manager extends ModuleManager {
     // Change to whatever your api uses to return identifying information
     async testAuth() {
         let validAuth = false;
+        const authRequests = [
+            await this.api.appDeveloperApi.listOrders(),
+            await this.api.coreApi.listOrders(),
+        ];
+        if (this.api.loyaltyApi.API_KEY_VALUE)
+            authRequests.push(await this.api.loyaltyApi.listActiveCampaigns());
         try {
-            if (
-                (await this.api.coreApi.listOrders()) &&
-                (await this.api.appDeveloperApi.listOrders())
-            )
-                validAuth = true;
+            if (await Promise.all(authRequests)) validAuth = true;
         } catch (e) {
             flushDebugLog(e);
         }
@@ -79,12 +81,16 @@ class Manager extends ModuleManager {
         const store_id = get(params.data, 'store_id', null);
         const secret = get(params.data, 'secret', null);
         const code = get(params.data, 'code', null);
+        const loyalty_api_key = get(params.data, 'loyalty_api_key', null);
+        const loyalty_guid = get(params.data, 'loyalty_api_key', null);
         // const appKey = get(params.data, 'app_key', null);
         // vv TDOO temporary for specific implementation override. Don't do this at home.
         const appKey = get(params.data, 'store_id', null);
         this.api.coreApi.store_id = store_id;
         this.api.coreApi.apiKeySecret = secret;
         this.api.appDeveloperApi.appKey = appKey;
+        if (loyalty_api_key) this.api.loyaltyApi.setApiKey(loyalty_api_key);
+        if (loyalty_guid) this.api.loyaltyApi.setGuid(loyalty_guid);
         await this.api.coreApi.getToken();
         await this.api.appDeveloperApi.getTokenFromCode(code);
         const authRes = await this.testAuth();
@@ -167,6 +173,8 @@ class Manager extends ModuleManager {
                 secret: this.api.coreApi.secret,
                 coreApiAccessToken: this.api.coreApi.API_KEY_VALUE,
                 appKey: this.api.appDeveloperApi.appKey,
+                loyalty_api_key: this.api.loyaltyApi.API_KEY_VALUE,
+                loyalty_guid: this.api.loyaltyApi.GUID,
             };
 
             Object.keys(updatedToken).forEach(
