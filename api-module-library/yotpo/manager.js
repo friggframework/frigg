@@ -5,7 +5,6 @@ const {
     ModuleConstants,
 } = require('@friggframework/module-plugin');
 const { Api } = require('./api/api');
-const { appDeveloperApi } = require('./api/appDeveloperApi');
 const { Entity } = require('./entity');
 const { Credential } = require('./credential');
 
@@ -45,6 +44,10 @@ class Manager extends ModuleManager {
             apiParams.API_KEY_VALUE = apiParams.coreApiAccessToken;
         }
         instance.api = await new Api(apiParams);
+        if (apiParams.loyalty_api_key) {
+            instance.api.loyaltyApi.setApiKey(apiParams.loyalty_api_key);
+            instance.api.loyaltyApi.setGuid(apiParams.loyalty_guid);
+        }
 
         return instance;
     }
@@ -53,13 +56,17 @@ class Manager extends ModuleManager {
     async testAuth() {
         let validAuth = false;
         const authRequests = [
-            await this.api.appDeveloperApi.listOrders(),
-            await this.api.coreApi.listOrders(),
+            this.api.appDeveloperApi.listOrders(),
+            this.api.coreApi.listOrders(),
         ];
-        if (this.api.loyaltyApi.API_KEY_VALUE)
-            authRequests.push(await this.api.loyaltyApi.listActiveCampaigns());
+        if (
+            this.api.loyaltyApi.API_KEY_VALUE ||
+            this.credential.loyalty_api_key
+        )
+            authRequests.push(this.api.loyaltyApi.listActiveCampaigns());
         try {
-            if (await Promise.all(authRequests)) validAuth = true;
+            await Promise.all(authRequests);
+            validAuth = true;
         } catch (e) {
             debug(e);
         }

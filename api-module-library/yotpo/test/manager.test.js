@@ -74,7 +74,16 @@ describe(`Should fully test the ${config.label} Manager`, () => {
             expect(authRes).toEqual(true);
         });
     });
-    describe('receiveNotification() tests', () => {});
+    describe('receiveNotification() tests', () => {
+        it('Fresh maanager instance should testAuth correctly', async () => {
+            const newManager = await Manager.getInstance({
+                userId: manager.userId,
+                entityId: manager.entity.id,
+            });
+            const authRes = await newManager.testAuth();
+            expect(authRes).toEqual(true);
+        });
+    });
     describe('testAuth() tests', () => {
         it('Response with true if authenticated', async () => {
             const response = await manager.testAuth();
