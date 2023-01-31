@@ -34,6 +34,9 @@ class Api extends ApiKeyRequester {
             records: '/public/api/v1/records',
             recordByID: (recordId) => `/public/api/v1/records/${recordId}`,
             recordSchemas: '/public/api/v1/records/metadata',
+            workflowParticipantsByID: (workflowId) => 
+                `/public/api/v1/workflows/${workflowId}/participants`,
+            userByID: (userId) => `/scim/v2/Users/${userId}`
         };
     }
 
@@ -270,6 +273,23 @@ class Api extends ApiKeyRequester {
             url: this.baseUrl() + this.URLs.recordByID(recordId),
         };
         const response = await this._delete(options);
+        return response;
+    }
+
+    async getWorkflowParticipants(workflowId){
+        // TODO: Handle pagination for this api call
+        const options = {
+            url: this.baseUrl() + this.URLs.workflowParticipantsByID(workflowId)
+        }
+        const response = await this._get(options);
+        return response;
+    }
+
+    async getUser(userId){
+        const options = {
+            url: this.baseUrl() + this.URLs.userByID(userId)
+        }
+        const response = await this._get(options);
         return response;
     }
 }

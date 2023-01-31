@@ -1,3 +1,36 @@
+# v0.0.25 (Tue Jan 31 2023)
+
+#### 🐛 Bug Fix
+
+- Updates/api module yotpo [#108](https://github.com/friggframework/frigg/pull/108) ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.0.24 (Tue Jan 31 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, null[@li-sherry](https://github.com/li-sherry), for all your work!
+
+#### 🐛 Bug Fix
+
+- add lookupUsersByEmail [#106](https://github.com/friggframework/frigg/pull/106) (vedant@vedant.agrawal [@li-sherry](https://github.com/li-sherry))
+- TODO for reminder (vedant@vedant.agrawal)
+- Merge branch 'vedantagrawal/additional-ironclad-endpoints' into AddSlackLookupUsersByEmail [#105](https://github.com/friggframework/frigg/pull/105) ([@li-sherry](https://github.com/li-sherry))
+- adding workflow participants and get user endpoints (vedant@vedant.agrawal)
+
+#### Authors: 2
+
+- [@li-sherry](https://github.com/li-sherry)
+- Vedant Agrawal (vedant@vedant.agrawal)
+
+---
+
 # v0.0.23 (Wed Jan 18 2023)
 
 #### 🐛 Bug Fix
