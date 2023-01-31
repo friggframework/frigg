@@ -144,9 +144,10 @@ class Manager extends ModuleManager {
                         this.credential = await Credential.create(updatedToken);
                     } else if (credentialSearch.length === 1) {
                         if (credentialSearch[0].user === this.userId) {
-                            this.credential = await Credential.update(
-                                credentialSearch[0],
-                                updatedToken
+                            this.credential = await Credential.findOneAndUpdate(
+                                { _id: credentialSearch[0] },
+                                { $set: updatedToken },
+                                { useFindAndModify: true, new: true }
                             );
                         } else {
                             debug(
@@ -162,9 +163,10 @@ class Manager extends ModuleManager {
                         );
                     }
                 } else {
-                    this.credential = await Credential.update(
-                        this.credential,
-                        updatedToken
+                    this.credential = await Credential.findOneAndUpdate(
+                        { _id: this.credential },
+                        { $set: updatedToken },
+                        { useFindAndModify: true, new: true }
                     );
                 }
             }
