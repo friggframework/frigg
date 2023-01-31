@@ -12,7 +12,6 @@ All the routes you can call - https://developer.microsoft.com/en-us/graph/graph-
 
 Azure registered apps that can access teams - https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/RegisteredApps
 
-
 ## Sample Auth project that works
 
 https://github.com/Azure-Samples/ms-identity-node

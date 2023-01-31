@@ -8,6 +8,10 @@
         "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
         "test": "jest"
     },
+    "publishConfig": {
+        "registry": "https://registry.npmjs.org/",
+        "access": "public"
+    },
     "author": "",
     "license": "MIT",
     "devDependencies": {
