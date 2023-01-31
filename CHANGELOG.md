@@ -1,5 +1,27 @@
 # (Tue Jan 31 2023)
 
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, null[@li-sherry](https://github.com/li-sherry), for all your work!
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.18`
+  - change to x-www-form-urlencoded [#107](https://github.com/friggframework/frigg/pull/107) ([@li-sherry](https://github.com/li-sherry) vedant@vedant.agrawal)
+  - add lookupUsersByEmail [#106](https://github.com/friggframework/frigg/pull/106) ([@li-sherry](https://github.com/li-sherry))
+- `@friggframework/api-module-ironclad@0.0.26`
+  - Merge branch 'vedantagrawal/additional-ironclad-endpoints' into AddSlackLookupUsersByEmail [#105](https://github.com/friggframework/frigg/pull/105) ([@li-sherry](https://github.com/li-sherry))
+  - adding workflow participants and get user endpoints [#105](https://github.com/friggframework/frigg/pull/105) (vedant@vedant.agrawal)
+
+#### Authors: 2
+
+- [@li-sherry](https://github.com/li-sherry)
+- Vedant Agrawal (vedant@vedant.agrawal)
+
+---
+
+# (Tue Jan 31 2023)
+
 #### 🐛 Bug Fix
 
 - `@friggframework/api-module-yotpo@0.0.12`

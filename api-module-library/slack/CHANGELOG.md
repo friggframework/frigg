@@ -1,3 +1,27 @@
+# v0.1.18 (Tue Jan 31 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, null[@li-sherry](https://github.com/li-sherry), for all your work!
+
+#### 🐛 Bug Fix
+
+- change to x-www-form-urlencoded [#107](https://github.com/friggframework/frigg/pull/107) ([@li-sherry](https://github.com/li-sherry) vedant@vedant.agrawal)
+- remove body, set email as query param ([@li-sherry](https://github.com/li-sherry))
+- passing email as query param (vedant@vedant.agrawal)
+- change to x-www-form-urlencoded ([@li-sherry](https://github.com/li-sherry))
+- Merge branch 'vedantagrawal/additional-ironclad-endpoints' into AddSlackLookupUsersByEmail [#105](https://github.com/friggframework/frigg/pull/105) ([@li-sherry](https://github.com/li-sherry))
+- add lookupUsersByEmail [#106](https://github.com/friggframework/frigg/pull/106) ([@li-sherry](https://github.com/li-sherry))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 3
+
+- [@li-sherry](https://github.com/li-sherry)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+- Vedant Agrawal (vedant@vedant.agrawal)
+
+---
+
 # v0.1.17 (Tue Jan 31 2023)
 
 #### 🐛 Bug Fix
