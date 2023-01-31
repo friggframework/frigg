@@ -2,6 +2,25 @@
 
 #### 🐛 Bug Fix
 
+- `@friggframework/api-module-yotpo@0.0.12`
+  - Updates/api module yotpo [#109](https://github.com/friggframework/frigg/pull/109) ([@seanspeaks](https://github.com/seanspeaks))
+  - Retrieving and setting Loyalty API credentials correctly. [#108](https://github.com/friggframework/frigg/pull/108) ([@seanspeaks](https://github.com/seanspeaks))
+  - Successfully authenticates into and stores credential info for Yotpo Loyalty API [#108](https://github.com/friggframework/frigg/pull/108) ([@seanspeaks](https://github.com/seanspeaks))
+  - WIP adding methods to API [#108](https://github.com/friggframework/frigg/pull/108) ([@seanspeaks](https://github.com/seanspeaks))
+  - WIP Updates: [#108](https://github.com/friggframework/frigg/pull/108) ([@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/api-module-yotpo@0.0.12`, `@friggframework/test-environment@1.1.7`
+  - # mock-api.js Work in Progress [#108](https://github.com/friggframework/frigg/pull/108) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Tue Jan 31 2023)
+
+#### 🐛 Bug Fix
+
 - `@friggframework/api-module-yotpo@0.0.11`, `@friggframework/test-environment@1.1.6`
   - Updates/api module yotpo [#108](https://github.com/friggframework/frigg/pull/108) ([@seanspeaks](https://github.com/seanspeaks))
 
