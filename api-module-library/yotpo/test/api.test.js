@@ -2,9 +2,9 @@
 require('dotenv').config();
 const chai = require('chai');
 const should = chai.should();
-const { Api } = require('./api');
+const { Api } = require('../api/api');
 const { expect } = require('chai');
-const nock = require('nock');
+const nockBack = require('nock').back;
 const authResponse = require('../fixtures/responses/authResponse.json');
 const createOrderFulfillmentResponse = require('../fixtures/responses/createOrderFulfillmentResponse.json');
 const Authenticator = require('@friggframework/test-environment/Authenticator');
@@ -16,6 +16,8 @@ const testCustomer = {
 };
 
 const testOrder = {};
+nockBack.fixtures = __dirname + '/fixtures/';
+
 describe('Yotpo API class', () => {
     const api = new Api({
         secret: process.env.YOTPO_API_SECRET || 'secret',

@@ -1,8 +1,8 @@
-const Manager = require('./manager');
+const Manager = require('../manager');
 const mongoose = require('mongoose');
-const config = require('./defaultConfig.json');
+const config = require('../defaultConfig.json');
 const Authenticator = require('@friggframework/test-environment/Authenticator');
-const authFields = require('./authFields');
+const authFields = require('../authFields');
 
 const yotpoCreds = {
     store_id: process.env.YOTPO_STORE_ID,
