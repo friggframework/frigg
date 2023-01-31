@@ -205,7 +205,6 @@ class Api extends ApiKeyRequester {
             headers: {
                 'content-type': 'application/json',
             },
-            body,
         };
         const response = await this._get(options);
         return response;
