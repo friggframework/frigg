@@ -1,3 +1,19 @@
+# (Tue Jan 31 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.24`, `@friggframework/api-module-slack@0.1.16`
+  - add lookupUsersByEmail [#106](https://github.com/friggframework/frigg/pull/106) (vedant@vedant.agrawal [@li-sherry](https://github.com/li-sherry))
+- `@friggframework/api-module-ironclad@0.0.24`
+  - Merge branch 'vedantagrawal/additional-ironclad-endpoints' into AddSlackLookupUsersByEmail [#105](https://github.com/friggframework/frigg/pull/105) ([@li-sherry](https://github.com/li-sherry))
+
+#### Authors: 2
+
+- [@li-sherry](https://github.com/li-sherry)
+- Vedant Agrawal (vedant@vedant.agrawal)
+
+---
+
 # (Tue Jan 24 2023)
 
 #### 🐛 Bug Fix
