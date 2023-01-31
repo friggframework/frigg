@@ -1,8 +1,6 @@
 const { get } = require('@friggframework/assertions');
 const { OAuth2Requester } = require('@friggframework/module-plugin');
 const querystring = require('querystring');
-const probe = require('probe-image-size');
-
 class Api extends OAuth2Requester {
     constructor(params) {
         super(params);
