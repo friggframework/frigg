@@ -45,10 +45,10 @@ class coreApi extends ApiKeyRequester {
         if (this.API_KEY_VALUE) headers['X-Yotpo-Token'] = this.API_KEY_VALUE;
         return headers;
     }
-    async createOrderFulfillment(body, yotpo_order_id) {
+
+    async createOrder(body) {
         const options = {
-            url:
-                this.baseUrl + this.URLs.createOrderFulfillment(yotpo_order_id),
+            url: this.baseUrl + this.URLs.createOrder(),
             headers: {
                 'content-type': 'application/json',
             },
@@ -58,6 +58,7 @@ class coreApi extends ApiKeyRequester {
         const res = await this._post(options);
         return res;
     }
+
     async listOrders() {
         const options = {
             url: this.URLs.listOrders(),
