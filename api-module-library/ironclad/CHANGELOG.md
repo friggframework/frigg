@@ -1,3 +1,30 @@
+# v0.0.26 (Tue Jan 31 2023)
+
+:tada: This release contains work from new contributors! :tada:
+
+Thanks for all your work!
+
+:heart: null[@vedantagrawall](https://github.com/vedantagrawall)
+
+:heart: null[@li-sherry](https://github.com/li-sherry)
+
+#### 🐛 Bug Fix
+
+- Vedantagrawall/ironclad comments endpoint [#110](https://github.com/friggframework/frigg/pull/110) (vedant@vedant.agrawal [@vedantagrawall](https://github.com/vedantagrawall))
+- adding get comment by Id endpoint (vedant@vedant.agrawal)
+- Merge branch 'vedantagrawal/additional-ironclad-endpoints' into AddSlackLookupUsersByEmail [#105](https://github.com/friggframework/frigg/pull/105) ([@li-sherry](https://github.com/li-sherry))
+- adding workflow participants and get user endpoints [#105](https://github.com/friggframework/frigg/pull/105) (vedant@vedant.agrawal)
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 4
+
+- [@li-sherry](https://github.com/li-sherry)
+- [@vedantagrawall](https://github.com/vedantagrawall)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+- Vedant Agrawal (vedant@vedant.agrawal)
+
+---
+
 # v0.0.25 (Tue Jan 31 2023)
 
 #### 🐛 Bug Fix

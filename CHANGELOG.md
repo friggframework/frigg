@@ -1,5 +1,34 @@
 # (Tue Jan 31 2023)
 
+:tada: This release contains work from new contributors! :tada:
+
+Thanks for all your work!
+
+:heart: null[@vedantagrawall](https://github.com/vedantagrawall)
+
+:heart: null[@li-sherry](https://github.com/li-sherry)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.26`
+  - Vedantagrawall/ironclad comments endpoint [#110](https://github.com/friggframework/frigg/pull/110) (vedant@vedant.agrawal [@vedantagrawall](https://github.com/vedantagrawall))
+  - Merge branch 'vedantagrawal/additional-ironclad-endpoints' into AddSlackLookupUsersByEmail [#105](https://github.com/friggframework/frigg/pull/105) ([@li-sherry](https://github.com/li-sherry))
+  - adding workflow participants and get user endpoints [#105](https://github.com/friggframework/frigg/pull/105) (vedant@vedant.agrawal)
+- `@friggframework/api-module-slack@0.1.19`
+  - passing email as query param [#107](https://github.com/friggframework/frigg/pull/107) (vedant@vedant.agrawal)
+  - change to x-www-form-urlencoded [#107](https://github.com/friggframework/frigg/pull/107) ([@li-sherry](https://github.com/li-sherry))
+  - add lookupUsersByEmail [#106](https://github.com/friggframework/frigg/pull/106) ([@li-sherry](https://github.com/li-sherry))
+
+#### Authors: 3
+
+- [@li-sherry](https://github.com/li-sherry)
+- [@vedantagrawall](https://github.com/vedantagrawall)
+- Vedant Agrawal (vedant@vedant.agrawal)
+
+---
+
+# (Tue Jan 31 2023)
+
 :tada: This release contains work from a new contributor! :tada:
 
 Thank you, null[@li-sherry](https://github.com/li-sherry), for all your work!
