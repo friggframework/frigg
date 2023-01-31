@@ -47,6 +47,9 @@ class Api extends OAuth2Requester {
             shareRemoteFile: '/files.remote.share', // Shares a remote file
             revokeFilePublicURL: '/files.revokePublicURL', // Revokes public/external sharing access for a file
             sharedFilePublicURL: '/files.sharedPublicURL', // Enables a file for public/external sharing.
+
+            // Users
+            lookupUserByEmail: '/users.lookupByEmail',
         };
 
         this.tokenUri = this.baseUrl + this.URLs.access_token;
@@ -133,6 +136,19 @@ class Api extends OAuth2Requester {
             },
         };
         const response = await this._post(options);
+        return response;
+    }
+
+    async lookupUserByEmail(body) {
+        const options = {
+            url: this.baseUrl + this.URLs.lookupUserByEmail,
+            body,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        };
+        const response = await this._get(options);
         return response;
     }
 
