@@ -142,7 +142,7 @@ class Api extends OAuth2Requester {
 
     async lookupUserByEmail(body) {
         const options = {
-            url: this.baseUrl + this.URLs.lookupUserByEmail,
+            url: this.baseUrl + this.URLs.lookupUserByEmail + `?email=${body.email}`,
             body,
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
