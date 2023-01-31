@@ -31,6 +31,8 @@ class Api extends ApiKeyRequester {
                 `/public/api/v1/workflows/${workflowId}/attributes`,
             workflowComment: (workflowId) =>
                 `/public/api/v1/workflows/${workflowId}/comment`,
+            workflowCommentByID: (workflowId, commentId) =>
+                `/public/api/v1/workflows/${workflowId}/comments/${commentId}`,
             records: '/public/api/v1/records',
             recordByID: (recordId) => `/public/api/v1/records/${recordId}`,
             recordSchemas: '/public/api/v1/records/metadata',
@@ -194,6 +196,18 @@ class Api extends ApiKeyRequester {
             body,
         };
         const response = await this._post(options);
+        return response;
+    }
+
+    async getWorkflowComment(workflowId, commentId) {
+        const options = {
+            url: this.baseUrl() + this.URLs.workflowCommentByID(workflowId, commentId),
+            headers: {
+                'content-type': 'application/json',
+            },
+            body,
+        };
+        const response = await this._get(options);
         return response;
     }
 
