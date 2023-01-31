@@ -171,6 +171,17 @@
         "doc",
         "code"
       ]
+    },
+    {
+      "login": "li-sherry",
+      "name": "li-sherry",
+      "avatar_url": "https://avatars.githubusercontent.com/u/117298948?v=4",
+      "profile": "https://github.com/li-sherry",
+      "contributions": [
+        "doc",
+        "test",
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7
