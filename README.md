@@ -1,6 +1,6 @@
 # Frigg Integration Framework
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-14-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-15-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 <img src="docs/FriggLogo.svg" style="width:250px">
@@ -76,6 +76,9 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="https://queuetue.com/"><img src="https://avatars.githubusercontent.com/u/4491?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Scott Russell</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=queuetue" title="Documentation">📖</a> <a href="https://github.com/friggframework/frigg/commits?author=queuetue" title="Tests">⚠️</a> <a href="https://github.com/friggframework/frigg/commits?author=queuetue" title="Code">💻</a></td>
     <td align="center"><a href="https://github.com/joncodo"><img src="https://avatars.githubusercontent.com/u/3011407?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Jonathan O'Donnell</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=joncodo" title="Documentation">📖</a> <a href="https://github.com/friggframework/frigg/commits?author=joncodo" title="Code">💻</a></td>
     <td align="center"><a href="https://github.com/li-sherry"><img src="https://avatars.githubusercontent.com/u/117298948?v=4?s=100" width="100px;" alt=""/><br /><sub><b>li-sherry</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=li-sherry" title="Documentation">📖</a> <a href="https://github.com/friggframework/frigg/commits?author=li-sherry" title="Tests">⚠️</a> <a href="https://github.com/friggframework/frigg/commits?author=li-sherry" title="Code">💻</a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://github.com/vedantagrawall"><img src="https://avatars.githubusercontent.com/u/52647115?v=4?s=100" width="100px;" alt=""/><br /><sub><b>vedantagrawall</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=vedantagrawall" title="Documentation">📖</a> <a href="https://github.com/friggframework/frigg/commits?author=vedantagrawall" title="Tests">⚠️</a> <a href="https://github.com/friggframework/frigg/commits?author=vedantagrawall" title="Code">💻</a></td>
   </tr>
 </table>
 
