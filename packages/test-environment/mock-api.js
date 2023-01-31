@@ -5,8 +5,8 @@ const { parse: parseUrl } = require('url');
 const { mkdir, readFile, rename, rm, writeFile } = require('fs/promises');
 
 // TODO store in DB?
-const tokenDirectory = joinPath(__dirname, '..', '..', '.token-cache');
-const fixtureDirectory = joinPath(__dirname, '..', 'recorded-requests');
+const tokenDirectory = joinPath(process.cwd(), 'test', '.token-cache');
+const fixtureDirectory = joinPath(process.cwd(), 'test', 'recorded-requests');
 nock.back.fixtures = fixtureDirectory;
 
 // Try to rename but fail silently if the file does not exist.
@@ -20,46 +20,38 @@ const tryRename = async (a, b) => {
         throw error;
     }
 };
+const getJestGlobalState = () => {
+    const globalSymbols = Object.getOwnPropertySymbols(global);
+    let jestState;
+    globalSymbols.forEach((sym) => {
+        if (sym.toString() === 'Symbol(JEST_STATE_SYMBOL)') {
+            jestState = global[sym];
+        }
+    });
 
-const findRootSuite = (suite) => {
-    const { parent } = suite;
-    if (!parent) return suite;
-    return findRootSuite(parent);
+    return jestState;
 };
 
-const checkForOnlies = (suite) => {
-    const {
-        _onlyTests: onlyTests,
-        suites,
-        _onlySuites: onlySuites,
-        root: isRoot,
-    } = suite;
-
-    if (isRoot) {
-        // Root suites allow .only child suites (all or nothing).
-        if (onlySuites.length > 0 && onlySuites.length < suites.length) {
-            return true;
+const checkForOnlies = () => {
+    let didFindOnly = false;
+    const findOnly = (child) => {
+        if (child.mode === 'only') {
+            didFindOnly = true;
         }
-    } else {
-        // Non-root suites are not allowed to have .only child suites
-        if (onlySuites.length) return true;
+        if (child.children) {
+            child.children.forEach((nestedChild) => {
+                findOnly(nestedChild);
+            });
+        }
+    };
+    const jestState = getJestGlobalState();
+    const rootDescribe = jestState.rootDescribeBlock;
+
+    for (const child of rootDescribe.children) {
+        findOnly(child);
     }
 
-    // No suite can have .only tests
-    if (onlyTests.length) return true;
-
-    if (!suites.length) return false;
-
-    return suites.some((suite) => checkForOnlies(suite));
-};
-
-const checkAllTestsPassed = ({ tests, suites }) => {
-    const didTestsPass = tests.every(({ state }) =>
-        ['passed', 'pending'].includes(state)
-    );
-    if (!didTestsPass) return false;
-
-    return suites.every((suite) => checkAllTestsPassed(suite));
+    return didFindOnly;
 };
 
 const mockApi = (Api, classOptionByName = {}) => {
@@ -79,11 +71,10 @@ const mockApi = (Api, classOptionByName = {}) => {
         static excludedRecordingPaths = [];
         static #context = {};
 
-        static async initialize({ test }) {
+        static async initialize() {
             this.#context = {};
 
-            const suite = findRootSuite(test);
-            const didFindOnlies = checkForOnlies(suite);
+            const didFindOnlies = checkForOnlies();
 
             if (didFindOnlies) {
                 throw new Error(
@@ -142,6 +133,10 @@ const mockApi = (Api, classOptionByName = {}) => {
                         ({ path }) =>
                             !this.excludedRecordingPaths.includes(path)
                     ),
+                recorder: {
+                    output_objects: true,
+                    enable_reqheaders_recording: false,
+                },
             });
 
             this.#context.assertAllRequests = () =>
@@ -149,7 +144,7 @@ const mockApi = (Api, classOptionByName = {}) => {
             this.#context.done = () => nockBack.nockDone();
         }
 
-        static async clean({ test }) {
+        static async clean() {
             const {
                 assertAllRequests,
                 done,
@@ -159,8 +154,7 @@ const mockApi = (Api, classOptionByName = {}) => {
                 deleteFixtureBackup,
             } = this.#context;
 
-            const suite = findRootSuite(test);
-            const didAllTestsPass = checkAllTestsPassed(suite);
+            const { didAllTestsPass } = global.mockApiResults;
 
             if (done) {
                 done();

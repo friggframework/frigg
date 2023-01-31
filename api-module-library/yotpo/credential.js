@@ -22,6 +22,15 @@ const schema = new mongoose.Schema({
         trim: true,
         lhEncrypt: true,
     },
+    loyalty_api_key: {
+        type: String,
+        trim: true,
+        lhEncrypt: true,
+    },
+    loyalty_guid: {
+        type: String,
+        trim: true,
+    },
 });
 
 const name = 'YotpoCredential';
