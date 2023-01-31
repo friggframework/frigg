@@ -81,7 +81,8 @@ class Api extends OAuth2Requester {
             return this._request(url, options, i + 1);
         } else if (
             parsedResponse.error === 'invalid_auth' ||
-            parsedResponse.error === 'auth_expired'
+            parsedResponse.error === 'auth_expired' ||
+            parsedResponse.error === 'token_expired'
         ) {
             if (!this.isRefreshable || this.refreshCount > 0) {
                 await this.notify(this.DLGT_INVALID_AUTH);
@@ -139,12 +140,11 @@ class Api extends OAuth2Requester {
         return response;
     }
 
-    async lookupUserByEmail(body) {
+    async lookupUserByEmail(email) {
         const options = {
-            url: this.baseUrl + this.URLs.lookupUserByEmail,
-            body,
+            url: this.baseUrl + this.URLs.lookupUserByEmail + `?email=${email}`,
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/x-www-form-urlencoded',
                 Accept: 'application/json',
             },
         };
