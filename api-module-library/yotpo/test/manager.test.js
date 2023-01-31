@@ -7,6 +7,8 @@ const authFields = require('../authFields');
 const yotpoCreds = {
     store_id: process.env.YOTPO_STORE_ID,
     secret: process.env.YOTPO_SECRET,
+    loyalty_guid: process.env.YOTPO_LOYALTY_GUID,
+    loyalty_api_key: process.env.YOTPO_LOYALTY_API_KEY,
 };
 describe(`Should fully test the ${config.label} Manager`, () => {
     let manager, authUrl;

@@ -61,7 +61,7 @@ class Manager extends ModuleManager {
         try {
             if (await Promise.all(authRequests)) validAuth = true;
         } catch (e) {
-            flushDebugLog(e);
+            debug(e);
         }
         return validAuth;
     }
@@ -82,7 +82,7 @@ class Manager extends ModuleManager {
         const secret = get(params.data, 'secret', null);
         const code = get(params.data, 'code', null);
         const loyalty_api_key = get(params.data, 'loyalty_api_key', null);
-        const loyalty_guid = get(params.data, 'loyalty_api_key', null);
+        const loyalty_guid = get(params.data, 'loyalty_guid', null);
         // const appKey = get(params.data, 'app_key', null);
         // vv TDOO temporary for specific implementation override. Don't do this at home.
         const appKey = get(params.data, 'store_id', null);
