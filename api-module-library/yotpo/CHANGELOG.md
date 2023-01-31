@@ -1,3 +1,21 @@
+# v0.0.11 (Tue Jan 31 2023)
+
+#### 🐛 Bug Fix
+
+- Updates/api module yotpo [#108](https://github.com/friggframework/frigg/pull/108) ([@seanspeaks](https://github.com/seanspeaks))
+- Retrieving and setting Loyalty API credentials correctly. ([@seanspeaks](https://github.com/seanspeaks))
+- Successfully authenticates into and stores credential info for Yotpo Loyalty API ([@seanspeaks](https://github.com/seanspeaks))
+- # mock-api.js Work in Progress ([@seanspeaks](https://github.com/seanspeaks))
+- WIP adding methods to API ([@seanspeaks](https://github.com/seanspeaks))
+- WIP Updates: ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.10 (Mon Jan 23 2023)
 
 #### 🐛 Bug Fix

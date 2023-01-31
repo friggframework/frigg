@@ -1,3 +1,16 @@
+# v0.1.17 (Tue Jan 31 2023)
+
+#### 🐛 Bug Fix
+
+- Updates/api module yotpo [#108](https://github.com/friggframework/frigg/pull/108) ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.1.16 (Tue Jan 31 2023)
 
 :tada: This release contains work from a new contributor! :tada:
