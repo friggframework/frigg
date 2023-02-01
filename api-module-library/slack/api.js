@@ -409,7 +409,7 @@ class Api extends OAuth2Requester {
     // is_private: boolean, optional
     async createChannel(body) {
         const options = {
-            url: this.baseUrl + this.URLs.addRemoteFile,
+            url: this.baseUrl + this.URLs.createChannel,
             body,
         };
         const response = await this._post(options);
