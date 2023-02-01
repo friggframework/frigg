@@ -1,3 +1,21 @@
+# v0.0.27 (Wed Feb 01 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, null[@vedantagrawall](https://github.com/vedantagrawall), for all your work!
+
+#### 🐛 Bug Fix
+
+- minor bug fix in Ironclad get comments by Id endpoint [#112](https://github.com/friggframework/frigg/pull/112) (vedant@vedant.agrawal [@vedantagrawall](https://github.com/vedantagrawall))
+- minor bug fix (vedant@vedant.agrawal)
+
+#### Authors: 2
+
+- [@vedantagrawall](https://github.com/vedantagrawall)
+- Vedant Agrawal (vedant@vedant.agrawal)
+
+---
+
 # v0.0.26 (Tue Jan 31 2023)
 
 :tada: This release contains work from new contributors! :tada:

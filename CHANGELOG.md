@@ -1,3 +1,17 @@
+# (Wed Feb 01 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.27`
+  - minor bug fix in Ironclad get comments by Id endpoint [#112](https://github.com/friggframework/frigg/pull/112) (vedant@vedant.agrawal [@vedantagrawall](https://github.com/vedantagrawall))
+
+#### Authors: 2
+
+- [@vedantagrawall](https://github.com/vedantagrawall)
+- Vedant Agrawal (vedant@vedant.agrawal)
+
+---
+
 # (Tue Jan 31 2023)
 
 :tada: This release contains work from new contributors! :tada:
