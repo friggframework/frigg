@@ -16,11 +16,11 @@ class coreApi extends ApiKeyRequester {
             createOrder: () =>
                 `${this.baseUrl}/v3/stores/${this.store_id}/orders`,
             createOrderFulfillment: (yotpo_order_id) =>
-                `${this.baseURLs.core}/v3/stores/${this.store_id}/orders/${yotpo_order_id}/fulfillments`,
+                `${this.baseUrl}/v3/stores/${this.store_id}/orders/${yotpo_order_id}/fulfillments`,
             listOrders: () =>
                 `${this.baseUrl}/v3/stores/${this.store_id}/orders`,
             getOrder: (yotpo_order_id) =>
-                `${this.baseURLs.core}/v3/stores/${this.store_id}/orders/${yotpo_order_id}`,
+                `${this.baseUrl}/v3/stores/${this.store_id}/orders/${yotpo_order_id}`,
         };
     }
 
@@ -48,7 +48,7 @@ class coreApi extends ApiKeyRequester {
 
     async createOrder(body) {
         const options = {
-            url: this.baseUrl + this.URLs.createOrder(),
+            url: this.URLs.createOrder(),
             headers: {
                 'content-type': 'application/json',
             },
