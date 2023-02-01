@@ -2,6 +2,21 @@
 
 #### 🐛 Bug Fix
 
+- `@friggframework/api-module-fastspring-iq@0.8.23`, `@friggframework/api-module-hubspot@0.8.22`, `@friggframework/api-module-yotpo@0.0.13`
+  - Update the Credential [#111](https://github.com/friggframework/frigg/pull/111) ([@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/api-module-yotpo@0.0.13`
+  - Double up on the base [#114](https://github.com/friggframework/frigg/pull/114) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Wed Feb 01 2023)
+
+#### 🐛 Bug Fix
+
 - `@friggframework/api-module-slack@0.1.19`
   - Channel management API Methods [#113](https://github.com/friggframework/frigg/pull/113) ([@seanspeaks](https://github.com/seanspeaks))
 
