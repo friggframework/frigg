@@ -1,3 +1,16 @@
+# v0.1.19 (Wed Feb 01 2023)
+
+#### 🐛 Bug Fix
+
+- Channel management API Methods [#113](https://github.com/friggframework/frigg/pull/113) ([@seanspeaks](https://github.com/seanspeaks))
+- Channel management API Methods ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.1.18 (Tue Jan 31 2023)
 
 :tada: This release contains work from a new contributor! :tada:

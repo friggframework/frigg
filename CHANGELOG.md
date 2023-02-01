@@ -2,6 +2,19 @@
 
 #### 🐛 Bug Fix
 
+- `@friggframework/api-module-slack@0.1.19`
+  - Channel management API Methods [#113](https://github.com/friggframework/frigg/pull/113) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Wed Feb 01 2023)
+
+#### 🐛 Bug Fix
+
 - `@friggframework/api-module-ironclad@0.0.27`
   - minor bug fix in Ironclad get comments by Id endpoint [#112](https://github.com/friggframework/frigg/pull/112) (vedant@vedant.agrawal [@vedantagrawall](https://github.com/vedantagrawall))
 
