@@ -1,3 +1,16 @@
+# v0.1.20 (Wed Feb 01 2023)
+
+#### 🐛 Bug Fix
+
+- this is why we unit test [#115](https://github.com/friggframework/frigg/pull/115) ([@seanspeaks](https://github.com/seanspeaks))
+- this is why we unit test ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.1.19 (Wed Feb 01 2023)
 
 #### 🐛 Bug Fix
