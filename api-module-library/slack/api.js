@@ -26,6 +26,16 @@ class Api extends OAuth2Requester {
             authTest: '/auth.test',
             listTeams: '/auth.teams.list',
 
+            // Channels or Conversations
+            getChannel: '/conversations.info',
+            listChannels: '/conversations.list',
+            createChannel: '/conversations.create',
+            updateChannel: '/conversations.update',
+            closeChannel: '/conversations.close',
+            archiveChannel: '/conversations.archive',
+            inviteUsersToChannel: '/conversations.invite',
+            renameChannel: '/conversations.rename',
+
             // Chats
             getMessagePermalink: '/chat.getPermalink',
             postMessage: '/chat.postMessage',
@@ -73,6 +83,7 @@ class Api extends OAuth2Requester {
         const parsedResponse = await this.parsedBody(response);
         const { status } = response;
         const { ok, error } = parsedResponse;
+        console.log(parsedResponse);
 
         // If the status is retriable and there are back off requests left, retry the request
         if ((status === 429 || status >= 500) && i < this.backOff.length) {
@@ -392,6 +403,32 @@ class Api extends OAuth2Requester {
         const response = await this._get(options);
         return response;
     }
+
+    // Args:
+    // name: string, required
+    // is_private: boolean, optional
+    async createChannel(body) {
+        const options = {
+            url: this.baseUrl + this.URLs.addRemoteFile,
+            body,
+        };
+        const response = await this._post(options);
+        return response;
+    }
+
+    // Args:
+    // channel: string, required
+    // users: array, required
+    async inviteUsersToChannel(body) {
+        const options = {
+            url: this.baseUrl + this.URLs.inviteUsersToChannel,
+            body,
+        };
+        const response = await this._post(options);
+        return response;
+    }
+
+    // Args:
 }
 
 module.exports = { Api };

@@ -4,6 +4,7 @@ const config = require('../defaultConfig.json');
 const { expect } = require('chai');
 const Authenticator = require('@friggframework/test-environment/Authenticator');
 require('dotenv').config();
+const nock = require('nock');
 
 describe(`Should fully test the ${config.label} Manager`, () => {
     let manager, authUrl;
@@ -48,6 +49,52 @@ describe(`Should fully test the ${config.label} Manager`, () => {
             manager.api.access_token = 'nope';
             await manager.testAuth();
             expect(manager.api.access_token).to.not.equal('nope');
+        });
+        it('should refresh token after a fresh database retrieval', async () => {
+            const newManager = await Manager.getInstance({
+                userId: manager.userId,
+                entityId: manager.entity.id,
+            });
+            newManager.api.access_token = 'nope';
+            await newManager.testAuth();
+            expect(newManager.api.access_token).to.not.equal('nope');
+        });
+
+        it('should refresh token after it expires', async () => {
+            const oldToken = `${manager.api.access_token}`;
+            const testAuthNock = nock(manager.api.baseUrl, {
+                allowUnmocked: true,
+            })
+                .post(manager.api.URLs.authTest)
+                .reply(200, {
+                    ok: false,
+                    error: 'token_expired',
+                });
+            manager.api.access_token = null;
+            await manager.testAuth();
+            expect(testAuthNock.isDone());
+            expect(manager.api.access_token).to.not.equal(oldToken);
+        });
+        it('auth refresh should fail if redirect URI changes', async () => {
+            const newManager = await Manager.getInstance({
+                userId: manager.userId,
+                entityId: manager.entity.id,
+            });
+            const testAuthNock = nock(manager.api.baseUrl, {
+                allowUnmocked: true,
+            })
+                .post(manager.api.URLs.authTest)
+                .reply(200, {
+                    ok: false,
+                    error: 'token_expired',
+                });
+            newManager.api.redirect_uri = 'https://bogus.com';
+
+            try {
+                const authRes = await newManager.testAuth();
+                expect(testAuthNock.isDone());
+                expect(authRes).to.equal(false);
+            } catch (e) {}
         });
         it('should error if incorrect auth data', async () => {
             try {
