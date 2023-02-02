@@ -2,6 +2,21 @@
 
 #### 🐛 Bug Fix
 
+- Install the CodeSee workflow. [#118](https://github.com/friggframework/frigg/pull/118) ([@codesee-maps[bot]](https://github.com/codesee-maps[bot]))
+- `@friggframework/api-module-yotpo@0.0.14`
+  - listProducts with query passed in [#119](https://github.com/friggframework/frigg/pull/119) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@codesee-maps[bot]](https://github.com/codesee-maps[bot])
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Thu Feb 02 2023)
+
+#### 🐛 Bug Fix
+
 - `@friggframework/api-module-slack@0.1.21`
   - More unit test reasons [#116](https://github.com/friggframework/frigg/pull/116) ([@seanspeaks](https://github.com/seanspeaks))
   - this is why we unit test [#115](https://github.com/friggframework/frigg/pull/115) ([@seanspeaks](https://github.com/seanspeaks))

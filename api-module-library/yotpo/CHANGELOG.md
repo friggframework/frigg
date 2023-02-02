@@ -1,3 +1,16 @@
+# v0.0.14 (Thu Feb 02 2023)
+
+#### 🐛 Bug Fix
+
+- listProducts with query passed in [#119](https://github.com/friggframework/frigg/pull/119) ([@seanspeaks](https://github.com/seanspeaks))
+- listProducts with query passed in ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.13 (Wed Feb 01 2023)
 
 #### 🐛 Bug Fix
