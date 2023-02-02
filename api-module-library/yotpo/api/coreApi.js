@@ -21,6 +21,8 @@ class coreApi extends ApiKeyRequester {
                 `${this.baseUrl}/v3/stores/${this.store_id}/orders`,
             getOrder: (yotpo_order_id) =>
                 `${this.baseUrl}/v3/stores/${this.store_id}/orders/${yotpo_order_id}`,
+            listProducts: () =>
+                `${this.baseUrl}/v3/stores/${this.store_id}/products`,
         };
     }
 
@@ -62,6 +64,16 @@ class coreApi extends ApiKeyRequester {
     async listOrders() {
         const options = {
             url: this.URLs.listOrders(),
+        };
+
+        const res = await this._get(options);
+        return res;
+    }
+
+    async listProducts(query) {
+        const options = {
+            url: this.URLs.listProducts(),
+            query
         };
 
         const res = await this._get(options);
