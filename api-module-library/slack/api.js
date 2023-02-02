@@ -121,6 +121,10 @@ class Api extends OAuth2Requester {
         if (this.access_token) {
             headers.Authorization = `Bearer ${this.access_token}`;
         }
+        if (!headers['Content-Type'])
+            headers['Content-Type'] = 'application/json';
+        if (!headers['Accept']) headers['Accept'] = 'application/json';
+
         return headers;
     }
 
@@ -142,10 +146,6 @@ class Api extends OAuth2Requester {
         const options = {
             url: this.baseUrl + this.URLs.authTest,
             body: null,
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
         };
         const response = await this._post(options);
         return response;
@@ -197,10 +197,6 @@ class Api extends OAuth2Requester {
         const options = {
             url: this.baseUrl + this.URLs.postMessage,
             body,
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
         };
         const response = await this._post(options);
         return response;
@@ -222,10 +218,6 @@ class Api extends OAuth2Requester {
         const options = {
             url: this.baseUrl + this.URLs.updateMessage,
             body,
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
         };
         const response = await this._post(options);
         return response;
@@ -239,10 +231,6 @@ class Api extends OAuth2Requester {
         const options = {
             url: this.baseUrl + this.URLs.deleteMessage,
             body,
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
         };
         const response = await this._post(options);
         return response;
@@ -295,10 +283,6 @@ class Api extends OAuth2Requester {
         const options = {
             url: this.baseUrl + this.URLs.uploadFile,
             body,
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
         };
         const response = await this._post(options);
         return response;
@@ -310,10 +294,6 @@ class Api extends OAuth2Requester {
         const options = {
             url: this.baseUrl + this.URLs.deleteFile,
             body,
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
         };
         const response = await this._post(options);
         return response;
