@@ -1,6 +1,6 @@
 # Frigg Integration Framework
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-15-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-16-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 <img src="docs/FriggLogo.svg" style="width:250px">
@@ -79,6 +79,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
   </tr>
   <tr>
     <td align="center"><a href="https://github.com/vedantagrawall"><img src="https://avatars.githubusercontent.com/u/52647115?v=4?s=100" width="100px;" alt=""/><br /><sub><b>vedantagrawall</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=vedantagrawall" title="Documentation">📖</a> <a href="https://github.com/friggframework/frigg/commits?author=vedantagrawall" title="Tests">⚠️</a> <a href="https://github.com/friggframework/frigg/commits?author=vedantagrawall" title="Code">💻</a></td>
+    <td align="center"><a href="https://github.com/apps/codesee-maps"><img src="https://avatars.githubusercontent.com/in/122769?v=4?s=100" width="100px;" alt=""/><br /><sub><b>codesee-maps[bot]</b></sub></a><br /><a href="#infra-codesee-maps[bot]" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
   </tr>
 </table>
 

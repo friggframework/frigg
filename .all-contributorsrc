@@ -193,6 +193,15 @@
         "test",
         "code"
       ]
+    },
+    {
+      "login": "codesee-maps[bot]",
+      "name": "codesee-maps[bot]",
+      "avatar_url": "https://avatars.githubusercontent.com/in/122769?v=4",
+      "profile": "https://github.com/apps/codesee-maps",
+      "contributions": [
+        "infra"
+      ]
     }
   ],
   "contributorsPerLine": 7
