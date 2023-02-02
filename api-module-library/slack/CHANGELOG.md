@@ -1,3 +1,18 @@
+# v0.1.21 (Thu Feb 02 2023)
+
+#### 🐛 Bug Fix
+
+- More unit test reasons [#116](https://github.com/friggframework/frigg/pull/116) ([@seanspeaks](https://github.com/seanspeaks))
+- More unit test reasons ([@seanspeaks](https://github.com/seanspeaks))
+- this is why we unit test [#115](https://github.com/friggframework/frigg/pull/115) ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.1.20 (Wed Feb 01 2023)
 
 #### 🐛 Bug Fix
