@@ -1,3 +1,18 @@
+# v0.0.15 (Fri Feb 03 2023)
+
+#### 🐛 Bug Fix
+
+- Headers, man. Headers. We should work out where to put the default ty… [#122](https://github.com/friggframework/frigg/pull/122) ([@seanspeaks](https://github.com/seanspeaks))
+- Headers, man. Headers. We should work out where to put the default type. Not liking a "per integration, if you're clever enough to put it in the right place"... definitely not liking "per request/method". Anywho. ([@seanspeaks](https://github.com/seanspeaks))
+- listProducts with query passed in [#119](https://github.com/friggframework/frigg/pull/119) ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.14 (Thu Feb 02 2023)
 
 #### 🐛 Bug Fix
