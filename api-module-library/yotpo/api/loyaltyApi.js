@@ -30,6 +30,7 @@ class loyaltyApi extends ApiKeyRequester {
             headers[this.API_KEY_NAME] = this.API_KEY_VALUE;
             headers['x-guid'] = this.GUID;
         }
+        headers['Content-Type'] = 'application/json';
         return headers;
     }
     setGuid(guid) {
