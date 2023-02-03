@@ -214,24 +214,39 @@ describe('Yotpo API class', () => {
                 expect(res).to.be.an('array');
             });
         });
-        describe('Actions', () => {});
+        describe('Actions', () => {
+            it('Should register a custom action for a given customer', async () => {
+                const actionBody = {
+                    type: 'CustomAction',
+                    customer_email: testCustomer.email,
+                    action_name: process.env.YOTPO_LOYALTY_TEST_ACTION_NAME,
+                    created_at: '2023-02-03T18:50:39.183Z',
+                };
+                const res = await api.loyaltyApi.recordCustomerAction(
+                    actionBody
+                );
+                expect(res).to.be.an('object');
+            });
+        });
 
-        describe.skip('Orders', () => {
+        describe('Orders', () => {
             let requestBody = {
-                fulfillment: {
-                    external_id: '56789',
-                    fulfillment_date: '2023-03-31T11:58:51Z',
-                    status: 'pending',
-                    fulfilled_items: [
-                        {
-                            external_product_id: '012345',
-                            quantity: 1,
-                        },
-                    ],
-                },
+                customer_email: testCustomer.email,
+                total_amount_cents: 1150,
+                currency_code: 'USD',
+                order_id: '84c904a1-02f5-459f-8e16-ca90a3833a12',
+                status: 'paid',
+                items: [
+                    {
+                        name: 'Example Product',
+                        id: '',
+                        quantity: 1,
+                        type: 'example',
+                    },
+                ],
             };
             it('should create an order in Yotpo Loyalty', async () => {
-                const result = await api.createOrder(requestBody, '1234');
+                const result = await api.loyaltyApi.createOrder(requestBody);
             });
         });
     });
