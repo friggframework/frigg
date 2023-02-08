@@ -111,6 +111,9 @@ class OAuth2Requester extends Requester {
         const options = {
             body: params,
             url: this.tokenUri,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
         };
         const response = await this._post(options, false);
         await this.setTokens(response);
