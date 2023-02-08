@@ -73,9 +73,18 @@ class Api extends OAuth2Requester {
 
     async deleteChannel(channelId){
         const options = {
-            url : `${this.baseUrl}${this.URLs.channel(channelId)}`,
+            url : `${this.baseUrl}${this.URLs.channel(channelId)}`
         };
         const response = await this._delete(options);
+        return response;
+    }
+
+    async listChannelMembers(channelId){
+        //TODO: add search odata options
+        const options = {
+            url : `${this.baseUrl}${this.URLs.channelMembers(channelId)}`
+        };
+        const response = await this._get(options);
         return response;
     }
 

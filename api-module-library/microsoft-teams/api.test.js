@@ -62,16 +62,24 @@ describe(`${config.label} API Tests`, () => {
         });
     });
 
+    const mwebberUserId = 'c1cb384d-8a26-464e-8fe3-7117e5fd7918'
     describe('Add user to channel Request', () => {
         it('Should create channel', async () => {
-            // mwebber user id c1cb384d-8a26-464e-8fe3-7117e5fd7918
             const conversationMember = {
                 '@odata.type': '#microsoft.graph.aadUserConversationMember',
                 roles: [],
-                'user@odata.bind': 'https://graph.microsoft.com/v1.0/users(\'c1cb384d-8a26-464e-8fe3-7117e5fd7918\')'
+                'user@odata.bind': `https://graph.microsoft.com/v1.0/users(\'${mwebberUserId}\')`
             };
             const response = await api.addUserToChannel(createChannelResponse.id, conversationMember);
             response.should.exist;
+        });
+    });
+
+    describe('List users in channel Request', () => {
+        it('Should create channel', async () => {
+            const response = await api.listChannelMembers(createChannelResponse.id);
+            response.should.exist;
+            expect(response.value[0].userId).toBe(mwebberUserId)
         });
     });
 
