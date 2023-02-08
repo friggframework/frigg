@@ -1,3 +1,16 @@
+# v0.1.23 (Wed Feb 08 2023)
+
+#### 🐛 Bug Fix
+
+- Quick hits, view endpoints [#126](https://github.com/friggframework/frigg/pull/126) ([@seanspeaks](https://github.com/seanspeaks))
+- Quick hits, view endpoints ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.1.22 (Wed Feb 08 2023)
 
 #### 🐛 Bug Fix

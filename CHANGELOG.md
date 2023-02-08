@@ -2,6 +2,19 @@
 
 #### 🐛 Bug Fix
 
+- `@friggframework/api-module-slack@0.1.23`
+  - Quick hits, view endpoints [#126](https://github.com/friggframework/frigg/pull/126) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Wed Feb 08 2023)
+
+#### 🐛 Bug Fix
+
 - `@friggframework/api-module-slack@0.1.22`, `@friggframework/module-plugin@1.0.23`
   - Fixed a Slack bug via requester improvement [#125](https://github.com/friggframework/frigg/pull/125) ([@seanspeaks](https://github.com/seanspeaks))
 
