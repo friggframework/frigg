@@ -1,3 +1,18 @@
+# (Wed Feb 08 2023)
+
+#### 🐛 Bug Fix
+
+- Install the CodeSee workflow. [#118](https://github.com/friggframework/frigg/pull/118) ([@codesee-maps[bot]](https://github.com/codesee-maps[bot]))
+- `@friggframework/errors@1.1.6`
+  - URLSearchParams (used in OAuth2 base) was not printing out bodies in … [#124](https://github.com/friggframework/frigg/pull/124) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@codesee-maps[bot]](https://github.com/codesee-maps[bot])
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Fri Feb 03 2023)
 
 #### 🐛 Bug Fix
