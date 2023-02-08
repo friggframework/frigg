@@ -60,6 +60,12 @@ class Api extends OAuth2Requester {
 
             // Users
             lookupUserByEmail: '/users.lookupByEmail',
+
+            // Views
+            openView: '/views.open',
+            publishView: '/views.publish',
+            updateView: '/views.update',
+            pushView: '/views.push',
         };
 
         this.tokenUri = this.baseUrl + this.URLs.access_token;
@@ -409,6 +415,45 @@ class Api extends OAuth2Requester {
     }
 
     // Args:
+    // Need args from Slack
+    async openView(body) {
+        const options = {
+            url: this.baseUrl + this.URLs.openView,
+            body,
+        };
+        const response = await this._post(options);
+        return response;
+    }
+
+    // Need args from Slack
+    async updateView(body) {
+        const options = {
+            url: this.baseUrl + this.URLs.updateView,
+            body,
+        };
+        const response = await this._post(options);
+        return response;
+    }
+
+    // Need args from Slack
+    async pushView(body) {
+        const options = {
+            url: this.baseUrl + this.URLs.pushView,
+            body,
+        };
+        const response = await this._post(options);
+        return response;
+    }
+
+    // Need args from Slack
+    async publishView(body) {
+        const options = {
+            url: this.baseUrl + this.URLs.publishView,
+            body,
+        };
+        const response = await this._post(options);
+        return response;
+    }
 }
 
 module.exports = { Api };
