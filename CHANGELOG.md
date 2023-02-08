@@ -2,6 +2,19 @@
 
 #### 🐛 Bug Fix
 
+- `@friggframework/api-module-slack@0.1.22`, `@friggframework/module-plugin@1.0.23`
+  - Fixed a Slack bug via requester improvement [#125](https://github.com/friggframework/frigg/pull/125) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Wed Feb 08 2023)
+
+#### 🐛 Bug Fix
+
 - Install the CodeSee workflow. [#118](https://github.com/friggframework/frigg/pull/118) ([@codesee-maps[bot]](https://github.com/codesee-maps[bot]))
 - `@friggframework/errors@1.1.6`
   - URLSearchParams (used in OAuth2 base) was not printing out bodies in … [#124](https://github.com/friggframework/frigg/pull/124) ([@seanspeaks](https://github.com/seanspeaks))
