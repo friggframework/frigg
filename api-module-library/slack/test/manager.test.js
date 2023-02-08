@@ -49,6 +49,7 @@ describe(`Should fully test the ${config.label} Manager`, () => {
             manager.api.access_token = 'nope';
             await manager.testAuth();
             expect(manager.api.access_token).to.not.equal('nope');
+            expect(manager.api.access_token).to.exist;
         });
         it('should refresh token after a fresh database retrieval', async () => {
             const newManager = await Manager.getInstance({
@@ -58,22 +59,27 @@ describe(`Should fully test the ${config.label} Manager`, () => {
             newManager.api.access_token = 'nope';
             await newManager.testAuth();
             expect(newManager.api.access_token).to.not.equal('nope');
+            expect(newManager.api.access_token).to.exist;
         });
 
         it('should refresh token after it expires', async () => {
-            const oldToken = `${manager.api.access_token}`;
-            const testAuthNock = nock(manager.api.baseUrl, {
+            const newManager = await Manager.getInstance({
+                userId: manager.userId,
+                entityId: manager.entity.id,
+            });
+            const oldToken = `${newManager.api.access_token}`;
+            const testAuthNock = nock(newManager.api.baseUrl, {
                 allowUnmocked: true,
             })
-                .post(manager.api.URLs.authTest)
+                .post(newManager.api.URLs.authTest)
                 .reply(200, {
                     ok: false,
                     error: 'token_expired',
                 });
-            manager.api.access_token = null;
-            await manager.testAuth();
+            await newManager.testAuth();
             expect(testAuthNock.isDone());
-            expect(manager.api.access_token).to.not.equal(oldToken);
+            expect(newManager.api.access_token).to.not.equal(oldToken);
+            expect(newManager.api.access_token).to.exist;
         });
         it('auth refresh should fail if redirect URI changes', async () => {
             const newManager = await Manager.getInstance({
