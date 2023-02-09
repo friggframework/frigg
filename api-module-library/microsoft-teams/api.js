@@ -42,6 +42,31 @@ class Api extends OAuth2Requester {
 
         return `${this.authorizationUri}?${querystring.stringify(query)}`;
     }
+
+    async getTokenFromClientCredentials() {
+        try {
+            const url = this.tokenUri;
+
+
+            let body = new URLSearchParams()
+            body.append('scope', this.scope)
+            body.append('client_id', this.client_id)
+            body.append('client_secret', this.client_secret)
+            body.append('grant_type', 'client_credentials')
+
+
+            const tokenRes = await this._post( {
+                url,
+                body,
+            }, false);
+
+            await this.setTokens(tokenRes);
+            return tokenRes;
+        } catch {
+            await this.notify(this.DLGT_INVALID_AUTH);
+        }
+    }
+
     // Method to retrieve user details using the this.URLs.userDetails endpoint
     async getUser() {
         const options = {
