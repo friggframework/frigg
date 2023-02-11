@@ -65,6 +65,7 @@ class Manager extends ModuleManager {
 
         // Grab identifying information if available.
         // Currently not available in the Ironclad API
+        const connectionInfo = await this.api.getConnectionInformation();
 
         await this.findOrCreateCredential({
             apiKey,
@@ -72,9 +73,12 @@ class Manager extends ModuleManager {
             subdomain,
         });
         await this.findOrCreateEntity({
-            apiKey,
+            externalId:
+                connectionInfo?.companyId ||
+                createHash('sha256').update(apiKey).digest('hex'),
             subType,
             subdomain,
+            name: connectionInfo?.companyName || null,
         });
         const returnObj = {
             credential_id: this.credential.id,
@@ -120,10 +124,9 @@ class Manager extends ModuleManager {
     }
 
     async findOrCreateEntity(params) {
-        const apiKey = get(params, 'apiKey', null);
         const name = get(params, 'name', null);
         const subType = get(params, 'subType', null);
-        const externalId = createHash('sha256').update(apiKey).digest('hex');
+        const externalId = get(params, 'externalId', null);
 
         const search = await Entity.find({
             user: this.userId,

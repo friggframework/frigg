@@ -19,6 +19,7 @@ class Api extends ApiKeyRequester {
         };
 
         this.URLs = {
+            me: '/public/api/v1/me',
             webhooks: '/public/api/v1/webhooks',
             webhookByID: (webhookId) => `/public/api/v1/webhooks/${webhookId}`,
             workflows: '/public/api/v1/workflows',
@@ -47,6 +48,14 @@ class Api extends ApiKeyRequester {
             headers.Authorization = `Bearer ${this.API_KEY_VALUE}`;
         }
         return headers;
+    }
+
+    async getConnectionInformation() {
+        const options = {
+            url: this.baseUrl() + this.URLs.me,
+        };
+        const response = await this._get(options);
+        return response;
     }
 
     async listWebhooks() {
