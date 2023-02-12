@@ -1,3 +1,16 @@
+# (Sun Feb 12 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/database@1.0.11`
+  - StrictQuery issue resolution [#127](https://github.com/friggframework/frigg/pull/127) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Wed Feb 08 2023)
 
 #### 🐛 Bug Fix
