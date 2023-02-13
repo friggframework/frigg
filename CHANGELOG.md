@@ -2,6 +2,19 @@
 
 #### 🐛 Bug Fix
 
+- `@friggframework/api-module-ironclad@0.0.30`
+  - Fix bug [#130](https://github.com/friggframework/frigg/pull/130) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Mon Feb 13 2023)
+
+#### 🐛 Bug Fix
+
 - `@friggframework/api-module-ironclad@0.0.29`
   - Support as-user-workflow-schemas and connection info [#129](https://github.com/friggframework/frigg/pull/129) ([@seanspeaks](https://github.com/seanspeaks))
 - `@friggframework/api-module-slack@0.1.24`

@@ -1,3 +1,16 @@
+# v0.0.30 (Mon Feb 13 2023)
+
+#### 🐛 Bug Fix
+
+- Fix bug [#130](https://github.com/friggframework/frigg/pull/130) ([@seanspeaks](https://github.com/seanspeaks))
+- Headers needs to be defined first ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.29 (Mon Feb 13 2023)
 
 #### 🐛 Bug Fix
