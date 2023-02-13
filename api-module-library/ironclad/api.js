@@ -143,6 +143,7 @@ class Api extends ApiKeyRequester {
         const options = {
             url: this.baseUrl() + this.URLs.workflowSchemas,
             query: params,
+            headers: {},
         };
         if (asUserEmail) {
             options.headers['x-as-user-email'] = asUserEmail;
