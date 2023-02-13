@@ -60,6 +60,8 @@ class Api extends OAuth2Requester {
 
             // Users
             lookupUserByEmail: '/users.lookupByEmail',
+            getUserProfileById: '/users.profile.get',
+            getUserById: '/users.info',
 
             // Views
             openView: '/views.open',
@@ -162,6 +164,30 @@ class Api extends OAuth2Requester {
             url: this.baseUrl + this.URLs.lookupUserByEmail + `?email=${email}`,
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
+                Accept: 'application/json',
+            },
+        };
+        const response = await this._get(options);
+        return response;
+    }
+    async getUserProfileById(userId) {
+        const options = {
+            url:
+                this.baseUrl + this.URLs.getUserProfileById + `?user=${userId}`,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        };
+        const response = await this._get(options);
+        return response;
+    }
+
+    async getUserById(userId) {
+        const options = {
+            url: this.baseUrl + this.URLs.getUserById + `?user=${userId}`,
+            headers: {
+                'Content-Type': 'application/json',
                 Accept: 'application/json',
             },
         };
