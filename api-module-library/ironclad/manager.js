@@ -9,7 +9,7 @@ const {
 } = require('@friggframework/module-plugin');
 const AuthFields = require('./authFields');
 const Config = require('./defaultConfig.json');
-const { flushDebugLog } = require('@friggframework/logs');
+const { flushDebugLog, debug } = require('@friggframework/logs');
 const { createHash } = require('crypto');
 
 class Manager extends ModuleManager {
@@ -64,7 +64,13 @@ class Manager extends ModuleManager {
         if (!authRes) throw new Error('Auth Error');
 
         // Grab identifying information if available.
-        // Currently not available in the Ironclad API
+        // Some credentials will not have proper access/permissions
+        let connectionInfo;
+        try {
+            connectionInfo = await this.api.getConnectionInformation();
+        } catch (e) {
+            debug('No permission to get connection information');
+        }
 
         await this.findOrCreateCredential({
             apiKey,
@@ -72,9 +78,12 @@ class Manager extends ModuleManager {
             subdomain,
         });
         await this.findOrCreateEntity({
-            apiKey,
+            externalId:
+                connectionInfo?.companyId ||
+                createHash('sha256').update(apiKey).digest('hex'),
             subType,
             subdomain,
+            name: connectionInfo?.companyName || null,
         });
         const returnObj = {
             credential_id: this.credential.id,
@@ -120,10 +129,9 @@ class Manager extends ModuleManager {
     }
 
     async findOrCreateEntity(params) {
-        const apiKey = get(params, 'apiKey', null);
         const name = get(params, 'name', null);
         const subType = get(params, 'subType', null);
-        const externalId = createHash('sha256').update(apiKey).digest('hex');
+        const externalId = get(params, 'externalId', null);
 
         const search = await Entity.find({
             user: this.userId,
