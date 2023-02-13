@@ -9,7 +9,7 @@ const {
 } = require('@friggframework/module-plugin');
 const AuthFields = require('./authFields');
 const Config = require('./defaultConfig.json');
-const { flushDebugLog } = require('@friggframework/logs');
+const { flushDebugLog, debug } = require('@friggframework/logs');
 const { createHash } = require('crypto');
 
 class Manager extends ModuleManager {
@@ -64,8 +64,13 @@ class Manager extends ModuleManager {
         if (!authRes) throw new Error('Auth Error');
 
         // Grab identifying information if available.
-        // Currently not available in the Ironclad API
-        const connectionInfo = await this.api.getConnectionInformation();
+        // Some credentials will not have proper access/permissions
+        let connectionInfo;
+        try {
+            connectionInfo = await this.api.getConnectionInformation();
+        } catch (e) {
+            debug('No permission to get connection information');
+        }
 
         await this.findOrCreateCredential({
             apiKey,
