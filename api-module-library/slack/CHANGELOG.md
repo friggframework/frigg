@@ -1,3 +1,18 @@
+# v0.1.24 (Mon Feb 13 2023)
+
+#### 🐛 Bug Fix
+
+- Support as-user-workflow-schemas and connection info [#129](https://github.com/friggframework/frigg/pull/129) ([@seanspeaks](https://github.com/seanspeaks))
+- Slack: Add User Lookup by ID [#128](https://github.com/friggframework/frigg/pull/128) ([@seanspeaks](https://github.com/seanspeaks))
+- User Info Lookup ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.1.23 (Wed Feb 08 2023)
 
 #### 🐛 Bug Fix

@@ -1,3 +1,19 @@
+# v0.0.29 (Mon Feb 13 2023)
+
+#### 🐛 Bug Fix
+
+- Support as-user-workflow-schemas and connection info [#129](https://github.com/friggframework/frigg/pull/129) ([@seanspeaks](https://github.com/seanspeaks))
+- Conditional retrieval of company details if token has access ([@seanspeaks](https://github.com/seanspeaks))
+- Adding /me endpoint to identify the Ironclad Company ([@seanspeaks](https://github.com/seanspeaks))
+- Updates to API class ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.27 (Wed Feb 01 2023)
 
 :tada: This release contains work from a new contributor! :tada:

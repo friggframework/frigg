@@ -1,3 +1,18 @@
+# (Mon Feb 13 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.29`
+  - Support as-user-workflow-schemas and connection info [#129](https://github.com/friggframework/frigg/pull/129) ([@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/api-module-slack@0.1.24`
+  - Slack: Add User Lookup by ID [#128](https://github.com/friggframework/frigg/pull/128) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Sun Feb 12 2023)
 
 #### 🐛 Bug Fix
