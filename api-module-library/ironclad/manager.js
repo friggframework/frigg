@@ -72,12 +72,12 @@ class Manager extends ModuleManager {
             debug('No permission to get connection information');
         }
 
-        await this.findOrCreateCredential({
+        await this.upsertCredential({
             apiKey,
             subType,
             subdomain,
         });
-        await this.findOrCreateEntity({
+        await this.upsertEntity({
             externalId:
                 connectionInfo?.companyId ||
                 createHash('sha256').update(apiKey).digest('hex'),
@@ -98,61 +98,53 @@ class Manager extends ModuleManager {
         return returnObj;
     }
 
-    async findOrCreateCredential(params) {
+    async upsertCredential(params) {
         const apiKey = get(params, 'apiKey', null);
         const subdomain = get(params, 'subdomain', null);
         const subType = get(params, 'subType', null);
 
-        const search = await Credential.find({
-            user: this.userId,
-            apiKey,
-            subType,
-            subdomain,
-        });
-
-        if (search.length === 0) {
-            const createObj = {
+        this.credential = await Credential.findOneAndUpdate(
+            {
                 user: this.userId,
                 apiKey,
                 subType,
                 subdomain,
-            };
-            this.credential = await Credential.create(createObj);
-        } else if (search.length === 1) {
-            this.credential = search[0];
-        } else {
-            debug(
-                'Multiple credentials found with the same Client ID:',
-                apiKey
-            );
-        }
+            },
+            { $set: { user: this.userId, apiKey, subType, subdomain } },
+            {
+                new: true,
+                upsert: true,
+                setDefaultsOnInsert: true,
+            }
+        );
     }
 
-    async findOrCreateEntity(params) {
+    async upsertEntity(params) {
         const name = get(params, 'name', null);
         const subType = get(params, 'subType', null);
         const externalId = get(params, 'externalId', null);
 
-        const search = await Entity.find({
-            user: this.userId,
-            externalId,
-            subType,
-        });
-        if (search.length === 0) {
-            const createObj = {
-                credential: this.credential.id,
+        this.entity = await Entity.findOneAndUpdate(
+            {
                 user: this.userId,
-                name,
-                subType,
                 externalId,
-            };
-            this.entity = await Entity.create(createObj);
-        } else if (search.length === 1) {
-            this.entity = search[0];
-        } else {
-            debug('Multiple entities found with the same external ID:', apiKey);
-            this.throwException('');
-        }
+                subType,
+            },
+            {
+                $set: {
+                    credential: this.credential.id,
+                    user: this.userId,
+                    name,
+                    subType,
+                    externalId,
+                },
+            },
+            {
+                new: true,
+                upsert: true,
+                setDefaultsOnInsert: true,
+            }
+        );
     }
 
     async testAuth() {
