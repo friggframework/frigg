@@ -1,3 +1,16 @@
+# (Wed Feb 15 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.31`
+  - Switch to Upsert for Credential and Entity creation [#131](https://github.com/friggframework/frigg/pull/131) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Mon Feb 13 2023)
 
 #### 🐛 Bug Fix

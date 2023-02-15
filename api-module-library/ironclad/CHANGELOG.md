@@ -1,3 +1,16 @@
+# v0.0.31 (Wed Feb 15 2023)
+
+#### 🐛 Bug Fix
+
+- Switch to Upsert for Credential and Entity creation [#131](https://github.com/friggframework/frigg/pull/131) ([@seanspeaks](https://github.com/seanspeaks))
+- Upserts make way more sense for the use case... consider doing across alllll Modules ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.30 (Mon Feb 13 2023)
 
 #### 🐛 Bug Fix
