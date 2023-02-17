@@ -1,3 +1,28 @@
+# v1.0.11 (Sun Feb 12 2023)
+
+#### 🐛 Bug Fix
+
+- StrictQuery issue resolution [#127](https://github.com/friggframework/frigg/pull/127) ([@seanspeaks](https://github.com/seanspeaks))
+- strictQuery is false by default in mongoose 5, changed in mongoose 6 (which gives weird behavior as it just returns all documents when a query filter statement is null or missing), and will be reverted back to false in 7. So, stick to false and override locally if need be. ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v1.0.10 (Tue Jan 31 2023)
+
+#### 🐛 Bug Fix
+
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.0.9 (Mon Jan 09 2023)
 
 #### 🐛 Bug Fix

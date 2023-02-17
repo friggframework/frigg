@@ -1,3 +1,123 @@
+# v0.0.31 (Wed Feb 15 2023)
+
+#### 🐛 Bug Fix
+
+- Switch to Upsert for Credential and Entity creation [#131](https://github.com/friggframework/frigg/pull/131) ([@seanspeaks](https://github.com/seanspeaks))
+- Upserts make way more sense for the use case... consider doing across alllll Modules ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.0.30 (Mon Feb 13 2023)
+
+#### 🐛 Bug Fix
+
+- Fix bug [#130](https://github.com/friggframework/frigg/pull/130) ([@seanspeaks](https://github.com/seanspeaks))
+- Headers needs to be defined first ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.0.29 (Mon Feb 13 2023)
+
+#### 🐛 Bug Fix
+
+- Support as-user-workflow-schemas and connection info [#129](https://github.com/friggframework/frigg/pull/129) ([@seanspeaks](https://github.com/seanspeaks))
+- Conditional retrieval of company details if token has access ([@seanspeaks](https://github.com/seanspeaks))
+- Adding /me endpoint to identify the Ironclad Company ([@seanspeaks](https://github.com/seanspeaks))
+- Updates to API class ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.0.27 (Wed Feb 01 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, null[@vedantagrawall](https://github.com/vedantagrawall), for all your work!
+
+#### 🐛 Bug Fix
+
+- minor bug fix in Ironclad get comments by Id endpoint [#112](https://github.com/friggframework/frigg/pull/112) (vedant@vedant.agrawal [@vedantagrawall](https://github.com/vedantagrawall))
+- minor bug fix (vedant@vedant.agrawal)
+
+#### Authors: 2
+
+- [@vedantagrawall](https://github.com/vedantagrawall)
+- Vedant Agrawal (vedant@vedant.agrawal)
+
+---
+
+# v0.0.26 (Tue Jan 31 2023)
+
+:tada: This release contains work from new contributors! :tada:
+
+Thanks for all your work!
+
+:heart: null[@vedantagrawall](https://github.com/vedantagrawall)
+
+:heart: null[@li-sherry](https://github.com/li-sherry)
+
+#### 🐛 Bug Fix
+
+- Vedantagrawall/ironclad comments endpoint [#110](https://github.com/friggframework/frigg/pull/110) (vedant@vedant.agrawal [@vedantagrawall](https://github.com/vedantagrawall))
+- adding get comment by Id endpoint (vedant@vedant.agrawal)
+- Merge branch 'vedantagrawal/additional-ironclad-endpoints' into AddSlackLookupUsersByEmail [#105](https://github.com/friggframework/frigg/pull/105) ([@li-sherry](https://github.com/li-sherry))
+- adding workflow participants and get user endpoints [#105](https://github.com/friggframework/frigg/pull/105) (vedant@vedant.agrawal)
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 4
+
+- [@li-sherry](https://github.com/li-sherry)
+- [@vedantagrawall](https://github.com/vedantagrawall)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+- Vedant Agrawal (vedant@vedant.agrawal)
+
+---
+
+# v0.0.25 (Tue Jan 31 2023)
+
+#### 🐛 Bug Fix
+
+- Updates/api module yotpo [#108](https://github.com/friggframework/frigg/pull/108) ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.0.24 (Tue Jan 31 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, null[@li-sherry](https://github.com/li-sherry), for all your work!
+
+#### 🐛 Bug Fix
+
+- add lookupUsersByEmail [#106](https://github.com/friggframework/frigg/pull/106) (vedant@vedant.agrawal [@li-sherry](https://github.com/li-sherry))
+- TODO for reminder (vedant@vedant.agrawal)
+- Merge branch 'vedantagrawal/additional-ironclad-endpoints' into AddSlackLookupUsersByEmail [#105](https://github.com/friggframework/frigg/pull/105) ([@li-sherry](https://github.com/li-sherry))
+- adding workflow participants and get user endpoints (vedant@vedant.agrawal)
+
+#### Authors: 2
+
+- [@li-sherry](https://github.com/li-sherry)
+- Vedant Agrawal (vedant@vedant.agrawal)
+
+---
+
 # v0.0.23 (Wed Jan 18 2023)
 
 #### 🐛 Bug Fix

@@ -1,11 +1,14 @@
-const Manager = require('./manager');
+const Manager = require('../manager');
 const mongoose = require('mongoose');
-const config = require('./defaultConfig.json');
+const config = require('../defaultConfig.json');
 const Authenticator = require('@friggframework/test-environment/Authenticator');
+const authFields = require('../authFields');
 
 const yotpoCreds = {
     store_id: process.env.YOTPO_STORE_ID,
     secret: process.env.YOTPO_SECRET,
+    loyalty_guid: process.env.YOTPO_LOYALTY_GUID,
+    loyalty_api_key: process.env.YOTPO_LOYALTY_API_KEY,
 };
 describe(`Should fully test the ${config.label} Manager`, () => {
     let manager, authUrl;
@@ -28,6 +31,7 @@ describe(`Should fully test the ${config.label} Manager`, () => {
             const requirements = await manager.getAuthorizationRequirements();
             expect(requirements).toBeDefined();
             expect(requirements.type).toEqual('oauth2');
+            expect(requirements.data).toEqual(authFields);
             authUrl = requirements.url;
         });
     });
@@ -70,7 +74,16 @@ describe(`Should fully test the ${config.label} Manager`, () => {
             expect(authRes).toEqual(true);
         });
     });
-    describe('receiveNotification() tests', () => {});
+    describe('receiveNotification() tests', () => {
+        it('Fresh maanager instance should testAuth correctly', async () => {
+            const newManager = await Manager.getInstance({
+                userId: manager.userId,
+                entityId: manager.entity.id,
+            });
+            const authRes = await newManager.testAuth();
+            expect(authRes).toEqual(true);
+        });
+    });
     describe('testAuth() tests', () => {
         it('Response with true if authenticated', async () => {
             const response = await manager.testAuth();

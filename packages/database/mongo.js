@@ -29,6 +29,7 @@ const connectToDatabase = async () => {
     }
 
     debug('=> using new database connection');
+    mongoose.set('strictQuery', false);
     await mongoose.connect(process.env.MONGO_URI, mongoConfig);
     mongoose.connection.on('error', (error) => flushDebugLog(error));
 };

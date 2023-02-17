@@ -1,3 +1,141 @@
+# v0.1.24 (Mon Feb 13 2023)
+
+#### 🐛 Bug Fix
+
+- Support as-user-workflow-schemas and connection info [#129](https://github.com/friggframework/frigg/pull/129) ([@seanspeaks](https://github.com/seanspeaks))
+- Slack: Add User Lookup by ID [#128](https://github.com/friggframework/frigg/pull/128) ([@seanspeaks](https://github.com/seanspeaks))
+- User Info Lookup ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.1.23 (Wed Feb 08 2023)
+
+#### 🐛 Bug Fix
+
+- Quick hits, view endpoints [#126](https://github.com/friggframework/frigg/pull/126) ([@seanspeaks](https://github.com/seanspeaks))
+- Quick hits, view endpoints ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.1.22 (Wed Feb 08 2023)
+
+#### 🐛 Bug Fix
+
+- Fixed a Slack bug via requester improvement [#125](https://github.com/friggframework/frigg/pull/125) ([@seanspeaks](https://github.com/seanspeaks))
+- Fixed a Slack bug via requester improvement ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.1.21 (Thu Feb 02 2023)
+
+#### 🐛 Bug Fix
+
+- More unit test reasons [#116](https://github.com/friggframework/frigg/pull/116) ([@seanspeaks](https://github.com/seanspeaks))
+- More unit test reasons ([@seanspeaks](https://github.com/seanspeaks))
+- this is why we unit test [#115](https://github.com/friggframework/frigg/pull/115) ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.1.20 (Wed Feb 01 2023)
+
+#### 🐛 Bug Fix
+
+- this is why we unit test [#115](https://github.com/friggframework/frigg/pull/115) ([@seanspeaks](https://github.com/seanspeaks))
+- this is why we unit test ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.1.19 (Wed Feb 01 2023)
+
+#### 🐛 Bug Fix
+
+- Channel management API Methods [#113](https://github.com/friggframework/frigg/pull/113) ([@seanspeaks](https://github.com/seanspeaks))
+- Channel management API Methods ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.1.18 (Tue Jan 31 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, null[@li-sherry](https://github.com/li-sherry), for all your work!
+
+#### 🐛 Bug Fix
+
+- change to x-www-form-urlencoded [#107](https://github.com/friggframework/frigg/pull/107) ([@li-sherry](https://github.com/li-sherry) vedant@vedant.agrawal)
+- remove body, set email as query param ([@li-sherry](https://github.com/li-sherry))
+- passing email as query param (vedant@vedant.agrawal)
+- change to x-www-form-urlencoded ([@li-sherry](https://github.com/li-sherry))
+- Merge branch 'vedantagrawal/additional-ironclad-endpoints' into AddSlackLookupUsersByEmail [#105](https://github.com/friggframework/frigg/pull/105) ([@li-sherry](https://github.com/li-sherry))
+- add lookupUsersByEmail [#106](https://github.com/friggframework/frigg/pull/106) ([@li-sherry](https://github.com/li-sherry))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 3
+
+- [@li-sherry](https://github.com/li-sherry)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+- Vedant Agrawal (vedant@vedant.agrawal)
+
+---
+
+# v0.1.17 (Tue Jan 31 2023)
+
+#### 🐛 Bug Fix
+
+- Updates/api module yotpo [#108](https://github.com/friggframework/frigg/pull/108) ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.1.16 (Tue Jan 31 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, null[@li-sherry](https://github.com/li-sherry), for all your work!
+
+#### 🐛 Bug Fix
+
+- add lookupUsersByEmail [#106](https://github.com/friggframework/frigg/pull/106) (vedant@vedant.agrawal [@li-sherry](https://github.com/li-sherry))
+- Merge branch 'vedantagrawal/additional-ironclad-endpoints' into AddSlackLookupUsersByEmail [#105](https://github.com/friggframework/frigg/pull/105) ([@li-sherry](https://github.com/li-sherry))
+- add lookupUsersByEmail ([@li-sherry](https://github.com/li-sherry))
+
+#### Authors: 2
+
+- [@li-sherry](https://github.com/li-sherry)
+- Vedant Agrawal (vedant@vedant.agrawal)
+
+---
+
 # v0.1.15 (Tue Jan 24 2023)
 
 #### 🐛 Bug Fix

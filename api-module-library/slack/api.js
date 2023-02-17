@@ -26,6 +26,16 @@ class Api extends OAuth2Requester {
             authTest: '/auth.test',
             listTeams: '/auth.teams.list',
 
+            // Channels or Conversations
+            getChannel: '/conversations.info',
+            listChannels: '/conversations.list',
+            createChannel: '/conversations.create',
+            updateChannel: '/conversations.update',
+            closeChannel: '/conversations.close',
+            archiveChannel: '/conversations.archive',
+            inviteUsersToChannel: '/conversations.invite',
+            renameChannel: '/conversations.rename',
+
             // Chats
             getMessagePermalink: '/chat.getPermalink',
             postMessage: '/chat.postMessage',
@@ -47,6 +57,17 @@ class Api extends OAuth2Requester {
             shareRemoteFile: '/files.remote.share', // Shares a remote file
             revokeFilePublicURL: '/files.revokePublicURL', // Revokes public/external sharing access for a file
             sharedFilePublicURL: '/files.sharedPublicURL', // Enables a file for public/external sharing.
+
+            // Users
+            lookupUserByEmail: '/users.lookupByEmail',
+            getUserProfileById: '/users.profile.get',
+            getUserById: '/users.info',
+
+            // Views
+            openView: '/views.open',
+            publishView: '/views.publish',
+            updateView: '/views.update',
+            pushView: '/views.push',
         };
 
         this.tokenUri = this.baseUrl + this.URLs.access_token;
@@ -70,6 +91,7 @@ class Api extends OAuth2Requester {
         const parsedResponse = await this.parsedBody(response);
         const { status } = response;
         const { ok, error } = parsedResponse;
+        console.log(parsedResponse);
 
         // If the status is retriable and there are back off requests left, retry the request
         if ((status === 429 || status >= 500) && i < this.backOff.length) {
@@ -78,7 +100,8 @@ class Api extends OAuth2Requester {
             return this._request(url, options, i + 1);
         } else if (
             parsedResponse.error === 'invalid_auth' ||
-            parsedResponse.error === 'auth_expired'
+            parsedResponse.error === 'auth_expired' ||
+            parsedResponse.error === 'token_expired'
         ) {
             if (!this.isRefreshable || this.refreshCount > 0) {
                 await this.notify(this.DLGT_INVALID_AUTH);
@@ -106,6 +129,10 @@ class Api extends OAuth2Requester {
         if (this.access_token) {
             headers.Authorization = `Bearer ${this.access_token}`;
         }
+        if (!headers['Content-Type'])
+            headers['Content-Type'] = 'application/json';
+        if (!headers['Accept']) headers['Accept'] = 'application/json';
+
         return headers;
     }
 
@@ -127,12 +154,44 @@ class Api extends OAuth2Requester {
         const options = {
             url: this.baseUrl + this.URLs.authTest,
             body: null,
+        };
+        const response = await this._post(options);
+        return response;
+    }
+
+    async lookupUserByEmail(email) {
+        const options = {
+            url: this.baseUrl + this.URLs.lookupUserByEmail + `?email=${email}`,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                Accept: 'application/json',
+            },
+        };
+        const response = await this._get(options);
+        return response;
+    }
+    async getUserProfileById(userId) {
+        const options = {
+            url:
+                this.baseUrl + this.URLs.getUserProfileById + `?user=${userId}`,
             headers: {
                 'Content-Type': 'application/json',
                 Accept: 'application/json',
             },
         };
-        const response = await this._post(options);
+        const response = await this._get(options);
+        return response;
+    }
+
+    async getUserById(userId) {
+        const options = {
+            url: this.baseUrl + this.URLs.getUserById + `?user=${userId}`,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        };
+        const response = await this._get(options);
         return response;
     }
 
@@ -170,10 +229,6 @@ class Api extends OAuth2Requester {
         const options = {
             url: this.baseUrl + this.URLs.postMessage,
             body,
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
         };
         const response = await this._post(options);
         return response;
@@ -195,10 +250,6 @@ class Api extends OAuth2Requester {
         const options = {
             url: this.baseUrl + this.URLs.updateMessage,
             body,
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
         };
         const response = await this._post(options);
         return response;
@@ -212,10 +263,6 @@ class Api extends OAuth2Requester {
         const options = {
             url: this.baseUrl + this.URLs.deleteMessage,
             body,
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
         };
         const response = await this._post(options);
         return response;
@@ -268,10 +315,6 @@ class Api extends OAuth2Requester {
         const options = {
             url: this.baseUrl + this.URLs.uploadFile,
             body,
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
         };
         const response = await this._post(options);
         return response;
@@ -283,10 +326,6 @@ class Api extends OAuth2Requester {
         const options = {
             url: this.baseUrl + this.URLs.deleteFile,
             body,
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
         };
         const response = await this._post(options);
         return response;
@@ -374,6 +413,71 @@ class Api extends OAuth2Requester {
             query,
         };
         const response = await this._get(options);
+        return response;
+    }
+
+    // Args:
+    // name: string, required
+    // is_private: boolean, optional
+    async createChannel(body) {
+        const options = {
+            url: this.baseUrl + this.URLs.createChannel,
+            body,
+        };
+        const response = await this._post(options);
+        return response;
+    }
+
+    // Args:
+    // channel: string, required
+    // users: array, required
+    async inviteUsersToChannel(body) {
+        const options = {
+            url: this.baseUrl + this.URLs.inviteUsersToChannel,
+            body,
+        };
+        const response = await this._post(options);
+        return response;
+    }
+
+    // Args:
+    // Need args from Slack
+    async openView(body) {
+        const options = {
+            url: this.baseUrl + this.URLs.openView,
+            body,
+        };
+        const response = await this._post(options);
+        return response;
+    }
+
+    // Need args from Slack
+    async updateView(body) {
+        const options = {
+            url: this.baseUrl + this.URLs.updateView,
+            body,
+        };
+        const response = await this._post(options);
+        return response;
+    }
+
+    // Need args from Slack
+    async pushView(body) {
+        const options = {
+            url: this.baseUrl + this.URLs.pushView,
+            body,
+        };
+        const response = await this._post(options);
+        return response;
+    }
+
+    // Need args from Slack
+    async publishView(body) {
+        const options = {
+            url: this.baseUrl + this.URLs.publishView,
+            body,
+        };
+        const response = await this._post(options);
         return response;
     }
 }

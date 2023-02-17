@@ -1,3 +1,29 @@
+# v0.8.22 (Wed Feb 01 2023)
+
+#### 🐛 Bug Fix
+
+- Update the Credential [#111](https://github.com/friggframework/frigg/pull/111) ([@seanspeaks](https://github.com/seanspeaks))
+- Update the Credential ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.8.21 (Tue Jan 31 2023)
+
+#### 🐛 Bug Fix
+
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.8.19 (Wed Jan 11 2023)
 
 #### 🐛 Bug Fix

@@ -1,3 +1,28 @@
+# v1.0.23 (Wed Feb 08 2023)
+
+#### 🐛 Bug Fix
+
+- Fixed a Slack bug via requester improvement [#125](https://github.com/friggframework/frigg/pull/125) ([@seanspeaks](https://github.com/seanspeaks))
+- Fixed a Slack bug via requester improvement ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v1.0.22 (Tue Jan 31 2023)
+
+#### 🐛 Bug Fix
+
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.0.21 (Wed Jan 18 2023)
 
 #### 🐛 Bug Fix

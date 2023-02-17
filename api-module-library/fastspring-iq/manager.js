@@ -140,11 +140,11 @@ class Manager extends ModuleManager {
                         );
                         // If there are any existingCredentials of the same type, then we update that credential and call it a day
                         if (existingCred) {
-                            const update = await Credential.update(
-                                existingCred.credential,
-                                updatedToken
+                            this.credential = await Credential.findOneAndUpdate(
+                                { _id: existingCred.credential },
+                                { $set: updatedToken },
+                                { useFindAndModify: true, new: true }
                             );
-                            console.log(update);
                         } else {
                             // If there are no existing credentials by that type, create and add to the array
                             credentialObject.credential =

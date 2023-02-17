@@ -5,7 +5,6 @@ const {
     ModuleConstants,
 } = require('@friggframework/module-plugin');
 const { Api } = require('./api/api');
-const { appDeveloperApi } = require('./api/appDeveloperApi');
 const { Entity } = require('./entity');
 const { Credential } = require('./credential');
 
@@ -45,6 +44,10 @@ class Manager extends ModuleManager {
             apiParams.API_KEY_VALUE = apiParams.coreApiAccessToken;
         }
         instance.api = await new Api(apiParams);
+        if (apiParams.loyalty_api_key) {
+            instance.api.loyaltyApi.setApiKey(apiParams.loyalty_api_key);
+            instance.api.loyaltyApi.setGuid(apiParams.loyalty_guid);
+        }
 
         return instance;
     }
@@ -52,14 +55,20 @@ class Manager extends ModuleManager {
     // Change to whatever your api uses to return identifying information
     async testAuth() {
         let validAuth = false;
+        const authRequests = [
+            this.api.appDeveloperApi.listOrders(),
+            this.api.coreApi.listOrders(),
+        ];
+        if (
+            this.api.loyaltyApi.API_KEY_VALUE ||
+            this.credential.loyalty_api_key
+        )
+            authRequests.push(this.api.loyaltyApi.listActiveCampaigns());
         try {
-            if (
-                (await this.api.coreApi.listOrders()) &&
-                (await this.api.appDeveloperApi.listOrders())
-            )
-                validAuth = true;
+            await Promise.all(authRequests);
+            validAuth = true;
         } catch (e) {
-            flushDebugLog(e);
+            debug(e);
         }
         return validAuth;
     }
@@ -79,12 +88,16 @@ class Manager extends ModuleManager {
         const store_id = get(params.data, 'store_id', null);
         const secret = get(params.data, 'secret', null);
         const code = get(params.data, 'code', null);
+        const loyalty_api_key = get(params.data, 'loyalty_api_key', null);
+        const loyalty_guid = get(params.data, 'loyalty_guid', null);
         // const appKey = get(params.data, 'app_key', null);
         // vv TDOO temporary for specific implementation override. Don't do this at home.
         const appKey = get(params.data, 'store_id', null);
         this.api.coreApi.store_id = store_id;
         this.api.coreApi.apiKeySecret = secret;
         this.api.appDeveloperApi.appKey = appKey;
+        if (loyalty_api_key) this.api.loyaltyApi.setApiKey(loyalty_api_key);
+        if (loyalty_guid) this.api.loyaltyApi.setGuid(loyalty_guid);
         await this.api.coreApi.getToken();
         await this.api.appDeveloperApi.getTokenFromCode(code);
         const authRes = await this.testAuth();
@@ -167,6 +180,8 @@ class Manager extends ModuleManager {
                 secret: this.api.coreApi.secret,
                 coreApiAccessToken: this.api.coreApi.API_KEY_VALUE,
                 appKey: this.api.appDeveloperApi.appKey,
+                loyalty_api_key: this.api.loyaltyApi.API_KEY_VALUE,
+                loyalty_guid: this.api.loyaltyApi.GUID,
             };
 
             Object.keys(updatedToken).forEach(
@@ -180,9 +195,10 @@ class Manager extends ModuleManager {
                 if (credentialSearch.length === 0) {
                     this.credential = await Credential.create(updatedToken);
                 } else if (credentialSearch.length === 1) {
-                    this.credential = await Credential.update(
-                        credentialSearch[0],
-                        updatedToken
+                    this.credential = await Credential.findOneAndUpdate(
+                        { _id: credentialSearch[0] },
+                        { $set: updatedToken },
+                        { useFindAndModify: true, new: true }
                     );
                 } else {
                     // Handling multiple credentials found with an error for the time being
@@ -191,9 +207,10 @@ class Manager extends ModuleManager {
                     );
                 }
             } else {
-                this.credential = await Credential.update(
-                    this.credential,
-                    updatedToken
+                this.credential = await Credential.findOneAndUpdate(
+                    { _id: this.credential },
+                    { $set: updatedToken },
+                    { useFindAndModify: true, new: true }
                 );
             }
         }

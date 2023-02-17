@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-yotpo",
-    "version": "0.0.10",
+    "version": "0.0.16",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -10,22 +10,23 @@
     },
     "scripts": {
         "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
-        "test": "jest"
+        "test": "jest",
+        "test:record-loyalty": "npm --record-apis='loyalty' test -- --runInBand --testTimeout=10000000 --colors --verbose --testNamePattern='^Yotpo Loyalty API'"
     },
     "author": "",
     "license": "MIT",
     "devDependencies": {
         "@friggframework/eslint-config": "^1.0.8",
-        "@friggframework/test-environment": "^1.1.5",
+        "@friggframework/test-environment": "^1.1.6",
         "dotenv": "^16.0.2",
         "eslint": "^8.29.0",
         "jest": "^29.3.1",
+        "nock": "^13.3.0",
         "prettier": "^2.8.0",
         "sinon": "^15.0.0"
     },
     "dependencies": {
         "@friggframework/assertions": "^1.0.7",
-        "@friggframework/module-plugin": "^1.0.21",
-        "nock": "^13.2.9"
+        "@friggframework/module-plugin": "^1.0.23"
     }
 }
