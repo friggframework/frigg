@@ -1,3 +1,18 @@
+# v1.0.24 (Tue Feb 21 2023)
+
+#### 🐛 Bug Fix
+
+- Updates to HubSpot Module [#132](https://github.com/friggframework/frigg/pull/132) ([@seanspeaks](https://github.com/seanspeaks))
+- Merge branch 'main' into hubspot-updates ([@seanspeaks](https://github.com/seanspeaks))
+- WIP Updates... cleanup, simplify, and fix ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.0.23 (Wed Feb 08 2023)
 
 #### 🐛 Bug Fix

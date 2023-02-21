@@ -1,3 +1,16 @@
+# v0.0.32 (Tue Feb 21 2023)
+
+#### 🐛 Bug Fix
+
+- Merge branch 'main' into hubspot-updates ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.31 (Wed Feb 15 2023)
 
 #### 🐛 Bug Fix

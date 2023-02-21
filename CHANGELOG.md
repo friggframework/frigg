@@ -1,3 +1,20 @@
+# (Tue Feb 21 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-hubspot@0.8.24`, `@friggframework/api-module-slack@0.1.25`, `@friggframework/module-plugin@1.0.24`
+  - Updates to HubSpot Module [#132](https://github.com/friggframework/frigg/pull/132) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### ⚠️ Pushed to `main`
+
+- Ignore Gitbook Branch for releases ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Wed Feb 15 2023)
 
 #### 🐛 Bug Fix
