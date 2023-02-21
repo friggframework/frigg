@@ -45,20 +45,20 @@ describe(`Should fully test the ${config.label} Manager`, () => {
             expect(authRes).to.have.property('type');
         });
         it('should refresh token', async () => {
-            manager.api.access_token = 'nope';
+            manager.api.conn.accessToken = 'nope';
             await manager.testAuth();
-            expect(manager.api.access_token).to.not.equal('nope');
-            expect(manager.api.access_token).to.exist;
+            expect(manager.api.conn.accessToken).to.not.equal('nope');
+            expect(manager.api.conn.accessToken).to.exist;
         });
         it('should refresh token after a fresh database retrieval', async () => {
             const newManager = await Manager.getInstance({
                 userId: manager.userId,
                 entityId: manager.entity.id,
             });
-            newManager.api.access_token = 'nope';
+            newManager.api.conn.accessToken = 'nope';
             await newManager.testAuth();
-            expect(newManager.api.access_token).to.not.equal('nope');
-            expect(newManager.api.access_token).to.exist;
+            expect(newManager.api.conn.accessToken).to.not.equal('nope');
+            expect(newManager.api.conn.accessToken).to.exist;
         });
         it('should error if incorrect auth data', async () => {
             try {
@@ -69,7 +69,7 @@ describe(`Should fully test the ${config.label} Manager`, () => {
                 });
                 expect(authRes).to.not.exist;
             } catch (e) {
-                expect(e.message).to.contain('BAD_AUTH_CODE');
+                expect(e.message).to.contain('Error Authing with Code');
             }
         });
     });
