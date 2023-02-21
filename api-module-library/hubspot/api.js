@@ -4,12 +4,9 @@ const { OAuth2Requester } = require('@friggframework/module-plugin');
 class Api extends OAuth2Requester {
     constructor(params) {
         super(params);
+        // The majority of the properties for OAuth are default loaded by OAuth2Requester.
+        // This includes the `client_id`, `client_secret`, `scopes`, and `redirect_uri`.
         this.baseUrl = 'https://api.hubapi.com';
-
-        this.client_id = process.env.HUBSPOT_CLIENT_ID;
-        this.client_secret = process.env.HUBSPOT_CLIENT_SECRET;
-        this.redirect_uri = `${process.env.REDIRECT_URI}/hubspot`;
-        this.scopes = process.env.HUBSPOT_SCOPES;
 
         this.URLs = {
             authorization: '/oauth/authorize',
@@ -49,24 +46,13 @@ class Api extends OAuth2Requester {
         };
 
         this.authorizationUri = encodeURI(
-            `https://app.hubspot.com/oauth/authorize?client_id=${this.client_id}&redirect_uri=${this.redirect_uri}&scope=${this.scopes}&state=app:HUBSPOT`
+            `https://app.hubspot.com/oauth/authorize?client_id=${this.client_id}&redirect_uri=${this.redirect_uri}&scope=${this.scope}&state=${this.state}`
         );
         this.tokenUri = 'https://api.hubapi.com/oauth/v1/token';
 
         this.access_token = get(params, 'access_token', null);
         this.refresh_token = get(params, 'refresh_token', null);
-        this.api_key = get(params, 'api_key', null);
     }
-
-    async setAccessToken(accessToken) {
-        this.access_token = accessToken;
-    }
-
-    async refreshRetry(callback) {
-        await this.refreshAccessToken();
-        return callback();
-    }
-
     async getAuthUri() {
         return this.authorizationUri;
     }

@@ -2,8 +2,8 @@ const { debug, flushDebugLog } = require('@friggframework/logs');
 const { get } = require('@friggframework/assertions');
 const { ModuleManager } = require('@friggframework/module-plugin');
 const { Api } = require('./api');
-const { Entity } = require('./entity');
-const { Credential } = require('./credential');
+const { Entity } = require('./models/entity');
+const { Credential } = require('./models/credential');
 
 // the name used for the entity type, generally
 const MANAGER_NAME = 'hubspot';
@@ -27,7 +27,13 @@ class Manager extends ModuleManager {
         // All async code here
 
         // initializes the Api
-        const hubspotParams = { delegate: instance };
+        const apiParams = {
+            client_id: process.env.HUBSPOT_CLIENT_ID,
+            client_secret: process.env.HUBSPOT_CLIENT_SECRET,
+            scope: process.env.HUBSPOT_SCOPE,
+            redirect_uri: `${process.env.REDIRECT_URI}/hubspot`,
+            delegate: instance,
+        };
 
         if (params.entityId) {
             instance.entity = await Entity.findById(params.entityId);
@@ -35,10 +41,10 @@ class Manager extends ModuleManager {
                 instance.entity.credential
             );
             instance.credential = credential;
-            hubspotParams.access_token = credential.accessToken;
-            hubspotParams.refresh_token = credential.refreshToken;
+            apiParams.access_token = credential.accessToken;
+            apiParams.refresh_token = credential.refreshToken;
         }
-        instance.api = new Api(hubspotParams);
+        instance.api = new Api(apiParams);
 
         return instance;
     }
@@ -62,12 +68,16 @@ class Manager extends ModuleManager {
 
     async processAuthorizationCallback(params) {
         const code = get(params.data, 'code');
-        await this.getAccessToken(code);
+        await this.api.getTokenFromCode(code);
+        const authRes = await this.testAuth();
+        if (!authRes) {
+            throw new Error('Authorization failed');
+        }
         const userDetails = await this.api.getUserDetails();
 
         await this.findOrCreateEntity({
-            portalId: userDetails.portalId,
-            domainName: userDetails.hub_domain,
+            externalId: userDetails.portalId,
+            name: userDetails.hub_domain,
         });
         return {
             entity_id: this.entity.id,
@@ -77,12 +87,12 @@ class Manager extends ModuleManager {
     }
 
     async findOrCreateEntity(params) {
-        const portalId = get(params, 'portalId');
-        const domainName = get(params, 'domainName');
+        const externalId = get(params, 'externalId');
+        const name = get(params, 'name');
 
         const search = await Entity.find({
             user: this.userId,
-            externalId: portalId,
+            externalId,
         });
         if (search.length === 0) {
             // validate choices!!!
@@ -90,15 +100,18 @@ class Manager extends ModuleManager {
             const createObj = {
                 credential: this.credential.id,
                 user: this.userId,
-                name: domainName,
-                externalId: portalId,
+                name,
+                externalId,
             };
             this.entity = await Entity.create(createObj);
         } else if (search.length === 1) {
             this.entity = search[0];
         } else {
-            debug('Multiple entities found with the same portal ID:', portalId);
-            this.throwException('');
+            debug(
+                'Multiple entities found with the same portal ID:',
+                externalId
+            );
+            flushDebugLog('Flushing logs');
         }
     }
 
@@ -118,10 +131,6 @@ class Manager extends ModuleManager {
         this.credential = undefined;
     }
 
-    async getAccessToken(code) {
-        return this.api.getTokenFromCode(code);
-    }
-
     async receiveNotification(notifier, delegateString, object = null) {
         if (notifier instanceof Api) {
             if (delegateString === this.api.DLGT_TOKEN_UPDATE) {
@@ -137,7 +146,7 @@ class Manager extends ModuleManager {
                 };
 
                 if (!this.credential) {
-                    let credentialSearch = await Credential.list({
+                    let credentialSearch = await Credential.find({
                         portalId: userDetails.portalId,
                     });
                     if (credentialSearch.length === 0) {
@@ -151,15 +160,13 @@ class Manager extends ModuleManager {
                             );
                         } else {
                             debug(
-                                'Somebody else already created a credential with the same portal ID:',
-                                portalId
+                                'Somebody else already created a credential with the same portal ID'
                             );
                         }
                     } else {
                         // Handling multiple credentials found with an error for the time being
                         debug(
-                            'Multiple credentials found with the same portal ID:',
-                            portalId
+                            'Multiple credentials found with the same portal ID'
                         );
                     }
                 } else {
