@@ -27,7 +27,7 @@ class Manager extends ModuleManager {
         const salesforceParams = { delegate: instance };
         salesforceParams.key = process.env.SALESFORCE_CLIENT_ID;
         salesforceParams.secret = process.env.SALESFORCE_CLIENT_SECRET;
-        salesforceParams.redirectUri = process.env.SALESFORCE_REDIRECT_URI;
+        salesforceParams.redirectUri = process.env.REDIRECT_URI;
 
         if (params.entityId) {
             try {
