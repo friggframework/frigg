@@ -2,6 +2,25 @@
 
 #### 🐛 Bug Fix
 
+- `@friggframework/api-module-salesforce@0.8.30`
+  - Update to Working Salesforce Manager [#133](https://github.com/friggframework/frigg/pull/133) ([@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/api-module-hubspot@0.8.25`, `@friggframework/api-module-slack@0.1.26`, `@friggframework/module-plugin@1.0.25`
+  - Updates to HubSpot Module [#132](https://github.com/friggframework/frigg/pull/132) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### ⚠️ Pushed to `main`
+
+- Ignore Gitbook Branch for releases ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Tue Feb 21 2023)
+
+#### 🐛 Bug Fix
+
 - `@friggframework/api-module-hubspot@0.8.24`, `@friggframework/api-module-slack@0.1.25`, `@friggframework/module-plugin@1.0.24`
   - Updates to HubSpot Module [#132](https://github.com/friggframework/frigg/pull/132) ([@seanspeaks](https://github.com/seanspeaks))
 

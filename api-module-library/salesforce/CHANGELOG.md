@@ -1,3 +1,19 @@
+# v0.8.30 (Tue Feb 21 2023)
+
+#### 🐛 Bug Fix
+
+- Update to Working Salesforce Manager [#133](https://github.com/friggframework/frigg/pull/133) ([@seanspeaks](https://github.com/seanspeaks))
+- Working Manager test etc. ([@seanspeaks](https://github.com/seanspeaks))
+- Salesforce Updates WIP ([@seanspeaks](https://github.com/seanspeaks))
+- Merge branch 'main' into hubspot-updates ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.8.29 (Tue Feb 21 2023)
 
 #### 🐛 Bug Fix
