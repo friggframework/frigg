@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-clyde",
-    "version": "0.8.24",
+    "version": "0.8.25",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -20,7 +20,7 @@
     },
     "dependencies": {
         "@friggframework/assertions": "^1.0.7",
-        "@friggframework/module-plugin": "^1.0.23"
+        "@friggframework/module-plugin": "^1.0.24"
     },
     "gitHead": "1ff6f32fa238512761a9c361f0e07f49b6bf5ed7"
 }
