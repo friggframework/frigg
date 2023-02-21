@@ -25,9 +25,9 @@ class Manager extends ModuleManager {
 
         // initializes the credentials and the Api
         const salesforceParams = { delegate: instance };
-        salesforceParams.key = process.env.SALESFORCE_CLIENT_ID;
-        salesforceParams.secret = process.env.SALESFORCE_CLIENT_SECRET;
-        salesforceParams.redirectUri = process.env.SALESFORCE_REDIRECT_URI;
+        salesforceParams.key = process.env.SALESFORCE_CONSUMER_KEY;
+        salesforceParams.secret = process.env.SALESFORCE_CONSUMER_SECRET;
+        salesforceParams.redirect_uri = `${process.env.REDIRECT_URI}/salesforce`;
 
         if (params.entityId) {
             try {
@@ -69,7 +69,6 @@ class Manager extends ModuleManager {
     }
 
     async processAuthorizationCallback(params) {
-        const userId = get(params, 'userId');
         const data = get(params, 'data');
         const code = get(data, 'code');
         let isSandbox = false;
@@ -97,6 +96,8 @@ class Manager extends ModuleManager {
         );
 
         await this.findOrCreateEntity({
+            name: orgDetails.Name,
+            externalId: orgDetails.Id,
             isSandbox,
             orgDetails,
             sfUserResponse,
@@ -109,24 +110,29 @@ class Manager extends ModuleManager {
     }
 
     async findOrCreateEntity(params) {
-        const orgDetails = get(params, 'orgDetails');
-        const sfUserResponse = get(params, 'sfUserResponse');
-        const isSandbox = get(params, 'isSandbox');
+        const { name, externalId, isSandbox, orgDetails, sfUserResponse } =
+            params;
 
         const createObj = {
             credential: this.credential.id,
             user: this.userId,
-            name: orgDetails.Name,
-            externalId: orgDetails.Id,
+            name,
+            externalId,
             isSandbox,
             connectedUsername: sfUserResponse.Username,
         };
-        this.entity = await Entity.upsert(
+        this.entity = await Entity.findOneAndUpdate(
             {
                 user: this.userId,
-                externalId: orgDetails.id,
+                externalId,
+                isSandbox,
             },
-            createObj
+            createObj,
+            {
+                new: true,
+                upsert: true,
+                setDefaultsOnInsert: true,
+            }
         );
     }
     //------------------------------------------------------------
