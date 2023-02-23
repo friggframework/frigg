@@ -1,17 +1,10 @@
+'use strict';
 const mongoose = require('mongoose');
 const { Credential: Parent } = require('@friggframework/module-plugin');
 
 const schema = new mongoose.Schema({
-    accessToken: {
-        type: String,
-        required: true,
-        lhEncrypt: true,
-    },
-    refreshToken: {
-        type: String,
-        required: true,
-        lhEncrypt: true,
-    },
+    graph_access_token: { type: String, trim: true, lhEncrypt: true },
+    bot_access_token: { type: String, trim: true, lhEncrypt: true }
 });
 
 const name = 'MicrosoftTeamsCredential';
