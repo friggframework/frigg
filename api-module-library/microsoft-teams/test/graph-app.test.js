@@ -1,6 +1,6 @@
 const Authenticator = require('@friggframework/test-environment/Authenticator');
-const { Api } = require('./api');
-const config = require('./defaultConfig.json');
+const Api = require('../api/graph');
+const config = require('../defaultConfig.json');
 const chai = require('chai');
 const should = chai.should();
 describe(`${config.label} API Tests`, () => {
@@ -12,7 +12,7 @@ describe(`${config.label} API Tests`, () => {
         scope: process.env.TEAMS_CRED_SCOPE,
         forceConsent: false
     };
-    const api = new Api(apiParams);
+    const api = new Api.graph(apiParams);
 
     beforeAll(async () => {
         await api.getTokenFromClientCredentials();
@@ -27,6 +27,25 @@ describe(`${config.label} API Tests`, () => {
         it('Should retrieve information about the Organization', async () => {
             const org = await api.getOrganization();
             org.should.exist;
+        });
+    });
+
+    let groups;
+    describe('Retrieve teams for tenant/org', () => {
+        it('Should retrieve a list of groups/teams', async () => {
+            groups = await api.getGroups();
+            groups.should.exist;
+        });
+    });
+
+
+    describe('Retrieve channels for a team', () => {
+        it('Should retrieve a list of channels for a team', async () => {
+            // const aTeamId = groups.value[0].id;
+            // const channels = await api.getChannels(aTeamId);
+            // for now use .env team id
+            const channels = await api.getChannels();
+            channels.should.exist;
         });
     });
 
@@ -47,7 +66,7 @@ describe(`${config.label} API Tests`, () => {
                     [
                         conversationMember
                     ]
-            }
+            };
             createChannelResponse = await api.createChannel(body);
             createChannelResponse.should.exist;
         });
@@ -74,8 +93,9 @@ describe(`${config.label} API Tests`, () => {
         });
     });
 
+
     afterAll(async () => {
-        const response = await api.deleteChannel(createResponse.id);
+        const response = await api.deleteChannel(createChannelResponse.id);
         expect(response.status).toBe(204);
     });
 });

@@ -1,6 +1,6 @@
 const Authenticator = require('@friggframework/test-environment/Authenticator');
-const { Api } = require('./api');
-const config = require('./defaultConfig.json');
+const { Api } = require('../api/graph');
+const config = require('../defaultConfig.json');
 const chai = require('chai');
 const should = chai.should();
 describe(`${config.label} API Tests`, () => {
@@ -84,7 +84,7 @@ describe(`${config.label} API Tests`, () => {
     });
 
     afterAll(async () => {
-        const response = await api.deleteChannel(createResponse.id);
+        const response = await api.deleteChannel(createChannelResponse.id);
         expect(response.status).toBe(204);
     });
 });

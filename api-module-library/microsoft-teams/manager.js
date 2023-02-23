@@ -1,7 +1,7 @@
 const { debug, flushDebugLog } = require('@friggframework/logs');
 const { get } = require('@friggframework/assertions');
 const { ModuleManager } = require('@friggframework/module-plugin');
-const { Api } = require('./api');
+const { Api } = require('./api/api');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
 const config = require('./defaultConfig.json');
@@ -25,10 +25,10 @@ class Manager extends ModuleManager {
         // All async code here
 
         // initializes the Api
-        const teamsParams = {
+        let teamsParams = {
             client_id: process.env.TEAMS_CLIENT_ID,
             client_secret: process.env.TEAMS_CLIENT_SECRET,
-            redirect_uri: `${process.env.REDIRECT_URI}`,
+            redirect_uri: process.env.TEAMS_REDIRECT_URI,
             scope: process.env.TEAMS_SCOPE,
             forceConsent: true,
             delegate: instance,
@@ -36,12 +36,13 @@ class Manager extends ModuleManager {
 
         if (params.entityId) {
             instance.entity = await Entity.findById(params.entityId);
-            const credential = await Credential.findById(
+            instance.credential = await Credential.findById(
                 instance.entity.credential
             );
-            instance.credential = credential;
-            teamsParams.access_token = credential.accessToken;
-            teamsParams.refresh_token = credential.refreshToken;
+            teamsParams = {
+                ...teamsParams,
+                ...instance.credential.toObject(),
+            };
         }
         instance.api = new Api(teamsParams);
 
@@ -51,22 +52,23 @@ class Manager extends ModuleManager {
     async testAuth() {
         let validAuth = false;
         try {
-            if (await this.api.getUser()) validAuth = true;
+            const response = await this.api.graphApi.getChannels();
+            await this.api.botFrameworkApi.getTeamMembers(response.value[0].id);
+            validAuth = true;
         } catch (e) {
-            flushDebugLog(e);
+            debug(e);
         }
         return validAuth;
     }
 
     async getAuthorizationRequirements() {
         return {
-            url: await this.api.getAuthUri(),
+            url: this.api.graphApi.authorizationUri,
             type: 'oauth2',
         };
     }
 
     async processAuthorizationCallback(params) {
-        const code = get(params.data, 'code', 'test');
         await this.api.getTokenFromCode(code);
         const authCheck = await this.testAuth();
         if (!authCheck) throw new Error('Authentication failed');

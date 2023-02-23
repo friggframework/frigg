@@ -1,7 +1,7 @@
 const { get } = require('@friggframework/assertions');
 const { OAuth2Requester } = require('@friggframework/module-plugin');
 const querystring = require('querystring');
-class Api extends OAuth2Requester {
+class graph extends OAuth2Requester {
     constructor(params) {
         super(params);
         this.baseUrl = 'https://graph.microsoft.com/v1.0';
@@ -21,6 +21,7 @@ class Api extends OAuth2Requester {
         this.URLs = {
             userDetails: '/me', //https://graph.microsoft.com/v1.0/me
             orgDetails: '/organization',
+            groups: '/groups',
             createChannel: `/teams/${this.team_id}/channels`,
             channel: (channelId) => `/teams/${this.team_id}/channels/${channelId}/`,
             channelMembers: (channelId) => `/teams/${this.team_id}/channels/${channelId}/members`
@@ -47,13 +48,11 @@ class Api extends OAuth2Requester {
         try {
             const url = this.tokenUri;
 
-
-            let body = new URLSearchParams()
-            body.append('scope', this.scope)
-            body.append('client_id', this.client_id)
-            body.append('client_secret', this.client_secret)
-            body.append('grant_type', 'client_credentials')
-
+            let body = new URLSearchParams();
+            body.append('scope', this.scope);
+            body.append('client_id', this.client_id);
+            body.append('client_secret', this.client_secret);
+            body.append('grant_type', 'client_credentials');
 
             const tokenRes = await this._post( {
                 url,
@@ -83,7 +82,24 @@ class Api extends OAuth2Requester {
         return response.value[0];
     }
 
-    async createChannel(body){
+    async getGroups() {
+        const options = {
+            url: `${this.baseUrl}${this.URLs.groups}`
+        };
+        const response = await this._get(options);
+        return response;
+    }
+
+    async getChannels() {
+        const options = {
+            url: `${this.baseUrl}${this.URLs.createChannel}`
+        };
+        const response = await this._get(options);
+        return response;
+    }
+
+    async createChannel(body) {
+        // creating a private channel as an application requires a member owner to be added at creation
         const options = {
             url : `${this.baseUrl}${this.URLs.createChannel}`,
             body: body,
@@ -96,7 +112,7 @@ class Api extends OAuth2Requester {
         return response;
     }
 
-    async deleteChannel(channelId){
+    async deleteChannel(channelId) {
         const options = {
             url : `${this.baseUrl}${this.URLs.channel(channelId)}`
         };
@@ -104,7 +120,7 @@ class Api extends OAuth2Requester {
         return response;
     }
 
-    async listChannelMembers(channelId){
+    async listChannelMembers(channelId) {
         //TODO: add search odata options
         const options = {
             url : `${this.baseUrl}${this.URLs.channelMembers(channelId)}`
@@ -113,7 +129,7 @@ class Api extends OAuth2Requester {
         return response;
     }
 
-    async addUserToChannel(channelId, user){
+    async addUserToChannel(channelId, user) {
         const options = {
             url : `${this.baseUrl}${this.URLs.channelMembers(channelId)}`,
             body: user,
@@ -127,4 +143,4 @@ class Api extends OAuth2Requester {
     }
 }
 
-module.exports = { Api };
+module.exports = { graph };
