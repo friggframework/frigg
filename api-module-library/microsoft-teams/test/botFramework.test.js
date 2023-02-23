@@ -1,4 +1,4 @@
-const { Api } = require('../api/botFramework');
+const Api = require('../api/botFramework');
 const config = require('../defaultConfig.json');
 const chai = require('chai');
 const should = chai.should();
@@ -12,7 +12,7 @@ describe(`${config.label} API Tests`, () => {
         tenant_id: process.env.TENANT_ID
     };
 
-    const api = new Api(apiParams);
+    const api = new Api.botFrameworkApi(apiParams);
 
     beforeAll(async () => {
         await api.getTokenFromClientCredentials();

@@ -12,7 +12,7 @@ describe(`${config.label} API Tests`, () => {
         scope: process.env.TEAMS_CRED_SCOPE,
         forceConsent: false
     };
-    const api = new Api.graph(apiParams);
+    const api = new Api.graphApi(apiParams);
 
     beforeAll(async () => {
         await api.getTokenFromClientCredentials();

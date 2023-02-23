@@ -1,5 +1,5 @@
 const Authenticator = require('@friggframework/test-environment/Authenticator');
-const { Api } = require('../api/graph');
+const Api = require('../api/graph');
 const config = require('../defaultConfig.json');
 const chai = require('chai');
 const should = chai.should();
@@ -12,7 +12,7 @@ describe(`${config.label} API Tests`, () => {
         forceConsent: true,
         team_id: process.env.TEAMS_ID
     };
-    const api = new Api(apiParams);
+    const api = new Api.graphApi(apiParams);
 
     beforeAll(async () => {
         const url = await api.getAuthUri();
