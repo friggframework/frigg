@@ -1,7 +1,7 @@
 const { get } = require('@friggframework/assertions');
 const { OAuth2Requester } = require('@friggframework/module-plugin');
 const querystring = require('querystring');
-class graph extends OAuth2Requester {
+class graphApi extends OAuth2Requester {
     constructor(params) {
         super(params);
         this.baseUrl = 'https://graph.microsoft.com/v1.0';
@@ -143,4 +143,4 @@ class graph extends OAuth2Requester {
     }
 }
 
-module.exports = { graph };
+module.exports = { graphApi };
