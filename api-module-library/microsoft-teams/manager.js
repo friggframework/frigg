@@ -30,6 +30,7 @@ class Manager extends ModuleManager {
             client_secret: process.env.TEAMS_CLIENT_SECRET,
             redirect_uri: process.env.TEAMS_REDIRECT_URI,
             tenant_id: process.env.TENANT_ID,
+            team_id: process.env.TEAMS_ID,
             scope: process.env.TEAMS_SCOPE,
             delegate: instance,
         };
@@ -68,7 +69,7 @@ class Manager extends ModuleManager {
         };
     }
 
-    async processAuthorizationCallback(params) {
+    async processAuthorizationCallback() {
         await this.api.graphApi.getTokenFromClientCredentials();
         await this.api.botFrameworkApi.getTokenFromClientCredentials();
         const authCheck = await this.testAuth();

@@ -49,7 +49,7 @@ class graphApi extends OAuth2Requester {
             const url = this.tokenUri;
 
             let body = new URLSearchParams();
-            body.append('scope', this.scope);
+            body.append('scope', 'https://graph.microsoft.com/.default');
             body.append('client_id', this.client_id);
             body.append('client_secret', this.client_secret);
             body.append('grant_type', 'client_credentials');

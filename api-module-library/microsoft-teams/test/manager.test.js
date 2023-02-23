@@ -30,12 +30,8 @@ describe(`Should fully test the ${config.label} Manager`, () => {
 
     describe('processAuthorizationCallback() test', () => {
         it('should return an entity_id, credential_id, and type for successful auth', async () => {
-            const response = await Authenticator.oauth2(authUrl);
-            const baseArr = response.base.split('/');
-            response.entityType = baseArr[baseArr.length - 1];
-            delete response.base;
 
-            const res = await manager.processAuthorizationCallback(response);
+            const res = await manager.processAuthorizationCallback();
             expect(res).toBeDefined();
             expect(res.entity_id).toBeDefined();
             expect(res.credential_id).toBeDefined();
@@ -61,9 +57,8 @@ describe(`Should fully test the ${config.label} Manager`, () => {
             expect(response).toEqual(true);
         });
         it('Responds with false if not authenticated', async () => {
-            manager.api.backOff = [1];
-            manager.api.access_token = 'borked';
-            manager.api.refresh_token = 'barked';
+            manager.api.graphApi.access_token = 'borked';
+            manager.api.botFrameworkApi.access_token = 'barked';
             const response = await manager.testAuth();
             expect(response).toEqual(false);
         });
