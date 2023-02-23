@@ -29,8 +29,8 @@ class Manager extends ModuleManager {
             client_id: process.env.TEAMS_CLIENT_ID,
             client_secret: process.env.TEAMS_CLIENT_SECRET,
             redirect_uri: process.env.TEAMS_REDIRECT_URI,
+            tenant_id: process.env.TENANT_ID,
             scope: process.env.TEAMS_SCOPE,
-            forceConsent: true,
             delegate: instance,
         };
 
