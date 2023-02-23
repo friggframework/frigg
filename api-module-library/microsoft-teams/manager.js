@@ -69,11 +69,12 @@ class Manager extends ModuleManager {
     }
 
     async processAuthorizationCallback(params) {
-        await this.api.getTokenFromCode(code);
+        await this.api.graphApi.getTokenFromClientCredentials();
+        await this.api.botFrameworkApi.getTokenFromClientCredentials();
         const authCheck = await this.testAuth();
         if (!authCheck) throw new Error('Authentication failed');
 
-        const orgDetails = await this.api.getOrganization();
+        const orgDetails = await this.api.graphApi.getOrganization();
 
         await this.findOrCreateEntity({
             externalId: orgDetails.id,
@@ -120,8 +121,8 @@ class Manager extends ModuleManager {
             if (delegateString === this.api.DLGT_TOKEN_UPDATE) {
                 const updatedToken = {
                     user: this.userId.toString(),
-                    accessToken: this.api.access_token,
-                    refreshToken: this.api.refresh_token,
+                    graphAccessToken: this.api.graphApi.access_token,
+                    botAccessToken: this.api.botFrameworkApi.access_token,
                     auth_is_valid: true,
                 };
 
