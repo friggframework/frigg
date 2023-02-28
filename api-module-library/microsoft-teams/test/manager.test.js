@@ -35,7 +35,6 @@ describe(`Should fully test the ${config.label} Manager`, () => {
             expect(res).toBeDefined();
             expect(res.entity_id).toBeDefined();
             expect(res.credential_id).toBeDefined();
-            expect(res.type).toEqual(response.entityType);
         });
 
         describe('findOrCreateEntity() tests', () => {

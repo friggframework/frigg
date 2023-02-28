@@ -2,6 +2,8 @@ const { debug, flushDebugLog } = require('@friggframework/logs');
 const { get } = require('@friggframework/assertions');
 const { ModuleManager } = require('@friggframework/module-plugin');
 const { Api } = require('./api/api');
+const { graphApi } = require('./api/graph');
+const { botFrameworkApi } = require('./api/botFramework');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
 const config = require('./defaultConfig.json');
@@ -70,8 +72,7 @@ class Manager extends ModuleManager {
     }
 
     async processAuthorizationCallback() {
-        await this.api.graphApi.getTokenFromClientCredentials();
-        await this.api.botFrameworkApi.getTokenFromClientCredentials();
+        await this.api.getTokenFromClientCredentials();
         const authCheck = await this.testAuth();
         if (!authCheck) throw new Error('Authentication failed');
 
@@ -118,8 +119,8 @@ class Manager extends ModuleManager {
     //------------------------------------------------------------
 
     async receiveNotification(notifier, delegateString, object = null) {
-        if (notifier instanceof Api) {
-            if (delegateString === this.api.DLGT_TOKEN_UPDATE) {
+        if (notifier instanceof Api || notifier instanceof botFrameworkApi || notifier instanceof graphApi) {
+            if (delegateString === this.api.graphApi.DLGT_TOKEN_UPDATE) {
                 const updatedToken = {
                     user: this.userId.toString(),
                     graphAccessToken: this.api.graphApi.access_token,
