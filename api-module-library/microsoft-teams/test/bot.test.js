@@ -13,7 +13,7 @@ describe(`${config.label} API Tests`, () => {
     const api = new Api.botApi(apiParams);
 
     describe('Proactive message', () => {
-        it('Should retrieve information about the members of the team', async () => {
+        it('Send proactive message', async () => {
             const ref = {
                 "user": {
                     "id": "29:1WtqNeqNQjfMvq4CiFyCaOTq7--xugVGH7lijkI-RB8IHZUjYUZfFAFvNRAooBxIhew2J3IlqLokPlN0jRNkJbA",

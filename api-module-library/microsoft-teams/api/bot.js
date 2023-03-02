@@ -55,23 +55,10 @@ class Bot extends TeamsActivityHandler {
             });
             await next();
         });
-
-        this.onMessage(async (context, next) => {
-            // if (context.activity.type === 'message' && context.activity.text === 'grab refs') {
-            //     await this.getUserConversationReference(context);
-            // }
-            await next();
-        });
     }
 
     async onInvokeActivity(context) {
-        const refreshCard = CardFactory.adaptiveCard(respcard);
-        if (context.activity.value.action.title === 'Create Channel Execute') {
-            const message = MessageFactory.attachment(refreshCard);
-            message.id = context.activity.replyToId;
-            await context.updateActivity(message);
-        }
-        return invokeResponse(refreshCard);
+        // card action response goes here
     }
 
     async getUserConversationReference(context) {
@@ -96,7 +83,7 @@ class Bot extends TeamsActivityHandler {
         const conversationReference = this.conversationReferences[userEmail];
         if (conversationReference !== undefined) {
             await this.adapter.continueConversation(conversationReference, async (context) => {
-                await context.sendActivity(activity);
+                return await context.sendActivity(activity);
             });
         }
     }
