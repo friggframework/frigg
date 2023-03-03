@@ -1,0 +1,9 @@
+{
+    "name": "microsoft-teams",
+    "label": "Microsoft Teams",
+    "productUrl": "https://microsoft.com/teams",
+    "apiDocs": "Good Luck",
+    "logoUrl": "https://friggframework.org/assets/img/microsoft-teams.jpeg",
+    "categories": ["Sharing"],
+    "description": "If you know, you know"
+}
