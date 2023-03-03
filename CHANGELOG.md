@@ -1,3 +1,17 @@
+# (Fri Mar 03 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-microsoft-teams@0.0.2`
+  - WIP for microsoft teams module [#134](https://github.com/friggframework/frigg/pull/134) ([@seanspeaks](https://github.com/seanspeaks) [@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Tue Feb 21 2023)
 
 #### 🐛 Bug Fix
