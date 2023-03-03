@@ -30,7 +30,7 @@ class Manager extends ModuleManager {
         let teamsParams = {
             client_id: process.env.TEAMS_CLIENT_ID,
             client_secret: process.env.TEAMS_CLIENT_SECRET,
-            redirect_uri: process.env.TEAMS_REDIRECT_URI,
+            redirect_uri: `${process.env.REDIRECT_URI}/microsoft-teams`,
             tenant_id: process.env.TENANT_ID,
             team_id: process.env.TEAMS_ID,
             scope: process.env.TEAMS_SCOPE,

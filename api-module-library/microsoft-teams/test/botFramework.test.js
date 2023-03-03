@@ -7,7 +7,7 @@ describe(`${config.label} API Tests`, () => {
     const apiParams = {
         client_id: process.env.TEAMS_CLIENT_ID,
         client_secret: process.env.TEAMS_CLIENT_SECRET,
-        redirect_uri: process.env.TEAMS_REDIRECT_URI,
+        redirect_uri: `${process.env.REDIRECT_URI}/microsoft-teams`,
         team_id: process.env.TEAMS_ID,
         tenant_id: process.env.TENANT_ID
     };
