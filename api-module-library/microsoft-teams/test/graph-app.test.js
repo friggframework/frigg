@@ -8,7 +8,7 @@ describe(`${config.label} API Tests`, () => {
         client_id: process.env.TEAMS_CLIENT_ID,
         client_secret: process.env.TEAMS_CLIENT_SECRET,
         team_id: process.env.TEAMS_ID,
-        tenant_id: process.env.TENANT_ID,
+        tenant_id: process.env.TEAMS_TENANT_ID,
         scope: process.env.TEAMS_CRED_SCOPE,
         forceConsent: false
     };

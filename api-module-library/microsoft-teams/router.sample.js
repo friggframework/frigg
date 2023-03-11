@@ -5,6 +5,11 @@ const Api = require('./api/bot');
 const server = router();
 server.use(bodyParser.json());
 server.use(bodyParser.urlencoded());
+
+const apiParams = {
+    client_id: process.env.TEAMS_CLIENT_ID,
+    client_secret: process.env.TEAMS_CLIENT_SECRET,
+};
 const api = new Api.botApi(apiParams);
 
 server.listen(process.env.port || process.env.PORT || 3978, function() {
