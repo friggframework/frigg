@@ -16,11 +16,13 @@ class coreApi extends ApiKeyRequester {
             createOrder: () =>
                 `${this.baseUrl}/v3/stores/${this.store_id}/orders`,
             createOrderFulfillment: (yotpo_order_id) =>
-                `${this.baseURLs.core}/v3/stores/${this.store_id}/orders/${yotpo_order_id}/fulfillments`,
+                `${this.baseUrl}/v3/stores/${this.store_id}/orders/${yotpo_order_id}/fulfillments`,
             listOrders: () =>
                 `${this.baseUrl}/v3/stores/${this.store_id}/orders`,
             getOrder: (yotpo_order_id) =>
-                `${this.baseURLs.core}/v3/stores/${this.store_id}/orders/${yotpo_order_id}`,
+                `${this.baseUrl}/v3/stores/${this.store_id}/orders/${yotpo_order_id}`,
+            listProducts: () =>
+                `${this.baseUrl}/v3/stores/${this.store_id}/products`,
         };
     }
 
@@ -48,7 +50,7 @@ class coreApi extends ApiKeyRequester {
 
     async createOrder(body) {
         const options = {
-            url: this.baseUrl + this.URLs.createOrder(),
+            url: this.URLs.createOrder(),
             headers: {
                 'content-type': 'application/json',
             },
@@ -62,6 +64,16 @@ class coreApi extends ApiKeyRequester {
     async listOrders() {
         const options = {
             url: this.URLs.listOrders(),
+        };
+
+        const res = await this._get(options);
+        return res;
+    }
+
+    async listProducts(query) {
+        const options = {
+            url: this.URLs.listProducts(),
+            query
         };
 
         const res = await this._get(options);

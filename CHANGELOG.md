@@ -1,3 +1,299 @@
+# (Fri Mar 03 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-microsoft-teams@0.0.2`
+  - WIP for microsoft teams module [#134](https://github.com/friggframework/frigg/pull/134) ([@seanspeaks](https://github.com/seanspeaks) [@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Tue Feb 21 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-salesforce@0.8.30`
+  - Update to Working Salesforce Manager [#133](https://github.com/friggframework/frigg/pull/133) ([@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/api-module-hubspot@0.8.25`, `@friggframework/api-module-slack@0.1.26`, `@friggframework/module-plugin@1.0.25`
+  - Updates to HubSpot Module [#132](https://github.com/friggframework/frigg/pull/132) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### ⚠️ Pushed to `main`
+
+- Ignore Gitbook Branch for releases ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Tue Feb 21 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-hubspot@0.8.24`, `@friggframework/api-module-slack@0.1.25`, `@friggframework/module-plugin@1.0.24`
+  - Updates to HubSpot Module [#132](https://github.com/friggframework/frigg/pull/132) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### ⚠️ Pushed to `main`
+
+- Ignore Gitbook Branch for releases ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Wed Feb 15 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.31`
+  - Switch to Upsert for Credential and Entity creation [#131](https://github.com/friggframework/frigg/pull/131) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Mon Feb 13 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.30`
+  - Fix bug [#130](https://github.com/friggframework/frigg/pull/130) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Mon Feb 13 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.29`
+  - Support as-user-workflow-schemas and connection info [#129](https://github.com/friggframework/frigg/pull/129) ([@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/api-module-slack@0.1.24`
+  - Slack: Add User Lookup by ID [#128](https://github.com/friggframework/frigg/pull/128) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Sun Feb 12 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/database@1.0.11`
+  - StrictQuery issue resolution [#127](https://github.com/friggframework/frigg/pull/127) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Wed Feb 08 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.23`
+  - Quick hits, view endpoints [#126](https://github.com/friggframework/frigg/pull/126) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Wed Feb 08 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.22`, `@friggframework/module-plugin@1.0.23`
+  - Fixed a Slack bug via requester improvement [#125](https://github.com/friggframework/frigg/pull/125) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Wed Feb 08 2023)
+
+#### 🐛 Bug Fix
+
+- Install the CodeSee workflow. [#118](https://github.com/friggframework/frigg/pull/118) ([@codesee-maps[bot]](https://github.com/codesee-maps[bot]))
+- `@friggframework/errors@1.1.6`
+  - URLSearchParams (used in OAuth2 base) was not printing out bodies in … [#124](https://github.com/friggframework/frigg/pull/124) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@codesee-maps[bot]](https://github.com/codesee-maps[bot])
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Fri Feb 03 2023)
+
+#### 🐛 Bug Fix
+
+- Install the CodeSee workflow. [#118](https://github.com/friggframework/frigg/pull/118) ([@codesee-maps[bot]](https://github.com/codesee-maps[bot]))
+- `@friggframework/api-module-yotpo@0.0.15`
+  - Headers, man. Headers. We should work out where to put the default ty… [#122](https://github.com/friggframework/frigg/pull/122) ([@seanspeaks](https://github.com/seanspeaks))
+  - listProducts with query passed in [#119](https://github.com/friggframework/frigg/pull/119) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@codesee-maps[bot]](https://github.com/codesee-maps[bot])
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Thu Feb 02 2023)
+
+#### 🐛 Bug Fix
+
+- Install the CodeSee workflow. [#118](https://github.com/friggframework/frigg/pull/118) ([@codesee-maps[bot]](https://github.com/codesee-maps[bot]))
+- `@friggframework/api-module-yotpo@0.0.14`
+  - listProducts with query passed in [#119](https://github.com/friggframework/frigg/pull/119) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@codesee-maps[bot]](https://github.com/codesee-maps[bot])
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Thu Feb 02 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.21`
+  - More unit test reasons [#116](https://github.com/friggframework/frigg/pull/116) ([@seanspeaks](https://github.com/seanspeaks))
+  - this is why we unit test [#115](https://github.com/friggframework/frigg/pull/115) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Wed Feb 01 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.20`
+  - this is why we unit test [#115](https://github.com/friggframework/frigg/pull/115) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Wed Feb 01 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-fastspring-iq@0.8.23`, `@friggframework/api-module-hubspot@0.8.22`, `@friggframework/api-module-yotpo@0.0.13`
+  - Update the Credential [#111](https://github.com/friggframework/frigg/pull/111) ([@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/api-module-yotpo@0.0.13`
+  - Double up on the base [#114](https://github.com/friggframework/frigg/pull/114) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Wed Feb 01 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.19`
+  - Channel management API Methods [#113](https://github.com/friggframework/frigg/pull/113) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Wed Feb 01 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.27`
+  - minor bug fix in Ironclad get comments by Id endpoint [#112](https://github.com/friggframework/frigg/pull/112) (vedant@vedant.agrawal [@vedantagrawall](https://github.com/vedantagrawall))
+
+#### Authors: 2
+
+- [@vedantagrawall](https://github.com/vedantagrawall)
+- Vedant Agrawal (vedant@vedant.agrawal)
+
+---
+
+# (Tue Jan 31 2023)
+
+:tada: This release contains work from new contributors! :tada:
+
+Thanks for all your work!
+
+:heart: null[@vedantagrawall](https://github.com/vedantagrawall)
+
+:heart: null[@li-sherry](https://github.com/li-sherry)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.26`
+  - Vedantagrawall/ironclad comments endpoint [#110](https://github.com/friggframework/frigg/pull/110) (vedant@vedant.agrawal [@vedantagrawall](https://github.com/vedantagrawall))
+  - Merge branch 'vedantagrawal/additional-ironclad-endpoints' into AddSlackLookupUsersByEmail [#105](https://github.com/friggframework/frigg/pull/105) ([@li-sherry](https://github.com/li-sherry))
+  - adding workflow participants and get user endpoints [#105](https://github.com/friggframework/frigg/pull/105) (vedant@vedant.agrawal)
+- `@friggframework/api-module-slack@0.1.19`
+  - passing email as query param [#107](https://github.com/friggframework/frigg/pull/107) (vedant@vedant.agrawal)
+  - change to x-www-form-urlencoded [#107](https://github.com/friggframework/frigg/pull/107) ([@li-sherry](https://github.com/li-sherry))
+  - add lookupUsersByEmail [#106](https://github.com/friggframework/frigg/pull/106) ([@li-sherry](https://github.com/li-sherry))
+
+#### Authors: 3
+
+- [@li-sherry](https://github.com/li-sherry)
+- [@vedantagrawall](https://github.com/vedantagrawall)
+- Vedant Agrawal (vedant@vedant.agrawal)
+
+---
+
+# (Tue Jan 31 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, null[@li-sherry](https://github.com/li-sherry), for all your work!
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.18`
+  - change to x-www-form-urlencoded [#107](https://github.com/friggframework/frigg/pull/107) ([@li-sherry](https://github.com/li-sherry) vedant@vedant.agrawal)
+  - add lookupUsersByEmail [#106](https://github.com/friggframework/frigg/pull/106) ([@li-sherry](https://github.com/li-sherry))
+- `@friggframework/api-module-ironclad@0.0.26`
+  - Merge branch 'vedantagrawal/additional-ironclad-endpoints' into AddSlackLookupUsersByEmail [#105](https://github.com/friggframework/frigg/pull/105) ([@li-sherry](https://github.com/li-sherry))
+  - adding workflow participants and get user endpoints [#105](https://github.com/friggframework/frigg/pull/105) (vedant@vedant.agrawal)
+
+#### Authors: 2
+
+- [@li-sherry](https://github.com/li-sherry)
+- Vedant Agrawal (vedant@vedant.agrawal)
+
+---
+
 # (Tue Jan 31 2023)
 
 #### 🐛 Bug Fix

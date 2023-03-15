@@ -1,3 +1,16 @@
+# v0.8.26 (Tue Feb 21 2023)
+
+#### 🐛 Bug Fix
+
+- Merge branch 'main' into hubspot-updates ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.8.24 (Tue Jan 31 2023)
 
 #### 🐛 Bug Fix

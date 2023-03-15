@@ -19,6 +19,7 @@ class Api extends ApiKeyRequester {
         };
 
         this.URLs = {
+            me: '/public/api/v1/me',
             webhooks: '/public/api/v1/webhooks',
             webhookByID: (webhookId) => `/public/api/v1/webhooks/${webhookId}`,
             workflows: '/public/api/v1/workflows',
@@ -31,12 +32,14 @@ class Api extends ApiKeyRequester {
                 `/public/api/v1/workflows/${workflowId}/attributes`,
             workflowComment: (workflowId) =>
                 `/public/api/v1/workflows/${workflowId}/comment`,
+            workflowCommentByID: (workflowId, commentId) =>
+                `/public/api/v1/workflows/${workflowId}/comments/${commentId}`,
             records: '/public/api/v1/records',
             recordByID: (recordId) => `/public/api/v1/records/${recordId}`,
             recordSchemas: '/public/api/v1/records/metadata',
-            workflowParticipantsByID: (workflowId) => 
+            workflowParticipantsByID: (workflowId) =>
                 `/public/api/v1/workflows/${workflowId}/participants`,
-            userByID: (userId) => `/scim/v2/Users/${userId}`
+            userByID: (userId) => `/scim/v2/Users/${userId}`,
         };
     }
 
@@ -45,6 +48,14 @@ class Api extends ApiKeyRequester {
             headers.Authorization = `Bearer ${this.API_KEY_VALUE}`;
         }
         return headers;
+    }
+
+    async getConnectionInformation() {
+        const options = {
+            url: this.baseUrl() + this.URLs.me,
+        };
+        const response = await this._get(options);
+        return response;
     }
 
     async listWebhooks() {
@@ -128,11 +139,18 @@ class Api extends ApiKeyRequester {
         return response;
     }
 
-    async listAllWorkflowSchemas(params) {
+    async listAllWorkflowSchemas(params, asUserEmail, asUserId) {
         const options = {
             url: this.baseUrl() + this.URLs.workflowSchemas,
             query: params,
+            headers: {},
         };
+        if (asUserEmail) {
+            options.headers['x-as-user-email'] = asUserEmail;
+        }
+        if (asUserId) {
+            options.headers['x-as-user-id'] = asUserId;
+        }
         const response = await this._get(options);
         return response;
     }
@@ -194,6 +212,19 @@ class Api extends ApiKeyRequester {
             body,
         };
         const response = await this._post(options);
+        return response;
+    }
+
+    async getWorkflowComment(workflowId, commentId) {
+        const options = {
+            url:
+                this.baseUrl() +
+                this.URLs.workflowCommentByID(workflowId, commentId),
+            headers: {
+                'content-type': 'application/json',
+            },
+        };
+        const response = await this._get(options);
         return response;
     }
 
@@ -276,19 +307,20 @@ class Api extends ApiKeyRequester {
         return response;
     }
 
-    async getWorkflowParticipants(workflowId){
+    async getWorkflowParticipants(workflowId) {
         // TODO: Handle pagination for this api call
         const options = {
-            url: this.baseUrl() + this.URLs.workflowParticipantsByID(workflowId)
-        }
+            url:
+                this.baseUrl() + this.URLs.workflowParticipantsByID(workflowId),
+        };
         const response = await this._get(options);
         return response;
     }
 
-    async getUser(userId){
+    async getUser(userId) {
         const options = {
-            url: this.baseUrl() + this.URLs.userByID(userId)
-        }
+            url: this.baseUrl() + this.URLs.userByID(userId),
+        };
         const response = await this._get(options);
         return response;
     }

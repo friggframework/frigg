@@ -1,6 +1,7 @@
 const fetch = require('node-fetch');
 const { stripIndent } = require('common-tags');
 const { FetchError } = require('./fetch-error');
+const FormData = require('form-data');
 
 describe('FetchError', () => {
     it('can be instantiated with default arguments', () => {
@@ -50,5 +51,29 @@ describe('FetchError', () => {
 
         expect(error).toHaveProperty('message');
         expect(error.message).toContain('<response body is unavailable>');
+    });
+
+    it.only('prints a formData body legibly', async () => {
+        const response = {
+            status: 500,
+            statusText: 'Space aliens!',
+            headers: Object.entries({ 'cache-control': '123' }), // needs to be an Iterable
+            text: async () => '<!doctype html>',
+        };
+
+        const params = new URLSearchParams();
+        params.append('test', 'test');
+        const init = {
+            method: 'POST',
+            credentials: 'include',
+            headers: {},
+            query: {},
+            body: params,
+            returnFullRes: false,
+        };
+        const error = await FetchError.create({ response, init });
+
+        expect(error).toHaveProperty('message');
+        expect(error.message).toContain('test=test');
     });
 });

@@ -9,7 +9,7 @@ const {
 } = require('@friggframework/module-plugin');
 const AuthFields = require('./authFields');
 const Config = require('./defaultConfig.json');
-const { flushDebugLog } = require('@friggframework/logs');
+const { flushDebugLog, debug } = require('@friggframework/logs');
 const { createHash } = require('crypto');
 
 class Manager extends ModuleManager {
@@ -64,17 +64,26 @@ class Manager extends ModuleManager {
         if (!authRes) throw new Error('Auth Error');
 
         // Grab identifying information if available.
-        // Currently not available in the Ironclad API
+        // Some credentials will not have proper access/permissions
+        let connectionInfo;
+        try {
+            connectionInfo = await this.api.getConnectionInformation();
+        } catch (e) {
+            debug('No permission to get connection information');
+        }
 
-        await this.findOrCreateCredential({
+        await this.upsertCredential({
             apiKey,
             subType,
             subdomain,
         });
-        await this.findOrCreateEntity({
-            apiKey,
+        await this.upsertEntity({
+            externalId:
+                connectionInfo?.companyId ||
+                createHash('sha256').update(apiKey).digest('hex'),
             subType,
             subdomain,
+            name: connectionInfo?.companyName || null,
         });
         const returnObj = {
             credential_id: this.credential.id,
@@ -89,62 +98,53 @@ class Manager extends ModuleManager {
         return returnObj;
     }
 
-    async findOrCreateCredential(params) {
+    async upsertCredential(params) {
         const apiKey = get(params, 'apiKey', null);
         const subdomain = get(params, 'subdomain', null);
         const subType = get(params, 'subType', null);
 
-        const search = await Credential.find({
-            user: this.userId,
-            apiKey,
-            subType,
-            subdomain,
-        });
-
-        if (search.length === 0) {
-            const createObj = {
+        this.credential = await Credential.findOneAndUpdate(
+            {
                 user: this.userId,
                 apiKey,
                 subType,
                 subdomain,
-            };
-            this.credential = await Credential.create(createObj);
-        } else if (search.length === 1) {
-            this.credential = search[0];
-        } else {
-            debug(
-                'Multiple credentials found with the same Client ID:',
-                apiKey
-            );
-        }
+            },
+            { $set: { user: this.userId, apiKey, subType, subdomain } },
+            {
+                new: true,
+                upsert: true,
+                setDefaultsOnInsert: true,
+            }
+        );
     }
 
-    async findOrCreateEntity(params) {
-        const apiKey = get(params, 'apiKey', null);
+    async upsertEntity(params) {
         const name = get(params, 'name', null);
         const subType = get(params, 'subType', null);
-        const externalId = createHash('sha256').update(apiKey).digest('hex');
+        const externalId = get(params, 'externalId', null);
 
-        const search = await Entity.find({
-            user: this.userId,
-            externalId,
-            subType,
-        });
-        if (search.length === 0) {
-            const createObj = {
-                credential: this.credential.id,
+        this.entity = await Entity.findOneAndUpdate(
+            {
                 user: this.userId,
-                name,
-                subType,
                 externalId,
-            };
-            this.entity = await Entity.create(createObj);
-        } else if (search.length === 1) {
-            this.entity = search[0];
-        } else {
-            debug('Multiple entities found with the same external ID:', apiKey);
-            this.throwException('');
-        }
+                subType,
+            },
+            {
+                $set: {
+                    credential: this.credential.id,
+                    user: this.userId,
+                    name,
+                    subType,
+                    externalId,
+                },
+            },
+            {
+                new: true,
+                upsert: true,
+                setDefaultsOnInsert: true,
+            }
+        );
     }
 
     async testAuth() {

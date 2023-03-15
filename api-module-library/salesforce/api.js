@@ -1,11 +1,14 @@
 const jsforce = require('jsforce');
 const { OAuth2Requester } = require('@friggframework/module-plugin');
 const { get } = require('@friggframework/assertions');
+const { flushDebugLog } = require('@friggframework/logs');
 
 class Api extends OAuth2Requester {
     constructor(params) {
         super(params);
         this.jsforce = jsforce;
+        this.key = get(params, 'key');
+        this.secret = get(params, 'secret');
         this.instanceUrl = get(params, 'instanceUrl', null);
         this.isSandbox = get(params, 'isSandbox', false);
         if (this.isSandbox) {
@@ -16,7 +19,7 @@ class Api extends OAuth2Requester {
         this.oauth2 = new jsforce.OAuth2({
             clientId: this.key,
             clientSecret: this.secret,
-            redirectUri: this.redirectUri,
+            redirectUri: this.redirect_uri,
             loginUrl: this.loginUrl,
         });
         this.conn = new jsforce.Connection({
@@ -65,7 +68,7 @@ class Api extends OAuth2Requester {
             await this.conn.authorize(code);
         } catch (e) {
             console.log('Error authing with the code. Trying to auth sandbox.');
-            this.throwException(
+            throw new Error(
                 `Error Authing with Code, try Sandbox. ${JSON.stringify(e)}`
             );
         }

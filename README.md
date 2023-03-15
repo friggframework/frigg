@@ -1,6 +1,6 @@
 # Frigg Integration Framework
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-13-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-17-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 <img src="docs/FriggLogo.svg" style="width:250px">
@@ -75,6 +75,12 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="https://github.com/ryanzarick"><img src="https://avatars.githubusercontent.com/u/37348875?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Ryan Zarick</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=ryanzarick" title="Code">💻</a> <a href="#ideas-ryanzarick" title="Ideas, Planning, & Feedback">🤔</a> <a href="#platform-ryanzarick" title="Packaging/porting to new platform">📦</a> <a href="#research-ryanzarick" title="Research">🔬</a> <a href="https://github.com/friggframework/frigg/pulls?q=is%3Apr+reviewed-by%3Aryanzarick" title="Reviewed Pull Requests">👀</a></td>
     <td align="center"><a href="https://queuetue.com/"><img src="https://avatars.githubusercontent.com/u/4491?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Scott Russell</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=queuetue" title="Documentation">📖</a> <a href="https://github.com/friggframework/frigg/commits?author=queuetue" title="Tests">⚠️</a> <a href="https://github.com/friggframework/frigg/commits?author=queuetue" title="Code">💻</a></td>
     <td align="center"><a href="https://github.com/joncodo"><img src="https://avatars.githubusercontent.com/u/3011407?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Jonathan O'Donnell</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=joncodo" title="Documentation">📖</a> <a href="https://github.com/friggframework/frigg/commits?author=joncodo" title="Code">💻</a></td>
+    <td align="center"><a href="https://github.com/li-sherry"><img src="https://avatars.githubusercontent.com/u/117298948?v=4?s=100" width="100px;" alt=""/><br /><sub><b>li-sherry</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=li-sherry" title="Documentation">📖</a> <a href="https://github.com/friggframework/frigg/commits?author=li-sherry" title="Tests">⚠️</a> <a href="https://github.com/friggframework/frigg/commits?author=li-sherry" title="Code">💻</a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://github.com/vedantagrawall"><img src="https://avatars.githubusercontent.com/u/52647115?v=4?s=100" width="100px;" alt=""/><br /><sub><b>vedantagrawall</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=vedantagrawall" title="Documentation">📖</a> <a href="https://github.com/friggframework/frigg/commits?author=vedantagrawall" title="Tests">⚠️</a> <a href="https://github.com/friggframework/frigg/commits?author=vedantagrawall" title="Code">💻</a></td>
+    <td align="center"><a href="https://github.com/apps/codesee-maps"><img src="https://avatars.githubusercontent.com/in/122769?v=4?s=100" width="100px;" alt=""/><br /><sub><b>codesee-maps[bot]</b></sub></a><br /><a href="#infra-codesee-maps[bot]" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
+    <td align="center"><a href="https://github.com/MichaelRyanWebber"><img src="https://avatars.githubusercontent.com/u/7769437?v=4?s=100" width="100px;" alt=""/><br /><sub><b>MichaelRyanWebber</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=MichaelRyanWebber" title="Documentation">📖</a> <a href="#infra-MichaelRyanWebber" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/friggframework/frigg/commits?author=MichaelRyanWebber" title="Tests">⚠️</a> <a href="https://github.com/friggframework/frigg/commits?author=MichaelRyanWebber" title="Code">💻</a></td>
   </tr>
 </table>
 

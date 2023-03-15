@@ -10,7 +10,14 @@ class FetchError extends BaseError {
     constructor(options = {}) {
         const { resource, init, response, responseBody } = options;
         const method = init?.method ?? 'GET';
-        const initText = init ? JSON.stringify({ init }, null, 2) : '';
+        const initText = init
+            ? init.body instanceof URLSearchParams
+                ? (() => {
+                      init.body = init.body.toString();
+                      return JSON.stringify({ init }, null, 2);
+                  })()
+                : JSON.stringify({ init }, null, 2)
+            : '';
 
         let responseBodyText = '<response body is unavailable>';
         if (typeof responseBody === 'string') {

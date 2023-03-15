@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-hubspot",
-    "version": "0.8.21",
+    "version": "0.8.24",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -13,6 +13,7 @@
     "devDependencies": {
         "@friggframework/eslint-config": "^1.0.8",
         "@friggframework/test-environment": "^1.1.6",
+        "dotenv": "^16.0.3",
         "eslint": "^8.22.0",
         "jest": "^28.1.3",
         "jest-environment-jsdom": "^28.1.3",
@@ -22,7 +23,7 @@
     },
     "dependencies": {
         "@friggframework/assertions": "^1.0.7",
-        "@friggframework/module-plugin": "^1.0.22"
+        "@friggframework/module-plugin": "^1.0.24"
     },
     "gitHead": "1ff6f32fa238512761a9c361f0e07f49b6bf5ed7"
 }

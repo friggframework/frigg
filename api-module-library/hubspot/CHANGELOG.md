@@ -1,3 +1,34 @@
+# v0.8.24 (Tue Feb 21 2023)
+
+#### 🐛 Bug Fix
+
+- Updates to HubSpot Module [#132](https://github.com/friggframework/frigg/pull/132) ([@seanspeaks](https://github.com/seanspeaks))
+- Testing and example env ready ([@seanspeaks](https://github.com/seanspeaks))
+- Upserts make way more sense for the use case... consider doing across alllll Modules ([@seanspeaks](https://github.com/seanspeaks))
+- Merge branch 'main' into hubspot-updates ([@seanspeaks](https://github.com/seanspeaks))
+- WIP Updates... cleanup, simplify, and fix ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.8.22 (Wed Feb 01 2023)
+
+#### 🐛 Bug Fix
+
+- Update the Credential [#111](https://github.com/friggframework/frigg/pull/111) ([@seanspeaks](https://github.com/seanspeaks))
+- Update the Credential ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.8.21 (Tue Jan 31 2023)
 
 #### 🐛 Bug Fix

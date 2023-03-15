@@ -1,5 +1,8 @@
 name: Release
-on: [push]
+on: 
+  push:
+    branches-ignore:
+      - gitbook-updates
 jobs:
   release:
     runs-on: ubuntu-latest
