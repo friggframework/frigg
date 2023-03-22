@@ -94,7 +94,7 @@ class Bot extends TeamsActivityHandler {
     }
 
     async handleTeamsCardActionInvoke(context) {
-        // this is not implemented by the subclass
+        // this is not implemented by the superclass
         // but shown here as an example (define this function in the integration)
         await super.handleTeamsCardActionInvoke(context);
     }
