@@ -26,7 +26,6 @@ describe(`${config.label} API Tests`, () => {
             api.botFrameworkApi.should.exist;
         });
     });
-    jest.setTimeout(300000);
     describe('Concert requests', () => {
         it('Should retrieve team member details, create refs, and send message', async () => {
             const org = await api.graphApi.getOrganization();
