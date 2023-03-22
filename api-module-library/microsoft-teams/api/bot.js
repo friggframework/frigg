@@ -93,8 +93,10 @@ class Bot extends TeamsActivityHandler {
         });
     }
 
-    async onInvokeActivity(context) {
-        // card action response goes here
+    async handleTeamsCardActionInvoke(context) {
+        // this is not implemented by the subclass
+        // but shown here as an example (define this function in the integration)
+        await super.handleTeamsCardActionInvoke(context);
     }
 
     async getUserConversationReference(context) {
