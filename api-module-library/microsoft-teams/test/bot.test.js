@@ -42,7 +42,7 @@ describe(`${config.label} API Tests`, () => {
                 "serviceUrl": "https://smba.trafficmanager.net/amer/"
             };
             api.conversationReferences[ref.user.email] = ref;
-            const resp = await api.bot.sendProactive(ref.user.email, 'proactive message');
+            const resp = await api.sendProactive(ref.user.email, 'proactive message');
             // resp is undefined for now, even when message is sent
         });
     });

@@ -43,7 +43,7 @@ class botApi {
         }
 
         const refRequests = [];
-        members.map( member => {
+        members.map( (member) => {
             ref.user = member;
             refRequests.push( this.adapter.createConversation(ref, async (context) => {
                 const ref = TurnContext.getConversationReference(context.activity);
