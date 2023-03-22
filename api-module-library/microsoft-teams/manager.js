@@ -32,7 +32,7 @@ class Manager extends ModuleManager {
             client_secret: process.env.TEAMS_CLIENT_SECRET,
             redirect_uri: `${process.env.REDIRECT_URI}/microsoft-teams`,
             tenant_id: process.env.TENANT_ID,
-            team_id: process.env.TEAMS_ID,
+            team_id: process.env.TEAMS_TEAM_ID,
             scope: process.env.TEAMS_SCOPE,
             delegate: instance,
         };
