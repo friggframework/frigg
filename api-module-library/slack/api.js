@@ -39,6 +39,7 @@ class Api extends OAuth2Requester {
             // Chats
             getMessagePermalink: '/chat.getPermalink',
             postMessage: '/chat.postMessage',
+            postEphemeral: 'chat.postEphemeral',
             updateMessage: '/chat.update',
             deleteMessage: '/chat.delete',
 
@@ -228,6 +229,29 @@ class Api extends OAuth2Requester {
     async postMessage(body) {
         const options = {
             url: this.baseUrl + this.URLs.postMessage,
+            body,
+        };
+        const response = await this._post(options);
+        return response;
+    }
+
+    // Args:
+    // channel: string, required
+    // user: string, required
+    // At least one required:
+    //      attachments: string
+    //      blocks: blocks[] as string
+    //      text: string
+    // as_user: boolean, optional
+    // icon_emoji: string, optional
+    // icon_url: string, optional
+    // link_names: boolean, optional
+    // parse: string, optional
+    // thread_ts: string, optional
+    // username: string, optional
+    async postEphemeral(body) {
+        const options = {
+            url: this.baseUrl + this.URLs.postEphemeral,
             body,
         };
         const response = await this._post(options);
