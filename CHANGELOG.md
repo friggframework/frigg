@@ -1,3 +1,20 @@
+# (Thu Mar 23 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, Roberto Oliveros ([@roboli](https://github.com/roboli)), for all your work!
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.26`
+  - Implement postEphemeral method for Slack [#137](https://github.com/friggframework/frigg/pull/137) ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
 # (Fri Mar 03 2023)
 
 #### 🐛 Bug Fix

@@ -1,3 +1,20 @@
+# v0.1.26 (Thu Mar 23 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, Roberto Oliveros ([@roboli](https://github.com/roboli)), for all your work!
+
+#### 🐛 Bug Fix
+
+- Implement postEphemeral method for Slack [#137](https://github.com/friggframework/frigg/pull/137) ([@roboli](https://github.com/roboli))
+- Implement postEphemeral method for Slack ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
 # v0.1.25 (Tue Feb 21 2023)
 
 #### 🐛 Bug Fix
