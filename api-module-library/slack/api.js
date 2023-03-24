@@ -35,6 +35,7 @@ class Api extends OAuth2Requester {
             archiveChannel: '/conversations.archive',
             inviteUsersToChannel: '/conversations.invite',
             renameChannel: '/conversations.rename',
+            getChannelHistory: '/conversations.history',
 
             // Chats
             getMessagePermalink: '/chat.getPermalink',
@@ -463,6 +464,37 @@ class Api extends OAuth2Requester {
         const response = await this._post(options);
         return response;
     }
+
+    // Args:
+    // channel: string, required
+    // cursor: string, optional
+    // limit: integer, optional
+    // latest: integer, optional
+    // oldest: integer, optional
+    // inclusive: boolean, optional
+    async getChannelHistory(query) {
+        const options = {
+            url: this.baseUrl + this.URLs.getChannelHistory,
+            query,
+        };
+        const response = await this._get(options);
+        return response;
+    }
+
+    // Args:
+    // channel: string, required
+    // ts: string, required
+    // as_user: boolean, optional
+    // attachments: string, optional
+    // blocks: blocks[] as string, optional
+    // file_ids: array, optional
+    // link_names: boolean, optional
+    // metadata: string, optional
+    // mrkdwn: boolean, optional
+    // parse: string, optional
+    // reply_broadcast: boolean, optional
+    // thread_ts: string, optional
+    // unfurl_links: boolean, optional
 
     // Args:
     // Need args from Slack
