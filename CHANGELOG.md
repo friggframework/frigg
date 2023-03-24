@@ -1,3 +1,16 @@
+# (Fri Mar 24 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.27`
+  - Update api.js [#139](https://github.com/friggframework/frigg/pull/139) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Thu Mar 23 2023)
 
 :tada: This release contains work from a new contributor! :tada:

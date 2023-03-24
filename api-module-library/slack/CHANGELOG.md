@@ -1,3 +1,16 @@
+# v0.1.27 (Fri Mar 24 2023)
+
+#### 🐛 Bug Fix
+
+- Update api.js [#139](https://github.com/friggframework/frigg/pull/139) ([@seanspeaks](https://github.com/seanspeaks))
+- Update api.js ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.1.26 (Thu Mar 23 2023)
 
 :tada: This release contains work from a new contributor! :tada:
