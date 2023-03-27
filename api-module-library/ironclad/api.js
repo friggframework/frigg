@@ -31,7 +31,7 @@ class Api extends ApiKeyRequester {
             workflowMetadata: (workflowId) =>
                 `/public/api/v1/workflows/${workflowId}/attributes`,
             workflowComment: (workflowId) =>
-                `/public/api/v1/workflows/${workflowId}/comment`,
+                `/public/api/v1/workflows/${workflowId}/comments`,
             workflowCommentByID: (workflowId, commentId) =>
                 `/public/api/v1/workflows/${workflowId}/comments/${commentId}`,
             records: '/public/api/v1/records',
