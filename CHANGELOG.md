@@ -1,3 +1,17 @@
+# (Mon Mar 27 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.33`
+  - changing comment -> comments in post endpoint [#138](https://github.com/friggframework/frigg/pull/138) (vedant@vedant.agrawal [@vedantagrawall](https://github.com/vedantagrawall))
+
+#### Authors: 2
+
+- [@vedantagrawall](https://github.com/vedantagrawall)
+- Vedant Agrawal (vedant@vedant.agrawal)
+
+---
+
 # (Fri Mar 24 2023)
 
 #### 🐛 Bug Fix
