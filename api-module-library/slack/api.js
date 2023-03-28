@@ -40,7 +40,7 @@ class Api extends OAuth2Requester {
             // Chats
             getMessagePermalink: '/chat.getPermalink',
             postMessage: '/chat.postMessage',
-            postEphemeral: 'chat.postEphemeral',
+            postEphemeral: '/chat.postEphemeral',
             updateMessage: '/chat.update',
             deleteMessage: '/chat.delete',
 
