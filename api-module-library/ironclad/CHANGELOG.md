@@ -1,3 +1,16 @@
+# v0.0.34 (Tue Mar 28 2023)
+
+#### 🐛 Bug Fix
+
+- List all workflow signatures request [#141](https://github.com/friggframework/frigg/pull/141) ([@seanspeaks](https://github.com/seanspeaks))
+- List all workflow signatures request ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.33 (Mon Mar 27 2023)
 
 #### 🐛 Bug Fix
