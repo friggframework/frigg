@@ -1,3 +1,16 @@
+# (Tue Mar 28 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.28`
+  - Trailing slash for path [#140](https://github.com/friggframework/frigg/pull/140) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Mon Mar 27 2023)
 
 #### 🐛 Bug Fix

@@ -1,3 +1,16 @@
+# v0.1.28 (Tue Mar 28 2023)
+
+#### 🐛 Bug Fix
+
+- Trailing slash for path [#140](https://github.com/friggframework/frigg/pull/140) ([@seanspeaks](https://github.com/seanspeaks))
+- Trailing slash for path ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.1.27 (Fri Mar 24 2023)
 
 #### 🐛 Bug Fix
