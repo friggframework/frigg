@@ -171,6 +171,13 @@ class Api extends ApiKeyRequester {
         const response = await this._get(options);
         return response;
     }
+    async listAllWorkflowSignatures(id) {
+        const options = {
+            url: this.baseUrl() + this.URLs.workflowsByID(id) + '/signatures',
+        };
+        const response = await this._get(options);
+        return response;
+    }
 
     async updateWorkflowApprovals(id, roleID, body) {
         const options = {
