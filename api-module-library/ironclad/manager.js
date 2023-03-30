@@ -2,6 +2,7 @@ const _ = require('lodash');
 const { Api } = require('./api');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
+const { IntegrationMapping } = require('./models/integrationMapping');
 const { get } = require('@friggframework/assertions');
 const {
     ModuleManager,
@@ -15,13 +16,14 @@ const { createHash } = require('crypto');
 class Manager extends ModuleManager {
     static Entity = Entity;
     static Credential = Credential;
+    static IntegrationMapping = IntegrationMapping;
 
     constructor(params) {
         super(params);
     }
 
     static getName() {
-        return Config.name;
+        return 'Test';
     }
 
     static async getInstance(params) {

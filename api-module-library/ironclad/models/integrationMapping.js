@@ -1,6 +1,6 @@
 'use strict';
 const mongoose = require('mongoose');
-const { IntegrationMapping: Parent } = require('@friggframework/module-plugin');
+const { IntegrationMapping: Parent } = require('@friggframework/integrations');
 
 const schema = new mongoose.Schema({});
 
