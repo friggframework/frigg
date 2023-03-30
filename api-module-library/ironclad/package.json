@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-ironclad",
-    "version": "0.0.32",
+    "version": "0.0.34",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",

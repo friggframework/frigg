@@ -31,7 +31,7 @@ class Api extends ApiKeyRequester {
             workflowMetadata: (workflowId) =>
                 `/public/api/v1/workflows/${workflowId}/attributes`,
             workflowComment: (workflowId) =>
-                `/public/api/v1/workflows/${workflowId}/comment`,
+                `/public/api/v1/workflows/${workflowId}/comments`,
             workflowCommentByID: (workflowId, commentId) =>
                 `/public/api/v1/workflows/${workflowId}/comments/${commentId}`,
             records: '/public/api/v1/records',
@@ -167,6 +167,13 @@ class Api extends ApiKeyRequester {
     async listAllWorkflowApprovals(id) {
         const options = {
             url: this.baseUrl() + this.URLs.workflowsByID(id) + '/approvals',
+        };
+        const response = await this._get(options);
+        return response;
+    }
+    async listAllWorkflowSignatures(id) {
+        const options = {
+            url: this.baseUrl() + this.URLs.workflowsByID(id) + '/signatures',
         };
         const response = await this._get(options);
         return response;

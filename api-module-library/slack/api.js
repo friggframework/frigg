@@ -35,10 +35,12 @@ class Api extends OAuth2Requester {
             archiveChannel: '/conversations.archive',
             inviteUsersToChannel: '/conversations.invite',
             renameChannel: '/conversations.rename',
+            getChannelHistory: '/conversations.history',
 
             // Chats
             getMessagePermalink: '/chat.getPermalink',
             postMessage: '/chat.postMessage',
+            postEphemeral: '/chat.postEphemeral',
             updateMessage: '/chat.update',
             deleteMessage: '/chat.delete',
 
@@ -228,6 +230,29 @@ class Api extends OAuth2Requester {
     async postMessage(body) {
         const options = {
             url: this.baseUrl + this.URLs.postMessage,
+            body,
+        };
+        const response = await this._post(options);
+        return response;
+    }
+
+    // Args:
+    // channel: string, required
+    // user: string, required
+    // At least one required:
+    //      attachments: string
+    //      blocks: blocks[] as string
+    //      text: string
+    // as_user: boolean, optional
+    // icon_emoji: string, optional
+    // icon_url: string, optional
+    // link_names: boolean, optional
+    // parse: string, optional
+    // thread_ts: string, optional
+    // username: string, optional
+    async postEphemeral(body) {
+        const options = {
+            url: this.baseUrl + this.URLs.postEphemeral,
             body,
         };
         const response = await this._post(options);
@@ -439,6 +464,37 @@ class Api extends OAuth2Requester {
         const response = await this._post(options);
         return response;
     }
+
+    // Args:
+    // channel: string, required
+    // cursor: string, optional
+    // limit: integer, optional
+    // latest: integer, optional
+    // oldest: integer, optional
+    // inclusive: boolean, optional
+    async getChannelHistory(query) {
+        const options = {
+            url: this.baseUrl + this.URLs.getChannelHistory,
+            query,
+        };
+        const response = await this._get(options);
+        return response;
+    }
+
+    // Args:
+    // channel: string, required
+    // ts: string, required
+    // as_user: boolean, optional
+    // attachments: string, optional
+    // blocks: blocks[] as string, optional
+    // file_ids: array, optional
+    // link_names: boolean, optional
+    // metadata: string, optional
+    // mrkdwn: boolean, optional
+    // parse: string, optional
+    // reply_broadcast: boolean, optional
+    // thread_ts: string, optional
+    // unfurl_links: boolean, optional
 
     // Args:
     // Need args from Slack

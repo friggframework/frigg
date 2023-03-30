@@ -1,3 +1,46 @@
+# v0.1.28 (Tue Mar 28 2023)
+
+#### 🐛 Bug Fix
+
+- Trailing slash for path [#140](https://github.com/friggframework/frigg/pull/140) ([@seanspeaks](https://github.com/seanspeaks))
+- Trailing slash for path ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.1.27 (Fri Mar 24 2023)
+
+#### 🐛 Bug Fix
+
+- Update api.js [#139](https://github.com/friggframework/frigg/pull/139) ([@seanspeaks](https://github.com/seanspeaks))
+- Update api.js ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.1.26 (Thu Mar 23 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, Roberto Oliveros ([@roboli](https://github.com/roboli)), for all your work!
+
+#### 🐛 Bug Fix
+
+- Implement postEphemeral method for Slack [#137](https://github.com/friggframework/frigg/pull/137) ([@roboli](https://github.com/roboli))
+- Implement postEphemeral method for Slack ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
 # v0.1.25 (Tue Feb 21 2023)
 
 #### 🐛 Bug Fix

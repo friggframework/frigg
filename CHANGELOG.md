@@ -1,3 +1,73 @@
+# (Tue Mar 28 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.34`
+  - List all workflow signatures request [#141](https://github.com/friggframework/frigg/pull/141) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Tue Mar 28 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.28`
+  - Trailing slash for path [#140](https://github.com/friggframework/frigg/pull/140) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Mon Mar 27 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.33`
+  - changing comment -> comments in post endpoint [#138](https://github.com/friggframework/frigg/pull/138) (vedant@vedant.agrawal [@vedantagrawall](https://github.com/vedantagrawall))
+
+#### Authors: 2
+
+- [@vedantagrawall](https://github.com/vedantagrawall)
+- Vedant Agrawal (vedant@vedant.agrawal)
+
+---
+
+# (Fri Mar 24 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.27`
+  - Update api.js [#139](https://github.com/friggframework/frigg/pull/139) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Thu Mar 23 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, Roberto Oliveros ([@roboli](https://github.com/roboli)), for all your work!
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.26`
+  - Implement postEphemeral method for Slack [#137](https://github.com/friggframework/frigg/pull/137) ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
 # (Fri Mar 03 2023)
 
 #### 🐛 Bug Fix
