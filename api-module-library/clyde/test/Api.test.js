@@ -1,21 +1,20 @@
 const chai = require('chai');
-const TestUtils = require('../../../../test/utils/TestUtils');
 
 const should = chai.should();
-const ApiClass = require('../api.js');
+const { Api } = require('../api.js');
 
-describe('Clyde Api Class Tests', async () => {
-    const api = new ApiClass({
+describe('Clyde Api Class Tests', () => {
+    const api = new Api({
         clientKey: process.env.CLYDE_TEST_CLIENT_KEY,
         secret: process.env.CLYDE_TEST_SECRET,
         backOff: [1, 3, 10],
     });
-    before('Test Auth', async () => {
+    beforeAll('Test Auth', async () => {
         const products = await api.listProducts();
         products.data.should.be.an('array');
     });
 
-    describe('Products', async () => {
+    describe('Products', () => {
         let product_1, product_2;
         before(async () => {
             // const body_1 = {
@@ -70,7 +69,7 @@ describe('Clyde Api Class Tests', async () => {
             // Hope the after works!
         });
     });
-    describe('Orders', async () => {
+    describe('Orders', () => {
         let order_1, order_2;
         before(async () => {
             const body_1 = {

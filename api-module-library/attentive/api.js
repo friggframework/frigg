@@ -44,6 +44,10 @@ class Api extends OAuth2Requester {
         this.id_token = get(params, 'id_token', null);
     }
 
+    getAuthUri() {
+        return this.authorizationUri;
+    }
+
     async getTokenIdentity() {
         const options = {
             url: this.baseUrl + this.URLs.me,

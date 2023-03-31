@@ -2,14 +2,14 @@
 const chai = require('chai');
 
 const ManagerClass = require('../manager');
-const TestUtils = require('../../../../test/utils/TestUtils');
+const mongoose = require("mongoose");
 
-describe('should make Clyde requests through the Clyde Manager', async () => {
-    let manager;
-    before(async () => {
-        this.userManager = await TestUtils.getLoggedInTestUserManagerInstance();
+describe('should make Clyde requests through the Clyde Manager', () => {
+    let manager, userId;
+    beforeAll(async () => {
+        userId = new mongoose.Types.ObjectId();
         manager = await ManagerClass.getInstance({
-            userId: this.userManager.getUserId(),
+            userId,
         });
         const res = await manager.getAuthorizationRequirements();
 
@@ -19,19 +19,19 @@ describe('should make Clyde requests through the Clyde Manager', async () => {
             secret: process.env.CLYDE_TEST_SECRET,
         };
         const ids = await manager.processAuthorizationCallback({
-            userId: this.userManager.getUserId(),
+            userId,
             data: testCreds,
         });
         chai.assert.hasAllKeys(ids, ['credential_id', 'entity_id', 'type']);
 
         manager = await ManagerClass.getInstance({
             entityId: ids.entity_id,
-            userId: this.userManager.getUserId(),
+            userId,
         });
         return 'done';
     });
 
-    after(async () => {
+    afterAll(async () => {
         const removeCred = await manager.credentialMO.delete(
             manager.credential._id
         );
@@ -51,7 +51,7 @@ describe('should make Clyde requests through the Clyde Manager', async () => {
 
     it('should reinstantiate with an entity ID', async () => {
         const newManager = await ManagerClass.getInstance({
-            userId: this.userManager.getUserId(),
+            userId,
             entityId: manager.entity._id,
         });
         newManager.api.clientKey.should.equal(manager.api.clientKey);
