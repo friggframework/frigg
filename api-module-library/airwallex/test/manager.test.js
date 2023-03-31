@@ -1,6 +1,6 @@
-const Manager = require('./manager');
+const Manager = require('../manager');
 const mongoose = require('mongoose');
-const config = require('./defaultConfig.json');
+const config = require('../defaultConfig.json');
 
 describe(`Should fully test the ${config.label} Manager`, () => {
     let manager, userManager;

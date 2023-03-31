@@ -4,9 +4,9 @@ const should = chai.should();
 const Authenticator = require('@friggframework/test-environment/Authenticator');
 const { Api } = require('../api');
 
-describe('Airwallex API class', async () => {
+describe('Airwallex API class', () => {
     const api = new Api();
-    before(async () => {
+    beforeAll(async () => {
         const url = api.authorizationUri;
         const response = await Authenticator.oauth2(url);
         const baseArr = response.base.split('/');
@@ -16,7 +16,7 @@ describe('Airwallex API class', async () => {
         const token = await api.getTokenFromCode(response.data.code);
     });
 
-    describe('Get Account Info', async () => {
+    describe('Get Account Info', () => {
         it('should get Account info', async () => {
             const response = await api.getAccount();
             response.should.have.property('id');
@@ -24,7 +24,7 @@ describe('Airwallex API class', async () => {
         });
     });
 
-    describe('Transactions', async () => {
+    describe('Transactions', () => {
         it('should get all transactions', async () => {
             const response = await api.getTransactions();
             response.should.have.property('items');
@@ -32,13 +32,13 @@ describe('Airwallex API class', async () => {
         });
     });
 
-    describe('Payments', async () => {});
+    describe('Payments', () => {});
 
-    describe('Charges', async () => {});
+    describe('Charges', () => {});
 
-    describe('Balance', async () => {});
+    describe('Balance', () => {});
 
-    describe('Card', async () => {});
+    describe('Card', () => {});
 
-    describe('Customer', async () => {});
+    describe('Customer', () => {});
 });
