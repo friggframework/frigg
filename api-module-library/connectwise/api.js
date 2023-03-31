@@ -1,3 +1,4 @@
+const { get } = require('@friggframework/assertions');
 const { Requester } = require('@friggframework/module-plugin');
 const FormatPatchBody = require('./formatPatchBody');
 

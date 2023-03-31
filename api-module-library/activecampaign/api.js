@@ -1,11 +1,12 @@
+const { get } = require('@friggframework/assertions');
 const { ApiKeyRequester } = require('@friggframework/module-plugin');
 class Api extends ApiKeyRequester {
     constructor(params) {
         super(params);
 
         this.API_KEY_NAME = 'Api-Token';
-        this.API_KEY_VALUE = get(params, 'apiKey');
-        this.API_URL = get(params, 'apiUrl');
+        this.API_KEY_VALUE = get(params, 'apiKey', null);
+        this.API_URL = get(params, 'apiUrl', null);
         this.baseURL = `${this.API_URL}/api/3`;
 
         this.URLs = {
