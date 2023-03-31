@@ -2,16 +2,16 @@ const chai = require('chai');
 const { expect } = chai;
 const PipedriveManager = require('../manager');
 const Authenticator = require('@friggframework/test-environment/Authenticator');
-const TestUtils = require('../../../../test/utils/TestUtils');
+const mongoose = require("mongoose");
 
 // eslint-disable-next-line no-only-tests/no-only-tests
 describe('Pipedrive Manager', async () => {
-    let manager;
+    let manager, userId;
     before(async () => {
-        this.userManager = await TestUtils.getLoggedInTestUserManagerInstance();
+        userId = new mongoose.Types.ObjectId();
 
         manager = await PipedriveManager.getInstance({
-            userId: this.userManager.getUserId(),
+           userId,
         });
         const res = await manager.getAuthorizationRequirements();
 
@@ -23,7 +23,7 @@ describe('Pipedrive Manager', async () => {
         delete response.base;
 
         const ids = await manager.processAuthorizationCallback({
-            userId: this.userManager.getUserId(),
+           userId,
             data: response.data,
         });
         chai.assert.hasAllKeys(ids, ['credential_id', 'entity_id', 'type']);

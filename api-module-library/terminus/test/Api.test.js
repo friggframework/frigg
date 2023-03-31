@@ -1,10 +1,9 @@
-const TestUtils = require('../../../../test/utils/TestUtils');
 const moment = require('moment');
 
-const TerminusApiClass = require('../api');
+const { Api } = require('../api');
 
 describe.skip('Terminus API', () => {
-    const terminusApi = new TerminusApiClass({
+    const terminusApi = new Api({
         backoff: [1, 3, 10],
         api_key: process.env.TERMINUS_TEST_API_KEY,
     });

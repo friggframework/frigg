@@ -2,7 +2,6 @@
  * @group interactive
  */
 
-require('../../../../test/utils/TestUtils');
 const UserManager = require('../../../managers/UserManager');
 const chai = require('chai');
 
@@ -13,16 +12,17 @@ chai.use(require('chai-url'));
 chai.use(chaiAsPromised);
 
 const Authenticator = require('@friggframework/test-environment/Authenticator');
-const TestUtils = require('../../../../test/utils/TestUtils');
 const RollWorksManager = require('../../../managers/entities/RollWorksManager.js');
+const mongoose = require("mongoose");
 
 describe.skip('RollWorks Manager', () => {
     let rollworksManager;
     let authorizeUrl;
+    let userId;
     beforeAll(async () => {
-        this.userManager = await TestUtils.getLoggedInTestUserManagerInstance();
+        userId = new mongoose.Types.ObjectId();
         rollworksManager = await RollWorksManager.getInstance({
-            userId: this.userManager.getUserId(),
+            userId,
         });
 
         const res = await rollworksManager.getAuthorizationRequirements();
@@ -36,7 +36,7 @@ describe.skip('RollWorks Manager', () => {
         delete response.base;
 
         const ids = await rollworksManager.processAuthorizationCallback({
-            userId: this.userManager.getUserId(),
+            userId,
             data: response.data,
         });
 
@@ -83,7 +83,7 @@ describe.skip('RollWorks Manager', () => {
 
     it('should reinstantiate with an entity ID', async () => {
         const newManager = await RollWorksManager.getInstance({
-            userId: this.userManager.getUserId(),
+            userId,
             entityId: rollworksManager.entity._id,
         });
         newManager.api.access_token.should.equal(
@@ -101,7 +101,7 @@ describe.skip('RollWorks Manager', () => {
 
     it('should reinstantiate with a credential ID', async () => {
         const newManager = await RollWorksManager.getInstance({
-            userId: this.userManager.getUserId(),
+            userId,
             credentialId: rollworksManager.credential._id,
         });
         newManager.api.access_token.should.equal(

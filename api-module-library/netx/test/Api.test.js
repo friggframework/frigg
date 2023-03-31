@@ -3,7 +3,6 @@ const should = chai.should();
 const Authenticator = require('@friggframework/test-environment/Authenticator');
 const { Api } = require('../api');
 
-const TestUtils = require('../../../../test/utils/TestUtils');
 const { expect } = require('chai');
 
 const randomString = require('randomstring');

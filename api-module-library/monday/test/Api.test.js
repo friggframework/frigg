@@ -2,8 +2,6 @@
  * @group interactive
  */
 
-require('../../../../test/utils/TestUtils');
-
 const Authenticator = require('@friggframework/test-environment/Authenticator');
 const MondayApiClass = require('../api.js');
 

@@ -2,7 +2,6 @@
  * @group interactive
  */
 
-require('../../../../test/utils/TestUtils');
 const chai = require('chai');
 
 const { expect } = chai;
@@ -13,16 +12,17 @@ chai.use(chaiAsPromised);
 
 const Authenticator = require('@friggframework/test-environment/Authenticator');
 const MondayManager = require('../../../managers/entities/MondayManager.js');
-const TestUtils = require('../../../../test/utils/TestUtils');
+const mongoose = require("mongoose");
 
 describe.skip('Monday Manager', () => {
     let mondayManager;
     let authorizeUrl;
+    let userId;
     beforeAll(async () => {
-        this.userManager = await TestUtils.getLoggedInTestUserManagerInstance();
+        userId = new mongoose.Types.ObjectId(); 
         // TODO verify instance with API class associated
         mondayManager = await MondayManager.getInstance({
-            userId: this.userManager.getUserId(),
+            userId,
         });
 
         const res = await mondayManager.getAuthorizationRequirements();
@@ -36,7 +36,7 @@ describe.skip('Monday Manager', () => {
         delete response.base;
 
         const ids = await mondayManager.processAuthorizationCallback({
-            userId: this.userManager.getUserId(),
+            userId,
             data: response.data,
         });
 
@@ -50,7 +50,7 @@ describe.skip('Monday Manager', () => {
 
     it('should reinstantiate with an entity ID', async () => {
         const newManager = await MondayManager.getInstance({
-            userId: this.userManager.getUserId(),
+            userId,
             entityId: mondayManager.entity._id,
         });
         newManager.api.access_token.should.equal(
@@ -68,7 +68,7 @@ describe.skip('Monday Manager', () => {
 
     it('should reinstantiate with a credential ID', async () => {
         const newManager = await MondayManager.getInstance({
-            userId: this.userManager.getUserId(),
+            userId,
             credentialId: mondayManager.credential._id,
         });
         newManager.api.access_token.should.equal(

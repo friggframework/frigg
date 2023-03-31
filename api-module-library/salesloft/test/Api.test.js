@@ -5,7 +5,6 @@
 const Authenticator = require('@friggframework/test-environment/Authenticator');
 const { Api } = require('../api');
 
-const TestUtils = require('../../../../test/utils/TestUtils');
 require('dotenv').config();
 
 describe('Salesloft API class', () => {
