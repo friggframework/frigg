@@ -2,7 +2,7 @@
  * @group interactive
  */
 
-const Authenticator = require('../../../../test/utils/Authenticator');
+const Authenticator = require('@friggframework/test-environment/Authenticator');
 const { Api } = require('../api');
 
 const TestUtils = require('../../../../test/utils/TestUtils');

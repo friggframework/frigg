@@ -2,9 +2,8 @@
  * @group interactive
  */
 
-const Authenticator = require('../../../../test/utils/Authenticator');
+const Authenticator = require('@friggframework/test-environment/Authenticator');
 const { Api } = require('../api.js');
-const TestUtils = require('../../../../test/utils/TestUtils');
 
 describe.skip('RollWorks API', () => {
     const api = new Api();

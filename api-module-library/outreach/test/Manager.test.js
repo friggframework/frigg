@@ -5,7 +5,7 @@
 const chai = require('chai');
 
 const OutreachManager = require('../manager');
-const Authenticator = require('../../../../test/utils/Authenticator');
+const Authenticator = require('@friggframework/test-environment/Authenticator');
 const TestUtils = require('../../../../test/utils/TestUtils');
 
 describe.skip('Outreach Manager', () => {

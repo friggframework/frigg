@@ -8,8 +8,7 @@ chai.use(require('chai-url'));
 
 const _ = require('lodash');
 
-const Authenticator = require('../../../../test/utils/Authenticator');
-const UserManager = require('../../../managers/UserManager');
+const Authenticator = require('@friggframework/test-environment/Authenticator');
 const Manager = require('../manager.js');
 const TestUtils = require('../../../../test/utils/TestUtils');
 

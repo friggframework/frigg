@@ -13,7 +13,7 @@ chai.use(require('chai-url'));
 chai.use(chaiAsPromised);
 const _ = require('lodash');
 
-const Authenticator = require('../../../../test/utils/Authenticator');
+const Authenticator = require('@friggframework/test-environment/Authenticator');
 const UserManager = require('../../../managers/UserManager');
 const CrossbeamManager = require('../manager.js');
 const TestUtils = require('../../../../test/utils/TestUtils');

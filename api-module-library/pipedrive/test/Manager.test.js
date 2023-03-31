@@ -1,7 +1,7 @@
 const chai = require('chai');
 const { expect } = chai;
 const PipedriveManager = require('../manager');
-const Authenticator = require('../../../../test/utils/Authenticator');
+const Authenticator = require('@friggframework/test-environment/Authenticator');
 const TestUtils = require('../../../../test/utils/TestUtils');
 
 // eslint-disable-next-line no-only-tests/no-only-tests

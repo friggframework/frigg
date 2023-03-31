@@ -12,7 +12,7 @@ chai.use(require('chai-url'));
 
 chai.use(chaiAsPromised);
 
-const Authenticator = require('../../../../test/utils/Authenticator');
+const Authenticator = require('@friggframework/test-environment/Authenticator');
 const TestUtils = require('../../../../test/utils/TestUtils');
 const RollWorksManager = require('../../../managers/entities/RollWorksManager.js');
 

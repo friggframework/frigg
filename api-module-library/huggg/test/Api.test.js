@@ -2,10 +2,7 @@
  * @group interactive
  */
 
-const Authenticator = require('../../../../test/utils/Authenticator');
 const { Api } = require('../api');
-
-const TestUtils = require('../../../../test/utils/TestUtils');
 
 describe('Huggg API class', () => {
     const api = new Api({

@@ -2,7 +2,6 @@
 const chai = require('chai');
 
 const ManagerClass = require('../manager');
-const Authenticator = require('../../../../test/utils/Authenticator');
 const TestUtils = require('../../../../test/utils/TestUtils');
 
 describe('should make Clyde requests through the Clyde Manager', async () => {

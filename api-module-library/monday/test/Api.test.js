@@ -4,7 +4,7 @@
 
 require('../../../../test/utils/TestUtils');
 
-const Authenticator = require('../../../../test/utils/Authenticator');
+const Authenticator = require('@friggframework/test-environment/Authenticator');
 const MondayApiClass = require('../api.js');
 
 describe('Monday API', () => {

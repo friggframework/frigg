@@ -2,13 +2,11 @@
  * @group interactive
  */
 
-const TestUtils = require('../../../../test/utils/TestUtils');
-
-const Authenticator = require('../../../../test/utils/Authenticator');
-const FrontApiClass = require('../api.js');
+const Authenticator = require('@friggframework/test-environment/Authenticator');
+const { Api } = require('../api.js');
 
 describe('Front API', () => {
-    const frontApi = new FrontApiClass({ backOff: [1, 3, 10] });
+    const frontApi = new Api({ backOff: [1, 3, 10] });
     beforeAll(async () => {
         const url = frontApi.authorizationUri;
         const response = await Authenticator.oauth2(url);

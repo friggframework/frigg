@@ -4,7 +4,7 @@
 
 const TestUtils = require('../../../../test/utils/TestUtils');
 
-const Authenticator = require('../../../../test/utils/Authenticator');
+const Authenticator = require('@friggframework/test-environment/Authenticator');
 const CrossbeamApiClass = require('../api.js');
 const open = require('open');
 
