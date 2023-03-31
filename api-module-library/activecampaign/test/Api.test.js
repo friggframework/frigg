@@ -5,7 +5,7 @@
 const nock = require('nock');
 const path = require('path');
 
-const ActiveCampaignApiClass = require('../api');
+const { Api } = require('../api');
 
 nock.back.fixtures = path.join(
     __dirname,
@@ -24,7 +24,7 @@ describe('ActiveCampaign API', () => {
     let activeCampaignHttpMock;
 
     beforeAll(async () => {
-        testedApi = new ActiveCampaignApiClass({
+        testedApi = new Api({
             apiKey: process.env.AC_API_KEY,
             apiUrl: process.env.AC_API_URL,
         });
@@ -41,7 +41,7 @@ describe('ActiveCampaign API', () => {
     describe('#constructor', () => {
         it('requires an apiKey', () => {
             try {
-                new ActiveCampaignApiClass();
+                new Api();
                 throw new Error('Did not throw expected error.');
             } catch (e) {
                 expect(e.message).toContain('apiKey is a required parameter');
@@ -50,7 +50,7 @@ describe('ActiveCampaign API', () => {
 
         it('requires an apiUrl', () => {
             try {
-                new ActiveCampaignApiClass({ apiKey: 'mykey' });
+                new Api({ apiKey: 'mykey' });
                 throw new Error('Did not throw expected error.');
             } catch (e) {
                 expect(e.message).toContain('apiUrl is a required parameter');
