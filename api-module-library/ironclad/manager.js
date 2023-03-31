@@ -23,7 +23,7 @@ class Manager extends ModuleManager {
     }
 
     static getName() {
-        return 'Test';
+        return Config.name;
     }
 
     static async getInstance(params) {
