@@ -10,16 +10,16 @@ const _ = require('lodash');
 
 const Authenticator = require('@friggframework/test-environment/Authenticator');
 const Manager = require('../manager.js');
-const TestUtils = require('../../../../test/utils/TestUtils');
+const mongoose = require("mongoose");
 
 const testType = 'local-dev';
 
 describe.skip('Front Entity Manager', () => {
-    let manager;
+    let manager, userId;
     beforeAll(async () => {
-        this.userManager = await TestUtils.getLoggedInTestUserManagerInstance();
+        userId = new mongoose.Types.ObjectId(); 
         manager = await Manager.getInstance({
-            userId: this.userManager.getUserId(),
+           userId,
         });
         const res = await manager.getAuthorizationRequirements();
 
@@ -47,7 +47,7 @@ describe.skip('Front Entity Manager', () => {
 
         manager = await Manager.getInstance({
             entityId: ids.entity_id,
-            userId: this.userManager.getUserId(),
+           userId,
         });
         return 'done';
     });
@@ -59,7 +59,7 @@ describe.skip('Front Entity Manager', () => {
 
     it('should reinstantiate with an entity ID', async () => {
         let newManager = await Manager.getInstance({
-            userId: this.userManager.getUserId(),
+           userId,
             subType: testType,
             entityId: manager.entity._id,
         });
@@ -75,7 +75,7 @@ describe.skip('Front Entity Manager', () => {
 
     it('should reinstantiate with a credential ID', async () => {
         let newManager = await Manager.getInstance({
-            userId: this.userManager.getUserId(),
+           userId,
             subType: testType,
             credentialId: manager.credential._id,
         });
