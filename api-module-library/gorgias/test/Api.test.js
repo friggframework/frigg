@@ -1,21 +1,17 @@
 /* eslint-disable no-only-tests/no-only-tests */
 const chai = require('chai');
-const TestUtils = require('../../../../test/utils/TestUtils');
-const { debug } = require('../../../utils/logger');
-const moment = require('moment');
+const { debug } = require('@friggframework/logs');
 const path = require('path');
 
-const should = chai.should();
-
-const Authenticator = require('../../../../test/utils/Authenticator');
-const ApiClass = require('../api.js');
+const Authenticator = require('@friggframework/test-environment/Authenticator');
+const { Api } = require('../api');
 const Handlebars = require('handlebars');
 
-describe('Gorgias API Requests', async () => {
-    const api = new ApiClass({
+describe('Gorgias API Requests', () => {
+    const api = new Api({
         backOff: [1, 3, 10],
     });
-    before(async () => {
+    beforeAll(async () => {
         let url = api.authorizationUri;
         // if there's curly braces in the url, then we need to merge
         const decodedUrl = decodeURI(url);

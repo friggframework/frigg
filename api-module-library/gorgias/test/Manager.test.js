@@ -1,18 +1,16 @@
-require('../../../../setupEnv');
-
 const chai = require('chai');
 
 const ManagerClass = require('../manager');
-const Authenticator = require('../../../../test/utils/Authenticator');
-const TestUtils = require('../../../../test/utils/TestUtils');
+const Authenticator = require('@friggframework/test-environment/Authenticator');
 const Handlebars = require('handlebars');
+const mongoose = require("mongoose");
 
-describe('should make Gorgias requests through the Gorgias Manager', async () => {
-    let manager;
-    before(async () => {
-        this.userManager = await TestUtils.getLoggedInTestUserManagerInstance();
+describe('should make Gorgias requests through the Gorgias Manager', () => {
+    let manager, userId;
+    beforeAll(async () => {
+        userId = new mongoose.Types.ObjectId();
         manager = await ManagerClass.getInstance({
-            userId: this.userManager.getUserId(),
+            userId,
         });
         const res = await manager.getAuthorizationRequirements();
 
@@ -29,19 +27,18 @@ describe('should make Gorgias requests through the Gorgias Manager', async () =>
         delete response.base;
 
         const ids = await manager.processAuthorizationCallback({
-            userId: this.userManager.getUserId(),
             data: response.data,
         });
         chai.assert.hasAnyKeys(ids, ['credential_id', 'entity_id', 'type']);
 
         manager = await ManagerClass.getInstance({
             entityId: ids.entity_id,
-            userId: this.userManager.getUserId(),
+            userId,
         });
         return 'done';
     });
 
-    after(async () => {
+    afterAll(async () => {
         const removeCred = await manager.credentialMO.delete(
             manager.credential._id
         );
@@ -61,7 +58,6 @@ describe('should make Gorgias requests through the Gorgias Manager', async () =>
 
     it('should reinstantiate with an entity ID', async () => {
         const newManager = await ManagerClass.getInstance({
-            userId: this.userManager.getUserId(),
             entityId: manager.entity._id,
         });
         newManager.api.access_token.should.equal(manager.api.access_token);

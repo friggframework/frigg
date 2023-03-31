@@ -47,8 +47,8 @@ describe(`Should fully test the ${config.label} Manager`, () => {
         it('should refresh token', async () => {
             manager.api.access_token = 'nope';
             await manager.testAuth();
-            expect(manager.api.access_token).to.not.equal('nope');
             expect(manager.api.access_token).to.exist;
+            expect(manager.api.access_token).to.not.equal('nope');
         });
         it('should refresh token after a fresh database retrieval', async () => {
             const newManager = await Manager.getInstance({

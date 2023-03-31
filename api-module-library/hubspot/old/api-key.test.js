@@ -1,4 +1,4 @@
-const { Api } = require('./api');
+const { Api } = require('../api');
 
 describe.skip('HubSpot API (API Key)', () => {
     const hubSpotApi = new Api({
