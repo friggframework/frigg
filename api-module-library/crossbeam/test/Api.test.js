@@ -2,14 +2,12 @@
  * @group interactive
  */
 
-const TestUtils = require('../../../../test/utils/TestUtils');
-
 const Authenticator = require('@friggframework/test-environment/Authenticator');
-const CrossbeamApiClass = require('../api.js');
+const { Api } = require('../api.js');
 const open = require('open');
 
 describe.skip('Crossbeam API', () => {
-    const xbeamApi = new CrossbeamApiClass({ backOff: [1, 3, 10] });
+    const xbeamApi = new Api({ backOff: [1, 3, 10] });
     beforeAll(async () => {
         const url = xbeamApi.authorizationUri;
         const response = await Authenticator.oauth2(url);
