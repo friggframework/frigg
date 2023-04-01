@@ -1,3 +1,16 @@
+# (Sat Apr 01 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.29`
+  - add token_revoked event for slack [#135](https://github.com/friggframework/frigg/pull/135) ([@debbie-yu](https://github.com/debbie-yu))
+
+#### Authors: 1
+
+- [@debbie-yu](https://github.com/debbie-yu)
+
+---
+
 # (Tue Mar 28 2023)
 
 #### 🐛 Bug Fix
