@@ -214,6 +214,16 @@
         "test",
         "code"
       ]
+    },
+    {
+      "login": "debbie-yu",
+      "name": "debbie-yu",
+      "avatar_url": "https://avatars.githubusercontent.com/u/89419828?v=4",
+      "profile": "https://github.com/debbie-yu",
+      "contributions": [
+        "doc",
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7
