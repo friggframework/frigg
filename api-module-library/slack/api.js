@@ -103,7 +103,8 @@ class Api extends OAuth2Requester {
         } else if (
             parsedResponse.error === 'invalid_auth' ||
             parsedResponse.error === 'auth_expired' ||
-            parsedResponse.error === 'token_expired'
+            parsedResponse.error === 'token_expired' ||
+            parsedResponse.error === 'token_revoked'
         ) {
             if (!this.isRefreshable || this.refreshCount > 0) {
                 await this.notify(this.DLGT_INVALID_AUTH);
