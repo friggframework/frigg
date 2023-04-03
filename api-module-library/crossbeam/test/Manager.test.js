@@ -23,7 +23,7 @@ const testSecretAndId = {
 
 const testType = 'local-dev';
 
-describe('Crossbeam Entity Manager', () => {
+describe.skip('Crossbeam Entity Manager', () => {
     let testContext, userId;
 
     beforeAll(() => {

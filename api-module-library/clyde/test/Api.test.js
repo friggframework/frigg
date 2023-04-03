@@ -9,7 +9,7 @@ describe('Clyde Api Class Tests', () => {
         secret: process.env.CLYDE_TEST_SECRET,
         backOff: [1, 3, 10],
     });
-    beforeAll('Test Auth', async () => {
+    beforeAll(async () => {
         const products = await api.listProducts();
         products.data.should.be.an('array');
     });
