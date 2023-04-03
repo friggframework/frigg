@@ -11,6 +11,7 @@ describe('Airwallex API class', () => {
             api_key: process.env.AIRWALLEX_API_KEY,
             client_id: process.env.AIRWALLEX_CLIENT_ID,
         });
+        await api.getTokenFromApiKey();
     });
 
     describe('Get Account Info', () => {
