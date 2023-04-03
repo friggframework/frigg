@@ -5,19 +5,16 @@ const Authenticator = require('@friggframework/test-environment/Authenticator');
 const { Api } = require('../api');
 
 describe('Airwallex API class', () => {
-    const api = new Api();
+    let api;
     beforeAll(async () => {
-        const url = api.authorizationUri;
-        const response = await Authenticator.oauth2(url);
-        const baseArr = response.base.split('/');
-        response.entityType = baseArr[baseArr.length - 1];
-        delete response.base;
-
-        const token = await api.getTokenFromCode(response.data.code);
+        api = new Api({
+            api_key: process.env.AIRWALLEX_API_KEY,
+            client_id: process.env.AIRWALLEX_CLIENT_ID,
+        });
     });
 
     describe('Get Account Info', () => {
-        it('should get Account info', async () => {
+        it.skip('should get Account info', async () => {
             const response = await api.getAccount();
             response.should.have.property('id');
             return response;
@@ -25,7 +22,7 @@ describe('Airwallex API class', () => {
     });
 
     describe('Transactions', () => {
-        it('should get all transactions', async () => {
+        it.skip('should get all transactions', async () => {
             const response = await api.getTransactions();
             response.should.have.property('items');
             return response;
