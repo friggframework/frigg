@@ -5,8 +5,8 @@ class Api extends ApiKeyRequester {
         super(params);
 
         this.API_KEY_NAME = 'Api-Token';
-        this.API_KEY_VALUE = get(params, 'apiKey', null);
-        this.API_URL = get(params, 'apiUrl', null);
+        this.API_KEY_VALUE = get(params, 'apiKey');
+        this.API_URL = get(params, 'apiUrl');
         this.baseURL = `${this.API_URL}/api/3`;
 
         this.URLs = {
