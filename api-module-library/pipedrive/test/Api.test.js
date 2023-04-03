@@ -2,7 +2,7 @@ const chai = require('chai');
 const { expect } = chai;
 const should = chai.should();
 const { Api } = require('../api');
-const { mockApi } = require('../../../../test/utils/mockApi');
+const { mockApi } = require('../mocks/apiMock');
 
 const MockedApi = mockApi(Api, {
     authenticationMode: 'browser',
@@ -13,12 +13,12 @@ const MockedApi = mockApi(Api, {
 
 describe('Pipedrive API class', async () => {
     let api;
-    before(async function () {
+    beforeAll(async function () {
         await MockedApi.initialize({ test: this.test });
         api = await MockedApi.mock();
     });
 
-    after(async function () {
+    afterAll(async function () {
         await MockedApi.clean({ test: this.test });
     });
 

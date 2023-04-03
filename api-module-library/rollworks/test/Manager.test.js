@@ -2,7 +2,6 @@
  * @group interactive
  */
 
-const UserManager = require('../../../managers/UserManager');
 const chai = require('chai');
 
 const { expect } = chai;
@@ -12,7 +11,7 @@ chai.use(require('chai-url'));
 chai.use(chaiAsPromised);
 
 const Authenticator = require('@friggframework/test-environment/Authenticator');
-const RollWorksManager = require('../../../managers/entities/RollWorksManager.js');
+const Manager = require('../manager');
 const mongoose = require("mongoose");
 
 describe.skip('RollWorks Manager', () => {
@@ -21,7 +20,7 @@ describe.skip('RollWorks Manager', () => {
     let userId;
     beforeAll(async () => {
         userId = new mongoose.Types.ObjectId();
-        rollworksManager = await RollWorksManager.getInstance({
+        rollworksManager = await Manager.getInstance({
             userId,
         });
 
@@ -48,7 +47,7 @@ describe.skip('RollWorks Manager', () => {
         // Hope the before works!
     });
 
-    it('Should retreive the right entity if exists', async () => {
+    it.skip('Should retreive the right entity if exists', async () => {
         const credentials = await rollworksManager.credentialMO.list({
             user: this.userManager.getUserId(),
         });

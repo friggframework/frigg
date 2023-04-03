@@ -12,12 +12,12 @@ const MockedApi = mockApi(Api, {
     authenticationMode: 'browser',
 });
 
-describe('DemoNock API', async () => {
-    before(async function () {
+describe('DemoNock API', () => {
+    beforeAll(async function () {
         await MockedApi.initialize({ test: this.test });
     });
 
-    after(async function () {
+    afterAll(async function () {
         await MockedApi.clean({ test: this.test });
     });
 

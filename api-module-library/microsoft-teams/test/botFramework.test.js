@@ -12,9 +12,10 @@ describe.skip(`${config.label} API Tests`, () => {
         tenant_id: process.env.TENANT_ID
     };
 
-    const api = new Api.botFrameworkApi(apiParams);
+    let api;
 
     beforeAll(async () => {
+        api = new Api.botFrameworkApi(apiParams);
         await api.getTokenFromClientCredentials();
     });
     describe('OAuth Flow Tests', () => {

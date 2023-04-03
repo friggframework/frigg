@@ -1,8 +1,8 @@
 const nock = require('nock');
 const path = require('path');
 
-const PersonioApiClass = require('../api');
-const faker = require('faker');
+const { Api } = require('../api');
+const { faker } = require('@faker-js/faker');
 const moment = require('moment');
 
 describe.skip('Personio API', () => {
@@ -13,7 +13,7 @@ describe.skip('Personio API', () => {
     });
 
     describe('employee CRUD', () => {
-        testedApi = new PersonioApiClass({
+        testedApi = new Api({
             clientId: process.env.PERSONIO_CLIENT_ID,
             clientSecret: process.env.PERSONIO_CLIENT_SECRET,
             companyId: process.env.PERSONIO_COMPANY_ID,

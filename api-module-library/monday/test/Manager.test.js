@@ -11,7 +11,7 @@ chai.use(require('chai-url'));
 chai.use(chaiAsPromised);
 
 const Authenticator = require('@friggframework/test-environment/Authenticator');
-const MondayManager = require('../../../managers/entities/MondayManager.js');
+const MondayManager = require('../manager')
 const mongoose = require("mongoose");
 
 describe.skip('Monday Manager', () => {

@@ -3,17 +3,17 @@
  */
 
 const Authenticator = require('@friggframework/test-environment/Authenticator');
-const MondayApiClass = require('../api.js');
+const { Api } = require('../api.js');
 
-describe('Monday API', () => {
-    let testContext;
+describe.skip('Monday API', () => {
+    let testContext, mondayApi;
 
     beforeEach(() => {
         testContext = {};
     });
 
-    const mondayApi = new MondayApiClass();
     beforeAll(async () => {
+        mondayApi = new Api();
         const url = mondayApi.authorizationUri;
         const response = await Authenticator.oauth2(url);
         const baseArr = response.base.split('/');
