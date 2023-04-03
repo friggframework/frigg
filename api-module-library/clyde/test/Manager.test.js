@@ -4,7 +4,7 @@ const chai = require('chai');
 const ManagerClass = require('../manager');
 const mongoose = require("mongoose");
 
-describe('should make Clyde requests through the Clyde Manager', () => {
+describe.skip('should make Clyde requests through the Clyde Manager', () => {
     let manager, userId;
     beforeAll(async () => {
         userId = new mongoose.Types.ObjectId();

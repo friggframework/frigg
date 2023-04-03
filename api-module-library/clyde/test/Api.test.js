@@ -16,7 +16,7 @@ describe('Clyde Api Class Tests', () => {
 
     describe('Products', () => {
         let product_1, product_2;
-        before(async () => {
+        beforeAll(async () => {
             // const body_1 = {
             //     name: 'Test Name',
             //     domain: 'TestDomain.com',

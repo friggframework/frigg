@@ -34,9 +34,9 @@ describe('Gorgias API Requests', () => {
         debug(response);
     });
 
-    describe('Gorgias Tickets', async () => {
+    describe('Gorgias Tickets', () => {
         let ticket;
-        before(async () => {
+        beforeAll(async () => {
             const body = {
                 messages: [
                     {
@@ -51,7 +51,7 @@ describe('Gorgias API Requests', () => {
             ticket.should.have.property('id');
         });
 
-        after(async () => {
+        afterAll(async () => {
             const deletedTicket = await api.deleteTicket(ticket.id);
             deletedTicket.status.should.equal(204);
         });
@@ -92,9 +92,9 @@ describe('Gorgias API Requests', () => {
         });
     });
 
-    describe('Gorgias Customers', async () => {
+    describe('Gorgias Customers', () => {
         let customer;
-        before(async () => {
+        beforeAll(async () => {
             const body = {
                 channels: [
                     {
@@ -110,7 +110,7 @@ describe('Gorgias API Requests', () => {
             customer.should.have.property('id');
         });
 
-        after(async () => {
+        afterAll(async () => {
             const deletedCustomer = await api.deleteCustomer(customer.id);
             deletedCustomer.status.should.equal(204);
         });
@@ -152,9 +152,9 @@ describe('Gorgias API Requests', () => {
         });
     });
 
-    describe('Gorgias Integrations', async () => {
+    describe('Gorgias Integrations', () => {
         let integration;
-        before(async () => {
+        beforeAll(async () => {
             const body = {
                 name: 'Unit Test Integration',
                 type: 'http',
@@ -166,7 +166,7 @@ describe('Gorgias API Requests', () => {
             integration.should.have.property('id');
         });
 
-        after(async () => {
+        afterAll(async () => {
             const deletedIntegration = await api.deleteIntegration(
                 integration.id
             );
@@ -206,10 +206,10 @@ describe('Gorgias API Requests', () => {
         });
     });
 
-    describe('Gorgias Widgets', async () => {
+    describe('Gorgias Widgets', () => {
         let widget;
         let logoUrl;
-        before(async () => {
+        beforeAll(async () => {
             const body = {
                 template: {
                     type: 'wrapper',
@@ -471,7 +471,7 @@ describe('Gorgias API Requests', () => {
             widget.should.have.property('id');
         });
 
-        after(async () => {
+        afterAll(async () => {
             const deletedWidget = await api.deleteWidget(widget.id);
             deletedWidget.status.should.equal(204);
         });
