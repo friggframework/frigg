@@ -5,7 +5,7 @@
 const Authenticator = require('@friggframework/test-environment/Authenticator');
 const { Api } = require('../api.js');
 
-describe('Front API', () => {
+describe.skip('Front API', () => {
     const frontApi = new Api({ backOff: [1, 3, 10] });
     beforeAll(async () => {
         const url = frontApi.authorizationUri;

@@ -32,7 +32,7 @@ describe('Clyde Api Class Tests', () => {
             // product_2.should.have.property('id');
         });
 
-        after(async () => {
+        afterAll(async () => {
             // let deleted_1 = await api.archiveProduct(product_1.id);
             // let deleted_2 = await api.archiveProduct(product_2.id);
             // deleted_1.status.should.equal(204);
@@ -71,7 +71,7 @@ describe('Clyde Api Class Tests', () => {
     });
     describe('Orders', () => {
         let order_1, order_2;
-        before(async () => {
+        beforeAll(async () => {
             const body_1 = {
                 data: {
                     type: 'order',
@@ -116,7 +116,7 @@ describe('Clyde Api Class Tests', () => {
             // product_2.should.have.property('id');
         });
 
-        after(async () => {
+        afterAll(async () => {
             // let deleted_1 = await api.archiveProduct(product_1.id);
             // let deleted_2 = await api.archiveProduct(product_2.id);
             // deleted_1.status.should.equal(204);

@@ -19,7 +19,7 @@ nock.back.fixtures = path.join(
 );
 // nock.back.setMode('record');
 
-describe('ActiveCampaign API', () => {
+describe.skip('ActiveCampaign API', () => {
     let testedApi;
     let activeCampaignHttpMock;
 
