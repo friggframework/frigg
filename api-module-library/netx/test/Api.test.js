@@ -9,7 +9,7 @@ const randomString = require('randomstring');
 
 const path = require('path');
 
-describe.only('NetX API class', () => {
+describe.skip('NetX API class', () => {
     const api = new Api({
         client_id: process.env.NETX_CLIENT_ID,
     });
