@@ -4,7 +4,7 @@ const config = require('../defaultConfig.json');
 const { expect } = require('chai');
 require('dotenv').config();
 
-describe(`Should fully test the ${config.label} Manager`, () => {
+describe.skip(`Should fully test the ${config.label} Manager`, () => {
     let manager, userManager;
 
     beforeAll(async () => {

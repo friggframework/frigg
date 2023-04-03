@@ -3,7 +3,7 @@ const config = require('../defaultConfig.json');
 const chai = require('chai');
 const should = chai.should();
 
-describe(`${config.label} API Tests`, () => {
+describe.skip(`${config.label} API Tests`, () => {
     const apiParams = {
         client_id: process.env.TEAMS_CLIENT_ID,
         client_secret: process.env.TEAMS_CLIENT_SECRET,

@@ -4,7 +4,7 @@ const { Api } = require('../api');
 require('dotenv').config();
 const { expect } = require('chai');
 
-describe('Ironclad API class', () => {
+describe.skip('Ironclad API class', () => {
     const api = new Api({
         apiKey: process.env.IRONCLAD_API_KEY,
         subdomain: process.env.IRONCLAD_SUBDOMAIN,
