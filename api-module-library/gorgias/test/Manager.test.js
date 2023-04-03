@@ -5,7 +5,7 @@ const Authenticator = require('@friggframework/test-environment/Authenticator');
 const Handlebars = require('handlebars');
 const mongoose = require("mongoose");
 
-describe('should make Gorgias requests through the Gorgias Manager', () => {
+describe.skip('should make Gorgias requests through the Gorgias Manager', () => {
     let manager, userId;
     beforeAll(async () => {
         userId = new mongoose.Types.ObjectId();

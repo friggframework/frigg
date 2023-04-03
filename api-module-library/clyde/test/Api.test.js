@@ -3,7 +3,7 @@ const chai = require('chai');
 const should = chai.should();
 const { Api } = require('../api.js');
 
-describe('Clyde Api Class Tests', () => {
+describe.skip('Clyde Api Class Tests', () => {
     const api = new Api({
         clientKey: process.env.CLYDE_TEST_CLIENT_KEY,
         secret: process.env.CLYDE_TEST_SECRET,

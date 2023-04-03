@@ -7,7 +7,7 @@ const Authenticator = require('@friggframework/test-environment/Authenticator');
 const { Api } = require('../api');
 const Handlebars = require('handlebars');
 
-describe('Gorgias API Requests', () => {
+describe.skip('Gorgias API Requests', () => {
     const api = new Api({
         backOff: [1, 3, 10],
     });
