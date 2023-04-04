@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/integrations",
-    "version": "1.0.22",
+    "version": "1.0.23",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -22,11 +22,11 @@
         "sinon": "^14.0.0"
     },
     "dependencies": {
-        "@friggframework/assertions": "^1.0.7",
-        "@friggframework/core": "^0.2.11",
-        "@friggframework/encrypt": "^1.1.6",
+        "@friggframework/assertions": "^1.0.8",
+        "@friggframework/core": "^0.2.12",
+        "@friggframework/encrypt": "^1.1.7",
         "@friggframework/errors": "^1.1.6",
-        "@friggframework/module-plugin": "^1.0.24",
+        "@friggframework/module-plugin": "^1.0.25",
         "mongoose": "^6.5.2"
     }
 }

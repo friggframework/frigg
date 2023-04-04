@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-monday",
-    "version": "0.8.23",
+    "version": "0.8.24",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -19,8 +19,8 @@
         "sinon": "^14.0.0"
     },
     "dependencies": {
-        "@friggframework/assertions": "^1.0.7",
-        "@friggframework/module-plugin": "^1.0.24",
+        "@friggframework/assertions": "^1.0.8",
+        "@friggframework/module-plugin": "^1.0.25",
         "monday-sdk-js": "^0.1.3"
     },
     "gitHead": "1ff6f32fa238512761a9c361f0e07f49b6bf5ed7"
