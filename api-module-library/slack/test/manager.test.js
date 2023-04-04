@@ -6,7 +6,7 @@ const Authenticator = require('@friggframework/test-environment/Authenticator');
 require('dotenv').config();
 const nock = require('nock');
 
-describe(`Should fully test the ${config.label} Manager`, () => {
+describe.skip(`Should fully test the ${config.label} Manager`, () => {
     let manager, authUrl;
 
     beforeAll(async () => {

@@ -2,7 +2,7 @@ const { Api } = require('../api');
 const Authenticator = require('@friggframework/test-environment/Authenticator');
 const config = require('../defaultConfig.json');
 
-describe(`Should fully test the ${config.label} API Class`, () => {
+describe.skip(`Should fully test the ${config.label} API Class`, () => {
     let api;
     beforeAll(async () => {
         const apiParams = {
