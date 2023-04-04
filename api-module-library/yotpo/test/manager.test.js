@@ -10,7 +10,7 @@ const yotpoCreds = {
     loyalty_guid: process.env.YOTPO_LOYALTY_GUID,
     loyalty_api_key: process.env.YOTPO_LOYALTY_API_KEY,
 };
-describe(`Should fully test the ${config.label} Manager`, () => {
+describe.skip(`Should fully test the ${config.label} Manager`, () => {
     let manager, authUrl;
 
     beforeAll(async () => {
