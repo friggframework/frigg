@@ -9,10 +9,6 @@ describe.skip('Personio API', () => {
     let testedApi;
 
     beforeAll(async () => {
-        await testedApi.getToken();
-    });
-
-    describe('employee CRUD', () => {
         testedApi = new Api({
             clientId: process.env.PERSONIO_CLIENT_ID,
             clientSecret: process.env.PERSONIO_CLIENT_SECRET,
@@ -20,6 +16,11 @@ describe.skip('Personio API', () => {
             subdomain: process.env.PERSONIO_SUBDOMAIN,
             recruitingApiKey: process.env.PERSONIO_RECRUITING_API_KEY,
         });
+
+        await testedApi.getToken();
+    });
+
+    describe('employee CRUD', () => {
 
         const employeeId = 4481308;
 
@@ -76,7 +77,7 @@ describe.skip('Personio API', () => {
     });
 
     describe('attendance CRUD', () => {
-        testedApi = new PersonioApiClass({
+        testedApi = new Api({
             clientId: process.env.PERSONIO_CLIENT_ID,
             clientSecret: process.env.PERSONIO_CLIENT_SECRET,
             companyId: process.env.PERSONIO_COMPANY_ID,

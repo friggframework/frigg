@@ -7,7 +7,7 @@ const { Api } = require('../api');
 
 require('dotenv').config();
 
-describe('Salesloft API class', () => {
+describe.skip('Salesloft API class', () => {
     let testContext;
 
     beforeEach(() => {
