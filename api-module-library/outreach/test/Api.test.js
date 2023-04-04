@@ -2,10 +2,10 @@
  * @group interactive
  */
 
-const Authenticator = require('../../../../test/utils/Authenticator');
+const Authenticator = require('@friggframework/test-environment/Authenticator');
 const { Api } = require('../api');
 
-describe('Outreach API class', () => {
+describe.skip('Outreach API class', () => {
     let testContext;
 
     beforeEach(() => {

@@ -53,7 +53,7 @@ describe('FetchError', () => {
         expect(error.message).toContain('<response body is unavailable>');
     });
 
-    it.only('prints a formData body legibly', async () => {
+    it('prints a formData body legibly', async () => {
         const response = {
             status: 500,
             statusText: 'Space aliens!',

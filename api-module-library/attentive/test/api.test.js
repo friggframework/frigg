@@ -1,5 +1,5 @@
-const { Api } = require('./api');
-const config = require('./defaultConfig.json');
+const { Api } = require('../api');
+const config = require('../defaultConfig.json');
 
 describe(`Should fully test the ${config.label} Api Class`, () => {
     let api;

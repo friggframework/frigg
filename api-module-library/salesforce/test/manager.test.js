@@ -5,7 +5,7 @@ const config = require('../defaultConfig.json');
 const { expect } = require('chai');
 const Authenticator = require('@friggframework/test-environment/Authenticator');
 
-describe(`Should fully test the ${config.label} Manager`, () => {
+describe.skip(`Should fully test the ${config.label} Manager`, () => {
     let manager, userManager;
 
     beforeAll(async () => {

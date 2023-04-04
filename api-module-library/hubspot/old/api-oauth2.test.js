@@ -1,5 +1,5 @@
 // const Authenticator = require('../../../../test/utils/Authenticator');
-const { Api } = require('./api');
+const { Api } = require('../api');
 
 describe.skip('HubSpot API (OAuth2)', () => {
     const api = new Api({ backOff: [1, 3, 10] });

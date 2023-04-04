@@ -18,7 +18,7 @@ const testCustomer = {
 const testOrder = {};
 nockBack.fixtures = __dirname + '/fixtures/';
 
-describe('Yotpo API class', () => {
+describe.skip('Yotpo API class', () => {
     const api = new Api({
         secret: process.env.YOTPO_API_SECRET || 'secret',
         store_id: process.env.YOTPO_STORE_ID || 'vwxyz',

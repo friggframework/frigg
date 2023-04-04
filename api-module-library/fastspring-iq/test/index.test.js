@@ -1,4 +1,4 @@
-const SalesRightAPI = require('../api');
+const { Api } = require('../api');
 
 // Make sure that quote's properties are all there and the correct type
 function validateQuote(quoteData) {
@@ -69,7 +69,7 @@ describe('SalesRight API Class', () => {
     const createdQuoteWebhookUrl =
         'https://webhook.site/e6fb747c-903d-43f0-a02f-32bf6a8b738c'; // sample webhook url to use for a created quote webhook url
 
-    const api = new SalesRightAPI(
+    const api = new Api(
         process.env.SALESRIGHT_EMAIL,
         process.env.SALESRIGHT_PASSWORD
     );

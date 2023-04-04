@@ -7,15 +7,15 @@ class Api extends ApiKeyRequester {
         super(params);
 
         this.baseURL = 'https://api.personio.de';
-        this.CLIENT_ID = get(params, 'clientId');
-        this.CLIENT_SECRET = get(params, 'clientSecret');
+        this.CLIENT_ID = get(params, 'clientId', null);
+        this.CLIENT_SECRET = get(params, 'clientSecret', null);
         this.authorizationUri = `${this.baseURL}/v1/auth?client_id=${this.CLIENT_ID}&client_secret=${this.CLIENT_SECRET}`;
 
         this.API_KEY_NAME = 'Authorization';
         this.API_KEY_VALUE;
 
-        this.COMPANY_ID = get(params, 'companyId');
-        this.SUBDOMAIN = get(params, 'subdomain');
+        this.COMPANY_ID = get(params, 'companyId', null);
+        this.SUBDOMAIN = get(params, 'subdomain', null);
         this.RECRUITING_API_KEY = get(params, 'recruitingApiKey', null);
 
         this.openPositionsUri = `https://${this.SUBDOMAIN}.jobs.personio.de/search.json`;

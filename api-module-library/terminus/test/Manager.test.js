@@ -1,4 +1,3 @@
-require('../../../../test/utils/TestUtils');
 const chai = require('chai');
 
 const { expect } = chai;
@@ -9,14 +8,13 @@ chai.use(require('chai-url'));
 chai.use(chaiAsPromised);
 const _ = require('lodash');
 
-const UserManager = require('../../../managers/UserManager');
 const Manager = require('../manager.js');
-const TestUtils = require('../../../../test/utils/TestUtils');
+const mongoose = require("mongoose");
 
 const testType = 'local-dev';
 
 describe.skip('Terminus Entity Manager', () => {
-    let testContext;
+    let testContext, userId;
 
     beforeAll(() => {
         testContext = {};
@@ -24,10 +22,9 @@ describe.skip('Terminus Entity Manager', () => {
 
     let manager;
     beforeAll(async () => {
-        testContext.userManager =
-            await TestUtils.getLoggedInTestUserManagerInstance();
+        userId = new mongoose.Types.ObjectId();
         manager = await Manager.getInstance({
-            userId: this.userManager.getUserId(),
+            userId,
         });
         const res = await manager.getAuthorizationRequirements();
 
@@ -52,7 +49,7 @@ describe.skip('Terminus Entity Manager', () => {
 
         manager = await Manager.getInstance({
             entityId: ids.entity_id,
-            userId: this.userManager.getUserId(),
+            userId,
         });
         return 'done';
     });
@@ -69,7 +66,7 @@ describe.skip('Terminus Entity Manager', () => {
 
     it('should reinstantiate with an entity ID', async () => {
         let newManager = await Manager.getInstance({
-            userId: this.userManager.getUserId(),
+            userId,
             entityId: manager.entity._id,
         });
         newManager.api.API_KEY_VALUE.should.equal(manager.api.API_KEY_VALUE);
@@ -108,13 +105,9 @@ describe.skip('Terminus Entity Manager', () => {
 
     it('processAuthorizationCallback should fail because credential is in use with another user', async () => {
         try {
-            let newUserManager =
-                await TestUtils.getLoggedInTestUserManagerInstance({
-                    username: 'different',
-                    hashword: 'testing',
-                });
+            let newUserId = new mongoose.Types.ObjectId();
             let newManager = await Manager.getInstance({
-                userId: newUserManager.getUserId(),
+                userId: newUserId,
             });
 
             await newManager.processAuthorizationCallback({

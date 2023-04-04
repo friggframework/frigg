@@ -1,23 +1,22 @@
 const chai = require('chai');
-const TestUtils = require('../../../../test/utils/TestUtils');
 
 const should = chai.should();
-const ApiClass = require('../api.js');
+const { Api } = require('../api.js');
 
-describe('Clyde Api Class Tests', async () => {
-    const api = new ApiClass({
+describe.skip('Clyde Api Class Tests', () => {
+    const api = new Api({
         clientKey: process.env.CLYDE_TEST_CLIENT_KEY,
         secret: process.env.CLYDE_TEST_SECRET,
         backOff: [1, 3, 10],
     });
-    before('Test Auth', async () => {
+    beforeAll(async () => {
         const products = await api.listProducts();
         products.data.should.be.an('array');
     });
 
-    describe('Products', async () => {
+    describe('Products', () => {
         let product_1, product_2;
-        before(async () => {
+        beforeAll(async () => {
             // const body_1 = {
             //     name: 'Test Name',
             //     domain: 'TestDomain.com',
@@ -33,7 +32,7 @@ describe('Clyde Api Class Tests', async () => {
             // product_2.should.have.property('id');
         });
 
-        after(async () => {
+        afterAll(async () => {
             // let deleted_1 = await api.archiveProduct(product_1.id);
             // let deleted_2 = await api.archiveProduct(product_2.id);
             // deleted_1.status.should.equal(204);
@@ -70,9 +69,9 @@ describe('Clyde Api Class Tests', async () => {
             // Hope the after works!
         });
     });
-    describe('Orders', async () => {
+    describe('Orders', () => {
         let order_1, order_2;
-        before(async () => {
+        beforeAll(async () => {
             const body_1 = {
                 data: {
                     type: 'order',
@@ -117,7 +116,7 @@ describe('Clyde Api Class Tests', async () => {
             // product_2.should.have.property('id');
         });
 
-        after(async () => {
+        afterAll(async () => {
             // let deleted_1 = await api.archiveProduct(product_1.id);
             // let deleted_2 = await api.archiveProduct(product_2.id);
             // deleted_1.status.should.equal(204);

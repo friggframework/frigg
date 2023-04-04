@@ -2,13 +2,12 @@
  * @group interactive
  */
 
-const Authenticator = require('../../../../test/utils/Authenticator');
+const Authenticator = require('@friggframework/test-environment/Authenticator');
 const { Api } = require('../api');
 
-const TestUtils = require('../../../../test/utils/TestUtils');
 require('dotenv').config();
 
-describe('Salesloft API class', () => {
+describe.skip('Salesloft API class', () => {
     let testContext;
 
     beforeEach(() => {

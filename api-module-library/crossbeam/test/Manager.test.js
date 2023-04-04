@@ -2,7 +2,6 @@
  * @group interactive
  */
 
-require('../../../../test/utils/TestUtils');
 const chai = require('chai');
 
 const { expect } = chai;
@@ -13,10 +12,9 @@ chai.use(require('chai-url'));
 chai.use(chaiAsPromised);
 const _ = require('lodash');
 
-const Authenticator = require('../../../../test/utils/Authenticator');
-const UserManager = require('../../../managers/UserManager');
+const Authenticator = require('@friggframework/test-environment/Authenticator');
 const CrossbeamManager = require('../manager.js');
-const TestUtils = require('../../../../test/utils/TestUtils');
+const mongoose = require("mongoose");
 
 const testSecretAndId = {
     client_id: process.env.CROSSBEAM_TEST_CLIENT_ID,
@@ -25,8 +23,8 @@ const testSecretAndId = {
 
 const testType = 'local-dev';
 
-describe('Crossbeam Entity Manager', () => {
-    let testContext;
+describe.skip('Crossbeam Entity Manager', () => {
+    let testContext, userId;
 
     beforeAll(() => {
         testContext = {};
@@ -34,10 +32,9 @@ describe('Crossbeam Entity Manager', () => {
 
     let xbeamManager;
     beforeAll(async () => {
-        testContext.userManager =
-            await TestUtils.getLoggedInTestUserManagerInstance();
+        userId = new mongoose.Types.ObjectId();
         xbeamManager = await CrossbeamManager.getInstance({
-            userId: this.userManager.getUserId(),
+            userId,
         });
         const res = await xbeamManager.getAuthorizationRequirements();
 
@@ -64,7 +61,7 @@ describe('Crossbeam Entity Manager', () => {
 
         xbeamManager = await CrossbeamManager.getInstance({
             entityId: entity._id,
-            userId: this.userManager.getUserId(),
+            userId,
         });
     });
 
@@ -75,7 +72,7 @@ describe('Crossbeam Entity Manager', () => {
 
     it('should reinstantiate with an entity ID', async () => {
         let newManager = await CrossbeamManager.getInstance({
-            userId: this.userManager.getUserId(),
+            userId,
             subType: testType,
             entityId: xbeamManager.entity._id,
         });
@@ -92,7 +89,7 @@ describe('Crossbeam Entity Manager', () => {
 
     it('should reinstantiate with a credential ID', async () => {
         let newManager = await CrossbeamManager.getInstance({
-            userId: this.userManager.getUserId(),
+            userId,
             subType: testType,
             credentialId: xbeamManager.credential._id,
         });

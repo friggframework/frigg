@@ -42,6 +42,10 @@ class Api extends BasicAuthRequester {
         super.setPassword(secret);
     }
 
+    getAuthUri() {
+        return this.authorizationUri;
+    }
+
     async addAuthHeaders(headers) {
         if (this.username && this.password) {
             headers['Authorization'] =

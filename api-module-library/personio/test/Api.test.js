@@ -1,25 +1,26 @@
 const nock = require('nock');
 const path = require('path');
 
-const PersonioApiClass = require('../api');
-const faker = require('faker');
+const { Api } = require('../api');
+const { faker } = require('@faker-js/faker');
 const moment = require('moment');
 
 describe.skip('Personio API', () => {
     let testedApi;
 
     beforeAll(async () => {
-        await testedApi.getToken();
-    });
-
-    describe('employee CRUD', () => {
-        testedApi = new PersonioApiClass({
+        testedApi = new Api({
             clientId: process.env.PERSONIO_CLIENT_ID,
             clientSecret: process.env.PERSONIO_CLIENT_SECRET,
             companyId: process.env.PERSONIO_COMPANY_ID,
             subdomain: process.env.PERSONIO_SUBDOMAIN,
             recruitingApiKey: process.env.PERSONIO_RECRUITING_API_KEY,
         });
+
+        await testedApi.getToken();
+    });
+
+    describe('employee CRUD', () => {
 
         const employeeId = 4481308;
 
@@ -76,7 +77,7 @@ describe.skip('Personio API', () => {
     });
 
     describe('attendance CRUD', () => {
-        testedApi = new PersonioApiClass({
+        testedApi = new Api({
             clientId: process.env.PERSONIO_CLIENT_ID,
             clientSecret: process.env.PERSONIO_CLIENT_SECRET,
             companyId: process.env.PERSONIO_COMPANY_ID,

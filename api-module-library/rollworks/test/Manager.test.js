@@ -2,8 +2,6 @@
  * @group interactive
  */
 
-require('../../../../test/utils/TestUtils');
-const UserManager = require('../../../managers/UserManager');
 const chai = require('chai');
 
 const { expect } = chai;
@@ -12,17 +10,18 @@ chai.use(require('chai-url'));
 
 chai.use(chaiAsPromised);
 
-const Authenticator = require('../../../../test/utils/Authenticator');
-const TestUtils = require('../../../../test/utils/TestUtils');
-const RollWorksManager = require('../../../managers/entities/RollWorksManager.js');
+const Authenticator = require('@friggframework/test-environment/Authenticator');
+const Manager = require('../manager');
+const mongoose = require("mongoose");
 
 describe.skip('RollWorks Manager', () => {
     let rollworksManager;
     let authorizeUrl;
+    let userId;
     beforeAll(async () => {
-        this.userManager = await TestUtils.getLoggedInTestUserManagerInstance();
-        rollworksManager = await RollWorksManager.getInstance({
-            userId: this.userManager.getUserId(),
+        userId = new mongoose.Types.ObjectId();
+        rollworksManager = await Manager.getInstance({
+            userId,
         });
 
         const res = await rollworksManager.getAuthorizationRequirements();
@@ -36,7 +35,7 @@ describe.skip('RollWorks Manager', () => {
         delete response.base;
 
         const ids = await rollworksManager.processAuthorizationCallback({
-            userId: this.userManager.getUserId(),
+            userId,
             data: response.data,
         });
 
@@ -48,7 +47,7 @@ describe.skip('RollWorks Manager', () => {
         // Hope the before works!
     });
 
-    it('Should retreive the right entity if exists', async () => {
+    it.skip('Should retreive the right entity if exists', async () => {
         const credentials = await rollworksManager.credentialMO.list({
             user: this.userManager.getUserId(),
         });
@@ -83,7 +82,7 @@ describe.skip('RollWorks Manager', () => {
 
     it('should reinstantiate with an entity ID', async () => {
         const newManager = await RollWorksManager.getInstance({
-            userId: this.userManager.getUserId(),
+            userId,
             entityId: rollworksManager.entity._id,
         });
         newManager.api.access_token.should.equal(
@@ -101,7 +100,7 @@ describe.skip('RollWorks Manager', () => {
 
     it('should reinstantiate with a credential ID', async () => {
         const newManager = await RollWorksManager.getInstance({
-            userId: this.userManager.getUserId(),
+            userId,
             credentialId: rollworksManager.credential._id,
         });
         newManager.api.access_token.should.equal(

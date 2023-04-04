@@ -5,16 +5,16 @@
 const chai = require('chai');
 
 const OutreachManager = require('../manager');
-const Authenticator = require('../../../../test/utils/Authenticator');
-const TestUtils = require('../../../../test/utils/TestUtils');
+const Authenticator = require('@friggframework/test-environment/Authenticator');
+const mongoose = require("mongoose");
 
 describe.skip('Outreach Manager', () => {
-    let manager;
+    let manager, userId;
     beforeAll(async () => {
-        this.userManager = await TestUtils.getLoggedInTestUserManagerInstance();
+        userId = new mongoose.Types.ObjectId();
 
         manager = await OutreachManager.getInstance({
-            userId: this.userManager.getUserId(),
+            userId,
         });
         const res = await manager.getAuthorizationRequirements();
 

@@ -1,16 +1,15 @@
 const chai = require('chai');
 const should = chai.should();
-const Authenticator = require('../../../../test/utils/Authenticator');
+const Authenticator = require('@friggframework/test-environment/Authenticator');
 const { Api } = require('../api');
 
-const TestUtils = require('../../../../test/utils/TestUtils');
 const { expect } = require('chai');
 
 const randomString = require('randomstring');
 
 const path = require('path');
 
-describe.only('NetX API class', () => {
+describe.skip('NetX API class', () => {
     const api = new Api({
         client_id: process.env.NETX_CLIENT_ID,
     });

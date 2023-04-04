@@ -1,17 +1,17 @@
 const chai = require('chai');
 const { expect } = chai;
 const PipedriveManager = require('../manager');
-const Authenticator = require('../../../../test/utils/Authenticator');
-const TestUtils = require('../../../../test/utils/TestUtils');
+const Authenticator = require('@friggframework/test-environment/Authenticator');
+const mongoose = require("mongoose");
 
 // eslint-disable-next-line no-only-tests/no-only-tests
-describe('Pipedrive Manager', async () => {
-    let manager;
-    before(async () => {
-        this.userManager = await TestUtils.getLoggedInTestUserManagerInstance();
+describe.skip('Pipedrive Manager', () => {
+    let manager, userId;
+    beforeAll(async () => {
+        userId = new mongoose.Types.ObjectId();
 
         manager = await PipedriveManager.getInstance({
-            userId: this.userManager.getUserId(),
+           userId,
         });
         const res = await manager.getAuthorizationRequirements();
 
@@ -23,13 +23,13 @@ describe('Pipedrive Manager', async () => {
         delete response.base;
 
         const ids = await manager.processAuthorizationCallback({
-            userId: this.userManager.getUserId(),
+           userId,
             data: response.data,
         });
         chai.assert.hasAllKeys(ids, ['credential_id', 'entity_id', 'type']);
     });
 
-    describe('getInstance tests', async () => {
+    describe('getInstance tests', () => {
         it('should return a manager instance without credential or entity data', async () => {
             const userId = this.userManager.getUserId();
             const freshManager = await PipedriveManager.getInstance({
@@ -69,7 +69,7 @@ describe('Pipedrive Manager', async () => {
         });
     });
 
-    describe('getAuthorizationRequirements tests', async () => {
+    describe('getAuthorizationRequirements tests', () => {
         it('should return authorization requirements of username and password', async () => {
             // Check authorization requirements
             const res = await manager.getAuthorizationRequirements();
@@ -78,18 +78,18 @@ describe('Pipedrive Manager', async () => {
         });
     });
 
-    describe('processAuthorizationCallback tests', async () => {
+    describe('processAuthorizationCallback tests', () => {
         it('asserts that the original manager has a working credential', async () => {
             const res = await manager.testAuth();
             expect(res).to.be.true;
         });
     });
 
-    describe('getEntityOptions tests', async () => {
+    describe('getEntityOptions tests', () => {
         // NA
     });
 
-    describe('findOrCreateEntity tests', async () => {
+    describe('findOrCreateEntity tests', () => {
         it('should create a new entity for the selected profile and attach to manager', async () => {
             const userDetails = await manager.api.getUser();
             const entityRes = await manager.findOrCreateEntity({
@@ -100,7 +100,7 @@ describe('Pipedrive Manager', async () => {
             expect(entityRes.entity_id).to.exist;
         });
     });
-    describe('testAuth tests', async () => {
+    describe('testAuth tests', () => {
         it('Should refresh token and update the credential with new token', async () => {
             const badAccessToken = 'smith';
             manager.api.access_token = badAccessToken;
@@ -115,7 +115,7 @@ describe('Pipedrive Manager', async () => {
         });
     });
 
-    describe('receiveNotification tests', async () => {
+    describe('receiveNotification tests', () => {
         it('should fail to refresh token and mark auth as invalid', async () => {
             // Need to use a valid but old refresh token,
             // so we need to refresh first

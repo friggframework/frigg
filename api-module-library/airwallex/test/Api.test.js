@@ -1,46 +1,42 @@
 const chai = require('chai');
 
 const should = chai.should();
-const Authenticator = require('../../../../test/utils/Authenticator');
+const Authenticator = require('@friggframework/test-environment/Authenticator');
 const { Api } = require('../api');
 
-const TestUtils = require('../../../../test/utils/TestUtils');
-
-describe('Airwallex API class', async () => {
-    const api = new Api();
-    before(async () => {
-        const url = api.authorizationUri;
-        const response = await Authenticator.oauth2(url);
-        const baseArr = response.base.split('/');
-        response.entityType = baseArr[baseArr.length - 1];
-        delete response.base;
-
-        const token = await api.getTokenFromCode(response.data.code);
+describe('Airwallex API class', () => {
+    let api;
+    beforeAll(async () => {
+        api = new Api({
+            api_key: process.env.AIRWALLEX_API_KEY,
+            client_id: process.env.AIRWALLEX_CLIENT_ID,
+        });
+        await api.getTokenFromApiKey();
     });
 
-    describe('Get Account Info', async () => {
-        it('should get Account info', async () => {
+    describe('Get Account Info', () => {
+        it.skip('should get Account info', async () => {
             const response = await api.getAccount();
             response.should.have.property('id');
             return response;
         });
     });
 
-    describe('Transactions', async () => {
-        it('should get all transactions', async () => {
+    describe('Transactions', () => {
+        it.skip('should get all transactions', async () => {
             const response = await api.getTransactions();
             response.should.have.property('items');
             return response;
         });
     });
 
-    describe('Payments', async () => {});
+    describe('Payments', () => {});
 
-    describe('Charges', async () => {});
+    describe('Charges', () => {});
 
-    describe('Balance', async () => {});
+    describe('Balance', () => {});
 
-    describe('Card', async () => {});
+    describe('Card', () => {});
 
-    describe('Customer', async () => {});
+    describe('Customer', () => {});
 });

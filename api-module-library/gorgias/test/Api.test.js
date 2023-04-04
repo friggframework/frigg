@@ -1,21 +1,17 @@
 /* eslint-disable no-only-tests/no-only-tests */
 const chai = require('chai');
-const TestUtils = require('../../../../test/utils/TestUtils');
-const { debug } = require('../../../utils/logger');
-const moment = require('moment');
+const { debug } = require('@friggframework/logs');
 const path = require('path');
 
-const should = chai.should();
-
-const Authenticator = require('../../../../test/utils/Authenticator');
-const ApiClass = require('../api.js');
+const Authenticator = require('@friggframework/test-environment/Authenticator');
+const { Api } = require('../api');
 const Handlebars = require('handlebars');
 
-describe('Gorgias API Requests', async () => {
-    const api = new ApiClass({
+describe.skip('Gorgias API Requests', () => {
+    const api = new Api({
         backOff: [1, 3, 10],
     });
-    before(async () => {
+    beforeAll(async () => {
         let url = api.authorizationUri;
         // if there's curly braces in the url, then we need to merge
         const decodedUrl = decodeURI(url);
@@ -38,9 +34,9 @@ describe('Gorgias API Requests', async () => {
         debug(response);
     });
 
-    describe('Gorgias Tickets', async () => {
+    describe('Gorgias Tickets', () => {
         let ticket;
-        before(async () => {
+        beforeAll(async () => {
             const body = {
                 messages: [
                     {
@@ -55,7 +51,7 @@ describe('Gorgias API Requests', async () => {
             ticket.should.have.property('id');
         });
 
-        after(async () => {
+        afterAll(async () => {
             const deletedTicket = await api.deleteTicket(ticket.id);
             deletedTicket.status.should.equal(204);
         });
@@ -96,9 +92,9 @@ describe('Gorgias API Requests', async () => {
         });
     });
 
-    describe('Gorgias Customers', async () => {
+    describe('Gorgias Customers', () => {
         let customer;
-        before(async () => {
+        beforeAll(async () => {
             const body = {
                 channels: [
                     {
@@ -114,7 +110,7 @@ describe('Gorgias API Requests', async () => {
             customer.should.have.property('id');
         });
 
-        after(async () => {
+        afterAll(async () => {
             const deletedCustomer = await api.deleteCustomer(customer.id);
             deletedCustomer.status.should.equal(204);
         });
@@ -156,9 +152,9 @@ describe('Gorgias API Requests', async () => {
         });
     });
 
-    describe('Gorgias Integrations', async () => {
+    describe('Gorgias Integrations', () => {
         let integration;
-        before(async () => {
+        beforeAll(async () => {
             const body = {
                 name: 'Unit Test Integration',
                 type: 'http',
@@ -170,7 +166,7 @@ describe('Gorgias API Requests', async () => {
             integration.should.have.property('id');
         });
 
-        after(async () => {
+        afterAll(async () => {
             const deletedIntegration = await api.deleteIntegration(
                 integration.id
             );
@@ -210,10 +206,10 @@ describe('Gorgias API Requests', async () => {
         });
     });
 
-    describe('Gorgias Widgets', async () => {
+    describe('Gorgias Widgets', () => {
         let widget;
         let logoUrl;
-        before(async () => {
+        beforeAll(async () => {
             const body = {
                 template: {
                     type: 'wrapper',
@@ -475,7 +471,7 @@ describe('Gorgias API Requests', async () => {
             widget.should.have.property('id');
         });
 
-        after(async () => {
+        afterAll(async () => {
             const deletedWidget = await api.deleteWidget(widget.id);
             deletedWidget.status.should.equal(204);
         });

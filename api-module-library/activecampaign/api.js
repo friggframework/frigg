@@ -1,3 +1,4 @@
+const { get } = require('@friggframework/assertions');
 const { ApiKeyRequester } = require('@friggframework/module-plugin');
 class Api extends ApiKeyRequester {
     constructor(params) {

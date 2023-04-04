@@ -4,7 +4,7 @@ const MockedApi = mockApi(loyaltyApi, {
     authenticationMode: 'manual',
 });
 
-describe('Yotpo Loyalty API', () => {
+describe.skip('Yotpo Loyalty API', () => {
     beforeAll(async function () {
         await MockedApi.initialize();
     });

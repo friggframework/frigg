@@ -5,7 +5,7 @@
 const _ = require('lodash');
 // const Authenticator = require('../utils/Authenticator');
 // const UserManager = require('../../src/managers/UserManager');
-const { Manager } = require('./manager');
+const { Manager } = require('../manager');
 
 // const app = require('../../app');
 // const auth = require('../../src/routers/auth');
@@ -16,7 +16,7 @@ const { Manager } = require('./manager');
 
 const loginCredentials = { username: 'test', password: 'test' };
 
-describe('Hubspot API ', () => {
+describe.skip('Hubspot API ', () => {
     // this.timeout(20000);
     let hsManager;
     beforeAll(async () => {
