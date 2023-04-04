@@ -1,3 +1,23 @@
+# v0.2.12 (Tue Apr 04 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, null[@debbie-yu](https://github.com/debbie-yu), for all your work!
+
+#### 🐛 Bug Fix
+
+- Adding new IntegrationMapping collection [#142](https://github.com/friggframework/frigg/pull/142) ([@debbie-yu](https://github.com/debbie-yu))
+- Merge branch 'main' of https://github.com/friggframework/frigg into debbie.yu/integration-mapping ([@debbie-yu](https://github.com/debbie-yu))
+- addressing PR feedback and adding unit tests around IntegrationMapping ([@debbie-yu](https://github.com/debbie-yu))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@debbie-yu](https://github.com/debbie-yu)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.2.11 (Tue Jan 10 2023)
 
 :tada: This release contains work from a new contributor! :tada:

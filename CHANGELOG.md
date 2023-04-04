@@ -1,3 +1,29 @@
+# (Tue Apr 04 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.35`, `@friggframework/api-module-slack@0.1.30`, `@friggframework/assertions@1.0.8`, `@friggframework/core@0.2.12`, `@friggframework/encrypt@1.1.7`, `@friggframework/integrations@1.0.23`, `@friggframework/module-plugin@1.0.25`
+  - Adding new IntegrationMapping collection [#142](https://github.com/friggframework/frigg/pull/142) ([@debbie-yu](https://github.com/debbie-yu))
+
+#### Authors: 1
+
+- [@debbie-yu](https://github.com/debbie-yu)
+
+---
+
+# (Sat Apr 01 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.29`
+  - add token_revoked event for slack [#135](https://github.com/friggframework/frigg/pull/135) ([@debbie-yu](https://github.com/debbie-yu))
+
+#### Authors: 1
+
+- [@debbie-yu](https://github.com/debbie-yu)
+
+---
+
 # (Tue Mar 28 2023)
 
 #### 🐛 Bug Fix

@@ -9,10 +9,12 @@ const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
 const { ConfigFields } = require('./authFields');
 const Config = require('./defaultConfig.json');
+const { IntegrationMapping } = require('./models/integrationMapping')
 
 class Manager extends ModuleManager {
     static Entity = Entity;
     static Credential = Credential;
+    static IntegrationMapping = IntegrationMapping;
 
     constructor(params) {
         super(params);
