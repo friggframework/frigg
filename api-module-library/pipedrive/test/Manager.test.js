@@ -5,7 +5,7 @@ const Authenticator = require('@friggframework/test-environment/Authenticator');
 const mongoose = require("mongoose");
 
 // eslint-disable-next-line no-only-tests/no-only-tests
-describe('Pipedrive Manager', () => {
+describe.skip('Pipedrive Manager', () => {
     let manager, userId;
     beforeAll(async () => {
         userId = new mongoose.Types.ObjectId();

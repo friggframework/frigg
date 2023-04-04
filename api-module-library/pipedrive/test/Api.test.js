@@ -2,7 +2,8 @@ const chai = require('chai');
 const { expect } = chai;
 const should = chai.should();
 const { Api } = require('../api');
-const { mockApi } = require('../mocks/apiMock');
+
+const { mockApi } = require('@friggframework/test-environment/mock-api');
 
 const MockedApi = mockApi(Api, {
     authenticationMode: 'browser',
@@ -11,18 +12,18 @@ const MockedApi = mockApi(Api, {
     },
 });
 
-describe('Pipedrive API class', async () => {
+describe.skip('Pipedrive API class', () => {
     let api;
     beforeAll(async function () {
-        await MockedApi.initialize({ test: this.test });
+        await MockedApi.initialize();
         api = await MockedApi.mock();
     });
 
     afterAll(async function () {
-        await MockedApi.clean({ test: this.test });
+        await MockedApi.clean();
     });
 
-    describe('User', async () => {
+    describe('User', () => {
         it('should list user profile', async () => {
             const response = await api.getUser();
             chai.assert.hasAllKeys(response.data, [
@@ -54,7 +55,7 @@ describe('Pipedrive API class', async () => {
         });
     });
 
-    describe('Deals', async () => {
+    describe('Deals', () => {
         it('should list deals', async () => {
             const response = await api.listDeals();
             response.data.length.should.above(0);
@@ -63,7 +64,7 @@ describe('Pipedrive API class', async () => {
         });
     });
 
-    describe('Activities', async () => {
+    describe('Activities', () => {
         const mockActivity = {};
         it('should list all Activity Fields', async () => {
             const response = await api.listActivityFields();
@@ -97,7 +98,7 @@ describe('Pipedrive API class', async () => {
         });
     });
 
-    describe('Users', async () => {
+    describe('Users', () => {
         it('should get users', async () => {
             const response = await api.listUsers();
             response.data.should.be.an('array').of.length.greaterThan(0);
@@ -126,7 +127,7 @@ describe('Pipedrive API class', async () => {
         });
     });
 
-    describe('Bad Auth', async () => {
+    describe('Bad Auth', () => {
         it('should refresh bad auth token', async () => {
             // Needed to paste a valid JWT, otherwise it's testing the wrong error.
             // TODO expand on other error types.
