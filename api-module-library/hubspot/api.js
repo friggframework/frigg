@@ -48,7 +48,7 @@ class Api extends OAuth2Requester {
             blogPosts: '/cms/v3/blogs/posts',
             landingPageById: (objId) => `/cms/v3/pages/landing-pages/${objId}`,
             sitePageById: (objId) => `/cms/v3/pages/site-pages/${objId}`,
-            blogPostById: (objId) => `/cms/v3/pages/blogs/posts/${objId}`
+            blogPostById: (objId) => `/cms/v3/blogs/posts/${objId}`
         };
 
         this.authorizationUri = encodeURI(

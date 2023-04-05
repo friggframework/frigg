@@ -364,13 +364,12 @@ describe(`${config.label} API tests`, () => {
             expect(allBlogPosts.total).toBe(primaryBlogPosts.total + variationBlogPosts.total)
         });
 
-        // this is getting 404s, don't know why
         it('update a Blog Post' , async () => {
             const postToUpdate = primaryBlogPosts.results[0];
             const response = await api.updateBlogPost(
                 postToUpdate.id,
                 {htmlTitle: `test blog post ${Date.now()}`},
-                false );
+                true );
             expect(response).exists;
         });
     });
