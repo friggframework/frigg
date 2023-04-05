@@ -43,6 +43,8 @@ class Api extends OAuth2Requester {
                 `/crm/v3/objects/${objectType}/batch/create`,
             bulkArchiveCustomObjects: (objectType) =>
                 `/crm/v3/objects/${objectType}/batch/archive`,
+            landingPages: '/cms/v3/pages/landing-pages',
+            sitePages: '/cms/v3/pages/site-pages'
         };
 
         this.authorizationUri = encodeURI(
@@ -648,6 +650,18 @@ class Api extends OAuth2Requester {
         };
         return this._post(this.URLs.createTimelineEvent, body);
     }
+
+    // **************************   Pages   *****************************
+
+    async getLandingPages(query=''){
+
+        const options = {
+            url: this.baseUrl + this.URLs.landingPages + query,
+        };
+        return this._get(options);
+    }
+
+    // **************************   Blogs   *****************************
 
     // **************************   Other/All   **********************************
 

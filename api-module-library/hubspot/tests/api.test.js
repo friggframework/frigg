@@ -1,5 +1,6 @@
 const {Api} = require('../api');
 const config = require('../defaultConfig.json');
+const Authenticator = require('@friggframework/test-environment/Authenticator');
 
 describe(`${config.label} API tests`, () => {
 
@@ -281,6 +282,13 @@ describe(`${config.label} API tests`, () => {
             expect(response.status).toBe('COMPLETE');
             expect(results[0].properties.firstname).toBe('Miguel 2');
             expect(results[1].properties.firstname).toBe('Miguel 3');
+        });
+    });
+
+    describe('HS Landing Pages', () => {
+        it('should return the landing pages', async () => {
+            const response = await api.getLandingPages();
+            expect(response).exists;
         });
     });
 });
