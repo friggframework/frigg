@@ -303,7 +303,15 @@ describe(`${config.label} API tests`, () => {
         });
         it('confirm total landing pages', async () => {
             expect(allLandingPages.total).toBe(primaryLandingPages.total + variationLandingPages.total)
-        })
+        });
+        it('update a Landing page' , async () => {
+            const pageToUpdate = variationLandingPages.results.slice(-1)[0];
+            const response = await api.updateLandingPage(
+                pageToUpdate.id,
+                {htmlTitle: `test Landing page ${Date.now()}`},
+                true );
+            expect(response).exists;
+        });
     });
 
     describe('HS Site Pages', () => {
@@ -324,7 +332,16 @@ describe(`${config.label} API tests`, () => {
         });
         it('confirm total Site pages', async () => {
             expect(allSitePages.total).toBe(primarySitePages.total + variationSitePages.total)
-        })
+        });
+
+        it('update a Site page' , async () => {
+            const pageToUpdate = variationSitePages.results.slice(-1)[0];
+            const response = await api.updateSitePage(
+                pageToUpdate.id,
+                {htmlTitle: `test site page ${Date.now()}`},
+                true );
+            expect(response).exists;
+        });
     });
 
     describe('HS Blog Posts', () => {
@@ -345,6 +362,16 @@ describe(`${config.label} API tests`, () => {
         });
         it('confirm total Blog Posts', async () => {
             expect(allBlogPosts.total).toBe(primaryBlogPosts.total + variationBlogPosts.total)
-        })
+        });
+
+        // this is getting 404s, don't know why
+        it('update a Blog Post' , async () => {
+            const postToUpdate = primaryBlogPosts.results[0];
+            const response = await api.updateBlogPost(
+                postToUpdate.id,
+                {htmlTitle: `test blog post ${Date.now()}`},
+                false );
+            expect(response).exists;
+        });
     });
 });

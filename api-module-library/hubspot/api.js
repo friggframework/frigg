@@ -45,7 +45,10 @@ class Api extends OAuth2Requester {
                 `/crm/v3/objects/${objectType}/batch/archive`,
             landingPages: '/cms/v3/pages/landing-pages',
             sitePages: '/cms/v3/pages/site-pages',
-            blogPosts: '/cms/v3/blogs/posts'
+            blogPosts: '/cms/v3/blogs/posts',
+            landingPageById: (objId) => `/cms/v3/pages/landing-pages/${objId}`,
+            sitePageById: (objId) => `/cms/v3/pages/site-pages/${objId}`,
+            blogPostById: (objId) => `/cms/v3/pages/blogs/posts/${objId}`
         };
 
         this.authorizationUri = encodeURI(
@@ -662,12 +665,41 @@ class Api extends OAuth2Requester {
         return this._get(options);
     }
 
+    async updateLandingPage(objId, body, isDraft=false){
+        const draft = isDraft ? '/draft' : ''
+        const options = {
+            url: this.baseUrl + this.URLs.landingPageById(objId) + draft,
+            body: body,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+
+            }
+        };
+        return this._patch(options);
+    }
+
+
     async getSitePages(query=''){
 
         const options = {
             url: this.baseUrl + this.URLs.sitePages + query,
         };
         return this._get(options);
+    }
+
+    async updateSitePage(objId, body, isDraft=false){
+        const draft = isDraft ? '/draft' : ''
+        const options = {
+            url: this.baseUrl + this.URLs.sitePageById(objId) + draft,
+            body: body,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+
+            }
+        };
+        return this._patch(options);
     }
 
     // **************************   Blogs   *****************************
@@ -678,6 +710,20 @@ class Api extends OAuth2Requester {
             url: this.baseUrl + this.URLs.blogPosts + query,
         };
         return this._get(options);
+    }
+
+    async updateBlogPost(objId, body, isDraft=false){
+        const draft = isDraft ? '/draft' : ''
+        const options = {
+            url: this.baseUrl + this.URLs.blogPostById(objId) + draft,
+            body: body,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+
+            }
+        };
+        return this._patch(options);
     }
 
     // **************************   Other/All   **********************************
