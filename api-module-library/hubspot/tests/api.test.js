@@ -286,9 +286,65 @@ describe(`${config.label} API tests`, () => {
     });
 
     describe('HS Landing Pages', () => {
+        let allLandingPages;
         it('should return the landing pages', async () => {
-            const response = await api.getLandingPages();
-            expect(response).exists;
+            allLandingPages = await api.getLandingPages();
+            expect(allLandingPages).exists;
         });
+        let primaryLandingPages
+        it('should return only primary language landing pages', async () => {
+            primaryLandingPages = await api.getLandingPages('?translatedFromId__is_null');
+            expect(primaryLandingPages).exists;
+        });
+        let variationLandingPages
+        it('should return only variation language landing pages', async () => {
+            variationLandingPages = await api.getLandingPages('?translatedFromId__not_null');
+            expect(variationLandingPages).exists;
+        });
+        it('confirm total landing pages', async () => {
+            expect(allLandingPages.total).toBe(primaryLandingPages.total + variationLandingPages.total)
+        })
+    });
+
+    describe('HS Site Pages', () => {
+        let allSitePages;
+        it('should return the Site pages', async () => {
+            allSitePages = await api.getSitePages();
+            expect(allSitePages).exists;
+        });
+        let primarySitePages
+        it('should return only primary language Site pages', async () => {
+            primarySitePages = await api.getSitePages('?translatedFromId__is_null');
+            expect(primarySitePages).exists;
+        });
+        let variationSitePages
+        it('should return only variation language Site pages', async () => {
+            variationSitePages = await api.getSitePages('?translatedFromId__not_null');
+            expect(variationSitePages).exists;
+        });
+        it('confirm total Site pages', async () => {
+            expect(allSitePages.total).toBe(primarySitePages.total + variationSitePages.total)
+        })
+    });
+
+    describe('HS Blog Posts', () => {
+        let allBlogPosts;
+        it('should return the Blog Posts', async () => {
+            allBlogPosts = await api.getBlogPosts();
+            expect(allBlogPosts).exists;
+        });
+        let primaryBlogPosts
+        it('should return only primary language Blog Posts', async () => {
+            primaryBlogPosts = await api.getBlogPosts('?translatedFromId__is_null');
+            expect(primaryBlogPosts).exists;
+        });
+        let variationBlogPosts
+        it('should return only variation language Blog Posts', async () => {
+            variationBlogPosts = await api.getBlogPosts('?translatedFromId__not_null');
+            expect(variationBlogPosts).exists;
+        });
+        it('confirm total Blog Posts', async () => {
+            expect(allBlogPosts.total).toBe(primaryBlogPosts.total + variationBlogPosts.total)
+        })
     });
 });

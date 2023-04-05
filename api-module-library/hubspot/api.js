@@ -44,7 +44,8 @@ class Api extends OAuth2Requester {
             bulkArchiveCustomObjects: (objectType) =>
                 `/crm/v3/objects/${objectType}/batch/archive`,
             landingPages: '/cms/v3/pages/landing-pages',
-            sitePages: '/cms/v3/pages/site-pages'
+            sitePages: '/cms/v3/pages/site-pages',
+            blogPosts: '/cms/v3/blogs/posts'
         };
 
         this.authorizationUri = encodeURI(
@@ -661,7 +662,23 @@ class Api extends OAuth2Requester {
         return this._get(options);
     }
 
+    async getSitePages(query=''){
+
+        const options = {
+            url: this.baseUrl + this.URLs.sitePages + query,
+        };
+        return this._get(options);
+    }
+
     // **************************   Blogs   *****************************
+
+    async getBlogPosts(query=''){
+
+        const options = {
+            url: this.baseUrl + this.URLs.blogPosts + query,
+        };
+        return this._get(options);
+    }
 
     // **************************   Other/All   **********************************
 
