@@ -25,21 +25,22 @@ describe(`${config.label} API tests`, () => {
 
     describe('HS User Info', () => {
         it('should return the user details', async () => {
-            let response = await api.getUserDetails();
+            const response = await api.getUserDetails();
             expect(response).toHaveProperty('portalId');
             expect(response).toHaveProperty('token');
             expect(response).toHaveProperty('app_id');
         });
     });
 
+    // Skipping tests... inherited with bugs, needs refactor
     describe.skip('HS Deals', () => {
         it('should return a deal by id', async () => {
-            let deal_id = '2022088696';
-            let response = await api.getDealById(deal_id);
+            const deal_id = '2022088696';
+            const response = await api.getDealById(deal_id);
             expect(response.id).toBe(deal_id);
-            // expect(response.properties.amount).to.eq('100000');
-            // expect(response.properties.dealname).to.eq('Test');
-            // expect(response.properties.dealstage).to.eq('appointmentscheduled');
+            expect(response.properties.amount).to.eq('100000');
+            expect(response.properties.dealname).to.eq('Test');
+            expect(response.properties.dealstage).to.eq('appointmentscheduled');
         });
 
         it('should return all deals of a company', async () => {
@@ -52,6 +53,7 @@ describe(`${config.label} API tests`, () => {
         });
     });
 
+    // Some tests skipped ... inherited with bugs, needs refactor
     describe('HS Companies', () => {
         let createRes;
         beforeAll(async () => {
@@ -106,6 +108,7 @@ describe(`${config.label} API tests`, () => {
         });
     });
 
+    // Skipping tests... inherited with bugs, needs refactor
     describe.skip('HS Companies BATCH', () => {
         let createResponse;
         beforeAll(async () => {
@@ -173,6 +176,7 @@ describe(`${config.label} API tests`, () => {
         });
     });
 
+    // Some tests skipped ... inherited with bugs, needs refactor
     describe('HS Contacts', () => {
         let createResponse;
         beforeAll(async () => {
@@ -216,6 +220,7 @@ describe(`${config.label} API tests`, () => {
         });
     });
 
+    // Skipping tests... inherited with bugs, needs refactor
     describe.skip('HS Contacts BATCH', () => {
         let createResponse;
         beforeAll(async () => {
