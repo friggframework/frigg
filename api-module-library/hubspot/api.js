@@ -660,7 +660,7 @@ class Api extends OAuth2Requester {
     async getLandingPages(query=''){
 
         const options = {
-            url: this.baseUrl + this.URLs.landingPages + query,
+            url: `${this.baseUrl}${this.URLs.landingPages}${query}`,
         };
         return this._get(options);
     }
