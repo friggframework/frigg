@@ -127,8 +127,8 @@ describe(`${config.label} API tests`, () => {
         });
 
         afterAll(async () => {
-            createResponse.results.forEach(async (company) => {
-                await api.deleteCompany(company.id);
+            return createResponse.results.map(async (company) => {
+                return api.deleteCompany(company.id);
             });
         });
 
