@@ -669,7 +669,7 @@ class Api extends OAuth2Requester {
         const draft = isDraft ? '/draft' : ''
         const options = {
             url: this.baseUrl + this.URLs.landingPageById(objId) + draft,
-            body: body,
+            body,
             headers: {
                 'Content-Type': 'application/json',
                 Accept: 'application/json',
