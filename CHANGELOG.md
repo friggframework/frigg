@@ -1,3 +1,16 @@
+# (Mon Apr 10 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.31`
+  - Added some tests and change API request method [#146](https://github.com/friggframework/frigg/pull/146) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Tue Apr 04 2023)
 
 #### 🐛 Bug Fix
