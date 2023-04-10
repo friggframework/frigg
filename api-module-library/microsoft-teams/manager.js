@@ -14,6 +14,7 @@ class Manager extends ModuleManager {
 
     constructor(params) {
         super(params);
+        this.tenant_id = get(params, 'tenant_id', null);
     }
 
     //------------------------------------------------------------
@@ -31,8 +32,6 @@ class Manager extends ModuleManager {
             client_id: process.env.TEAMS_CLIENT_ID,
             client_secret: process.env.TEAMS_CLIENT_SECRET,
             redirect_uri: `${process.env.REDIRECT_URI}/microsoft-teams`,
-            tenant_id: process.env.TENANT_ID,
-            team_id: process.env.TEAMS_ID,
             scope: process.env.TEAMS_SCOPE,
             delegate: instance,
         };
@@ -71,12 +70,35 @@ class Manager extends ModuleManager {
         };
     }
 
-    async processAuthorizationCallback() {
-        await this.api.getTokenFromClientCredentials();
+    async processAuthorizationCallback(data) {
+        const code = get(data, 'code', null);
+        const access_token = get(data, 'access_token', null);
+        const refresh_token = get(data, 'refresh_token', null);
+        // If code, getTokenFromCode for graphApi
+        if (code) {
+            // This will invoke receiveNotification and create the credential
+            await this.api.graphApi.getTokenFromCode(code);
+        } else if (access_token && refresh_token) {
+            this.api.graphApi.access_token = access_token;
+            this.api.graphApi.refresh_token = refresh_token;
+        }
+        // This will invoke receiveNotification and UPDATE the credential
+        await this.api.botFrameworkApi.getTokenFromClientCredentials();
         const authCheck = await this.testAuth();
         if (!authCheck) throw new Error('Authentication failed');
 
         const orgDetails = await this.api.graphApi.getOrganization();
+        const tenant_id = orgDetails.value[0].id;
+        this.setTenant(tenant_id);
+        const graph_access_token = this.api.graphApi.access_token;
+        const bot_api_access_token = this.api.botFrameworkApi.access_token;
+        const graph_refresh_token = this.api.graphApi.refresh_token;
+        await this.findAndUpsertCredential({
+            tenant_id,
+            graph_access_token,
+            graph_refresh_token,
+            bot_api_access_token,
+        });
 
         await this.findOrCreateEntity({
             externalId: orgDetails.id,
@@ -115,48 +137,52 @@ class Manager extends ModuleManager {
             this.throwException('');
         }
     }
+    async findAndUpsertCredential(params) {
+        // Just want to error if no tenant_id is provided
+        const tenant_id = get(params, 'tenant_id');
+        const graph_access_token = get(params, 'graph_access_token', null);
+        const graph_refresh_token = get(params, 'graph_refresh_token', null);
+        const bot_access_token = get(params, 'bot_access_token', null);
+        const user = get(params, 'user', null);
+        if (this.credential) {
+            this.credential = await Credential.findOneAndUpdate(
+                { _id: this.credential },
+                { $set: params },
+                { useFindAndModify: true, new: true, upsert: true }
+            );
+        } else {
+            this.credential = await Credential.findOneAndUpdate(
+                { tenant_id: tenant_id },
+                { $set: params },
+                { useFindAndModify: true, new: true, upsert: true }
+            );
+        }
+    }
+    setTenant(tenant_id) {
+        this.tenant_id = tenant_id;
+    }
 
     //------------------------------------------------------------
 
     async receiveNotification(notifier, delegateString, object = null) {
-        if (notifier instanceof Api || notifier instanceof botFrameworkApi || notifier instanceof graphApi) {
-            if (delegateString === this.api.graphApi.DLGT_TOKEN_UPDATE) {
+        if (
+            notifier instanceof Api ||
+            notifier instanceof botFrameworkApi ||
+            notifier instanceof graphApi
+        ) {
+            if (
+                delegateString === this.api.graphApi.DLGT_TOKEN_UPDATE &&
+                this.tenant_id
+            ) {
                 const updatedToken = {
-                    user: this.userId.toString(),
-                    graphAccessToken: this.api.graphApi.access_token,
-                    botAccessToken: this.api.botFrameworkApi.access_token,
-                    auth_is_valid: true,
+                    user: this.userId?.toString(),
+                    graph_access_token: this.api.graphApi.access_token,
+                    graph_refresh_token: this.api.graphApi.refresh_token,
+                    bot_api_access_token: this.api.botFrameworkApi.access_token,
+                    tenant_id: this.tenant_id,
                 };
 
-                Object.keys(updatedToken).forEach(
-                    (k) => updatedToken[k] == null && delete updatedToken[k]
-                );
-                // TODO-new globally... multiple credentials should be allowed, this is 1:1
-                if (!this.credential) {
-                    let credentialSearch = await Credential.find({
-                        user: this.userId.toString(),
-                    });
-                    if (credentialSearch.length === 0) {
-                        this.credential = await Credential.create(updatedToken);
-                    } else if (credentialSearch.length === 1) {
-                        this.credential = await Credential.findOneAndUpdate(
-                            { _id: credentialSearch[0] },
-                            { $set: updatedToken },
-                            { useFindAndModify: true, new: true }
-                        );
-                    } else {
-                        // Handling multiple credentials found with an error for the time being
-                        debug(
-                            'Multiple credentials found with the same client ID:'
-                        );
-                    }
-                } else {
-                    this.credential = await Credential.findOneAndUpdate(
-                        { _id: this.credential },
-                        { $set: updatedToken },
-                        { useFindAndModify: true, new: true }
-                    );
-                }
+                await this.findAndUpsertCredential(updatedToken);
             }
             if (delegateString === this.api.DLGT_TOKEN_DEAUTHORIZED) {
                 await this.deauthorize();
