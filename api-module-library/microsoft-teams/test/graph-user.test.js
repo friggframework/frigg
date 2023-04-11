@@ -10,7 +10,7 @@ describe(`${config.label} API Tests`, () => {
         redirect_uri: process.env.TEAMS_REDIRECT_URI,
         scope: process.env.TEAMS_SCOPE,
         forceConsent: true,
-        team_id: process.env.TEAMS_ID
+        team_id: process.env.TEAMS_TEAM_ID
     };
     const api = new Api.graphApi(apiParams);
 

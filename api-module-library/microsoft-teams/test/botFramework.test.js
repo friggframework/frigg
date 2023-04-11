@@ -8,8 +8,8 @@ describe(`${config.label} API Tests`, () => {
         client_id: process.env.TEAMS_CLIENT_ID,
         client_secret: process.env.TEAMS_CLIENT_SECRET,
         redirect_uri: `${process.env.REDIRECT_URI}/microsoft-teams`,
-        team_id: process.env.TEAMS_ID,
-        tenant_id: process.env.TENANT_ID
+        team_id: process.env.TEAMS_TEAM_ID,
+        tenant_id: process.env.TEAMS_TENANT_ID
     };
 
     const api = new Api.botFrameworkApi(apiParams);
