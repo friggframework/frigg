@@ -24,7 +24,9 @@ class graphApi extends OAuth2Requester {
             groups: '/groups',
             createChannel: `/teams/${this.team_id}/channels`,
             channel: (channelId) => `/teams/${this.team_id}/channels/${channelId}/`,
-            channelMembers: (channelId) => `/teams/${this.team_id}/channels/${channelId}/members`
+            channelMembers: (channelId) => `/teams/${this.team_id}/channels/${channelId}/members`,
+            installedApps: `/teams/${this.team_id}/installedApps`,
+            appCatalog: `/appCatalogs/teamsApps`
         };
 
         this.authorizationUri = `https://login.microsoftonline.com/${this.tenant_id}/oauth2/v2.0/authorize`;
@@ -140,6 +142,40 @@ class graphApi extends OAuth2Requester {
         };
         const response = await this._post(options);
         return response;
+    }
+
+    async getAppCatalog(params = ''){
+        const options = {
+            url: `${this.baseUrl}${this.URLs.appCatalog}?${new URLSearchParams(params)}`,
+        };
+        return this._get(options);
+    }
+    async getInstalledAppsForTeam(params=''){
+      const options = {
+          url: `${this.baseUrl}${this.URLs.installedApps}?${new URLSearchParams(params)}`,
+      };
+      return this._get(options);
+    }
+    async installAppForTeam(teamAppId){
+        const options = {
+            url : `${this.baseUrl}${this.URLs.installedApps}`,
+            body: {
+                "teamsApp@odata.bind": `https://graph.microsoft.com/v1.0/appCatalogs/teamsApps/${teamAppId}`
+            },
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            }
+        };
+        const response = await this._post(options);
+        return response;
+    }
+
+    async deleteAppForTeam(teamAppInstallationId){
+        const options = {
+            url: `${this.baseUrl}${this.URLs.installedApps}/${teamAppInstallationId}`,
+        };
+        return this._delete(options);
     }
 }
 
