@@ -477,6 +477,9 @@ class Api extends OAuth2Requester {
         const options = {
             url: this.baseUrl + this.URLs.getChannelHistory,
             body,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
         };
         const response = await this._post(options);
         return response;
