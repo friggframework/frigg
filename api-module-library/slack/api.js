@@ -473,28 +473,23 @@ class Api extends OAuth2Requester {
     // latest: integer, optional
     // oldest: integer, optional
     // inclusive: boolean, optional
-    async getChannelHistory(query) {
+    async getChannelHistory(body) {
         const options = {
             url: this.baseUrl + this.URLs.getChannelHistory,
+            body,
+        };
+        const response = await this._post(options);
+        return response;
+    }
+    async listChannels(query) {
+        const options = {
+            url: this.baseUrl + this.URLs.listChannels,
             query,
         };
         const response = await this._get(options);
         return response;
     }
 
-    // Args:
-    // channel: string, required
-    // ts: string, required
-    // as_user: boolean, optional
-    // attachments: string, optional
-    // blocks: blocks[] as string, optional
-    // file_ids: array, optional
-    // link_names: boolean, optional
-    // metadata: string, optional
-    // mrkdwn: boolean, optional
-    // parse: string, optional
-    // reply_broadcast: boolean, optional
-    // thread_ts: string, optional
     // unfurl_links: boolean, optional
 
     // Args:

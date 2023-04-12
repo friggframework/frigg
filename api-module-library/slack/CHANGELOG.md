@@ -1,3 +1,16 @@
+# v0.1.31 (Mon Apr 10 2023)
+
+#### 🐛 Bug Fix
+
+- Added some tests and change API request method [#146](https://github.com/friggframework/frigg/pull/146) ([@seanspeaks](https://github.com/seanspeaks))
+- "Get" is a POST ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.1.30 (Tue Apr 04 2023)
 
 :tada: This release contains work from a new contributor! :tada:

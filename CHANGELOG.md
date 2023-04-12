@@ -1,3 +1,29 @@
+# (Wed Apr 12 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-hubspot@0.8.26`
+  - add requests and tests for retrieval and update of landing pages, site pages and blog posts [#144](https://github.com/friggframework/frigg/pull/144) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 1
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+
+---
+
+# (Mon Apr 10 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.31`
+  - Added some tests and change API request method [#146](https://github.com/friggframework/frigg/pull/146) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Tue Apr 04 2023)
 
 #### 🐛 Bug Fix

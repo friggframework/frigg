@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-hubspot",
-    "version": "0.8.25",
+    "version": "0.8.26",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
