@@ -483,7 +483,7 @@ class Api extends OAuth2Requester {
                 'Content-Type': 'application/x-www-form-urlencoded'
             }
         };
-        const response = await this._post(options);
+        const response = await this._post(options, false);
         return response;
     }
     async listChannels(query) {
