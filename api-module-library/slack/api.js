@@ -1,3 +1,5 @@
+const qs = require('qs');
+
 const { OAuth2Requester } = require('@friggframework/module-plugin');
 const { get } = require('@friggframework/assertions');
 const { FetchError } = require('@friggframework/errors');
@@ -474,15 +476,9 @@ class Api extends OAuth2Requester {
     // oldest: integer, optional
     // inclusive: boolean, optional
     async getChannelHistory(body) {
-        const params = new URLSearchParams();
-        Object.entries(body).forEach(entry => {
-            const [key, value] = entry;
-            params.append(key, value);
-        });
-
         const options = {
             url: this.baseUrl + this.URLs.getChannelHistory,
-            body: params,
+            body: qs.stringify(body),
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
             }
