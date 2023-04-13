@@ -1,3 +1,22 @@
+# v0.1.33 (Thu Apr 13 2023)
+
+#### 🐛 Bug Fix
+
+- fix slack channel history call [#148](https://github.com/friggframework/frigg/pull/148) ([@debbie-yu](https://github.com/debbie-yu))
+- don't stringify slack body ([@debbie-yu](https://github.com/debbie-yu))
+- use qs to set slack post body [#147](https://github.com/friggframework/frigg/pull/147) ([@debbie-yu](https://github.com/debbie-yu))
+- set slack post body correctly [#147](https://github.com/friggframework/frigg/pull/147) ([@debbie-yu](https://github.com/debbie-yu))
+- call getChannelHistory with right content-type [#147](https://github.com/friggframework/frigg/pull/147) ([@debbie-yu](https://github.com/debbie-yu))
+- Merge branch 'main' of https://github.com/friggframework/frigg into debbie.yu/fix-slack-history [#147](https://github.com/friggframework/frigg/pull/147) ([@debbie-yu](https://github.com/debbie-yu))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@debbie-yu](https://github.com/debbie-yu)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.1.32 (Thu Apr 13 2023)
 
 #### 🐛 Bug Fix

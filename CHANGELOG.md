@@ -2,6 +2,26 @@
 
 #### 🐛 Bug Fix
 
+- `@friggframework/api-module-slack@0.1.33`
+  - fix slack channel history call [#148](https://github.com/friggframework/frigg/pull/148) ([@debbie-yu](https://github.com/debbie-yu))
+  - use qs to set slack post body [#147](https://github.com/friggframework/frigg/pull/147) ([@debbie-yu](https://github.com/debbie-yu))
+  - set slack post body correctly [#147](https://github.com/friggframework/frigg/pull/147) ([@debbie-yu](https://github.com/debbie-yu))
+  - call getChannelHistory with right content-type [#147](https://github.com/friggframework/frigg/pull/147) ([@debbie-yu](https://github.com/debbie-yu))
+- `@friggframework/api-module-hubspot@0.8.27`, `@friggframework/api-module-slack@0.1.33`
+  - Merge branch 'main' of https://github.com/friggframework/frigg into debbie.yu/fix-slack-history [#147](https://github.com/friggframework/frigg/pull/147) ([@debbie-yu](https://github.com/debbie-yu))
+- `@friggframework/integrations@1.0.25`
+  - improve error thrown for invalid integration [#147](https://github.com/friggframework/frigg/pull/147) ([@debbie-yu](https://github.com/debbie-yu))
+
+#### Authors: 1
+
+- [@debbie-yu](https://github.com/debbie-yu)
+
+---
+
+# (Thu Apr 13 2023)
+
+#### 🐛 Bug Fix
+
 - `@friggframework/api-module-slack@0.1.32`, `@friggframework/integrations@1.0.24`
   - Fix Slack getChannelHistory call [#147](https://github.com/friggframework/frigg/pull/147) ([@debbie-yu](https://github.com/debbie-yu))
 - `@friggframework/api-module-hubspot@0.8.27`, `@friggframework/api-module-slack@0.1.32`
