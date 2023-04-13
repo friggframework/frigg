@@ -98,11 +98,12 @@ describe(`Should fully test the IntegrationManager`, () => {
 
     describe('upsertIntegrationMapping()', () => {
         it('should throw error if integrationId does not match', async () => {
+            const id = new mongoose.Types.ObjectId();
             try {
-                await IntegrationManager.upsertIntegrationMapping(new mongoose.Types.ObjectId(), userId, 'validId', {});
+                await IntegrationManager.upsertIntegrationMapping(id, userId, 'validId', {});
                 fail('should have thrown error')
             } catch(err) {
-                expect(err.message).to.contain('id is not defined');
+                expect(err.message).to.contain(`Integration with ID ${id} does not exist`);
             }
         });
 

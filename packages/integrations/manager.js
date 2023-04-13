@@ -325,7 +325,7 @@ class IntegrationManager extends Delegate {
          const integration = await Integration.findById(integration_id);
 
          if (!integration) {
-             throw new Error(`Integration with ID ${id} does not exist.`);
+             throw new Error(`Integration with ID ${integration_id} does not exist.`);
          }
 
          if (integration.user.toString() !== userId.toString()) {
