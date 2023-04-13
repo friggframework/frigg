@@ -1,3 +1,18 @@
+# (Thu Apr 13 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.32`, `@friggframework/integrations@1.0.24`
+  - Fix Slack getChannelHistory call [#147](https://github.com/friggframework/frigg/pull/147) ([@debbie-yu](https://github.com/debbie-yu))
+- `@friggframework/api-module-hubspot@0.8.27`, `@friggframework/api-module-slack@0.1.32`
+  - Merge branch 'main' of https://github.com/friggframework/frigg into debbie.yu/fix-slack-history [#145](https://github.com/friggframework/frigg/pull/145) ([@debbie-yu](https://github.com/debbie-yu))
+
+#### Authors: 1
+
+- [@debbie-yu](https://github.com/debbie-yu)
+
+---
+
 # (Wed Apr 12 2023)
 
 #### 🐛 Bug Fix
