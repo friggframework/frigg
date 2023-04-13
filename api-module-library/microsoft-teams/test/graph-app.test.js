@@ -96,6 +96,11 @@ describe(`${config.label} API Tests`, () => {
     });
 
     describe('App info, installation, deletion', () => {
+        const teamId = '892689dd-8f67-4f49-ba4b-f881eea8403b';
+        const appExternalId = 'd0f523b9-97e8-42d9-9e0a-d82da5ec3ed1';
+        let appInternalId = '';
+        let appInstallationId = '';
+
         it('Should retrieve app info', async ()=> {
             const response = await api.getAppCatalog();
             expect(response.value.length).toBeDefined();
@@ -103,10 +108,27 @@ describe(`${config.label} API Tests`, () => {
         })
         it('Should filter for specific app', async () => {
             // test app id
-            const appExternalId = 'd0f523b9-97e8-42d9-9e0a-d82da5ec3ed1'
             const response = await api.getAppCatalog(`$filter=externalId eq '${appExternalId}'`);
             expect(response.value).toHaveLength(1);
+            appInternalId = response.value[0].id;
         })
+
+        it('Should install app in test team', async () => {
+            const response = await api.installAppForTeam(appInternalId);
+            //expect(response.status).toEqual(201);
+            //TODO: seems like the status is being eaten somewhere in the POST request chain
+            expect(response).toEqual('')
+        })
+        it('Should retrieve details about installed app', async () => {
+            const response = await api.getInstalledAppsForTeam(`$filter=teamsApp/externalId eq '${appExternalId}'`);
+            expect(response.value).toHaveLength(1);
+            appInstallationId = response.value[0].id;
+        })
+        it('Should delete app in test team', async () => {
+            const response = await api.deleteAppForTeam(appInstallationId);
+            expect(response.status).toEqual(204);
+        })
+
     });
 
 

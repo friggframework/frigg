@@ -164,8 +164,7 @@ class graphApi extends OAuth2Requester {
                 "teamsApp@odata.bind": `https://graph.microsoft.com/v1.0/appCatalogs/teamsApps/${teamAppId}`
             },
             headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
+                'Content-Type': 'application/json'
             }
         };
         const response = await this._post(options);
