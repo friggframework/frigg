@@ -49,9 +49,11 @@ describe(`${config.label} API Tests`, () => {
         });
     });
 
-    const mwebberUserId = 'c1cb384d-8a26-464e-8fe3-7117e5fd7918'
-    let createChannelResponse;
-    describe('Create Channel Request', () => {
+
+    describe('Channel Create, Modification and Deletion', () => {
+        const mwebberUserId = 'c1cb384d-8a26-464e-8fe3-7117e5fd7918'
+        let createChannelResponse;
+
         it('Should create channel', async () => {
             const conversationMember = {
                 '@odata.type': '#microsoft.graph.aadUserConversationMember',
@@ -70,11 +72,8 @@ describe(`${config.label} API Tests`, () => {
             createChannelResponse = await api.createChannel(body);
             createChannelResponse.should.exist;
         });
-    });
 
-
-    describe('Add user to channel Request', () => {
-        it('Should create channel', async () => {
+        it('Should Add user to channel Request', async () => {
             const conversationMember = {
                 '@odata.type': '#microsoft.graph.aadUserConversationMember',
                 roles: [],
@@ -83,19 +82,41 @@ describe(`${config.label} API Tests`, () => {
             const response = await api.addUserToChannel(createChannelResponse.id, conversationMember);
             response.should.exist;
         });
-    });
 
-    describe('List users in channel Request', () => {
-        it('Should create channel', async () => {
+        it('Should list users in channel', async () => {
             const response = await api.listChannelMembers(createChannelResponse.id);
             response.should.exist;
             expect(response.value[0].userId).toBe(mwebberUserId)
         });
+
+        it('Should delete the channel', async () => {
+            const response = await api.deleteChannel(createChannelResponse.id);
+            expect(response.status).toBe(204);
+        });
+    });
+
+    describe('App info, installation, deletion', () => {
+        it('Should retrieve app info', async ()=> {
+            const response = await api.getAppCatalog();
+            expect(response.value.length).toBeDefined();
+            expect(response.value.length).toBeGreaterThan(10);
+        })
+        it('Should filter for specific app', async () => {
+            // test app id
+            const appExternalId = 'd0f523b9-97e8-42d9-9e0a-d82da5ec3ed1'
+            const response = await api.getAppCatalog(`$filter=externalId eq '${appExternalId}'`);
+            expect(response.value).toHaveLength(1);
+        })
     });
 
 
-    afterAll(async () => {
-        const response = await api.deleteChannel(createChannelResponse.id);
-        expect(response.status).toBe(204);
-    });
+
+
+
+
+
+
+
+
+
 });

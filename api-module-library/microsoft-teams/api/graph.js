@@ -144,17 +144,18 @@ class graphApi extends OAuth2Requester {
         return response;
     }
 
-    async getAppCatalog(params = ''){
+    async getAppCatalog(query = ''){
         const options = {
-            url: `${this.baseUrl}${this.URLs.appCatalog}?${new URLSearchParams(params)}`,
+            url: `${this.baseUrl}${this.URLs.appCatalog}?${query}`,
         };
-        return this._get(options);
+        const response = await this._get(options);
+        return response;
     }
-    async getInstalledAppsForTeam(params=''){
+    async getInstalledAppsForTeam(query=''){
       const options = {
-          url: `${this.baseUrl}${this.URLs.installedApps}?${new URLSearchParams(params)}`,
+          url: `${this.baseUrl}${this.URLs.installedApps}?${query}`,
       };
-      return this._get(options);
+      return await this._get(options);
     }
     async installAppForTeam(teamAppId){
         const options = {
@@ -175,7 +176,8 @@ class graphApi extends OAuth2Requester {
         const options = {
             url: `${this.baseUrl}${this.URLs.installedApps}/${teamAppInstallationId}`,
         };
-        return this._delete(options);
+        const response = await this._delete(options);
+        return response;
     }
 }
 
