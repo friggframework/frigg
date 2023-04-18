@@ -179,16 +179,14 @@ describe(`${config.label} API tests`, () => {
     // Some tests skipped ... inherited with bugs, needs refactor
     describe('HS Contacts', () => {
         let createResponse;
-        beforeAll(async () => {
-            let body = {
+
+        it('should create a Contact', async () => {
+            const body = {
                 email: 'jose.miguel@hubspot.com',
                 firstname: 'Miguel',
                 lastname: 'Delgado',
             };
             createResponse = await api.createContact(body);
-        });
-
-        it('should create a Contact', async () => {
             expect(createResponse).toHaveProperty('id');
             expect(createResponse.properties.firstname).toBe('Miguel');
             expect(createResponse.properties.lastname).toBe('Delgado');
@@ -294,28 +292,42 @@ describe(`${config.label} API tests`, () => {
         let allLandingPages;
         it('should return the landing pages', async () => {
             allLandingPages = await api.getLandingPages();
-            expect(allLandingPages).exists;
+            expect(allLandingPages).toBeDefined();
         });
         let primaryLandingPages
         it('should return only primary language landing pages', async () => {
-            primaryLandingPages = await api.getLandingPages('?translatedFromId__is_null');
-            expect(primaryLandingPages).exists;
+            primaryLandingPages = await api.getLandingPages('translatedFromId__is_null');
+            expect(primaryLandingPages).toBeDefined();
         });
         let variationLandingPages
         it('should return only variation language landing pages', async () => {
-            variationLandingPages = await api.getLandingPages('?translatedFromId__not_null');
-            expect(variationLandingPages).exists;
+            variationLandingPages = await api.getLandingPages('translatedFromId__not_null');
+            expect(variationLandingPages).toBeDefined();
         });
         it('confirm total landing pages', async () => {
             expect(allLandingPages.total).toBe(primaryLandingPages.total + variationLandingPages.total)
         });
-        it('update a Landing page' , async () => {
+        it('get Landing Page by Id' , async () => {
+            const pageToGet = variationLandingPages.results.slice(-1)[0];
+            const response = await api.getLandingPage(pageToGet.id);
+            expect(response).toBeDefined();
+        });
+        it('update a Landing page (minimal patch)' , async () => {
             const pageToUpdate = variationLandingPages.results.slice(-1)[0];
             const response = await api.updateLandingPage(
                 pageToUpdate.id,
                 {htmlTitle: `test Landing page ${Date.now()}`},
                 true );
-            expect(response).exists;
+            expect(response).toBeDefined();
+        });
+        it('update a Landing page (maximal patch)' , async () => {
+            const pageToUpdate = variationLandingPages.results.slice(-1)[0];
+            delete pageToUpdate['archivedAt'];
+            const response = await api.updateLandingPage(
+                pageToUpdate.id,
+                pageToUpdate,
+                true );
+            expect(response).toBeDefined();
         });
     });
 
@@ -323,29 +335,33 @@ describe(`${config.label} API tests`, () => {
         let allSitePages;
         it('should return the Site pages', async () => {
             allSitePages = await api.getSitePages();
-            expect(allSitePages).exists;
+            expect(allSitePages).toBeDefined();
         });
         let primarySitePages
         it('should return only primary language Site pages', async () => {
-            primarySitePages = await api.getSitePages('?translatedFromId__is_null');
-            expect(primarySitePages).exists;
+            primarySitePages = await api.getSitePages('translatedFromId__is_null');
+            expect(primarySitePages).toBeDefined();
         });
         let variationSitePages
         it('should return only variation language Site pages', async () => {
-            variationSitePages = await api.getSitePages('?translatedFromId__not_null');
-            expect(variationSitePages).exists;
+            variationSitePages = await api.getSitePages('translatedFromId__not_null');
+            expect(variationSitePages).toBeDefined();
         });
         it('confirm total Site pages', async () => {
             expect(allSitePages.total).toBe(primarySitePages.total + variationSitePages.total)
         });
-
+        it('get Site Page by Id' , async () => {
+            const pageToGet = primarySitePages.results.slice(-1)[0];
+            const response = await api.getSitePage(pageToGet.id);
+            expect(response).toBeDefined();
+        });
         it('update a Site page' , async () => {
             const pageToUpdate = variationSitePages.results.slice(-1)[0];
             const response = await api.updateSitePage(
                 pageToUpdate.id,
                 {htmlTitle: `test site page ${Date.now()}`},
                 true );
-            expect(response).exists;
+            expect(response).toBeDefined();
         });
     });
 
@@ -353,29 +369,33 @@ describe(`${config.label} API tests`, () => {
         let allBlogPosts;
         it('should return the Blog Posts', async () => {
             allBlogPosts = await api.getBlogPosts();
-            expect(allBlogPosts).exists;
+            expect(allBlogPosts).toBeDefined();
         });
         let primaryBlogPosts
         it('should return only primary language Blog Posts', async () => {
-            primaryBlogPosts = await api.getBlogPosts('?translatedFromId__is_null');
-            expect(primaryBlogPosts).exists;
+            primaryBlogPosts = await api.getBlogPosts('translatedFromId__is_null');
+            expect(primaryBlogPosts).toBeDefined();
         });
         let variationBlogPosts
         it('should return only variation language Blog Posts', async () => {
-            variationBlogPosts = await api.getBlogPosts('?translatedFromId__not_null');
-            expect(variationBlogPosts).exists;
+            variationBlogPosts = await api.getBlogPosts('translatedFromId__not_null');
+            expect(variationBlogPosts).toBeDefined();
         });
         it('confirm total Blog Posts', async () => {
             expect(allBlogPosts.total).toBe(primaryBlogPosts.total + variationBlogPosts.total)
         });
-
+        it('get Blog Post by Id' , async () => {
+            const postToGet = primaryBlogPosts.results.slice(-1)[0];
+            const response = await api.getBlogPost(postToGet.id);
+            expect(response).toBeDefined();
+        });
         it('update a Blog Post' , async () => {
             const postToUpdate = primaryBlogPosts.results[0];
             const response = await api.updateBlogPost(
                 postToUpdate.id,
                 {htmlTitle: `test blog post ${Date.now()}`},
                 true );
-            expect(response).exists;
+            expect(response).toBeDefined();
         });
     });
 });
