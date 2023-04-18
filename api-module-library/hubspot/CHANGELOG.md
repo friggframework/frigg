@@ -1,3 +1,18 @@
+# v0.8.27 (Tue Apr 18 2023)
+
+#### 🐛 Bug Fix
+
+- add get by id method for pages and blogs [#149](https://github.com/friggframework/frigg/pull/149) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- add get by id method for pages and blogs ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.8.26 (Wed Apr 12 2023)
 
 #### 🐛 Bug Fix

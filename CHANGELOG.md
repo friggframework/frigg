@@ -1,3 +1,16 @@
+# (Tue Apr 18 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-hubspot@0.8.27`
+  - add get by id method for pages and blogs [#149](https://github.com/friggframework/frigg/pull/149) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 1
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+
+---
+
 # (Thu Apr 13 2023)
 
 #### 🐛 Bug Fix
