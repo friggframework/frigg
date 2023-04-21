@@ -127,6 +127,9 @@ class Api extends OAuth2Requester {
             });
         }
 
+        // reset refresh count after successful call
+        this.refreshCount = 0;
+
         return parsedResponse;
     }
 
