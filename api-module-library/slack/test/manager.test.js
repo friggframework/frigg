@@ -237,7 +237,6 @@ describe(`Should fully test the ${config.label} Manager`, () => {
             expect(validated).to.be.true;
 
             validated = await newManager.testAuth();
-            // expect(testAuthNock.isDone());
             expect(newManager.api.access_token).to.not.equal(oldToken);
             expect(newManager.api.access_token).to.exist;
             expect(validated).to.be.true;
