@@ -10,7 +10,7 @@ describe(`${config.label} API Tests`, () => {
         redirect_uri: process.env.TEAMS_REDIRECT_URI,
         scope: process.env.TEAMS_SCOPE,
         forceConsent: true,
-        team_id: process.env.TEAMS_ID
+        team_id: process.env.TEAMS_TEAM_ID
     };
     const api = new Api.graphApi(apiParams);
 
@@ -38,20 +38,37 @@ describe(`${config.label} API Tests`, () => {
             api.refresh_token.should.not.equal(oldRefreshToken);
         });
     });
+
+    let tenantId;
+    let userId;
     describe('Basic Identification Requests', () => {
         it('Should retrieve information about the user', async () => {
             const user = await api.getUser();
             user.should.exist;
+            userId = user.id;
         });
         it('Should retrieve information about the Organization', async () => {
             const org = await api.getOrganization();
             org.should.exist;
+            tenantId = org.id;
         });
     });
+
+    //api.setTenantId(tenantId);
+
+    let teamId;
+    it('Get joined teams', async ()=> {
+        const joinedTeams = await api.getJoinedTeams();
+        expect(joinedTeams).toHaveProperty('value');
+        teamId = joinedTeams.value.slice(-1)[0].id;
+    });
+
+
 
     let createChannelResponse;
     describe('Create Channel Request', () => {
         it('Should create channel', async () => {
+            api.setTeamId(teamId);
             const body = {
                 "displayName": `Test channel ${Date.now()}`,
                 "description": "Test channel created by api.test",
@@ -62,13 +79,12 @@ describe(`${config.label} API Tests`, () => {
         });
     });
 
-    const mwebberUserId = 'c1cb384d-8a26-464e-8fe3-7117e5fd7918'
     describe('Add user to channel Request', () => {
         it('Should create channel', async () => {
             const conversationMember = {
                 '@odata.type': '#microsoft.graph.aadUserConversationMember',
                 roles: [],
-                'user@odata.bind': `https://graph.microsoft.com/v1.0/users(\'${mwebberUserId}\')`
+                'user@odata.bind': `https://graph.microsoft.com/v1.0/users(\'${userId}\')`
             };
             const response = await api.addUserToChannel(createChannelResponse.id, conversationMember);
             response.should.exist;
@@ -79,7 +95,7 @@ describe(`${config.label} API Tests`, () => {
         it('Should create channel', async () => {
             const response = await api.listChannelMembers(createChannelResponse.id);
             response.should.exist;
-            expect(response.value[0].userId).toBe(mwebberUserId)
+            expect(response.value[0].userId).toBe(userId)
         });
     });
 
