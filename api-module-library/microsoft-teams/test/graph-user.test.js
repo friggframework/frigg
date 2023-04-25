@@ -54,10 +54,10 @@ describe(`${config.label} API Tests`, () => {
         });
     });
 
-    //api.setTenantId(tenantId);
 
     let teamId;
     it('Get joined teams', async ()=> {
+        api.setTenantId(tenantId);
         const joinedTeams = await api.getJoinedTeams();
         expect(joinedTeams).toHaveProperty('value');
         teamId = joinedTeams.value.slice(-1)[0].id;
@@ -66,7 +66,9 @@ describe(`${config.label} API Tests`, () => {
 
 
     let createChannelResponse;
-    describe('Create Channel Request', () => {
+    // skip channel creation tests to avoid private channel limitations
+    // unskip at any time to test Channel creation behavior
+    describe.skip('Channel Requests', () => {
         it('Should create channel', async () => {
             api.setTeamId(teamId);
             const body = {
@@ -75,32 +77,60 @@ describe(`${config.label} API Tests`, () => {
                 "membershipType": "private"
             }
             createChannelResponse = await api.createChannel(body);
-            createChannelResponse.should.exist;
+            expect(createChannelResponse).toBeDefined();
         });
-    });
-
-    describe('Add user to channel Request', () => {
-        it('Should create channel', async () => {
+        it('Should add user to channel', async () => {
             const conversationMember = {
                 '@odata.type': '#microsoft.graph.aadUserConversationMember',
                 roles: [],
                 'user@odata.bind': `https://graph.microsoft.com/v1.0/users(\'${userId}\')`
             };
             const response = await api.addUserToChannel(createChannelResponse.id, conversationMember);
-            response.should.exist;
+            expect(response).toBeDefined();
         });
-    });
-
-    describe('List users in channel Request', () => {
-        it('Should create channel', async () => {
+        it('List users in channel Request', async () => {
             const response = await api.listChannelMembers(createChannelResponse.id);
             response.should.exist;
             expect(response.value[0].userId).toBe(userId)
         });
+        it('Delete the created channel', async () => {
+            const response = await api.deleteChannel(createChannelResponse.id);
+            expect(response.status).toBe(204);
+        });
     });
 
-    afterAll(async () => {
-        const response = await api.deleteChannel(createChannelResponse.id);
-        expect(response.status).toBe(204);
+    describe('App installation requests', ()=> {
+        let appId;
+        it('Should list matching apps in app catalog', async () => {
+            const appResponse = await api.getAppCatalog({
+                $filter: "externalId eq 'd0f523b9-97e8-42d9-9e0a-d82da5ec3ed1'"
+            });
+            expect(appResponse).toHaveProperty('value');
+            expect(appResponse.value).toHaveLength(1);
+            appId = appResponse.value[0].id;
+        });
+        it('Should install app', async () => {
+            const installationResponse = await api.installAppForUser(userId, appId);
+            expect(installationResponse).toBeDefined();
+            //expect(installationResponse.status).toBe(201);
+        });
+        let teamsAppInstallationId;
+        it('Should list installed apps', async () => {
+            const allInstalledApps = await api.getInstalledAppsForUser(userId, {
+                $expand: 'teamsApp,teamsAppDefinition'
+            });
+
+
+            const installedApps = await api.getInstalledAppsForUser(userId, {
+                $filter: `teamsApp/id eq '${appId}'`,
+                $expand: 'teamsApp,teamsAppDefinition'
+            });
+            expect(installedApps).toHaveProperty('value');
+            teamsAppInstallationId = installedApps.value[0].id;
+        });
+        it('Should remove app', async () => {
+            const deleteResponse = await api.removeAppForUser(userId, teamsAppInstallationId);
+            expect(deleteResponse.status).toBe(204);
+        });
     });
 });
