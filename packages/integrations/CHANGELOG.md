@@ -1,3 +1,19 @@
+# v1.1.0 (Wed Apr 26 2023)
+
+#### 🚀 Enhancement
+
+- Add refreshIntegration method for config retrieval inside the integra… [#151](https://github.com/friggframework/frigg/pull/151) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### 🐛 Bug Fix
+
+- Add refreshIntegration method for config retrieval inside the integrationManager ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.0.24 (Thu Apr 13 2023)
 
 #### 🐛 Bug Fix
