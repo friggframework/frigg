@@ -23,6 +23,7 @@ class graphApi extends OAuth2Requester {
                 channel: (channelId) => `/teams/${this.team_id}/channels/${channelId}/`,
                 channelMembers: (channelId) => `/teams/${this.team_id}/channels/${channelId}/members`,
                 installedAppsForUser: (userId) => `/users/${userId}/teamwork/installedApps`,
+                installedAppsForTeam: (teamId) => `/teams/${teamId}/installedApps`,
                 appCatalog: '/appCatalogs/teamsApps',
             };
             this.authorizationUri = `https://login.microsoftonline.com/${this.tenant_id}/oauth2/v2.0/authorize`;
@@ -89,9 +90,10 @@ class graphApi extends OAuth2Requester {
         return response.value[0];
     }
 
-    async getGroups() {
+    async getGroups(query) {
         const options = {
-            url: `${this.baseUrl}${this.URLs.groups}`
+            url: `${this.baseUrl}${this.URLs.groups}`,
+            query
         };
         const response = await this._get(options);
         return response;
@@ -134,8 +136,8 @@ class graphApi extends OAuth2Requester {
             },
             headers: {
                 'Content-Type': 'application/json',
-                Accept: 'application/json',
-            }
+            },
+            returnFullRes: true
         };
         const response = await this._post(options);
         return response;
@@ -144,6 +146,39 @@ class graphApi extends OAuth2Requester {
     async removeAppForUser(userId, teamsAppInstallationId) {
         const options = {
             url: `${this.baseUrl}${this.URLs.installedAppsForUser(userId)}/${teamsAppInstallationId}`,
+        };
+        const response = await this._delete(options);
+        return response;
+    }
+
+    async getInstalledAppsForTeam(teamId, query) {
+        //this is also valid for /me but not implementing yet
+        const options = {
+            url: `${this.baseUrl}${this.URLs.installedAppsForTeam(teamId)}`,
+            query
+        };
+        const response = await this._get(options);
+        return response;
+    }
+
+    async installAppForTeam(teamId, teamsAppId) {
+        const options = {
+            url: `${this.baseUrl}${this.URLs.installedAppsForTeam(teamId)}`,
+            body: {
+                'teamsApp@odata.bind': `https://graph.microsoft.com/v1.0/appCatalogs/teamsApps/${teamsAppId}`
+            },
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            returnFullRes: true
+        };
+        const response = await this._post(options);
+        return response;
+    }
+
+    async removeAppForTeam(teamId, teamsAppInstallationId) {
+        const options = {
+            url: `${this.baseUrl}${this.URLs.installedAppsForTeam(teamId)}/${teamsAppInstallationId}`,
         };
         const response = await this._delete(options);
         return response;

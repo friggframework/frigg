@@ -1,8 +1,7 @@
 const Authenticator = require('@friggframework/test-environment/Authenticator');
 const Api = require('../api/graph');
 const config = require('../defaultConfig.json');
-const chai = require('chai');
-const should = chai.should();
+
 describe(`${config.label} API Tests`, () => {
     const apiParams = {
         client_id: process.env.TEAMS_CLIENT_ID,
@@ -25,17 +24,17 @@ describe(`${config.label} API Tests`, () => {
     });
     describe('OAuth Flow Tests', () => {
         it('Should generate an access_token', async () => {
-            api.access_token.should.exist;
-            api.refresh_token.should.exist;
+            expect(api.access_token).toBeDefined();
+            expect(api.refresh_token).toBeDefined();
         });
         it('Should be able to refresh the token', async () => {
             const oldToken = api.access_token;
             const oldRefreshToken = api.refresh_token;
             await api.refreshAccessToken({ refresh_token: api.refresh_token });
-            api.access_token.should.exist;
-            api.access_token.should.not.equal(oldToken);
-            api.refresh_token.should.exist;
-            api.refresh_token.should.not.equal(oldRefreshToken);
+            expect(api.access_token).toBeDefined();
+            expect(api.access_token).not.toEqual(oldToken);
+            expect(api.refresh_token).toBeDefined();
+            expect(api.refresh_token).not.toEqual(oldRefreshToken);
         });
     });
 
@@ -44,12 +43,12 @@ describe(`${config.label} API Tests`, () => {
     describe('Basic Identification Requests', () => {
         it('Should retrieve information about the user', async () => {
             const user = await api.getUser();
-            user.should.exist;
+            expect(user).toBeDefined();
             userId = user.id;
         });
         it('Should retrieve information about the Organization', async () => {
             const org = await api.getOrganization();
-            org.should.exist;
+            expect(org).toBeDefined();
             tenantId = org.id;
         });
     });
@@ -90,7 +89,7 @@ describe(`${config.label} API Tests`, () => {
         });
         it('List users in channel Request', async () => {
             const response = await api.listChannelMembers(createChannelResponse.id);
-            response.should.exist;
+            expect(response).toBeDefined();
             expect(response.value[0].userId).toBe(userId)
         });
         it('Delete the created channel', async () => {
@@ -99,11 +98,12 @@ describe(`${config.label} API Tests`, () => {
         });
     });
 
-    describe('App installation requests', ()=> {
+    describe('User App requests', ()=> {
+        const externalAppId = 'd0f523b9-97e8-42d9-9e0a-d82da5ec3ed1'
         let appId;
         it('Should list matching apps in app catalog', async () => {
             const appResponse = await api.getAppCatalog({
-                $filter: "externalId eq 'd0f523b9-97e8-42d9-9e0a-d82da5ec3ed1'"
+                $filter: `externalId eq '${externalAppId}'`
             });
             expect(appResponse).toHaveProperty('value');
             expect(appResponse.value).toHaveLength(1);
@@ -112,6 +112,7 @@ describe(`${config.label} API Tests`, () => {
         it('Should install app', async () => {
             const installationResponse = await api.installAppForUser(userId, appId);
             expect(installationResponse).toBeDefined();
+            // installation response is coming back as an empty string rather than a 201 status.
             //expect(installationResponse.status).toBe(201);
         });
         let teamsAppInstallationId;
@@ -130,6 +131,45 @@ describe(`${config.label} API Tests`, () => {
         });
         it('Should remove app', async () => {
             const deleteResponse = await api.removeAppForUser(userId, teamsAppInstallationId);
+            expect(deleteResponse.status).toBe(204);
+        });
+    });
+
+    describe('Team App requests', ()=> {
+        const externalAppId = 'd0f523b9-97e8-42d9-9e0a-d82da5ec3ed1'
+        let appId;
+        it('Should list matching apps in app catalog', async () => {
+            const appResponse = await api.getAppCatalog({
+                $filter: `externalId eq '${externalAppId}'`
+            });
+            expect(appResponse).toHaveProperty('value');
+            expect(appResponse.value).toHaveLength(1);
+            appId = appResponse.value[0].id;
+        });
+        it('Should install app', async () => {
+            // teamId grabbed from earlier test
+            await api.setTeamId(teamId)
+            const installationResponse = await api.installAppForTeam(teamId, appId);
+            expect(installationResponse).toBeDefined();
+            // installation response is coming back as an empty string rather than a 201 status.
+            //expect(installationResponse.status).toBe(201);
+        });
+        let teamsAppInstallationId;
+        it('Should list installed apps', async () => {
+            const allInstalledApps = await api.getInstalledAppsForTeam(teamId, {
+                $expand: 'teamsApp,teamsAppDefinition'
+            });
+
+
+            const installedApps = await api.getInstalledAppsForTeam(teamId, {
+                $filter: `teamsApp/id eq '${appId}'`,
+                $expand: 'teamsApp,teamsAppDefinition'
+            });
+            expect(installedApps).toHaveProperty('value');
+            teamsAppInstallationId = installedApps.value[0].id;
+        });
+        it('Should remove app', async () => {
+            const deleteResponse = await api.removeAppForTeam(teamId, teamsAppInstallationId);
             expect(deleteResponse.status).toBe(204);
         });
     });
