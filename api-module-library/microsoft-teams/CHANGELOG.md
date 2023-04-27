@@ -1,3 +1,21 @@
+# v0.0.4 (Thu Apr 27 2023)
+
+#### 🐛 Bug Fix
+
+- add requests for app installation and removal [#152](https://github.com/friggframework/frigg/pull/152) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- add grantConsent url to graphApi for now ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- add requests for teams scope app search, installation and removal ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- add requests for appCatalog and app uninstall ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- added methods for retrieving joined teams, app retrieval and installation (for user). ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.3 (Tue Apr 04 2023)
 
 #### 🐛 Bug Fix
