@@ -28,7 +28,7 @@ class graphApi extends OAuth2Requester {
             };
             this.authorizationUri = `https://login.microsoftonline.com/${this.tenant_id}/oauth2/v2.0/authorize`;
             this.tokenUri = `https://login.microsoftonline.com/${this.tenant_id}/oauth2/v2.0/token`;
-            this.grantConestUrl = `https://login.microsoftonline.com/${this.tenant_id}/adminconsent?\
+            this.adminConsentUrl = `https://login.microsoftonline.com/${this.tenant_id}/adminconsent?\
             client_id=${this.client_id}&redirect_uri=${this.redirect_uri}`
         }
         this.generateUrls();
@@ -139,7 +139,6 @@ class graphApi extends OAuth2Requester {
             headers: {
                 'Content-Type': 'application/json',
             },
-            returnFullRes: true
         };
         const response = await this._post(options);
         return response;
