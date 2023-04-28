@@ -1,6 +1,6 @@
 const { debug, flushDebugLog } = require('@friggframework/logs');
 const { get } = require('@friggframework/assertions');
-const { ModuleManager } = require('@friggframework/module-plugin');
+const { ModuleManager, ModuleConstants} = require('@friggframework/module-plugin');
 const { Api } = require('./api/api');
 const { graphApi } = require('./api/graph');
 const { botFrameworkApi } = require('./api/botFramework');
@@ -31,8 +31,6 @@ class Manager extends ModuleManager {
             client_id: process.env.TEAMS_CLIENT_ID,
             client_secret: process.env.TEAMS_CLIENT_SECRET,
             redirect_uri: `${process.env.REDIRECT_URI}/microsoft-teams`,
-            tenant_id: process.env.TENANT_ID,
-            team_id: process.env.TEAMS_ID,
             scope: process.env.TEAMS_SCOPE,
             delegate: instance,
         };
@@ -45,6 +43,7 @@ class Manager extends ModuleManager {
             teamsParams = {
                 ...teamsParams,
                 ...instance.credential.toObject(),
+                tenant_id: instance.entity.externalId
             };
         }
         instance.api = new Api(teamsParams);
@@ -55,8 +54,7 @@ class Manager extends ModuleManager {
     async testAuth() {
         let validAuth = false;
         try {
-            const response = await this.api.graphApi.getChannels();
-            await this.api.botFrameworkApi.getTeamMembers(response.value[0].id);
+            const response = await this.api.graphApi.getOrganization();
             validAuth = true;
         } catch (e) {
             debug(e);
@@ -64,17 +62,31 @@ class Manager extends ModuleManager {
         return validAuth;
     }
 
-    async getAuthorizationRequirements() {
+    async getAuthorizationRequirements(params) {
         return {
-            url: this.api.graphApi.authorizationUri,
-            type: 'oauth2',
+            url: await this.api.graphApi.getAuthUri(),
+            type: ModuleConstants.authType.oauth2,
+            data: {},
         };
     }
 
-    async processAuthorizationCallback() {
-        await this.api.getTokenFromClientCredentials();
-        const authCheck = await this.testAuth();
-        if (!authCheck) throw new Error('Authentication failed');
+    async processAuthorizationCallback(params) {
+        if (params) {
+            const code = get(params.data, 'code', null);
+            try {
+                await this.api.graphApi.getTokenFromCode(code);
+            } catch (e) {
+                flushDebugLog(e);
+                throw new Error('Auth Error');
+            }
+            const authRes = await this.testAuth();
+            if (!authRes) throw new Error('Auth Error');
+        }
+        else {
+            await this.api.getTokenFromClientCredentials();
+            const authCheck = await this.testAuth();
+            if (!authCheck) throw new Error('Auth Error');
+        }
 
         const orgDetails = await this.api.graphApi.getOrganization();
 
