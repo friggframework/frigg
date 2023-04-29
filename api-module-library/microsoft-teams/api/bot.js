@@ -26,6 +26,15 @@ class botApi {
     async receiveActivity(req, res){
         await this.adapter.process(req, res, (context) => this.bot.run(context));
     }
+
+    async createConversationReference(initialRef,member){
+        initialRef.user = member;
+        await this.adapter.createConversation(initialRef, async (context) => {
+            const ref = TurnContext.getConversationReference(context.activity);
+            this.conversationReferences[member.email] = ref;
+        });
+        return this.conversationReferences[member.email];
+    }
 }
 
 const invokeResponse = (card) => {

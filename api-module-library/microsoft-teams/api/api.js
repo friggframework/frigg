@@ -14,6 +14,31 @@ class Api {
         await this.graphApi.getTokenFromClientCredentials();
         await this.botFrameworkApi.getTokenFromClientCredentials();
     }
+
+    async getConversationReferences(teamId=null){
+        if (teamId) {
+            this.graphApi.setTeamId(teamId);
+        } else if (!this.graphApi.team_id) {
+            throw new Error('Conversation references are not available without a team id');
+        }
+        const teamChannel = await this.graphApi.getPrimaryChannel();
+        const teamMembers = await this.botFrameworkApi.getTeamMembers(teamChannel.id);
+        const initialRef =
+            {
+                bot: {
+                    id: this.client_id
+                },
+                conversation: {
+                    tenantId: this.botFrameworkApi.tenant_id
+                },
+                serviceUrl: this.botFrameworkApi.serviceUrl,
+                channelId: teamChannel.id
+            };
+        await Promise.all(teamMembers.members.map(async (member) => {
+            await this.botApi.createConversationReference(initialRef, member);
+        }));
+        return this.botApi.conversationReferences;
+    }
 }
 
 module.exports = { Api };
