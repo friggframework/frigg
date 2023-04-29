@@ -101,6 +101,16 @@ class graphApi extends OAuth2Requester {
         return response;
     }
 
+    async getTeams() {
+        // not using the getGroups query passing because the single qoutes need to be encoded
+        const query = "?$filter=resourceProvisioningOptions/any(c:c+eq+'Team')"
+        const options = {
+            url: `${this.baseUrl}${this.URLs.groups}${query}`
+        };
+        const response = await this._get(options);
+        return response;
+    }
+
     async getJoinedTeams(userId) {
         // no userId is only valid for delgated authentication
         const userPart = userId ? this.URLs.user(userId) : this.URLs.userDetails;
