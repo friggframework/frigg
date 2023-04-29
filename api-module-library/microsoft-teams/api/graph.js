@@ -21,6 +21,7 @@ class graphApi extends OAuth2Requester {
                 user: (userId) => `/users/${userId}`,
                 createChannel: `/teams/${this.team_id}/channels`,
                 channel: (channelId) => `/teams/${this.team_id}/channels/${channelId}/`,
+                primaryChannel: `/teams/${this.team_id}/primaryChannel`,
                 channelMembers: (channelId) => `/teams/${this.team_id}/channels/${channelId}/members`,
                 installedAppsForUser: (userId) => `/users/${userId}/teamwork/installedApps`,
                 installedAppsForTeam: (teamId) => `/teams/${teamId}/installedApps`,
@@ -199,6 +200,14 @@ class graphApi extends OAuth2Requester {
         const options = {
             url: `${this.baseUrl}${this.URLs.createChannel}`,
             query
+        };
+        const response = await this._get(options);
+        return response;
+    }
+
+    async getPrimaryChannel() {
+        const options = {
+            url: `${this.baseUrl}${this.URLs.primaryChannel}`
         };
         const response = await this._get(options);
         return response;
