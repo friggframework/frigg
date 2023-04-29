@@ -15,7 +15,7 @@ class Api {
         await this.botFrameworkApi.getTokenFromClientCredentials();
     }
 
-    async getConversationReferences(teamId=null){
+    async createConversationReferences(teamId=null){
         if (teamId) {
             this.graphApi.setTeamId(teamId);
         } else if (!this.graphApi.team_id) {

@@ -25,7 +25,7 @@ describe('Test of cross API functionality', () => {
         let convRef;
         const testEmail = 'michael.webber@sklzt.onmicrosoft.com'
         it('Should create the conversation references', async () => {
-            convRef = await api.getConversationReferences();
+            convRef = await api.createConversationReferences();
             expect(convRef).toBeDefined();
             expect(convRef[testEmail]).toBeDefined();
         });
