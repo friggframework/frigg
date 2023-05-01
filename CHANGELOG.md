@@ -1,3 +1,20 @@
+# (Mon May 01 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-microsoft-teams@0.0.5`
+  - microsoft teams updates [#153](https://github.com/friggframework/frigg/pull/153) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - add grantConsent url to graphApi for now [#152](https://github.com/friggframework/frigg/pull/152) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - add requests for teams scope app search, installation and removal [#152](https://github.com/friggframework/frigg/pull/152) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - add requests for appCatalog and app uninstall [#152](https://github.com/friggframework/frigg/pull/152) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - added methods for retrieving joined teams, app retrieval and installation (for user). [#152](https://github.com/friggframework/frigg/pull/152) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 1
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+
+---
+
 # (Thu Apr 27 2023)
 
 #### 🐛 Bug Fix

@@ -1,3 +1,27 @@
+# v0.0.5 (Mon May 01 2023)
+
+#### 🐛 Bug Fix
+
+- microsoft teams updates [#153](https://github.com/friggframework/frigg/pull/153) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- update name of method for creating conversation references to better indicate the functionality (and that it makes a number of requests) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- conversation references ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- add method to retrieve the primary channel for a team ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- add method to retrieve teams (technically a subset of groups) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- update manager to correctly support code and client_credentials style auth in processAuthorizationCallback ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- fix typo to adminConsentUrl ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- add grantConsent url to graphApi for now [#152](https://github.com/friggframework/frigg/pull/152) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- add requests for teams scope app search, installation and removal [#152](https://github.com/friggframework/frigg/pull/152) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- add requests for appCatalog and app uninstall [#152](https://github.com/friggframework/frigg/pull/152) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- added methods for retrieving joined teams, app retrieval and installation (for user). [#152](https://github.com/friggframework/frigg/pull/152) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.4 (Thu Apr 27 2023)
 
 #### 🐛 Bug Fix
