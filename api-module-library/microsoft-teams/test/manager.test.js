@@ -31,7 +31,16 @@ describe(`Should fully test the ${config.label} Manager`, () => {
     describe('processAuthorizationCallback() test', () => {
         it('should return an entity_id, credential_id, and type for successful auth', async () => {
 
-            const res = await manager.processAuthorizationCallback();
+            const response = await Authenticator.oauth2(authUrl);
+            const baseArr = response.base.split('/');
+            response.entityType = baseArr[baseArr.length - 1];
+            delete response.base;
+
+            const res = await manager.processAuthorizationCallback({
+                data: {
+                    code: response.data.code,
+                },
+            });
             expect(res).toBeDefined();
             expect(res.entity_id).toBeDefined();
             expect(res.credential_id).toBeDefined();
@@ -57,9 +66,22 @@ describe(`Should fully test the ${config.label} Manager`, () => {
         });
         it('Responds with false if not authenticated', async () => {
             manager.api.graphApi.access_token = 'borked';
-            manager.api.botFrameworkApi.access_token = 'barked';
+            manager.api.graphApi.refresh_token = 'barked';
             const response = await manager.testAuth();
             expect(response).toEqual(false);
+        });
+    });
+
+    describe('Test switch to application authentication', () => {
+        it('Response with true if authenticated', async () => {
+            const newManager = await Manager.getInstance({
+                userId: manager.userId,
+                entityId: manager.entity.id,
+            });
+            const response = await newManager.processAuthorizationCallback();
+            expect(response).toBeDefined();
+            expect(response.entity_id).toBeDefined();
+            expect(response.credential_id).toBeDefined();
         });
     });
 });
