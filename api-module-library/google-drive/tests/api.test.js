@@ -1,14 +1,13 @@
 require('dotenv').config();
 const { Api } = require('../api');
-const config = require("@friggframework/api-module-hubspot/defaultConfig.json");
 const Authenticator = require("@friggframework/test-environment/Authenticator");
 
 describe('Google Drive API tests', () => {
 
     const apiParams = {
-        client_id: process.env.GOOGLE_DRIVE_CLIENT_ID,
-        client_secret: process.env.GOOGLE_DRIVE_CLIENT_SECRET,
-        redirect_uri: `${process.env.REDIRECT_URI}/google-drive`,
+        client_id: process.env.GOOGLE_DRIVE_CLIENT_ID, //eslint-disable-line camelcase
+        client_secret: process.env.GOOGLE_DRIVE_CLIENT_SECRET, //eslint-disable-line camelcase
+        redirect_uri: `${process.env.REDIRECT_URI}/google-drive`, //eslint-disable-line camelcase
         scope: process.env.GOOGLE_DRIVE_SCOPE
     };
     const api = new Api(apiParams);
