@@ -38,12 +38,27 @@ class Api extends OAuth2Requester {
         return res;
     }
 
-    async getAbout() {
+    async getAbout(fields='*') {
         const options = {
             url: this.baseUrl + this.URLs.about,
             query: {
-                fields: '*'
+                fields
             }
+        };
+
+        const res = await this._get(options);
+        return res;
+    }
+
+    async getUserDetails(){
+        return await this.getAbout('user');
+    }
+
+    async listFiles(query=null, trashed=false){
+        const options = {
+            url: this.baseUrl + this.URLs.files,
+            query,
+            trashed
         };
 
         const res = await this._get(options);

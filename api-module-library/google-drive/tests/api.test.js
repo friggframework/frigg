@@ -24,11 +24,20 @@ describe('Google Drive API tests', () => {
         await api.getTokenFromCode(response.data.code);
     });
 
-    describe('HS User Info', () => {
+    describe('Drive User Info', () => {
         it('should return the user details', async () => {
-            const response = await api.getAbout();
+            const response = await api.getUserDetails();
             expect(response).toBeDefined();
+            expect(response.user.kind).toBe('drive#user');
         });
     });
+
+    describe('Drive File Requests', () => {
+        it('should return all files', async () => {
+            const response = await api.listFiles();
+            expect(response).toBeDefined();
+            expect(response.files).toBeDefined();
+        })
+    })
 
 });
