@@ -5,17 +5,21 @@ class Api extends OAuth2Requester {
     constructor(params) {
         super(params);
 
-        this.baseUrl = '';
+        this.baseUrl = "https://www.googleapis.com/";
 
         this.URLs = {
-            me: '/me',
-            exampleEndpoint: '/endpoint',
+            about:  "/drive/v3/about",
+            fileById : (fileId) => `/drive/v3/files/${fileId}`,
+            files : "/drive/v3/files",
+            fileUpload : "/upload/drive/v3/files",
+            permissions : '/permissions',
         };
 
         this.authorizationUri = encodeURI(
-            `https://app.example.com/oauth/authorize?response_type=code&client_id=${this.client_id}&redirect_uri=${this.redirect_uri}`
+            `https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=${this.client_id}&redirect_uri=${this.redirect_uri}&scope=${this.scope}&access_type=offline&include_granted_scopes=true`
         );
-        this.tokenUri = 'https://app.example.com/oauth/token';
+        this.tokenUri = 'https://oauth2.googleapis.com/token';
+
 
         this.access_token = get(params, 'access_token', null);
         this.refresh_token = get(params, 'refresh_token', null);
@@ -34,9 +38,12 @@ class Api extends OAuth2Requester {
         return res;
     }
 
-    async exampleRequest() {
+    async getAbout() {
         const options = {
-            url: this.baseUrl + this.URLs.exampleEndpoint,
+            url: this.baseUrl + this.URLs.about,
+            query: {
+                fields: '*'
+            }
         };
 
         const res = await this._get(options);
