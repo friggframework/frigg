@@ -5,7 +5,6 @@ const Authenticator = require("@friggframework/test-environment/Authenticator");
 
 describe('Google Drive API tests', () => {
 
-
     const apiParams = {
         client_id: process.env.GOOGLE_DRIVE_CLIENT_ID,
         client_secret: process.env.GOOGLE_DRIVE_CLIENT_SECRET,
@@ -33,11 +32,28 @@ describe('Google Drive API tests', () => {
     });
 
     describe('Drive File Requests', () => {
-        it('should return all files', async () => {
+        it('should return a page of files', async () => {
             const response = await api.listFiles();
             expect(response).toBeDefined();
             expect(response.files).toBeDefined();
-        })
+        });
+
+
+        it('should return a sorted page of files', async () => {
+            const response = await api.listFiles({orderBy: 'folder,modifiedTime desc,name'});
+            expect(response).toBeDefined();
+            expect(response.files).toBeDefined();
+        });
+
+        it('should return a only folders', async () => {
+            const response = await api.listFiles({q: "mimeType='application/vnd.google-apps.folder'"});
+            expect(response).toBeDefined();
+            expect(response.files).toBeDefined();
+            expect(response.files).toMatchObject(Array(response.files.length).fill(
+                {"mimeType": "application/vnd.google-apps.folder"}
+            ));
+        });
+
     })
 
 });
