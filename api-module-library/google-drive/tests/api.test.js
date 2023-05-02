@@ -4,12 +4,15 @@ const Authenticator = require("@friggframework/test-environment/Authenticator");
 
 describe('Google Drive API tests', () => {
 
+    /* eslint-disable camelcase */
     const apiParams = {
-        client_id: process.env.GOOGLE_DRIVE_CLIENT_ID, //eslint-disable-line camelcase
-        client_secret: process.env.GOOGLE_DRIVE_CLIENT_SECRET, //eslint-disable-line camelcase
-        redirect_uri: `${process.env.REDIRECT_URI}/google-drive`, //eslint-disable-line camelcase
+        client_id: process.env.GOOGLE_DRIVE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_DRIVE_CLIENT_SECRET,
+        redirect_uri: `${process.env.REDIRECT_URI}/google-drive`,
         scope: process.env.GOOGLE_DRIVE_SCOPE
     };
+    /* eslint-enable camelcase */
+
     const api = new Api(apiParams);
 
     beforeAll(async () => {
@@ -32,7 +35,7 @@ describe('Google Drive API tests', () => {
 
     describe('Drive File Requests', () => {
         it('should return a page of files', async () => {
-            const response = await api.listFiles();
+            const response = await api.listFiles({pageSize: 500});
             expect(response).toBeDefined();
             expect(response.files).toBeDefined();
         });
@@ -52,6 +55,22 @@ describe('Google Drive API tests', () => {
                 {"mimeType": "application/vnd.google-apps.folder"}
             ));
         });
+
+        let fileList;
+        it('should return a only images and videos', async () => {
+            const response = await api.listFiles({q: "mimeType contains 'image/' or mimeType contains 'video/'", fields: '*'});
+            expect(response).toBeDefined();
+            expect(response.files).toBeDefined();
+            fileList = response.files;
+        });
+
+        it('should return a file with data', async () => {
+            const response = await api.getFileById(fileList[1].id, {fields: '*'});
+            expect(response).toBeDefined();
+            const data = await api.getFileDataById(fileList[1].id);
+            expect(data.length).toBeGreaterThan(2000);
+
+        })
 
     })
 

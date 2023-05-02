@@ -20,9 +20,10 @@ class Api extends OAuth2Requester {
         );
         this.tokenUri = 'https://oauth2.googleapis.com/token';
 
-
+        /* eslint-disable camelcase */
         this.access_token = get(params, 'access_token', null);
         this.refresh_token = get(params, 'refresh_token', null);
+        /* eslint-enable camelcase */
     }
 
     async getTokenFromCode(code) {
@@ -59,6 +60,29 @@ class Api extends OAuth2Requester {
             url: this.baseUrl + this.URLs.files,
             query,
             trashed
+        };
+
+        const res = await this._get(options);
+        return res;
+    }
+
+    async getFileById(fileId, query){
+
+        const options = {
+            url: this.baseUrl + this.URLs.fileById(fileId),
+            query
+        };
+
+        const res = await this._get(options);
+        return res;
+    }
+
+    async getFileDataById(fileId){
+        const options = {
+            url: this.baseUrl + this.URLs.fileById(fileId),
+            query: {
+                alt:'media'
+            }
         };
 
         const res = await this._get(options);
