@@ -44,5 +44,15 @@ describe('Google Drive Manager Tests', () => {
             expect(res.entity_id).toBeDefined();
             expect(res.credential_id).toBeDefined();
         });
+
+        it('Test credential retrieval and manager instantiation', async () => {
+            const newManager = await Manager.getInstance({
+                userId: manager.userId,
+                entityId: manager.entity.id,
+            });
+            expect(newManager).toBeDefined();
+            expect(newManager.entity).toBeDefined();
+            expect(newManager.credential).toBeDefined();
+        });
     });
 });

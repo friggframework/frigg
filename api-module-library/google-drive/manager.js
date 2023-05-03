@@ -29,24 +29,22 @@ class Manager extends ModuleManager {
             scope: process.env.GOOGLE_DRIVE_SCOPE,
             delegate: instance,
         };
-        /* eslint-enable camelcase */
+
 
         if (params.entityId) {
-            instance.entity = await instance.entityMO.get(params.entityId);
-            instance.credential = await instance.credentialMO.get(
+            instance.entity = await Entity.findById(params.entityId);
+            instance.credential = await Credential.findById(
                 instance.entity.credential
             );
             apiParams.access_token = instance.credential.access_token;
-            apiParams.refresh_token = instance.credential.refresh_token;
         } else if (params.credentialId) {
-            instance.credential = await instance.credentialMO.get(
+            instance.credential = await Credential.findById(
                 params.credentialId
             );
             apiParams.access_token = instance.credential.access_token;
-            apiParams.refresh_token = instance.credential.refresh_token;
         }
         instance.api = await new Api(apiParams);
-
+        /* eslint-enable camelcase */
         return instance;
     }
 
@@ -75,7 +73,7 @@ class Manager extends ModuleManager {
         // get entity identifying information from the api. You'll need to format this.
         const userDetails = await this.api.getUserDetails();
         await this.findOrCreateEntity({
-            externalId: userDetails.permissionId,
+            externalId: userDetails.emailAddress,
             name: userDetails.displayName
         });
 
@@ -138,7 +136,7 @@ class Manager extends ModuleManager {
                 const updatedToken = {
                     user: this.userId.toString(),
                     access_token: this.api.access_token,
-                    refresh_token: this.api.refresh_token,
+                    expires_in: this.api.expires_in,
                     auth_is_valid: true,
                 };
 
@@ -148,27 +146,28 @@ class Manager extends ModuleManager {
 
                 if (!this.credential) {
                     let credentialSearch = await Credential.find({
-                        externalId: userDetails.permissionId,
+                        externalId: userDetails.emailAddress,
                     });
                     if (credentialSearch.length === 0) {
                         this.credential = await Credential.create(updatedToken);
                     } else if (credentialSearch.length === 1) {
                         if (credentialSearch[0].user === this.userId) {
-                            this.credential = await Credential.update(
-                                credentialSearch[0],
-                                updatedToken
+                            this.credential = await Credential.findOneAndUpdate(
+                                { _id: credentialSearch[0] },
+                                { $set: updatedToken },
+                                { useFindAndModify: true, new: true }
                             );
                         } else {
                             debug(
                                 'Somebody else already created a credential with the same permission ID:',
-                                userDetails.permissionId
+                                userDetails.emailAddress
                             );
                         }
                     } else {
                         // Handling multiple credentials found with an error for the time being
                         debug(
                             'Multiple credentials found with the same permission ID:',
-                            userDetails.permissionId
+                            userDetails.emailAddress
                         );
                     }
                 } else {

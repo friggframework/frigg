@@ -2,19 +2,12 @@ const mongoose = require('mongoose');
 const { Credential: Parent } = require('@friggframework/module-plugin');
 
 const schema = new mongoose.Schema({
-    accessToken: {
+    access_token: {
         type: String,
         trim: true,
         lhEncrypt: true,
     },
-    refreshToken: {
-        type: String,
-        trim: true,
-        lhEncrypt: true,
-    },
-    accessTokenExpire: { type: Date },
-    // eslint-disable-next-line camelcase
-    expires_at: { type: Date },
+    expires_at: { type: Number },
 });
 
 const name = 'GoogleDriveCredential';

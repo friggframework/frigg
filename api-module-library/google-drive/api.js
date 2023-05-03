@@ -10,6 +10,7 @@ class Api extends OAuth2Requester {
         this.URLs = {
             about:  "/drive/v3/about",
             fileById : (fileId) => `/drive/v3/files/${fileId}`,
+            fileLabels: (fileId) => `/drive/v3/files/${fileId}/listLabels`,
             files : "/drive/v3/files",
             fileUpload : "/upload/drive/v3/files",
             permissions : '/permissions',
@@ -41,8 +42,8 @@ class Api extends OAuth2Requester {
     }
 
     async getUserDetails(){
-        const res = await this.getAbout('user');
-        return res.user;
+        const response = await this.getAbout('user');
+        return response.user;
     }
 
     async listFiles(query=null, trashed=false){
@@ -54,7 +55,7 @@ class Api extends OAuth2Requester {
         return this._get(options);
     }
 
-    async getFileById(fileId, query){
+    async getFile(fileId, query){
 
         const options = {
             url: this.baseUrl + this.URLs.fileById(fileId),
@@ -63,13 +64,20 @@ class Api extends OAuth2Requester {
         return this._get(options);
     }
 
-    async getFileDataById(fileId){
+    async getFileData(fileId){
         const options = {
             url: this.baseUrl + this.URLs.fileById(fileId),
             query: {
                 alt:'media'
             }
         };
+        return this._get(options);
+    }
+
+    async getFileLabels(fileId){
+        const options = {
+            url: this.baseUrl + this.URLs.fileLabels(fileId)
+        }
         return this._get(options);
     }
 }

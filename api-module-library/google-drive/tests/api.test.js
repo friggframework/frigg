@@ -65,10 +65,17 @@ describe('Google Drive API tests', () => {
         });
 
         it('should return a file with data', async () => {
-            const response = await api.getFileById(fileList[1].id, {fields: '*'});
+            const response = await api.getFile(fileList[1].id, {fields: '*'});
             expect(response).toBeDefined();
-            const data = await api.getFileDataById(fileList[1].id);
+            const data = await api.getFileData(fileList[1].id);
             expect(data.length).toBeGreaterThan(2000);
+        })
+
+        const fileIdWithLabels = '1Eb3KG-sErgluj9rIW-EEBN4ESkriPkPHV0qakHcDjL4'
+        it('should return a file\'s labels', async () => {
+            const response = await api.getFileLabels(fileIdWithLabels);
+            expect(response).toBeDefined();
+            expect(response.labels).toBeDefined();
         })
     })
 
