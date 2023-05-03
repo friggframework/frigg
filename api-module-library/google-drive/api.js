@@ -9,6 +9,7 @@ class Api extends OAuth2Requester {
 
         this.URLs = {
             about:  "/drive/v3/about",
+            drives:  "/drive/v3/drives",
             fileById : (fileId) => `/drive/v3/files/${fileId}`,
             fileLabels: (fileId) => `/drive/v3/files/${fileId}/listLabels`,
             files : "/drive/v3/files",
@@ -46,6 +47,14 @@ class Api extends OAuth2Requester {
         return response.user;
     }
 
+    async listDrives(query=null){
+        const options = {
+            url: this.baseUrl + this.URLs.drives,
+            query
+        };
+        return this._get(options);
+    }
+
     async listFiles(query=null, trashed=false){
         const options = {
             url: this.baseUrl + this.URLs.files,
@@ -55,8 +64,8 @@ class Api extends OAuth2Requester {
         return this._get(options);
     }
 
-    async listFolders() {
-        return this.listFiles({q: 'mimeType=\'application/vnd.google-apps.folder\''});
+    async listFolders(query=null) {
+        return this.listFiles({...query, q: 'mimeType=\'application/vnd.google-apps.folder\''});
     }
 
     async getFile(fileId, query){

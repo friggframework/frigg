@@ -33,6 +33,14 @@ describe('Google Drive API tests', () => {
         });
     });
 
+    describe('Drive Drive requests', () => {
+        it('should return all drives', async () => {
+            const response = await api.listDrives();
+            expect(response).toBeDefined();
+            expect(response.drives).toBeDefined();
+        })
+    });
+
     describe('Drive File Requests', () => {
         it('should return a page of files', async () => {
             const response = await api.listFiles({pageSize: 500, fields: '*'});
