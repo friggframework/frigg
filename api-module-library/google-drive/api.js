@@ -55,6 +55,10 @@ class Api extends OAuth2Requester {
         return this._get(options);
     }
 
+    async listFolders() {
+        return this.listFiles({q: 'mimeType=\'application/vnd.google-apps.folder\''});
+    }
+
     async getFile(fileId, query){
 
         const options = {

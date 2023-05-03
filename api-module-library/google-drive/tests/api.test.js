@@ -48,7 +48,7 @@ describe('Google Drive API tests', () => {
         });
 
         it('should return a only folders', async () => {
-            const response = await api.listFiles({q: "mimeType='application/vnd.google-apps.folder'"});
+            const response = await api.listFolders();
             expect(response).toBeDefined();
             expect(response.files).toBeDefined();
             expect(response.files).toMatchObject(Array(response.files.length).fill(
