@@ -27,15 +27,15 @@ describe('Google Drive API tests', () => {
 
     describe('Drive User Info', () => {
         it('should return the user details', async () => {
-            const response = await api.getUserDetails();
-            expect(response).toBeDefined();
-            expect(response.user.kind).toBe('drive#user');
+            const user = await api.getUserDetails();
+            expect(user).toBeDefined();
+            expect(user.kind).toBe('drive#user');
         });
     });
 
     describe('Drive File Requests', () => {
         it('should return a page of files', async () => {
-            const response = await api.listFiles({pageSize: 500});
+            const response = await api.listFiles({pageSize: 500, fields: '*'});
             expect(response).toBeDefined();
             expect(response.files).toBeDefined();
         });
@@ -69,9 +69,7 @@ describe('Google Drive API tests', () => {
             expect(response).toBeDefined();
             const data = await api.getFileDataById(fileList[1].id);
             expect(data.length).toBeGreaterThan(2000);
-
         })
-
     })
 
 });

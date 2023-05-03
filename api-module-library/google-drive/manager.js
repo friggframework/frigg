@@ -1,6 +1,6 @@
 const { debug, flushDebugLog } = require('@friggframework/logs');
 const { get } = require('@friggframework/assertions');
-const { ModuleManager } = require('@friggframework/module-plugin');
+const { ModuleManager, ModuleConstants } = require('@friggframework/module-plugin');
 const { Api } = require('./api');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
@@ -21,22 +21,31 @@ class Manager extends ModuleManager {
     static async getInstance(params) {
         let instance = new this(params);
 
-        const managerParams = { delegate: instance };
+        /* eslint-disable camelcase */
+        const apiParams = {
+            client_id: process.env.GOOGLE_DRIVE_CLIENT_ID,
+            client_secret: process.env.GOOGLE_DRIVE_CLIENT_SECRET,
+            redirect_uri: `${process.env.REDIRECT_URI}/google-drive`,
+            scope: process.env.GOOGLE_DRIVE_SCOPE,
+            delegate: instance,
+        };
+        /* eslint-enable camelcase */
+
         if (params.entityId) {
             instance.entity = await instance.entityMO.get(params.entityId);
             instance.credential = await instance.credentialMO.get(
                 instance.entity.credential
             );
-            managerParams.access_token = instance.credential.access_token;
-            managerParams.refresh_token = instance.credential.refresh_token;
+            apiParams.access_token = instance.credential.access_token;
+            apiParams.refresh_token = instance.credential.refresh_token;
         } else if (params.credentialId) {
             instance.credential = await instance.credentialMO.get(
                 params.credentialId
             );
-            managerParams.access_token = instance.credential.access_token;
-            managerParams.refresh_token = instance.credential.refresh_token;
+            apiParams.access_token = instance.credential.access_token;
+            apiParams.refresh_token = instance.credential.refresh_token;
         }
-        instance.api = await new Api(managerParams);
+        instance.api = await new Api(apiParams);
 
         return instance;
     }
@@ -52,9 +61,9 @@ class Manager extends ModuleManager {
         return validAuth;
     }
 
-    async getAuthorizationRequirements(params) {
+    getAuthorizationRequirements(params) {
         return {
-            url: await this.api.authorizationUri,
+            url: this.api.authorizationUri,
             type: ModuleConstants.authType.oauth2,
         };
     }
@@ -64,8 +73,11 @@ class Manager extends ModuleManager {
         // For OAuth2, generate the token and store in this.credential and the DB
         await this.api.getTokenFromCode(code);
         // get entity identifying information from the api. You'll need to format this.
-        const entityDetails = await this.api.getEntityDetails();
-        await this.findOrCreateEntity(entityDetails);
+        const userDetails = await this.api.getUserDetails();
+        await this.findOrCreateEntity({
+            externalId: userDetails.permissionId,
+            name: userDetails.displayName
+        });
 
         return {
             credential_id: this.credential.id,
@@ -80,22 +92,19 @@ class Manager extends ModuleManager {
     }
 
     async findOrCreateEntity(data) {
-        // TODO this should be a changed to your entity needs
-        const identifier = get(params, 'identifier');
-        const name = get(params, 'name');
+        const externalId = get(data, 'externalId');
+        const name = get(data, 'name');
 
         const search = await Entity.find({
             user: this.userId,
-            externalId: identifier,
+            externalId: externalId,
         });
         if (search.length === 0) {
-            // validate choices!!!
-            // create entity
             const createObj = {
                 credential: this.credential.id,
                 user: this.userId,
                 name,
-                externalId: identifier,
+                externalId: externalId,
             };
             this.entity = await Entity.create(createObj);
         } else if (search.length === 1) {
@@ -103,9 +112,9 @@ class Manager extends ModuleManager {
         } else {
             debug(
                 'Multiple entities found with the same external ID:',
-                identifier
+                externalId
             );
-            this.throwException('');
+            throw new Error(`Multiple entities found with the same external ID: ${externalId}`);
         }
     }
 
@@ -125,7 +134,7 @@ class Manager extends ModuleManager {
     async receiveNotification(notifier, delegateString, object = null) {
         if (notifier instanceof Api) {
             if (delegateString === this.api.DLGT_TOKEN_UPDATE) {
-                const userDetails = await this.api.getTokenIdentity();
+                const userDetails = await this.api.getUserDetails();
                 const updatedToken = {
                     user: this.userId.toString(),
                     access_token: this.api.access_token,
@@ -138,10 +147,8 @@ class Manager extends ModuleManager {
                 );
 
                 if (!this.credential) {
-                    // What are we identifying the credential by?
-                    // TODO this needs to change for your API. This is how we do it for HubSpot ("Portal ID")
-                    let credentialSearch = await Credential.list({
-                        identifier: userDetails.identifier,
+                    let credentialSearch = await Credential.find({
+                        externalId: userDetails.permissionId,
                     });
                     if (credentialSearch.length === 0) {
                         this.credential = await Credential.create(updatedToken);
@@ -153,15 +160,15 @@ class Manager extends ModuleManager {
                             );
                         } else {
                             debug(
-                                'Somebody else already created a credential with the same portal ID:',
-                                portalId
+                                'Somebody else already created a credential with the same permission ID:',
+                                userDetails.permissionId
                             );
                         }
                     } else {
                         // Handling multiple credentials found with an error for the time being
                         debug(
-                            'Multiple credentials found with the same portal ID:',
-                            portalId
+                            'Multiple credentials found with the same permission ID:',
+                            userDetails.permissionId
                         );
                     }
                 } else {

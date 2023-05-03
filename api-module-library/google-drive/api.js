@@ -30,15 +30,6 @@ class Api extends OAuth2Requester {
         return this.getTokenFromCodeBasicAuthHeader(code);
     }
 
-    async getTokenIdentity() {
-        const options = {
-            url: this.baseUrl + this.URLs.me,
-        };
-
-        const res = await this._get(options);
-        return res;
-    }
-
     async getAbout(fields='*') {
         const options = {
             url: this.baseUrl + this.URLs.about,
@@ -46,13 +37,12 @@ class Api extends OAuth2Requester {
                 fields
             }
         };
-
-        const res = await this._get(options);
-        return res;
+        return this._get(options);
     }
 
     async getUserDetails(){
-        return await this.getAbout('user');
+        const res = await this.getAbout('user');
+        return res.user;
     }
 
     async listFiles(query=null, trashed=false){
@@ -61,9 +51,7 @@ class Api extends OAuth2Requester {
             query,
             trashed
         };
-
-        const res = await this._get(options);
-        return res;
+        return this._get(options);
     }
 
     async getFileById(fileId, query){
@@ -72,9 +60,7 @@ class Api extends OAuth2Requester {
             url: this.baseUrl + this.URLs.fileById(fileId),
             query
         };
-
-        const res = await this._get(options);
-        return res;
+        return this._get(options);
     }
 
     async getFileDataById(fileId){
@@ -84,9 +70,7 @@ class Api extends OAuth2Requester {
                 alt:'media'
             }
         };
-
-        const res = await this._get(options);
-        return res;
+        return this._get(options);
     }
 }
 
