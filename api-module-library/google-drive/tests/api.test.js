@@ -39,6 +39,12 @@ describe('Google Drive API tests', () => {
             expect(response).toBeDefined();
             expect(response.drives).toBeDefined();
         })
+
+        it('should return My Drive root', async () => {
+            const response = await api.getMyDriveRoot();
+            expect(response).toBeDefined();
+            expect(response.name).toEqual('My Drive');
+        })
     });
 
     describe('Drive File Requests', () => {
@@ -50,7 +56,7 @@ describe('Google Drive API tests', () => {
 
 
         it('should return a sorted page of files', async () => {
-            const response = await api.listFiles({orderBy: 'folder,modifiedTime desc,name'});
+            const response = await api.listFiles({orderBy: 'folder,modifiedTime desc,name', pageSize: 500});
             expect(response).toBeDefined();
             expect(response.files).toBeDefined();
         });

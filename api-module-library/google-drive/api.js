@@ -10,6 +10,7 @@ class Api extends OAuth2Requester {
         this.URLs = {
             about:  "/drive/v3/about",
             drives:  "/drive/v3/drives",
+            root: '/drive/v3/files/root',
             fileById : (fileId) => `/drive/v3/files/${fileId}`,
             fileLabels: (fileId) => `/drive/v3/files/${fileId}/listLabels`,
             files : "/drive/v3/files",
@@ -45,6 +46,13 @@ class Api extends OAuth2Requester {
     async getUserDetails(){
         const response = await this.getAbout('user');
         return response.user;
+    }
+
+    async getMyDriveRoot(){
+        const options = {
+            url: this.baseUrl + this.URLs.root
+        };
+        return this._get(options);
     }
 
     async listDrives(query=null){
