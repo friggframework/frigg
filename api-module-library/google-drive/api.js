@@ -48,9 +48,10 @@ class Api extends OAuth2Requester {
         return response.user;
     }
 
-    async getMyDriveRoot(){
+    async getMyDriveRoot(query){
         const options = {
-            url: this.baseUrl + this.URLs.root
+            url: this.baseUrl + this.URLs.root,
+            query
         };
         return this._get(options);
     }

@@ -41,7 +41,7 @@ describe('Google Drive API tests', () => {
         })
 
         it('should return My Drive root', async () => {
-            const response = await api.getMyDriveRoot();
+            const response = await api.getMyDriveRoot({fields: '*'});
             expect(response).toBeDefined();
             expect(response.name).toEqual('My Drive');
         })
