@@ -348,6 +348,7 @@ class IntegrationManager extends Delegate {
     async loadDynamicUserActions() {
         // If the integration implements user actions that require
         // dynamic lookup, override this method. i.e.
+        // const actionEvents = this.getUserActions();
         // this.delegate.events.push(...actionEvents);
         return true;
     }
