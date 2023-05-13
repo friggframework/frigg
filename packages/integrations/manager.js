@@ -1,5 +1,5 @@
 const { loadInstalledModules, Delegate } = require('@friggframework/core');
-const { Credential, Entity } = require('@friggframework/module-plugin');
+const { Credential, Entity, EntityManager} = require('@friggframework/module-plugin');
 const { Integration } = require('./model');
 const { IntegrationMapping } = require('./integration-mapping');
 
@@ -58,22 +58,9 @@ class IntegrationManager extends Delegate {
         const instance = await integrationManagerClass.getInstance({
             userId,
             integrationId: params.integrationId,
+            events: integrationManagerClass.Config.events
         });
         instance.integration = integration;
-        instance.delegateTypes.push(...integrationManagerClass.Config.events); // populates the events available
-        // Need to get special primaryInstance because it has an extra param to pass in
-        instance.primaryInstance =
-            await EntityManager.getEntityManagerInstanceFromEntityId(
-                instance.integration.entities[0],
-                instance.integration.user
-            );
-        // Now we can use the general ManagerGetter
-        instance.targetInstance =
-            await EntityManager.getEntityManagerInstanceFromEntityId(
-                instance.integration.entities[1],
-                instance.integration.user
-            );
-        instance.delegate = instance;
         return instance;
     }
 
@@ -149,10 +136,21 @@ class IntegrationManager extends Delegate {
 
     static async getInstance(params) {
         const instance = new this(params);
-
-        params.delegate = instance;
-        instance.delegateTypes.push(...this.Config.events);
-        return new this(params);
+        // should this all be in the constructor?
+        instance.integration = params.integration;
+        instance.primaryInstance =
+            await EntityManager.getEntityManagerInstanceFromEntityId(
+                instance.integration.entities[0],
+                instance.integration.user
+            );
+        instance.targetInstance =
+            await EntityManager.getEntityManagerInstanceFromEntityId(
+                instance.integration.entities[1],
+                instance.integration.user
+            );
+        const actionEvents = await instance.loadDynamicUserActions();
+        instance.delegate.events.push(...actionEvents);
+        return instance;
     }
 
     static getIntegrationManagerClasses(type = '') {
@@ -202,25 +200,9 @@ class IntegrationManager extends Delegate {
         const instance = await integrationManagerClass.getInstance({
             userId,
             integrationId: integration.id,
+            events: integrationManagerClass.Config.events,
+            integration
         });
-        instance.integration = integration;
-        instance.delegateTypes.push(...integrationManagerClass.Config.events);
-
-        // Need to get special primaryInstance because it has an extra param to pass in
-        instance.primaryInstance =
-            await EntityManager.getEntityManagerInstanceFromEntityId(
-                instance.integration.entities[0],
-                instance.integration.user
-            );
-        // Now we can use the general ManagerGetter
-        instance.targetInstance =
-            await EntityManager.getEntityManagerInstanceFromEntityId(
-                instance.integration.entities[1],
-                instance.integration.user
-            );
-
-        instance.delegate = instance;
-
         return instance;
     }
 
@@ -285,7 +267,7 @@ class IntegrationManager extends Delegate {
     }
 
     static async getIntegrationById(id) {
-        return await Integration.findById(id);
+        return Integration.findById(id);
     }
 
     static async getFilteredIntegrationsForUserId(userId, filter) {
@@ -362,6 +344,12 @@ class IntegrationManager extends Delegate {
             success = false;
         }
         return success;
+    }
+
+    async loadDynamicUserActions() {
+        // If the integration implements user actions that require
+        // dynamic lookup, override this method.
+        return true;
     }
 
     // Children must implement

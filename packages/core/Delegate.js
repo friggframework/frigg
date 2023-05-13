@@ -2,8 +2,8 @@ const { get } = require('@friggframework/assertions');
 
 class Delegate {
     constructor(params) {
-        this.delegate = get(params, 'delegate', null);
-        this.delegateTypes = [];
+        this.delegate = get(params, 'delegate', this);
+        this.delegateTypes = get(params, 'events', []);
     }
 
     async notify(delegateString, object = null) {
