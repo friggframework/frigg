@@ -57,10 +57,9 @@ class IntegrationManager extends Delegate {
 
         const instance = await integrationManagerClass.getInstance({
             userId,
-            integrationId: params.integrationId,
-            events: integrationManagerClass.Config.events,
-            integration
+            events: integrationManagerClass.Config.events
         });
+        await this.connectIntegration(instance, integration);
         return instance;
     }
 
@@ -135,9 +134,12 @@ class IntegrationManager extends Delegate {
     }
 
     static async getInstance(params) {
-        const instance = new this(params);
-        // should this all be in the constructor?
-        instance.integration = params.integration;
+        return new this(params);
+    }
+
+    static async connectIntegration(instance, integration) {
+        // could this all be in the constructor?
+        instance.integration = integration;
         instance.primaryInstance =
             await EntityManager.getEntityManagerInstanceFromEntityId(
                 instance.integration.entities[0],
@@ -150,7 +152,6 @@ class IntegrationManager extends Delegate {
             );
         const actionEvents = await instance.loadDynamicUserActions();
         instance.delegate.events.push(...actionEvents);
-        return instance;
     }
 
     static getIntegrationManagerClasses(type = '') {
@@ -199,10 +200,9 @@ class IntegrationManager extends Delegate {
 
         const instance = await integrationManagerClass.getInstance({
             userId,
-            integrationId: integration.id,
             events: integrationManagerClass.Config.events,
-            integration
         });
+        await this.connectIntegration(instance, integration);
         return instance;
     }
 
@@ -349,7 +349,7 @@ class IntegrationManager extends Delegate {
     async loadDynamicUserActions() {
         // If the integration implements user actions that require
         // dynamic lookup, override this method.
-        return true;
+        return [];
     }
 
     // Children must implement
