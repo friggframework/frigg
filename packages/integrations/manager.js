@@ -58,9 +58,9 @@ class IntegrationManager extends Delegate {
         const instance = await integrationManagerClass.getInstance({
             userId,
             integrationId: params.integrationId,
-            events: integrationManagerClass.Config.events
+            events: integrationManagerClass.Config.events,
+            integration
         });
-        instance.integration = integration;
         return instance;
     }
 
