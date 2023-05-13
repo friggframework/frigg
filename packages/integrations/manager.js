@@ -150,8 +150,7 @@ class IntegrationManager extends Delegate {
                 instance.integration.entities[1],
                 instance.integration.user
             );
-        const actionEvents = await instance.loadDynamicUserActions();
-        instance.delegate.events.push(...actionEvents);
+        await instance.loadDynamicUserActions();
     }
 
     static getIntegrationManagerClasses(type = '') {
@@ -348,8 +347,9 @@ class IntegrationManager extends Delegate {
 
     async loadDynamicUserActions() {
         // If the integration implements user actions that require
-        // dynamic lookup, override this method.
-        return [];
+        // dynamic lookup, override this method. i.e.
+        // this.delegate.events.push(...actionEvents);
+        return true;
     }
 
     // Children must implement
