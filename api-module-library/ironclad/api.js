@@ -12,7 +12,7 @@ class Api extends ApiKeyRequester {
         this.baseUrl = () => {
             if (this.SUBDOMAIN) {
                 const subdomain = this.SUBDOMAIN.toLowerCase();
-                return `https://${subdomain}.ironcladapp.com`;
+                return `https://${subdomain}${subdomain !== 'localhost' ? '.ironcladapp.com' : ''}`;
             } else {
                 return 'https://ironcladapp.com';
             }
