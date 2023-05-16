@@ -1,3 +1,17 @@
+# v0.0.36 (Tue May 16 2023)
+
+#### 🐛 Bug Fix
+
+- Handle ironclad localhost [#156](https://github.com/friggframework/frigg/pull/156) ([@debbie-yu](https://github.com/debbie-yu))
+- adding some tests ([@debbie-yu](https://github.com/debbie-yu))
+- handle ironclad localhost ([@debbie-yu](https://github.com/debbie-yu))
+
+#### Authors: 1
+
+- [@debbie-yu](https://github.com/debbie-yu)
+
+---
+
 # v0.0.35 (Tue Apr 04 2023)
 
 :tada: This release contains work from a new contributor! :tada:
