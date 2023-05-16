@@ -10,6 +10,24 @@ describe('Ironclad API class', () => {
         subdomain: process.env.IRONCLAD_SUBDOMAIN,
     });
 
+    describe('Base URL', () => {
+        it('should allow localhost subdomain', async () => {
+            const api = new Api({
+                apiKey: process.env.IRONCLAD_API_KEY,
+                subdomain: 'localhost'
+            })
+            expect(api.baseUrl()).to.equal('https://localhost');
+        });
+
+        it('should have ironcladapp.com to baseUrl for non local envs', async () => {
+            const api = new Api({
+                apiKey: process.env.IRONCLAD_API_KEY,
+                subdomain: 'preview'
+            })
+            expect(api.baseUrl()).to.equal('https://preview.ironcladapp.com');
+        });
+    })
+
     describe('Webhooks', () => {
         let webhookID;
         it('should list all webhooks', async () => {
