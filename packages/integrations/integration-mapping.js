@@ -22,7 +22,7 @@ schema.static({
         if (mappings.length === 0) {
             return null;
         } else if (mappings.length === 1) {
-            return mappings[0];
+            return mappings[0].mapping;
         } else {
             throw new Error('multiple integration mappings with same sourceId');
         }
