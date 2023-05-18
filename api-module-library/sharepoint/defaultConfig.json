@@ -1,0 +1,9 @@
+{
+    "name": "microsoft-sharepoint",
+    "label": "Microsoft SharePoint",
+    "productUrl": "https://microsoft.com/sharepoint",
+    "apiDocs": "Good Luck",
+    "logoUrl": "https://friggframework.org/assets/img/microsoft-sharepoint.jpeg",
+    "categories": ["Sharing"],
+    "description": "If you know, you know"
+}
