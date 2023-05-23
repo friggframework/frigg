@@ -140,214 +140,190 @@ describe(`${config.label} API Tests`, () => {
         });
     });
 
-    describe('#getUser', () => {
-        describe('Retrieve information about the user', () => {
-            let api;
+    describe('HTTP Requests', () => {
+        let api;
 
-            beforeEach(() => {
-                api = new Api();
-
-                nock(baseUrl)
-                    .get('/me')
-                    .reply(200, {
-                        me: 'me',
-                    });
-            });
-
-            it('should hit the correct endpoint', async () => {
-                const user = await api.getUser();
-                expect(user).to.eql({ me: 'me' });
-            });
+        beforeAll(() => {
+            api = new Api();
         });
-    });
 
-    describe('#getOrganization', () => {
-        describe('Retrieve information about the organization', () => {
-            let api;
-
-            beforeEach(() => {
-                api = new Api();
-
-                nock(baseUrl)
-                    .get('/organization')
-                    .reply(200, {
-                        value: [{
-                            org: 'org'
-                        }]
-                    });
-            });
-
-            it('should hit the correct endpoint', async () => {
-                const org = await api.getOrganization();
-                expect(org).to.eql({ org: 'org' });
-            });
+        afterEach(() => {
+            nock.cleanAll();
         });
-    });
 
-    describe('#listSites', () => {
-        describe('Retrieve information about sites', () => {
-            let api;
+        describe('#getUser', () => {
+            describe('Retrieve information about the user', () => {
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .get('/me')
+                        .reply(200, {
+                            me: 'me',
+                        });
+                });
 
-            beforeEach(() => {
-                api = new Api();
-
-                nock(baseUrl)
-                    .get('/sites?search=*')
-                    .reply(200, {
-                        sites: 'sites'
-                    });
-            });
-
-            it('should hit the correct endpoint', async () => {
-                const sites = await api.listSites();
-                expect(sites).to.eql({ sites: 'sites' });
-            });
-        });
-    });
-
-    describe('#listDrives', () => {
-        describe('Retrieve information about drives', () => {
-            let api;
-
-            beforeEach(() => {
-                api = new Api();
-
-                nock(baseUrl)
-                    .get('/sites/siteId/drives')
-                    .reply(200, {
-                        drives: 'drives'
-                    });
-            });
-
-            it('should hit the correct endpoint', async () => {
-                const drives = await api.listDrives({ siteId: 'siteId' });
-                expect(drives).to.eql({ drives: 'drives' });
-            });
-        });
-    });
-
-    describe('#retrieveFolder', () => {
-        describe('Retrieve information about the root folder', () => {
-            let api;
-
-            beforeEach(() => {
-                api = new Api();
-
-                nock(baseUrl)
-                    .get('/drives/driveId/items/root/children?$expand=thumbnails&top=8&$filter=')
-                    .reply(200, {
-                        folder: 'root'
-                    });
-            });
-
-            it('should hit the correct endpoint', async () => {
-                const params = {
-                    driveId: 'driveId'            
-                };
-
-                const folder = await api.retrieveFolder(params);
-                expect(folder).to.eql({ folder: 'root' });
+                it('should hit the correct endpoint', async () => {
+                    const user = await api.getUser();
+                    expect(user).to.eql({ me: 'me' });
+                });
             });
         });
 
-        describe('Retrieve information about a folder', () => {
-            let api;
+        describe('#getOrganization', () => {
+            describe('Retrieve information about the organization', () => {
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .get('/organization')
+                        .reply(200, {
+                            value: [{
+                                org: 'org'
+                            }]
+                        });
+                });
 
-            beforeEach(() => {
-                api = new Api();
-
-                nock(baseUrl)
-                    .get('/drives/driveId/items/folderId/children?$expand=thumbnails&top=8&$filter=')
-                    .reply(200, {
-                        folder: 'folder'
-                    });
-            });
-
-            it('should hit the correct endpoint', async () => {
-                const params = {
-                    driveId: 'driveId',
-                    folderId: 'folderId'
-                };
-
-                const folder = await api.retrieveFolder(params);
-                expect(folder).to.eql({ folder: 'folder' });
-            });
-        });
-    });
-
-    describe('#search', () => {
-        describe('Perform a search', () => {
-            let api;
-
-            beforeEach(() => {
-                api = new Api();
-
-                nock(baseUrl)
-                    .get('/drives/driveId/root/search(q=%27q%27)?top=20&$select=id,image,name,file,parentReference,size,lastModifiedDateTime,@microsoft.graph.downloadUrl&$filter=')
-                    .reply(200, {
-                        results: 'results'
-                    });
-            });
-
-            it('should hit the correct endpoint', async () => {
-                const params = {
-                    driveId: 'driveId',
-                    q: 'q'
-                };
-
-                const results = await api.search(params);
-                expect(results).to.eql({ results: 'results' });
+                it('should hit the correct endpoint', async () => {
+                    const org = await api.getOrganization();
+                    expect(org).to.eql({ org: 'org' });
+                });
             });
         });
 
-        describe('Perform a search incluing nextPageUrl', () => {
-            let api;
+        describe('#listSites', () => {
+            describe('Retrieve information about sites', () => {
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .get('/sites?search=*')
+                        .reply(200, {
+                            sites: 'sites'
+                        });
+                });
 
-            beforeEach(() => {
-                api = new Api();
-
-                nock('http://nextPageUrl')
-                    .get('/')
-                    .reply(200, {
-                        results: 'results'
-                    });
-            });
-
-            it('should hit the correct endpoint', async () => {
-                const params = {
-                    driveId: 'driveId',
-                    q: 'q',
-                    nextPageUrl: 'http://nextPageUrl/'
-                };
-
-                const results = await api.search(params);
-                expect(results).to.eql({ results: 'results' });
+                it('should hit the correct endpoint', async () => {
+                    const sites = await api.listSites();
+                    expect(sites).to.eql({ sites: 'sites' });
+                });
             });
         });
-    });
 
-    describe('#retrieveFile', () => {
-        describe('Retrieve information about drives', () => {
-            let api;
+        describe('#listDrives', () => {
+            describe('Retrieve information about drives', () => {
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .get('/sites/siteId/drives')
+                        .reply(200, {
+                            drives: 'drives'
+                        });
+                });
 
-            beforeEach(() => {
-                api = new Api();
+                it('should hit the correct endpoint', async () => {
+                    const drives = await api.listDrives({ siteId: 'siteId' });
+                    expect(drives).to.eql({ drives: 'drives' });
+                });
+            });
+        });
 
-                nock(baseUrl)
-                    .get('/drives/driveId/items/fileId?$expand=listItem')
-                    .reply(200, {
-                        file: 'file'
-                    });
+        describe('#retrieveFolder', () => {
+            describe('Retrieve information about the root folder', () => {
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .get('/drives/driveId/items/root/children?$expand=thumbnails&top=8&$filter=')
+                        .reply(200, {
+                            folder: 'root'
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const params = {
+                        driveId: 'driveId'            
+                    };
+
+                    const folder = await api.retrieveFolder(params);
+                    expect(folder).to.eql({ folder: 'root' });
+                });
             });
 
-            it('should hit the correct endpoint', async () => {
-                const params = {
-                    driveId: 'driveId',
-                    fileId: 'fileId'
-                };
+            describe('Retrieve information about a folder', () => {
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .get('/drives/driveId/items/folderId/children?$expand=thumbnails&top=8&$filter=')
+                        .reply(200, {
+                            folder: 'folder'
+                        });
+                });
 
-                const file = await api.retrieveFile(params);
-                expect(file).to.eql({ file: 'file' });
+                it('should hit the correct endpoint', async () => {
+                    const params = {
+                        driveId: 'driveId',
+                        folderId: 'folderId'
+                    };
+
+                    const folder = await api.retrieveFolder(params);
+                    expect(folder).to.eql({ folder: 'folder' });
+                });
+            });
+        });
+
+        describe('#search', () => {
+            describe('Perform a search', () => {
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .get('/drives/driveId/root/search(q=%27q%27)?top=20&$select=id,image,name,file,parentReference,size,lastModifiedDateTime,@microsoft.graph.downloadUrl&$filter=')
+                        .reply(200, {
+                            results: 'results'
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const params = {
+                        driveId: 'driveId',
+                        q: 'q'
+                    };
+
+                    const results = await api.search(params);
+                    expect(results).to.eql({ results: 'results' });
+                });
+            });
+
+            describe('Perform a search incluing nextPageUrl', () => {
+                beforeEach(() => {
+                    nock('http://nextPageUrl')
+                        .get('/')
+                        .reply(200, {
+                            results: 'results'
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const params = {
+                        driveId: 'driveId',
+                        q: 'q',
+                        nextPageUrl: 'http://nextPageUrl/'
+                    };
+
+                    const results = await api.search(params);
+                    expect(results).to.eql({ results: 'results' });
+                });
+            });
+        });
+
+        describe('#retrieveFile', () => {
+            describe('Retrieve information about drives', () => {
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .get('/drives/driveId/items/fileId?$expand=listItem')
+                        .reply(200, {
+                            file: 'file'
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const params = {
+                        driveId: 'driveId',
+                        fileId: 'fileId'
+                    };
+
+                    const file = await api.retrieveFile(params);
+                    expect(file).to.eql({ file: 'file' });
+                });
             });
         });
     });
