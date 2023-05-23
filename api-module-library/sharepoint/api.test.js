@@ -44,6 +44,8 @@ describe(`${config.label} API Tests`, () => {
                     driveId: 'driveId',
                     query: 'query'
                 })).to.equal("/drives/driveId/root/search(q='query')?top=20&$select=id,image,name,file,parentReference,size,lastModifiedDateTime,@microsoft.graph.downloadUrl&$filter=");
+                expect(api.authorizationUri).to.equal('https://login.microsoftonline.com/tenant_id/oauth2/v2.0/authorize');
+                expect(api.tokenUri).to.equal('https://login.microsoftonline.com/tenant_id/oauth2/v2.0/token');
             });
         });
 
@@ -79,6 +81,8 @@ describe(`${config.label} API Tests`, () => {
                     driveId: 'driveId',
                     query: 'query'
                 })).to.equal("/drives/driveId/root/search(q='query')?top=20&$select=id,image,name,file,parentReference,size,lastModifiedDateTime,@microsoft.graph.downloadUrl&$filter=");
+                expect(api.authorizationUri).to.equal('https://login.microsoftonline.com/common/oauth2/v2.0/authorize');
+                expect(api.tokenUri).to.equal('https://login.microsoftonline.com/common/oauth2/v2.0/token');
             });
         });
     });
