@@ -72,7 +72,6 @@ class Api extends OAuth2Requester {
             url: `${this.baseUrl}${this.URLs.allSites}`,
         };
         const response = await this._get(options);
-        console.log(response);
         return response;
     }
 
@@ -81,7 +80,6 @@ class Api extends OAuth2Requester {
             url: `${this.baseUrl}${this.URLs.drivesBySite(query.siteId)}`,
         };
         const response = await this._get(options);
-        console.log(response);
         return response;
     }
 
@@ -100,7 +98,6 @@ class Api extends OAuth2Requester {
         }
 
         const response = await this._get(options);
-        console.log(response);
         return response;
     }
 
@@ -119,7 +116,6 @@ class Api extends OAuth2Requester {
         }
 
         const response = await this._get(options);
-        console.log(response);
         return response;
     }
 
@@ -134,7 +130,6 @@ class Api extends OAuth2Requester {
         };
 
         const response = await this._get(options);
-        console.log(response);
         return response;
     }
 }
