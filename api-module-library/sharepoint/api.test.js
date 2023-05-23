@@ -88,6 +88,18 @@ describe(`${config.label} API Tests`, () => {
                 expect(api.tokenUri).to.equal('https://login.microsoftonline.com/common/oauth2/v2.0/token');
             });
         });
+
+        describe('Create new API with access token', () => {
+            let api;
+
+            beforeEach(() => {
+                api = new Api({ access_token: 'access_token' });
+            });
+
+            it('should pass params to parent', () => {
+                expect(api.access_token).to.eql('access_token');
+            });
+        });
     });
 
     describe('#getAuthUri', () => {
