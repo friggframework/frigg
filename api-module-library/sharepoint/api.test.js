@@ -2,55 +2,134 @@ const Authenticator = require('@friggframework/test-environment/Authenticator');
 const { Api } = require('./api');
 const config = require('./defaultConfig.json');
 const chai = require('chai');
-const should = chai.should();
+const expect = chai.expect;
+
 describe(`${config.label} API Tests`, () => {
-    const apiParams = {
-        client_id: process.env.SHAREPOINT_CLIENT_ID,
-        client_secret: process.env.SHAREPOINT_CLIENT_SECRET,
-        redirect_uri: process.env.REDIRECT_URI,
-        scope: process.env.SHAREPOINT_SCOPE,
-        forceConsent: true,
-    };
-    const api = new Api(apiParams);
+    describe('#constructor', () => {
+        describe('Create new API with params', () => {
+            let api;
 
-    beforeAll(async () => {
-        const url = await api.getAuthUri();
-        const response = await Authenticator.oauth2(url);
-        const baseArr = response.base.split('/');
-        response.entityType = baseArr[baseArr.length - 1];
-        delete response.base;
+            beforeEach(() => {
+                const params = {
+                    tenant_id: 'tenant_id',
+                    state: 'state',
+                    forceConsent: 'forceConsent',
+                };
 
-        await api.getTokenFromCode(response.data.code);
+                api = new Api(params);
+            });
+
+            it('should have all properties filled', () => {
+                expect(api.backOff).to.eql([1, 3]);
+                expect(api.baseUrl).to.equal('https://graph.microsoft.com/v1.0');
+                expect(api.tenant_id).to.equal('tenant_id');
+                expect(api.state).to.equal('state');
+                expect(api.forceConsent).to.equal('forceConsent');
+                expect(api.URLs.userDetails).to.equal('/me');
+                expect(api.URLs.orgDetails).to.equal('/organization');
+                expect(api.URLs.defaultSite).to.equal('/sites/root');
+                expect(api.URLs.allSites).to.equal('/sites?search=*');
+                expect(api.URLs.defaultDrives).to.equal('/sites/root/drives');
+                expect(api.URLs.drivesBySite('siteId')).to.equal('/sites/siteId/drives');
+                expect(api.URLs.rootFolders({
+                    driveId: 'driveId',
+                    childId: 'childId'
+                })).to.equal('/drives/driveId/items/childId/children?$expand=thumbnails&top=8&$filter=');
+                expect(api.URLs.folderChildren('childId')).to.equal('/me/drive/items/childId/children?$filter=');
+                expect(api.URLs.getFile({
+                    driveId: 'driveId',
+                    fileId: 'fileId'
+                })).to.equal('/drives/driveId/items/fileId?$expand=listItem');
+                expect(api.URLs.search({
+                    driveId: 'driveId',
+                    query: 'query'
+                })).to.equal("/drives/driveId/root/search(q='query')?top=20&$select=id,image,name,file,parentReference,size,lastModifiedDateTime,@microsoft.graph.downloadUrl&$filter=");
+            });
+        });
+
+        describe('Create new API without params', () => {
+            let api;
+
+            beforeEach(() => {
+                api = new Api();
+            });
+
+            it('should have all properties filled', () => {
+                expect(api.backOff).to.eql([1, 3]);
+                expect(api.baseUrl).to.equal('https://graph.microsoft.com/v1.0');
+                expect(api.tenant_id).to.equal('common');
+                expect(api.state).to.be.null;
+                expect(api.forceConsent).to.be.true;
+                expect(api.URLs.userDetails).to.equal('/me');
+                expect(api.URLs.orgDetails).to.equal('/organization');
+                expect(api.URLs.defaultSite).to.equal('/sites/root');
+                expect(api.URLs.allSites).to.equal('/sites?search=*');
+                expect(api.URLs.defaultDrives).to.equal('/sites/root/drives');
+                expect(api.URLs.drivesBySite('siteId')).to.equal('/sites/siteId/drives');
+                expect(api.URLs.rootFolders({
+                    driveId: 'driveId',
+                    childId: 'childId'
+                })).to.equal('/drives/driveId/items/childId/children?$expand=thumbnails&top=8&$filter=');
+                expect(api.URLs.folderChildren('childId')).to.equal('/me/drive/items/childId/children?$filter=');
+                expect(api.URLs.getFile({
+                    driveId: 'driveId',
+                    fileId: 'fileId'
+                })).to.equal('/drives/driveId/items/fileId?$expand=listItem');
+                expect(api.URLs.search({
+                    driveId: 'driveId',
+                    query: 'query'
+                })).to.equal("/drives/driveId/root/search(q='query')?top=20&$select=id,image,name,file,parentReference,size,lastModifiedDateTime,@microsoft.graph.downloadUrl&$filter=");
+            });
+        });
     });
-    describe('OAuth Flow Tests', () => {
-        it('Should generate an access_token', async () => {
-            api.access_token.should.exist;
-            api.refresh_token.should.exist;
+
+    describe('#getAuthUri', () => {
+        describe('Generate Auth Url', () => {
+            let api;
+
+            beforeEach(() => {
+                const apiParams = {
+                    client_id: 'client_id',
+                    client_secret: 'client_secret',
+                    redirect_uri: 'redirect_uri',
+                    scope: 'scope',
+                    state: 'state',
+                    forceConsent: true,
+                };
+
+                api = new Api(apiParams);
+            });
+
+            it('should return auth url', () => {
+                const link = 'https://login.microsoftonline.com/'
+                      + 'common/oauth2/v2.0/authorize?'
+                      + 'client_id=client_id&response_type=code&redirect_uri=redirect_uri&scope=scope&state=state&prompt=select_account';
+                expect(api.getAuthUri()).to.equal(link);
+            });
         });
-        it('Should be able to refresh the token', async () => {
-            const oldToken = api.access_token;
-            const oldRefreshToken = api.refresh_token;
-            await api.refreshAccessToken({ refresh_token: api.refresh_token });
-            api.access_token.should.exist;
-            api.access_token.should.not.equal(oldToken);
-            api.refresh_token.should.exist;
-            api.refresh_token.should.not.equal(oldRefreshToken);
+
+        describe('Generate Auth Url without prompt', () => {
+            let api;
+
+            beforeEach(() => {
+                const apiParams = {
+                    client_id: 'client_id',
+                    client_secret: 'client_secret',
+                    redirect_uri: 'redirect_uri',
+                    scope: 'scope',
+                    state: 'state',
+                    forceConsent: false,
+                };
+
+                api = new Api(apiParams);
+            });
+
+            it('should return auth url', () => {
+                const link = 'https://login.microsoftonline.com/'
+                      + 'common/oauth2/v2.0/authorize?'
+                      + 'client_id=client_id&response_type=code&redirect_uri=redirect_uri&scope=scope&state=state';
+                expect(api.getAuthUri()).to.equal(link);
+            });
         });
     });
-    describe('Basic Identification Requests', () => {
-        it('Should retrieve information about the user', async () => {
-            const user = await api.getUser();
-            user.should.exist;
-        });
-        it('Should retrieve information about the Organization', async () => {
-            const org = await api.getOrganization();
-            org.should.exist;
-        });
-    });
-    describe('Sharepoint API Tests', () => {
-        it('Should retrieve a list of sites available to the user', async () => {
-            const sites = await api.listSites();
-            sites.should.exist;
-        });
-    })
 });

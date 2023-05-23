@@ -39,7 +39,7 @@ class Api extends OAuth2Requester {
         this.tokenUri = `https://login.microsoftonline.com/${this.tenant_id}/oauth2/v2.0/token`;
     }
 
-    async getAuthUri() {
+    getAuthUri() {
         const query = {
             client_id: this.client_id,
             response_type: 'code',
