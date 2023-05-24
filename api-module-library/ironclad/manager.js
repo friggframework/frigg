@@ -29,7 +29,7 @@ class Manager extends ModuleManager {
     static async getInstance(params) {
         const instance = new this(params);
 
-        let managerParams = { delegate: instance };
+        let managerParams = { delegate: instance, agent: get(params, 'agent', null) };
 
         if (params.entityId) {
             instance.entity = await Entity.findById(params.entityId);
@@ -60,8 +60,9 @@ class Manager extends ModuleManager {
         const apiKey = get(params.data, 'apiKey', null);
         const subdomain = get(params.data, 'subdomain', null);
         const subType = get(params.data, 'subType', null);
+        const agent = get(params.data, 'agent', null);
         this.userId = this.userId || get(params, 'userId');
-        this.api = new Api({ apiKey, subdomain });
+        this.api = new Api({ apiKey, subdomain, agent });
         const authRes = await this.testAuth();
         if (!authRes) throw new Error('Auth Error');
 
