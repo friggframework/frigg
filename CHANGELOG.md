@@ -1,3 +1,19 @@
+# (Wed May 24 2023)
+
+#### 🐛 Bug Fix
+
+- package-lock update [#158](https://github.com/friggframework/frigg/pull/158) ([@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/api-module-google-drive@0.0.2`
+  - Need to add publishConfig for public first time publishing [#159](https://github.com/friggframework/frigg/pull/159) ([@seanspeaks](https://github.com/seanspeaks))
+  - Google Drive API module [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Tue May 16 2023)
 
 #### 🐛 Bug Fix
