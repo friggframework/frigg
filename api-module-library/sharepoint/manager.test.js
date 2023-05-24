@@ -18,6 +18,21 @@ describe(`Should fully test the ${config.label} Manager`, () => {
         await mongoose.disconnect();
     });
 
+    describe('#getInstance', () => {
+        let manager;
+
+        beforeEach(async () => {
+            manager = await Manager.getInstance({
+                userId: new mongoose.Types.ObjectId(),
+            });
+        });
+
+        it('can create an instance of Module Manger', async () => {
+            expect(manager).toBeDefined();
+            expect(manager.api).toBeDefined();
+        });
+    });
+
     describe('#getAuthorizationRequirements', () => {
         let manager;
 
