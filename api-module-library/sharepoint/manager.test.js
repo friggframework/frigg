@@ -20,6 +20,12 @@ describe(`Should fully test the ${config.label} Manager`, () => {
         await mongoose.disconnect();
     });
 
+    describe('#getName', () => {
+        it('should return manager name', () => {
+            expect(Manager.getName()).toEqual('microsoft-sharepoint');
+        });
+    });
+
     describe('#getInstance', () => {
         describe('Create new instance', () => {
             let manager;
@@ -71,6 +77,61 @@ describe(`Should fully test the ${config.label} Manager`, () => {
         });
     });
 
+    describe('#testAuth', () => {
+        describe('Perform test request', () => {
+            const baseUrl = 'https://graph.microsoft.com/v1.0';
+            let manager, scope;
+
+            beforeEach(async () => {
+                manager = await Manager.getInstance({
+                    userId: new mongoose.Types.ObjectId(),
+                });
+
+                scope = nock(baseUrl)
+                    .get('/sites?search=*')
+                    .reply(200, {
+                        sites: 'sites'
+                    });
+            });
+
+            it('should return true', async () => {
+                const res = await manager.testAuth();
+                expect(res).toBe(true);
+                expect(scope.isDone()).toBe(true);
+            });
+        });
+
+        describe('Perform test request to wrong URL', () => {
+            const baseUrl = 'https://graph.microsoft.com/v1.0';
+            let manager, scope;
+
+            beforeEach(async () => {
+                // Silent error log when doing Auth request
+                jest.spyOn(console, 'error').mockImplementation(() => {});
+
+                manager = await Manager.getInstance({
+                    userId: new mongoose.Types.ObjectId(),
+                });
+
+                scope = nock(baseUrl)
+                    .get('/sites?search=****')
+                    .reply(200, {
+                        sites: 'sites'
+                    });
+            });
+
+            afterEach(() => {
+                jest.clearAllMocks();
+            });
+
+            it('should return false', async () => {
+                const res = await manager.testAuth();
+                expect(res).toBe(false);
+                expect(scope.isDone()).toBe(false);
+            });
+        });
+    });
+
     describe('#getAuthorizationRequirements', () => {
         let manager;
 
@@ -118,7 +179,7 @@ describe(`Should fully test the ${config.label} Manager`, () => {
                 });
 
                 authScope = nock('https://login.microsoftonline.com')
-                    .post('/common/oauth2/v2.0/token', )
+                    .post('/common/oauth2/v2.0/token', body)
                     .reply(200, {
                         access_token: 'access_token',
                         refresh_token: 'refresh_token',
@@ -178,7 +239,7 @@ describe(`Should fully test the ${config.label} Manager`, () => {
                 });
 
                 authScope = nock('https://login.microsoftonline.com')
-                    .post('/common/oauth2/v2.0/token', )
+                    .post('/common/oauth2/v2.0/token', body)
                     .reply(200, {
                         access_token: 'access_token',
                         refresh_token: 'refresh_token',
