@@ -10,9 +10,6 @@ class Api extends ApiKeyRequester {
         this.API_KEY_VALUE = get(params, 'apiKey', null);
         this.SUBDOMAIN = get(params, 'subdomain', null);
         this.IS_LOCAL = this.SUBDOMAIN?.toLowerCase() === 'localhost' ? true : false;
-        this.HTTPS_AGENT = this.IS_LOCAL ? new https.Agent({
-            rejectUnauthorized: false,
-        }) : undefined;
 
         this.baseUrl = () => {
             if (this.SUBDOMAIN) {
@@ -57,8 +54,7 @@ class Api extends ApiKeyRequester {
 
     async getConnectionInformation() {
         const options = {
-            url: this.baseUrl() + this.URLs.me,
-            agent: this.HTTPS_AGENT,
+            url: this.baseUrl() + this.URLs.me
         };
         const response = await this._get(options);
         return response;
@@ -66,8 +62,7 @@ class Api extends ApiKeyRequester {
 
     async listWebhooks() {
         const options = {
-            url: this.baseUrl() + this.URLs.webhooks,
-            agent: this.HTTPS_AGENT,
+            url: this.baseUrl() + this.URLs.webhooks
         };
         const response = await this._get(options);
         return response;
@@ -82,8 +77,7 @@ class Api extends ApiKeyRequester {
             body: {
                 events,
                 targetURL,
-            },
-            agent: this.HTTPS_AGENT,
+            }
         };
         const response = await this._post(options);
         return response;
@@ -95,8 +89,7 @@ class Api extends ApiKeyRequester {
             headers: {
                 'content-type': 'application/json',
             },
-            body: {},
-            agent: this.HTTPS_AGENT,
+            body: {}
         };
 
         if (events.length > 0) {
@@ -113,8 +106,7 @@ class Api extends ApiKeyRequester {
 
     async deleteWebhook(webhookId) {
         const options = {
-            url: this.baseUrl() + this.URLs.webhookByID(webhookId),
-            agent: this.HTTPS_AGENT,
+            url: this.baseUrl() + this.URLs.webhookByID(webhookId)
         };
         const response = await this._delete(options);
         return response;
@@ -123,8 +115,7 @@ class Api extends ApiKeyRequester {
     async listAllWorkflows(params) {
         const options = {
             url: this.baseUrl() + this.URLs.workflows,
-            query: params,
-            agent: this.HTTPS_AGENT,
+            query: params
         };
         const response = await this._get(options);
         return response;
@@ -132,8 +123,7 @@ class Api extends ApiKeyRequester {
 
     async retrieveWorkflow(id) {
         const options = {
-            url: this.baseUrl() + this.URLs.workflowsByID(id),
-            agent: this.HTTPS_AGENT,
+            url: this.baseUrl() + this.URLs.workflowsByID(id)
         };
         const response = await this._get(options);
         return response;
@@ -145,8 +135,7 @@ class Api extends ApiKeyRequester {
             headers: {
                 'content-type': 'application/json',
             },
-            body,
-            agent: this.HTTPS_AGENT,
+            body
         };
         const response = await this._post(options);
         return response;
@@ -156,8 +145,7 @@ class Api extends ApiKeyRequester {
         const options = {
             url: this.baseUrl() + this.URLs.workflowSchemas,
             query: params,
-            headers: {},
-            agent: this.HTTPS_AGENT,
+            headers: {}
         };
         if (asUserEmail) {
             options.headers['x-as-user-email'] = asUserEmail;
@@ -172,8 +160,7 @@ class Api extends ApiKeyRequester {
     async retrieveWorkflowSchema(params, id) {
         const options = {
             url: this.baseUrl() + this.URLs.workflowSchemaByID(id),
-            query: params,
-            agent: this.HTTPS_AGENT,
+            query: params
         };
         const response = await this._get(options);
         return response;
@@ -181,16 +168,14 @@ class Api extends ApiKeyRequester {
 
     async listAllWorkflowApprovals(id) {
         const options = {
-            url: this.baseUrl() + this.URLs.workflowsByID(id) + '/approvals',
-            agent: this.HTTPS_AGENT,
+            url: this.baseUrl() + this.URLs.workflowsByID(id) + '/approvals'
         };
         const response = await this._get(options);
         return response;
     }
     async listAllWorkflowSignatures(id) {
         const options = {
-            url: this.baseUrl() + this.URLs.workflowsByID(id) + '/signatures',
-            agent: this.HTTPS_AGENT,
+            url: this.baseUrl() + this.URLs.workflowsByID(id) + '/signatures'
         };
         const response = await this._get(options);
         return response;
@@ -206,8 +191,7 @@ class Api extends ApiKeyRequester {
             headers: {
                 'content-type': 'application/json',
             },
-            body,
-            agent: this.HTTPS_AGENT,
+            body
         };
         const response = await this._patch(options);
         return response;
@@ -222,8 +206,7 @@ class Api extends ApiKeyRequester {
             headers: {
                 'content-type': 'application/json',
             },
-            body,
-            agent: this.HTTPS_AGENT,
+            body
         };
         const response = await this._patch(options);
         return response;
@@ -235,8 +218,7 @@ class Api extends ApiKeyRequester {
             headers: {
                 'content-type': 'application/json',
             },
-            body,
-            agent: this.HTTPS_AGENT,
+            body
         };
         const response = await this._post(options);
         return response;
@@ -249,8 +231,7 @@ class Api extends ApiKeyRequester {
                 this.URLs.workflowCommentByID(workflowId, commentId),
             headers: {
                 'content-type': 'application/json',
-            },
-            agent: this.HTTPS_AGENT,
+            }
         };
         const response = await this._get(options);
         return response;
@@ -261,8 +242,7 @@ class Api extends ApiKeyRequester {
             url:
                 this.baseUrl() +
                 this.URLs.workflowsByID(workflowID) +
-                `/document/${documentKey}/download`,
-            agent: this.HTTPS_AGENT,
+                `/document/${documentKey}/download`
         };
         const response = await this._get(options);
         return response;
@@ -274,8 +254,7 @@ class Api extends ApiKeyRequester {
             headers: {
                 'content-type': 'application/json',
             },
-            body,
-            agent: this.HTTPS_AGENT,
+            body
         };
         const response = await this._patch(options);
         return response;
@@ -283,8 +262,7 @@ class Api extends ApiKeyRequester {
 
     async listAllRecords() {
         const options = {
-            url: this.baseUrl() + this.URLs.records,
-            agent: this.HTTPS_AGENT,
+            url: this.baseUrl() + this.URLs.records
         };
         const response = await this._get(options);
         return response;
@@ -296,8 +274,7 @@ class Api extends ApiKeyRequester {
             headers: {
                 'content-type': 'application/json',
             },
-            body,
-            agent: this.HTTPS_AGENT,
+            body
         };
         const response = await this._post(options);
         return response;
@@ -305,8 +282,7 @@ class Api extends ApiKeyRequester {
 
     async listAllRecordSchemas() {
         const options = {
-            url: this.baseUrl() + this.URLs.recordSchemas,
-            agent: this.HTTPS_AGENT,
+            url: this.baseUrl() + this.URLs.recordSchemas
         };
         const response = await this._get(options);
         return response;
@@ -314,8 +290,7 @@ class Api extends ApiKeyRequester {
 
     async retrieveRecord(recordId) {
         const options = {
-            url: this.baseUrl() + this.URLs.recordByID(recordId),
-            agent: this.HTTPS_AGENT,
+            url: this.baseUrl() + this.URLs.recordByID(recordId)
         };
         const response = await this._get(options);
         return response;
@@ -327,8 +302,7 @@ class Api extends ApiKeyRequester {
             headers: {
                 'content-type': 'application/json',
             },
-            body,
-            agent: this.HTTPS_AGENT,
+            body
         };
         const response = await this._patch(options);
         return response;
@@ -336,8 +310,7 @@ class Api extends ApiKeyRequester {
 
     async deleteRecord(recordId) {
         const options = {
-            url: this.baseUrl() + this.URLs.recordByID(recordId),
-            agent: this.HTTPS_AGENT,
+            url: this.baseUrl() + this.URLs.recordByID(recordId)
         };
         const response = await this._delete(options);
         return response;
@@ -347,8 +320,7 @@ class Api extends ApiKeyRequester {
         // TODO: Handle pagination for this api call
         const options = {
             url:
-                this.baseUrl() + this.URLs.workflowParticipantsByID(workflowId),
-            agent: this.HTTPS_AGENT,
+                this.baseUrl() + this.URLs.workflowParticipantsByID(workflowId)
         };
         const response = await this._get(options);
         return response;
@@ -356,8 +328,7 @@ class Api extends ApiKeyRequester {
 
     async getUser(userId) {
         const options = {
-            url: this.baseUrl() + this.URLs.userByID(userId),
-            agent: this.HTTPS_AGENT,
+            url: this.baseUrl() + this.URLs.userByID(userId)
         };
         const response = await this._get(options);
         return response;
