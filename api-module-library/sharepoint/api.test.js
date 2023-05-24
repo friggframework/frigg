@@ -2,8 +2,6 @@ const Authenticator = require('@friggframework/test-environment/Authenticator');
 const { Api } = require('./api');
 const config = require('./defaultConfig.json');
 const nock = require('nock');
-const chai = require('chai');
-const expect = chai.expect;
 
 describe(`${config.label} API Tests`, () => {
     const baseUrl = 'https://graph.microsoft.com/v1.0';
@@ -23,32 +21,32 @@ describe(`${config.label} API Tests`, () => {
             });
 
             it('should have all properties filled', () => {
-                expect(api.backOff).to.eql([1, 3]);
-                expect(api.baseUrl).to.equal(baseUrl);
-                expect(api.tenant_id).to.equal('tenant_id');
-                expect(api.state).to.equal('state');
-                expect(api.forceConsent).to.equal('forceConsent');
-                expect(api.URLs.userDetails).to.equal('/me');
-                expect(api.URLs.orgDetails).to.equal('/organization');
-                expect(api.URLs.defaultSite).to.equal('/sites/root');
-                expect(api.URLs.allSites).to.equal('/sites?search=*');
-                expect(api.URLs.defaultDrives).to.equal('/sites/root/drives');
-                expect(api.URLs.drivesBySite('siteId')).to.equal('/sites/siteId/drives');
+                expect(api.backOff).toEqual([1, 3]);
+                expect(api.baseUrl).toEqual(baseUrl);
+                expect(api.tenant_id).toEqual('tenant_id');
+                expect(api.state).toEqual('state');
+                expect(api.forceConsent).toEqual('forceConsent');
+                expect(api.URLs.userDetails).toEqual('/me');
+                expect(api.URLs.orgDetails).toEqual('/organization');
+                expect(api.URLs.defaultSite).toEqual('/sites/root');
+                expect(api.URLs.allSites).toEqual('/sites?search=*');
+                expect(api.URLs.defaultDrives).toEqual('/sites/root/drives');
+                expect(api.URLs.drivesBySite('siteId')).toEqual('/sites/siteId/drives');
                 expect(api.URLs.rootFolders({
                     driveId: 'driveId',
                     childId: 'childId'
-                })).to.equal('/drives/driveId/items/childId/children?$expand=thumbnails&top=8&$filter=');
-                expect(api.URLs.folderChildren('childId')).to.equal('/me/drive/items/childId/children?$filter=');
+                })).toEqual('/drives/driveId/items/childId/children?$expand=thumbnails&top=8&$filter=');
+                expect(api.URLs.folderChildren('childId')).toEqual('/me/drive/items/childId/children?$filter=');
                 expect(api.URLs.getFile({
                     driveId: 'driveId',
                     fileId: 'fileId'
-                })).to.equal('/drives/driveId/items/fileId?$expand=listItem');
+                })).toEqual('/drives/driveId/items/fileId?$expand=listItem');
                 expect(api.URLs.search({
                     driveId: 'driveId',
                     query: 'query'
-                })).to.equal("/drives/driveId/root/search(q='query')?top=20&$select=id,image,name,file,parentReference,size,lastModifiedDateTime,@microsoft.graph.downloadUrl&$filter=");
-                expect(api.authorizationUri).to.equal('https://login.microsoftonline.com/tenant_id/oauth2/v2.0/authorize');
-                expect(api.tokenUri).to.equal('https://login.microsoftonline.com/tenant_id/oauth2/v2.0/token');
+                })).toEqual("/drives/driveId/root/search(q='query')?top=20&$select=id,image,name,file,parentReference,size,lastModifiedDateTime,@microsoft.graph.downloadUrl&$filter=");
+                expect(api.authorizationUri).toEqual('https://login.microsoftonline.com/tenant_id/oauth2/v2.0/authorize');
+                expect(api.tokenUri).toEqual('https://login.microsoftonline.com/tenant_id/oauth2/v2.0/token');
             });
         });
 
@@ -60,32 +58,32 @@ describe(`${config.label} API Tests`, () => {
             });
 
             it('should have all properties filled', () => {
-                expect(api.backOff).to.eql([1, 3]);
-                expect(api.baseUrl).to.equal(baseUrl);
-                expect(api.tenant_id).to.equal('common');
-                expect(api.state).to.be.null;
-                expect(api.forceConsent).to.be.true;
-                expect(api.URLs.userDetails).to.equal('/me');
-                expect(api.URLs.orgDetails).to.equal('/organization');
-                expect(api.URLs.defaultSite).to.equal('/sites/root');
-                expect(api.URLs.allSites).to.equal('/sites?search=*');
-                expect(api.URLs.defaultDrives).to.equal('/sites/root/drives');
-                expect(api.URLs.drivesBySite('siteId')).to.equal('/sites/siteId/drives');
+                expect(api.backOff).toEqual([1, 3]);
+                expect(api.baseUrl).toEqual(baseUrl);
+                expect(api.tenant_id).toEqual('common');
+                expect(api.state).toBeNull();
+                expect(api.forceConsent).toBe(true);
+                expect(api.URLs.userDetails).toEqual('/me');
+                expect(api.URLs.orgDetails).toEqual('/organization');
+                expect(api.URLs.defaultSite).toEqual('/sites/root');
+                expect(api.URLs.allSites).toEqual('/sites?search=*');
+                expect(api.URLs.defaultDrives).toEqual('/sites/root/drives');
+                expect(api.URLs.drivesBySite('siteId')).toEqual('/sites/siteId/drives');
                 expect(api.URLs.rootFolders({
                     driveId: 'driveId',
                     childId: 'childId'
-                })).to.equal('/drives/driveId/items/childId/children?$expand=thumbnails&top=8&$filter=');
-                expect(api.URLs.folderChildren('childId')).to.equal('/me/drive/items/childId/children?$filter=');
+                })).toEqual('/drives/driveId/items/childId/children?$expand=thumbnails&top=8&$filter=');
+                expect(api.URLs.folderChildren('childId')).toEqual('/me/drive/items/childId/children?$filter=');
                 expect(api.URLs.getFile({
                     driveId: 'driveId',
                     fileId: 'fileId'
-                })).to.equal('/drives/driveId/items/fileId?$expand=listItem');
+                })).toEqual('/drives/driveId/items/fileId?$expand=listItem');
                 expect(api.URLs.search({
                     driveId: 'driveId',
                     query: 'query'
-                })).to.equal("/drives/driveId/root/search(q='query')?top=20&$select=id,image,name,file,parentReference,size,lastModifiedDateTime,@microsoft.graph.downloadUrl&$filter=");
-                expect(api.authorizationUri).to.equal('https://login.microsoftonline.com/common/oauth2/v2.0/authorize');
-                expect(api.tokenUri).to.equal('https://login.microsoftonline.com/common/oauth2/v2.0/token');
+                })).toEqual("/drives/driveId/root/search(q='query')?top=20&$select=id,image,name,file,parentReference,size,lastModifiedDateTime,@microsoft.graph.downloadUrl&$filter=");
+                expect(api.authorizationUri).toEqual('https://login.microsoftonline.com/common/oauth2/v2.0/authorize');
+                expect(api.tokenUri).toEqual('https://login.microsoftonline.com/common/oauth2/v2.0/token');
             });
         });
 
@@ -97,7 +95,7 @@ describe(`${config.label} API Tests`, () => {
             });
 
             it('should pass params to parent', () => {
-                expect(api.access_token).to.eql('access_token');
+                expect(api.access_token).toEqual('access_token');
             });
         });
     });
@@ -123,7 +121,7 @@ describe(`${config.label} API Tests`, () => {
                 const link = 'https://login.microsoftonline.com/'
                       + 'common/oauth2/v2.0/authorize?'
                       + 'client_id=client_id&response_type=code&redirect_uri=redirect_uri&scope=scope&state=state&prompt=select_account';
-                expect(api.getAuthUri()).to.equal(link);
+                expect(api.getAuthUri()).toEqual(link);
             });
         });
 
@@ -147,7 +145,7 @@ describe(`${config.label} API Tests`, () => {
                 const link = 'https://login.microsoftonline.com/'
                       + 'common/oauth2/v2.0/authorize?'
                       + 'client_id=client_id&response_type=code&redirect_uri=redirect_uri&scope=scope&state=state';
-                expect(api.getAuthUri()).to.equal(link);
+                expect(api.getAuthUri()).toEqual(link);
             });
         });
     });
@@ -175,7 +173,7 @@ describe(`${config.label} API Tests`, () => {
 
                 it('should hit the correct endpoint', async () => {
                     const user = await api.getUser();
-                    expect(user).to.eql({ me: 'me' });
+                    expect(user).toEqual({ me: 'me' });
                 });
             });
         });
@@ -194,7 +192,7 @@ describe(`${config.label} API Tests`, () => {
 
                 it('should hit the correct endpoint', async () => {
                     const org = await api.getOrganization();
-                    expect(org).to.eql({ org: 'org' });
+                    expect(org).toEqual({ org: 'org' });
                 });
             });
         });
@@ -211,7 +209,7 @@ describe(`${config.label} API Tests`, () => {
 
                 it('should hit the correct endpoint', async () => {
                     const sites = await api.listSites();
-                    expect(sites).to.eql({ sites: 'sites' });
+                    expect(sites).toEqual({ sites: 'sites' });
                 });
             });
         });
@@ -228,7 +226,7 @@ describe(`${config.label} API Tests`, () => {
 
                 it('should hit the correct endpoint', async () => {
                     const drives = await api.listDrives({ siteId: 'siteId' });
-                    expect(drives).to.eql({ drives: 'drives' });
+                    expect(drives).toEqual({ drives: 'drives' });
                 });
             });
         });
@@ -249,7 +247,7 @@ describe(`${config.label} API Tests`, () => {
                     };
 
                     const folder = await api.retrieveFolder(params);
-                    expect(folder).to.eql({ folder: 'root' });
+                    expect(folder).toEqual({ folder: 'root' });
                 });
             });
 
@@ -269,7 +267,7 @@ describe(`${config.label} API Tests`, () => {
                     };
 
                     const folder = await api.retrieveFolder(params);
-                    expect(folder).to.eql({ folder: 'folder' });
+                    expect(folder).toEqual({ folder: 'folder' });
                 });
             });
         });
@@ -291,7 +289,7 @@ describe(`${config.label} API Tests`, () => {
                     };
 
                     const results = await api.search(params);
-                    expect(results).to.eql({ results: 'results' });
+                    expect(results).toEqual({ results: 'results' });
                 });
             });
 
@@ -312,7 +310,7 @@ describe(`${config.label} API Tests`, () => {
                     };
 
                     const results = await api.search(params);
-                    expect(results).to.eql({ results: 'results' });
+                    expect(results).toEqual({ results: 'results' });
                 });
             });
         });
@@ -334,7 +332,7 @@ describe(`${config.label} API Tests`, () => {
                     };
 
                     const file = await api.retrieveFile(params);
-                    expect(file).to.eql({ file: 'file' });
+                    expect(file).toEqual({ file: 'file' });
                 });
             });
         });
