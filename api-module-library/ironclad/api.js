@@ -1,6 +1,5 @@
 const { ApiKeyRequester } = require('@friggframework/module-plugin');
 const { get } = require('@friggframework/assertions');
-const https = require('https');
 
 class Api extends ApiKeyRequester {
     constructor(params) {
