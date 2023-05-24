@@ -58,9 +58,9 @@ class Manager extends ModuleManager {
         return validAuth;
     }
 
-    async getAuthorizationRequirements() {
+    getAuthorizationRequirements() {
         return {
-            url: await this.api.getAuthUri(),
+            url: this.api.getAuthUri(),
             type: 'oauth2',
         };
     }
@@ -111,7 +111,7 @@ class Manager extends ModuleManager {
         } else if (search.length === 1) {
             this.entity = search[0];
         } else {
-            debug('Multiple entities found with the same portal ID:', portalId);
+            debug('Multiple entities found with the same external ID:', externalId);
             this.throwException('');
         }
     }
