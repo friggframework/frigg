@@ -5,22 +5,28 @@ const Manager = require('./manager');
 const config = require('./defaultConfig.json');
 
 describe(`Should fully test the ${config.label} Manager`, () => {
-    let manager;
-
     beforeAll(async () => {
         await mongoose.connect(process.env.MONGO_URI);
-        manager = await Manager.getInstance({
-            userId: new mongoose.Types.ObjectId(),
-        });
+    });
+
+    afterEach(async () => {
+        await Manager.Credential.deleteMany();
+        await Manager.Entity.deleteMany();
     });
 
     afterAll(async () => {
-        await Manager.Credential.deleteMany();
-        await Manager.Entity.deleteMany();
         await mongoose.disconnect();
     });
 
     describe('#getAuthorizationRequirements', () => {
+        let manager;
+
+        beforeEach(async () => {
+            manager = await Manager.getInstance({
+                userId: new mongoose.Types.ObjectId(),
+            });
+        });
+
         it('should return auth requirements', () => {
             const queryParams = querystring.stringify({
                 client_id: 'sharepoint_client_id_test',
@@ -39,6 +45,14 @@ describe(`Should fully test the ${config.label} Manager`, () => {
     });
 
     describe('#processAuthorizationCallback', () => {
+        let manager;
+
+        beforeEach(async () => {
+            manager = await Manager.getInstance({
+                userId: new mongoose.Types.ObjectId(),
+            });
+        });
+
         const baseUrl = 'https://graph.microsoft.com/v1.0';
         let authScope, sitesScope, userScope;
 
