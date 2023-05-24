@@ -83,6 +83,7 @@ class Requester extends Delegate {
             headers: options.headers || {},
             query: options.query || {},
             returnFullRes: options.returnFullRes || false,
+            agent: options.agent || undefined,
         };
 
         const res = await this._request(options.url, fetchOptions);
@@ -97,6 +98,7 @@ class Requester extends Delegate {
             query: options.query || {},
             body: JSON.stringify(options.body),
             returnFullRes: options.returnFullRes || false,
+            agent: options.agent || undefined,
         };
         if (!stringify) {
             fetchOptions.body = options.body;
@@ -113,6 +115,7 @@ class Requester extends Delegate {
             query: options.query || {},
             body: JSON.stringify(options.body),
             returnFullRes: options.returnFullRes || false,
+            agent: options.agent || undefined,
         };
         const res = await this._request(options.url, fetchOptions);
         return res;
@@ -126,6 +129,7 @@ class Requester extends Delegate {
             query: options.query || {},
             body: JSON.stringify(options.body),
             returnFullRes: options.returnFullRes || false,
+            agent: options.agent || undefined,
         };
         const res = await this._request(options.url, fetchOptions);
         return res;
@@ -138,6 +142,7 @@ class Requester extends Delegate {
             headers: options.headers || {},
             query: options.query || {},
             returnFullRes: options.returnFullRes || true,
+            agent: options.agent || undefined,
         };
         return this._request(options.url, fetchOptions);
     }
