@@ -40,6 +40,7 @@ describe(`Should fully test the ${config.label} Manager`, () => {
 
     describe('#processAuthorizationCallback', () => {
         const baseUrl = 'https://graph.microsoft.com/v1.0';
+        let authScope, sitesScope, userScope;
 
         beforeEach(() => {
             const body = querystring.stringify({
@@ -51,7 +52,7 @@ describe(`Should fully test the ${config.label} Manager`, () => {
                 code: 'test'
             });
 
-            nock('https://login.microsoftonline.com')
+            authScope = nock('https://login.microsoftonline.com')
                 .post('/common/oauth2/v2.0/token', )
                 .reply(200, {
                     access_token: 'access_token',
@@ -59,13 +60,13 @@ describe(`Should fully test the ${config.label} Manager`, () => {
                     expires_in: 'expires_in'
                 });
 
-            nock(baseUrl)
+            sitesScope = nock(baseUrl)
                 .get('/sites?search=*')
                 .reply(200, {
                     sites: 'sites'
                 });
 
-            nock(baseUrl)
+            userScope = nock(baseUrl)
                 .get('/me')
                 .reply(200, {
                     id: 'id',
@@ -82,6 +83,10 @@ describe(`Should fully test the ${config.label} Manager`, () => {
             expect(res.entity_id).toBeDefined();
             expect(res.credential_id).toBeDefined();
             expect(res.type).toEqual(config.name);
+
+            expect(authScope.isDone()).toBe(true);
+            expect(sitesScope.isDone()).toBe(true);
+            expect(userScope.isDone()).toBe(true);
         });
     });
 });

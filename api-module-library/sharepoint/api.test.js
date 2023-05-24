@@ -163,8 +163,10 @@ describe(`${config.label} API Tests`, () => {
 
         describe('#getUser', () => {
             describe('Retrieve information about the user', () => {
+                let scope;
+
                 beforeEach(() => {
-                    nock(baseUrl)
+                    scope = nock(baseUrl)
                         .get('/me')
                         .reply(200, {
                             me: 'me',
@@ -174,14 +176,17 @@ describe(`${config.label} API Tests`, () => {
                 it('should hit the correct endpoint', async () => {
                     const user = await api.getUser();
                     expect(user).toEqual({ me: 'me' });
+                    expect(scope.isDone()).toBe(true);
                 });
             });
         });
 
         describe('#getOrganization', () => {
             describe('Retrieve information about the organization', () => {
+                let scope;
+
                 beforeEach(() => {
-                    nock(baseUrl)
+                    scope = nock(baseUrl)
                         .get('/organization')
                         .reply(200, {
                             value: [{
@@ -193,14 +198,17 @@ describe(`${config.label} API Tests`, () => {
                 it('should hit the correct endpoint', async () => {
                     const org = await api.getOrganization();
                     expect(org).toEqual({ org: 'org' });
+                    expect(scope.isDone()).toBe(true);
                 });
             });
         });
 
         describe('#listSites', () => {
             describe('Retrieve information about sites', () => {
+                let scope;
+
                 beforeEach(() => {
-                    nock(baseUrl)
+                    scope = nock(baseUrl)
                         .get('/sites?search=*')
                         .reply(200, {
                             sites: 'sites'
@@ -210,14 +218,17 @@ describe(`${config.label} API Tests`, () => {
                 it('should hit the correct endpoint', async () => {
                     const sites = await api.listSites();
                     expect(sites).toEqual({ sites: 'sites' });
+                    expect(scope.isDone()).toBe(true);
                 });
             });
         });
 
         describe('#listDrives', () => {
             describe('Retrieve information about drives', () => {
+                let scope;
+
                 beforeEach(() => {
-                    nock(baseUrl)
+                    scope = nock(baseUrl)
                         .get('/sites/siteId/drives')
                         .reply(200, {
                             drives: 'drives'
@@ -227,14 +238,17 @@ describe(`${config.label} API Tests`, () => {
                 it('should hit the correct endpoint', async () => {
                     const drives = await api.listDrives({ siteId: 'siteId' });
                     expect(drives).toEqual({ drives: 'drives' });
+                    expect(scope.isDone()).toBe(true);
                 });
             });
         });
 
         describe('#retrieveFolder', () => {
             describe('Retrieve information about the root folder', () => {
+                let scope;
+
                 beforeEach(() => {
-                    nock(baseUrl)
+                    scope = nock(baseUrl)
                         .get('/drives/driveId/items/root/children?$expand=thumbnails&top=8&$filter=')
                         .reply(200, {
                             folder: 'root'
@@ -248,12 +262,15 @@ describe(`${config.label} API Tests`, () => {
 
                     const folder = await api.retrieveFolder(params);
                     expect(folder).toEqual({ folder: 'root' });
+                    expect(scope.isDone()).toBe(true);
                 });
             });
 
             describe('Retrieve information about a folder', () => {
+                let scope;
+
                 beforeEach(() => {
-                    nock(baseUrl)
+                    scope = nock(baseUrl)
                         .get('/drives/driveId/items/folderId/children?$expand=thumbnails&top=8&$filter=')
                         .reply(200, {
                             folder: 'folder'
@@ -268,14 +285,17 @@ describe(`${config.label} API Tests`, () => {
 
                     const folder = await api.retrieveFolder(params);
                     expect(folder).toEqual({ folder: 'folder' });
+                    expect(scope.isDone()).toBe(true);
                 });
             });
         });
 
         describe('#search', () => {
             describe('Perform a search', () => {
+                let scope;
+
                 beforeEach(() => {
-                    nock(baseUrl)
+                    scope = nock(baseUrl)
                         .get('/drives/driveId/root/search(q=%27q%27)?top=20&$select=id,image,name,file,parentReference,size,lastModifiedDateTime,@microsoft.graph.downloadUrl&$filter=')
                         .reply(200, {
                             results: 'results'
@@ -290,12 +310,15 @@ describe(`${config.label} API Tests`, () => {
 
                     const results = await api.search(params);
                     expect(results).toEqual({ results: 'results' });
+                    expect(scope.isDone()).toBe(true);
                 });
             });
 
             describe('Perform a search incluing nextPageUrl', () => {
+                let scope;
+
                 beforeEach(() => {
-                    nock('http://nextPageUrl')
+                    scope = nock('http://nextPageUrl')
                         .get('/')
                         .reply(200, {
                             results: 'results'
@@ -311,14 +334,17 @@ describe(`${config.label} API Tests`, () => {
 
                     const results = await api.search(params);
                     expect(results).toEqual({ results: 'results' });
+                    expect(scope.isDone()).toBe(true);
                 });
             });
         });
 
         describe('#retrieveFile', () => {
             describe('Retrieve information about drives', () => {
+                let scope;
+
                 beforeEach(() => {
-                    nock(baseUrl)
+                    scope = nock(baseUrl)
                         .get('/drives/driveId/items/fileId?$expand=listItem')
                         .reply(200, {
                             file: 'file'
@@ -333,6 +359,7 @@ describe(`${config.label} API Tests`, () => {
 
                     const file = await api.retrieveFile(params);
                     expect(file).toEqual({ file: 'file' });
+                    expect(scope.isDone()).toBe(true);
                 });
             });
         });
