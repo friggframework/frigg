@@ -1,10 +1,11 @@
-const Manager = require('./manager');
 const mongoose = require('mongoose');
+const nock = require('nock');
+const querystring = require('querystring');
+const Manager = require('./manager');
 const config = require('./defaultConfig.json');
-const Authenticator = require('@friggframework/test-environment/Authenticator');
 
 describe(`Should fully test the ${config.label} Manager`, () => {
-    let manager, authUrl;
+    let manager;
 
     beforeAll(async () => {
         await mongoose.connect(process.env.MONGO_URI);
@@ -19,53 +20,68 @@ describe(`Should fully test the ${config.label} Manager`, () => {
         await mongoose.disconnect();
     });
 
-    describe('getAuthorizationRequirements() test', () => {
-        it('should return auth requirements', async () => {
-            const requirements = await manager.getAuthorizationRequirements();
+    describe('#getAuthorizationRequirements', () => {
+        it('should return auth requirements', () => {
+            const queryParams = querystring.stringify({
+                client_id: 'sharepoint_client_id_test',
+                response_type: 'code',
+                redirect_uri: 'http://redirect_uri_test/microsoft-sharepoint',
+                scope: 'sharepoint_scope_test',
+                state: '',
+                prompt: 'select_account'
+            });
+
+            const requirements = manager.getAuthorizationRequirements();
             expect(requirements).toBeDefined();
             expect(requirements.type).toEqual('oauth2');
-            authUrl = requirements.url;
+            expect(requirements.url).toEqual(`${manager.api.authorizationUri}?${queryParams}`);
         });
     });
 
-    describe('processAuthorizationCallback() test', () => {
-        it('should return an entity_id, credential_id, and type for successful auth', async () => {
-            const response = await Authenticator.oauth2(authUrl);
-            const baseArr = response.base.split('/');
-            response.entityType = baseArr[baseArr.length - 1];
-            delete response.base;
+    describe('#processAuthorizationCallback', () => {
+        const baseUrl = 'https://graph.microsoft.com/v1.0';
 
-            const res = await manager.processAuthorizationCallback(response);
+        beforeEach(() => {
+            const body = querystring.stringify({
+                grant_type: 'authorization_code',
+                client_id: 'sharepoint_client_id_test',
+                client_secret: 'sharepoint_client_secret_test',
+                redirect_uri: 'http://redirect_uri_test/microsoft-sharepoint',
+                scope: 'sharepoint_scope_test',
+                code: 'test'
+            });
+
+            nock('https://login.microsoftonline.com')
+                .post('/common/oauth2/v2.0/token', )
+                .reply(200, {
+                    access_token: 'access_token',
+                    refresh_token: 'refresh_token',
+                    expires_in: 'expires_in'
+                });
+
+            nock(baseUrl)
+                .get('/sites?search=*')
+                .reply(200, {
+                    sites: 'sites'
+                });
+
+            nock(baseUrl)
+                .get('/me')
+                .reply(200, {
+                    id: 'id',
+                    displayName: 'displayName',
+                    userPrincipalName: 'userPrincipalName'
+                });
+        });
+
+        it('should return an entity_id, credential_id, and type for successful auth', async () => {
+            const params = { code: 'code ' };
+
+            const res = await manager.processAuthorizationCallback(params);
             expect(res).toBeDefined();
             expect(res.entity_id).toBeDefined();
             expect(res.credential_id).toBeDefined();
-            expect(res.type).toEqual(response.entityType);
-        });
-
-        describe('findOrCreateEntity() tests', () => {
-            // TODO maybe... retrieve Entity from DB to confirm it's the returned value?
-        });
-        describe('findOrCreateCredential() tests', () => {
-            // TODO maybe... retrieve Credential from DB to confirm it's the returned value?
-        });
-    });
-    describe('getInstance() tests', () => {
-        it('can create an instance of Module Manger', async () => {
-            expect(manager).toBeDefined();
-        });
-    });
-    describe('receiveNotification() tests', () => {});
-    describe('testAuth() tests', () => {
-        it('Response with true if authenticated', async () => {
-            const response = await manager.testAuth();
-            expect(response).toEqual(true);
-        });
-        it('Responds with false if not authenticated', async () => {
-            manager.api.backOff = [1];
-            manager.api.access_token = 'borked';
-            manager.api.refresh_token = 'barked';
-            const response = await manager.testAuth();
-            expect(response).toEqual(false);
+            expect(res.type).toEqual(config.name);
         });
     });
 });
