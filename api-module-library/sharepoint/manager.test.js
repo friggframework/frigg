@@ -602,4 +602,80 @@ describe(`Should fully test the ${config.label} Manager`, () => {
             });
         });
     });
+
+    describe('#deauthorize', () => {
+        describe('Deauthorize having a credential', () => {
+            let manager, api, userId;
+
+            beforeEach(async () => {
+                api = new Api({
+                    access_token: 'other_access_token',
+                    refresh_token: 'other_refresh_token'
+                });
+
+                userId = new mongoose.Types.ObjectId();
+
+                await Entity.create({
+                    user: userId,
+                    name: 'name',
+                    externalId: 'externalId',
+                });
+
+                const creden = await Credential.create({
+                    user: userId,
+                    accessToken: 'accessToken',
+                    refreshToken: 'refreshToken',
+                    auth_is_valid: true,
+                });
+
+                manager = await Manager.getInstance({
+                    userId,
+                });
+
+                manager.api = api;
+                manager.credential = creden;
+            });
+
+            it('should reset api', async () => {
+                await manager.deauthorize();
+
+                expect(manager.api.access_token).toBeNull();
+                expect(manager.api.refresh_token).toBeNull();
+                expect(manager.credential).not.toBeDefined();
+            });
+        });
+
+        describe('Deauthorize not having a credential', () => {
+            let manager, api, userId;
+
+            beforeEach(async () => {
+                api = new Api({
+                    access_token: 'other_access_token',
+                    refresh_token: 'other_refresh_token'
+                });
+
+                userId = new mongoose.Types.ObjectId();
+
+                await Entity.create({
+                    user: userId,
+                    name: 'name',
+                    externalId: 'externalId',
+                });
+
+                manager = await Manager.getInstance({
+                    userId,
+                });
+
+                manager.api = api;
+            });
+
+            it('should reset api', async () => {
+                await manager.deauthorize();
+
+                expect(manager.api.access_token).toBeNull();
+                expect(manager.api.refresh_token).toBeNull();
+                expect(manager.credential).not.toBeDefined();
+            });
+        });
+    });
 });
