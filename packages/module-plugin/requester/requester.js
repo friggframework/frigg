@@ -11,6 +11,7 @@ class Requester extends Delegate {
         this.refreshCount = 0;
         this.DLGT_INVALID_AUTH = 'INVALID_AUTH';
         this.delegateTypes.push(this.DLGT_INVALID_AUTH);
+        this.agent = get(params, 'agent', null);
 
         // Allow passing in the fetch function
         // Instance methods can use this.fetch without differentiating
@@ -43,6 +44,8 @@ class Requester extends Delegate {
         }
 
         options.headers = await this.addAuthHeaders(options.headers);
+
+        if (this.agent) options.agent = this.agent;
 
         const response = await this.fetch(encodedUrl, options);
         const { status } = response;
