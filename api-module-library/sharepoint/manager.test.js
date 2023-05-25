@@ -159,13 +159,15 @@ describe(`Should fully test the ${config.label} Manager`, () => {
     describe('#processAuthorizationCallback', () => {
         describe('Perform authorization', () => {
             const baseUrl = 'https://graph.microsoft.com/v1.0';
-            let authScope, sitesScope, userScope;
+            let authScope, userScope;
             let manager;
 
             beforeEach(async () => {
                 manager = await Manager.getInstance({
                     userId: new mongoose.Types.ObjectId(),
                 });
+
+                jest.spyOn(manager, 'testAuth').mockImplementation(() => true);
 
                 const body = querystring.stringify({
                     grant_type: 'authorization_code',
@@ -182,12 +184,6 @@ describe(`Should fully test the ${config.label} Manager`, () => {
                         access_token: 'access_token',
                         refresh_token: 'refresh_token',
                         expires_in: 'expires_in'
-                    });
-
-                sitesScope = nock(baseUrl)
-                    .get('/sites?search=*')
-                    .reply(200, {
-                        sites: 'sites'
                     });
 
                 userScope = nock(baseUrl)
@@ -208,15 +204,16 @@ describe(`Should fully test the ${config.label} Manager`, () => {
                 expect(res.credential_id).toBeDefined();
                 expect(res.type).toEqual(config.name);
 
+                expect(manager.testAuth).toBeCalledTimes(1);
+
                 expect(authScope.isDone()).toBe(true);
-                expect(sitesScope.isDone()).toBe(true);
                 expect(userScope.isDone()).toBe(true);
             });
         });
 
         describe('Perform authorization to wrong auth URL', () => {
             const baseUrl = 'https://graph.microsoft.com/v1.0';
-            let authScope, sitesScope, userScope;
+            let authScope, userScope;
             let manager;
 
             beforeEach(async () => {
@@ -226,6 +223,8 @@ describe(`Should fully test the ${config.label} Manager`, () => {
                 manager = await Manager.getInstance({
                     userId: new mongoose.Types.ObjectId(),
                 });
+
+                jest.spyOn(manager, 'testAuth').mockImplementation(() => false);
 
                 const body = querystring.stringify({
                     grant_type: 'authorization_code',
@@ -242,12 +241,6 @@ describe(`Should fully test the ${config.label} Manager`, () => {
                         access_token: 'access_token',
                         refresh_token: 'refresh_token',
                         expires_in: 'expires_in'
-                    });
-
-                sitesScope = nock(baseUrl)
-                    .get('/sites?search=WRONG')
-                    .reply(200, {
-                        sites: 'sites'
                     });
 
                 userScope = nock(baseUrl)
@@ -272,8 +265,9 @@ describe(`Should fully test the ${config.label} Manager`, () => {
                     expect(e).toEqual(new Error('Authentication failed'));
                 }
 
+                expect(manager.testAuth).toBeCalledTimes(1);
+
                 expect(authScope.isDone()).toBe(true);
-                expect(sitesScope.isDone()).toBe(false);
                 expect(userScope.isDone()).toBe(false);
             });
         });
