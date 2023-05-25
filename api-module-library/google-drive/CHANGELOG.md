@@ -1,3 +1,15 @@
+# v0.0.3 (Thu May 25 2023)
+
+#### 🐛 Bug Fix
+
+- Support calling localhost for ironclad api [#160](https://github.com/friggframework/frigg/pull/160) ([@debbie-yu](https://github.com/debbie-yu))
+
+#### Authors: 1
+
+- [@debbie-yu](https://github.com/debbie-yu)
+
+---
+
 # v0.0.2 (Wed May 24 2023)
 
 #### 🐛 Bug Fix

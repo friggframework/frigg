@@ -1,3 +1,19 @@
+# (Thu May 25 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.37`, `@friggframework/module-plugin@1.0.26`
+  - Support calling localhost for ironclad api [#160](https://github.com/friggframework/frigg/pull/160) ([@debbie-yu](https://github.com/debbie-yu))
+- `@friggframework/api-module-ironclad@0.0.37`
+  - adding some tests [#156](https://github.com/friggframework/frigg/pull/156) ([@debbie-yu](https://github.com/debbie-yu))
+  - handle ironclad localhost [#156](https://github.com/friggframework/frigg/pull/156) ([@debbie-yu](https://github.com/debbie-yu))
+
+#### Authors: 1
+
+- [@debbie-yu](https://github.com/debbie-yu)
+
+---
+
 # (Wed May 24 2023)
 
 #### 🐛 Bug Fix

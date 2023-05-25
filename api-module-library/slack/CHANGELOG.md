@@ -1,3 +1,15 @@
+# v0.1.34 (Thu May 25 2023)
+
+#### 🐛 Bug Fix
+
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.1.33 (Thu Apr 13 2023)
 
 #### 🐛 Bug Fix
