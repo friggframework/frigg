@@ -280,4 +280,128 @@ describe(`Should fully test the ${config.label} Manager`, () => {
             });
         });
     });
+
+    describe('#findOrCreateEntity', () => {
+        describe('Search non existent entity', () => {
+            let manager, userId, creden;
+
+            beforeEach(async () => {
+                userId = new mongoose.Types.ObjectId();
+
+                creden = await Credential.create({
+                    user: userId,
+                    accessToken: 'accessToken',
+                    refreshToken: 'refreshToken',
+                    auth_is_valid: true,
+                });
+
+                manager = await Manager.getInstance({
+                    userId
+                });
+
+                manager.credential = creden;
+            });
+
+            it('should create new entity', async () => {
+                await manager.findOrCreateEntity({
+                    externalId: 'externalId',
+                    name: 'name'
+                });
+
+                expect(manager.entity).toBeDefined();
+                expect(manager.entity.name).toEqual('name');
+                expect(manager.entity.externalId).toEqual('externalId');
+                expect(manager.entity.credential.toString()).toEqual(creden.id);
+                expect(manager.entity.user).toEqual(userId);
+            });
+        });
+
+        describe('Search entity with same user and external Id', () => {
+            let manager, userId, creden;
+
+            beforeEach(async () => {
+                userId = new mongoose.Types.ObjectId();
+
+                creden = await Credential.create({
+                    user: userId,
+                    accessToken: 'accessToken',
+                    refreshToken: 'refreshToken',
+                    auth_is_valid: true,
+                });
+
+                await Entity.create({
+                    credential: creden.id,
+                    user: userId,
+                    name: 'other_name',
+                    externalId: 'other_externalId',
+                });
+
+                manager = await Manager.getInstance({
+                    userId
+                });
+
+                manager.credential = creden;
+            });
+
+            it('should assign it to entity property', async () => {
+                await manager.findOrCreateEntity({
+                    externalId: 'other_externalId',
+                    name: 'other_name'
+                });
+
+                expect(manager.entity).toBeDefined();
+                expect(manager.entity.name).toEqual('other_name');
+                expect(manager.entity.externalId).toEqual('other_externalId');
+                expect(manager.entity.credential.toString()).toEqual(creden.id);
+                expect(manager.entity.user).toEqual(userId);
+            });
+        });
+
+        describe('Search with multiple entities with same user and external Id', () => {
+            let manager, userId, creden;
+
+            beforeEach(async () => {
+                userId = new mongoose.Types.ObjectId();
+
+                creden = await Credential.create({
+                    user: userId,
+                    accessToken: 'accessToken',
+                    refreshToken: 'refreshToken',
+                    auth_is_valid: true,
+                });
+
+                await Entity.create({
+                    credential: creden.id,
+                    user: userId,
+                    name: 'other_name',
+                    externalId: 'other_externalId',
+                });
+
+                await Entity.create({
+                    credential: creden.id,
+                    user: userId,
+                    name: 'other_name',
+                    externalId: 'other_externalId',
+                });
+
+                manager = await Manager.getInstance({
+                    userId
+                });
+
+                manager.credential = creden;
+            });
+
+            it('should assign it to entity property', async () => {
+                try {
+                    await manager.findOrCreateEntity({
+                        externalId: 'other_externalId',
+                        name: 'other_name'
+                    });
+                } catch(e) {
+                    expect(e).toEqual(new Error('Multiple entities found with the same external ID: other_externalId'));
+                    expect(manager.entity).not.toBeDefined();
+                }
+            });
+        });
+    });
 });

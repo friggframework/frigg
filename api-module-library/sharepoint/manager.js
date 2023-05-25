@@ -111,8 +111,9 @@ class Manager extends ModuleManager {
         } else if (search.length === 1) {
             this.entity = search[0];
         } else {
-            debug('Multiple entities found with the same external ID:', externalId);
-            this.throwException('');
+            const message = 'Multiple entities found with the same external ID: ' + externalId;
+            debug(message);
+            throw new Error(message);
         }
     }
 
