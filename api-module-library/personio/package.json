@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-personio",
-    "version": "0.8.25",
+    "version": "0.8.26",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -20,7 +20,7 @@
     },
     "dependencies": {
         "@friggframework/assertions": "^1.0.8",
-        "@friggframework/module-plugin": "^1.0.25"
+        "@friggframework/module-plugin": "^1.0.26"
     },
     "gitHead": "1ff6f32fa238512761a9c361f0e07f49b6bf5ed7"
 }
