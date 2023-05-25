@@ -537,5 +537,69 @@ describe(`Should fully test the ${config.label} Manager`, () => {
                 expect(logs.debug).toHaveBeenCalledWith('Multiple credentials found with the same user ID: ' + userId);
             });
         });
+
+        describe('Notify DLGT_TOKEN_DEAUTHORIZED to manager', () => {
+            let manager, api, userId;
+
+            beforeEach(async () => {
+                api = new Api({
+                    access_token: 'other_access_token',
+                    refresh_token: 'other_refresh_token'
+                });
+
+                userId = new mongoose.Types.ObjectId();
+
+                manager = await Manager.getInstance({
+                    userId,
+                });
+
+                manager.api = api;
+
+                jest.spyOn(manager, 'deauthorize').mockImplementation(() => {});
+            });
+
+            afterEach(() => {
+                jest.clearAllMocks();
+            });
+
+            it('should call deauthorize method', async () => {
+                await manager.receiveNotification(api, api.DLGT_TOKEN_DEAUTHORIZED);
+
+                expect(manager.credential).not.toBeDefined();
+                expect(manager.deauthorize).toBeCalledTimes(1);
+            });
+        });
+
+        describe('Notify DLGT_INVALID_AUTH to manager', () => {
+            let manager, api, userId;
+
+            beforeEach(async () => {
+                api = new Api({
+                    access_token: 'other_access_token',
+                    refresh_token: 'other_refresh_token'
+                });
+
+                userId = new mongoose.Types.ObjectId();
+
+                manager = await Manager.getInstance({
+                    userId,
+                });
+
+                manager.api = api;
+
+                jest.spyOn(manager, 'markCredentialsInvalid').mockImplementation(() => {});
+            });
+
+            afterEach(() => {
+                jest.clearAllMocks();
+            });
+
+            it('should call deauthorize method', async () => {
+                await manager.receiveNotification(api, api.DLGT_INVALID_AUTH);
+
+                expect(manager.credential).not.toBeDefined();
+                expect(manager.markCredentialsInvalid).toBeCalledTimes(1);
+            });
+        });
     });
 });
