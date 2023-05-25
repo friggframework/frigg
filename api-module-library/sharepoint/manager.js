@@ -148,7 +148,7 @@ class Manager extends ModuleManager {
                     } else {
                         // Handling multiple credentials found with an error for the time being
                         debug(
-                            'Multiple credentials found with the same client ID:'
+                            'Multiple credentials found with the same user ID: ' + this.userId
                         );
                     }
                 } else {
