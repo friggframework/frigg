@@ -5,21 +5,21 @@ class Api extends OAuth2Requester {
     constructor(params) {
         super(params);
 
-        this.baseUrl = "https://www.googleapis.com/";
+        this.baseUrl = 'https://www.googleapis.com/';
 
         this.URLs = {
-            about:  "/drive/v3/about",
-            drives:  "/drive/v3/drives",
+            about: '/drive/v3/about',
+            drives: '/drive/v3/drives',
             root: '/drive/v3/files/root',
-            fileById : (fileId) => `/drive/v3/files/${fileId}`,
+            fileById: (fileId) => `/drive/v3/files/${fileId}`,
             fileLabels: (fileId) => `/drive/v3/files/${fileId}/listLabels`,
-            files : "/drive/v3/files",
-            fileUpload : "/upload/drive/v3/files",
-            permissions : '/permissions',
+            files: '/drive/v3/files',
+            fileUpload: '/upload/drive/v3/files',
+            permissions: '/permissions',
         };
 
         this.authorizationUri = encodeURI(
-            `https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=${this.client_id}&redirect_uri=${this.redirect_uri}&scope=${this.scope}&access_type=offline&include_granted_scopes=true`
+            `https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=${this.client_id}&redirect_uri=${this.redirect_uri}&scope=${this.scope}&access_type=offline&include_granted_scopes=true&state=${this.state}`
         );
         this.tokenUri = 'https://oauth2.googleapis.com/token';
 
@@ -33,73 +33,75 @@ class Api extends OAuth2Requester {
         return this.getTokenFromCodeBasicAuthHeader(code);
     }
 
-    async getAbout(fields='*') {
+    async getAbout(fields = '*') {
         const options = {
             url: this.baseUrl + this.URLs.about,
             query: {
-                fields
-            }
+                fields,
+            },
         };
         return this._get(options);
     }
 
-    async getUserDetails(){
+    async getUserDetails() {
         const response = await this.getAbout('user');
         return response.user;
     }
 
-    async getMyDriveRoot(query){
+    async getMyDriveRoot(query) {
         const options = {
             url: this.baseUrl + this.URLs.root,
-            query
+            query,
         };
         return this._get(options);
     }
 
-    async listDrives(query=null){
+    async listDrives(query = null) {
         const options = {
             url: this.baseUrl + this.URLs.drives,
-            query
+            query,
         };
         return this._get(options);
     }
 
-    async listFiles(query=null, trashed=false){
+    async listFiles(query = null, trashed = false) {
         const options = {
             url: this.baseUrl + this.URLs.files,
             query,
-            trashed
+            trashed,
         };
         return this._get(options);
     }
 
-    async listFolders(query=null) {
-        return this.listFiles({...query, q: 'mimeType=\'application/vnd.google-apps.folder\''});
+    async listFolders(query = null) {
+        return this.listFiles({
+            ...query,
+            q: "mimeType='application/vnd.google-apps.folder'",
+        });
     }
 
-    async getFile(fileId, query){
-
+    async getFile(fileId, query) {
         const options = {
             url: this.baseUrl + this.URLs.fileById(fileId),
-            query
+            query,
         };
         return this._get(options);
     }
 
-    async getFileData(fileId){
+    async getFileData(fileId) {
         const options = {
             url: this.baseUrl + this.URLs.fileById(fileId),
             query: {
-                alt:'media'
-            }
+                alt: 'media',
+            },
         };
         return this._get(options);
     }
 
-    async getFileLabels(fileId){
+    async getFileLabels(fileId) {
         const options = {
-            url: this.baseUrl + this.URLs.fileLabels(fileId)
-        }
+            url: this.baseUrl + this.URLs.fileLabels(fileId),
+        };
         return this._get(options);
     }
 }
