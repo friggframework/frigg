@@ -1,10 +1,13 @@
 const { debug, flushDebugLog } = require('@friggframework/logs');
 const { get } = require('@friggframework/assertions');
-const { ModuleManager, ModuleConstants } = require('@friggframework/module-plugin');
+const {
+    ModuleManager,
+    ModuleConstants,
+} = require('@friggframework/module-plugin');
 const { Api } = require('./api');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
-const config = require('./defaultConfig.json')
+const config = require('./defaultConfig.json');
 
 class Manager extends ModuleManager {
     static Entity = Entity;
@@ -29,7 +32,6 @@ class Manager extends ModuleManager {
             scope: process.env.GOOGLE_DRIVE_SCOPE,
             delegate: instance,
         };
-
 
         if (params.entityId) {
             instance.entity = await Entity.findById(params.entityId);
@@ -61,7 +63,7 @@ class Manager extends ModuleManager {
 
     getAuthorizationRequirements(params) {
         return {
-            url: this.api.authorizationUri,
+            url: this.api.getAuthorizationUri(),
             type: ModuleConstants.authType.oauth2,
         };
     }
@@ -74,7 +76,7 @@ class Manager extends ModuleManager {
         const userDetails = await this.api.getUserDetails();
         await this.findOrCreateEntity({
             externalId: userDetails.emailAddress,
-            name: userDetails.displayName
+            name: userDetails.displayName,
         });
 
         return {
@@ -112,7 +114,9 @@ class Manager extends ModuleManager {
                 'Multiple entities found with the same external ID:',
                 externalId
             );
-            throw new Error(`Multiple entities found with the same external ID: ${externalId}`);
+            throw new Error(
+                `Multiple entities found with the same external ID: ${externalId}`
+            );
         }
     }
 
