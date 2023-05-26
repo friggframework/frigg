@@ -5,7 +5,7 @@ class Api extends OAuth2Requester {
     constructor(params) {
         super(params);
 
-        this.baseUrl = 'https://www.googleapis.com/';
+        this.baseUrl = 'https://www.googleapis.com';
 
         this.URLs = {
             about: '/drive/v3/about',
