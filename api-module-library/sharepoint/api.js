@@ -83,7 +83,7 @@ class Api extends OAuth2Requester {
         return response;
     }
 
-    async retrieveFolder(query) {
+    async getFolder(query) {
         const params = {
             driveId: query.driveId,
             childId: query.folderId ? query.folderId : 'root',
@@ -119,7 +119,7 @@ class Api extends OAuth2Requester {
         return response;
     }
 
-    async retrieveFile(query) {
+    async getFile(query) {
         const params = {
             driveId: query.driveId,
             fileId: query.fileId,

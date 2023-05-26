@@ -243,7 +243,7 @@ describe(`${config.label} API Tests`, () => {
             });
         });
 
-        describe('#retrieveFolder', () => {
+        describe('#getFolder', () => {
             describe('Retrieve information about the root folder', () => {
                 let scope;
 
@@ -260,7 +260,7 @@ describe(`${config.label} API Tests`, () => {
                         driveId: 'driveId'            
                     };
 
-                    const folder = await api.retrieveFolder(params);
+                    const folder = await api.getFolder(params);
                     expect(folder).toEqual({ folder: 'root' });
                     expect(scope.isDone()).toBe(true);
                 });
@@ -283,7 +283,7 @@ describe(`${config.label} API Tests`, () => {
                         folderId: 'folderId'
                     };
 
-                    const folder = await api.retrieveFolder(params);
+                    const folder = await api.getFolder(params);
                     expect(folder).toEqual({ folder: 'folder' });
                     expect(scope.isDone()).toBe(true);
                 });
@@ -339,7 +339,7 @@ describe(`${config.label} API Tests`, () => {
             });
         });
 
-        describe('#retrieveFile', () => {
+        describe('#getFile', () => {
             describe('Retrieve information about drives', () => {
                 let scope;
 
@@ -357,7 +357,7 @@ describe(`${config.label} API Tests`, () => {
                         fileId: 'fileId'
                     };
 
-                    const file = await api.retrieveFile(params);
+                    const file = await api.getFile(params);
                     expect(file).toEqual({ file: 'file' });
                     expect(scope.isDone()).toBe(true);
                 });
