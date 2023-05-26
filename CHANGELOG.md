@@ -3,6 +3,35 @@
 #### 🐛 Bug Fix
 
 - package-lock update [#158](https://github.com/friggframework/frigg/pull/158) ([@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/api-module-google-drive@0.0.5`
+  - Override getAuthorizationUri [#163](https://github.com/friggframework/frigg/pull/163) ([@seanspeaks](https://github.com/seanspeaks))
+  - Add support for state param [#162](https://github.com/friggframework/frigg/pull/162) ([@seanspeaks](https://github.com/seanspeaks))
+  - Need to add publishConfig for public first time publishing [#159](https://github.com/friggframework/frigg/pull/159) ([@seanspeaks](https://github.com/seanspeaks))
+  - allow root request to pass query (in case verbose data is needed) [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - add method for retrieving the root folder of My Drive [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - add method for retrieving drives [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - add convenience function for listing folders [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - basic functionality for google-drive api module complete [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - initial manager and manager.test working [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - individual file details and data retrieval [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - lint fixes [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - folder search test working [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - basic files request working [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - auth is working [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - initial commit of google-drive api module from generator [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Fri May 26 2023)
+
+#### 🐛 Bug Fix
+
+- package-lock update [#158](https://github.com/friggframework/frigg/pull/158) ([@seanspeaks](https://github.com/seanspeaks))
 - `@friggframework/api-module-google-drive@0.0.4`
   - Add state param support for google drive [#162](https://github.com/friggframework/frigg/pull/162) ([@seanspeaks](https://github.com/seanspeaks))
   - Need to add publishConfig for public first time publishing [#159](https://github.com/friggframework/frigg/pull/159) ([@seanspeaks](https://github.com/seanspeaks))
