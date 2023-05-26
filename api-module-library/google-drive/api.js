@@ -18,9 +18,6 @@ class Api extends OAuth2Requester {
             permissions: '/permissions',
         };
 
-        this.authorizationUri = encodeURI(
-            `https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=${this.client_id}&redirect_uri=${this.redirect_uri}&scope=${this.scope}&access_type=offline&include_granted_scopes=true&state=${this.state}`
-        );
         this.tokenUri = 'https://oauth2.googleapis.com/token';
 
         /* eslint-disable camelcase */
@@ -31,6 +28,14 @@ class Api extends OAuth2Requester {
 
     async getTokenFromCode(code) {
         return this.getTokenFromCodeBasicAuthHeader(code);
+    }
+    setState(state) {
+        this.state = state;
+    }
+    getAuthorizationUri() {
+        return encodeURI(
+            `https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=${this.client_id}&redirect_uri=${this.redirect_uri}&scope=${this.scope}&access_type=offline&include_granted_scopes=true&state=${this.state}`
+        );
     }
 
     async getAbout(fields = '*') {
