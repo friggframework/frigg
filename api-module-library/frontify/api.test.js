@@ -64,4 +64,47 @@ describe(`${config.label} API Tests`, () => {
             });
         });
     });
+
+    describe('#getAuthUri', () => {
+        describe('Get with domain property present', () => {
+            let api;
+
+            beforeEach(() => {
+                api = new Api({
+                  client_id: 'client_id',
+                  redirect_uri: 'redirect_uri',
+                  scope: 'scope',
+                  state: 'state',
+                  domain: 'other-domain',
+                });
+            });
+
+            it('should include domain in URL', () => {
+                const link = 'https://other-domain/'
+                      + 'api/oauth/authorize?'
+                      + 'client_id=client_id&response_type=code&redirect_uri=redirect_uri&scope=scope&state=state';
+                expect(api.getAuthUri()).toEqual(link);
+            });
+        });
+
+        describe('Get without domain property present', () => {
+            let api;
+
+            beforeEach(() => {
+                api = new Api({
+                  client_id: 'client_id',
+                  redirect_uri: 'redirect_uri',
+                  scope: 'scope',
+                  state: 'state'
+                });
+            });
+
+            it('should include domain in URL', () => {
+                const link = 'https://{{domain}}/'
+                      + 'api/oauth/authorize?'
+                      + 'client_id=client_id&response_type=code&redirect_uri=redirect_uri&scope=scope&state=state';
+                expect(api.getAuthUri()).toEqual(link);
+            });
+        });
+    });
 });
