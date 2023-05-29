@@ -146,5 +146,143 @@ describe(`${config.label} API Tests`, () => {
                 });
             });
         });
+
+        describe('#listBrands', () => {
+            describe('Retrieve information about brands', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', {
+                            query: 'query Brands { brands { id avatar name }}',
+                        })
+                        .reply(200, {
+                            data: {
+                                brands: 'brands'
+                            }
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const brands = await api.listBrands();
+                    expect(brands).toEqual({ brands: 'brands' });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+        });
+
+        describe('#listProjects', () => {
+            describe('Retrieve information about projects', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', {
+                            query: 'query Projects { brand(id: "brandId") { workspaceProjects { items { id name }}}}',
+                        })
+                        .reply(200, {
+                            data: {
+                                brand: {
+                                    workspaceProjects: {
+                                        items: 'items'
+                                    }
+                                }
+                            }
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const projects = await api.listProjects({ brandId: 'brandId' });
+                    expect(projects).toEqual({ projects: 'items' });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+        });
+
+        describe('#listLibraries', () => {
+            describe('Retrieve information about libraries', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', {
+                            query: 'query Libraries { brand(id: "brandId") { libraries { items { id name }}}}',
+                        })
+                        .reply(200, {
+                            data: {
+                                brand: {
+                                    libraries: {
+                                        items: {
+                                            libraries: 'libraries'
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const libraries = await api.listLibraries({ brandId: 'brandId' });
+                    expect(libraries).toEqual({ libraries: 'libraries' });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+        });
+
+        describe('#listProjectAssets', () => {
+            describe('Retrieve information about project assets', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', {
+                            query: 'query ProjectAssets { workspaceProject(id: "projectId") { assets { items { id title description }}}}',
+                        })
+                        .reply(200, {
+                            data: {
+                                workspaceProject: {
+                                    assets: {
+                                        items: 'items'
+                                    }
+                                }
+                            }
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const projectAssets = await api.listProjectAssets({ projectId: 'projectId' });
+                    expect(projectAssets).toEqual({ assets: 'items' });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+        });
+
+        describe('#listLibraryAssets', () => {
+            describe('Retrieve information about library assets', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', {
+                            query: 'query LibraryAssets { library(id: "libraryId") { assets { items { id title description }}}}',
+                        })
+                        .reply(200, {
+                            data: {
+                                library: {
+                                    assets: {
+                                        items: 'items'
+                                    }
+                                }
+                            }
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const libraryAssets = await api.listLibraryAssets({ libraryId: 'libraryId' });
+                    expect(libraryAssets).toEqual({ assets: 'items' });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+        });
     });
 });
