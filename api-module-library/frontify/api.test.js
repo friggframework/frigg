@@ -49,4 +49,19 @@ describe(`${config.label} API Tests`, () => {
             });
         });
     });
+
+    describe('#setDomain', () => {
+        describe('Set domain', () => {
+            let api;
+
+            beforeEach(() => {
+                api = new Api();
+            });
+
+            it('should set property', () => {
+                api.setDomain('my-domain');
+                expect(api.domain).toEqual('my-domain');
+            });
+        });
+    });
 });
