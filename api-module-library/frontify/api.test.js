@@ -1,8 +1,10 @@
 const Authenticator = require('@friggframework/test-environment/Authenticator');
+const nock = require('nock');
 const { Api } = require('./api');
 const config = require('./defaultConfig.json');
 
 describe(`${config.label} API Tests`, () => {
+    const baseUrl = 'https://domain-mine/graphql';
 
     describe('#constructor', () => {
         describe('Create new API with params', () => {
@@ -104,6 +106,44 @@ describe(`${config.label} API Tests`, () => {
                       + 'api/oauth/authorize?'
                       + 'client_id=client_id&response_type=code&redirect_uri=redirect_uri&scope=scope&state=state';
                 expect(api.getAuthUri()).toEqual(link);
+            });
+        });
+    });
+
+    describe('HTTP Requests', () => {
+        let api;
+
+        beforeAll(() => {
+            api = new Api({
+                domain: 'domain-mine'
+            });
+        });
+
+        afterEach(() => {
+            nock.cleanAll();
+        });
+
+        describe('#getUser', () => {
+            describe('Retrieve information about the user', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', {
+                            query: 'query CurrentUser { currentUser { id email name }}',
+                        })
+                        .reply(200, {
+                            data: {
+                                currentUser: 'currentUser'
+                            }
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const user = await api.getUser();
+                    expect(user).toEqual({ user: 'currentUser' });
+                    expect(scope.isDone()).toBe(true);
+                });
             });
         });
     });
