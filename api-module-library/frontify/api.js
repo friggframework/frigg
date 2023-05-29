@@ -6,8 +6,11 @@ class Api extends OAuth2Requester {
     constructor(params) {
         super(params);
         this.domain = get(params, 'domain', null);
-        this.baseUrl = `https://${this.domain}/graphql`;
-        this.tokenUri = `https://${this.domain}/api/oauth/accesstoken`;
+
+        if (this.domain) {
+            this.baseUrl = `https://${this.domain}/graphql`;
+            this.tokenUri = `https://${this.domain}/api/oauth/accesstoken`;
+        }
     }
 
     setDomain(domain) {
