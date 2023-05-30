@@ -4,7 +4,7 @@ if (process.env.NODE_ENV !== 'production') {
     require('dotenv').config();
 }
 
-const apiModule = {
+const meta = {
     name: 'microsoft-sharepoint',
     label: 'Microsoft SharePoint',
     productUrl: 'https://microsoft.com/sharepoint',
@@ -24,7 +24,7 @@ const sharepoint = {
 const mongoUri = process.env.MONGO_URI;
 
 module.exports = {
-  apiModule,
+  meta,
   sharepoint,
   mongoUri
 };

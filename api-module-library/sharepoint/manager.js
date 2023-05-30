@@ -17,7 +17,7 @@ class Manager extends ModuleManager {
     //------------------------------------------------------------
     // Required methods
     static getName() {
-        return config.apiModule.name;
+        return config.meta.name;
     }
 
     static async getInstance(params) {

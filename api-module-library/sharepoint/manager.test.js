@@ -10,7 +10,7 @@ const config = require('config');
 
 jest.mock('@friggframework/logs');
 
-describe(`Should fully test the ${config.apiModule.label} Manager`, () => {
+describe(`Should fully test the ${config.meta.label} Manager`, () => {
     beforeAll(async () => {
         await mongoose.connect(config.mongoUri);
     });
@@ -212,7 +212,7 @@ describe(`Should fully test the ${config.apiModule.label} Manager`, () => {
                 expect(res).toBeDefined();
                 expect(res.entity_id).toBeDefined();
                 expect(res.credential_id).toBeDefined();
-                expect(res.type).toEqual(config.apiModule.name);
+                expect(res.type).toEqual(config.meta.name);
 
                 expect(manager.testAuth).toBeCalledTimes(1);
 

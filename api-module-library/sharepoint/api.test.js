@@ -1,6 +1,6 @@
 const Authenticator = require('@friggframework/test-environment/Authenticator');
 const { Api } = require('./api');
-const config = require('config').apiModule;
+const config = require('config').meta;
 const nock = require('nock');
 
 describe(`${config.label} API Tests`, () => {
