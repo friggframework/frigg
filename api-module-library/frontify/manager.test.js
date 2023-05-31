@@ -1,8 +1,11 @@
 const mongoose = require('mongoose');
+const nock = require('nock');
 const Manager = require('./manager');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
 const config = require('./defaultConfig.json');
+
+jest.mock('@friggframework/logs');
 
 describe(`Should fully test the ${config.label} Manager`, () => {
     beforeAll(async () => {
@@ -12,6 +15,7 @@ describe(`Should fully test the ${config.label} Manager`, () => {
     afterEach(async () => {
         await Manager.Credential.deleteMany();
         await Manager.Entity.deleteMany();
+        jest.resetAllMocks();
     });
 
     afterAll(async () => {
@@ -76,6 +80,62 @@ describe(`Should fully test the ${config.label} Manager`, () => {
                 expect(manager.api).toBeDefined();
                 expect(manager.api.access_token).toEqual('accessToken');
                 expect(manager.api.refresh_token).toEqual('refreshToken');
+            });
+        });
+    });
+
+    describe('#testAuth', () => {
+        describe('Perform test request', () => {
+            const baseUrl = 'https://mine-domain/graphql';
+            let manager, scope;
+
+            beforeEach(async () => {
+                manager = await Manager.getInstance({
+                    userId: new mongoose.Types.ObjectId(),
+                });
+
+                manager.api.setDomain('mine-domain');
+
+                scope = nock(baseUrl)
+                    .post('', {
+                        query: 'query CurrentUser { currentUser { id email name }}',
+                    })
+                    .reply(200, {
+                        data: {
+                            currentUser: 'currentUser'
+                        }
+                    });
+            });
+
+            it('should return true', async () => {
+                const res = await manager.testAuth();
+                expect(res).toBe(true);
+                expect(scope.isDone()).toBe(true);
+            });
+        });
+
+        describe('Perform test request to wrong URL', () => {
+            const baseUrl = 'https://mine-domain/graphql';
+            let manager, scope;
+
+            beforeEach(async () => {
+                manager = await Manager.getInstance({
+                    userId: new mongoose.Types.ObjectId(),
+                });
+
+                manager.api.setDomain('mine-domain');
+
+                scope = nock(baseUrl)
+                    .post('/any')
+                    .reply(200, {
+                        sites: 'sites'
+                    });
+            });
+
+            it('should return false', async () => {
+                const res = await manager.testAuth();
+                expect(res).toBe(false);
+                expect(scope.isDone()).toBe(false);
             });
         });
     });
