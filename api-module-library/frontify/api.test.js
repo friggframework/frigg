@@ -63,6 +63,8 @@ describe(`${config.label} API Tests`, () => {
             it('should set property', () => {
                 api.setDomain('my-domain');
                 expect(api.domain).toEqual('my-domain');
+                expect(api.baseUrl).toEqual('https://my-domain/graphql');
+                expect(api.tokenUri).toEqual('https://my-domain/api/oauth/accesstoken');
             });
         });
     });

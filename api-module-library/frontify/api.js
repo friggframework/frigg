@@ -15,6 +15,8 @@ class Api extends OAuth2Requester {
 
     setDomain(domain) {
         this.domain = domain;
+        this.baseUrl = `https://${this.domain}/graphql`;
+        this.tokenUri = `https://${this.domain}/api/oauth/accesstoken`;
     }
 
     getAuthUri() {
