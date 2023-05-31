@@ -1,7 +1,9 @@
 const mongoose = require('mongoose');
 const nock = require('nock');
 const querystring = require('querystring');
+const logs = require('@friggframework/logs');
 const Manager = require('./manager');
+const { Api } = require('./api');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
 const config = require('./defaultConfig.json');
@@ -506,6 +508,206 @@ describe(`Should fully test the ${config.label} Manager`, () => {
                     expect(e).toEqual(new Error('Multiple entities found with the same external ID: other_externalId'));
                     expect(manager.entity).not.toBeDefined();
                 }
+            });
+        });
+    });
+
+    describe('#receiveNotification', () => {
+        describe('Notify DLGT_TOKEN_UPDATE to manager with credential', () => {
+            let manager, api;
+
+            beforeEach(async () => {
+                api = new Api({
+                    access_token: 'access_token',
+                    refresh_token: 'refresh_token'
+                });
+
+                const userId = new mongoose.Types.ObjectId();
+
+                const creden = await Credential.create({
+                    user: userId,
+                    accessToken: 'accessToken',
+                    refreshToken: 'refreshToken',
+                    auth_is_valid: true,
+                });
+
+                manager = await Manager.getInstance({
+                    userId,
+                });
+
+                manager.api = api;
+                manager.credential = creden;
+            });
+
+            it('should update token property in credential', async () => {
+                await manager.receiveNotification(api, api.DLGT_TOKEN_UPDATE);
+
+                expect(manager.credential.accessToken).toEqual('access_token');
+                expect(manager.credential.refreshToken).toEqual('refresh_token');
+            });
+        });
+
+        describe('Notify DLGT_TOKEN_UPDATE to manager without credential', () => {
+            let manager, api;
+
+            beforeEach(async () => {
+                api = new Api({
+                    access_token: 'other_access_token',
+                    refresh_token: 'other_refresh_token'
+                });
+
+                const userId = new mongoose.Types.ObjectId();
+
+                await Credential.create({
+                    user: userId,
+                    accessToken: 'other_accessToken',
+                    refreshToken: 'other_refreshToken',
+                    auth_is_valid: true,
+                });
+
+                manager = await Manager.getInstance({
+                    userId,
+                });
+
+                manager.api = api;
+            });
+
+            it('should assign credential and update its token property', async () => {
+                await manager.receiveNotification(api, api.DLGT_TOKEN_UPDATE);
+
+                expect(manager.credential.accessToken).toEqual('other_access_token');
+                expect(manager.credential.refreshToken).toEqual('other_refresh_token');
+            });
+        });
+
+        describe('Notify DLGT_TOKEN_UPDATE to manager with no existent credential', () => {
+            let manager, api;
+
+            beforeEach(async () => {
+                api = new Api({
+                    access_token: 'new_access_token',
+                    refresh_token: 'new_refresh_token'
+                });
+
+                const userId = new mongoose.Types.ObjectId();
+
+                manager = await Manager.getInstance({
+                    userId,
+                });
+
+                manager.api = api;
+            });
+
+            it('should assign new credential and update its token property', async () => {
+                await manager.receiveNotification(api, api.DLGT_TOKEN_UPDATE);
+
+                expect(manager.credential.accessToken).toEqual('new_access_token');
+                expect(manager.credential.refreshToken).toEqual('new_refresh_token');
+            });
+        });
+
+        describe('Notify DLGT_TOKEN_UPDATE to manager with multiple credentials with same user Id', () => {
+            let manager, api, userId;
+
+            beforeEach(async () => {
+                api = new Api({
+                    access_token: 'other_access_token',
+                    refresh_token: 'other_refresh_token'
+                });
+
+                userId = new mongoose.Types.ObjectId();
+
+                await Credential.create({
+                    user: userId,
+                    accessToken: 'one_accessToken',
+                    refreshToken: 'one_refreshToken',
+                    auth_is_valid: true,
+                });
+
+                await Credential.create({
+                    user: userId,
+                    accessToken: 'two_accessToken',
+                    refreshToken: 'two_refreshToken',
+                    auth_is_valid: true,
+                });
+
+                manager = await Manager.getInstance({
+                    userId,
+                });
+
+                manager.api = api;
+            });
+
+            it('should not assign any credential', async () => {
+                await manager.receiveNotification(api, api.DLGT_TOKEN_UPDATE);
+
+                expect(manager.credential).not.toBeDefined();
+                expect(logs.debug).toBeCalledTimes(1);
+                expect(logs.debug).toHaveBeenCalledWith('Multiple credentials found with the same user ID: ' + userId);
+            });
+        });
+
+        describe('Notify DLGT_TOKEN_DEAUTHORIZED to manager', () => {
+            let manager, api, userId;
+
+            beforeEach(async () => {
+                api = new Api({
+                    access_token: 'other_access_token',
+                    refresh_token: 'other_refresh_token'
+                });
+
+                userId = new mongoose.Types.ObjectId();
+
+                manager = await Manager.getInstance({
+                    userId,
+                });
+
+                manager.api = api;
+
+                jest.spyOn(manager, 'deauthorize').mockImplementation(() => {});
+            });
+
+            afterEach(() => {
+                jest.clearAllMocks();
+            });
+
+            it('should call deauthorize method', async () => {
+                await manager.receiveNotification(api, api.DLGT_TOKEN_DEAUTHORIZED);
+
+                expect(manager.credential).not.toBeDefined();
+                expect(manager.deauthorize).toBeCalledTimes(1);
+            });
+        });
+
+        describe('Notify DLGT_INVALID_AUTH to manager', () => {
+            let manager, api, userId;
+
+            beforeEach(async () => {
+                api = new Api({
+                    access_token: 'other_access_token',
+                    refresh_token: 'other_refresh_token'
+                });
+
+                userId = new mongoose.Types.ObjectId();
+
+                manager = await Manager.getInstance({
+                    userId,
+                });
+
+                manager.api = api;
+
+                jest.spyOn(manager, 'markCredentialsInvalid').mockImplementation(() => {});
+            });
+
+            afterEach(() => {
+                jest.clearAllMocks();
+            });
+
+            it('should call deauthorize method', async () => {
+                await manager.receiveNotification(api, api.DLGT_INVALID_AUTH);
+
+                expect(manager.credential).not.toBeDefined();
+                expect(manager.markCredentialsInvalid).toBeCalledTimes(1);
             });
         });
     });
