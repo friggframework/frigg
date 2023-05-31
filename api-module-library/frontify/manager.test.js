@@ -37,6 +37,11 @@ describe(`Should fully test the ${config.label} Manager`, () => {
             it('can create an instance of Module Manger', async () => {
                 expect(manager).toBeDefined();
                 expect(manager.api).toBeDefined();
+                expect(manager.api.client_id).toEqual('frontify_client_id_test');
+                expect(manager.api.client_secret).toEqual('frontify_client_secret_test');
+                expect(manager.api.redirect_uri).toEqual('http://redirect_uri_test/frontify');
+                expect(manager.api.scope).toEqual('frontify_scope_test');
+                expect(manager.api.delegate).toEqual(manager);
             });
         });
 
