@@ -2,12 +2,12 @@ const { Api } = require('./api');
 const { Credential } = require('./models/credential');
 const { Entity } = require('./models/entity');
 const ModuleManager = require('./manager');
-const { meta } = require('config');
+const config = require('config');
 
 module.exports = {
     Api,
     Credential,
     Entity,
     ModuleManager,
-    Config: meta,
+    Config: config.get('meta'),
 };

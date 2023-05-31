@@ -17,7 +17,7 @@ class Manager extends ModuleManager {
     //------------------------------------------------------------
     // Required methods
     static getName() {
-        return config.meta.name;
+        return config.get('meta.name');
     }
 
     static async getInstance(params) {
@@ -26,10 +26,10 @@ class Manager extends ModuleManager {
 
         // initializes the Api
         const sharepointParams = {
-            client_id: config.sharepoint.clientId,
-            client_secret: config.sharepoint.clientSecret,
-            redirect_uri: `${config.sharepoint.redirectUri}/microsoft-sharepoint`,
-            scope: config.sharepoint.scope,
+            client_id: config.get('sharepoint.clientId'),
+            client_secret: config.get('sharepoint.clientSecret'),
+            redirect_uri: `${config.get('sharepoint.redirectUri')}/microsoft-sharepoint`,
+            scope: config.get('sharepoint.scope'),
             forceConsent: true,
             delegate: instance,
         };
