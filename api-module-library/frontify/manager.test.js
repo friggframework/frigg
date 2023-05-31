@@ -185,4 +185,204 @@ describe(`Should fully test the ${config.label} Manager`, () => {
             });
         });
     });
+
+    describe('#processAuthorizationCallback', () => {
+        describe('Perform authorization', () => {
+            const baseUrl = 'https://domain/graphql';
+            let authScope, userScope;
+            let manager;
+
+            beforeEach(async () => {
+                manager = await Manager.getInstance({
+                    userId: new mongoose.Types.ObjectId(),
+                });
+
+                jest.spyOn(manager, 'testAuth').mockImplementation(() => true);
+
+                const body = querystring.stringify({
+                    grant_type: 'authorization_code',
+                    client_id: 'frontify_client_id_test',
+                    client_secret: 'frontify_client_secret_test',
+                    redirect_uri: 'http://redirect_uri_test/frontify',
+                    scope: 'frontify_scope_test',
+                    code: 'code'
+                });
+
+                authScope = nock('https://domain')
+                    .post('/api/oauth/accesstoken', body)
+                    .reply(200, {
+                        access_token: 'access_token',
+                        refresh_token: 'refresh_token',
+                        expires_in: 'expires_in'
+                    });
+
+                userScope = nock(baseUrl)
+                    .post('', {
+                        query: 'query CurrentUser { currentUser { id email name }}',
+                    })
+                    .reply(200, {
+                        data: {
+                            currentUser: {
+                                id: 'id',
+                                name: 'name'
+                            }
+                        }
+                    });
+            });
+
+            it('should return an entity_id, credential_id, and type for successful auth', async () => {
+                const params = {
+                    data: {
+                        code: 'code',
+                        domain: 'domain'
+                    }
+                };
+
+                const res = await manager.processAuthorizationCallback(params);
+                expect(res).toBeDefined();
+                expect(res.entity_id).toBeDefined();
+                expect(res.credential_id).toBeDefined();
+                expect(res.type).toEqual(config.name);
+
+                expect(manager.testAuth).toBeCalledTimes(1);
+
+                expect(authScope.isDone()).toBe(true);
+                expect(userScope.isDone()).toBe(true);
+            });
+        });
+
+        describe('Perform authorization without code param', () => {
+            const baseUrl = 'https://domain/graphql';
+            let authScope, userScope;
+            let manager;
+
+            beforeEach(async () => {
+                manager = await Manager.getInstance({
+                    userId: new mongoose.Types.ObjectId(),
+                });
+
+                jest.spyOn(manager, 'testAuth').mockImplementation(() => true);
+
+                const body = querystring.stringify({
+                    grant_type: 'authorization_code',
+                    client_id: 'frontify_client_id_test',
+                    client_secret: 'frontify_client_secret_test',
+                    redirect_uri: 'http://redirect_uri_test/frontify',
+                    scope: 'frontify_scope_test',
+                    code: 'test'
+                });
+
+                authScope = nock('https://domain')
+                    .post('/api/oauth/accesstoken', body)
+                    .reply(200, {
+                        access_token: 'access_token',
+                        refresh_token: 'refresh_token',
+                        expires_in: 'expires_in'
+                    });
+
+                userScope = nock(baseUrl)
+                    .post('', {
+                        query: 'query CurrentUser { currentUser { id email name }}',
+                    })
+                    .reply(200, {
+                        data: {
+                            currentUser: {
+                                id: 'id',
+                                name: 'name'
+                            }
+                        }
+                    });
+            });
+
+            it('should return an entity_id, credential_id, and type for successful auth', async () => {
+                const params = {
+                    data: {
+                        domain: 'domain'
+                    }
+                };
+
+                const res = await manager.processAuthorizationCallback(params);
+                expect(res).toBeDefined();
+                expect(res.entity_id).toBeDefined();
+                expect(res.credential_id).toBeDefined();
+                expect(res.type).toEqual(config.name);
+
+                expect(manager.testAuth).toBeCalledTimes(1);
+
+                expect(authScope.isDone()).toBe(true);
+                expect(userScope.isDone()).toBe(true);
+            });
+        });
+
+        describe('Perform authorization to wrong auth URL', () => {
+            const baseUrl = 'https://domain/graphql';
+            let authScope, userScope;
+            let manager;
+
+            beforeEach(async () => {
+                // Silent error log when doing Auth request
+                jest.spyOn(console, 'error').mockImplementation(() => {});
+
+                manager = await Manager.getInstance({
+                    userId: new mongoose.Types.ObjectId(),
+                });
+
+                jest.spyOn(manager, 'testAuth').mockImplementation(() => false);
+
+                const body = querystring.stringify({
+                    grant_type: 'authorization_code',
+                    client_id: 'frontify_client_id_test',
+                    client_secret: 'frontify_client_secret_test',
+                    redirect_uri: 'http://redirect_uri_test/frontify',
+                    scope: 'frontify_scope_test',
+                    code: 'code'
+                });
+
+                authScope = nock('https://domain')
+                    .post('/api/oauth/accesstoken', body)
+                    .reply(200, {
+                        access_token: 'access_token',
+                        refresh_token: 'refresh_token',
+                        expires_in: 'expires_in'
+                    });
+
+                userScope = nock(baseUrl)
+                    .post('', {
+                        query: 'query CurrentUser { currentUser { id email name }}',
+                    })
+                    .reply(200, {
+                        data: {
+                            currentUser: {
+                                id: 'id',
+                                name: 'name'
+                            }
+                        }
+                    });
+            });
+
+            afterEach(() => {
+                jest.clearAllMocks();
+            });
+
+            it('should throw auth error', async () => {
+                const params = {
+                    data: {
+                        code: 'code',
+                        domain: 'domain'
+                    }
+                };
+
+                try {
+                    await manager.processAuthorizationCallback(params);
+                } catch(e) {
+                    expect(e).toEqual(new Error('Authentication failed'));
+                }
+
+                expect(manager.testAuth).toBeCalledTimes(1);
+
+                expect(authScope.isDone()).toBe(true);
+                expect(userScope.isDone()).toBe(false);
+            });
+        });
+    });
 });
