@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const nock = require('nock');
+const querystring = require('querystring');
 const Manager = require('./manager');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
@@ -136,6 +137,51 @@ describe(`Should fully test the ${config.label} Manager`, () => {
                 const res = await manager.testAuth();
                 expect(res).toBe(false);
                 expect(scope.isDone()).toBe(false);
+            });
+        });
+    });
+
+    describe('#getAuthorizationRequirements', () => {
+        let manager;
+
+        beforeEach(async () => {
+            manager = await Manager.getInstance({
+                userId: new mongoose.Types.ObjectId(),
+            });
+        });
+
+        it('should return auth requirements', () => {
+            const queryParams = querystring.stringify({
+                client_id: 'frontify_client_id_test',
+                response_type: 'code',
+                redirect_uri: 'http://redirect_uri_test/frontify',
+                scope: 'frontify_scope_test',
+                state: ''
+            });
+
+            const requirements = manager.getAuthorizationRequirements();
+            expect(requirements).toBeDefined();
+            expect(requirements.type).toEqual('oauth2');
+            expect(requirements.url).toEqual(`https://{{domain}}/api/oauth/authorize?${queryParams}`);
+            expect(requirements.data).toEqual({
+                jsonSchema: {
+                    title: 'Auth Form',
+                    type: 'object',
+                    required: ['domain'],
+                    properties: {
+                        domain: {
+                            type: 'string',
+                            title: 'Your Frontify Domain',
+                        }
+                    }
+                },
+                uiSchema: {
+                    domain: {
+                        'ui:help':
+                        'An Frontify domain, e.g: lefthook.frontify.com',
+                        'ui:placeholder': 'Your Frontify domain...',
+                    },
+                }
             });
         });
     });

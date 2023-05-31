@@ -58,9 +58,9 @@ class Manager extends ModuleManager {
         return validAuth;
     }
 
-    async getAuthorizationRequirements() {
+    getAuthorizationRequirements() {
         return {
-            url: await this.api.getAuthUri(),
+            url: this.api.getAuthUri(),
             type: 'oauth2',
             data: {
                 jsonSchema: {
