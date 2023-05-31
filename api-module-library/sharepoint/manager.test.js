@@ -44,6 +44,12 @@ describe(`Should fully test the ${config.label} Manager`, () => {
             it('can create an instance of Module Manger', async () => {
                 expect(manager).toBeDefined();
                 expect(manager.api).toBeDefined();
+                expect(manager.api.client_id).toEqual('sharepoint_client_id_test');
+                expect(manager.api.client_secret).toEqual('sharepoint_client_secret_test');
+                expect(manager.api.redirect_uri).toEqual('http://redirect_uri_test/microsoft-sharepoint');
+                expect(manager.api.scope).toEqual('sharepoint_scope_test');
+                expect(manager.api.forceConsent).toBe(true);
+                expect(manager.api.delegate).toEqual(manager);
             });
         });
 
