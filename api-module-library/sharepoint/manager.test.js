@@ -181,6 +181,64 @@ describe(`Should fully test the ${config.label} Manager`, () => {
                     client_secret: 'sharepoint_client_secret_test',
                     redirect_uri: 'http://redirect_uri_test/microsoft-sharepoint',
                     scope: 'sharepoint_scope_test',
+                    code: 'code'
+                });
+
+                authScope = nock('https://login.microsoftonline.com')
+                    .post('/common/oauth2/v2.0/token', body)
+                    .reply(200, {
+                        access_token: 'access_token',
+                        refresh_token: 'refresh_token',
+                        expires_in: 'expires_in'
+                    });
+
+                userScope = nock(baseUrl)
+                    .get('/me')
+                    .reply(200, {
+                        id: 'id',
+                        displayName: 'displayName',
+                        userPrincipalName: 'userPrincipalName'
+                    });
+            });
+
+            it('should return an entity_id, credential_id, and type for successful auth', async () => {
+                const params = {
+                    data: {
+                        code: 'code'
+                    }
+                };
+
+                const res = await manager.processAuthorizationCallback(params);
+                expect(res).toBeDefined();
+                expect(res.entity_id).toBeDefined();
+                expect(res.credential_id).toBeDefined();
+                expect(res.type).toEqual(config.name);
+
+                expect(manager.testAuth).toBeCalledTimes(1);
+
+                expect(authScope.isDone()).toBe(true);
+                expect(userScope.isDone()).toBe(true);
+            });
+        });
+
+      describe('Perform authorization without code param', () => {
+            const baseUrl = 'https://graph.microsoft.com/v1.0';
+            let authScope, userScope;
+            let manager;
+
+            beforeEach(async () => {
+                manager = await Manager.getInstance({
+                    userId: new mongoose.Types.ObjectId(),
+                });
+
+                jest.spyOn(manager, 'testAuth').mockImplementation(() => true);
+
+                const body = querystring.stringify({
+                    grant_type: 'authorization_code',
+                    client_id: 'sharepoint_client_id_test',
+                    client_secret: 'sharepoint_client_secret_test',
+                    redirect_uri: 'http://redirect_uri_test/microsoft-sharepoint',
+                    scope: 'sharepoint_scope_test',
                     code: 'test'
                 });
 
@@ -202,7 +260,9 @@ describe(`Should fully test the ${config.label} Manager`, () => {
             });
 
             it('should return an entity_id, credential_id, and type for successful auth', async () => {
-                const params = { code: 'code ' };
+                const params = {
+                    data: {}
+                };
 
                 const res = await manager.processAuthorizationCallback(params);
                 expect(res).toBeDefined();
@@ -238,7 +298,7 @@ describe(`Should fully test the ${config.label} Manager`, () => {
                     client_secret: 'sharepoint_client_secret_test',
                     redirect_uri: 'http://redirect_uri_test/microsoft-sharepoint',
                     scope: 'sharepoint_scope_test',
-                    code: 'test'
+                    code: 'code'
                 });
 
                 authScope = nock('https://login.microsoftonline.com')
@@ -263,7 +323,11 @@ describe(`Should fully test the ${config.label} Manager`, () => {
             });
 
             it('should throw auth error', async () => {
-                const params = { code: 'code ' };
+                const params = {
+                    data: {
+                        code: 'code'
+                    }
+                };
 
                 try {
                     await manager.processAuthorizationCallback(params);
