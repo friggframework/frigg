@@ -12,7 +12,6 @@ const schema = new mongoose.Schema({
         trim: true,
         lhEncrypt: true,
     },
-
     expires_at: { type: Number },
 });
 

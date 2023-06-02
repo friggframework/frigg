@@ -106,6 +106,28 @@ class Api extends OAuth2Requester {
         };
         return this._get(options);
     }
+
+    async getFileUploadSession(headers) {
+        const options = {
+            url: this.baseUrl + this.URLs.fileUpload,
+            query: {
+                uploadType: 'resumable'
+            },
+            headers,
+            returnFullRes: true,
+        }
+        return this._post(options);
+    }
+
+    async uploadFileToSession(sessionURI, headers, body) {
+        const options = {
+            url: sessionURI,
+            headers,
+            body,
+            returnFullRes: true,
+        }
+        return this._put(options)
+    }
 }
 
 module.exports = { Api };

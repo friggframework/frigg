@@ -111,4 +111,13 @@ describe('Google Drive API tests', () => {
             expect(response.labels).toBeDefined();
         });
     });
+
+    describe('Drive File Upload', () => {
+        it('should retrieve a upload session id', async () => {
+            const response = await api.getFileUploadSession();
+            expect(response).toBeDefined();
+            expect(response.status).toBeDefined();
+            expect(response.headers.get('location')).toBeDefined();
+        });
+    });
 });
