@@ -26,15 +26,12 @@ class Api extends OAuth2Requester {
         /* eslint-enable camelcase */
     }
 
-    async getTokenFromCode(code) {
-        return this.getTokenFromCodeBasicAuthHeader(code);
-    }
     setState(state) {
         this.state = state;
     }
     getAuthorizationUri() {
         return encodeURI(
-            `https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=${this.client_id}&redirect_uri=${this.redirect_uri}&scope=${this.scope}&access_type=offline&include_granted_scopes=true&state=${this.state}`
+            `https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=${this.client_id}&redirect_uri=${this.redirect_uri}&scope=${this.scope}&access_type=offline&include_granted_scopes=true&state=${this.state}&prompt=consent`
         );
     }
 
