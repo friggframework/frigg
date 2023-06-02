@@ -1,9 +1,9 @@
 const Authenticator = require('@friggframework/test-environment/Authenticator');
 const nock = require('nock');
 const { Api } = require('./api');
-const config = require('./defaultConfig.json');
+const config = require('config');
 
-describe(`${config.label} API Tests`, () => {
+describe(`${config.get('meta.label')} API Tests`, () => {
     const baseUrl = 'https://domain-mine/graphql';
 
     describe('#constructor', () => {
