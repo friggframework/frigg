@@ -28,8 +28,24 @@ describe('Google Drive Manager Tests', () => {
         });
     });
 
-    describe('processAuthorizationCallback() test', () => {
-        it('should return an entity_id, credential_id, and type for successful auth', async () => {
+    describe('Authorization requests', () => {
+        let firstRes;
+        it('processAuthorizationCallback()', async () => {
+            const response = await Authenticator.oauth2(authUrl);
+            const baseArr = response.base.split('/');
+            response.entityType = baseArr[baseArr.length - 1];
+            delete response.base;
+
+            firstRes = await manager.processAuthorizationCallback({
+                data: {
+                    code: response.data.code,
+                },
+            });
+            expect(firstRes).toBeDefined();
+            expect(firstRes.entity_id).toBeDefined();
+            expect(firstRes.credential_id).toBeDefined();
+        });
+        it('retrieves existing entity on subsequent calls', async () =>{
             const response = await Authenticator.oauth2(authUrl);
             const baseArr = response.base.split('/');
             response.entityType = baseArr[baseArr.length - 1];
@@ -40,12 +56,17 @@ describe('Google Drive Manager Tests', () => {
                     code: response.data.code,
                 },
             });
-            expect(res).toBeDefined();
-            expect(res.entity_id).toBeDefined();
-            expect(res.credential_id).toBeDefined();
+            expect(res).toEqual(firstRes);
         });
-
-        it('Test credential retrieval and manager instantiation', async () => {
+        it('get new token via refresh', async () => {
+            manager.api.access_token = 'foobar';
+            const response = await manager.testAuth();
+            expect(response).toBeTruthy();
+            expect(manager.api.access_token).not.toEqual('foobar');
+        });
+    });
+    describe('Test credential retrieval and manager instantiation', () => {
+        it('retrieve by entity id', async () => {
             const newManager = await Manager.getInstance({
                 userId: manager.userId,
                 entityId: manager.entity.id,
@@ -54,5 +75,18 @@ describe('Google Drive Manager Tests', () => {
             expect(newManager.entity).toBeDefined();
             expect(newManager.credential).toBeDefined();
         });
+
+        it('retrieve by credential id', async () => {
+            const newManager = await Manager.getInstance({
+                userId: manager.userId,
+                credentialId: manager.credential.id,
+            });
+            expect(newManager).toBeDefined();
+            expect(newManager.credential).toBeDefined();
+            expect(newManager.credential.id).toBe(manager.credential.id);
+            expect(newManager.credential).toHaveProperty('access_token');
+            expect(newManager.credential).toHaveProperty('refresh_token');
+        });
     });
+
 });

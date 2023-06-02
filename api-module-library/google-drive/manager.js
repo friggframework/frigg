@@ -140,6 +140,7 @@ class Manager extends ModuleManager {
                 const updatedToken = {
                     user: this.userId.toString(),
                     access_token: this.api.access_token,
+                    refresh_token: this.api.refresh_token,
                     expires_in: this.api.expires_in,
                     auth_is_valid: true,
                 };
@@ -175,9 +176,10 @@ class Manager extends ModuleManager {
                         );
                     }
                 } else {
-                    this.credential = await Credential.update(
-                        this.credential,
-                        updatedToken
+                    this.credential = await Credential.findOneAndUpdate(
+                        { _id: this.credential },
+                        { $set: updatedToken },
+                        { useFindAndModify: true, new: true }
                     );
                 }
             }
