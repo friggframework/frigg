@@ -25,6 +25,15 @@ describe('Google Drive API tests', () => {
         await api.getTokenFromCode(response.data.code);
     });
 
+    describe('Confirm Authentication Requests', () => {
+        it('Check Access Token', () => {
+            expect(api.access_token).toBeDefined();
+        });
+        it('Check Refresh Token', () => {
+            expect(api.refresh_token).toBeDefined();
+        });
+    });
+
     describe('Drive User Info', () => {
         it('should return the user details', async () => {
             const user = await api.getUserDetails();
