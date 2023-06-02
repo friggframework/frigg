@@ -164,14 +164,14 @@ class Manager extends ModuleManager {
                             );
                         } else {
                             debug(
-                                'Somebody else already created a credential with the same permission ID:',
+                                'Somebody else already created a credential with the same externalId (email address):',
                                 userDetails.emailAddress
                             );
                         }
                     } else {
                         // Handling multiple credentials found with an error for the time being
                         debug(
-                            'Multiple credentials found with the same permission ID:',
+                            'Multiple credentials found with the same externalId (email address):',
                             userDetails.emailAddress
                         );
                     }
