@@ -107,7 +107,7 @@ class Api extends OAuth2Requester {
         return this._get(options);
     }
 
-    async getFileUploadSession(headers) {
+    async getFileUploadSession(headers, metadataBody) {
         const options = {
             url: this.baseUrl + this.URLs.fileUpload,
             query: {
@@ -116,6 +116,13 @@ class Api extends OAuth2Requester {
             headers,
             returnFullRes: true,
         }
+        if (metadataBody) {
+            options.body = metadataBody;
+            options.headers['Content-Type'] =
+                'application/json; charset=UTF-8';
+            // TODO: might require adding Content-Length
+        }
+        // if file exists already, this needs to be a _put
         return this._post(options);
     }
 
@@ -126,6 +133,21 @@ class Api extends OAuth2Requester {
             body,
             returnFullRes: true,
         }
+        return this._put(options)
+    }
+
+    async getUploadSessionStatus(sessionURI) {
+        const options = {
+            url: sessionURI,
+            headers : {
+                'Content-Range': '*/*'
+            },
+            returnFullRes: true,
+        }
+        // status of 200 or 201 indicates upload complete
+        // status of 404 indicates upload session expired
+        // status of 308 indicates incomplete but resumable upload
+        // - where the Range header will indicate completed bytes
         return this._put(options)
     }
 }
