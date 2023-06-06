@@ -1,6 +1,6 @@
 # Frigg Integration Framework
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-18-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-19-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 <img src="docs/FriggLogo.svg" style="width:250px">
@@ -82,6 +82,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="https://github.com/apps/codesee-maps"><img src="https://avatars.githubusercontent.com/in/122769?v=4?s=100" width="100px;" alt=""/><br /><sub><b>codesee-maps[bot]</b></sub></a><br /><a href="#infra-codesee-maps[bot]" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
     <td align="center"><a href="https://github.com/MichaelRyanWebber"><img src="https://avatars.githubusercontent.com/u/7769437?v=4?s=100" width="100px;" alt=""/><br /><sub><b>MichaelRyanWebber</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=MichaelRyanWebber" title="Documentation">📖</a> <a href="#infra-MichaelRyanWebber" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/friggframework/frigg/commits?author=MichaelRyanWebber" title="Tests">⚠️</a> <a href="https://github.com/friggframework/frigg/commits?author=MichaelRyanWebber" title="Code">💻</a></td>
     <td align="center"><a href="https://github.com/debbie-yu"><img src="https://avatars.githubusercontent.com/u/89419828?v=4?s=100" width="100px;" alt=""/><br /><sub><b>debbie-yu</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=debbie-yu" title="Documentation">📖</a> <a href="https://github.com/friggframework/frigg/commits?author=debbie-yu" title="Code">💻</a> <a href="https://github.com/friggframework/frigg/commits?author=debbie-yu" title="Tests">⚠️</a></td>
+    <td align="center"><a href="https://www.linkedin.com/in/roboli"><img src="https://avatars.githubusercontent.com/u/6392110?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Roberto Oliveros</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=roboli" title="Documentation">📖</a> <a href="https://github.com/friggframework/frigg/commits?author=roboli" title="Tests">⚠️</a> <a href="https://github.com/friggframework/frigg/commits?author=roboli" title="Code">💻</a></td>
   </tr>
 </table>
 
