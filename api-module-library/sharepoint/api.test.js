@@ -1,9 +1,9 @@
 const Authenticator = require('@friggframework/test-environment/Authenticator');
 const { Api } = require('./api');
-const config = require('config');
+const meta = require('./meta');
 const nock = require('nock');
 
-describe(`${config.get('meta.label')} API Tests`, () => {
+describe(`${meta.label} API Tests`, () => {
     const baseUrl = 'https://graph.microsoft.com/v1.0';
 
     describe('#constructor', () => {

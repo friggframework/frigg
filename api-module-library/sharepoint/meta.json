@@ -1,0 +1,9 @@
+{
+    "name": "microsoft-sharepoint",
+    "label": "Microsoft SharePoint",
+    "productUrl": "https://microsoft.com/sharepoint",
+    "apiDocs": "https://developer.microsoft.com/en-us/graph/graph-explorer",
+    "logoUrl": "https://friggframework.org/assets/img/microsoft-sharepoint.jpeg",
+    "categories": ["Sharing"],
+    "description": "SharePoint is a web-based collaborative platform that integrates natively with Microsoft 365 (previously, Microsoft Office)"
+}
