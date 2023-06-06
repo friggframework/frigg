@@ -1,3 +1,19 @@
+# (Tue Jun 06 2023)
+
+#### 🐛 Bug Fix
+
+- Feature/lef 228 migrate sharepoint api module over to [#172](https://github.com/friggframework/frigg/pull/172) ([@roboli](https://github.com/roboli))
+- `@friggframework/api-module-microsoft-sharepoint@0.0.2`
+  - Commit lock file [#171](https://github.com/friggframework/frigg/pull/171) ([@roboli](https://github.com/roboli))
+  - Feature/lef 228 migrate sharepoint api module over to [#161](https://github.com/friggframework/frigg/pull/161) ([@roboli](https://github.com/roboli))
+  - Use 'config' package for managing environment variables [ci skip] [#167](https://github.com/friggframework/frigg/pull/167) ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
 # (Fri May 26 2023)
 
 #### 🐛 Bug Fix
