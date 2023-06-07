@@ -25,6 +25,15 @@ describe('Google Drive API tests', () => {
         await api.getTokenFromCode(response.data.code);
     });
 
+    describe('Confirm Authentication Requests', () => {
+        it('Check Access Token', () => {
+            expect(api.access_token).toBeDefined();
+        });
+        it('Check Refresh Token', () => {
+            expect(api.refresh_token).toBeDefined();
+        });
+    });
+
     describe('Drive User Info', () => {
         it('should return the user details', async () => {
             const user = await api.getUserDetails();
@@ -100,6 +109,15 @@ describe('Google Drive API tests', () => {
             const response = await api.getFileLabels(fileIdWithLabels);
             expect(response).toBeDefined();
             expect(response.labels).toBeDefined();
+        });
+    });
+
+    describe('Drive File Upload', () => {
+        it('should retrieve a upload session id', async () => {
+            const response = await api.getFileUploadSession();
+            expect(response).toBeDefined();
+            expect(response.status).toBeDefined();
+            expect(response.headers.get('location')).toBeDefined();
         });
     });
 });

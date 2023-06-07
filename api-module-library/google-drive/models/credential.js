@@ -7,6 +7,11 @@ const schema = new mongoose.Schema({
         trim: true,
         lhEncrypt: true,
     },
+    refresh_token: {
+        type: String,
+        trim: true,
+        lhEncrypt: true,
+    },
     expires_at: { type: Number },
 });
 

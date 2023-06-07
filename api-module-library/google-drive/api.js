@@ -26,15 +26,12 @@ class Api extends OAuth2Requester {
         /* eslint-enable camelcase */
     }
 
-    async getTokenFromCode(code) {
-        return this.getTokenFromCodeBasicAuthHeader(code);
-    }
     setState(state) {
         this.state = state;
     }
     getAuthorizationUri() {
         return encodeURI(
-            `https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=${this.client_id}&redirect_uri=${this.redirect_uri}&scope=${this.scope}&access_type=offline&include_granted_scopes=true&state=${this.state}`
+            `https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=${this.client_id}&redirect_uri=${this.redirect_uri}&scope=${this.scope}&access_type=offline&include_granted_scopes=true&state=${this.state}&prompt=consent`
         );
     }
 
@@ -108,6 +105,50 @@ class Api extends OAuth2Requester {
             url: this.baseUrl + this.URLs.fileLabels(fileId),
         };
         return this._get(options);
+    }
+
+    async getFileUploadSession(headers, metadataBody) {
+        const options = {
+            url: this.baseUrl + this.URLs.fileUpload,
+            query: {
+                uploadType: 'resumable'
+            },
+            headers,
+            returnFullRes: true,
+        }
+        if (metadataBody) {
+            options.body = metadataBody;
+            options.headers['Content-Type'] =
+                'application/json; charset=UTF-8';
+            // TODO: might require adding Content-Length
+        }
+        // if file exists already, this needs to be a _put
+        return this._post(options);
+    }
+
+    async uploadFileToSession(sessionURI, headers, body) {
+        const options = {
+            url: sessionURI,
+            headers,
+            body,
+            returnFullRes: true,
+        }
+        return this._put(options)
+    }
+
+    async getUploadSessionStatus(sessionURI) {
+        const options = {
+            url: sessionURI,
+            headers : {
+                'Content-Range': '*/*'
+            },
+            returnFullRes: true,
+        }
+        // status of 200 or 201 indicates upload complete
+        // status of 404 indicates upload session expired
+        // status of 308 indicates incomplete but resumable upload
+        // - where the Range header will indicate completed bytes
+        return this._put(options)
     }
 }
 
