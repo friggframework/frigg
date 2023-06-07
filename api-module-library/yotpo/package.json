@@ -27,6 +27,6 @@
     },
     "dependencies": {
         "@friggframework/assertions": "^1.0.8",
-        "@friggframework/module-plugin": "^1.0.26"
+        "@friggframework/module-plugin": "^1.0.25"
     }
 }
