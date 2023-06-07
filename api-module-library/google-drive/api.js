@@ -150,6 +150,18 @@ class Api extends OAuth2Requester {
         // - where the Range header will indicate completed bytes
         return this._put(options)
     }
+
+    async uploadFileSimple(headers, body) {
+        const options = {
+            url: this.baseUrl + this.URLs.fileUpload,
+            query: {
+                uploadType: 'media'
+            },
+            headers,
+            body
+        }
+        return this._post(options);
+    }
 }
 
 module.exports = { Api };

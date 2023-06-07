@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { Api } = require('../api');
 const Authenticator = require('@friggframework/test-environment/Authenticator');
+const fs = require('fs');
 
 describe('Google Drive API tests', () => {
     /* eslint-disable camelcase */
@@ -113,11 +114,29 @@ describe('Google Drive API tests', () => {
     });
 
     describe('Drive File Upload', () => {
+        let uploadUrl;
+        const file = fs.readFileSync('cat.jpg');
         it('should retrieve a upload session id', async () => {
-            const response = await api.getFileUploadSession();
+            const headers = {
+                'X-Upload-Content-Type': 'image/jpeg',
+            }
+            const response = await api.getFileUploadSession(headers);
             expect(response).toBeDefined();
             expect(response.status).toBeDefined();
             expect(response.headers.get('location')).toBeDefined();
+            uploadUrl = response.headers.get('location');
         });
+        it('should upload a file', async () => {
+            const headers = {};
+            const response = await api.uploadFileToSession(uploadUrl, headers, file);
+            expect(response.status).toBe(200);
+        });
+        it('should upload a file via simple method', async () => {
+            const headers = {
+                'Content-Type': 'image/jpeg',
+            };
+            const response = await api.uploadFileSimple(headers, file);
+            expect(response.mimeType).toBe('image/jpeg');
+        })
     });
 });
