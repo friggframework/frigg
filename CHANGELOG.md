@@ -1,3 +1,17 @@
+# (Wed Jun 07 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-google-drive@0.0.8`
+  - google drive - auth fixes [#170](https://github.com/friggframework/frigg/pull/170) (michael.webber@lefthook.com [@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Michael Webber (michael.webber@lefthook.com)
+
+---
+
 # (Tue Jun 06 2023)
 
 #### 🐛 Bug Fix

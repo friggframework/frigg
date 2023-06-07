@@ -1,3 +1,24 @@
+# v0.0.8 (Wed Jun 07 2023)
+
+#### 🐛 Bug Fix
+
+- google drive - auth fixes [#170](https://github.com/friggframework/frigg/pull/170) (michael.webber@lefthook.com [@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- add helper method that checks status of a file upload session, which is a special case of the content upload request (PUT to session uri) (michael.webber@lefthook.com)
+- add methods for resumable file upload (michael.webber@lefthook.com)
+- update debug log message to indicate the correct externalId (michael.webber@lefthook.com)
+- fixes to credential model and db upsert (michael.webber@lefthook.com)
+- Add test for the refresh_token (and access_token) (michael.webber@lefthook.com)
+- google auth spec wants the default behavior of getTokenFromCode, even though the AuthHeader style was working. (michael.webber@lefthook.com)
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 3
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Michael Webber (michael.webber@lefthook.com)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.7 (Fri May 26 2023)
 
 #### 🐛 Bug Fix
