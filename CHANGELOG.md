@@ -1,3 +1,25 @@
+# (Thu Jun 08 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-google-drive@0.0.9`, `@friggframework/module-plugin@1.0.27`
+  - Fr/gdrive lef 280 [#175](https://github.com/friggframework/frigg/pull/175) (michael.webber@lefthook.com [@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/api-module-google-drive@0.0.9`
+  - set refresh_token on instance retrieval. [#174](https://github.com/friggframework/frigg/pull/174) ([@seanspeaks](https://github.com/seanspeaks))
+  - add helper method that checks status of a file upload session, which is a special case of the content upload request (PUT to session uri) [#170](https://github.com/friggframework/frigg/pull/170) (michael.webber@lefthook.com)
+  - add methods for resumable file upload [#170](https://github.com/friggframework/frigg/pull/170) (michael.webber@lefthook.com)
+  - update debug log message to indicate the correct externalId [#170](https://github.com/friggframework/frigg/pull/170) (michael.webber@lefthook.com)
+  - fixes to credential model and db upsert [#170](https://github.com/friggframework/frigg/pull/170) (michael.webber@lefthook.com)
+  - Add test for the refresh_token (and access_token) [#170](https://github.com/friggframework/frigg/pull/170) (michael.webber@lefthook.com)
+  - google auth spec wants the default behavior of getTokenFromCode, even though the AuthHeader style was working. [#170](https://github.com/friggframework/frigg/pull/170) (michael.webber@lefthook.com)
+
+#### Authors: 2
+
+- Michael Webber (michael.webber@lefthook.com)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Wed Jun 07 2023)
 
 #### 🐛 Bug Fix

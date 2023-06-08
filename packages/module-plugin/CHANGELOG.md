@@ -1,3 +1,18 @@
+# v1.0.27 (Thu Jun 08 2023)
+
+#### 🐛 Bug Fix
+
+- Fr/gdrive lef 280 [#175](https://github.com/friggframework/frigg/pull/175) (michael.webber@lefthook.com [@seanspeaks](https://github.com/seanspeaks))
+- Google Drive update ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Michael Webber (michael.webber@lefthook.com)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.0.26 (Thu May 25 2023)
 
 #### 🐛 Bug Fix

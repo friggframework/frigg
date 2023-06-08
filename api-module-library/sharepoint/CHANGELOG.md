@@ -1,3 +1,16 @@
+# v0.0.3 (Thu Jun 08 2023)
+
+#### 🐛 Bug Fix
+
+- Fr/gdrive lef 280 [#175](https://github.com/friggframework/frigg/pull/175) (michael.webber@lefthook.com [@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Michael Webber (michael.webber@lefthook.com)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.2 (Tue Jun 06 2023)
 
 #### 🐛 Bug Fix
