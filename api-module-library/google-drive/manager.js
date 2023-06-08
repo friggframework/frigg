@@ -39,11 +39,13 @@ class Manager extends ModuleManager {
                 instance.entity.credential
             );
             apiParams.access_token = instance.credential.access_token;
+            apiParams.refresh_token = instance.credential.refresh_token;
         } else if (params.credentialId) {
             instance.credential = await Credential.findById(
                 params.credentialId
             );
             apiParams.access_token = instance.credential.access_token;
+            apiParams.refresh_token = instance.credential.refresh_token;
         }
         instance.api = await new Api(apiParams);
         /* eslint-enable camelcase */
