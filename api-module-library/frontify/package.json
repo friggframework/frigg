@@ -24,5 +24,8 @@
         "@friggframework/assertions": "^1.0.7",
         "@friggframework/logs": "^1.0.9",
         "@friggframework/module-plugin": "^1.0.20"
+    },
+    "publishConfig": {
+        "access": "public"
     }
 }
