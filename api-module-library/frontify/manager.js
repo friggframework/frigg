@@ -22,7 +22,6 @@ class Manager extends ModuleManager {
 
     static async getInstance(params) {
         const instance = new this(params);
-        // All async code here
 
         // initializes the Api
         const frontifyParams = {
@@ -97,11 +96,6 @@ class Manager extends ModuleManager {
         if (!authCheck) throw new Error('Authentication failed');
 
         const {user: userDetails} = await this.api.getUser();
-        // TODO determine if there's a good flag to make for this, where we have individual tokens vs. org/tenant tokens
-        //  The issue here is that the Entity should reflect "on whose behalf are we making api requests", and in the
-        //  individual user case, it's a user. In the org/tenant case, it's a tenant.
-        //  The catch is that personal microsoft users do not have an org. So the graph API throws a 500 error.
-        // const orgDetails = await this.api.getOrganization();
 
         await this.findOrCreateEntity({
             externalId: userDetails.id,
