@@ -41,7 +41,7 @@ describe(`Should fully test the ${Config.label} Manager`, () => {
                 });
             });
 
-            it('can create an instance of Module Manger', async () => {
+            it('can create an instance of Module Manager', async () => {
                 expect(manager).toBeDefined();
                 expect(manager.api).toBeDefined();
                 expect(manager.api.client_id).toEqual('frontify_client_id_test');
@@ -78,7 +78,7 @@ describe(`Should fully test the ${Config.label} Manager`, () => {
                 });
             });
 
-            it('can create an instance of Module Manger with credentials', async () => {
+            it('can create an instance of Module Manager with credentials', async () => {
                 expect(manager).toBeDefined();
                 expect(manager.api).toBeDefined();
                 expect(manager.api.access_token).toEqual('accessToken');
@@ -180,7 +180,7 @@ describe(`Should fully test the ${Config.label} Manager`, () => {
                 uiSchema: {
                     domain: {
                         'ui:help':
-                        'An Frontify domain, e.g: lefthook.frontify.com',
+                        'A Frontify domain, e.g: lefthook.frontify.com',
                         'ui:placeholder': 'Your Frontify domain...',
                     },
                 }
