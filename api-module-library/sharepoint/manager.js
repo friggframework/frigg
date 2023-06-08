@@ -4,7 +4,7 @@ const { ModuleManager } = require('@friggframework/module-plugin');
 const { Api } = require('./api');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
-const meta = require('./meta');
+const Config = require('./defaultConfig');
 
 class Manager extends ModuleManager {
     static Entity = Entity;
@@ -17,7 +17,7 @@ class Manager extends ModuleManager {
     //------------------------------------------------------------
     // Required methods
     static getName() {
-        return meta.name;
+        return Config.name;
     }
 
     static async getInstance(params) {
