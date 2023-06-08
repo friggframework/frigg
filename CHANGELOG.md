@@ -2,6 +2,19 @@
 
 #### 🐛 Bug Fix
 
+- `@friggframework/api-module-frontify@0.0.2`
+  - Feature/lef 229 migrate frontify api module over to frigg [#169](https://github.com/friggframework/frigg/pull/169) ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
+# (Thu Jun 08 2023)
+
+#### 🐛 Bug Fix
+
 - `@friggframework/api-module-google-drive@0.0.9`, `@friggframework/module-plugin@1.0.27`
   - Fr/gdrive lef 280 [#175](https://github.com/friggframework/frigg/pull/175) (michael.webber@lefthook.com [@seanspeaks](https://github.com/seanspeaks))
 - `@friggframework/api-module-google-drive@0.0.9`
