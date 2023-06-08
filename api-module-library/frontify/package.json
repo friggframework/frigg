@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-frontify",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -13,12 +13,12 @@
     "devDependencies": {
         "@friggframework/eslint-config": "^1.0.8",
         "@friggframework/test-environment": "^1.1.5",
+        "dotenv": "^16.0.3",
         "eslint": "^8.22.0",
         "jest": "^29.0.0",
-        "prettier": "^2.7.1",
         "nock": "^13.3.1",
-        "sinon": "^14.0.0",
-        "dotenv": "^16.0.3"
+        "prettier": "^2.7.1",
+        "sinon": "^14.0.0"
     },
     "dependencies": {
         "@friggframework/assertions": "^1.0.7",
