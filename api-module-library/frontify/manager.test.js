@@ -6,13 +6,13 @@ const Manager = require('./manager');
 const { Api } = require('./api');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
-const config = require('config');
+const Config = require('./defaultConfig');
 
 jest.mock('@friggframework/logs');
 
-describe(`Should fully test the ${config.get('meta.label')} Manager`, () => {
+describe(`Should fully test the ${Config.label} Manager`, () => {
     beforeAll(async () => {
-        await mongoose.connect(config.get('mongoUri'));
+        await mongoose.connect(process.env.MONGO_URI);
     });
 
     afterEach(async () => {
@@ -244,7 +244,7 @@ describe(`Should fully test the ${config.get('meta.label')} Manager`, () => {
                 expect(res).toBeDefined();
                 expect(res.entity_id).toBeDefined();
                 expect(res.credential_id).toBeDefined();
-                expect(res.type).toEqual(config.get('meta.name'));
+                expect(res.type).toEqual(Config.name);
 
                 expect(manager.testAuth).toBeCalledTimes(1);
 
@@ -307,7 +307,7 @@ describe(`Should fully test the ${config.get('meta.label')} Manager`, () => {
                 expect(res).toBeDefined();
                 expect(res.entity_id).toBeDefined();
                 expect(res.credential_id).toBeDefined();
-                expect(res.type).toEqual(config.get('meta.name'));
+                expect(res.type).toEqual(Config.name);
 
                 expect(manager.testAuth).toBeCalledTimes(1);
 

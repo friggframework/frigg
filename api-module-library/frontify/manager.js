@@ -4,7 +4,7 @@ const {ModuleManager} = require('@friggframework/module-plugin');
 const {Api} = require('./api');
 const {Entity} = require('./models/entity');
 const {Credential} = require('./models/credential');
-const config = require('config');
+const Config = require('./defaultConfig');
 
 class Manager extends ModuleManager {
     static Entity = Entity;
@@ -17,7 +17,7 @@ class Manager extends ModuleManager {
     //------------------------------------------------------------
     // Required methods
     static getName() {
-        return config.get('meta.name');
+        return Config.name;
     }
 
     static async getInstance(params) {
@@ -26,10 +26,10 @@ class Manager extends ModuleManager {
 
         // initializes the Api
         const frontifyParams = {
-            client_id: config.get('frontify.clientId'),
-            client_secret: config.get('frontify.clientSecret'),
-            redirect_uri: `${config.get('frontify.redirectUri')}/frontify`,
-            scope: config.get('frontify.scope'),
+            client_id: process.env.FRONTIFY_CLIENT_ID,
+            client_secret: process.env.FRONTIFY_CLIENT_SECRET,
+            redirect_uri: `${process.env.FRONTIFY_REDIRECT_URI}/frontify`,
+            scope: process.env.FRONTIFY_SCOPE,
             delegate: instance,
         };
 
