@@ -39,99 +39,57 @@ class Api extends OAuth2Requester {
         return `${authorizationUri}?${querystring.stringify(query)}`;
     }
 
-    async getUser() {
-        const options = {
+    buildRequestOptions(query) {
+        return {
             url: this.baseUrl,
             headers: {
                 'Content-Type': 'application/json',
             },
             body: {
-                query: 'query CurrentUser { currentUser { id email name }}',
+                query
             },
         };
+    }
 
-        const response = await this._post(options);
+    async getUser() {
+        const query = 'query CurrentUser { currentUser { id email name }}';
+        const response = await this._post(this.buildRequestOptions(query));
         return {
             user: response.data.currentUser,
         };
     }
 
     async listBrands() {
-        const options = {
-            url: this.baseUrl,
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: {
-                query: 'query Brands { brands { id avatar name }}',
-            },
-        };
-
-        const response = await this._post(options);
+        const ql = 'query Brands { brands { id avatar name }}';
+        const response = await this._post(this.buildRequestOptions(ql));
         return response.data;
     }
 
     async listProjects(query) {
-        const options = {
-            url: this.baseUrl,
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: {
-                query: `query Projects { brand(id: "${query.brandId}") { workspaceProjects { items { id name }}}}`,
-            },
-        };
-
-        const response = await this._post(options);
+        const ql = `query Projects { brand(id: "${query.brandId}") { workspaceProjects { items { id name }}}}`;
+        const response = await this._post(this.buildRequestOptions(ql));
         return {
             projects: response.data.brand.workspaceProjects.items,
         };
     }
 
     async listLibraries(query) {
-        const options = {
-            url: this.baseUrl,
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: {
-                query: `query Libraries { brand(id: "${query.brandId}") { libraries { items { id name }}}}`,
-            },
-        };
-
-        const response = await this._post(options);
+        const ql = `query Libraries { brand(id: "${query.brandId}") { libraries { items { id name }}}}`;
+        const response = await this._post(this.buildRequestOptions(ql));
         return response.data.brand.libraries.items;
     }
 
     async listProjectAssets(query) {
-        const options = {
-            url: this.baseUrl,
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: {
-                query: `query ProjectAssets { workspaceProject(id: "${query.projectId}") { assets { items { id title description }}}}`,
-            },
-        };
-
-        const response = await this._post(options);
+        const ql = `query ProjectAssets { workspaceProject(id: "${query.projectId}") { assets { items { id title description }}}}`;
+        const response = await this._post(this.buildRequestOptions(ql));
         return {
             assets: response.data.workspaceProject.assets.items,
         };
     }
 
     async listLibraryAssets(query) {
-        const options = {
-            url: this.baseUrl,
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: {
-                query: `query LibraryAssets { library(id: "${query.libraryId}") { assets { items { id title description }}}}`,
-            },
-        };
-
-        const response = await this._post(options);
+        const ql = `query LibraryAssets { library(id: "${query.libraryId}") { assets { items { id title description }}}}`;
+        const response = await this._post(this.buildRequestOptions(ql));
         return {
             assets: response.data.library.assets.items,
         };

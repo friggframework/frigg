@@ -112,6 +112,33 @@ describe(`${Config.label} API Tests`, () => {
         });
     });
 
+    describe('#buildRequestOptions', () => {
+        describe('Pass in graph query language', () => {
+            let api;
+
+            beforeEach(() => {
+                api = new Api({
+                  client_id: 'client_id',
+                  redirect_uri: 'redirect_uri',
+                  scope: 'scope',
+                  state: 'state'
+                });
+            });
+
+            it('should return options for doing request', () => {
+                expect(api.buildRequestOptions('my query')).toEqual({
+                    url: this.baseUrl,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: {
+                        query: 'my query'
+                    },
+                });
+            });
+        });
+    });
+
     describe('HTTP Requests', () => {
         let api;
 
