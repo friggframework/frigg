@@ -2,6 +2,7 @@ require('dotenv').config();
 const { Api } = require('../api');
 const Authenticator = require('@friggframework/test-environment/Authenticator');
 const fs = require('fs');
+const path = require('path');
 
 describe('Google Drive API tests', () => {
     /* eslint-disable camelcase */
@@ -114,29 +115,81 @@ describe('Google Drive API tests', () => {
     });
 
     describe('Drive File Upload', () => {
-        let uploadUrl;
-        const file = fs.readFileSync('cat.jpg');
+        let uploadUrl, file, filename;
+        beforeEach(async () => {
+            filename = path.resolve('../../docs/FriggLogo.svg');
+            file = fs.readFileSync(filename);
+        });
         it('should retrieve a upload session id', async () => {
             const headers = {
-                'X-Upload-Content-Type': 'image/jpeg',
-            }
-            const response = await api.getFileUploadSession(headers);
+                'X-Upload-Content-Type': 'image/svg+xml',
+            };
+            const body = {
+                mimeType: 'image/svg+xml',
+                name: 'frigg-logo-test (DELETE ME).svg',
+            };
+            const response = await api.getFileUploadSession(headers, body);
             expect(response).toBeDefined();
             expect(response.status).toBeDefined();
             expect(response.headers.get('location')).toBeDefined();
             uploadUrl = response.headers.get('location');
         });
         it('should upload a file', async () => {
-            const headers = {};
-            const response = await api.uploadFileToSession(uploadUrl, headers, file);
+            const fileSize = fs.statSync(filename).size;
+            const headers = {
+                'Content-Type': 'image/svg+xml',
+                'Content-Range': `bytes 0-${fileSize - 1}/${fileSize}`,
+            };
+            const response = await api.uploadFileToSession(
+                uploadUrl,
+                headers,
+                file
+            );
             expect(response.status).toBe(200);
         });
-        it('should upload a file via simple method', async () => {
+        it('should download a file from a url and upload a file to google drive', async () => {
+            const testUrl =
+                'https://upload.wikimedia.org/wikipedia/en/thumb/8/80/Wikipedia-logo-v2.svg/1920px-Wikipedia-logo-v2.svg.png';
+            const response = await fetch(testUrl);
+            const fileBuff = Buffer.from(await response.arrayBuffer());
+
+            const newSessionHeaders = {
+                'X-Upload-Content-Type': 'image/png',
+            };
+            const body = {
+                mimeType: 'image/png',
+                name: 'download-test (DELETE ME).png',
+            };
+            const sessionRes = await api.getFileUploadSession(
+                newSessionHeaders,
+                body
+            );
+            expect(sessionRes).toBeDefined();
+            expect(sessionRes.status).toBeDefined();
+            expect(sessionRes.headers.get('location')).toBeDefined();
+            uploadUrl = sessionRes.headers.get('location');
+
+            const fileSize = fileBuff.byteLength;
             const headers = {
-                'Content-Type': 'image/jpeg',
+                'Content-Type': 'image/png',
+                'Content-Range': `bytes 0-${fileSize - 1}/${fileSize}`,
+            };
+            const uploadRes = await api.uploadFileToSession(
+                uploadUrl,
+                headers,
+                fileBuff
+            );
+            expect(uploadRes.status).toBe(200);
+            console.log(await uploadRes.json());
+        });
+        it('should upload a file via simple method', async () => {
+            const fileSize = fs.statSync(filename).size;
+            const headers = {
+                'Content-Type': 'image/svg+xml',
+                'Content-Length': fileSize,
             };
             const response = await api.uploadFileSimple(headers, file);
-            expect(response.mimeType).toBe('image/jpeg');
-        })
+            expect(response.mimeType).toBe('image/svg+xml');
+        });
     });
 });

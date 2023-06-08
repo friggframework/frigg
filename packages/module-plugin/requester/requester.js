@@ -98,36 +98,33 @@ class Requester extends Delegate {
             credentials: 'include',
             headers: options.headers || {},
             query: options.query || {},
-            body: JSON.stringify(options.body),
+            body: stringify ? JSON.stringify(options.body) : options.body,
             returnFullRes: options.returnFullRes || false,
         };
-        if (!stringify) {
-            fetchOptions.body = options.body;
-        }
         const res = await this._request(options.url, fetchOptions);
         return res;
     }
 
-    async _patch(options) {
+    async _patch(options, stringify = true) {
         const fetchOptions = {
             method: 'PATCH',
             credentials: 'include',
             headers: options.headers || {},
             query: options.query || {},
-            body: JSON.stringify(options.body),
+            body: stringify ? JSON.stringify(options.body) : options.body,
             returnFullRes: options.returnFullRes || false,
         };
         const res = await this._request(options.url, fetchOptions);
         return res;
     }
 
-    async _put(options) {
+    async _put(options, stringify = true) {
         const fetchOptions = {
             method: 'PUT',
             credentials: 'include',
             headers: options.headers || {},
             query: options.query || {},
-            body: JSON.stringify(options.body),
+            body: stringify ? JSON.stringify(options.body) : options.body,
             returnFullRes: options.returnFullRes || false,
         };
         const res = await this._request(options.url, fetchOptions);
