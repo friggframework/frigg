@@ -52,7 +52,14 @@ class Api extends OAuth2Requester {
     }
 
     async getUser() {
-        const query = 'query CurrentUser { currentUser { id email name }}';
+        const query = `query CurrentUser {
+                         currentUser {
+                           id
+                           email
+                           name
+                         }
+                       }`;
+
         const response = await this._post(this.buildRequestOptions(query));
         return {
             user: response.data.currentUser,
@@ -60,13 +67,30 @@ class Api extends OAuth2Requester {
     }
 
     async listBrands() {
-        const ql = 'query Brands { brands { id avatar name }}';
+        const ql = `query Brands {
+                      brands {
+                        id
+                        avatar
+                        name
+                      }
+                    }`;
+
         const response = await this._post(this.buildRequestOptions(ql));
         return response.data;
     }
 
     async listProjects(query) {
-        const ql = `query Projects { brand(id: "${query.brandId}") { workspaceProjects { items { id name }}}}`;
+        const ql = `query Projects {
+                      brand(id: "${query.brandId}") {
+                        workspaceProjects {
+                          items {
+                            id
+                            name
+                          }
+                        }
+                      }
+                    }`;
+
         const response = await this._post(this.buildRequestOptions(ql));
         return {
             projects: response.data.brand.workspaceProjects.items,
@@ -74,13 +98,34 @@ class Api extends OAuth2Requester {
     }
 
     async listLibraries(query) {
-        const ql = `query Libraries { brand(id: "${query.brandId}") { libraries { items { id name }}}}`;
+        const ql = `query Libraries {
+                      brand(id: "${query.brandId}") {
+                        libraries {
+                          items {
+                            id
+                            name
+                          }
+                        }
+                      }
+                    }`;
+
         const response = await this._post(this.buildRequestOptions(ql));
         return response.data.brand.libraries.items;
     }
 
     async listProjectAssets(query) {
-        const ql = `query ProjectAssets { workspaceProject(id: "${query.projectId}") { assets { items { id title description }}}}`;
+        const ql = `query ProjectAssets {
+                      workspaceProject(id: "${query.projectId}") {
+                        assets {
+                          items {
+                            id
+                            title
+                            description
+                          }
+                        }
+                      }
+                    }`;
+
         const response = await this._post(this.buildRequestOptions(ql));
         return {
             assets: response.data.workspaceProject.assets.items,
@@ -88,7 +133,18 @@ class Api extends OAuth2Requester {
     }
 
     async listLibraryAssets(query) {
-        const ql = `query LibraryAssets { library(id: "${query.libraryId}") { assets { items { id title description }}}}`;
+        const ql = `query LibraryAssets {
+                      library(id: "${query.libraryId}") {
+                        assets {
+                          items {
+                            id
+                            title
+                            description
+                          }
+                        }
+                      }
+                    }`;
+
         const response = await this._post(this.buildRequestOptions(ql));
         return {
             assets: response.data.library.assets.items,

@@ -157,10 +157,16 @@ describe(`${Config.label} API Tests`, () => {
                 let scope;
 
                 beforeEach(() => {
+                    const ql = `query CurrentUser {
+                                   currentUser {
+                                     id
+                                     email
+                                     name
+                                   }
+                                 }`;
+
                     scope = nock(baseUrl)
-                        .post('', {
-                            query: 'query CurrentUser { currentUser { id email name }}',
-                        })
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 currentUser: 'currentUser'
@@ -181,10 +187,16 @@ describe(`${Config.label} API Tests`, () => {
                 let scope;
 
                 beforeEach(() => {
+                    const ql = `query Brands {
+                                  brands {
+                                    id
+                                    avatar
+                                    name
+                                  }
+                                }`;
+
                     scope = nock(baseUrl)
-                        .post('', {
-                            query: 'query Brands { brands { id avatar name }}',
-                        })
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 brands: 'brands'
@@ -205,10 +217,19 @@ describe(`${Config.label} API Tests`, () => {
                 let scope;
 
                 beforeEach(() => {
+                    const ql = `query Projects {
+                                  brand(id: "brandId") {
+                                    workspaceProjects {
+                                      items {
+                                        id
+                                        name
+                                      }
+                                    }
+                                  }
+                                }`;
+
                     scope = nock(baseUrl)
-                        .post('', {
-                            query: 'query Projects { brand(id: "brandId") { workspaceProjects { items { id name }}}}',
-                        })
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 brand: {
@@ -233,10 +254,19 @@ describe(`${Config.label} API Tests`, () => {
                 let scope;
 
                 beforeEach(() => {
+                    const ql = `query Libraries {
+                                  brand(id: "brandId") {
+                                    libraries {
+                                      items {
+                                        id
+                                        name
+                                      }
+                                    }
+                                  }
+                                }`;
+
                     scope = nock(baseUrl)
-                        .post('', {
-                            query: 'query Libraries { brand(id: "brandId") { libraries { items { id name }}}}',
-                        })
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 brand: {
@@ -263,10 +293,20 @@ describe(`${Config.label} API Tests`, () => {
                 let scope;
 
                 beforeEach(() => {
+                    const ql = `query ProjectAssets {
+                                  workspaceProject(id: "projectId") {
+                                    assets {
+                                      items {
+                                        id
+                                        title
+                                        description
+                                      }
+                                    }
+                                  }
+                                }`;
+
                     scope = nock(baseUrl)
-                        .post('', {
-                            query: 'query ProjectAssets { workspaceProject(id: "projectId") { assets { items { id title description }}}}',
-                        })
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 workspaceProject: {
@@ -291,10 +331,20 @@ describe(`${Config.label} API Tests`, () => {
                 let scope;
 
                 beforeEach(() => {
+                    const ql = `query LibraryAssets {
+                                  library(id: "libraryId") {
+                                    assets {
+                                      items {
+                                        id
+                                        title
+                                        description
+                                      }
+                                    }
+                                  }
+                                }`;
+
                     scope = nock(baseUrl)
-                        .post('', {
-                            query: 'query LibraryAssets { library(id: "libraryId") { assets { items { id title description }}}}',
-                        })
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 library: {
