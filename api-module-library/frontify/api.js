@@ -121,6 +121,7 @@ class Api extends OAuth2Requester {
                             id
                             title
                             description
+                            __typename
                           }
                         }
                       }
@@ -140,6 +141,7 @@ class Api extends OAuth2Requester {
                             id
                             title
                             description
+                            __typename
                           }
                         }
                       }

@@ -300,6 +300,7 @@ describe(`${Config.label} API Tests`, () => {
                                         id
                                         title
                                         description
+                                        __typename
                                       }
                                     }
                                   }
@@ -338,6 +339,7 @@ describe(`${Config.label} API Tests`, () => {
                                         id
                                         title
                                         description
+                                        __typename
                                       }
                                     }
                                   }
