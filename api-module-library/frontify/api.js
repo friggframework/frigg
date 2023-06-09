@@ -133,6 +133,27 @@ class Api extends OAuth2Requester {
         };
     }
 
+    async listProjectFolders(query) {
+        const ql = `query ProjectFolders {
+                      workspaceProject(id: "${query.projectId}") {
+                        browse {
+                          folders {
+                            items {
+                              id
+                              name
+                              __typename
+                            }
+                          }
+                        }
+                      }
+                    }`;
+
+        const response = await this._post(this.buildRequestOptions(ql));
+        return {
+            folders: response.data.workspaceProject.browse.folders.items
+        };
+    }
+
     async listLibraryAssets(query) {
         const ql = `query LibraryAssets {
                       library(id: "${query.libraryId}") {
@@ -150,6 +171,27 @@ class Api extends OAuth2Requester {
         const response = await this._post(this.buildRequestOptions(ql));
         return {
             assets: response.data.library.assets.items,
+        };
+    }
+
+    async listLibraryFolders(query) {
+        const ql = `query LibraryFolders {
+                      library(id: "${query.libraryId}") {
+                        browse {
+                          folders {
+                            items {
+                              id
+                              name
+                              __typename
+                            }
+                          }
+                        }
+                      }
+                    }`;
+
+        const response = await this._post(this.buildRequestOptions(ql));
+        return {
+            folders: response.data.library.browse.folders.items
         };
     }
 }

@@ -327,6 +327,48 @@ describe(`${Config.label} API Tests`, () => {
             });
         });
 
+        describe('#listProjectFolders', () => {
+            describe('Retrieve information about project folders', () => {
+                let scope;
+
+                beforeEach(() => {
+                    const ql = `query ProjectFolders {
+                                  workspaceProject(id: "projectId") {
+                                    browse {
+                                      folders {
+                                        items {
+                                          id
+                                          name
+                                          __typename
+                                        }
+                                      }
+                                    }
+                                  }
+                                }`;
+
+                    scope = nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                workspaceProject: {
+                                    browse: {
+                                        folders: {
+                                            items: 'items'
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const projectFolders = await api.listProjectFolders({ projectId: 'projectId' });
+                    expect(projectFolders).toEqual({ folders: 'items' });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+        });
+
         describe('#listLibraryAssets', () => {
             describe('Retrieve information about library assets', () => {
                 let scope;
@@ -361,6 +403,48 @@ describe(`${Config.label} API Tests`, () => {
                 it('should hit the correct endpoint', async () => {
                     const libraryAssets = await api.listLibraryAssets({ libraryId: 'libraryId' });
                     expect(libraryAssets).toEqual({ assets: 'items' });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+        });
+
+        describe('#listLibraryFolders', () => {
+            describe('Retrieve information about library folders', () => {
+                let scope;
+
+                beforeEach(() => {
+                    const ql = `query LibraryFolders {
+                                  library(id: "libraryId") {
+                                    browse {
+                                      folders {
+                                        items {
+                                          id
+                                          name
+                                          __typename
+                                        }
+                                      }
+                                    }
+                                  }
+                                }`;
+
+                    scope = nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                library: {
+                                    browse: {
+                                        folders: {
+                                            items: 'items'
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const libraryFolders = await api.listLibraryFolders({ libraryId: 'libraryId' });
+                    expect(libraryFolders).toEqual({ folders: 'items' });
                     expect(scope.isDone()).toBe(true);
                 });
             });
