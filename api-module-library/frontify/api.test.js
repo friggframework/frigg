@@ -153,18 +153,18 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#getUser', () => {
+            const ql = `query CurrentUser {
+                           currentUser {
+                             id
+                             email
+                             name
+                           }
+                         }`;
+
             describe('Retrieve information about the user', () => {
                 let scope;
 
                 beforeEach(() => {
-                    const ql = `query CurrentUser {
-                                   currentUser {
-                                     id
-                                     email
-                                     name
-                                   }
-                                 }`;
-
                     scope = nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
@@ -184,14 +184,6 @@ describe(`${Config.label} API Tests`, () => {
             describe('Get error coming from user endpoint', () => {
 
                 beforeEach(() => {
-                    const ql = `query CurrentUser {
-                                   currentUser {
-                                     id
-                                     email
-                                     name
-                                   }
-                                 }`;
-
                     nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
@@ -225,18 +217,18 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#listBrands', () => {
+            const ql = `query Brands {
+                           brands {
+                             id
+                             avatar
+                             name
+                           }
+                         }`;
+
             describe('Retrieve information about brands', () => {
                 let scope;
 
                 beforeEach(() => {
-                    const ql = `query Brands {
-                                  brands {
-                                    id
-                                    avatar
-                                    name
-                                  }
-                                }`;
-
                     scope = nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
@@ -256,14 +248,6 @@ describe(`${Config.label} API Tests`, () => {
             describe('Get error coming from brands endpoint', () => {
 
                 beforeEach(() => {
-                    const ql = `query Brands {
-                                  brands {
-                                    id
-                                    avatar
-                                    name
-                                  }
-                                }`;
-
                     nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
@@ -297,21 +281,21 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#listProjects', () => {
+            const ql = `query Projects {
+                           brand(id: "brandId") {
+                             workspaceProjects {
+                               items {
+                                 id
+                                 name
+                               }
+                             }
+                           }
+                         }`;
+
             describe('Retrieve information about projects', () => {
                 let scope;
 
                 beforeEach(() => {
-                    const ql = `query Projects {
-                                  brand(id: "brandId") {
-                                    workspaceProjects {
-                                      items {
-                                        id
-                                        name
-                                      }
-                                    }
-                                  }
-                                }`;
-
                     scope = nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
@@ -335,17 +319,6 @@ describe(`${Config.label} API Tests`, () => {
             describe('Get error coming from projects endpoint', () => {
 
                 beforeEach(() => {
-                    const ql = `query Projects {
-                                  brand(id: "brandId") {
-                                    workspaceProjects {
-                                      items {
-                                        id
-                                        name
-                                      }
-                                    }
-                                  }
-                                }`;
-
                     nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
@@ -379,21 +352,21 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#listLibraries', () => {
+            const ql = `query Libraries {
+                           brand(id: "brandId") {
+                             libraries {
+                               items {
+                                 id
+                                 name
+                               }
+                             }
+                           }
+                         }`;
+
             describe('Retrieve information about libraries', () => {
                 let scope;
 
                 beforeEach(() => {
-                    const ql = `query Libraries {
-                                  brand(id: "brandId") {
-                                    libraries {
-                                      items {
-                                        id
-                                        name
-                                      }
-                                    }
-                                  }
-                                }`;
-
                     scope = nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
@@ -419,17 +392,6 @@ describe(`${Config.label} API Tests`, () => {
             describe('Get error coming from libraries endpoint', () => {
 
                 beforeEach(() => {
-                    const ql = `query Libraries {
-                                  brand(id: "brandId") {
-                                    libraries {
-                                      items {
-                                        id
-                                        name
-                                      }
-                                    }
-                                  }
-                                }`;
-
                     nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
@@ -463,23 +425,23 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#listProjectAssets', () => {
+            const ql = `query ProjectAssets {
+                           workspaceProject(id: "projectId") {
+                             assets {
+                               items {
+                                 id
+                                 title
+                                 description
+                                 __typename
+                               }
+                             }
+                           }
+                         }`;
+
             describe('Retrieve information about a project\'s assets', () => {
                 let scope;
 
                 beforeEach(() => {
-                    const ql = `query ProjectAssets {
-                                  workspaceProject(id: "projectId") {
-                                    assets {
-                                      items {
-                                        id
-                                        title
-                                        description
-                                        __typename
-                                      }
-                                    }
-                                  }
-                                }`;
-
                     scope = nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
@@ -503,19 +465,6 @@ describe(`${Config.label} API Tests`, () => {
             describe('Get error coming from a project\'s assets endpoint', () => {
 
                 beforeEach(() => {
-                    const ql = `query ProjectAssets {
-                                  workspaceProject(id: "projectId") {
-                                    assets {
-                                      items {
-                                        id
-                                        title
-                                        description
-                                        __typename
-                                      }
-                                    }
-                                  }
-                                }`;
-
                     nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
@@ -549,24 +498,24 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#listProjectFolders', () => {
+            const ql = `query ProjectFolders {
+                           workspaceProject(id: "projectId") {
+                             browse {
+                               folders {
+                                 items {
+                                   id
+                                   name
+                                   __typename
+                                 }
+                               }
+                             }
+                           }
+                         }`;
+
             describe('Retrieve information about a project\'s folders', () => {
                 let scope;
 
                 beforeEach(() => {
-                    const ql = `query ProjectFolders {
-                                  workspaceProject(id: "projectId") {
-                                    browse {
-                                      folders {
-                                        items {
-                                          id
-                                          name
-                                          __typename
-                                        }
-                                      }
-                                    }
-                                  }
-                                }`;
-
                     scope = nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
@@ -592,20 +541,6 @@ describe(`${Config.label} API Tests`, () => {
             describe('Get error coming from a project\'s folders endpoint', () => {
 
                 beforeEach(() => {
-                    const ql = `query ProjectFolders {
-                                  workspaceProject(id: "projectId") {
-                                    browse {
-                                      folders {
-                                        items {
-                                          id
-                                          name
-                                          __typename
-                                        }
-                                      }
-                                    }
-                                  }
-                                }`;
-
                     nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
@@ -639,23 +574,23 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#listLibraryAssets', () => {
+            const ql = `query LibraryAssets {
+                           library(id: "libraryId") {
+                             assets {
+                               items {
+                                 id
+                                 title
+                                 description
+                                 __typename
+                               }
+                             }
+                           }
+                         }`;
+
             describe('Retrieve information about a library\'s assets', () => {
                 let scope;
 
                 beforeEach(() => {
-                    const ql = `query LibraryAssets {
-                                  library(id: "libraryId") {
-                                    assets {
-                                      items {
-                                        id
-                                        title
-                                        description
-                                        __typename
-                                      }
-                                    }
-                                  }
-                                }`;
-
                     scope = nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
@@ -679,19 +614,6 @@ describe(`${Config.label} API Tests`, () => {
             describe('Get error coming from a library\'s assets endpoint', () => {
 
                 beforeEach(() => {
-                    const ql = `query LibraryAssets {
-                                  library(id: "libraryId") {
-                                    assets {
-                                      items {
-                                        id
-                                        title
-                                        description
-                                        __typename
-                                      }
-                                    }
-                                  }
-                                }`;
-
                     nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
@@ -725,24 +647,24 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#listLibraryFolders', () => {
+            const ql = `query LibraryFolders {
+                           library(id: "libraryId") {
+                             browse {
+                               folders {
+                                 items {
+                                   id
+                                   name
+                                   __typename
+                                 }
+                               }
+                             }
+                           }
+                         }`;
+
             describe('Retrieve information about a library\'s folders', () => {
                 let scope;
 
                 beforeEach(() => {
-                    const ql = `query LibraryFolders {
-                                  library(id: "libraryId") {
-                                    browse {
-                                      folders {
-                                        items {
-                                          id
-                                          name
-                                          __typename
-                                        }
-                                      }
-                                    }
-                                  }
-                                }`;
-
                     scope = nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
@@ -768,20 +690,6 @@ describe(`${Config.label} API Tests`, () => {
             describe('Get error coming from a library\'s folders endpoint', () => {
 
                 beforeEach(() => {
-                    const ql = `query LibraryFolders {
-                                  library(id: "libraryId") {
-                                    browse {
-                                      folders {
-                                        items {
-                                          id
-                                          name
-                                          __typename
-                                        }
-                                      }
-                                    }
-                                  }
-                                }`;
-
                     nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
