@@ -153,18 +153,18 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#getUser', () => {
+            const ql = `query CurrentUser {
+                           currentUser {
+                             id
+                             email
+                             name
+                           }
+                         }`;
+
             describe('Retrieve information about the user', () => {
                 let scope;
 
                 beforeEach(() => {
-                    const ql = `query CurrentUser {
-                                   currentUser {
-                                     id
-                                     email
-                                     name
-                                   }
-                                 }`;
-
                     scope = nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
@@ -180,21 +180,55 @@ describe(`${Config.label} API Tests`, () => {
                     expect(scope.isDone()).toBe(true);
                 });
             });
+
+            describe('Get error coming from user endpoint', () => {
+
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            errors: [
+                                {
+                                    message: 'An error getting user happened!',
+                                    locations: [
+                                        {
+                                            line: 1,
+                                            column: 1
+                                        }
+                                    ],
+                                    extensions: {
+                                        category: 'graphql'
+                                    }
+                                }
+                            ],
+                            data: null,
+                            extensions: {
+                                complexityScore: 0
+                            }
+                        });
+                });
+
+                it('should handle error', () => {
+                    expect(
+                        async () => await api.getUser()
+                    ).rejects.toThrow(new Error('An error getting user happened!'));
+                });
+            });
         });
 
         describe('#listBrands', () => {
+            const ql = `query Brands {
+                           brands {
+                             id
+                             avatar
+                             name
+                           }
+                         }`;
+
             describe('Retrieve information about brands', () => {
                 let scope;
 
                 beforeEach(() => {
-                    const ql = `query Brands {
-                                  brands {
-                                    id
-                                    avatar
-                                    name
-                                  }
-                                }`;
-
                     scope = nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
@@ -210,24 +244,58 @@ describe(`${Config.label} API Tests`, () => {
                     expect(scope.isDone()).toBe(true);
                 });
             });
+
+            describe('Get error coming from brands endpoint', () => {
+
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            errors: [
+                                {
+                                    message: 'An error getting brands happened!',
+                                    locations: [
+                                        {
+                                            line: 1,
+                                            column: 1
+                                        }
+                                    ],
+                                    extensions: {
+                                        category: 'graphql'
+                                    }
+                                }
+                            ],
+                            data: null,
+                            extensions: {
+                                complexityScore: 0
+                            }
+                        });
+                });
+
+                it('should handle error', () => {
+                    expect(
+                        async () => await api.listBrands()
+                    ).rejects.toThrow(new Error('An error getting brands happened!'));
+                });
+            });
         });
 
         describe('#listProjects', () => {
+            const ql = `query Projects {
+                           brand(id: "brandId") {
+                             workspaceProjects {
+                               items {
+                                 id
+                                 name
+                               }
+                             }
+                           }
+                         }`;
+
             describe('Retrieve information about projects', () => {
                 let scope;
 
                 beforeEach(() => {
-                    const ql = `query Projects {
-                                  brand(id: "brandId") {
-                                    workspaceProjects {
-                                      items {
-                                        id
-                                        name
-                                      }
-                                    }
-                                  }
-                                }`;
-
                     scope = nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
@@ -247,24 +315,58 @@ describe(`${Config.label} API Tests`, () => {
                     expect(scope.isDone()).toBe(true);
                 });
             });
+
+            describe('Get error coming from projects endpoint', () => {
+
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            errors: [
+                                {
+                                    message: 'An error getting projects happened!',
+                                    locations: [
+                                        {
+                                            line: 1,
+                                            column: 1
+                                        }
+                                    ],
+                                    extensions: {
+                                        category: 'graphql'
+                                    }
+                                }
+                            ],
+                            data: null,
+                            extensions: {
+                                complexityScore: 0
+                            }
+                        });
+                });
+
+                it('should handle error', () => {
+                    expect(
+                        async () => await api.listProjects({ brandId: 'brandId' })
+                    ).rejects.toThrow(new Error('An error getting projects happened!'));
+                });
+            });
         });
 
         describe('#listLibraries', () => {
+            const ql = `query Libraries {
+                           brand(id: "brandId") {
+                             libraries {
+                               items {
+                                 id
+                                 name
+                               }
+                             }
+                           }
+                         }`;
+
             describe('Retrieve information about libraries', () => {
                 let scope;
 
                 beforeEach(() => {
-                    const ql = `query Libraries {
-                                  brand(id: "brandId") {
-                                    libraries {
-                                      items {
-                                        id
-                                        name
-                                      }
-                                    }
-                                  }
-                                }`;
-
                     scope = nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
@@ -286,26 +388,60 @@ describe(`${Config.label} API Tests`, () => {
                     expect(scope.isDone()).toBe(true);
                 });
             });
+
+            describe('Get error coming from libraries endpoint', () => {
+
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            errors: [
+                                {
+                                    message: 'An error getting libraries happened!',
+                                    locations: [
+                                        {
+                                            line: 1,
+                                            column: 1
+                                        }
+                                    ],
+                                    extensions: {
+                                        category: 'graphql'
+                                    }
+                                }
+                            ],
+                            data: null,
+                            extensions: {
+                                complexityScore: 0
+                            }
+                        });
+                });
+
+                it('should handle error', () => {
+                    expect(
+                        async () => await api.listLibraries({ brandId: 'brandId' })
+                    ).rejects.toThrow(new Error('An error getting libraries happened!'));
+                });
+            });
         });
 
         describe('#listProjectAssets', () => {
+            const ql = `query ProjectAssets {
+                           workspaceProject(id: "projectId") {
+                             assets {
+                               items {
+                                 id
+                                 title
+                                 description
+                                 __typename
+                               }
+                             }
+                           }
+                         }`;
+
             describe('Retrieve information about a project\'s assets', () => {
                 let scope;
 
                 beforeEach(() => {
-                    const ql = `query ProjectAssets {
-                                  workspaceProject(id: "projectId") {
-                                    assets {
-                                      items {
-                                        id
-                                        title
-                                        description
-                                        __typename
-                                      }
-                                    }
-                                  }
-                                }`;
-
                     scope = nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
@@ -325,27 +461,61 @@ describe(`${Config.label} API Tests`, () => {
                     expect(scope.isDone()).toBe(true);
                 });
             });
+
+            describe('Get error coming from a project\'s assets endpoint', () => {
+
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            errors: [
+                                {
+                                    message: 'An error getting project assets happened!',
+                                    locations: [
+                                        {
+                                            line: 1,
+                                            column: 1
+                                        }
+                                    ],
+                                    extensions: {
+                                        category: 'graphql'
+                                    }
+                                }
+                            ],
+                            data: null,
+                            extensions: {
+                                complexityScore: 0
+                            }
+                        });
+                });
+
+                it('should handle error', () => {
+                    expect(
+                        async () => await api.listProjectAssets({ projectId: 'projectId' })
+                    ).rejects.toThrow(new Error('An error getting project assets happened!'));
+                });
+            });
         });
 
         describe('#listProjectFolders', () => {
+            const ql = `query ProjectFolders {
+                           workspaceProject(id: "projectId") {
+                             browse {
+                               folders {
+                                 items {
+                                   id
+                                   name
+                                   __typename
+                                 }
+                               }
+                             }
+                           }
+                         }`;
+
             describe('Retrieve information about a project\'s folders', () => {
                 let scope;
 
                 beforeEach(() => {
-                    const ql = `query ProjectFolders {
-                                  workspaceProject(id: "projectId") {
-                                    browse {
-                                      folders {
-                                        items {
-                                          id
-                                          name
-                                          __typename
-                                        }
-                                      }
-                                    }
-                                  }
-                                }`;
-
                     scope = nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
@@ -367,26 +537,60 @@ describe(`${Config.label} API Tests`, () => {
                     expect(scope.isDone()).toBe(true);
                 });
             });
+
+            describe('Get error coming from a project\'s folders endpoint', () => {
+
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            errors: [
+                                {
+                                    message: 'An error getting project folders happened!',
+                                    locations: [
+                                        {
+                                            line: 1,
+                                            column: 1
+                                        }
+                                    ],
+                                    extensions: {
+                                        category: 'graphql'
+                                    }
+                                }
+                            ],
+                            data: null,
+                            extensions: {
+                                complexityScore: 0
+                            }
+                        });
+                });
+
+                it('should handle error', () => {
+                    expect(
+                        async () => await api.listProjectFolders({ projectId: 'projectId' })
+                    ).rejects.toThrow(new Error('An error getting project folders happened!'));
+                });
+            });
         });
 
         describe('#listLibraryAssets', () => {
+            const ql = `query LibraryAssets {
+                           library(id: "libraryId") {
+                             assets {
+                               items {
+                                 id
+                                 title
+                                 description
+                                 __typename
+                               }
+                             }
+                           }
+                         }`;
+
             describe('Retrieve information about a library\'s assets', () => {
                 let scope;
 
                 beforeEach(() => {
-                    const ql = `query LibraryAssets {
-                                  library(id: "libraryId") {
-                                    assets {
-                                      items {
-                                        id
-                                        title
-                                        description
-                                        __typename
-                                      }
-                                    }
-                                  }
-                                }`;
-
                     scope = nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
@@ -406,27 +610,61 @@ describe(`${Config.label} API Tests`, () => {
                     expect(scope.isDone()).toBe(true);
                 });
             });
+
+            describe('Get error coming from a library\'s assets endpoint', () => {
+
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            errors: [
+                                {
+                                    message: 'An error getting library assets happened!',
+                                    locations: [
+                                        {
+                                            line: 1,
+                                            column: 1
+                                        }
+                                    ],
+                                    extensions: {
+                                        category: 'graphql'
+                                    }
+                                }
+                            ],
+                            data: null,
+                            extensions: {
+                                complexityScore: 0
+                            }
+                        });
+                });
+
+                it('should handle error', () => {
+                    expect(
+                        async () => await api.listLibraryAssets({ libraryId: 'libraryId' })
+                    ).rejects.toThrow(new Error('An error getting library assets happened!'));
+                });
+            });
         });
 
         describe('#listLibraryFolders', () => {
+            const ql = `query LibraryFolders {
+                           library(id: "libraryId") {
+                             browse {
+                               folders {
+                                 items {
+                                   id
+                                   name
+                                   __typename
+                                 }
+                               }
+                             }
+                           }
+                         }`;
+
             describe('Retrieve information about a library\'s folders', () => {
                 let scope;
 
                 beforeEach(() => {
-                    const ql = `query LibraryFolders {
-                                  library(id: "libraryId") {
-                                    browse {
-                                      folders {
-                                        items {
-                                          id
-                                          name
-                                          __typename
-                                        }
-                                      }
-                                    }
-                                  }
-                                }`;
-
                     scope = nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
@@ -446,6 +684,40 @@ describe(`${Config.label} API Tests`, () => {
                     const libraryFolders = await api.listLibraryFolders({ libraryId: 'libraryId' });
                     expect(libraryFolders).toEqual({ folders: 'items' });
                     expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Get error coming from a library\'s folders endpoint', () => {
+
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            errors: [
+                                {
+                                    message: 'An error getting library folders happened!',
+                                    locations: [
+                                        {
+                                            line: 1,
+                                            column: 1
+                                        }
+                                    ],
+                                    extensions: {
+                                        category: 'graphql'
+                                    }
+                                }
+                            ],
+                            data: null,
+                            extensions: {
+                                complexityScore: 0
+                            }
+                        });
+                });
+
+                it('should handle error', () => {
+                    expect(
+                        async () => await api.listLibraryFolders({ libraryId: 'libraryId' })
+                    ).rejects.toThrow(new Error('An error getting library folders happened!'));
                 });
             });
         });
