@@ -289,7 +289,7 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#listProjectAssets', () => {
-            describe('Retrieve information about project assets', () => {
+            describe('Retrieve information about a project\'s assets', () => {
                 let scope;
 
                 beforeEach(() => {
@@ -328,7 +328,7 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#listProjectFolders', () => {
-            describe('Retrieve information about project folders', () => {
+            describe('Retrieve information about a project\'s folders', () => {
                 let scope;
 
                 beforeEach(() => {
@@ -370,7 +370,7 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#listLibraryAssets', () => {
-            describe('Retrieve information about library assets', () => {
+            describe('Retrieve information about a library\'s assets', () => {
                 let scope;
 
                 beforeEach(() => {
@@ -409,7 +409,7 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#listLibraryFolders', () => {
-            describe('Retrieve information about library folders', () => {
+            describe('Retrieve information about a library\'s folders', () => {
                 let scope;
 
                 beforeEach(() => {
