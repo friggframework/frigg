@@ -51,6 +51,13 @@ class Api extends OAuth2Requester {
         };
     }
 
+    assertResponse(response) {
+        if (response.errors) {
+            const { errors } = response;
+            throw new Error(errors[0].message);
+        }
+    }
+
     async getUser() {
         const query = `query CurrentUser {
                          currentUser {
@@ -61,6 +68,7 @@ class Api extends OAuth2Requester {
                        }`;
 
         const response = await this._post(this.buildRequestOptions(query));
+        this.assertResponse(response);
         return {
             user: response.data.currentUser,
         };
@@ -76,6 +84,7 @@ class Api extends OAuth2Requester {
                     }`;
 
         const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
         return response.data;
     }
 
@@ -92,6 +101,7 @@ class Api extends OAuth2Requester {
                     }`;
 
         const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
         return {
             projects: response.data.brand.workspaceProjects.items,
         };
@@ -110,6 +120,7 @@ class Api extends OAuth2Requester {
                     }`;
 
         const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
         return response.data.brand.libraries.items;
     }
 
@@ -128,6 +139,7 @@ class Api extends OAuth2Requester {
                     }`;
 
         const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
         return {
             assets: response.data.workspaceProject.assets.items,
         };
@@ -149,6 +161,7 @@ class Api extends OAuth2Requester {
                     }`;
 
         const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
         return {
             folders: response.data.workspaceProject.browse.folders.items
         };
@@ -169,6 +182,7 @@ class Api extends OAuth2Requester {
                     }`;
 
         const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
         return {
             assets: response.data.library.assets.items,
         };
@@ -190,6 +204,7 @@ class Api extends OAuth2Requester {
                     }`;
 
         const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
         return {
             folders: response.data.library.browse.folders.items
         };
