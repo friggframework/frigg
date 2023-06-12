@@ -46,7 +46,7 @@ class Api extends OAuth2Requester {
                 'Content-Type': 'application/json',
             },
             body: {
-                query
+                query,
             },
         };
     }
@@ -163,7 +163,7 @@ class Api extends OAuth2Requester {
         const response = await this._post(this.buildRequestOptions(ql));
         this.assertResponse(response);
         return {
-            folders: response.data.workspaceProject.browse.folders.items
+            folders: response.data.workspaceProject.browse.folders.items,
         };
     }
 
@@ -206,7 +206,60 @@ class Api extends OAuth2Requester {
         const response = await this._post(this.buildRequestOptions(ql));
         this.assertResponse(response);
         return {
-            folders: response.data.library.browse.folders.items
+            folders: response.data.library.browse.folders.items,
+        };
+    }
+    async brandSearch(query) {
+        const ql = `query BrandLevelSearch {
+  brand(id: "${query.brandId}") {
+    id
+    name
+    search(page: 1, limit: ${query.limit}}, query: {term: "${query.term}"}) {
+      total
+      edges {
+        title
+        node {
+          ... on Asset {
+            id,
+          modifiedAt,
+          description,
+          createdAt,
+          tags {
+            source,
+            value,
+          },
+          metadataValues {
+            id
+          },
+            externalId,
+            title,
+            status,
+            __typename,
+            creator {
+              id,
+              name,
+              email
+            }
+          
+          },
+          ... on Image {
+            previewUrl,
+            extension
+            downloadUrl(validityInDays: null, permanent: true)
+            author,
+            
+          }
+          
+        }
+      }
+    }
+  }
+}`;
+
+        const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
+        return {
+            assets: response.data.brand.search.edges,
         };
     }
 }
