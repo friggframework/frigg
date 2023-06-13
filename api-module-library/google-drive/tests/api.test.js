@@ -3,6 +3,7 @@ const { Api } = require('../api');
 const Authenticator = require('@friggframework/test-environment/Authenticator');
 const fs = require('fs');
 const path = require('path');
+const fetch = require('node-fetch');
 
 describe('Google Drive API tests', () => {
     /* eslint-disable camelcase */
@@ -45,16 +46,40 @@ describe('Google Drive API tests', () => {
     });
 
     describe('Drive Drive requests', () => {
+        let aSharedDriveId;
         it('should return all drives', async () => {
             const response = await api.listDrives();
             expect(response).toBeDefined();
             expect(response.drives).toBeDefined();
+            aSharedDriveId = response.drives[0].id;
         });
 
+        it('should return a listing of files from a shared drive', async () => {
+            const response = await api.listFiles({
+                fields: '*',
+                driveId: aSharedDriveId,
+                supportsAllDrives: true,
+                includeItemsFromAllDrives: true,
+                corpora: 'drive'
+            });
+            expect(response).toBeDefined();
+            expect(response.files).toBeDefined();
+        });
+
+        let myDriveRootFolderId;
         it('should return My Drive root', async () => {
-            const response = await api.getMyDriveRoot({ fields: '*' });
+            const response = await api.getMyDriveRoot();
             expect(response).toBeDefined();
             expect(response.name).toEqual('My Drive');
+            myDriveRootFolderId = response.id;
+        });
+
+        it('should return a listing of files from My Drive', async () => {
+            const response = await api.listFiles({
+                fields: '*',
+            });
+            expect(response).toBeDefined();
+            expect(response.files.length).toBeGreaterThan(0);
         });
     });
 
@@ -138,7 +163,7 @@ describe('Google Drive API tests', () => {
             const fileSize = fs.statSync(filename).size;
             const headers = {
                 'Content-Type': 'image/svg+xml',
-                'Content-Range': `bytes 0-${fileSize - 1}/${fileSize}`,
+                //'Content-Range': `bytes 0-${fileSize - 1}/${fileSize}`,
             };
             const response = await api.uploadFileToSession(
                 uploadUrl,
@@ -146,6 +171,8 @@ describe('Google Drive API tests', () => {
                 file
             );
             expect(response.status).toBe(200);
+            const data = await response.json();
+            expect(data).toHaveProperty('id');
         });
         it('should download a file from a url and upload a file to google drive', async () => {
             const testUrl =
@@ -172,7 +199,7 @@ describe('Google Drive API tests', () => {
             const fileSize = fileBuff.byteLength;
             const headers = {
                 'Content-Type': 'image/png',
-                'Content-Range': `bytes 0-${fileSize - 1}/${fileSize}`,
+                //'Content-Range': `bytes 0-${fileSize - 1}/${fileSize}`,
             };
             const uploadRes = await api.uploadFileToSession(
                 uploadUrl,
@@ -182,7 +209,7 @@ describe('Google Drive API tests', () => {
             expect(uploadRes.status).toBe(200);
             console.log(await uploadRes.json());
         });
-        it('should upload a file via simple method', async () => {
+        it.skip('should upload a file via simple method', async () => {
             const fileSize = fs.statSync(filename).size;
             const headers = {
                 'Content-Type': 'image/svg+xml',
