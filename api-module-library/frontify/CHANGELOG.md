@@ -1,3 +1,26 @@
+# v0.0.3 (Tue Jun 13 2023)
+
+#### 🐛 Bug Fix
+
+- Feature/lef 263 search [#178](https://github.com/friggframework/frigg/pull/178) ([@roboli](https://github.com/roboli) [@seanspeaks](https://github.com/seanspeaks))
+- Feature/lef 260 list root container contents [#176](https://github.com/friggframework/frigg/pull/176) ([@roboli](https://github.com/roboli))
+- Feature/lef 397 handle frontify errors coming from their graphql api [#177](https://github.com/friggframework/frigg/pull/177) ([@roboli](https://github.com/roboli))
+- Working on the Search query. ([@seanspeaks](https://github.com/seanspeaks))
+- Avoid repeating graphql query in tests ([@roboli](https://github.com/roboli))
+- Handle errors coming from Frontify ([@roboli](https://github.com/roboli))
+- Improve tests descriptions ([@roboli](https://github.com/roboli))
+- Implement listProjectFolders and listLibraryFolders methods [ci skip] ([@roboli](https://github.com/roboli))
+- Ask for asset types [ci skip] ([@roboli](https://github.com/roboli))
+- Improve readibility of QL queries [ci skip] ([@roboli](https://github.com/roboli))
+- Fix typo [ci skip] ([@roboli](https://github.com/roboli))
+
+#### Authors: 2
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.2 (Thu Jun 08 2023)
 
 #### 🐛 Bug Fix

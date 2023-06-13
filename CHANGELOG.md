@@ -1,3 +1,19 @@
+# (Tue Jun 13 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@0.0.3`
+  - Feature/lef 263 search [#178](https://github.com/friggframework/frigg/pull/178) ([@roboli](https://github.com/roboli) [@seanspeaks](https://github.com/seanspeaks))
+  - Feature/lef 260 list root container contents [#176](https://github.com/friggframework/frigg/pull/176) ([@roboli](https://github.com/roboli))
+  - Feature/lef 397 handle frontify errors coming from their graphql api [#177](https://github.com/friggframework/frigg/pull/177) ([@roboli](https://github.com/roboli))
+
+#### Authors: 2
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Thu Jun 08 2023)
 
 #### 🐛 Bug Fix
