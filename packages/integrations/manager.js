@@ -138,7 +138,6 @@ class IntegrationManager extends Delegate {
     }
 
     static async connectIntegration(instance, integration) {
-        // could this all be in the constructor?
         instance.integration = integration;
         instance.primaryInstance =
             await EntityManager.getEntityManagerInstanceFromEntityId(
@@ -346,11 +345,13 @@ class IntegrationManager extends Delegate {
     }
 
     async loadDynamicUserActions() {
-        // If the integration implements user actions that require
-        // dynamic lookup, override this method. i.e.
-        // const actionEvents = this.getUserActions();
-        // this.delegate.events.push(...actionEvents);
-        return true;
+        const actionEvents = this.getUserActions();
+        this.delegate.events.push(...actionEvents);
+    }
+
+    async getUserActions() {
+        // override for integrations with dynamic user actions / events
+        return [];
     }
 
     // Children must implement
