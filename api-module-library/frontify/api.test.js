@@ -721,5 +721,126 @@ describe(`${Config.label} API Tests`, () => {
                 });
             });
         });
+
+        describe('#searchInBrand', () => {
+            const ql = `query BrandLevelSearch {
+                          brand(id: "brandId") {
+                            id
+                            name
+                            search(page: 1, limit: limit, query: {term: "term"}) {
+                              total
+                              edges {
+                                title
+                                node {
+                                  ... on Asset {
+                                    id,
+                                  modifiedAt,
+                                  description,
+                                  createdAt,
+                                  tags {
+                                    source,
+                                    value,
+                                  },
+                                  metadataValues {
+                                    id
+                                  },
+                                    externalId,
+                                    title,
+                                    status,
+                                    __typename,
+                                    creator {
+                                      id,
+                                      name,
+                                      email
+                                    }
+
+                                  },
+                                  ... on Image {
+                                    previewUrl,
+                                    extension
+                                    downloadUrl(validityInDays: null, permanent: true)
+                                    author,
+
+                                  }
+
+                                }
+                              }
+                            }
+                          }
+                        }`;
+
+            describe('Retrieve information when searching in Brand', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                brand: {
+                                    id: "eyJpZGVudGlmaWVyIjoxLCJ0eXBlIjoiYnJhbmQifQ==",
+                                    name: "Left Hook",
+                                    search: {
+                                        total: 1,
+                                        edges: 'edges'
+                                    }
+                                }
+                            }
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const query = {
+                        brandId: 'brandId',
+                        limit: 'limit',
+                        term: 'term'
+                    };
+
+                    const results = await api.searchInBrand(query);
+                    expect(results).toEqual({ assets: 'edges' });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Get incoming error when searching', () => {
+
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            errors: [
+                                {
+                                    message: 'An error searching brand happened!',
+                                    locations: [
+                                        {
+                                            line: 1,
+                                            column: 1
+                                        }
+                                    ],
+                                    extensions: {
+                                        category: 'graphql'
+                                    }
+                                }
+                            ],
+                            data: null,
+                            extensions: {
+                                complexityScore: 0
+                            }
+                        });
+                });
+
+                it('should handle error', () => {
+                    const query = {
+                        brandId: 'brandId',
+                        limit: 'limit',
+                        term: 'term'
+                    };
+
+                    expect(
+                        async () => await api.searchInBrand(query)
+                    ).rejects.toThrow(new Error('An error searching brand happened!'));
+                });
+            });
+        });
     });
 });

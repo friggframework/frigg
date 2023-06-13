@@ -209,52 +209,53 @@ class Api extends OAuth2Requester {
             folders: response.data.library.browse.folders.items,
         };
     }
-    async brandSearch(query) {
+
+    async searchInBrand(query) {
         const ql = `query BrandLevelSearch {
-  brand(id: "${query.brandId}") {
-    id
-    name
-    search(page: 1, limit: ${query.limit}}, query: {term: "${query.term}"}) {
-      total
-      edges {
-        title
-        node {
-          ... on Asset {
-            id,
-          modifiedAt,
-          description,
-          createdAt,
-          tags {
-            source,
-            value,
-          },
-          metadataValues {
-            id
-          },
-            externalId,
-            title,
-            status,
-            __typename,
-            creator {
-              id,
-              name,
-              email
-            }
-          
-          },
-          ... on Image {
-            previewUrl,
-            extension
-            downloadUrl(validityInDays: null, permanent: true)
-            author,
-            
-          }
-          
-        }
-      }
-    }
-  }
-}`;
+                      brand(id: "${query.brandId}") {
+                        id
+                        name
+                        search(page: 1, limit: ${query.limit}, query: {term: "${query.term}"}) {
+                          total
+                          edges {
+                            title
+                            node {
+                              ... on Asset {
+                                id,
+                              modifiedAt,
+                              description,
+                              createdAt,
+                              tags {
+                                source,
+                                value,
+                              },
+                              metadataValues {
+                                id
+                              },
+                                externalId,
+                                title,
+                                status,
+                                __typename,
+                                creator {
+                                  id,
+                                  name,
+                                  email
+                                }
+
+                              },
+                              ... on Image {
+                                previewUrl,
+                                extension
+                                downloadUrl(validityInDays: null, permanent: true)
+                                author,
+
+                              }
+
+                            }
+                          }
+                        }
+                      }
+                    }`;
 
         const response = await this._post(this.buildRequestOptions(ql));
         this.assertResponse(response);
