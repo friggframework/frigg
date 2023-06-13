@@ -99,10 +99,16 @@ describe(`Should fully test the ${Config.label} Manager`, () => {
 
                 manager.api.setDomain('mine-domain');
 
+                const qlUser = `query CurrentUser {
+                                  currentUser {
+                                    id
+                                    email
+                                    name
+                                  }
+                                }`;
+
                 scope = nock(baseUrl)
-                    .post('', {
-                        query: 'query CurrentUser { currentUser { id email name }}',
-                    })
+                    .post('', (body ) => body.query.replace(/\s/g, '') === qlUser.replace(/\s/g, ''))
                     .reply(200, {
                         data: {
                             currentUser: 'currentUser'
@@ -218,10 +224,16 @@ describe(`Should fully test the ${Config.label} Manager`, () => {
                         expires_in: 'expires_in'
                     });
 
+                const qlUser = `query CurrentUser {
+                                  currentUser {
+                                    id
+                                    email
+                                    name
+                                  }
+                                }`;
+
                 userScope = nock(baseUrl)
-                    .post('', {
-                        query: 'query CurrentUser { currentUser { id email name }}',
-                    })
+                    .post('', (body ) => body.query.replace(/\s/g, '') === qlUser.replace(/\s/g, ''))
                     .reply(200, {
                         data: {
                             currentUser: {
@@ -282,10 +294,16 @@ describe(`Should fully test the ${Config.label} Manager`, () => {
                         expires_in: 'expires_in'
                     });
 
+                const qlUser = `query CurrentUser {
+                                  currentUser {
+                                    id
+                                    email
+                                    name
+                                  }
+                                }`;
+
                 userScope = nock(baseUrl)
-                    .post('', {
-                        query: 'query CurrentUser { currentUser { id email name }}',
-                    })
+                    .post('', (body ) => body.query.replace(/\s/g, '') === qlUser.replace(/\s/g, ''))
                     .reply(200, {
                         data: {
                             currentUser: {

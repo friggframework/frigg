@@ -76,7 +76,7 @@ class Manager extends ModuleManager {
                 uiSchema: {
                     domain: {
                         'ui:help':
-                            'An Frontify domain, e.g: lefthook.frontify.com',
+                            'A Frontify domain, e.g: lefthook.frontify.com',
                         'ui:placeholder': 'Your Frontify domain...',
                     },
                 }

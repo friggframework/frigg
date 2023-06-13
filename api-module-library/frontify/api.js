@@ -51,47 +51,162 @@ class Api extends OAuth2Requester {
         };
     }
 
+    assertResponse(response) {
+        if (response.errors) {
+            const { errors } = response;
+            throw new Error(errors[0].message);
+        }
+    }
+
     async getUser() {
-        const query = 'query CurrentUser { currentUser { id email name }}';
+        const query = `query CurrentUser {
+                         currentUser {
+                           id
+                           email
+                           name
+                         }
+                       }`;
+
         const response = await this._post(this.buildRequestOptions(query));
+        this.assertResponse(response);
         return {
             user: response.data.currentUser,
         };
     }
 
     async listBrands() {
-        const ql = 'query Brands { brands { id avatar name }}';
+        const ql = `query Brands {
+                      brands {
+                        id
+                        avatar
+                        name
+                      }
+                    }`;
+
         const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
         return response.data;
     }
 
     async listProjects(query) {
-        const ql = `query Projects { brand(id: "${query.brandId}") { workspaceProjects { items { id name }}}}`;
+        const ql = `query Projects {
+                      brand(id: "${query.brandId}") {
+                        workspaceProjects {
+                          items {
+                            id
+                            name
+                          }
+                        }
+                      }
+                    }`;
+
         const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
         return {
             projects: response.data.brand.workspaceProjects.items,
         };
     }
 
     async listLibraries(query) {
-        const ql = `query Libraries { brand(id: "${query.brandId}") { libraries { items { id name }}}}`;
+        const ql = `query Libraries {
+                      brand(id: "${query.brandId}") {
+                        libraries {
+                          items {
+                            id
+                            name
+                          }
+                        }
+                      }
+                    }`;
+
         const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
         return response.data.brand.libraries.items;
     }
 
     async listProjectAssets(query) {
-        const ql = `query ProjectAssets { workspaceProject(id: "${query.projectId}") { assets { items { id title description }}}}`;
+        const ql = `query ProjectAssets {
+                      workspaceProject(id: "${query.projectId}") {
+                        assets {
+                          items {
+                            id
+                            title
+                            description
+                            __typename
+                          }
+                        }
+                      }
+                    }`;
+
         const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
         return {
             assets: response.data.workspaceProject.assets.items,
         };
     }
 
-    async listLibraryAssets(query) {
-        const ql = `query LibraryAssets { library(id: "${query.libraryId}") { assets { items { id title description }}}}`;
+    async listProjectFolders(query) {
+        const ql = `query ProjectFolders {
+                      workspaceProject(id: "${query.projectId}") {
+                        browse {
+                          folders {
+                            items {
+                              id
+                              name
+                              __typename
+                            }
+                          }
+                        }
+                      }
+                    }`;
+
         const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
+        return {
+            folders: response.data.workspaceProject.browse.folders.items
+        };
+    }
+
+    async listLibraryAssets(query) {
+        const ql = `query LibraryAssets {
+                      library(id: "${query.libraryId}") {
+                        assets {
+                          items {
+                            id
+                            title
+                            description
+                            __typename
+                          }
+                        }
+                      }
+                    }`;
+
+        const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
         return {
             assets: response.data.library.assets.items,
+        };
+    }
+
+    async listLibraryFolders(query) {
+        const ql = `query LibraryFolders {
+                      library(id: "${query.libraryId}") {
+                        browse {
+                          folders {
+                            items {
+                              id
+                              name
+                              __typename
+                            }
+                          }
+                        }
+                      }
+                    }`;
+
+        const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
+        return {
+            folders: response.data.library.browse.folders.items
         };
     }
 }
