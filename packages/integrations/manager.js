@@ -1,5 +1,5 @@
 const { loadInstalledModules, Delegate } = require('@friggframework/core');
-const { Credential, Entity, EntityManager} = require('@friggframework/module-plugin');
+const { Credential, Entity} = require('@friggframework/module-plugin');
 const { Integration } = require('./model');
 const { IntegrationMapping } = require('./integration-mapping');
 
@@ -59,7 +59,7 @@ class IntegrationManager extends Delegate {
             userId,
             events: integrationManagerClass.Config.events
         });
-        await this.connectIntegration(instance, integration);
+        await this.connectIntegration(instance, integration, params.EntityManager);
         return instance;
     }
 
@@ -134,10 +134,10 @@ class IntegrationManager extends Delegate {
     }
 
     static async getInstance(params) {
-        return new this(params);
+        return new IntegrationManager(params);
     }
 
-    static async connectIntegration(instance, integration) {
+    static async connectIntegration(instance, integration, EntityManager) {
         instance.integration = integration;
         instance.primaryInstance =
             await EntityManager.getEntityManagerInstanceFromEntityId(
@@ -200,7 +200,7 @@ class IntegrationManager extends Delegate {
             userId,
             events: integrationManagerClass.Config.events,
         });
-        await this.connectIntegration(instance, integration);
+        await this.connectIntegration(instance, integration, EntityManager);
         return instance;
     }
 
@@ -345,8 +345,8 @@ class IntegrationManager extends Delegate {
     }
 
     async loadDynamicUserActions() {
-        const actionEvents = this.getUserActions();
-        this.delegate.events.push(...actionEvents);
+        const actionEvents = await this.getUserActions();
+        this.delegate.delegateTypes.push(...actionEvents);
     }
 
     async getUserActions() {

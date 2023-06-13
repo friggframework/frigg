@@ -70,6 +70,28 @@ describe(`Should fully test the IntegrationManager`, () => {
         await mongoose.disconnect();
     });
 
+    describe('Integration creation and retrieval', () => {
+        it('createIntegration', async () => {
+            IntegrationManager.getIntegrationManagerClasses =
+                jest.fn().mockReturnValue(
+                    {
+                        Config: {
+                            version: 1,
+                            events: ['event1', 'event2']
+                        },
+                        getInstance: IntegrationManager.getInstance
+                    }
+            );
+            const entity = await Entity.findByUserId(userId);
+            const integration = await IntegrationManager.createIntegration(
+                [entity, entity],
+                userId,
+                {},
+                {getEntityManagerInstanceFromEntityId: () => {}}
+            );
+        })
+    })
+
     describe('getIntegrationMapping()', () => {
         it('should return null if not found', async () => {
             const mappings = await IntegrationManager.getIntegrationMapping(new mongoose.Types.ObjectId(), 'badId');
