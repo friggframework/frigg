@@ -74,6 +74,56 @@ class Api extends OAuth2Requester {
         };
     }
 
+    async getAsset(query) {
+        const commonProps = [
+            'description',
+            'downloadUrl',
+            'filename',
+            'previewUrl',
+            'size',
+        ];
+
+        const dimensionProps = [
+            'height',
+            'width',
+        ];
+
+        const ql = `query Asset {
+                      asset(id: "${query.assetId}") {
+                        id
+                        title
+                        __typename
+                        tags {
+                          value
+                        }
+                        ... on Audio {
+                          ${commonProps.join(' ')}
+                        }
+                        ... on Document {
+                          ${commonProps.join(' ')}
+                          ${dimensionProps.join(' ')}
+                        }
+                        ... on File {
+                          ${commonProps.join(' ')}
+                        }
+                        ... on Image {
+                          ${commonProps.join(' ')}
+                          ${dimensionProps.join(' ')}
+                        }
+                        ... on Video {
+                          ${commonProps.join(' ')}
+                          ${dimensionProps.join(' ')}
+                          duration
+                          bitrate
+                        }
+                      }
+                    }`;
+
+        const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
+        return response.data.asset;
+    }
+
     async listBrands() {
         const ql = `query Brands {
                       brands {
