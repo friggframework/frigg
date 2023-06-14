@@ -1,3 +1,16 @@
+# (Wed Jun 14 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@0.0.4`
+  - Feature/lef 262 get file details [#179](https://github.com/friggframework/frigg/pull/179) ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
 # (Tue Jun 13 2023)
 
 #### 🐛 Bug Fix

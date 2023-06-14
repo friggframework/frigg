@@ -1,3 +1,17 @@
+# v0.0.4 (Wed Jun 14 2023)
+
+#### 🐛 Bug Fix
+
+- Feature/lef 262 get file details [#179](https://github.com/friggframework/frigg/pull/179) ([@roboli](https://github.com/roboli))
+- Implement getAsset method [ci skip] ([@roboli](https://github.com/roboli))
+- Fix and testing searchInBrand method [ci skip] ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
 # v0.0.3 (Tue Jun 13 2023)
 
 #### 🐛 Bug Fix
