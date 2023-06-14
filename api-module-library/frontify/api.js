@@ -124,6 +124,20 @@ class Api extends OAuth2Requester {
         return response.data.asset;
     }
 
+    async getSearchFilterOptions() {
+        return {
+            status: ['FINISHED', 'PROCESSING', 'PROCESSING_FAILED'],
+            fileTypes: [
+                'Audio',
+                'Document',
+                'File',
+                'Image',
+                'Video',
+                'EmbeddedContent'
+            ]
+        };
+    }
+
     async listBrands() {
         const ql = `query Brands {
                       brands {

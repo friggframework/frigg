@@ -318,6 +318,25 @@ describe(`${Config.label} API Tests`, () => {
             });
         });
 
+        describe('#getSearchFilterOptions', () => {
+            describe('Retrieve searh and filter available options', () => {
+                it('should return options', async () => {
+                    const options = await api.getSearchFilterOptions();
+                    expect(options).toEqual({
+                        status: ['FINISHED', 'PROCESSING', 'PROCESSING_FAILED'],
+                        fileTypes: [
+                            'Audio',
+                            'Document',
+                            'File',
+                            'Image',
+                            'Video',
+                            'EmbeddedContent'
+                        ]
+                    });
+                });
+            });
+        });
+
         describe('#listBrands', () => {
             const ql = `query Brands {
                            brands {
