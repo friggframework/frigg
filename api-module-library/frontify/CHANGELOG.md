@@ -1,3 +1,24 @@
+# v0.0.6 (Wed Jun 14 2023)
+
+#### 🐛 Bug Fix
+
+- Feature/lef 264 get search filter options [#181](https://github.com/friggframework/frigg/pull/181) ([@roboli](https://github.com/roboli))
+- Add status prop and EmbeddedContent type when fetch asset [ci skip] ([@roboli](https://github.com/roboli))
+- Implement getSearchFilterOptions method [ci skip] ([@roboli](https://github.com/roboli))
+- Fix renaming REDIRECT_URI when testing [ci skip] ([@roboli](https://github.com/roboli))
+- Feature/lef 259 frontify functionality checklist [#180](https://github.com/friggframework/frigg/pull/180) ([@leofmds](https://github.com/leofmds))
+- Add conditional chaining to workspaceProject(s) ([@leofmds](https://github.com/leofmds))
+- Fix REDIRECT_URI env variable ([@leofmds](https://github.com/leofmds))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 3
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.5 (Wed Jun 14 2023)
 
 #### 🐛 Bug Fix

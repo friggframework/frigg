@@ -2,6 +2,21 @@
 
 #### 🐛 Bug Fix
 
+- `@friggframework/api-module-frontify@0.0.6`
+  - Feature/lef 264 get search filter options [#181](https://github.com/friggframework/frigg/pull/181) ([@roboli](https://github.com/roboli))
+  - Feature/lef 259 frontify functionality checklist [#180](https://github.com/friggframework/frigg/pull/180) ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 2
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
+# (Wed Jun 14 2023)
+
+#### 🐛 Bug Fix
+
 - `@friggframework/api-module-frontify@0.0.5`
   - Feature/lef 259 frontify functionality checklist [#180](https://github.com/friggframework/frigg/pull/180) ([@leofmds](https://github.com/leofmds))
 
