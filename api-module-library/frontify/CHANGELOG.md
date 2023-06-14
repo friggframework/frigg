@@ -1,3 +1,17 @@
+# v0.0.5 (Wed Jun 14 2023)
+
+#### 🐛 Bug Fix
+
+- Feature/lef 259 frontify functionality checklist [#180](https://github.com/friggframework/frigg/pull/180) ([@leofmds](https://github.com/leofmds))
+- Add conditional chaining to workspaceProject(s) ([@leofmds](https://github.com/leofmds))
+- Fix REDIRECT_URI env variable ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 1
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
 # v0.0.4 (Wed Jun 14 2023)
 
 #### 🐛 Bug Fix
