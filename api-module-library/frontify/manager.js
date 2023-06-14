@@ -27,7 +27,7 @@ class Manager extends ModuleManager {
         const frontifyParams = {
             client_id: process.env.FRONTIFY_CLIENT_ID,
             client_secret: process.env.FRONTIFY_CLIENT_SECRET,
-            redirect_uri: `${process.env.FRONTIFY_REDIRECT_URI}/frontify`,
+            redirect_uri: `${process.env.REDIRECT_URI}/frontify`,
             scope: process.env.FRONTIFY_SCOPE,
             delegate: instance,
         };

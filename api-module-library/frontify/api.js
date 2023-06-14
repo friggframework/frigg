@@ -153,7 +153,7 @@ class Api extends OAuth2Requester {
         const response = await this._post(this.buildRequestOptions(ql));
         this.assertResponse(response);
         return {
-            projects: response.data.brand.workspaceProjects.items,
+            projects: response.data.brand.workspaceProjects?.items,
         };
     }
 
@@ -191,7 +191,7 @@ class Api extends OAuth2Requester {
         const response = await this._post(this.buildRequestOptions(ql));
         this.assertResponse(response);
         return {
-            assets: response.data.workspaceProject.assets.items,
+            assets: response.data.workspaceProject?.assets.items,
         };
     }
 
@@ -213,7 +213,7 @@ class Api extends OAuth2Requester {
         const response = await this._post(this.buildRequestOptions(ql));
         this.assertResponse(response);
         return {
-            folders: response.data.workspaceProject.browse.folders.items,
+            folders: response.data.workspaceProject?.browse.folders.items,
         };
     }
 
