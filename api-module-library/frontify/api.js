@@ -92,6 +92,7 @@ class Api extends OAuth2Requester {
                       asset(id: "${query.assetId}") {
                         id
                         title
+                        status
                         __typename
                         tags {
                           value
@@ -115,6 +116,11 @@ class Api extends OAuth2Requester {
                           ${dimensionProps.join(' ')}
                           duration
                           bitrate
+                        }
+                        ... on EmbeddedContent {
+                          description
+                          previewUrl
+                          status
                         }
                       }
                     }`;

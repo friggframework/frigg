@@ -234,6 +234,7 @@ describe(`${Config.label} API Tests`, () => {
                           asset(id: "assetId") {
                             id
                             title
+                            status
                             __typename
                             tags {
                               value
@@ -257,6 +258,11 @@ describe(`${Config.label} API Tests`, () => {
                               ${dimensionProps.join(' ')}
                               duration
                               bitrate
+                            }
+                            ... on EmbeddedContent {
+                              description
+                              previewUrl
+                              status
                             }
                           }
                         }`;
