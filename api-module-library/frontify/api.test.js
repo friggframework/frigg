@@ -234,6 +234,7 @@ describe(`${Config.label} API Tests`, () => {
                           asset(id: "assetId") {
                             id
                             title
+                            status
                             __typename
                             tags {
                               value
@@ -257,6 +258,11 @@ describe(`${Config.label} API Tests`, () => {
                               ${dimensionProps.join(' ')}
                               duration
                               bitrate
+                            }
+                            ... on EmbeddedContent {
+                              description
+                              previewUrl
+                              status
                             }
                           }
                         }`;
@@ -314,6 +320,25 @@ describe(`${Config.label} API Tests`, () => {
                     expect(
                         async () => await api.getAsset({ assetId: 'assetId' })
                     ).rejects.toThrow(new Error('An error getting asset happened!'));
+                });
+            });
+        });
+
+        describe('#getSearchFilterOptions', () => {
+            describe('Retrieve searh and filter available options', () => {
+                it('should return options', async () => {
+                    const options = await api.getSearchFilterOptions();
+                    expect(options).toEqual({
+                        status: ['FINISHED', 'PROCESSING', 'PROCESSING_FAILED'],
+                        fileTypes: [
+                            'Audio',
+                            'Document',
+                            'File',
+                            'Image',
+                            'Video',
+                            'EmbeddedContent'
+                        ]
+                    });
                 });
             });
         });

@@ -92,6 +92,7 @@ class Api extends OAuth2Requester {
                       asset(id: "${query.assetId}") {
                         id
                         title
+                        status
                         __typename
                         tags {
                           value
@@ -116,12 +117,31 @@ class Api extends OAuth2Requester {
                           duration
                           bitrate
                         }
+                        ... on EmbeddedContent {
+                          description
+                          previewUrl
+                          status
+                        }
                       }
                     }`;
 
         const response = await this._post(this.buildRequestOptions(ql));
         this.assertResponse(response);
         return response.data.asset;
+    }
+
+    async getSearchFilterOptions() {
+        return {
+            status: ['FINISHED', 'PROCESSING', 'PROCESSING_FAILED'],
+            fileTypes: [
+                'Audio',
+                'Document',
+                'File',
+                'Image',
+                'Video',
+                'EmbeddedContent'
+            ]
+        };
     }
 
     async listBrands() {
