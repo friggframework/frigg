@@ -216,6 +216,108 @@ describe(`${Config.label} API Tests`, () => {
             });
         });
 
+        describe('#getAsset', () => {
+            const commonProps = [
+                'description',
+                'downloadUrl',
+                'filename',
+                'previewUrl',
+                'size',
+            ];
+
+            const dimensionProps = [
+                'height',
+                'width',
+            ];
+
+            const ql = `query Asset {
+                          asset(id: "assetId") {
+                            id
+                            title
+                            __typename
+                            tags {
+                              value
+                            }
+                            ... on Audio {
+                              ${commonProps.join(' ')}
+                            }
+                            ... on Document {
+                              ${commonProps.join(' ')}
+                              ${dimensionProps.join(' ')}
+                            }
+                            ... on File {
+                              ${commonProps.join(' ')}
+                            }
+                            ... on Image {
+                              ${commonProps.join(' ')}
+                              ${dimensionProps.join(' ')}
+                            }
+                            ... on Video {
+                              ${commonProps.join(' ')}
+                              ${dimensionProps.join(' ')}
+                              duration
+                              bitrate
+                            }
+                          }
+                        }`;
+
+            describe('Retrieve information about an asset', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                asset: {
+                                    asset: 'asset'
+                                }
+                            }
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const asset = await api.getAsset({ assetId: 'assetId' });
+                    expect(asset).toEqual({ asset: 'asset' });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Get error coming from asset endpoint', () => {
+
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            errors: [
+                                {
+                                    message: 'An error getting asset happened!',
+                                    locations: [
+                                        {
+                                            line: 1,
+                                            column: 1
+                                        }
+                                    ],
+                                    extensions: {
+                                        category: 'graphql'
+                                    }
+                                }
+                            ],
+                            data: null,
+                            extensions: {
+                                complexityScore: 0
+                            }
+                        });
+                });
+
+                it('should handle error', () => {
+                    expect(
+                        async () => await api.getAsset({ assetId: 'assetId' })
+                    ).rejects.toThrow(new Error('An error getting asset happened!'));
+                });
+            });
+        });
+
         describe('#listBrands', () => {
             const ql = `query Brands {
                            brands {
@@ -718,6 +820,127 @@ describe(`${Config.label} API Tests`, () => {
                     expect(
                         async () => await api.listLibraryFolders({ libraryId: 'libraryId' })
                     ).rejects.toThrow(new Error('An error getting library folders happened!'));
+                });
+            });
+        });
+
+        describe('#searchInBrand', () => {
+            const ql = `query BrandLevelSearch {
+                          brand(id: "brandId") {
+                            id
+                            name
+                            search(page: 1, limit: limit, query: {term: "term"}) {
+                              total
+                              edges {
+                                title
+                                node {
+                                  ... on Asset {
+                                    id,
+                                  modifiedAt,
+                                  description,
+                                  createdAt,
+                                  tags {
+                                    source,
+                                    value,
+                                  },
+                                  metadataValues {
+                                    id
+                                  },
+                                    externalId,
+                                    title,
+                                    status,
+                                    __typename,
+                                    creator {
+                                      id,
+                                      name,
+                                      email
+                                    }
+
+                                  },
+                                  ... on Image {
+                                    previewUrl,
+                                    extension
+                                    downloadUrl(validityInDays: null, permanent: true)
+                                    author,
+
+                                  }
+
+                                }
+                              }
+                            }
+                          }
+                        }`;
+
+            describe('Retrieve information when searching in Brand', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                brand: {
+                                    id: "eyJpZGVudGlmaWVyIjoxLCJ0eXBlIjoiYnJhbmQifQ==",
+                                    name: "Left Hook",
+                                    search: {
+                                        total: 1,
+                                        edges: 'edges'
+                                    }
+                                }
+                            }
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const query = {
+                        brandId: 'brandId',
+                        limit: 'limit',
+                        term: 'term'
+                    };
+
+                    const results = await api.searchInBrand(query);
+                    expect(results).toEqual({ assets: 'edges' });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Get incoming error when searching', () => {
+
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            errors: [
+                                {
+                                    message: 'An error searching brand happened!',
+                                    locations: [
+                                        {
+                                            line: 1,
+                                            column: 1
+                                        }
+                                    ],
+                                    extensions: {
+                                        category: 'graphql'
+                                    }
+                                }
+                            ],
+                            data: null,
+                            extensions: {
+                                complexityScore: 0
+                            }
+                        });
+                });
+
+                it('should handle error', () => {
+                    const query = {
+                        brandId: 'brandId',
+                        limit: 'limit',
+                        term: 'term'
+                    };
+
+                    expect(
+                        async () => await api.searchInBrand(query)
+                    ).rejects.toThrow(new Error('An error searching brand happened!'));
                 });
             });
         });

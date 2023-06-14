@@ -74,6 +74,56 @@ class Api extends OAuth2Requester {
         };
     }
 
+    async getAsset(query) {
+        const commonProps = [
+            'description',
+            'downloadUrl',
+            'filename',
+            'previewUrl',
+            'size',
+        ];
+
+        const dimensionProps = [
+            'height',
+            'width',
+        ];
+
+        const ql = `query Asset {
+                      asset(id: "${query.assetId}") {
+                        id
+                        title
+                        __typename
+                        tags {
+                          value
+                        }
+                        ... on Audio {
+                          ${commonProps.join(' ')}
+                        }
+                        ... on Document {
+                          ${commonProps.join(' ')}
+                          ${dimensionProps.join(' ')}
+                        }
+                        ... on File {
+                          ${commonProps.join(' ')}
+                        }
+                        ... on Image {
+                          ${commonProps.join(' ')}
+                          ${dimensionProps.join(' ')}
+                        }
+                        ... on Video {
+                          ${commonProps.join(' ')}
+                          ${dimensionProps.join(' ')}
+                          duration
+                          bitrate
+                        }
+                      }
+                    }`;
+
+        const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
+        return response.data.asset;
+    }
+
     async listBrands() {
         const ql = `query Brands {
                       brands {
@@ -209,52 +259,53 @@ class Api extends OAuth2Requester {
             folders: response.data.library.browse.folders.items,
         };
     }
-    async brandSearch(query) {
+
+    async searchInBrand(query) {
         const ql = `query BrandLevelSearch {
-  brand(id: "${query.brandId}") {
-    id
-    name
-    search(page: 1, limit: ${query.limit}}, query: {term: "${query.term}"}) {
-      total
-      edges {
-        title
-        node {
-          ... on Asset {
-            id,
-          modifiedAt,
-          description,
-          createdAt,
-          tags {
-            source,
-            value,
-          },
-          metadataValues {
-            id
-          },
-            externalId,
-            title,
-            status,
-            __typename,
-            creator {
-              id,
-              name,
-              email
-            }
-          
-          },
-          ... on Image {
-            previewUrl,
-            extension
-            downloadUrl(validityInDays: null, permanent: true)
-            author,
-            
-          }
-          
-        }
-      }
-    }
-  }
-}`;
+                      brand(id: "${query.brandId}") {
+                        id
+                        name
+                        search(page: 1, limit: ${query.limit}, query: {term: "${query.term}"}) {
+                          total
+                          edges {
+                            title
+                            node {
+                              ... on Asset {
+                                id,
+                              modifiedAt,
+                              description,
+                              createdAt,
+                              tags {
+                                source,
+                                value,
+                              },
+                              metadataValues {
+                                id
+                              },
+                                externalId,
+                                title,
+                                status,
+                                __typename,
+                                creator {
+                                  id,
+                                  name,
+                                  email
+                                }
+
+                              },
+                              ... on Image {
+                                previewUrl,
+                                extension
+                                downloadUrl(validityInDays: null, permanent: true)
+                                author,
+
+                              }
+
+                            }
+                          }
+                        }
+                      }
+                    }`;
 
         const response = await this._post(this.buildRequestOptions(ql));
         this.assertResponse(response);
