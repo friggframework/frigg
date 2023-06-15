@@ -1,3 +1,16 @@
+# (Thu Jun 15 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/integrations@1.1.3`
+  - return the mapping object directly from getIntegrationMapping [#157](https://github.com/friggframework/frigg/pull/157) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 1
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+
+---
+
 # (Wed Jun 14 2023)
 
 #### 🐛 Bug Fix

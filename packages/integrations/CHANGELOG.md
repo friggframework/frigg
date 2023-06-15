@@ -1,3 +1,18 @@
+# v1.1.3 (Thu Jun 15 2023)
+
+#### 🐛 Bug Fix
+
+- return the mapping object directly from getIntegrationMapping [#157](https://github.com/friggframework/frigg/pull/157) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- potential change to return the mapping object directly from getIntegrationMapping. this is only to provide for cleaner assignment of the mapping when getIntegrationMapping is used. ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.1.2 (Thu Jun 08 2023)
 
 #### 🐛 Bug Fix
