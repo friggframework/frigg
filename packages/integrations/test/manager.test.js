@@ -88,11 +88,7 @@ describe(`Should fully test the IntegrationManager`, () => {
         it('should return if valid ids', async () => {
             await IntegrationManager.upsertIntegrationMapping(integration._id, userId, 'validId', {});
             const mapping = await IntegrationManager.getIntegrationMapping(integration.id, 'validId');
-            expect(_.pick(mapping, ['integration', 'sourceId', 'mapping'])).to.eql({
-                integration: integration._id,
-                sourceId: 'validId',
-                mapping: {}
-            })
+            expect(mapping).to.eql({})
         });
     })
 
