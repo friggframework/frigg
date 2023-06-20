@@ -43,6 +43,12 @@ class Api extends OAuth2Requester {
                 `/crm/v3/objects/${objectType}/batch/create`,
             bulkArchiveCustomObjects: (objectType) =>
                 `/crm/v3/objects/${objectType}/batch/archive`,
+            landingPages: '/cms/v3/pages/landing-pages',
+            sitePages: '/cms/v3/pages/site-pages',
+            blogPosts: '/cms/v3/blogs/posts',
+            landingPageById: (landingPageId) => `/cms/v3/pages/landing-pages/${landingPageId}`,
+            sitePageById: (sitePageId) => `/cms/v3/pages/site-pages/${sitePageId}`,
+            blogPostById: (blogPostId) => `/cms/v3/blogs/posts/${blogPostId}`
         };
 
         this.authorizationUri = encodeURI(
@@ -647,6 +653,105 @@ class Api extends OAuth2Requester {
             extraData: data.extraData,
         };
         return this._post(this.URLs.createTimelineEvent, body);
+    }
+
+    // **************************   Pages   *****************************
+
+    async getLandingPages(query=''){
+        const options = {
+            url: `${this.baseUrl}${this.URLs.landingPages}`,
+        };
+        if (query !== '') {
+            options.url = `${options.url}?${query}`
+        }
+        return this._get(options);
+    }
+
+    async getLandingPage(id){
+        const options = {
+            url: `${this.baseUrl}${this.URLs.landingPageById(id)}`,
+        };
+        return this._get(options);
+    }
+
+    async updateLandingPage(objId, body, isDraft=false){
+        const draft = isDraft ? '/draft' : ''
+        const options = {
+            url: `${this.baseUrl}${this.URLs.landingPageById(objId)}${draft}`,
+            body,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+
+            }
+        };
+        return this._patch(options);
+    }
+
+
+    async getSitePages(query=''){
+        const options = {
+            url: `${this.baseUrl}${this.URLs.sitePages}`,
+        };
+        if (query !== '') {
+            options.url = `${options.url}?${query}`
+        }
+        return this._get(options);
+    }
+
+    async getSitePage(id){
+        const options = {
+            url: `${this.baseUrl}${this.URLs.sitePageById(id)}`,
+        };
+        return this._get(options);
+    }
+
+
+    async updateSitePage(objId, body, isDraft=false){
+        const draft = isDraft ? '/draft' : ''
+        const options = {
+            url: `${this.baseUrl}${this.URLs.sitePageById(objId)}${draft}`,
+            body: body,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+
+            }
+        };
+        return this._patch(options);
+    }
+
+    // **************************   Blogs   *****************************
+
+    async getBlogPosts(query=''){
+        const options = {
+            url: `${this.baseUrl}${this.URLs.blogPosts}`,
+        };
+        if (query !== '') {
+            options.url = `${options.url}?${query}`
+        }
+        return this._get(options);
+    }
+
+    async getBlogPost(id){
+        const options = {
+            url: `${this.baseUrl}${this.URLs.blogPostById(id)}`,
+        };
+        return this._get(options);
+    }
+
+    async updateBlogPost(objId, body, isDraft=false){
+        const draft = isDraft ? '/draft' : ''
+        const options = {
+            url: `${this.baseUrl}${this.URLs.blogPostById(objId)}${draft}`,
+            body: body,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+
+            }
+        };
+        return this._patch(options);
     }
 
     // **************************   Other/All   **********************************

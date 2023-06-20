@@ -1,3 +1,5 @@
+const qs = require('qs');
+
 const { OAuth2Requester } = require('@friggframework/module-plugin');
 const { get } = require('@friggframework/assertions');
 const { FetchError } = require('@friggframework/errors');
@@ -35,10 +37,12 @@ class Api extends OAuth2Requester {
             archiveChannel: '/conversations.archive',
             inviteUsersToChannel: '/conversations.invite',
             renameChannel: '/conversations.rename',
+            getChannelHistory: '/conversations.history',
 
             // Chats
             getMessagePermalink: '/chat.getPermalink',
             postMessage: '/chat.postMessage',
+            postEphemeral: '/chat.postEphemeral',
             updateMessage: '/chat.update',
             deleteMessage: '/chat.delete',
 
@@ -101,7 +105,8 @@ class Api extends OAuth2Requester {
         } else if (
             parsedResponse.error === 'invalid_auth' ||
             parsedResponse.error === 'auth_expired' ||
-            parsedResponse.error === 'token_expired'
+            parsedResponse.error === 'token_expired' ||
+            parsedResponse.error === 'token_revoked'
         ) {
             if (!this.isRefreshable || this.refreshCount > 0) {
                 await this.notify(this.DLGT_INVALID_AUTH);
@@ -228,6 +233,29 @@ class Api extends OAuth2Requester {
     async postMessage(body) {
         const options = {
             url: this.baseUrl + this.URLs.postMessage,
+            body,
+        };
+        const response = await this._post(options);
+        return response;
+    }
+
+    // Args:
+    // channel: string, required
+    // user: string, required
+    // At least one required:
+    //      attachments: string
+    //      blocks: blocks[] as string
+    //      text: string
+    // as_user: boolean, optional
+    // icon_emoji: string, optional
+    // icon_url: string, optional
+    // link_names: boolean, optional
+    // parse: string, optional
+    // thread_ts: string, optional
+    // username: string, optional
+    async postEphemeral(body) {
+        const options = {
+            url: this.baseUrl + this.URLs.postEphemeral,
             body,
         };
         const response = await this._post(options);
@@ -439,6 +467,35 @@ class Api extends OAuth2Requester {
         const response = await this._post(options);
         return response;
     }
+
+    // Args:
+    // channel: string, required
+    // cursor: string, optional
+    // limit: integer, optional
+    // latest: integer, optional
+    // oldest: integer, optional
+    // inclusive: boolean, optional
+    async getChannelHistory(body) {
+        const options = {
+            url: this.baseUrl + this.URLs.getChannelHistory,
+            body: qs.stringify(body),
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        };
+        const response = await this._post(options, false);
+        return response;
+    }
+    async listChannels(query) {
+        const options = {
+            url: this.baseUrl + this.URLs.listChannels,
+            query,
+        };
+        const response = await this._get(options);
+        return response;
+    }
+
+    // unfurl_links: boolean, optional
 
     // Args:
     // Need args from Slack

@@ -1,6 +1,7 @@
 const { loadInstalledModules, Delegate } = require('@friggframework/core');
 const { Credential, Entity } = require('@friggframework/module-plugin');
 const { Integration } = require('./model');
+const { IntegrationMapping } = require('./integration-mapping');
 
 class IntegrationManager extends Delegate {
     static Config = {
@@ -310,6 +311,57 @@ class IntegrationManager extends Delegate {
 
     static async listEntities(options) {
         return Entity.find(options);
+    }
+
+    static async getIntegrationMapping(integration_id, source_id) {
+        return IntegrationMapping.findBy(integration_id, source_id);
+    }
+
+    static async upsertIntegrationMapping(
+        integration_id,
+        userId,
+        source_id,
+        mapping
+    ) {
+        if (!source_id) {
+            throw new Error(`sourceId must be set`);
+        }
+        // verify integration id belongs to the user
+        const integration = await Integration.findById(integration_id);
+
+        if (!integration) {
+            throw new Error(
+                `Integration with ID ${integration_id} does not exist.`
+            );
+        }
+
+        if (integration.user.toString() !== userId.toString()) {
+            throw new Error(
+                'the integration mapping does not belong to the user'
+            );
+        }
+
+        const integrationMapping = await IntegrationMapping.upsert(
+            { integration, sourceId: source_id },
+            {
+                integration,
+                sourceId: source_id,
+                mapping,
+            }
+        );
+
+        return integrationMapping;
+    }
+
+    async refreshIntegration() {
+        let success;
+        try {
+            this.integration = await Integration.findById(this.integration.id);
+            success = true;
+        } catch (error) {
+            success = false;
+        }
+        return success;
     }
 
     // Children must implement

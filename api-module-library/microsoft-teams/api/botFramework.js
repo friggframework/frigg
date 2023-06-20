@@ -4,9 +4,10 @@ class botFrameworkApi extends OAuth2Requester {
     constructor(params) {
         super(params);
 
-        this.tenant_id = get(params, 'tenant_id');
+        this.tenant_id = get(params, 'tenant_id', null);
         // will have localization issues with this
         this.baseUrl = 'https://smba.trafficmanager.net/amer/v3'
+        this.serviceUrl = 'https://smba.trafficmanager.net/amer/'
         this.scope = 'https://api.botframework.com/.default'
 
         // Assuming team id as a param for now

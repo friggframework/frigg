@@ -62,6 +62,15 @@ class botApi {
             });
         }
     }
+
+    async createConversationReference(initialRef,member){
+        initialRef.user = member;
+        await this.adapter.createConversation(initialRef, async (context) => {
+            const ref = TurnContext.getConversationReference(context.activity);
+            this.conversationReferences[member.email] = ref;
+        });
+        return this.conversationReferences[member.email];
+    }
 }
 
 const invokeResponse = (card) => {

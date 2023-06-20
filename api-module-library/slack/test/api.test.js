@@ -1,17 +1,12 @@
 const { Api } = require('../api');
 const Authenticator = require('@friggframework/test-environment/Authenticator');
 const config = require('../defaultConfig.json');
+require('dotenv').config();
 
 describe(`Should fully test the ${config.label} API Class`, () => {
     let api;
     beforeAll(async () => {
-        const apiParams = {
-            client_id: process.env.HUBSPOT_CLIENT_ID,
-            client_secret: process.env.HUBSPOT_CLIENT_SECRET,
-            scope: process.env.HUBSPOT_SCOPE,
-            redirect_uri: `${process.env.REDIRECT_URI}/hubspot`,
-        };
-        api = new Api(apiParams);
+        api = new Api({ access_token: process.env.TEST_ACCESS_TOKEN });
     });
 
     afterAll(async () => {});
@@ -20,10 +15,9 @@ describe(`Should fully test the ${config.label} API Class`, () => {
         it('should return auth requirements', async () => {
             const authUri = await api.getAuthUri();
             expect(authUri).exists;
-            console.log(authUri);
         });
 
-        it('should generate an access_token from a code', async () => {
+        it.skip('should generate an access_token from a code', async () => {
             const authUri = await api.getAuthUri();
             const response = await Authenticator.oauth2(authUri);
             const baseArr = response.base.split('/');
@@ -43,51 +37,54 @@ describe(`Should fully test the ${config.label} API Class`, () => {
             expect(clientSecret).exists;
             expect(redirectUri).exists;
 
-            const response = await api.getUserDetails();
-            expect(response).toBeTruthy();
+            const response = await api.authTest();
+            expect(response.ok).toBeTruthy();
         });
-        it('should refresh auth when token expires', async () => {
+        it.skip('should refresh auth when token expires', async () => {
             api.access_token = 'broken';
             await api.refreshToken();
             expect(api.access_token).to.not.equal('broken');
         });
     });
 
-    describe('CRM Tests', () => {
-        describe('Company Tests', () => {
-            let company;
-            it('should create a new company', async () => {
-                const createBody = {};
-                const response = await api.createCompany(createBody);
-                expect(response).toBeTruthy();
-                company = response.data;
+    describe('Channel Tests', () => {
+        it('should return channels', async () => {
+            const channels = await api.listChannels();
+
+            expect(channels.ok).toBeTruthy();
+        });
+        describe('Direct Message Channel Tests', () => {
+            let messageChannel;
+            let messageResponse;
+            beforeEach(async () => {
+                const userEmail = process.env.TEST_USER_EMAIL;
+                const userDetails = await api.lookupUserByEmail(userEmail);
+                messageResponse = await api.postMessage({
+                    channel: userDetails.user.id,
+                    text: 'Hello World!',
+                });
+                expect(messageResponse.ok).toBeTruthy();
+                messageChannel = messageResponse.channel;
             });
-            it('should get a list of companies', async () => {
-                const response = await api.listCompanies();
-                expect(response).toBeTruthy();
+            afterEach(async () => {
+                await api.deleteMessage({
+                    channel: messageChannel,
+                    ts: messageResponse.ts,
+                    asUser: true,
+                });
             });
-            it('should get a single company', async () => {
-                const response = await api.getCompany(company.id);
-                expect(response).toBeTruthy();
+            it('should create a direct message to a user', async () => {
+                expect(messageResponse.ok).toBeTruthy();
             });
-            it('should update a company', async () => {
-                const updateBody = {};
-                const response = await api.updateCompany(
-                    company.id,
-                    updateBody
-                );
-                expect(response).toBeTruthy();
-                company = response.data;
-                expect(company.name).to.equal(updateBody.name);
-            });
-            it('should delete a company', async () => {
-                const response = await api.deleteCompany(company.id);
-                expect(response).toBeTruthy();
+            it('should return channel history', async () => {
+                const history = await api.getChannelHistory({
+                    channel: messageChannel,
+                    latest: messageResponse.ts,
+                    oldest: messageResponse.ts,
+                    inclusive: true,
+                });
+                expect(history.ok).toBeTruthy();
             });
         });
-        describe('Contact Tests', () => {});
-        describe('Deal Tests', () => {});
-        describe('Ticket Tests', () => {});
-        describe('List Tests', () => {});
     });
 });

@@ -1,3 +1,161 @@
+# v0.1.35 (Thu Jun 08 2023)
+
+#### 🐛 Bug Fix
+
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.1.34 (Thu May 25 2023)
+
+#### 🐛 Bug Fix
+
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.1.33 (Thu Apr 13 2023)
+
+#### 🐛 Bug Fix
+
+- fix slack channel history call [#148](https://github.com/friggframework/frigg/pull/148) ([@debbie-yu](https://github.com/debbie-yu))
+- don't stringify slack body ([@debbie-yu](https://github.com/debbie-yu))
+- use qs to set slack post body [#147](https://github.com/friggframework/frigg/pull/147) ([@debbie-yu](https://github.com/debbie-yu))
+- set slack post body correctly [#147](https://github.com/friggframework/frigg/pull/147) ([@debbie-yu](https://github.com/debbie-yu))
+- call getChannelHistory with right content-type [#147](https://github.com/friggframework/frigg/pull/147) ([@debbie-yu](https://github.com/debbie-yu))
+- Merge branch 'main' of https://github.com/friggframework/frigg into debbie.yu/fix-slack-history [#147](https://github.com/friggframework/frigg/pull/147) ([@debbie-yu](https://github.com/debbie-yu))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@debbie-yu](https://github.com/debbie-yu)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.1.32 (Thu Apr 13 2023)
+
+#### 🐛 Bug Fix
+
+- Fix Slack getChannelHistory call [#147](https://github.com/friggframework/frigg/pull/147) ([@debbie-yu](https://github.com/debbie-yu))
+- use qs to set slack post body ([@debbie-yu](https://github.com/debbie-yu))
+- set slack post body correctly ([@debbie-yu](https://github.com/debbie-yu))
+- call getChannelHistory with right content-type ([@debbie-yu](https://github.com/debbie-yu))
+- Merge branch 'main' of https://github.com/friggframework/frigg into debbie.yu/fix-slack-history [#145](https://github.com/friggframework/frigg/pull/145) ([@debbie-yu](https://github.com/debbie-yu))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@debbie-yu](https://github.com/debbie-yu)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.1.31 (Mon Apr 10 2023)
+
+#### 🐛 Bug Fix
+
+- Added some tests and change API request method [#146](https://github.com/friggframework/frigg/pull/146) ([@seanspeaks](https://github.com/seanspeaks))
+- "Get" is a POST ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.1.30 (Tue Apr 04 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, null[@debbie-yu](https://github.com/debbie-yu), for all your work!
+
+#### 🐛 Bug Fix
+
+- Adding new IntegrationMapping collection [#142](https://github.com/friggframework/frigg/pull/142) ([@debbie-yu](https://github.com/debbie-yu))
+- correct IntegrationMapping discriminator ([@debbie-yu](https://github.com/debbie-yu))
+- Merge branch 'main' of https://github.com/friggframework/frigg into debbie.yu/integration-mapping ([@debbie-yu](https://github.com/debbie-yu))
+- addressing PR feedback and adding unit tests around IntegrationMapping ([@debbie-yu](https://github.com/debbie-yu))
+- adding new IntegrationMapping collection to better handle keeping track of mappings for integrations ([@debbie-yu](https://github.com/debbie-yu))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@debbie-yu](https://github.com/debbie-yu)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.1.29 (Sat Apr 01 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, null[@debbie-yu](https://github.com/debbie-yu), for all your work!
+
+#### 🐛 Bug Fix
+
+- add token_revoked event for slack [#135](https://github.com/friggframework/frigg/pull/135) ([@debbie-yu](https://github.com/debbie-yu))
+- add token_revoked event ([@debbie-yu](https://github.com/debbie-yu))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@debbie-yu](https://github.com/debbie-yu)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.1.28 (Tue Mar 28 2023)
+
+#### 🐛 Bug Fix
+
+- Trailing slash for path [#140](https://github.com/friggframework/frigg/pull/140) ([@seanspeaks](https://github.com/seanspeaks))
+- Trailing slash for path ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.1.27 (Fri Mar 24 2023)
+
+#### 🐛 Bug Fix
+
+- Update api.js [#139](https://github.com/friggframework/frigg/pull/139) ([@seanspeaks](https://github.com/seanspeaks))
+- Update api.js ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.1.26 (Thu Mar 23 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, Roberto Oliveros ([@roboli](https://github.com/roboli)), for all your work!
+
+#### 🐛 Bug Fix
+
+- Implement postEphemeral method for Slack [#137](https://github.com/friggframework/frigg/pull/137) ([@roboli](https://github.com/roboli))
+- Implement postEphemeral method for Slack ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
 # v0.1.25 (Tue Feb 21 2023)
 
 #### 🐛 Bug Fix

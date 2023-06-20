@@ -1,3 +1,514 @@
+# (Thu Jun 15 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/integrations@1.1.3`
+  - return the mapping object directly from getIntegrationMapping [#157](https://github.com/friggframework/frigg/pull/157) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 1
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+
+---
+
+# (Wed Jun 14 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@0.0.6`
+  - Feature/lef 264 get search filter options [#181](https://github.com/friggframework/frigg/pull/181) ([@roboli](https://github.com/roboli))
+  - Feature/lef 259 frontify functionality checklist [#180](https://github.com/friggframework/frigg/pull/180) ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 2
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
+# (Wed Jun 14 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@0.0.5`
+  - Feature/lef 259 frontify functionality checklist [#180](https://github.com/friggframework/frigg/pull/180) ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 1
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
+# (Wed Jun 14 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@0.0.4`
+  - Feature/lef 262 get file details [#179](https://github.com/friggframework/frigg/pull/179) ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
+# (Tue Jun 13 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@0.0.3`
+  - Feature/lef 263 search [#178](https://github.com/friggframework/frigg/pull/178) ([@roboli](https://github.com/roboli) [@seanspeaks](https://github.com/seanspeaks))
+  - Feature/lef 260 list root container contents [#176](https://github.com/friggframework/frigg/pull/176) ([@roboli](https://github.com/roboli))
+  - Feature/lef 397 handle frontify errors coming from their graphql api [#177](https://github.com/friggframework/frigg/pull/177) ([@roboli](https://github.com/roboli))
+
+#### Authors: 2
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Thu Jun 08 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@0.0.2`
+  - Feature/lef 229 migrate frontify api module over to frigg [#169](https://github.com/friggframework/frigg/pull/169) ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
+# (Thu Jun 08 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-google-drive@0.0.9`, `@friggframework/module-plugin@1.0.27`
+  - Fr/gdrive lef 280 [#175](https://github.com/friggframework/frigg/pull/175) (michael.webber@lefthook.com [@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/api-module-google-drive@0.0.9`
+  - set refresh_token on instance retrieval. [#174](https://github.com/friggframework/frigg/pull/174) ([@seanspeaks](https://github.com/seanspeaks))
+  - add helper method that checks status of a file upload session, which is a special case of the content upload request (PUT to session uri) [#170](https://github.com/friggframework/frigg/pull/170) (michael.webber@lefthook.com)
+  - add methods for resumable file upload [#170](https://github.com/friggframework/frigg/pull/170) (michael.webber@lefthook.com)
+  - update debug log message to indicate the correct externalId [#170](https://github.com/friggframework/frigg/pull/170) (michael.webber@lefthook.com)
+  - fixes to credential model and db upsert [#170](https://github.com/friggframework/frigg/pull/170) (michael.webber@lefthook.com)
+  - Add test for the refresh_token (and access_token) [#170](https://github.com/friggframework/frigg/pull/170) (michael.webber@lefthook.com)
+  - google auth spec wants the default behavior of getTokenFromCode, even though the AuthHeader style was working. [#170](https://github.com/friggframework/frigg/pull/170) (michael.webber@lefthook.com)
+
+#### Authors: 2
+
+- Michael Webber (michael.webber@lefthook.com)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Wed Jun 07 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-google-drive@0.0.8`
+  - google drive - auth fixes [#170](https://github.com/friggframework/frigg/pull/170) (michael.webber@lefthook.com [@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Michael Webber (michael.webber@lefthook.com)
+
+---
+
+# (Tue Jun 06 2023)
+
+#### 🐛 Bug Fix
+
+- Feature/lef 228 migrate sharepoint api module over to [#172](https://github.com/friggframework/frigg/pull/172) ([@roboli](https://github.com/roboli))
+- `@friggframework/api-module-microsoft-sharepoint@0.0.2`
+  - Commit lock file [#171](https://github.com/friggframework/frigg/pull/171) ([@roboli](https://github.com/roboli))
+  - Feature/lef 228 migrate sharepoint api module over to [#161](https://github.com/friggframework/frigg/pull/161) ([@roboli](https://github.com/roboli))
+  - Use 'config' package for managing environment variables [ci skip] [#167](https://github.com/friggframework/frigg/pull/167) ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
+# (Fri May 26 2023)
+
+#### 🐛 Bug Fix
+
+- package-lock update [#158](https://github.com/friggframework/frigg/pull/158) ([@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/api-module-google-drive@0.0.7`
+  - Trailing Slash removal for Google Drive [#166](https://github.com/friggframework/frigg/pull/166) ([@seanspeaks](https://github.com/seanspeaks))
+  - Use the method [#164](https://github.com/friggframework/frigg/pull/164) ([@seanspeaks](https://github.com/seanspeaks))
+  - Live state retrieval (getAuthorizationUri method override) [#163](https://github.com/friggframework/frigg/pull/163) ([@seanspeaks](https://github.com/seanspeaks))
+  - Add support for state param [#162](https://github.com/friggframework/frigg/pull/162) ([@seanspeaks](https://github.com/seanspeaks))
+  - Need to add publishConfig for public first time publishing [#159](https://github.com/friggframework/frigg/pull/159) ([@seanspeaks](https://github.com/seanspeaks))
+  - allow root request to pass query (in case verbose data is needed) [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - add method for retrieving the root folder of My Drive [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - add method for retrieving drives [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - add convenience function for listing folders [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - basic functionality for google-drive api module complete [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - initial manager and manager.test working [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - individual file details and data retrieval [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - lint fixes [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - folder search test working [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - basic files request working [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - auth is working [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - initial commit of google-drive api module from generator [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Fri May 26 2023)
+
+#### 🐛 Bug Fix
+
+- package-lock update [#158](https://github.com/friggframework/frigg/pull/158) ([@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/api-module-google-drive@0.0.6`
+  - :face-palm: [#164](https://github.com/friggframework/frigg/pull/164) ([@seanspeaks](https://github.com/seanspeaks))
+  - Live state retrieval (getAuthorizationUri method override) [#163](https://github.com/friggframework/frigg/pull/163) ([@seanspeaks](https://github.com/seanspeaks))
+  - Add support for state param [#162](https://github.com/friggframework/frigg/pull/162) ([@seanspeaks](https://github.com/seanspeaks))
+  - Need to add publishConfig for public first time publishing [#159](https://github.com/friggframework/frigg/pull/159) ([@seanspeaks](https://github.com/seanspeaks))
+  - allow root request to pass query (in case verbose data is needed) [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - add method for retrieving the root folder of My Drive [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - add method for retrieving drives [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - add convenience function for listing folders [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - basic functionality for google-drive api module complete [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - initial manager and manager.test working [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - individual file details and data retrieval [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - lint fixes [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - folder search test working [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - basic files request working [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - auth is working [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - initial commit of google-drive api module from generator [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Fri May 26 2023)
+
+#### 🐛 Bug Fix
+
+- package-lock update [#158](https://github.com/friggframework/frigg/pull/158) ([@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/api-module-google-drive@0.0.5`
+  - Override getAuthorizationUri [#163](https://github.com/friggframework/frigg/pull/163) ([@seanspeaks](https://github.com/seanspeaks))
+  - Add support for state param [#162](https://github.com/friggframework/frigg/pull/162) ([@seanspeaks](https://github.com/seanspeaks))
+  - Need to add publishConfig for public first time publishing [#159](https://github.com/friggframework/frigg/pull/159) ([@seanspeaks](https://github.com/seanspeaks))
+  - allow root request to pass query (in case verbose data is needed) [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - add method for retrieving the root folder of My Drive [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - add method for retrieving drives [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - add convenience function for listing folders [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - basic functionality for google-drive api module complete [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - initial manager and manager.test working [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - individual file details and data retrieval [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - lint fixes [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - folder search test working [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - basic files request working [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - auth is working [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - initial commit of google-drive api module from generator [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Fri May 26 2023)
+
+#### 🐛 Bug Fix
+
+- package-lock update [#158](https://github.com/friggframework/frigg/pull/158) ([@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/api-module-google-drive@0.0.4`
+  - Add state param support for google drive [#162](https://github.com/friggframework/frigg/pull/162) ([@seanspeaks](https://github.com/seanspeaks))
+  - Need to add publishConfig for public first time publishing [#159](https://github.com/friggframework/frigg/pull/159) ([@seanspeaks](https://github.com/seanspeaks))
+  - allow root request to pass query (in case verbose data is needed) [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - add method for retrieving the root folder of My Drive [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - add method for retrieving drives [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - add convenience function for listing folders [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - basic functionality for google-drive api module complete [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - initial manager and manager.test working [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - individual file details and data retrieval [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - lint fixes [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - folder search test working [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - basic files request working [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - auth is working [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - initial commit of google-drive api module from generator [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Thu May 25 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.37`, `@friggframework/module-plugin@1.0.26`
+  - Support calling localhost for ironclad api [#160](https://github.com/friggframework/frigg/pull/160) ([@debbie-yu](https://github.com/debbie-yu))
+- `@friggframework/api-module-ironclad@0.0.37`
+  - adding some tests [#156](https://github.com/friggframework/frigg/pull/156) ([@debbie-yu](https://github.com/debbie-yu))
+  - handle ironclad localhost [#156](https://github.com/friggframework/frigg/pull/156) ([@debbie-yu](https://github.com/debbie-yu))
+
+#### Authors: 1
+
+- [@debbie-yu](https://github.com/debbie-yu)
+
+---
+
+# (Wed May 24 2023)
+
+#### 🐛 Bug Fix
+
+- package-lock update [#158](https://github.com/friggframework/frigg/pull/158) ([@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/api-module-google-drive@0.0.2`
+  - Need to add publishConfig for public first time publishing [#159](https://github.com/friggframework/frigg/pull/159) ([@seanspeaks](https://github.com/seanspeaks))
+  - Google Drive API module [#154](https://github.com/friggframework/frigg/pull/154) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Tue May 16 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.36`
+  - Handle ironclad localhost [#156](https://github.com/friggframework/frigg/pull/156) ([@debbie-yu](https://github.com/debbie-yu))
+
+#### Authors: 1
+
+- [@debbie-yu](https://github.com/debbie-yu)
+
+---
+
+# (Mon May 01 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-microsoft-teams@0.0.5`
+  - microsoft teams updates [#153](https://github.com/friggframework/frigg/pull/153) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - add grantConsent url to graphApi for now [#152](https://github.com/friggframework/frigg/pull/152) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - add requests for teams scope app search, installation and removal [#152](https://github.com/friggframework/frigg/pull/152) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - add requests for appCatalog and app uninstall [#152](https://github.com/friggframework/frigg/pull/152) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - added methods for retrieving joined teams, app retrieval and installation (for user). [#152](https://github.com/friggframework/frigg/pull/152) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 1
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+
+---
+
+# (Thu Apr 27 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-microsoft-teams@0.0.4`
+  - add requests for app installation and removal [#152](https://github.com/friggframework/frigg/pull/152) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 1
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+
+---
+
+# (Wed Apr 26 2023)
+
+#### 🚀 Enhancement
+
+- `@friggframework/integrations@1.1.0`
+  - Add refreshIntegration method for config retrieval inside the integra… [#151](https://github.com/friggframework/frigg/pull/151) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Tue Apr 18 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-hubspot@0.8.27`
+  - add get by id method for pages and blogs [#149](https://github.com/friggframework/frigg/pull/149) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 1
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+
+---
+
+# (Thu Apr 13 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.33`
+  - fix slack channel history call [#148](https://github.com/friggframework/frigg/pull/148) ([@debbie-yu](https://github.com/debbie-yu))
+  - use qs to set slack post body [#147](https://github.com/friggframework/frigg/pull/147) ([@debbie-yu](https://github.com/debbie-yu))
+  - set slack post body correctly [#147](https://github.com/friggframework/frigg/pull/147) ([@debbie-yu](https://github.com/debbie-yu))
+  - call getChannelHistory with right content-type [#147](https://github.com/friggframework/frigg/pull/147) ([@debbie-yu](https://github.com/debbie-yu))
+- `@friggframework/api-module-hubspot@0.8.27`, `@friggframework/api-module-slack@0.1.33`
+  - Merge branch 'main' of https://github.com/friggframework/frigg into debbie.yu/fix-slack-history [#147](https://github.com/friggframework/frigg/pull/147) ([@debbie-yu](https://github.com/debbie-yu))
+- `@friggframework/integrations@1.0.25`
+  - improve error thrown for invalid integration [#147](https://github.com/friggframework/frigg/pull/147) ([@debbie-yu](https://github.com/debbie-yu))
+
+#### Authors: 1
+
+- [@debbie-yu](https://github.com/debbie-yu)
+
+---
+
+# (Thu Apr 13 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.32`, `@friggframework/integrations@1.0.24`
+  - Fix Slack getChannelHistory call [#147](https://github.com/friggframework/frigg/pull/147) ([@debbie-yu](https://github.com/debbie-yu))
+- `@friggframework/api-module-hubspot@0.8.27`, `@friggframework/api-module-slack@0.1.32`
+  - Merge branch 'main' of https://github.com/friggframework/frigg into debbie.yu/fix-slack-history [#145](https://github.com/friggframework/frigg/pull/145) ([@debbie-yu](https://github.com/debbie-yu))
+
+#### Authors: 1
+
+- [@debbie-yu](https://github.com/debbie-yu)
+
+---
+
+# (Wed Apr 12 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-hubspot@0.8.26`
+  - add requests and tests for retrieval and update of landing pages, site pages and blog posts [#144](https://github.com/friggframework/frigg/pull/144) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 1
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+
+---
+
+# (Mon Apr 10 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.31`
+  - Added some tests and change API request method [#146](https://github.com/friggframework/frigg/pull/146) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Tue Apr 04 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.35`, `@friggframework/api-module-slack@0.1.30`, `@friggframework/assertions@1.0.8`, `@friggframework/core@0.2.12`, `@friggframework/encrypt@1.1.7`, `@friggframework/integrations@1.0.23`, `@friggframework/module-plugin@1.0.25`
+  - Adding new IntegrationMapping collection [#142](https://github.com/friggframework/frigg/pull/142) ([@debbie-yu](https://github.com/debbie-yu))
+
+#### Authors: 1
+
+- [@debbie-yu](https://github.com/debbie-yu)
+
+---
+
+# (Sat Apr 01 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.29`
+  - add token_revoked event for slack [#135](https://github.com/friggframework/frigg/pull/135) ([@debbie-yu](https://github.com/debbie-yu))
+
+#### Authors: 1
+
+- [@debbie-yu](https://github.com/debbie-yu)
+
+---
+
+# (Tue Mar 28 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.34`
+  - List all workflow signatures request [#141](https://github.com/friggframework/frigg/pull/141) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Tue Mar 28 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.28`
+  - Trailing slash for path [#140](https://github.com/friggframework/frigg/pull/140) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Mon Mar 27 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-ironclad@0.0.33`
+  - changing comment -> comments in post endpoint [#138](https://github.com/friggframework/frigg/pull/138) (vedant@vedant.agrawal [@vedantagrawall](https://github.com/vedantagrawall))
+
+#### Authors: 2
+
+- [@vedantagrawall](https://github.com/vedantagrawall)
+- Vedant Agrawal (vedant@vedant.agrawal)
+
+---
+
+# (Fri Mar 24 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.27`
+  - Update api.js [#139](https://github.com/friggframework/frigg/pull/139) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Thu Mar 23 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, Roberto Oliveros ([@roboli](https://github.com/roboli)), for all your work!
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.26`
+  - Implement postEphemeral method for Slack [#137](https://github.com/friggframework/frigg/pull/137) ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
 # (Fri Mar 03 2023)
 
 #### 🐛 Bug Fix

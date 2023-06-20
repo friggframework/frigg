@@ -11,6 +11,7 @@ class Requester extends Delegate {
         this.refreshCount = 0;
         this.DLGT_INVALID_AUTH = 'INVALID_AUTH';
         this.delegateTypes.push(this.DLGT_INVALID_AUTH);
+        this.agent = get(params, 'agent', null);
 
         // Allow passing in the fetch function
         // Instance methods can use this.fetch without differentiating
@@ -43,6 +44,8 @@ class Requester extends Delegate {
         }
 
         options.headers = await this.addAuthHeaders(options.headers);
+
+        if (this.agent) options.agent = this.agent;
 
         const response = await this.fetch(encodedUrl, options);
         const { status } = response;
@@ -95,36 +98,33 @@ class Requester extends Delegate {
             credentials: 'include',
             headers: options.headers || {},
             query: options.query || {},
-            body: JSON.stringify(options.body),
+            body: stringify ? JSON.stringify(options.body) : options.body,
             returnFullRes: options.returnFullRes || false,
         };
-        if (!stringify) {
-            fetchOptions.body = options.body;
-        }
         const res = await this._request(options.url, fetchOptions);
         return res;
     }
 
-    async _patch(options) {
+    async _patch(options, stringify = true) {
         const fetchOptions = {
             method: 'PATCH',
             credentials: 'include',
             headers: options.headers || {},
             query: options.query || {},
-            body: JSON.stringify(options.body),
+            body: stringify ? JSON.stringify(options.body) : options.body,
             returnFullRes: options.returnFullRes || false,
         };
         const res = await this._request(options.url, fetchOptions);
         return res;
     }
 
-    async _put(options) {
+    async _put(options, stringify = true) {
         const fetchOptions = {
             method: 'PUT',
             credentials: 'include',
             headers: options.headers || {},
             query: options.query || {},
-            body: JSON.stringify(options.body),
+            body: stringify ? JSON.stringify(options.body) : options.body,
             returnFullRes: options.returnFullRes || false,
         };
         const res = await this._request(options.url, fetchOptions);

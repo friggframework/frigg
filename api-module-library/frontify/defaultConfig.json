@@ -1,0 +1,9 @@
+{
+    "name": "frontify",
+    "label": "Frontify",
+    "productUrl": "https://frontify.com",
+    "apiDocs": "https://developer.frontify.com/d/XFPCrGNrXQQM/graphql-api",
+    "logoUrl": "https://friggframework.org/assets/img/frontify.jpeg",
+    "categories": ["Sharing"],
+    "description": "Simplify brand management with a platform that connects everything (and everyone) important to the growth of your brand."
+}

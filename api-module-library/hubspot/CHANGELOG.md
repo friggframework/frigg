@@ -1,3 +1,77 @@
+# v0.8.29 (Thu Jun 08 2023)
+
+#### 🐛 Bug Fix
+
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.8.28 (Thu May 25 2023)
+
+#### 🐛 Bug Fix
+
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.8.27 (Tue Apr 18 2023)
+
+#### 🐛 Bug Fix
+
+- add get by id method for pages and blogs [#149](https://github.com/friggframework/frigg/pull/149) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- add get by id method for pages and blogs ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.8.26 (Wed Apr 12 2023)
+
+#### 🐛 Bug Fix
+
+- add requests and tests for retrieval and update of landing pages, site pages and blog posts [#144](https://github.com/friggframework/frigg/pull/144) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- add notes about why certain tests are being skipped ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Update api-module-library/hubspot/tests/api.test.js ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Update api-module-library/hubspot/api.js ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- use entity names for url parameters ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- fix typo in blog post update url string ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- add patch methods and test for pages and blogs ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- basic get method with query support for Site Pages and Blog Posts ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- add api method for retrieving landing pages ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- get api test working again (skips a lot that old tests covered, but the bones are there) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.8.25 (Tue Apr 04 2023)
+
+#### 🐛 Bug Fix
+
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.8.24 (Tue Feb 21 2023)
 
 #### 🐛 Bug Fix

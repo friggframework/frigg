@@ -8,11 +8,12 @@ class Api extends ApiKeyRequester {
         this.API_KEY_NAME = 'Bearer';
         this.API_KEY_VALUE = get(params, 'apiKey', null);
         this.SUBDOMAIN = get(params, 'subdomain', null);
+        this.IS_LOCAL = this.SUBDOMAIN?.toLowerCase() === 'localhost' ? true : false;
 
         this.baseUrl = () => {
             if (this.SUBDOMAIN) {
                 const subdomain = this.SUBDOMAIN.toLowerCase();
-                return `https://${subdomain}.ironcladapp.com`;
+                return `https://${this.IS_LOCAL ? '127.0.0.1' : subdomain}${!this.IS_LOCAL ? '.ironcladapp.com' : ''}`;
             } else {
                 return 'https://ironcladapp.com';
             }
@@ -31,7 +32,7 @@ class Api extends ApiKeyRequester {
             workflowMetadata: (workflowId) =>
                 `/public/api/v1/workflows/${workflowId}/attributes`,
             workflowComment: (workflowId) =>
-                `/public/api/v1/workflows/${workflowId}/comment`,
+                `/public/api/v1/workflows/${workflowId}/comments`,
             workflowCommentByID: (workflowId, commentId) =>
                 `/public/api/v1/workflows/${workflowId}/comments/${commentId}`,
             records: '/public/api/v1/records',
@@ -167,6 +168,13 @@ class Api extends ApiKeyRequester {
     async listAllWorkflowApprovals(id) {
         const options = {
             url: this.baseUrl() + this.URLs.workflowsByID(id) + '/approvals',
+        };
+        const response = await this._get(options);
+        return response;
+    }
+    async listAllWorkflowSignatures(id) {
+        const options = {
+            url: this.baseUrl() + this.URLs.workflowsByID(id) + '/signatures',
         };
         const response = await this._get(options);
         return response;
