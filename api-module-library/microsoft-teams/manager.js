@@ -90,16 +90,12 @@ class Manager extends ModuleManager {
         }
 
         const orgDetails = await this.api.graphApi.getOrganization();
-        const tenant_id = orgDetails.value[0].id;
-        this.setTenant(tenant_id);
-        const graph_access_token = this.api.graphApi.access_token;
-        const bot_api_access_token = this.api.botFrameworkApi.access_token;
-        const graph_refresh_token = this.api.graphApi.refresh_token;
+        this.tenant_id =  orgDetails.id;
         await this.findAndUpsertCredential({
-            tenant_id,
-            graph_access_token,
-            graph_refresh_token,
-            bot_api_access_token,
+            tenant_id: this.tenant_id,
+            graph_access_token: this.api.graphApi.access_token,
+            graph_refresh_token: this.api.botFrameworkApi.access_token,
+            bot_api_access_token: this.api.graphApi.refresh_token,
         });
 
         await this.findOrCreateEntity({
@@ -140,12 +136,6 @@ class Manager extends ModuleManager {
         }
     }
     async findAndUpsertCredential(params) {
-        // Just want to error if no tenant_id is provided
-        const tenant_id = get(params, 'tenant_id');
-        const graph_access_token = get(params, 'graph_access_token', null);
-        const graph_refresh_token = get(params, 'graph_refresh_token', null);
-        const bot_access_token = get(params, 'bot_access_token', null);
-        const user = get(params, 'user', null);
         if (this.credential) {
             this.credential = await Credential.findOneAndUpdate(
                 { _id: this.credential },
@@ -154,14 +144,11 @@ class Manager extends ModuleManager {
             );
         } else {
             this.credential = await Credential.findOneAndUpdate(
-                { tenant_id: tenant_id },
+                { tenant_id: this.tenant_id },
                 { $set: params },
                 { useFindAndModify: true, new: true, upsert: true }
             );
         }
-    }
-    setTenant(tenant_id) {
-        this.tenant_id = tenant_id;
     }
 
     //------------------------------------------------------------
