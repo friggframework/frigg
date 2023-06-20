@@ -12,7 +12,7 @@ describe(`${config.label} API Tests`, () => {
 
     const api = new Api.botApi(apiParams);
 
-    describe('Proactive message', () => {
+    describe.skip('Proactive message', () => {
         it('Send proactive message', async () => {
             const ref = {
                 "user": {

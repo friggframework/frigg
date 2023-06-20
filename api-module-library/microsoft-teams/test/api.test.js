@@ -32,7 +32,7 @@ describe('Test of cross API functionality', () => {
 
 
         it('Should send a proactive message from the bot', async () => {
-            await api.botApi.bot.sendProactive(testEmail, "hello from api.test.js!");
+            await api.botApi.sendProactive(testEmail, "hello from api.test.js!");
         })
     });
 });
