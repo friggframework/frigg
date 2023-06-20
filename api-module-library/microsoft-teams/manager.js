@@ -1,6 +1,6 @@
 const { debug, flushDebugLog } = require('@friggframework/logs');
 const { get } = require('@friggframework/assertions');
-const { ModuleManager } = require('@friggframework/module-plugin');
+const { ModuleManager, ModuleConstants} = require('@friggframework/module-plugin');
 const { Api } = require('./api/api');
 const { graphApi } = require('./api/graph');
 const { botFrameworkApi } = require('./api/botFramework');
@@ -44,6 +44,7 @@ class Manager extends ModuleManager {
             teamsParams = {
                 ...teamsParams,
                 ...instance.credential.toObject(),
+                tenant_id: instance.entity.externalId
             };
         }
         instance.api = new Api(teamsParams);
@@ -54,8 +55,7 @@ class Manager extends ModuleManager {
     async testAuth() {
         let validAuth = false;
         try {
-            const response = await this.api.graphApi.getChannels();
-            await this.api.botFrameworkApi.getTeamMembers(response.value[0].id);
+            const response = await this.api.graphApi.getOrganization();
             validAuth = true;
         } catch (e) {
             debug(e);
@@ -63,29 +63,31 @@ class Manager extends ModuleManager {
         return validAuth;
     }
 
-    async getAuthorizationRequirements() {
+    async getAuthorizationRequirements(params) {
         return {
-            url: this.api.graphApi.authorizationUri,
-            type: 'oauth2',
+            url: await this.api.graphApi.getAuthUri(),
+            type: ModuleConstants.authType.oauth2,
+            data: {},
         };
     }
 
-    async processAuthorizationCallback(data) {
-        const code = get(data, 'code', null);
-        const access_token = get(data, 'access_token', null);
-        const refresh_token = get(data, 'refresh_token', null);
-        // If code, getTokenFromCode for graphApi
-        if (code) {
-            // This will invoke receiveNotification and create the credential
-            await this.api.graphApi.getTokenFromCode(code);
-        } else if (access_token && refresh_token) {
-            this.api.graphApi.access_token = access_token;
-            this.api.graphApi.refresh_token = refresh_token;
+    async processAuthorizationCallback(params) {
+        if (params) {
+            const code = get(params.data, 'code', null);
+            try {
+                await this.api.graphApi.getTokenFromCode(code);
+            } catch (e) {
+                flushDebugLog(e);
+                throw new Error('Auth Error');
+            }
+            const authRes = await this.testAuth();
+            if (!authRes) throw new Error('Auth Error');
         }
-        // This will invoke receiveNotification and UPDATE the credential
-        await this.api.botFrameworkApi.getTokenFromClientCredentials();
-        const authCheck = await this.testAuth();
-        if (!authCheck) throw new Error('Authentication failed');
+        else {
+            await this.api.getTokenFromClientCredentials();
+            const authCheck = await this.testAuth();
+            if (!authCheck) throw new Error('Auth Error');
+        }
 
         const orgDetails = await this.api.graphApi.getOrganization();
         const tenant_id = orgDetails.value[0].id;

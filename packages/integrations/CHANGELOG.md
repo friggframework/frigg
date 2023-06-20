@@ -1,3 +1,74 @@
+# v1.1.3 (Thu Jun 15 2023)
+
+#### 🐛 Bug Fix
+
+- return the mapping object directly from getIntegrationMapping [#157](https://github.com/friggframework/frigg/pull/157) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- potential change to return the mapping object directly from getIntegrationMapping. this is only to provide for cleaner assignment of the mapping when getIntegrationMapping is used. ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v1.1.2 (Thu Jun 08 2023)
+
+#### 🐛 Bug Fix
+
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v1.1.1 (Thu May 25 2023)
+
+#### 🐛 Bug Fix
+
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v1.1.0 (Wed Apr 26 2023)
+
+#### 🚀 Enhancement
+
+- Add refreshIntegration method for config retrieval inside the integra… [#151](https://github.com/friggframework/frigg/pull/151) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### 🐛 Bug Fix
+
+- Add refreshIntegration method for config retrieval inside the integrationManager ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v1.0.24 (Thu Apr 13 2023)
+
+#### 🐛 Bug Fix
+
+- Fix Slack getChannelHistory call [#147](https://github.com/friggframework/frigg/pull/147) ([@debbie-yu](https://github.com/debbie-yu))
+- Merge branch 'main' of https://github.com/friggframework/frigg into debbie.yu/fix-slack-history [#145](https://github.com/friggframework/frigg/pull/145) ([@debbie-yu](https://github.com/debbie-yu))
+- improve error thrown for invalid integration ([@debbie-yu](https://github.com/debbie-yu))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@debbie-yu](https://github.com/debbie-yu)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.0.23 (Tue Apr 04 2023)
 
 :tada: This release contains work from a new contributor! :tada:

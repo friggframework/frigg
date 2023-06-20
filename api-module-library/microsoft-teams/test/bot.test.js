@@ -12,7 +12,7 @@ describe(`${config.label} API Tests`, () => {
 
     const api = new Api.botApi(apiParams);
 
-    describe('Proactive message', () => {
+    describe.skip('Proactive message', () => {
         it('Send proactive message', async () => {
             const ref = {
                 "user": {
@@ -31,7 +31,7 @@ describe(`${config.label} API Tests`, () => {
                     "name": "lefthook-card-test-bot"
             },
                 "conversation": {
-                "id": "a:1yMbBb0tL6nyJX0Ys3EiakGZjo8LcADnVPwdVHP-lDNra9PbVA4YV9wmRYrT7734J_xnD6cbnVjUTB3FYTQM9UR6a_F1LgBlcSWS8tPpyUHz74fip5DqeCNrzzvsZ9nuj",
+                    "id": "a:1yMbBb0tL6nyJX0Ys3EiakGZjo8LcADnVPwdVHP-lDNra9PbVA4YV9wmRYrT7734J_xnD6cbnVjUTB3FYTQM9UR6a_F1LgBlcSWS8tPpyUHz74fip5DqeCNrzzvsZ9nuj",
                     "isGroup": false,
                     "conversationType": null,
                     "tenantId": "7f4664c5-385a-49f2-b44b-c68cc6fb13ea",
@@ -42,7 +42,7 @@ describe(`${config.label} API Tests`, () => {
                 "serviceUrl": "https://smba.trafficmanager.net/amer/"
             };
             api.conversationReferences[ref.user.email] = ref;
-            const resp = await api.bot.sendProactive(ref.user.email, 'proactive message');
+            const resp = await api.sendProactive(ref.user.email, 'proactive message');
             // resp is undefined for now, even when message is sent
         });
     });

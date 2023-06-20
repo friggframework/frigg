@@ -1,3 +1,50 @@
+# v0.0.38 (Thu Jun 08 2023)
+
+#### 🐛 Bug Fix
+
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.0.37 (Thu May 25 2023)
+
+#### 🐛 Bug Fix
+
+- Support calling localhost for ironclad api [#160](https://github.com/friggframework/frigg/pull/160) ([@debbie-yu](https://github.com/debbie-yu))
+- revert commas ([@debbie-yu](https://github.com/debbie-yu))
+- clean up import ([@debbie-yu](https://github.com/debbie-yu))
+- remove agent from method calls ([@debbie-yu](https://github.com/debbie-yu))
+- address feedback to put agent in requester class ([@debbie-yu](https://github.com/debbie-yu))
+- support calling localhost for ironclad api ([@debbie-yu](https://github.com/debbie-yu))
+- adding some tests [#156](https://github.com/friggframework/frigg/pull/156) ([@debbie-yu](https://github.com/debbie-yu))
+- handle ironclad localhost [#156](https://github.com/friggframework/frigg/pull/156) ([@debbie-yu](https://github.com/debbie-yu))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@debbie-yu](https://github.com/debbie-yu)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.0.36 (Tue May 16 2023)
+
+#### 🐛 Bug Fix
+
+- Handle ironclad localhost [#156](https://github.com/friggframework/frigg/pull/156) ([@debbie-yu](https://github.com/debbie-yu))
+- adding some tests ([@debbie-yu](https://github.com/debbie-yu))
+- handle ironclad localhost ([@debbie-yu](https://github.com/debbie-yu))
+
+#### Authors: 1
+
+- [@debbie-yu](https://github.com/debbie-yu)
+
+---
+
 # v0.0.35 (Tue Apr 04 2023)
 
 :tada: This release contains work from a new contributor! :tada:

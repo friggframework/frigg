@@ -88,21 +88,18 @@ describe(`Should fully test the IntegrationManager`, () => {
         it('should return if valid ids', async () => {
             await IntegrationManager.upsertIntegrationMapping(integration._id, userId, 'validId', {});
             const mapping = await IntegrationManager.getIntegrationMapping(integration.id, 'validId');
-            expect(_.pick(mapping, ['integration', 'sourceId', 'mapping'])).to.eql({
-                integration: integration._id,
-                sourceId: 'validId',
-                mapping: {}
-            })
+            expect(mapping).to.eql({})
         });
     })
 
     describe('upsertIntegrationMapping()', () => {
         it('should throw error if integrationId does not match', async () => {
+            const id = new mongoose.Types.ObjectId();
             try {
-                await IntegrationManager.upsertIntegrationMapping(new mongoose.Types.ObjectId(), userId, 'validId', {});
+                await IntegrationManager.upsertIntegrationMapping(id, userId, 'validId', {});
                 fail('should have thrown error')
             } catch(err) {
-                expect(err.message).to.contain('id is not defined');
+                expect(err.message).to.contain(`Integration with ID ${id} does not exist`);
             }
         });
 

@@ -21,10 +21,55 @@ class botApi {
             await context.sendActivity('The bot encountered an error.');
         };
         this.conversationReferences = {};
+        this.botId = params.client_id;
+        this.tenantId = params.tenant_id;
+        this.serviceUrl = params.service_url;
         this.bot = new Bot(this.adapter, this.conversationReferences);
     }
     async receiveActivity(req, res){
         await this.adapter.process(req, res, (context) => this.bot.run(context));
+    }
+
+    async setConversationReferenceFromMembers(members){
+        const ref = {
+            bot: {
+                id: this.botId
+            },
+            conversation: {
+                tenantId: this.tenantId
+            },
+            serviceUrl: this.serviceUrl,
+            channelId: 'msteams'
+        }
+
+        const refRequests = [];
+        members.map( (member) => {
+            ref.user = member;
+            refRequests.push( this.adapter.createConversation(ref, async (context) => {
+                const ref = TurnContext.getConversationReference(context.activity);
+                this.conversationReferences[member.email] = ref;
+            }));
+        });
+        await Promise.all(refRequests);
+        return this.conversationReferences
+    }
+
+    async sendProactive(userEmail, activity) {
+        const conversationReference = this.conversationReferences[userEmail];
+        if (conversationReference !== undefined) {
+            await this.adapter.continueConversation(conversationReference, async (context) => {
+                await context.sendActivity(activity);
+            });
+        }
+    }
+
+    async createConversationReference(initialRef,member){
+        initialRef.user = member;
+        await this.adapter.createConversation(initialRef, async (context) => {
+            const ref = TurnContext.getConversationReference(context.activity);
+            this.conversationReferences[member.email] = ref;
+        });
+        return this.conversationReferences[member.email];
     }
 }
 
@@ -57,8 +102,10 @@ class Bot extends TeamsActivityHandler {
         });
     }
 
-    async onInvokeActivity(context) {
-        // card action response goes here
+    async handleTeamsCardActionInvoke(context) {
+        // this is not implemented by the superclass
+        // but shown here as an example (define this function in the integration)
+        await super.handleTeamsCardActionInvoke(context);
     }
 
     async getUserConversationReference(context) {
@@ -77,15 +124,6 @@ class Bot extends TeamsActivityHandler {
             const ref = TurnContext.getConversationReference(context.activity);
             this.conversationReferences[member.email] = ref;
         });
-    }
-
-    async sendProactive(userEmail, activity) {
-        const conversationReference = this.conversationReferences[userEmail];
-        if (conversationReference !== undefined) {
-            await this.adapter.continueConversation(conversationReference, async (context) => {
-                return await context.sendActivity(activity);
-            });
-        }
     }
 }
 

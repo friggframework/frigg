@@ -1,3 +1,35 @@
+# v1.0.27 (Thu Jun 08 2023)
+
+#### 🐛 Bug Fix
+
+- Fr/gdrive lef 280 [#175](https://github.com/friggframework/frigg/pull/175) (michael.webber@lefthook.com [@seanspeaks](https://github.com/seanspeaks))
+- Google Drive update ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Michael Webber (michael.webber@lefthook.com)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v1.0.26 (Thu May 25 2023)
+
+#### 🐛 Bug Fix
+
+- Support calling localhost for ironclad api [#160](https://github.com/friggframework/frigg/pull/160) ([@debbie-yu](https://github.com/debbie-yu))
+- remove agent at method call level ([@debbie-yu](https://github.com/debbie-yu))
+- address feedback to put agent in requester class ([@debbie-yu](https://github.com/debbie-yu))
+- support calling localhost for ironclad api ([@debbie-yu](https://github.com/debbie-yu))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@debbie-yu](https://github.com/debbie-yu)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.0.25 (Tue Apr 04 2023)
 
 :tada: This release contains work from a new contributor! :tada:

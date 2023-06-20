@@ -38,7 +38,7 @@ describe(`Should fully test the ${config.label} API Class`, () => {
             expect(redirectUri).exists;
 
             const response = await api.authTest();
-            expect(response).toBeTruthy();
+            expect(response.ok).toBeTruthy();
         });
         it.skip('should refresh auth when token expires', async () => {
             api.access_token = 'broken';
@@ -51,7 +51,7 @@ describe(`Should fully test the ${config.label} API Class`, () => {
         it('should return channels', async () => {
             const channels = await api.listChannels();
 
-            expect(channels).toBeTruthy();
+            expect(channels.ok).toBeTruthy();
         });
         describe('Direct Message Channel Tests', () => {
             let messageChannel;
@@ -63,7 +63,7 @@ describe(`Should fully test the ${config.label} API Class`, () => {
                     channel: userDetails.user.id,
                     text: 'Hello World!',
                 });
-                expect(messageResponse).toBeTruthy();
+                expect(messageResponse.ok).toBeTruthy();
                 messageChannel = messageResponse.channel;
             });
             afterEach(async () => {
@@ -74,7 +74,7 @@ describe(`Should fully test the ${config.label} API Class`, () => {
                 });
             });
             it('should create a direct message to a user', async () => {
-                expect(messageResponse).toBeTruthy();
+                expect(messageResponse.ok).toBeTruthy();
             });
             it('should return channel history', async () => {
                 const history = await api.getChannelHistory({
@@ -83,7 +83,7 @@ describe(`Should fully test the ${config.label} API Class`, () => {
                     oldest: messageResponse.ts,
                     inclusive: true,
                 });
-                expect(history).toBeTruthy();
+                expect(history.ok).toBeTruthy();
             });
         });
     });

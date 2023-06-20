@@ -225,6 +225,17 @@
         "code",
         "test"
       ]
+    },
+    {
+      "login": "roboli",
+      "name": "Roberto Oliveros",
+      "avatar_url": "https://avatars.githubusercontent.com/u/6392110?v=4",
+      "profile": "https://www.linkedin.com/in/roboli",
+      "contributions": [
+        "doc",
+        "test",
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7
