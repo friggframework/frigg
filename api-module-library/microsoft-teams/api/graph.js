@@ -255,41 +255,6 @@ class graphApi extends OAuth2Requester {
         const response = await this._post(options);
         return response;
     }
-
-    async getAppCatalog(query = ''){
-        const options = {
-            url: `${this.baseUrl}${this.URLs.appCatalog}?${query}`,
-        };
-        const response = await this._get(options);
-        return response;
-    }
-    async getInstalledAppsForTeam(query=''){
-      const options = {
-          url: `${this.baseUrl}${this.URLs.installedApps}?${query}`,
-      };
-      return await this._get(options);
-    }
-    async installAppForTeam(teamAppId){
-        const options = {
-            url : `${this.baseUrl}${this.URLs.installedApps}`,
-            body: {
-                "teamsApp@odata.bind": `https://graph.microsoft.com/v1.0/appCatalogs/teamsApps/${teamAppId}`
-            },
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        };
-        const response = await this._post(options);
-        return response;
-    }
-
-    async deleteAppForTeam(teamAppInstallationId){
-        const options = {
-            url: `${this.baseUrl}${this.URLs.installedApps}/${teamAppInstallationId}`,
-        };
-        const response = await this._delete(options);
-        return response;
-    }
 }
 
 module.exports = { graphApi };
