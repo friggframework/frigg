@@ -1,3 +1,18 @@
+# v0.0.4 (Wed Jun 21 2023)
+
+#### 🐛 Bug Fix
+
+- Fix/sharepoing replace config with process env [#173](https://github.com/friggframework/frigg/pull/173) ([@roboli](https://github.com/roboli))
+- Restore meta as defaultConfig [ci skip] ([@roboli](https://github.com/roboli))
+- Remove config package [ci skip] ([@roboli](https://github.com/roboli))
+- Restore use of process.env [ci skip] ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
 # v0.0.3 (Thu Jun 08 2023)
 
 #### 🐛 Bug Fix

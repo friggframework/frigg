@@ -2,6 +2,19 @@
 
 #### 🐛 Bug Fix
 
+- `@friggframework/api-module-microsoft-sharepoint@0.0.4`
+  - Fix/sharepoing replace config with process env [#173](https://github.com/friggframework/frigg/pull/173) ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
+# (Wed Jun 21 2023)
+
+#### 🐛 Bug Fix
+
 - `@friggframework/api-module-microsoft-teams@0.0.9`
   - Fr/iro 51 [#185](https://github.com/friggframework/frigg/pull/185) ([@seanspeaks](https://github.com/seanspeaks) [@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
 
