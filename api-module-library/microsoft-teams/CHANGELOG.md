@@ -1,3 +1,26 @@
+# v0.0.9 (Wed Jun 21 2023)
+
+#### 🐛 Bug Fix
+
+- Fr/iro 51 [#185](https://github.com/friggframework/frigg/pull/185) ([@seanspeaks](https://github.com/seanspeaks) [@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- manager slight fix due to change in orgDetails return value ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- graph api tests for user and app are now passing and a bit cleaner ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Merge branch 'main' into fr/IRO-51 ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- all tests passing for app installation, detection and removal ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- add tests for appCatalog requests, fixing same ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- add requests for app info retrieval, installation and removal ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Merge remote-tracking branch 'origin/main' into api-module/wip-update-microsoft-teams ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+- get tests working after change in .env format ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- WIP for storing and updating credentials based on `tenant_id` (and no user-related lookup) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.8 (Tue Jun 20 2023)
 
 :tada: This release contains work from a new contributor! :tada:

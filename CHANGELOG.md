@@ -1,3 +1,17 @@
+# (Wed Jun 21 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-microsoft-teams@0.0.9`
+  - Fr/iro 51 [#185](https://github.com/friggframework/frigg/pull/185) ([@seanspeaks](https://github.com/seanspeaks) [@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Tue Jun 20 2023)
 
 :tada: This release contains work from a new contributor! :tada:
