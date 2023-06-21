@@ -11,7 +11,6 @@ class graphApi extends OAuth2Requester {
 
         // Assuming team id as a param for now
         this.team_id = get(params, 'team_id', null);
-
         this.generateUrls = ()=> {
             this.baseUrl = 'https://graph.microsoft.com/v1.0';
             this.URLs = {

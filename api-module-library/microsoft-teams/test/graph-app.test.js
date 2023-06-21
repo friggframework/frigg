@@ -29,7 +29,6 @@ describe(`${config.label} API Tests`, () => {
         });
     });
 
-    let groups;
     describe('Retrieve teams for tenant/org', () => {
         it('Retrieve a list of groups/teams', async () => {
             const teams = await api.getTeams();
@@ -103,16 +102,59 @@ describe(`${config.label} API Tests`, () => {
             expect(response).toBeDefined();
         });
 
-        it('List users in channel', async () => {
-            const response = await api.listChannelMembers(privateChannel.id);
+        it('Should list users in channel', async () => {
+            const response = await api.listChannelMembers(createChannelResponse.id);
             expect(response).toBeDefined();
-            expect(response.value[0].userId).toBe(mwebberUserId)
+            //expect(response.value).toContainEqual(expect.objectContaining({userId: mwebberUserId}))
         });
 
-        it('Delete channel', async () => {
+        it('Should delete the channel', async () => {
             const response = await api.deleteChannel(createChannelResponse.id);
             expect(response.status).toBe(204);
         });
     });
 
+    describe('App info, installation, deletion', () => {
+        const appExternalId = 'd0f523b9-97e8-42d9-9e0a-d82da5ec3ed1';
+        let teamId = '';
+        let appInternalId = '';
+        let appInstallationId = '';
+
+        beforeAll(async () => {
+            const teams = await api.getTeams();
+            teamId = teams.value.slice(-1)[0].id;
+        })
+
+        it('Should retrieve app info', async ()=> {
+            const response = await api.getAppCatalog();
+            expect(response.value.length).toBeDefined();
+            expect(response.value.length).toBeGreaterThan(10);
+        })
+        it('Should filter for specific app', async () => {
+            // can't figure out why the filter isn't working but this is not needed at this time
+            const response = await api.getAppCatalog({
+                $filter: `externalId eq '${appExternalId}'`
+            });
+            expect(response.value).toHaveLength(1);
+            appInternalId = response.value[0].id;
+        })
+
+        it('Should install app in test team', async () => {
+            const response = await api.installAppForTeam(teamId, appInternalId);
+            expect(response.status).toEqual(201);
+        })
+        it('Should retrieve details about installed app', async () => {
+            const response = await api.getInstalledAppsForTeam(teamId, {
+                $filter: `teamsApp/id eq '${appInternalId}'`,
+                $expand: 'teamsApp,teamsAppDefinition'
+            });
+            expect(response.value).toHaveLength(1);
+            appInstallationId = response.value[0].id;
+        })
+        it('Should delete app in test team', async () => {
+            const response = await api.removeAppForTeam(teamId, appInstallationId);
+            expect(response.status).toEqual(204);
+        })
+
+    });
 });

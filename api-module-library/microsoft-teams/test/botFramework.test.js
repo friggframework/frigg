@@ -10,6 +10,7 @@ describe(`${config.label} API Tests`, () => {
         team_id: process.env.TEAMS_TEAM_ID,
         tenant_id: process.env.TEAMS_TENANT_ID,
         service_url: process.env.TEAMS_SERVICE_URL
+
     };
 
     const api = new Api.botFrameworkApi(apiParams);

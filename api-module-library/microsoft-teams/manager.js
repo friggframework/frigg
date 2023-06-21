@@ -14,6 +14,7 @@ class Manager extends ModuleManager {
 
     constructor(params) {
         super(params);
+        this.tenant_id = get(params, 'tenant_id', null);
     }
 
     //------------------------------------------------------------
@@ -89,6 +90,13 @@ class Manager extends ModuleManager {
         }
 
         const orgDetails = await this.api.graphApi.getOrganization();
+        this.tenant_id =  orgDetails.id;
+        await this.findAndUpsertCredential({
+            tenant_id: this.tenant_id,
+            graph_access_token: this.api.graphApi.access_token,
+            graph_refresh_token: this.api.botFrameworkApi.access_token,
+            bot_api_access_token: this.api.graphApi.refresh_token,
+        });
 
         await this.findOrCreateEntity({
             externalId: orgDetails.id,
@@ -127,48 +135,43 @@ class Manager extends ModuleManager {
             this.throwException('');
         }
     }
+    async findAndUpsertCredential(params) {
+        if (this.credential) {
+            this.credential = await Credential.findOneAndUpdate(
+                { _id: this.credential },
+                { $set: params },
+                { useFindAndModify: true, new: true, upsert: true }
+            );
+        } else {
+            this.credential = await Credential.findOneAndUpdate(
+                { tenant_id: this.tenant_id },
+                { $set: params },
+                { useFindAndModify: true, new: true, upsert: true }
+            );
+        }
+    }
 
     //------------------------------------------------------------
 
     async receiveNotification(notifier, delegateString, object = null) {
-        if (notifier instanceof Api || notifier instanceof botFrameworkApi || notifier instanceof graphApi) {
-            if (delegateString === this.api.graphApi.DLGT_TOKEN_UPDATE) {
+        if (
+            notifier instanceof Api ||
+            notifier instanceof botFrameworkApi ||
+            notifier instanceof graphApi
+        ) {
+            if (
+                delegateString === this.api.graphApi.DLGT_TOKEN_UPDATE &&
+                this.tenant_id
+            ) {
                 const updatedToken = {
-                    user: this.userId.toString(),
-                    graphAccessToken: this.api.graphApi.access_token,
-                    botAccessToken: this.api.botFrameworkApi.access_token,
-                    auth_is_valid: true,
+                    user: this.userId?.toString(),
+                    graph_access_token: this.api.graphApi.access_token,
+                    graph_refresh_token: this.api.graphApi.refresh_token,
+                    bot_api_access_token: this.api.botFrameworkApi.access_token,
+                    tenant_id: this.tenant_id,
                 };
 
-                Object.keys(updatedToken).forEach(
-                    (k) => updatedToken[k] == null && delete updatedToken[k]
-                );
-                // TODO-new globally... multiple credentials should be allowed, this is 1:1
-                if (!this.credential) {
-                    let credentialSearch = await Credential.find({
-                        user: this.userId.toString(),
-                    });
-                    if (credentialSearch.length === 0) {
-                        this.credential = await Credential.create(updatedToken);
-                    } else if (credentialSearch.length === 1) {
-                        this.credential = await Credential.findOneAndUpdate(
-                            { _id: credentialSearch[0] },
-                            { $set: updatedToken },
-                            { useFindAndModify: true, new: true }
-                        );
-                    } else {
-                        // Handling multiple credentials found with an error for the time being
-                        debug(
-                            'Multiple credentials found with the same client ID:'
-                        );
-                    }
-                } else {
-                    this.credential = await Credential.findOneAndUpdate(
-                        { _id: this.credential },
-                        { $set: updatedToken },
-                        { useFindAndModify: true, new: true }
-                    );
-                }
+                await this.findAndUpsertCredential(updatedToken);
             }
             if (delegateString === this.api.DLGT_TOKEN_DEAUTHORIZED) {
                 await this.deauthorize();

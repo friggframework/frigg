@@ -147,8 +147,6 @@ describe(`${config.label} API Tests`, () => {
             appId = appResponse.value[0].id;
         });
         it('Should install app', async () => {
-            // teamId grabbed from earlier test
-            await api.setTeamId(teamId)
             const installationResponse = await api.installAppForTeam(teamId, appId);
             expect(installationResponse).toBeDefined();
             // installation response is coming back as an empty string rather than a 201 status.
