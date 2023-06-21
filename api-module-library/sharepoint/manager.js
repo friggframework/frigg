@@ -4,7 +4,7 @@ const { ModuleManager } = require('@friggframework/module-plugin');
 const { Api } = require('./api');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
-const config = require('config');
+const Config = require('./defaultConfig');
 
 class Manager extends ModuleManager {
     static Entity = Entity;
@@ -17,7 +17,7 @@ class Manager extends ModuleManager {
     //------------------------------------------------------------
     // Required methods
     static getName() {
-        return config.get('meta.name');
+        return Config.name;
     }
 
     static async getInstance(params) {
@@ -26,10 +26,10 @@ class Manager extends ModuleManager {
 
         // initializes the Api
         const sharepointParams = {
-            client_id: config.get('sharepoint.clientId'),
-            client_secret: config.get('sharepoint.clientSecret'),
-            redirect_uri: `${config.get('sharepoint.redirectUri')}/microsoft-sharepoint`,
-            scope: config.get('sharepoint.scope'),
+            client_id: process.env.SHAREPOINT_CLIENT_ID,
+            client_secret: process.env.SHAREPOINT_CLIENT_SECRET,
+            redirect_uri: `${process.env.SHAREPOINT_REDIRECT_URI}/microsoft-sharepoint`,
+            scope: process.env.SHAREPOINT_SCOPE,
             forceConsent: true,
             delegate: instance,
         };
