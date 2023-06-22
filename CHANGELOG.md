@@ -1,3 +1,16 @@
+# (Thu Jun 22 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-hubspot@0.8.30`
+  - hubspot publishing endpoints for pages and blog posts [#182](https://github.com/friggframework/frigg/pull/182) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 1
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+
+---
+
 # (Wed Jun 21 2023)
 
 #### 🐛 Bug Fix

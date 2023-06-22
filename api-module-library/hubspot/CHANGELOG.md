@@ -1,3 +1,18 @@
+# v0.8.30 (Thu Jun 22 2023)
+
+#### 🐛 Bug Fix
+
+- hubspot publishing endpoints for pages and blog posts [#182](https://github.com/friggframework/frigg/pull/182) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- update to hubspot landing/site/blog to be to push drafts to live and to schedule publishing ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.8.29 (Thu Jun 08 2023)
 
 #### 🐛 Bug Fix
