@@ -299,34 +299,48 @@ describe(`${config.label} API tests`, () => {
             primaryLandingPages = await api.getLandingPages('translatedFromId__is_null');
             expect(primaryLandingPages).toBeDefined();
         });
-        let variationLandingPages
+        let variationLandingPages;
+        let sampleLandingPage;
         it('should return only variation language landing pages', async () => {
             variationLandingPages = await api.getLandingPages('translatedFromId__not_null');
             expect(variationLandingPages).toBeDefined();
+            sampleLandingPage = variationLandingPages.results.slice(-1)[0];
+            expect(sampleLandingPage.id).toBeDefined();
         });
         it('confirm total landing pages', async () => {
             expect(allLandingPages.total).toBe(primaryLandingPages.total + variationLandingPages.total)
         });
+
         it('get Landing Page by Id' , async () => {
-            const pageToGet = variationLandingPages.results.slice(-1)[0];
-            const response = await api.getLandingPage(pageToGet.id);
+            const response = await api.getLandingPage(sampleLandingPage.id);
+            expect(response).toBeDefined();
+        });
+        it('update a Landing page (maximal patch)' , async () => {
+            delete sampleLandingPage['archivedAt'];
+            const response = await api.updateLandingPage(
+                sampleLandingPage.id,
+                sampleLandingPage,
+                true );
             expect(response).toBeDefined();
         });
         it('update a Landing page (minimal patch)' , async () => {
-            const pageToUpdate = variationLandingPages.results.slice(-1)[0];
             const response = await api.updateLandingPage(
-                pageToUpdate.id,
+                sampleLandingPage.id,
                 {htmlTitle: `test Landing page ${Date.now()}`},
                 true );
             expect(response).toBeDefined();
         });
-        it('update a Landing page (maximal patch)' , async () => {
-            const pageToUpdate = variationLandingPages.results.slice(-1)[0];
-            delete pageToUpdate['archivedAt'];
-            const response = await api.updateLandingPage(
-                pageToUpdate.id,
-                pageToUpdate,
-                true );
+        it('publish a Landing Page' , async () => {
+            const now = new Date(Date.now()+5000);
+            const response = await api.publishLandingPage(
+                sampleLandingPage.id,
+                now.toISOString(),
+            );
+            expect(response).toBeDefined();
+        });
+        it('push a Landing page draft to live' , async () => {
+
+            const response = await api.pushLandingPageDraftToLive(sampleLandingPage.id);
             expect(response).toBeDefined();
         });
     });

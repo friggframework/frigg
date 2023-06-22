@@ -688,6 +688,28 @@ class Api extends OAuth2Requester {
         return this._patch(options);
     }
 
+    async pushLandingPageDraftToLive(objId){
+        const options = {
+            url: `${this.baseUrl}${this.URLs.landingPageById(objId)}/draft/push-live`,
+        };
+        return this._post(options);
+    }
+
+    async publishLandingPage(objId, publishDate) {
+        const options = {
+            url: `${this.baseUrl}${this.URLs.landingPages}/schedule`,
+            body: {
+                id: objId,
+                publishDate
+            },
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+
+            }
+        };
+        return this._post(options);
+    }
 
     async getSitePages(query=''){
         const options = {
@@ -721,6 +743,29 @@ class Api extends OAuth2Requester {
         return this._patch(options);
     }
 
+    async pushSitePageDraftToLive(objId){
+        const options = {
+            url: `${this.baseUrl}${this.URLs.sitePageById(objId)}/draft/push-live`,
+        };
+        return this._post(options);
+    }
+
+    async publishSitePage(objId, publishDate) {
+        const options = {
+            url: `${this.baseUrl}${this.URLs.sitePages}/schedule`,
+            body: {
+                id: objId,
+                publishDate
+            },
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+
+            }
+        };
+        return this._post(options);
+    }
+
     // **************************   Blogs   *****************************
 
     async getBlogPosts(query=''){
@@ -740,7 +785,7 @@ class Api extends OAuth2Requester {
         return this._get(options);
     }
 
-    async updateBlogPost(objId, body, isDraft=false){
+    async updateBlogPost(objId, body, isDraft=false) {
         const draft = isDraft ? '/draft' : ''
         const options = {
             url: `${this.baseUrl}${this.URLs.blogPostById(objId)}${draft}`,
@@ -752,6 +797,29 @@ class Api extends OAuth2Requester {
             }
         };
         return this._patch(options);
+    }
+
+    async pushBlogPostDraftToLive(objId){
+        const options = {
+            url: `${this.baseUrl}${this.URLs.blogPostById(objId)}/draft/push-live`,
+        };
+        return this._post(options);
+    }
+
+    async publishBlogPost(objId, publishDate) {
+        const options = {
+            url: `${this.baseUrl}${this.URLs.blogPosts}/schedule`,
+            body: {
+                id: objId,
+                publishDate
+            },
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+
+            }
+        };
+        return this._post(options);
     }
 
     // **************************   Other/All   **********************************
