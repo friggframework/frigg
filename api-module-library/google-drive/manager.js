@@ -110,7 +110,13 @@ class Manager extends ModuleManager {
             };
             this.entity = await Entity.create(createObj);
         } else if (search.length === 1) {
-            this.entity = search[0];
+            this.entity = await Entity.findOneAndUpdate(
+                { _id: search[0] },
+                { $set: {
+                        credential: this.credential.id
+                    }},
+                { useFindAndModify: true, new: true }
+            );
         } else {
             debug(
                 'Multiple entities found with the same external ID:',
