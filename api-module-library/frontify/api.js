@@ -333,6 +333,62 @@ class Api extends OAuth2Requester {
             assets: response.data.brand.search.edges,
         };
     }
+
+    async createAsset(input) {
+        const ql = `mutation CreateAsset {
+                      createAsset(input: {
+                        filedId: "${input.filedId}",
+                        title: ${input.title}
+                      }) {
+                        job {
+                          assetId
+                        }
+                      }
+                    }`;
+
+        const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
+        return {
+            assets: response.data.uploadFile,
+        };
+    }
+
+    async createFileId(input) {
+        const ql = `mutation UploadFile {
+                      uploadFile(input: {
+                        filename: "${input.filename}",
+                        size: ${input.size},
+                        chunkSize: ${input.chunkSize}
+                      }) {
+                        id
+                        urls
+                      }
+                    }`;
+
+        const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
+        return {
+            assets: response.data.uploadFile,
+        };
+    }
+
+    async uploadFile(dataBuffer, urls, chunkSize) {
+        const readFileStream = createReadStream(dataBuffer, { highWaterMark: chunkSize });
+
+        for await (const data of readFileStream) {
+            const url = urls.shift();
+
+            await this._put({
+                url,
+                headers: {
+                    'Content-Type': 'binary',
+                },
+                body: data,
+            });
+        }
+
+        return Promise.resolve();
+    }
 }
 
 module.exports = { Api };
