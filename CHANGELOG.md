@@ -1,3 +1,16 @@
+# (Sat Jun 24 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-google-drive@0.0.10`
+  - Fix save entity if user removes GD permissions and attempt to connect again [#186](https://github.com/friggframework/frigg/pull/186) ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 1
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
 # (Thu Jun 22 2023)
 
 #### 🐛 Bug Fix

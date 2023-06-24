@@ -1,3 +1,16 @@
+# v0.0.10 (Sat Jun 24 2023)
+
+#### 🐛 Bug Fix
+
+- Fix save entity if user removes GD permissions and attempt to connect again [#186](https://github.com/friggframework/frigg/pull/186) ([@leofmds](https://github.com/leofmds))
+- Fix save entity if user removes GD permissions and attempt to connect again ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 1
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
 # v0.0.9 (Thu Jun 08 2023)
 
 #### 🐛 Bug Fix
