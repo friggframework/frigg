@@ -372,20 +372,18 @@ class Api extends OAuth2Requester {
         return response.data.uploadFile;
     }
 
-    async uploadFile(stream, urls, chunkSize) {
-        for await (const data of stream) {
-            // AWS url
-            const url = urls.shift();
+    async uploadFile(buff, urls, chunkSize) {
+        // AWS url
+        const url = urls.shift();
 
-            // Using fetch to avoid sending Frontify auth headers to AWS
-            await fetch(url, {
-                method: 'PUT',
-                headers: {
-                    'content-type': 'binary'
-                },
-                body: data
-            });
-        }
+        // Using fetch to avoid sending Frontify auth headers to AWS
+        await fetch(url, {
+            method: 'PUT',
+            headers: {
+                'content-type': 'binary'
+            },
+            body: buff
+        });
 
         return Promise.resolve();
     }
