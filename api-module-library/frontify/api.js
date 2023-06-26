@@ -1,3 +1,4 @@
+const fetch = require('node-fetch');
 const { get } = require('@friggframework/assertions');
 const { OAuth2Requester } = require('@friggframework/module-plugin');
 const querystring = require('querystring');
@@ -334,11 +335,12 @@ class Api extends OAuth2Requester {
         };
     }
 
-    async createAsset(input) {
+    async createAsset(asset) {
         const ql = `mutation CreateAsset {
                       createAsset(input: {
-                        filedId: "${input.filedId}",
-                        title: ${input.title}
+                        fileId: "${asset.id}",
+                        title: "${asset.title}",
+                        projectId: "${asset.projectId}"
                       }) {
                         job {
                           assetId
@@ -349,7 +351,7 @@ class Api extends OAuth2Requester {
         const response = await this._post(this.buildRequestOptions(ql));
         this.assertResponse(response);
         return {
-            assets: response.data.uploadFile,
+            id: response.data.createAsset.job.assetId
         };
     }
 
@@ -367,23 +369,21 @@ class Api extends OAuth2Requester {
 
         const response = await this._post(this.buildRequestOptions(ql));
         this.assertResponse(response);
-        return {
-            assets: response.data.uploadFile,
-        };
+        return response.data.uploadFile;
     }
 
-    async uploadFile(dataBuffer, urls, chunkSize) {
-        const readFileStream = createReadStream(dataBuffer, { highWaterMark: chunkSize });
-
-        for await (const data of readFileStream) {
+    async uploadFile(stream, urls, chunkSize) {
+        for await (const data of stream) {
+            // AWS url
             const url = urls.shift();
 
-            await this._put({
-                url,
+            // Using fetch to avoid sending Frontify auth headers to AWS
+            await fetch(url, {
+                method: 'PUT',
                 headers: {
-                    'Content-Type': 'binary',
+                    'content-type': 'binary'
                 },
-                body: data,
+                body: data
             });
         }
 
