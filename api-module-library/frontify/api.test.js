@@ -1060,7 +1060,7 @@ describe(`${Config.label} API Tests`, () => {
                 let scopeOne, scopeTwo;
 
                 beforeEach(() => {
-                    scopeOne = nock('http://foo')
+                    scopeOne = nock('https://foo')
                         .put('/bar', 'foo')
                         .reply(200, {
                             data: {
@@ -1070,7 +1070,7 @@ describe(`${Config.label} API Tests`, () => {
                             }
                         });
 
-                    scopeTwo = nock('http://bar')
+                    scopeTwo = nock('https://bar')
                         .put('/foo', 'bar')
                         .reply(200, {
                             data: {
@@ -1084,7 +1084,7 @@ describe(`${Config.label} API Tests`, () => {
                 it('should fetch files from correct endpoints', async () => {
                     const input = {
                         stream: ['foo', 'bar'],
-                        urls: ['http://foo/bar', 'http://bar/foo'],
+                        urls: ['https://foo/bar', 'https://bar/foo'],
                         chunkSize: 'chunkSize'
                     };
 
