@@ -372,7 +372,7 @@ class Api extends OAuth2Requester {
         return response.data.uploadFile;
     }
 
-    async uploadFile(stream, urls, chunkSize) {
+    async uploadFile(stream, urls) {
         for await (const chunk of stream) {
             // AWS url
             const url = urls.shift();
