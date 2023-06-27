@@ -372,6 +372,9 @@ class Api extends OAuth2Requester {
         return response.data.uploadFile;
     }
 
+    // Total of addresses in urls should match the number of chunks in
+    // stream. The code invoking this method should take care of this
+    // using a correct "highWaterMark".
     async uploadFile(stream, urls) {
         for await (const chunk of stream) {
             // AWS url
