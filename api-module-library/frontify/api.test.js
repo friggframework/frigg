@@ -1056,23 +1056,12 @@ describe(`${Config.label} API Tests`, () => {
         });
 
       describe('#uploadFile', () => {
-          const ql = `mutation UploadFile {
-                        uploadFile(input: {
-                          filename: "filename",
-                          size: size,
-                          chunkSize: chunkSize
-                        }) {
-                          id
-                          urls
-                        }
-                      }`;
-
             describe('Create a file ID', () => {
                 let scopeOne, scopeTwo;
 
                 beforeEach(() => {
                     scopeOne = nock('http://foo')
-                        .post('/bar', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .put('/bar', 'foo')
                         .reply(200, {
                             data: {
                                 uploadFile: {
@@ -1082,7 +1071,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
 
                     scopeTwo = nock('http://bar')
-                        .post('/foo', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .put('/foo', 'bar')
                         .reply(200, {
                             data: {
                                 uploadFile: {
@@ -1099,7 +1088,7 @@ describe(`${Config.label} API Tests`, () => {
                         chunkSize: 'chunkSize'
                     };
 
-                    await api.uploadFile(input);
+                    await api.uploadFile(input.stream, input.urls);
                     expect(scopeOne.isDone()).toBe(true);
                     expect(scopeTwo.isDone()).toBe(true);
                 });
