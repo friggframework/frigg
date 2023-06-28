@@ -376,21 +376,25 @@ class Api extends OAuth2Requester {
     // stream. The code invoking this method should take care of this
     // using a correct "highWaterMark".
     async uploadFile(stream, urls) {
+        const responses = [];
+
         for await (const chunk of stream) {
             // AWS url
             const url = urls.shift();
 
             // Using fetch to avoid sending Frontify auth headers to AWS
-            await fetch(url, {
+            const resp = await fetch(url, {
                 method: 'PUT',
                 headers: {
                     'content-type': 'binary'
                 },
                 body: chunk
             });
+
+            responses.push(resp);
         }
 
-        return Promise.resolve();
+        return responses;
     }
 }
 
