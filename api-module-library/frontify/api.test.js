@@ -324,6 +324,210 @@ describe(`${Config.label} API Tests`, () => {
             });
         });
 
+        describe('#getAssetPermissions', () => {
+            const ql = `query AssetPermissions {
+                          asset(id: "assetId") {
+                              currentUserPermissions {
+                                canEdit
+                                canDelete
+                                canComment
+                                canDownload
+                              }
+                            }
+                        }`;
+
+            describe('Retrieve permissions for an asset', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                asset: {
+                                    currentUserPermissions: 'currentUserPermissions'
+                                }
+                            }
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const permissions = await api.getAssetPermissions({ assetId: 'assetId' });
+                    expect(permissions).toEqual({ permissions: 'currentUserPermissions' });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Get error coming from permissions endpoint', () => {
+
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            errors: [
+                                {
+                                    message: 'An error getting asset permissions happened!',
+                                    locations: [
+                                        {
+                                            line: 1,
+                                            column: 1
+                                        }
+                                    ],
+                                    extensions: {
+                                        category: 'graphql'
+                                    }
+                                }
+                            ],
+                            data: null,
+                            extensions: {
+                                complexityScore: 0
+                            }
+                        });
+                });
+
+                it('should handle error', () => {
+                    expect(
+                        async () => await api.getAssetPermissions({ assetId: 'assetId' })
+                    ).rejects.toThrow(new Error('An error getting asset permissions happened!'));
+                });
+            });
+        });
+
+        describe('#getLibraryPermissions', () => {
+            const ql = `query LibraryPermissions {
+                          library(id: "libraryId") {
+                              currentUserPermissions {
+                                canCreateAssets
+                                canViewCollaborators
+                                canCreateCollections
+                              }
+                            }
+                        }`;
+
+            describe('Retrieve permissions for a library', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                library: {
+                                    currentUserPermissions: 'currentUserPermissions'
+                                }
+                            }
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const permissions = await api.getLibraryPermissions({ libraryId: 'libraryId' });
+                    expect(permissions).toEqual({ permissions: 'currentUserPermissions' });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Get error coming from permissions endpoint', () => {
+
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            errors: [
+                                {
+                                    message: 'An error getting library permissions happened!',
+                                    locations: [
+                                        {
+                                            line: 1,
+                                            column: 1
+                                        }
+                                    ],
+                                    extensions: {
+                                        category: 'graphql'
+                                    }
+                                }
+                            ],
+                            data: null,
+                            extensions: {
+                                complexityScore: 0
+                            }
+                        });
+                });
+
+                it('should handle error', () => {
+                    expect(
+                        async () => await api.getLibraryPermissions({ libraryId: 'libraryId' })
+                    ).rejects.toThrow(new Error('An error getting library permissions happened!'));
+                });
+            });
+        });
+
+        describe('#getProjectPermissions', () => {
+            const ql = `query ProjectPermissions {
+                          workspaceProject(id: "projectId") {
+                              currentUserPermissions {
+                                canCreateAssets
+                                canViewCollaborators
+                              }
+                            }
+                        }`;
+
+            describe('Retrieve permissions for a project', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                workspaceProject: {
+                                    currentUserPermissions: 'currentUserPermissions'
+                                }
+                            }
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const permissions = await api.getProjectPermissions({ projectId: 'projectId' });
+                    expect(permissions).toEqual({ permissions: 'currentUserPermissions' });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Get error coming from permissions endpoint', () => {
+
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            errors: [
+                                {
+                                    message: 'An error getting project permissions happened!',
+                                    locations: [
+                                        {
+                                            line: 1,
+                                            column: 1
+                                        }
+                                    ],
+                                    extensions: {
+                                        category: 'graphql'
+                                    }
+                                }
+                            ],
+                            data: null,
+                            extensions: {
+                                complexityScore: 0
+                            }
+                        });
+                });
+
+                it('should handle error', () => {
+                    expect(
+                        async () => await api.getProjectPermissions({ projectId: 'projectId' })
+                    ).rejects.toThrow(new Error('An error getting project permissions happened!'));
+                });
+            });
+        });
+
         describe('#getSearchFilterOptions', () => {
             describe('Retrieve searh and filter available options', () => {
                 it('should return options', async () => {
