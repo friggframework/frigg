@@ -969,5 +969,130 @@ describe(`${Config.label} API Tests`, () => {
                 });
             });
         });
+
+        describe('#createAsset', () => {
+            const ql = `mutation CreateAsset {
+                          createAsset(input: {
+                            fileId: "fileId",
+                            title: "title",
+                            projectId: "projectId"
+                          }) {
+                            job {
+                              assetId
+                            }
+                          }
+                        }`;
+
+            describe('Create a new asset', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                createAsset: {
+                                    job: {
+                                        assetId: 'assetId'
+                                    }
+                                }
+                            }
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const asset = {
+                        id: 'fileId',
+                        title: 'title',
+                        projectId: 'projectId'
+                    };
+
+                    const results = await api.createAsset(asset);
+                    expect(results).toEqual({ id: 'assetId' });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+        });
+
+      describe('#createFileId', () => {
+          const ql = `mutation UploadFile {
+                        uploadFile(input: {
+                          filename: "filename",
+                          size: size,
+                          chunkSize: chunkSize
+                        }) {
+                          id
+                          urls
+                        }
+                      }`;
+
+            describe('Create a file ID', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                uploadFile: {
+                                  uploadFile: 'uploadFile'
+                                }
+                            }
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const input = {
+                        filename: 'filename',
+                        size: 'size',
+                        chunkSize: 'chunkSize'
+                    };
+
+                    const results = await api.createFileId(input);
+                    expect(results).toEqual({ uploadFile: 'uploadFile' });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+        });
+
+      describe('#uploadFile', () => {
+            describe('Create a file ID', () => {
+                let scopeOne, scopeTwo;
+
+                beforeEach(() => {
+                    scopeOne = nock('https://foo')
+                        .put('/bar', 'foo')
+                        .reply(200, {
+                            data: {
+                                uploadFile: {
+                                  uploadFile: 'uploadFile'
+                                }
+                            }
+                        });
+
+                    scopeTwo = nock('https://bar')
+                        .put('/foo', 'bar')
+                        .reply(200, {
+                            data: {
+                                uploadFile: {
+                                  uploadFile: 'uploadFile'
+                                }
+                            }
+                        });
+                });
+
+                it('should fetch files from correct endpoints', async () => {
+                    const input = {
+                        stream: ['foo', 'bar'],
+                        urls: ['https://foo/bar', 'https://bar/foo'],
+                        chunkSize: 'chunkSize'
+                    };
+
+                    await api.uploadFile(input.stream, input.urls);
+                    expect(scopeOne.isDone()).toBe(true);
+                    expect(scopeTwo.isDone()).toBe(true);
+                });
+            });
+        });
     });
 });

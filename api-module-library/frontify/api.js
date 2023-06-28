@@ -1,3 +1,4 @@
+const fetch = require('node-fetch');
 const { get } = require('@friggframework/assertions');
 const { OAuth2Requester } = require('@friggframework/module-plugin');
 const querystring = require('querystring');
@@ -332,6 +333,68 @@ class Api extends OAuth2Requester {
         return {
             assets: response.data.brand.search.edges,
         };
+    }
+
+    async createAsset(asset) {
+        const ql = `mutation CreateAsset {
+                      createAsset(input: {
+                        fileId: "${asset.id}",
+                        title: "${asset.title}",
+                        projectId: "${asset.projectId}"
+                      }) {
+                        job {
+                          assetId
+                        }
+                      }
+                    }`;
+
+        const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
+        return {
+            id: response.data.createAsset.job.assetId
+        };
+    }
+
+    async createFileId(input) {
+        const ql = `mutation UploadFile {
+                      uploadFile(input: {
+                        filename: "${input.filename}",
+                        size: ${input.size},
+                        chunkSize: ${input.chunkSize}
+                      }) {
+                        id
+                        urls
+                      }
+                    }`;
+
+        const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
+        return response.data.uploadFile;
+    }
+
+    // Total of addresses in urls should match the number of chunks in
+    // stream. The code invoking this method should take care of this
+    // using a correct "highWaterMark".
+    async uploadFile(stream, urls) {
+        const responses = [];
+
+        for await (const chunk of stream) {
+            // AWS url
+            const url = urls.shift();
+
+            // Using fetch to avoid sending Frontify auth headers to AWS
+            const resp = await fetch(url, {
+                method: 'PUT',
+                headers: {
+                    'content-type': 'binary'
+                },
+                body: chunk
+            });
+
+            responses.push(resp);
+        }
+
+        return responses;
     }
 }
 
