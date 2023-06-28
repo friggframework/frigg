@@ -1,3 +1,25 @@
+# v0.0.7 (Wed Jun 28 2023)
+
+#### 🐛 Bug Fix
+
+- Feature/lef 388 upload assets function [#187](https://github.com/friggframework/frigg/pull/187) ([@roboli](https://github.com/roboli))
+- Return responses coming from AWS when uploading chunks [ci skip] ([@roboli](https://github.com/roboli))
+- Change https testing Urls because of Sonarcloud ([@roboli](https://github.com/roboli))
+- Add comment to explain chunks in stream [ci skip] ([@roboli](https://github.com/roboli))
+- Fix upload test ([@roboli](https://github.com/roboli))
+- Remove chunkSize param ([@roboli](https://github.com/roboli))
+- Implement tests ([@roboli](https://github.com/roboli))
+- Restore expecting stream to upload file [ci skip] ([@roboli](https://github.com/roboli))
+- Expect a buffer instead of stream [ci skip] ([@roboli](https://github.com/roboli))
+- Fix methods for uploading file [ci skip] ([@roboli](https://github.com/roboli))
+- Create upload file methods ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
 # v0.0.6 (Wed Jun 14 2023)
 
 #### 🐛 Bug Fix
