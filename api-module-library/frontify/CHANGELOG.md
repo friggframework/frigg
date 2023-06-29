@@ -1,3 +1,18 @@
+# v0.0.9 (Thu Jun 29 2023)
+
+#### 🐛 Bug Fix
+
+- Add previewUrl to assets in Frontify [#189](https://github.com/friggframework/frigg/pull/189) ([@leofmds](https://github.com/leofmds))
+- Add previewUrl to assets in Frontify ([@leofmds](https://github.com/leofmds))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.8 (Thu Jun 29 2023)
 
 #### 🐛 Bug Fix

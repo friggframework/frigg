@@ -2,6 +2,19 @@
 
 #### 🐛 Bug Fix
 
+- `@friggframework/api-module-frontify@0.0.9`
+  - Add previewUrl to assets in Frontify [#189](https://github.com/friggframework/frigg/pull/189) ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 1
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
+# (Thu Jun 29 2023)
+
+#### 🐛 Bug Fix
+
 - `@friggframework/api-module-frontify@0.0.8`
   - Implement permission methods [#188](https://github.com/friggframework/frigg/pull/188) ([@roboli](https://github.com/roboli))
 
