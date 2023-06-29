@@ -174,7 +174,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const user = await api.getUser();
                     expect(user).toEqual({ user: 'currentUser' });
                     expect(scope.isDone()).toBe(true);
@@ -282,7 +282,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const asset = await api.getAsset({ assetId: 'assetId' });
                     expect(asset).toEqual({ asset: 'asset' });
                     expect(scope.isDone()).toBe(true);
@@ -351,7 +351,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const permissions = await api.getAssetPermissions({ assetId: 'assetId' });
                     expect(permissions).toEqual({ permissions: 'currentUserPermissions' });
                     expect(scope.isDone()).toBe(true);
@@ -419,7 +419,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const permissions = await api.getLibraryPermissions({ libraryId: 'libraryId' });
                     expect(permissions).toEqual({ permissions: 'currentUserPermissions' });
                     expect(scope.isDone()).toBe(true);
@@ -486,7 +486,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const permissions = await api.getProjectPermissions({ projectId: 'projectId' });
                     expect(permissions).toEqual({ permissions: 'currentUserPermissions' });
                     expect(scope.isDone()).toBe(true);
@@ -569,7 +569,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const brands = await api.listBrands();
                     expect(brands).toEqual({ brands: 'brands' });
                     expect(scope.isDone()).toBe(true);
@@ -640,7 +640,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const projects = await api.listProjects({ brandId: 'brandId' });
                     expect(projects).toEqual({ projects: 'items' });
                     expect(scope.isDone()).toBe(true);
@@ -713,7 +713,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const libraries = await api.listLibraries({ brandId: 'brandId' });
                     expect(libraries).toEqual({ libraries: 'libraries' });
                     expect(scope.isDone()).toBe(true);
@@ -786,7 +786,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const projectAssets = await api.listProjectAssets({ projectId: 'projectId' });
                     expect(projectAssets).toEqual({ assets: 'items' });
                     expect(scope.isDone()).toBe(true);
@@ -862,7 +862,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const projectFolders = await api.listProjectFolders({ projectId: 'projectId' });
                     expect(projectFolders).toEqual({ folders: 'items' });
                     expect(scope.isDone()).toBe(true);
@@ -935,7 +935,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const libraryAssets = await api.listLibraryAssets({ libraryId: 'libraryId' });
                     expect(libraryAssets).toEqual({ assets: 'items' });
                     expect(scope.isDone()).toBe(true);
@@ -1011,7 +1011,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const libraryFolders = await api.listLibraryFolders({ libraryId: 'libraryId' });
                     expect(libraryFolders).toEqual({ folders: 'items' });
                     expect(scope.isDone()).toBe(true);
@@ -1120,7 +1120,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const query = {
                         brandId: 'brandId',
                         limit: 'limit',
@@ -1204,7 +1204,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const asset = {
                         id: 'fileId',
                         title: 'title',
@@ -1245,7 +1245,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const input = {
                         filename: 'filename',
                         size: 'size',
