@@ -236,6 +236,17 @@
         "test",
         "code"
       ]
+    },
+    {
+      "login": "leofmds",
+      "name": "Leonardo Ferreira",
+      "avatar_url": "https://avatars.githubusercontent.com/u/7059835?v=4",
+      "profile": "https://github.com/leofmds",
+      "contributions": [
+        "doc",
+        "test",
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7
