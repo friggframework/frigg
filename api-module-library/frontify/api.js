@@ -131,6 +131,60 @@ class Api extends OAuth2Requester {
         return response.data.asset;
     }
 
+    async getAssetPermissions(query) {
+        const ql = `query AssetPermissions {
+                      asset(id: "${query.assetId}") {
+                          currentUserPermissions {
+                            canEdit
+                            canDelete
+                            canComment
+                            canDownload
+                          }
+                        }
+                    }`;
+
+        const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
+        return {
+            permissions: response.data.asset.currentUserPermissions,
+        };
+    }
+
+    async getLibraryPermissions(query) {
+        const ql = `query LibraryPermissions {
+                      library(id: "${query.libraryId}") {
+                          currentUserPermissions {
+                            canCreateAssets
+                            canViewCollaborators
+                            canCreateCollections
+                          }
+                        }
+                    }`;
+
+        const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
+        return {
+            permissions: response.data.library.currentUserPermissions,
+        };
+    }
+
+    async getProjectPermissions(query) {
+        const ql = `query ProjectPermissions {
+                      workspaceProject(id: "${query.projectId}") {
+                          currentUserPermissions {
+                            canCreateAssets
+                            canViewCollaborators
+                          }
+                        }
+                    }`;
+
+        const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
+        return {
+            permissions: response.data.workspaceProject.currentUserPermissions,
+        };
+    }
+
     async getSearchFilterOptions() {
         return {
             status: ['FINISHED', 'PROCESSING', 'PROCESSING_FAILED'],

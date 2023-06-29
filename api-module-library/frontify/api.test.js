@@ -174,7 +174,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const user = await api.getUser();
                     expect(user).toEqual({ user: 'currentUser' });
                     expect(scope.isDone()).toBe(true);
@@ -282,7 +282,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const asset = await api.getAsset({ assetId: 'assetId' });
                     expect(asset).toEqual({ asset: 'asset' });
                     expect(scope.isDone()).toBe(true);
@@ -320,6 +320,210 @@ describe(`${Config.label} API Tests`, () => {
                     expect(
                         async () => await api.getAsset({ assetId: 'assetId' })
                     ).rejects.toThrow(new Error('An error getting asset happened!'));
+                });
+            });
+        });
+
+        describe('#getAssetPermissions', () => {
+            const ql = `query AssetPermissions {
+                          asset(id: "assetId") {
+                              currentUserPermissions {
+                                canEdit
+                                canDelete
+                                canComment
+                                canDownload
+                              }
+                            }
+                        }`;
+
+            describe('Retrieve permissions for an asset', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                asset: {
+                                    currentUserPermissions: 'currentUserPermissions'
+                                }
+                            }
+                        });
+                });
+
+                it('should return the correct response', async () => {
+                    const permissions = await api.getAssetPermissions({ assetId: 'assetId' });
+                    expect(permissions).toEqual({ permissions: 'currentUserPermissions' });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Get error coming from permissions endpoint', () => {
+
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            errors: [
+                                {
+                                    message: 'An error getting asset permissions happened!',
+                                    locations: [
+                                        {
+                                            line: 1,
+                                            column: 1
+                                        }
+                                    ],
+                                    extensions: {
+                                        category: 'graphql'
+                                    }
+                                }
+                            ],
+                            data: null,
+                            extensions: {
+                                complexityScore: 0
+                            }
+                        });
+                });
+
+                it('should handle error', () => {
+                    expect(
+                        async () => await api.getAssetPermissions({ assetId: 'assetId' })
+                    ).rejects.toThrow(new Error('An error getting asset permissions happened!'));
+                });
+            });
+        });
+
+        describe('#getLibraryPermissions', () => {
+            const ql = `query LibraryPermissions {
+                          library(id: "libraryId") {
+                              currentUserPermissions {
+                                canCreateAssets
+                                canViewCollaborators
+                                canCreateCollections
+                              }
+                            }
+                        }`;
+
+            describe('Retrieve permissions for a library', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                library: {
+                                    currentUserPermissions: 'currentUserPermissions'
+                                }
+                            }
+                        });
+                });
+
+                it('should return the correct response', async () => {
+                    const permissions = await api.getLibraryPermissions({ libraryId: 'libraryId' });
+                    expect(permissions).toEqual({ permissions: 'currentUserPermissions' });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Get error coming from permissions endpoint', () => {
+
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            errors: [
+                                {
+                                    message: 'An error getting library permissions happened!',
+                                    locations: [
+                                        {
+                                            line: 1,
+                                            column: 1
+                                        }
+                                    ],
+                                    extensions: {
+                                        category: 'graphql'
+                                    }
+                                }
+                            ],
+                            data: null,
+                            extensions: {
+                                complexityScore: 0
+                            }
+                        });
+                });
+
+                it('should handle error', () => {
+                    expect(
+                        async () => await api.getLibraryPermissions({ libraryId: 'libraryId' })
+                    ).rejects.toThrow(new Error('An error getting library permissions happened!'));
+                });
+            });
+        });
+
+        describe('#getProjectPermissions', () => {
+            const ql = `query ProjectPermissions {
+                          workspaceProject(id: "projectId") {
+                              currentUserPermissions {
+                                canCreateAssets
+                                canViewCollaborators
+                              }
+                            }
+                        }`;
+
+            describe('Retrieve permissions for a project', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                workspaceProject: {
+                                    currentUserPermissions: 'currentUserPermissions'
+                                }
+                            }
+                        });
+                });
+
+                it('should return the correct response', async () => {
+                    const permissions = await api.getProjectPermissions({ projectId: 'projectId' });
+                    expect(permissions).toEqual({ permissions: 'currentUserPermissions' });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Get error coming from permissions endpoint', () => {
+
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            errors: [
+                                {
+                                    message: 'An error getting project permissions happened!',
+                                    locations: [
+                                        {
+                                            line: 1,
+                                            column: 1
+                                        }
+                                    ],
+                                    extensions: {
+                                        category: 'graphql'
+                                    }
+                                }
+                            ],
+                            data: null,
+                            extensions: {
+                                complexityScore: 0
+                            }
+                        });
+                });
+
+                it('should handle error', () => {
+                    expect(
+                        async () => await api.getProjectPermissions({ projectId: 'projectId' })
+                    ).rejects.toThrow(new Error('An error getting project permissions happened!'));
                 });
             });
         });
@@ -365,7 +569,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const brands = await api.listBrands();
                     expect(brands).toEqual({ brands: 'brands' });
                     expect(scope.isDone()).toBe(true);
@@ -436,7 +640,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const projects = await api.listProjects({ brandId: 'brandId' });
                     expect(projects).toEqual({ projects: 'items' });
                     expect(scope.isDone()).toBe(true);
@@ -509,7 +713,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const libraries = await api.listLibraries({ brandId: 'brandId' });
                     expect(libraries).toEqual({ libraries: 'libraries' });
                     expect(scope.isDone()).toBe(true);
@@ -582,7 +786,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const projectAssets = await api.listProjectAssets({ projectId: 'projectId' });
                     expect(projectAssets).toEqual({ assets: 'items' });
                     expect(scope.isDone()).toBe(true);
@@ -658,7 +862,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const projectFolders = await api.listProjectFolders({ projectId: 'projectId' });
                     expect(projectFolders).toEqual({ folders: 'items' });
                     expect(scope.isDone()).toBe(true);
@@ -731,7 +935,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const libraryAssets = await api.listLibraryAssets({ libraryId: 'libraryId' });
                     expect(libraryAssets).toEqual({ assets: 'items' });
                     expect(scope.isDone()).toBe(true);
@@ -807,7 +1011,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const libraryFolders = await api.listLibraryFolders({ libraryId: 'libraryId' });
                     expect(libraryFolders).toEqual({ folders: 'items' });
                     expect(scope.isDone()).toBe(true);
@@ -916,7 +1120,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const query = {
                         brandId: 'brandId',
                         limit: 'limit',
@@ -1000,7 +1204,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const asset = {
                         id: 'fileId',
                         title: 'title',
@@ -1041,7 +1245,7 @@ describe(`${Config.label} API Tests`, () => {
                         });
                 });
 
-                it('should hit the correct endpoint', async () => {
+                it('should return the correct response', async () => {
                     const input = {
                         filename: 'filename',
                         size: 'size',
