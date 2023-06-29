@@ -258,6 +258,9 @@ class Api extends OAuth2Requester {
                             title
                             description
                             __typename
+                            ... on Image {
+                              previewUrl
+                            }
                           }
                         }
                       }
@@ -301,6 +304,9 @@ class Api extends OAuth2Requester {
                             title
                             description
                             __typename
+                            ... on Image {
+                              previewUrl
+                            }
                           }
                         }
                       }
