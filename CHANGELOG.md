@@ -1,3 +1,16 @@
+# (Thu Jun 29 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@0.0.8`
+  - Implement permission methods [#188](https://github.com/friggframework/frigg/pull/188) ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
 # (Wed Jun 28 2023)
 
 #### 🐛 Bug Fix

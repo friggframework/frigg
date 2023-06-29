@@ -1,3 +1,17 @@
+# v0.0.8 (Thu Jun 29 2023)
+
+#### 🐛 Bug Fix
+
+- Implement permission methods [#188](https://github.com/friggframework/frigg/pull/188) ([@roboli](https://github.com/roboli))
+- Change test description (and force canary release!) ([@roboli](https://github.com/roboli))
+- Implement permission methods [ci skip] ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
 # v0.0.7 (Wed Jun 28 2023)
 
 #### 🐛 Bug Fix
