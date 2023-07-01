@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const algorithm = 'aes-256-ctr';
 
 function encrypt(text, key) {
+    console.log('JON >>> text, key', text, key);
     const iv = crypto.randomBytes(16);
     const randomString = iv.toString('hex');
 

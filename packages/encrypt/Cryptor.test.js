@@ -29,4 +29,25 @@ describe('Cryptor', () => {
             );
         });
     });
+
+    describe('generateDataKey()', () => {
+        it('raises error on missing environment', () => {
+            const cryptor = new Cryptor({ fields: ['a.b.c.d', 'e'] });
+            
+            // save the env variables for later
+            const AES_KEY = process.env.AES_KEY
+            const AES_KEY_ID = process.env.AES_KEY_ID
+            
+            // Fake out the situation where the keys are undefined
+            process.env.AES_KEY = undefined
+            process.env.AES_KEY_ID = undefined
+            expect(cryptor.generateDataKey).toThrow(
+                'Environment variables not set for AES_KEY or AES_KEY_ID'
+            );
+
+            // reset those env variables
+            process.env.AES_KEY = AES_KEY
+            process.env.AES_KEY_ID = AES_KEY_ID
+        });
+    });
 });
