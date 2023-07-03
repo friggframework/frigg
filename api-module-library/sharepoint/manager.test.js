@@ -27,7 +27,7 @@ describe(`Should fully test the ${Config.label} Manager`, () => {
 
     describe('#getName', () => {
         it('should return manager name', () => {
-            expect(Manager.getName()).toEqual('microsoft-sharepoint');
+            expect(Manager.getName()).toEqual('microsoft-sharepoint-v2');
         });
     });
 

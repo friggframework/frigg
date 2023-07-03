@@ -26,10 +26,10 @@ class Manager extends ModuleManager {
 
         // initializes the Api
         const sharepointParams = {
-            client_id: process.env.SHAREPOINT_CLIENT_ID,
-            client_secret: process.env.SHAREPOINT_CLIENT_SECRET,
+            client_id: process.env.SHAREPOINT_V2_CLIENT_ID,
+            client_secret: process.env.SHAREPOINT_V2_CLIENT_SECRET,
             redirect_uri: `${process.env.REDIRECT_URI}/microsoft-sharepoint-v2`,
-            scope: process.env.SHAREPOINT_SCOPE,
+            scope: process.env.SHAREPOINT_V2_SCOPE,
             forceConsent: true,
             delegate: instance,
         };
