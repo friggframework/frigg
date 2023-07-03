@@ -46,7 +46,7 @@ describe(`Should fully test the ${Config.label} Manager`, () => {
                 expect(manager.api).toBeDefined();
                 expect(manager.api.client_id).toEqual('sharepoint_client_id_test');
                 expect(manager.api.client_secret).toEqual('sharepoint_client_secret_test');
-                expect(manager.api.redirect_uri).toEqual('http://redirect_uri_test/microsoft-sharepoint');
+                expect(manager.api.redirect_uri).toEqual('http://redirect_uri_test/microsoft-sharepoint-v2');
                 expect(manager.api.scope).toEqual('sharepoint_scope_test');
                 expect(manager.api.forceConsent).toBe(true);
                 expect(manager.api.delegate).toEqual(manager);
@@ -149,7 +149,7 @@ describe(`Should fully test the ${Config.label} Manager`, () => {
             const queryParams = querystring.stringify({
                 client_id: 'sharepoint_client_id_test',
                 response_type: 'code',
-                redirect_uri: 'http://redirect_uri_test/microsoft-sharepoint',
+                redirect_uri: 'http://redirect_uri_test/microsoft-sharepoint-v2',
                 scope: 'sharepoint_scope_test',
                 state: '',
                 prompt: 'select_account'
@@ -179,7 +179,7 @@ describe(`Should fully test the ${Config.label} Manager`, () => {
                     grant_type: 'authorization_code',
                     client_id: 'sharepoint_client_id_test',
                     client_secret: 'sharepoint_client_secret_test',
-                    redirect_uri: 'http://redirect_uri_test/microsoft-sharepoint',
+                    redirect_uri: 'http://redirect_uri_test/microsoft-sharepoint-v2',
                     scope: 'sharepoint_scope_test',
                     code: 'code'
                 });
@@ -237,7 +237,7 @@ describe(`Should fully test the ${Config.label} Manager`, () => {
                     grant_type: 'authorization_code',
                     client_id: 'sharepoint_client_id_test',
                     client_secret: 'sharepoint_client_secret_test',
-                    redirect_uri: 'http://redirect_uri_test/microsoft-sharepoint',
+                    redirect_uri: 'http://redirect_uri_test/microsoft-sharepoint-v2',
                     scope: 'sharepoint_scope_test',
                     code: 'test'
                 });
@@ -296,7 +296,7 @@ describe(`Should fully test the ${Config.label} Manager`, () => {
                     grant_type: 'authorization_code',
                     client_id: 'sharepoint_client_id_test',
                     client_secret: 'sharepoint_client_secret_test',
-                    redirect_uri: 'http://redirect_uri_test/microsoft-sharepoint',
+                    redirect_uri: 'http://redirect_uri_test/microsoft-sharepoint-v2',
                     scope: 'sharepoint_scope_test',
                     code: 'code'
                 });
