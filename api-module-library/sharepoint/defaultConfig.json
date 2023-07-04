@@ -1,5 +1,5 @@
 {
-    "name": "microsoft-sharepoint-v2",
+    "name": "microsoft-sharepoint",
     "label": "Microsoft SharePoint",
     "productUrl": "https://microsoft.com/sharepoint",
     "apiDocs": "https://developer.microsoft.com/en-us/graph/graph-explorer",
