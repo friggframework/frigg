@@ -28,7 +28,7 @@ class Manager extends ModuleManager {
         const sharepointParams = {
             client_id: process.env.SHAREPOINT_CLIENT_ID,
             client_secret: process.env.SHAREPOINT_CLIENT_SECRET,
-            redirect_uri: `${process.env.SHAREPOINT_REDIRECT_URI}/microsoft-sharepoint`,
+            redirect_uri: `${process.env.REDIRECT_URI}/microsoft-sharepoint`,
             scope: process.env.SHAREPOINT_SCOPE,
             forceConsent: true,
             delegate: instance,
