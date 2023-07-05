@@ -247,6 +247,17 @@
         "test",
         "code"
       ]
+    },
+    {
+      "login": "Fibii",
+      "name": "Charaf",
+      "avatar_url": "https://avatars.githubusercontent.com/u/38106876?v=4",
+      "profile": "https://github.com/Fibii",
+      "contributions": [
+        "doc",
+        "test",
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7
