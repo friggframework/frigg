@@ -1310,7 +1310,22 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#getSubFolderContent', () => {
-            const ql = `query FolderById {
+            const qlFolders = `query FolderById {
+                                  node(id: "subFolderId") {
+                                    ... on Folder {
+                                      name
+                                      folders {
+                                        items {
+                                          id
+                                          name
+                                          __typename
+                                        }
+                                      }
+                                    }
+                                  }
+                                }`;
+
+            const qlAssets = `query FolderById {
                                   node(id: "subFolderId") {
                                     ... on Folder {
                                       name
@@ -1330,21 +1345,15 @@ describe(`${Config.label} API Tests`, () => {
                                           }
                                         }
                                       }
-                                      folders {
-                                        items {
-                                          id
-                                          name
-                                          __typename
-                                        }
-                                      }
                                     }
                                   }
                                 }`;
-            describe('Get a subfolder content', () => {
+
+            describe('Get subfolder assets', () => {
                 let scope;
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === qlAssets.replace(/\s/g, ''))
                         .reply(200, {
                             "data": {
                                 "node": {
@@ -1368,9 +1377,6 @@ describe(`${Config.label} API Tests`, () => {
                                                 "height": 128
                                             }
                                         ]
-                                    },
-                                    "folders": {
-                                        "items": []
                                     }
                                 }
                             },
@@ -1389,11 +1395,53 @@ describe(`${Config.label} API Tests`, () => {
 
                     const results = await api.listSubFolderAssets(query);
                     expect(results).toHaveProperty('assets');
-                    expect(results).toHaveProperty('folders');
                     expect(results.assets).toHaveLength(2);
-                    expect(results.folders).toEqual([]);
                     expect(scope.isDone()).toBe(true);
+                });
+            });
 
+            describe('Get subfolder folders', () => {
+                let scope;
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body) => body.query.replace(/\s/g, '') === qlFolders.replace(/\s/g, ''))
+                        .reply(200, {
+                            "data": {
+                                "node": {
+                                    "name": "Libfolder",
+                                    "folders": {
+                                        "items": [
+                                            {
+                                                "id": "folderId",
+                                                "name": "FolderName",
+                                                "__typename": "SubFolder"
+                                            },
+                                            {
+                                                "id": "folderId2",
+                                                "name": "FolderName2",
+                                                "__typename": "SubFolder"
+                                            }
+                                        ]
+                                    }
+                                }
+                            },
+                            "extensions": {
+                                "complexityScore": 0
+                            }
+                        });
+                });
+
+                it('should return the correct response', async () => {
+                    const query = {
+                        subFolderId: 'subFolderId',
+                        limit: 'limit',
+                        term: 'term'
+                    };
+
+                    const results = await api.listSubFolderFolders(query);
+                    expect(results).toHaveProperty('folders');
+                    expect(results.folders).toHaveLength(2);
+                    expect(scope.isDone()).toBe(true);
                 });
             });
         });
