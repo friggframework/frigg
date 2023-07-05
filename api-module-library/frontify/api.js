@@ -260,6 +260,10 @@ class Api extends OAuth2Requester {
                             __typename
                             ... on Image {
                               previewUrl
+                              downloadUrl
+                              filename
+                              width
+                              height
                             }
                           }
                         }
@@ -341,6 +345,51 @@ class Api extends OAuth2Requester {
         };
     }
 
+    async listSubFolderAssets(query) {
+        const ql = `query FolderById {
+                                  node(id: "${query.subFolderId}") {
+                                    ... on Folder {
+                                      name
+                                      assets {
+                                        items {
+                                          id
+                                          title
+                                          __typename
+                                          ... on Image {
+                                            id
+                                            previewUrl
+                                            width
+                                            height
+                                            extension
+                                            filename
+                                            downloadUrl
+                                          }
+                                        }
+                                      }
+                                      folders {
+                                        items {
+                                          id
+                                          name
+                                          __typename
+                                        }
+                                      }
+                                    }
+                                  }
+                                }`;
+        const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
+        return {
+            assets: response.data.node.assets.items,
+            folders: response.data.node.folders.items
+        };
+    }
+
+    async getResponseUsingQuery(ql) {
+        const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
+        return response;
+    }
+
     async searchInBrand(query) {
         const ql = `query BrandLevelSearch {
                       brand(id: "${query.brandId}") {
@@ -378,8 +427,8 @@ class Api extends OAuth2Requester {
                                 previewUrl,
                                 extension
                                 downloadUrl(validityInDays: null, permanent: true)
-                                author,
-
+                                author
+                                filename
                               }
 
                             }
