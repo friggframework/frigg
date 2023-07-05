@@ -1,3 +1,27 @@
+# v0.0.10 (Wed Jul 05 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, Charaf ([@Fibii](https://github.com/Fibii)), for all your work!
+
+#### 🐛 Bug Fix
+
+- Add listSubFolderAssets and getResponseUsingQuery, [#194](https://github.com/friggframework/frigg/pull/194) ([@leofmds](https://github.com/leofmds))
+- Changing the query to maintain the previous pattern of getting assets and folders in different queries ([@leofmds](https://github.com/leofmds))
+- Add listSubFolderAssets and getResponseUsingQuery, ([@leofmds](https://github.com/leofmds))
+- Feature/lef 270 list organizations sites [#192](https://github.com/friggframework/frigg/pull/192) ([@roboli](https://github.com/roboli))
+- add types [#165](https://github.com/friggframework/frigg/pull/165) ([@Fibii](https://github.com/Fibii))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 4
+
+- Charaf ([@Fibii](https://github.com/Fibii))
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.9 (Thu Jun 29 2023)
 
 #### 🐛 Bug Fix

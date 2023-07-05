@@ -7,6 +7,30 @@ Thank you, Charaf ([@Fibii](https://github.com/Fibii)), for all your work!
 #### 🐛 Bug Fix
 
 - Update root lock file [ci skip] [#193](https://github.com/friggframework/frigg/pull/193) ([@roboli](https://github.com/roboli))
+- `@friggframework/api-module-frontify@0.0.10`
+  - Add listSubFolderAssets and getResponseUsingQuery, [#194](https://github.com/friggframework/frigg/pull/194) ([@leofmds](https://github.com/leofmds))
+- `@friggframework/api-module-microsoft-sharepoint@0.0.6`
+  - Feature/lef 270 list organizations sites [#192](https://github.com/friggframework/frigg/pull/192) ([@roboli](https://github.com/roboli))
+- `@friggframework/types@0.1.2`
+  - add types [#165](https://github.com/friggframework/frigg/pull/165) ([@Fibii](https://github.com/Fibii))
+
+#### Authors: 3
+
+- Charaf ([@Fibii](https://github.com/Fibii))
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
+# (Wed Jul 05 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, Charaf ([@Fibii](https://github.com/Fibii)), for all your work!
+
+#### 🐛 Bug Fix
+
+- Update root lock file [ci skip] [#193](https://github.com/friggframework/frigg/pull/193) ([@roboli](https://github.com/roboli))
 - `@friggframework/types@0.1.1`
   - Add publicshConfig: public and changed license to MIT in types package [#195](https://github.com/friggframework/frigg/pull/195) ([@leofmds](https://github.com/leofmds))
   - add types [#165](https://github.com/friggframework/frigg/pull/165) ([@Fibii](https://github.com/Fibii))
