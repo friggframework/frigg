@@ -4,7 +4,7 @@
   "description": "FriggFramework type declarations",
   "types": "index.d.ts",
   "author": "Charef Bahria",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "@types/lodash": "^4.14.191",
     "@typescript-eslint/eslint-plugin": "^5.55.0",
@@ -23,5 +23,8 @@
     "@friggframework/integrations": "^1.0.22",
     "lodash": "^4.17.21",
     "lodash.get": "^4.4.2"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
