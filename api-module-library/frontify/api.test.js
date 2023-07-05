@@ -529,7 +529,7 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#getSearchFilterOptions', () => {
-            describe('Retrieve searh and filter available options', () => {
+            describe('Retrieve search and filter available options', () => {
                 it('should return options', async () => {
                     const options = await api.getSearchFilterOptions();
                     expect(options).toEqual({
@@ -764,6 +764,13 @@ describe(`${Config.label} API Tests`, () => {
                                  title
                                  description
                                  __typename
+                                 ... on Image {
+                                   previewUrl
+                                   downloadUrl
+                                   filename
+                                   width
+                                   height
+                                 }
                                }
                              }
                            }
@@ -913,6 +920,9 @@ describe(`${Config.label} API Tests`, () => {
                                  title
                                  description
                                  __typename
+                                 ... on Image {
+                                      previewUrl
+                                    }
                                }
                              }
                            }
@@ -1090,8 +1100,8 @@ describe(`${Config.label} API Tests`, () => {
                                     previewUrl,
                                     extension
                                     downloadUrl(validityInDays: null, permanent: true)
-                                    author,
-
+                                    author
+                                    filename
                                   }
 
                                 }
@@ -1218,8 +1228,8 @@ describe(`${Config.label} API Tests`, () => {
             });
         });
 
-      describe('#createFileId', () => {
-          const ql = `mutation UploadFile {
+        describe('#createFileId', () => {
+            const ql = `mutation UploadFile {
                         uploadFile(input: {
                           filename: "filename",
                           size: size,
@@ -1259,7 +1269,7 @@ describe(`${Config.label} API Tests`, () => {
             });
         });
 
-      describe('#uploadFile', () => {
+        describe('#uploadFile', () => {
             describe('Create a file ID', () => {
                 let scopeOne, scopeTwo;
 
@@ -1296,6 +1306,177 @@ describe(`${Config.label} API Tests`, () => {
                     expect(scopeOne.isDone()).toBe(true);
                     expect(scopeTwo.isDone()).toBe(true);
                 });
+            });
+        });
+
+        describe('#getSubFolderContent', () => {
+            const qlFolders = `query FolderById {
+                                  node(id: "subFolderId") {
+                                    ... on Folder {
+                                      name
+                                      folders {
+                                        items {
+                                          id
+                                          name
+                                          __typename
+                                        }
+                                      }
+                                    }
+                                  }
+                                }`;
+
+            const qlAssets = `query FolderById {
+                                  node(id: "subFolderId") {
+                                    ... on Folder {
+                                      name
+                                      assets {
+                                        items {
+                                          id
+                                          title
+                                          __typename
+                                          ... on Image {
+                                            id
+                                            previewUrl
+                                            width
+                                            height
+                                            extension
+                                            filename
+                                            downloadUrl
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }`;
+
+            describe('Get subfolder assets', () => {
+                let scope;
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body) => body.query.replace(/\s/g, '') === qlAssets.replace(/\s/g, ''))
+                        .reply(200, {
+                            "data": {
+                                "node": {
+                                    "name": "Libfolder",
+                                    "assets": {
+                                        "items": [
+                                            {
+                                                "id": "eyJpZGVudGlmaWVyIjoxOSwidHlwZSI6ImFzc2V0In0=",
+                                                "title": "FriggbyLeftHookLogoJuly2022",
+                                                "__typename": "Image",
+                                                "previewUrl": "https://cdn-assets-us.frontify.com/s3/frontify-enterprise-files-us/eyJvYXV0aCI6eyJjbGllbnRfaWQiOiJmcm9udGlmeS1leHBsb3JlciJ9LCJwYXRoIjoibGVmdC1ob29rXC9maWxlXC9yNXpkZDQ5djJFaFg4QjZMbW1Rdi5zdmcifQ:left-hook:2ecHvM3WRlNvkinOWJXvxhYK0QBHNwaSiyioQ3ORC_s",
+                                                "width": 400,
+                                                "height": 202
+                                            },
+                                            {
+                                                "id": "eyJpZGVudGlmaWVyIjoxOCwidHlwZSI6ImFzc2V0In0=",
+                                                "title": "custom_avatar-1661205632",
+                                                "__typename": "Image",
+                                                "previewUrl": "https://cdn-assets-us.frontify.com/s3/frontify-enterprise-files-us/eyJvYXV0aCI6eyJjbGllbnRfaWQiOiJmcm9udGlmeS1leHBsb3JlciJ9LCJwYXRoIjoibGVmdC1ob29rXC9maWxlXC95ZFR1TDlwVnJUUks2d0tvUlROYS5wbmcifQ:left-hook:PMD4S_9gflsrMNEBDNHxwxQqHlgHaCjrZFiGML8AHU0",
+                                                "width": 128,
+                                                "height": 128
+                                            }
+                                        ]
+                                    }
+                                }
+                            },
+                            "extensions": {
+                                "complexityScore": 0
+                            }
+                        });
+                });
+
+                it('should return the correct response', async () => {
+                    const query = {
+                        subFolderId: 'subFolderId',
+                        limit: 'limit',
+                        term: 'term'
+                    };
+
+                    const results = await api.listSubFolderAssets(query);
+                    expect(results).toHaveProperty('assets');
+                    expect(results.assets).toHaveLength(2);
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Get subfolder folders', () => {
+                let scope;
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body) => body.query.replace(/\s/g, '') === qlFolders.replace(/\s/g, ''))
+                        .reply(200, {
+                            "data": {
+                                "node": {
+                                    "name": "Libfolder",
+                                    "folders": {
+                                        "items": [
+                                            {
+                                                "id": "folderId",
+                                                "name": "FolderName",
+                                                "__typename": "SubFolder"
+                                            },
+                                            {
+                                                "id": "folderId2",
+                                                "name": "FolderName2",
+                                                "__typename": "SubFolder"
+                                            }
+                                        ]
+                                    }
+                                }
+                            },
+                            "extensions": {
+                                "complexityScore": 0
+                            }
+                        });
+                });
+
+                it('should return the correct response', async () => {
+                    const query = {
+                        subFolderId: 'subFolderId',
+                        limit: 'limit',
+                        term: 'term'
+                    };
+
+                    const results = await api.listSubFolderFolders(query);
+                    expect(results).toHaveProperty('folders');
+                    expect(results.folders).toHaveLength(2);
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+        });
+
+        describe('#getQueryResponse', () => {
+            const ql = `query LibraryById {
+                  library: node(id: "libId") {
+                    type: __typename
+                    ... on Library {
+                      id
+                      name
+                    }
+                  }
+                }`;
+            let scope;
+            beforeEach(() => {
+                scope = nock(baseUrl)
+                    .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                    .reply(200, {
+                        "data": {
+                            "library": {
+                                "type": "Brand"
+                            }
+                        },
+                        "extensions": {
+                            "complexityScore": 0
+                        }
+                    });
+            });
+
+            it('should return the correct response', async() => {
+                const results = await api.getResponseUsingQuery(ql);
+                expect(results).toHaveProperty('data');
+                expect(results.data).toEqual({"library": {"type": "Brand"}});
+                expect(scope.isDone()).toBe(true);
             });
         });
     });
