@@ -1,3 +1,29 @@
+# v0.0.5 (Wed Jul 05 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, Charaf ([@Fibii](https://github.com/Fibii)), for all your work!
+
+#### 🐛 Bug Fix
+
+- Feature/lef 270 list organizations sites [#192](https://github.com/friggframework/frigg/pull/192) ([@roboli](https://github.com/roboli))
+- add types [#165](https://github.com/friggframework/frigg/pull/165) ([@Fibii](https://github.com/Fibii))
+- Remove v2 from env variables and module name ([@roboli](https://github.com/roboli))
+- Change env variables to v2 [ci skip] ([@roboli](https://github.com/roboli))
+- Add v2 to module name [ci skip] ([@roboli](https://github.com/roboli))
+- Add v2 to redirect URI [ci skip] ([@roboli](https://github.com/roboli))
+- Fix testing redirect [ci skip] ([@roboli](https://github.com/roboli))
+- Fix redirect [ci skip] ([@roboli](https://github.com/roboli))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 3
+
+- Charaf ([@Fibii](https://github.com/Fibii))
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.4 (Wed Jun 21 2023)
 
 #### 🐛 Bug Fix
