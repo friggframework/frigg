@@ -1,3 +1,16 @@
+# v0.0.11 (Thu Jul 06 2023)
+
+#### 🐛 Bug Fix
+
+- Removed the usage of highWaterMark in Frontify upload [#196](https://github.com/friggframework/frigg/pull/196) ([@leofmds](https://github.com/leofmds))
+- Removed the usage of highWaterMark in Frontify upload ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 1
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
 # v0.0.10 (Wed Jul 05 2023)
 
 :tada: This release contains work from a new contributor! :tada:

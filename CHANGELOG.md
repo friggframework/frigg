@@ -1,3 +1,16 @@
+# (Thu Jul 06 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@0.0.11`
+  - Removed the usage of highWaterMark in Frontify upload [#196](https://github.com/friggframework/frigg/pull/196) ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 1
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
 # (Wed Jul 05 2023)
 
 :tada: This release contains work from a new contributor! :tada:
