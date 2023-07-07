@@ -6,18 +6,22 @@ class botFrameworkApi extends OAuth2Requester {
 
         this.tenant_id = get(params, 'tenant_id', null);
         // will have localization issues with this
-        this.baseUrl = 'https://smba.trafficmanager.net/amer/v3'
-        this.serviceUrl = 'https://smba.trafficmanager.net/amer/'
-        this.scope = 'https://api.botframework.com/.default'
+        this.baseUrl = 'https://smba.trafficmanager.net/amer/v3';
+        this.serviceUrl = 'https://smba.trafficmanager.net/amer/';
+        this.scope = 'https://api.botframework.com/.default';
 
         // Assuming team id as a param for now
         this.team_id = get(params, 'team_id', null);
 
         this.URLs = {
-            teamMembers: (teamChannelId) => `/conversations/${encodeURIComponent(teamChannelId)}/pagedmembers`
+            teamMembers: (teamChannelId) =>
+                `/conversations/${encodeURIComponent(
+                    teamChannelId
+                )}/pagedmembers`,
         };
 
-        this.tokenUri = 'https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token';
+        this.tokenUri =
+            'https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token';
     }
 
     async getTokenFromClientCredentials() {
@@ -30,10 +34,13 @@ class botFrameworkApi extends OAuth2Requester {
             body.append('client_secret', this.client_secret);
             body.append('grant_type', 'client_credentials');
 
-            const tokenRes = await this._post({
-                url,
-                body,
-            }, false);
+            const tokenRes = await this._post(
+                {
+                    url,
+                    body,
+                },
+                false
+            );
 
             await this.setTokens(tokenRes);
             return tokenRes;
@@ -42,13 +49,13 @@ class botFrameworkApi extends OAuth2Requester {
         }
     }
 
-    async getTeamMembers(teamChannelId){
+    async getTeamMembers(teamChannelId) {
         const options = {
-            url: `${this.baseUrl}${this.URLs.teamMembers(teamChannelId)}`
+            url: `${this.baseUrl}${this.URLs.teamMembers(teamChannelId)}`,
         };
         const response = await this._get(options);
         return response;
     }
 }
 
-module.exports = {botFrameworkApi};
+module.exports = { botFrameworkApi };

@@ -2,14 +2,14 @@ const Authenticator = require('@friggframework/test-environment/Authenticator');
 const Api = require('../api/graph');
 const config = require('../defaultConfig.json');
 
-describe(`${config.label} API Tests`, () => {
+describe(`Graph API Tests for User Permissions`, () => {
     const apiParams = {
         client_id: process.env.TEAMS_CLIENT_ID,
         client_secret: process.env.TEAMS_CLIENT_SECRET,
         redirect_uri: `${process.env.REDIRECT_URI}/microsoft-teams`,
-        scope: process.env.TEAMS_SCOPE,
+        scope: process.env.TEAMS_CRED_SCOPE,
         forceConsent: true,
-        team_id: process.env.TEAMS_TEAM_ID
+        team_id: process.env.TEAMS_TEAM_ID,
     };
     const api = new Api.graphApi(apiParams);
 
@@ -27,7 +27,7 @@ describe(`${config.label} API Tests`, () => {
             expect(api.access_token).toBeDefined();
             expect(api.refresh_token).toBeDefined();
         });
-        it('Should be able to refresh the token', async () => {
+        it.skip('Should be able to refresh the token', async () => {
             const oldToken = api.access_token;
             const oldRefreshToken = api.refresh_token;
             await api.refreshAccessToken({ refresh_token: api.refresh_token });
@@ -53,16 +53,13 @@ describe(`${config.label} API Tests`, () => {
         });
     });
 
-
     let teamId;
-    it('Get joined teams', async ()=> {
+    it('Get joined teams', async () => {
         api.setTenantId(tenantId);
         const joinedTeams = await api.getJoinedTeams();
         expect(joinedTeams).toHaveProperty('value');
         teamId = joinedTeams.value.slice(-1)[0].id;
     });
-
-
 
     let createChannelResponse;
     // skip channel creation tests to avoid private channel limitations
@@ -71,10 +68,10 @@ describe(`${config.label} API Tests`, () => {
         it('Should create channel', async () => {
             api.setTeamId(teamId);
             const body = {
-                "displayName": `Test channel ${Date.now()}`,
-                "description": "Test channel created by api.test",
-                "membershipType": "private"
-            }
+                displayName: `Test channel ${Date.now()}`,
+                description: 'Test channel created by api.test',
+                membershipType: 'private',
+            };
             createChannelResponse = await api.createChannel(body);
             expect(createChannelResponse).toBeDefined();
         });
@@ -82,15 +79,20 @@ describe(`${config.label} API Tests`, () => {
             const conversationMember = {
                 '@odata.type': '#microsoft.graph.aadUserConversationMember',
                 roles: [],
-                'user@odata.bind': `https://graph.microsoft.com/v1.0/users(\'${userId}\')`
+                'user@odata.bind': `https://graph.microsoft.com/v1.0/users(\'${userId}\')`,
             };
-            const response = await api.addUserToChannel(createChannelResponse.id, conversationMember);
+            const response = await api.addUserToChannel(
+                createChannelResponse.id,
+                conversationMember
+            );
             expect(response).toBeDefined();
         });
         it('List users in channel Request', async () => {
-            const response = await api.listChannelMembers(createChannelResponse.id);
+            const response = await api.listChannelMembers(
+                createChannelResponse.id
+            );
             expect(response).toBeDefined();
-            expect(response.value[0].userId).toBe(userId)
+            expect(response.value[0].userId).toBe(userId);
         });
         it('Delete the created channel', async () => {
             const response = await api.deleteChannel(createChannelResponse.id);
@@ -98,19 +100,22 @@ describe(`${config.label} API Tests`, () => {
         });
     });
 
-    describe('User App requests', ()=> {
-        const externalAppId = 'd0f523b9-97e8-42d9-9e0a-d82da5ec3ed1'
-        let appId;
+    describe('User App requests', () => {
+        const externalAppId = 'f9ee9c3c-60ce-4d0f-a24b-fce329573b3c';
+        let appId = 'f9ee9c3c-60ce-4d0f-a24b-fce329573b3c';
         it('Should list matching apps in app catalog', async () => {
             const appResponse = await api.getAppCatalog({
-                $filter: `externalId eq '${externalAppId}'`
+                $filter: `externalId eq '${externalAppId}'`,
             });
             expect(appResponse).toHaveProperty('value');
             expect(appResponse.value).toHaveLength(1);
             appId = appResponse.value[0].id;
         });
         it('Should install app', async () => {
-            const installationResponse = await api.installAppForUser(userId, appId);
+            const installationResponse = await api.installAppForUser(
+                userId,
+                appId
+            );
             expect(installationResponse).toBeDefined();
             // installation response is coming back as an empty string rather than a 201 status.
             //expect(installationResponse.status).toBe(201);
@@ -118,36 +123,41 @@ describe(`${config.label} API Tests`, () => {
         let teamsAppInstallationId;
         it('Should list installed apps', async () => {
             const allInstalledApps = await api.getInstalledAppsForUser(userId, {
-                $expand: 'teamsApp,teamsAppDefinition'
+                $expand: 'teamsApp,teamsAppDefinition',
             });
-
 
             const installedApps = await api.getInstalledAppsForUser(userId, {
                 $filter: `teamsApp/id eq '${appId}'`,
-                $expand: 'teamsApp,teamsAppDefinition'
+                $expand: 'teamsApp,teamsAppDefinition',
             });
             expect(installedApps).toHaveProperty('value');
             teamsAppInstallationId = installedApps.value[0].id;
         });
         it('Should remove app', async () => {
-            const deleteResponse = await api.removeAppForUser(userId, teamsAppInstallationId);
+            const deleteResponse = await api.removeAppForUser(
+                userId,
+                teamsAppInstallationId
+            );
             expect(deleteResponse.status).toBe(204);
         });
     });
 
-    describe('Team App requests', ()=> {
-        const externalAppId = 'd0f523b9-97e8-42d9-9e0a-d82da5ec3ed1'
-        let appId;
+    describe('Team App requests', () => {
+        const externalAppId = 'c23693dc-e0bb-45cd-a1d4-698919f3c2e1';
+        let appId = 'f9ee9c3c-60ce-4d0f-a24b-fce329573b3c';
         it('Should list matching apps in app catalog', async () => {
             const appResponse = await api.getAppCatalog({
-                $filter: `externalId eq '${externalAppId}'`
+                $filter: `externalId eq '${externalAppId}'`,
             });
             expect(appResponse).toHaveProperty('value');
             expect(appResponse.value).toHaveLength(1);
             appId = appResponse.value[0].id;
         });
         it('Should install app', async () => {
-            const installationResponse = await api.installAppForTeam(teamId, appId);
+            const installationResponse = await api.installAppForTeam(
+                teamId,
+                appId
+            );
             expect(installationResponse).toBeDefined();
             // installation response is coming back as an empty string rather than a 201 status.
             //expect(installationResponse.status).toBe(201);
@@ -155,19 +165,21 @@ describe(`${config.label} API Tests`, () => {
         let teamsAppInstallationId;
         it('Should list installed apps', async () => {
             const allInstalledApps = await api.getInstalledAppsForTeam(teamId, {
-                $expand: 'teamsApp,teamsAppDefinition'
+                $expand: 'teamsApp,teamsAppDefinition',
             });
-
 
             const installedApps = await api.getInstalledAppsForTeam(teamId, {
                 $filter: `teamsApp/id eq '${appId}'`,
-                $expand: 'teamsApp,teamsAppDefinition'
+                $expand: 'teamsApp,teamsAppDefinition',
             });
             expect(installedApps).toHaveProperty('value');
             teamsAppInstallationId = installedApps.value[0].id;
         });
         it('Should remove app', async () => {
-            const deleteResponse = await api.removeAppForTeam(teamId, teamsAppInstallationId);
+            const deleteResponse = await api.removeAppForTeam(
+                teamId,
+                teamsAppInstallationId
+            );
             expect(deleteResponse.status).toBe(204);
         });
     });

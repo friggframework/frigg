@@ -11,7 +11,7 @@ class graphApi extends OAuth2Requester {
 
         // Assuming team id as a param for now
         this.team_id = get(params, 'team_id', null);
-        this.generateUrls = ()=> {
+        this.generateUrls = () => {
             this.baseUrl = 'https://graph.microsoft.com/v1.0';
             this.URLs = {
                 userDetails: '/me', //https://graph.microsoft.com/v1.0/me
@@ -19,18 +19,21 @@ class graphApi extends OAuth2Requester {
                 groups: '/groups',
                 user: (userId) => `/users/${userId}`,
                 createChannel: `/teams/${this.team_id}/channels`,
-                channel: (channelId) => `/teams/${this.team_id}/channels/${channelId}/`,
+                channel: (channelId) =>
+                    `/teams/${this.team_id}/channels/${channelId}/`,
                 primaryChannel: `/teams/${this.team_id}/primaryChannel`,
-                channelMembers: (channelId) => `/teams/${this.team_id}/channels/${channelId}/members`,
-                installedAppsForUser: (userId) => `/users/${userId}/teamwork/installedApps`,
-                installedAppsForTeam: (teamId) => `/teams/${teamId}/installedApps`,
+                channelMembers: (channelId) =>
+                    `/teams/${this.team_id}/channels/${channelId}/members`,
+                installedAppsForUser: (userId) =>
+                    `/users/${userId}/teamwork/installedApps`,
+                installedAppsForTeam: (teamId) =>
+                    `/teams/${teamId}/installedApps`,
                 appCatalog: '/appCatalogs/teamsApps',
             };
             this.authorizationUri = `https://login.microsoftonline.com/${this.tenant_id}/oauth2/v2.0/authorize`;
             this.tokenUri = `https://login.microsoftonline.com/${this.tenant_id}/oauth2/v2.0/token`;
-            this.adminConsentUrl = `https://login.microsoftonline.com/${this.tenant_id}/adminconsent?\
-            client_id=${this.client_id}&redirect_uri=${this.redirect_uri}`
-        }
+            this.adminConsentUrl = `https://login.microsoftonline.com/${this.tenant_id}/adminconsent?client_id=${this.client_id}&redirect_uri=${this.redirect_uri}`;
+        };
         this.generateUrls();
     }
     async getAuthUri() {
@@ -56,10 +59,13 @@ class graphApi extends OAuth2Requester {
             body.append('client_secret', this.client_secret);
             body.append('grant_type', 'client_credentials');
 
-            const tokenRes = await this._post( {
-                url,
-                body,
-            }, false);
+            const tokenRes = await this._post(
+                {
+                    url,
+                    body,
+                },
+                false
+            );
 
             await this.setTokens(tokenRes);
             return tokenRes;
@@ -79,14 +85,14 @@ class graphApi extends OAuth2Requester {
     }
     async getUser() {
         const options = {
-            url: `${this.baseUrl}${this.URLs.userDetails}`
+            url: `${this.baseUrl}${this.URLs.userDetails}`,
         };
         const response = await this._get(options);
         return response;
     }
     async getOrganization() {
         const options = {
-            url: `${this.baseUrl}${this.URLs.orgDetails}`
+            url: `${this.baseUrl}${this.URLs.orgDetails}`,
         };
         const response = await this._get(options);
         return response.value[0];
@@ -95,17 +101,23 @@ class graphApi extends OAuth2Requester {
     async getGroups(query) {
         const options = {
             url: `${this.baseUrl}${this.URLs.groups}`,
-            query
+            query,
         };
         const response = await this._get(options);
         return response;
     }
 
-    async getTeams() {
+    async getTeams(query) {
         // not using the getGroups query passing because the single qoutes need to be encoded
-        const query = "?$filter=resourceProvisioningOptions/any(c:c+eq+'Team')"
+        let newQuery =
+            "?$filter=resourceProvisioningOptions/any(c:c+eq+'Team')";
+        if (query) {
+            Object.keys(query).forEach((key) => {
+                newQuery += `&${key}=${query[key]}`;
+            });
+        }
         const options = {
-            url: `${this.baseUrl}${this.URLs.groups}${query}`
+            url: `${this.baseUrl}${this.URLs.groups}${newQuery}`,
         };
         const response = await this._get(options);
         return response;
@@ -113,9 +125,11 @@ class graphApi extends OAuth2Requester {
 
     async getJoinedTeams(userId) {
         // no userId is only valid for delgated authentication
-        const userPart = userId ? this.URLs.user(userId) : this.URLs.userDetails;
+        const userPart = userId
+            ? this.URLs.user(userId)
+            : this.URLs.userDetails;
         const options = {
-            url: `${this.baseUrl}${userPart}/joinedTeams`
+            url: `${this.baseUrl}${userPart}/joinedTeams`,
         };
         const response = await this._get(options);
         return response;
@@ -124,7 +138,7 @@ class graphApi extends OAuth2Requester {
     async getAppCatalog(query) {
         const options = {
             url: `${this.baseUrl}${this.URLs.appCatalog}`,
-            query
+            query,
         };
         const response = await this._get(options);
         return response;
@@ -134,7 +148,7 @@ class graphApi extends OAuth2Requester {
         //this is also valid for /me but not implementing yet
         const options = {
             url: `${this.baseUrl}${this.URLs.installedAppsForUser(userId)}`,
-            query
+            query,
         };
         const response = await this._get(options);
         return response;
@@ -144,7 +158,7 @@ class graphApi extends OAuth2Requester {
         const options = {
             url: `${this.baseUrl}${this.URLs.installedAppsForUser(userId)}`,
             body: {
-                'teamsApp@odata.bind': `https://graph.microsoft.com/v1.0/appCatalogs/teamsApps/${teamsAppId}`
+                'teamsApp@odata.bind': `https://graph.microsoft.com/v1.0/appCatalogs/teamsApps/${teamsAppId}`,
             },
             headers: {
                 'Content-Type': 'application/json',
@@ -156,7 +170,9 @@ class graphApi extends OAuth2Requester {
 
     async removeAppForUser(userId, teamsAppInstallationId) {
         const options = {
-            url: `${this.baseUrl}${this.URLs.installedAppsForUser(userId)}/${teamsAppInstallationId}`,
+            url: `${this.baseUrl}${this.URLs.installedAppsForUser(
+                userId
+            )}/${teamsAppInstallationId}`,
         };
         const response = await this._delete(options);
         return response;
@@ -166,7 +182,7 @@ class graphApi extends OAuth2Requester {
         //this is also valid for /me but not implementing yet
         const options = {
             url: `${this.baseUrl}${this.URLs.installedAppsForTeam(teamId)}`,
-            query
+            query,
         };
         const response = await this._get(options);
         return response;
@@ -176,12 +192,12 @@ class graphApi extends OAuth2Requester {
         const options = {
             url: `${this.baseUrl}${this.URLs.installedAppsForTeam(teamId)}`,
             body: {
-                'teamsApp@odata.bind': `https://graph.microsoft.com/v1.0/appCatalogs/teamsApps/${teamsAppId}`
+                'teamsApp@odata.bind': `https://graph.microsoft.com/v1.0/appCatalogs/teamsApps/${teamsAppId}`,
             },
             headers: {
                 'Content-Type': 'application/json',
             },
-            returnFullRes: true
+            returnFullRes: true,
         };
         const response = await this._post(options);
         return response;
@@ -189,7 +205,9 @@ class graphApi extends OAuth2Requester {
 
     async removeAppForTeam(teamId, teamsAppInstallationId) {
         const options = {
-            url: `${this.baseUrl}${this.URLs.installedAppsForTeam(teamId)}/${teamsAppInstallationId}`,
+            url: `${this.baseUrl}${this.URLs.installedAppsForTeam(
+                teamId
+            )}/${teamsAppInstallationId}`,
         };
         const response = await this._delete(options);
         return response;
@@ -198,7 +216,7 @@ class graphApi extends OAuth2Requester {
     async getChannels(query) {
         const options = {
             url: `${this.baseUrl}${this.URLs.createChannel}`,
-            query
+            query,
         };
         const response = await this._get(options);
         return response;
@@ -206,7 +224,7 @@ class graphApi extends OAuth2Requester {
 
     async getPrimaryChannel() {
         const options = {
-            url: `${this.baseUrl}${this.URLs.primaryChannel}`
+            url: `${this.baseUrl}${this.URLs.primaryChannel}`,
         };
         const response = await this._get(options);
         return response;
@@ -215,12 +233,12 @@ class graphApi extends OAuth2Requester {
     async createChannel(body) {
         // creating a private channel as an application requires a member owner to be added at creation
         const options = {
-            url : `${this.baseUrl}${this.URLs.createChannel}`,
+            url: `${this.baseUrl}${this.URLs.createChannel}`,
             body: body,
             headers: {
                 'Content-Type': 'application/json',
                 Accept: 'application/json',
-            }
+            },
         };
         const response = await this._post(options);
         return response;
@@ -228,7 +246,7 @@ class graphApi extends OAuth2Requester {
 
     async deleteChannel(channelId) {
         const options = {
-            url : `${this.baseUrl}${this.URLs.channel(channelId)}`
+            url: `${this.baseUrl}${this.URLs.channel(channelId)}`,
         };
         const response = await this._delete(options);
         return response;
@@ -237,7 +255,7 @@ class graphApi extends OAuth2Requester {
     async listChannelMembers(channelId) {
         //TODO: add search odata options
         const options = {
-            url : `${this.baseUrl}${this.URLs.channelMembers(channelId)}`
+            url: `${this.baseUrl}${this.URLs.channelMembers(channelId)}`,
         };
         const response = await this._get(options);
         return response;
@@ -245,12 +263,12 @@ class graphApi extends OAuth2Requester {
 
     async addUserToChannel(channelId, user) {
         const options = {
-            url : `${this.baseUrl}${this.URLs.channelMembers(channelId)}`,
+            url: `${this.baseUrl}${this.URLs.channelMembers(channelId)}`,
             body: user,
             headers: {
                 'Content-Type': 'application/json',
                 Accept: 'application/json',
-            }
+            },
         };
         const response = await this._post(options);
         return response;
