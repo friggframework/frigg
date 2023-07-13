@@ -76,19 +76,6 @@ class Api extends OAuth2Requester {
     }
 
     async getAsset(query) {
-        const commonProps = [
-            'description',
-            'downloadUrl',
-            'filename',
-            'previewUrl',
-            'size',
-        ];
-
-        const dimensionProps = [
-            'height',
-            'width',
-        ];
-
         const ql = `query Asset {
                       asset(id: "${query.assetId}") {
                         id
@@ -98,31 +85,7 @@ class Api extends OAuth2Requester {
                         tags {
                           value
                         }
-                        ... on Audio {
-                          ${commonProps.join(' ')}
-                        }
-                        ... on Document {
-                          ${commonProps.join(' ')}
-                          ${dimensionProps.join(' ')}
-                        }
-                        ... on File {
-                          ${commonProps.join(' ')}
-                        }
-                        ... on Image {
-                          ${commonProps.join(' ')}
-                          ${dimensionProps.join(' ')}
-                        }
-                        ... on Video {
-                          ${commonProps.join(' ')}
-                          ${dimensionProps.join(' ')}
-                          duration
-                          bitrate
-                        }
-                        ... on EmbeddedContent {
-                          description
-                          previewUrl
-                          status
-                        }
+                        ${this._filesQuery()}
                       }
                     }`;
 
@@ -258,13 +221,7 @@ class Api extends OAuth2Requester {
                             title
                             description
                             __typename
-                            ... on Image {
-                              previewUrl
-                              downloadUrl
-                              filename
-                              width
-                              height
-                            }
+                            ${this._filesQuery()}
                           }
                         }
                       }
@@ -308,9 +265,7 @@ class Api extends OAuth2Requester {
                             title
                             description
                             __typename
-                            ... on Image {
-                              previewUrl
-                            }
+                            ${this._filesQuery()}
                           }
                         }
                       }
@@ -355,15 +310,7 @@ class Api extends OAuth2Requester {
                                           id
                                           title
                                           __typename
-                                          ... on Image {
-                                            id
-                                            previewUrl
-                                            width
-                                            height
-                                            extension
-                                            filename
-                                            downloadUrl
-                                          }
+                                          ${this._filesQuery()}
                                         }
                                       }
                                     }
@@ -437,14 +384,7 @@ class Api extends OAuth2Requester {
                                 }
 
                               },
-                              ... on Image {
-                                previewUrl,
-                                extension
-                                downloadUrl(validityInDays: null, permanent: true)
-                                author
-                                filename
-                              }
-
+                              ${this._filesQuery()}
                             }
                           }
                         }
@@ -514,6 +454,47 @@ class Api extends OAuth2Requester {
         responses.push(resp);
 
         return responses;
+    }
+
+    _filesQuery() {
+        const commonProps = [
+            'description',
+            'downloadUrl',
+            'filename',
+            'previewUrl',
+            'size',
+            'extension',
+        ];
+
+        const dimensionProps = [
+            'height',
+            'width',
+        ];
+        return `... on Audio {
+                  ${commonProps.join(' ')}
+                }
+                ... on Document {
+                  ${commonProps.join(' ')}
+                  ${dimensionProps.join(' ')}
+                }
+                ... on File {
+                  ${commonProps.join(' ')}
+                }
+                ... on Image {
+                  ${commonProps.join(' ')}
+                  ${dimensionProps.join(' ')}
+                }
+                ... on Video {
+                  ${commonProps.join(' ')}
+                  ${dimensionProps.join(' ')}
+                  duration
+                  bitrate
+                }
+                ... on EmbeddedContent {
+                  description
+                  previewUrl
+                  status
+                }`;
     }
 }
 
