@@ -33,6 +33,8 @@ class Api extends OAuth2Requester {
                 `/drives/${driveId}/items/${fileId}?$expand=listItem`,
             search: ({ driveId, query }) =>
                 `/drives/${driveId}/root/search(q='${query}')?top=20&$select=id,image,name,file,parentReference,size,lastModifiedDateTime,@microsoft.graph.downloadUrl&$filter=`,
+            uploadFile: ({ driveId, childId, filename }) =>
+                `/drives/${driveId}/items/${childId}:/${filename}:/content`
         };
 
         this.authorizationUri = `https://login.microsoftonline.com/${this.tenant_id}/oauth2/v2.0/authorize`;
@@ -130,6 +132,22 @@ class Api extends OAuth2Requester {
         };
 
         const response = await this._get(options);
+        return response;
+    }
+
+    async uploadFile(query, filename, stream) {
+        const driveId = query.driveId;
+        const childId = query.folderId ? query.folderId : 'root';
+
+        const options = {
+            url: `${this.baseUrl}${this.URLs.uploadFile(driveId, childId, filename)}`,
+            headers: {
+                'content-type': 'binary'
+            },
+            body: stream
+        };
+
+        const response = await this._put(options);
         return response;
     }
 }
