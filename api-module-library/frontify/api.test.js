@@ -140,9 +140,7 @@ describe(`${Config.label} API Tests`, () => {
     });
 
     describe('HTTP Requests', () => {
-        let api;
-
-        api = new Api({
+        const api = new Api({
             domain: 'domain-mine'
         });
 
