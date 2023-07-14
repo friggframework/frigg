@@ -1,3 +1,16 @@
+# (Fri Jul 14 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@0.0.12`
+  - Add a consistent files query throughout all Frontify calls [#197](https://github.com/friggframework/frigg/pull/197) ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 1
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
 # (Thu Jul 06 2023)
 
 #### 🐛 Bug Fix

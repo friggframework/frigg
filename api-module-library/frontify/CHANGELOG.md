@@ -1,3 +1,17 @@
+# v0.0.12 (Fri Jul 14 2023)
+
+#### 🐛 Bug Fix
+
+- Add a consistent files query throughout all Frontify calls [#197](https://github.com/friggframework/frigg/pull/197) ([@leofmds](https://github.com/leofmds))
+- Add const to api attribution ([@leofmds](https://github.com/leofmds))
+- Add a consistent files query throughout all calls ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 1
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
 # v0.0.11 (Thu Jul 06 2023)
 
 #### 🐛 Bug Fix
