@@ -136,11 +136,14 @@ class Api extends OAuth2Requester {
     }
 
     async uploadFile(query, filename, stream) {
-        const driveId = query.driveId;
-        const childId = query.folderId ? query.folderId : 'root';
+        const params = {
+            driveId: query.driveId,
+            childId: query.folderId ? query.folderId : 'root',
+            filename
+        };
 
         const options = {
-            url: `${this.baseUrl}${this.URLs.uploadFile(driveId, childId, filename)}`,
+            url: `${this.baseUrl}${this.URLs.uploadFile(params)}`,
             headers: {
                 'content-type': 'binary'
             },
