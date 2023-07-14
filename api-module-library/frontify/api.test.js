@@ -140,12 +140,8 @@ describe(`${Config.label} API Tests`, () => {
     });
 
     describe('HTTP Requests', () => {
-        let api;
-
-        beforeAll(() => {
-            api = new Api({
-                domain: 'domain-mine'
-            });
+        const api = new Api({
+            domain: 'domain-mine'
         });
 
         afterEach(() => {
@@ -217,19 +213,6 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#getAsset', () => {
-            const commonProps = [
-                'description',
-                'downloadUrl',
-                'filename',
-                'previewUrl',
-                'size',
-            ];
-
-            const dimensionProps = [
-                'height',
-                'width',
-            ];
-
             const ql = `query Asset {
                           asset(id: "assetId") {
                             id
@@ -239,31 +222,7 @@ describe(`${Config.label} API Tests`, () => {
                             tags {
                               value
                             }
-                            ... on Audio {
-                              ${commonProps.join(' ')}
-                            }
-                            ... on Document {
-                              ${commonProps.join(' ')}
-                              ${dimensionProps.join(' ')}
-                            }
-                            ... on File {
-                              ${commonProps.join(' ')}
-                            }
-                            ... on Image {
-                              ${commonProps.join(' ')}
-                              ${dimensionProps.join(' ')}
-                            }
-                            ... on Video {
-                              ${commonProps.join(' ')}
-                              ${dimensionProps.join(' ')}
-                              duration
-                              bitrate
-                            }
-                            ... on EmbeddedContent {
-                              description
-                              previewUrl
-                              status
-                            }
+                            ${api._filesQuery()}
                           }
                         }`;
 
@@ -764,13 +723,7 @@ describe(`${Config.label} API Tests`, () => {
                                  title
                                  description
                                  __typename
-                                 ... on Image {
-                                   previewUrl
-                                   downloadUrl
-                                   filename
-                                   width
-                                   height
-                                 }
+                                 ${api._filesQuery()}
                                }
                              }
                            }
@@ -920,9 +873,7 @@ describe(`${Config.label} API Tests`, () => {
                                  title
                                  description
                                  __typename
-                                 ... on Image {
-                                      previewUrl
-                                    }
+                                 ${api._filesQuery()}
                                }
                              }
                            }
@@ -1096,13 +1047,7 @@ describe(`${Config.label} API Tests`, () => {
                                     }
 
                                   },
-                                  ... on Image {
-                                    previewUrl,
-                                    extension
-                                    downloadUrl(validityInDays: null, permanent: true)
-                                    author
-                                    filename
-                                  }
+                                  ${api._filesQuery()}
 
                                 }
                               }
@@ -1334,15 +1279,7 @@ describe(`${Config.label} API Tests`, () => {
                                           id
                                           title
                                           __typename
-                                          ... on Image {
-                                            id
-                                            previewUrl
-                                            width
-                                            height
-                                            extension
-                                            filename
-                                            downloadUrl
-                                          }
+                                          ${api._filesQuery()}
                                         }
                                       }
                                     }
