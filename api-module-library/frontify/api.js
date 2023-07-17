@@ -464,6 +464,8 @@ class Api extends OAuth2Requester {
             'previewUrl',
             'size',
             'extension',
+            'createdAt',
+            'modifiedAt',
         ];
 
         const dimensionProps = [
