@@ -148,7 +148,7 @@ class Api extends OAuth2Requester {
         const options = {
             url: `${this.baseUrl}${this.URLs.uploadFile(params)}`,
             headers: {
-                'content-type': 'binary',
+                'Content-Type': 'binary',
             },
             body: buffer,
         };

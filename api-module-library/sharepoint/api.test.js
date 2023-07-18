@@ -379,7 +379,11 @@ describe(`${Config.label} API Tests`, () => {
                 let scope;
 
                 beforeEach(() => {
-                    scope = nock(baseUrl)
+                    scope = nock(baseUrl, {
+                        reqheaders: {
+                            'Content-Type': 'binary'
+                        },
+                    })
                         .put('/drives/driveId/items/childId:/filename:/content', 'buffer')
                         .reply(200, {
                             id: 'id'
@@ -394,6 +398,37 @@ describe(`${Config.label} API Tests`, () => {
 
                     const result = await api.uploadFile(params, 'filename', 'buffer');
                     expect(result).toEqual({ id: 'id' });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+        });
+
+        describe('#createUploadSession', () => {
+            describe('Create link for uploading files', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl, {
+                        reqheaders: {
+                            'Content-Type': 'application/json'
+                        },
+                    }).post('/drives/driveId/childId:/filename:/createUploadSession', {
+                        item: {
+                            name: 'filename'
+                        }
+                    }).reply(200, {
+                        url: 'url'
+                    });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const params = {
+                        driveId: 'driveId',
+                        folderId: 'childId'
+                    };
+
+                    const result = await api.createUploadSession(params, 'filename');
+                    expect(result).toEqual({ url: 'url' });
                     expect(scope.isDone()).toBe(true);
                 });
             });
