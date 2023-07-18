@@ -286,6 +286,8 @@ class Api extends OAuth2Requester {
                             items {
                               id
                               name
+                              createdAt
+                              modifiedAt
                               __typename
                             }
                           }
@@ -464,6 +466,8 @@ class Api extends OAuth2Requester {
             'previewUrl',
             'size',
             'extension',
+            'createdAt',
+            'modifiedAt',
         ];
 
         const dimensionProps = [
