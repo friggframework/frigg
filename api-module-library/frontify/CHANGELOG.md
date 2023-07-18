@@ -1,3 +1,17 @@
+# v0.0.13 (Tue Jul 18 2023)
+
+#### 🐛 Bug Fix
+
+- Add dates to Frontify assets return [#199](https://github.com/friggframework/frigg/pull/199) ([@leofmds](https://github.com/leofmds))
+- Add dates to listLibraryFolders ([@leofmds](https://github.com/leofmds))
+- Add dates to Frontify assets return ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 1
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
 # v0.0.12 (Fri Jul 14 2023)
 
 #### 🐛 Bug Fix

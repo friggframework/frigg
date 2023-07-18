@@ -1,3 +1,16 @@
+# (Tue Jul 18 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@0.0.13`
+  - Add dates to Frontify assets return [#199](https://github.com/friggframework/frigg/pull/199) ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 1
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
 # (Fri Jul 14 2023)
 
 #### 🐛 Bug Fix
