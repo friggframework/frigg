@@ -373,5 +373,30 @@ describe(`${Config.label} API Tests`, () => {
                 });
             });
         });
+
+        describe('#uploadFile', () => {
+            describe('Post buffer to endpoint', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .put('/drives/driveId/items/childId:/filename:/content', 'buffer')
+                        .reply(200, {
+                            id: 'id'
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const params = {
+                        driveId: 'driveId',
+                        folderId: 'childId'
+                    };
+
+                    const result = await api.uploadFile(params, 'filename', 'buffer');
+                    expect(result).toEqual({ id: 'id' });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+        });
     });
 });
