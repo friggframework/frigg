@@ -45,6 +45,16 @@ describe(`${Config.label} API Tests`, () => {
                     driveId: 'driveId',
                     query: 'query'
                 })).toEqual("/drives/driveId/root/search(q='query')?top=20&$select=id,image,name,file,parentReference,size,lastModifiedDateTime,@microsoft.graph.downloadUrl&$filter=");
+                expect(api.URLs.uploadFile({
+                    driveId: 'driveId',
+                    childId: 'childId',
+                    filename: 'filename'
+                })).toEqual('/drives/driveId/items/childId:/filename:/content');
+                expect(api.URLs.createUploadSession({
+                    driveId: 'driveId',
+                    childId: 'childId',
+                    filename: 'filename'
+                })).toEqual('/drives/driveId/childId:/filename:/createUploadSession');
                 expect(api.authorizationUri).toEqual('https://login.microsoftonline.com/tenant_id/oauth2/v2.0/authorize');
                 expect(api.tokenUri).toEqual('https://login.microsoftonline.com/tenant_id/oauth2/v2.0/token');
             });
