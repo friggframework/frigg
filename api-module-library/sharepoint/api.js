@@ -181,19 +181,19 @@ class Api extends OAuth2Requester {
     }
 
     // Upload large file in chunks
-    async uploadFileWithSession(session) {
+    async uploadFileWithSession(url, size, stream) {
         const responses = [];
         let current = 0;
 
-        for await (const chunk of session.stream) {
+        for await (const chunk of stream) {
             const chunkSize = chunk.length - 1;
             const options = {
-                url: session.url,
                 headers: {
                     'Content-Length': chunkSize,
-                    'Content-Range': `bytes ${current}-${current + chunkSize}/${session.size}`
+                    'Content-Range': `bytes ${current}-${current + chunkSize}/${size}`
                 },
                 body: chunk,
+                url
             };
 
             const resp = await this._put(options, false);
