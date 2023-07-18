@@ -946,6 +946,8 @@ describe(`${Config.label} API Tests`, () => {
                                  items {
                                    id
                                    name
+                                   createdAt
+                                   modifiedAt
                                    __typename
                                  }
                                }
