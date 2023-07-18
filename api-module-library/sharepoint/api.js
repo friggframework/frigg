@@ -153,7 +153,7 @@ class Api extends OAuth2Requester {
             body: buffer,
         };
 
-        return this._put(options);
+        return this._put(options, false);
     }
 
     // Returns link to which a file can uploaded
