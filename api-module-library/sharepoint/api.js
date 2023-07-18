@@ -142,16 +142,24 @@ class Api extends OAuth2Requester {
             filename
         };
 
-        const options = {
-            url: `${this.baseUrl}${this.URLs.uploadFile(params)}`,
-            headers: {
-                'content-type': 'binary'
-            },
-            body: stream
-        };
+        const url = `${this.baseUrl}${this.URLs.uploadFile(params)}`;
+        const responses = [];
 
-        const response = await this._put(options);
-        return response;
+        for await (const chunk of stream) {
+            const options = {
+                headers: {
+                    'content-type': 'binary'
+                },
+                body: chunk,
+                url
+            };
+
+            const resp = await this._put(options);
+
+            responses.push(resp);
+        }
+
+        return responses;
     }
 }
 
