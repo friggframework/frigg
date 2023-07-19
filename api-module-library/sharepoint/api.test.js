@@ -433,5 +433,68 @@ describe(`${Config.label} API Tests`, () => {
                 });
             });
         });
+
+        describe('#uploadFileWithSession', () => {
+            describe('Post stream chunks to endpoint', () => {
+                let scopeOne, scopeTwo, scopeThree;
+
+                beforeEach(() => {
+                    scopeOne = nock('https://an_url', {
+                        reqheaders: {
+                            'Content-Length': 3,
+                            'Content-Range': 'bytes 0-2/10'
+                        },
+                    })
+                        .put('/', 'one')
+                        .reply(200, {
+                            any: 'one'
+                        });
+
+                    scopeTwo = nock('https://an_url', {
+                        reqheaders: {
+                            'Content-Length': 3,
+                            'Content-Range': 'bytes 3-5/10'
+                        },
+                    })
+                        .put('/', 'two')
+                        .reply(200, {
+                            any: 'two'
+                        });
+
+                    scopeThree = nock('https://an_url', {
+                        reqheaders: {
+                            'Content-Length': 5,
+                            'Content-Range': 'bytes 6-10/10'
+                        },
+                    })
+                        .put('/', 'three')
+                        .reply(200, {
+                            any: 'three'
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const params = {
+                        driveId: 'driveId',
+                        folderId: 'childId'
+                    };
+
+                    const result = await api.uploadFileWithSession('https://an_url/', 10, ['one', 'two', 'three']);
+
+                    expect(scopeOne.isDone()).toBe(true);
+                    expect(scopeTwo.isDone()).toBe(true);
+                    expect(scopeThree.isDone()).toBe(true);
+
+                    expect(result).toEqual([{
+                        any: 'one'
+                    }, {
+                        any: 'two'
+                    }, {
+                        any: 'three'
+                    }]);
+
+                });
+            });
+        });
     });
 });
