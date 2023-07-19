@@ -110,6 +110,33 @@ describe(`${Config.label} API Tests`, () => {
         });
     });
 
+    describe('#buildParams', () => {
+        describe('Folder param missing', () => {
+            it('should replace with root value', () => {
+                const api = new Api({});
+                expect(api.buildParams({
+                    driveId: 'driveId'
+                })).toEqual({
+                    driveId: 'driveId',
+                    childId: 'root'
+                });
+            });
+        });
+
+        describe('Folder param present', () => {
+            it('should replace with root value', () => {
+                const api = new Api({});
+                expect(api.buildParams({
+                    driveId: 'driveId',
+                    folderId: 'folderId'
+                })).toEqual({
+                    driveId: 'driveId',
+                    childId: 'folderId'
+                });
+            });
+        });
+    });
+
     describe('#getAuthUri', () => {
         describe('Generate Auth Url', () => {
             let api;

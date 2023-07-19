@@ -43,6 +43,13 @@ class Api extends OAuth2Requester {
         this.tokenUri = `https://login.microsoftonline.com/${this.tenant_id}/oauth2/v2.0/token`;
     }
 
+    buildParams(query) {
+        return {
+            driveId: query.driveId,
+            childId: query.folderId ? query.folderId : 'root',
+        };
+    }
+
     getAuthUri() {
         const query = {
             client_id: this.client_id,
@@ -88,10 +95,7 @@ class Api extends OAuth2Requester {
     }
 
     async getFolder(query) {
-        const params = {
-            driveId: query.driveId,
-            childId: query.folderId ? query.folderId : 'root',
-        };
+        const params = this.buildParams(query);
 
         const options = {
             url: `${this.baseUrl}${this.URLs.rootFolders(params)}`,
@@ -139,11 +143,8 @@ class Api extends OAuth2Requester {
 
     // Upload small files in one go
     async uploadFile(query, filename, buffer) {
-        const params = {
-            driveId: query.driveId,
-            childId: query.folderId ? query.folderId : 'root',
-            filename
-        };
+        const params = this.buildParams(query);
+        params.filename = filename;
 
         const options = {
             url: `${this.baseUrl}${this.URLs.uploadFile(params)}`,
@@ -159,11 +160,8 @@ class Api extends OAuth2Requester {
     // Returns link to which a file can uploaded
     // in chunks
     async createUploadSession(query, filename) {
-        const params = {
-            driveId: query.driveId,
-            childId: query.folderId ? query.folderId : 'root',
-            filename
-        };
+        const params = this.buildParams(query);
+        params.filename = filename;
 
         const options = {
             url: `${this.baseUrl}${this.URLs.createUploadSession(params)}`,
