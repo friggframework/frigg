@@ -487,6 +487,114 @@ describe(`${Config.label} API Tests`, () => {
             });
         });
 
+        describe('#listBrandPermissions', () => {
+            const ql = `query Brands {
+                          brand(id: "brandId") {
+                            libraries {
+                              items {
+                                id
+                                name
+                                currentUserPermissions {
+                                  canCreateAssets
+                                  canViewCollaborators
+                                  canCreateCollections
+                                }
+                              }
+                            }
+                            workspaceProjects{
+                              items{
+                                id
+                                name
+                                currentUserPermissions{
+                                  canCreateAssets
+                                  canViewCollaborators
+                                }
+                              }
+                            }
+                          }
+                        }`;
+
+            describe('Retrieve all permissions in a brand', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                brand: {
+                                    workspaceProjects: {
+                                        items: [{
+                                            id: 'project_id',
+                                            name: 'project_name',
+                                            currentUserPermissions: 'project_permissiones'
+                                        }]
+                                    },
+                                    libraries: {
+                                        items: [{
+                                            id: 'library_id',
+                                            name: 'library_name',
+                                            currentUserPermissions: 'library_permissiones'
+                                        }]
+                                    }
+                                }
+                            }
+                        });
+                });
+
+                it('should return the correct response', async () => {
+                    const permissions = await api.listBrandPermissions({ brandId: 'brandId' });
+                    expect(permissions).toEqual({
+                        libraries: [{
+                            id: 'library_id',
+                            name: 'library_name',
+                            permissions: 'library_permissiones'
+                        }],
+                        projects: [{
+                            id: 'project_id',
+                            name: 'project_name',
+                            permissions: 'project_permissiones'
+                        }]
+                    });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Get error coming from permissions endpoint', () => {
+
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            errors: [
+                                {
+                                    message: 'An error getting brand permissions happened!',
+                                    locations: [
+                                        {
+                                            line: 1,
+                                            column: 1
+                                        }
+                                    ],
+                                    extensions: {
+                                        category: 'graphql'
+                                    }
+                                }
+                            ],
+                            data: null,
+                            extensions: {
+                                complexityScore: 0
+                            }
+                        });
+                });
+
+                it('should handle error', () => {
+                    expect(
+                        async () => await api.listBrandPermissions({ brandId: 'brandId' })
+                    ).rejects.toThrow(new Error('An error getting brand permissions happened!'));
+                });
+            });
+        });
+
         describe('#getSearchFilterOptions', () => {
             describe('Retrieve search and filter available options', () => {
                 it('should return options', async () => {
