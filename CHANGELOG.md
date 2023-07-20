@@ -2,6 +2,21 @@
 
 #### 🐛 Bug Fix
 
+- `@friggframework/api-module-frontify@0.0.14`
+  - Feature/lef 539 return the user roles from the backend at the root container [#201](https://github.com/friggframework/frigg/pull/201) ([@roboli](https://github.com/roboli))
+- `@friggframework/api-module-microsoft-sharepoint@0.0.7`
+  - Feature/lef 275 export functionality [#200](https://github.com/friggframework/frigg/pull/200) ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
+# (Thu Jul 20 2023)
+
+#### 🐛 Bug Fix
+
 - `@friggframework/api-module-microsoft-sharepoint@0.0.6`
   - Feature/lef 275 export functionality [#200](https://github.com/friggframework/frigg/pull/200) ([@roboli](https://github.com/roboli))
 

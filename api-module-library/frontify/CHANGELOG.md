@@ -1,3 +1,21 @@
+# v0.0.14 (Thu Jul 20 2023)
+
+#### 🐛 Bug Fix
+
+- Feature/lef 539 return the user roles from the backend at the root container [#201](https://github.com/friggframework/frigg/pull/201) ([@roboli](https://github.com/roboli))
+- Restore listBrandPermissions ([@roboli](https://github.com/roboli))
+- Include permissions in listProjects and listLibraries ([@roboli](https://github.com/roboli))
+- Test retrieving brand permissions ([@roboli](https://github.com/roboli))
+- Return permissions for all libraries and projects in brand ([@roboli](https://github.com/roboli))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.13 (Tue Jul 18 2023)
 
 #### 🐛 Bug Fix
