@@ -33,10 +33,21 @@ class Api extends OAuth2Requester {
                 `/drives/${driveId}/items/${fileId}?$expand=listItem`,
             search: ({ driveId, query }) =>
                 `/drives/${driveId}/root/search(q='${query}')?top=20&$select=id,image,name,file,parentReference,size,lastModifiedDateTime,@microsoft.graph.downloadUrl&$filter=`,
+            uploadFile: ({ driveId, childId, filename }) =>
+                `/drives/${driveId}/items/${childId}:/${filename}:/content`,
+            createUploadSession: ({ driveId, childId,filename }) =>
+                `/drives/${driveId}/${childId}:/${filename}:/createUploadSession`
         };
 
         this.authorizationUri = `https://login.microsoftonline.com/${this.tenant_id}/oauth2/v2.0/authorize`;
         this.tokenUri = `https://login.microsoftonline.com/${this.tenant_id}/oauth2/v2.0/token`;
+    }
+
+    buildParams(query) {
+        return {
+            driveId: query.driveId,
+            childId: query.folderId ? query.folderId : 'root',
+        };
     }
 
     getAuthUri() {
@@ -84,10 +95,7 @@ class Api extends OAuth2Requester {
     }
 
     async getFolder(query) {
-        const params = {
-            driveId: query.driveId,
-            childId: query.folderId ? query.folderId : 'root',
-        };
+        const params = this.buildParams(query);
 
         const options = {
             url: `${this.baseUrl}${this.URLs.rootFolders(params)}`,
@@ -131,6 +139,68 @@ class Api extends OAuth2Requester {
 
         const response = await this._get(options);
         return response;
+    }
+
+    // Upload small files in one go
+    async uploadFile(query, filename, buffer) {
+        const params = this.buildParams(query);
+        params.filename = filename;
+
+        const options = {
+            url: `${this.baseUrl}${this.URLs.uploadFile(params)}`,
+            headers: {
+                'Content-Type': 'binary',
+            },
+            body: buffer,
+        };
+
+        return this._put(options, false);
+    }
+
+    // Returns link to which a file can uploaded
+    // in chunks
+    async createUploadSession(query, filename) {
+        const params = this.buildParams(query);
+        params.filename = filename;
+
+        const options = {
+            url: `${this.baseUrl}${this.URLs.createUploadSession(params)}`,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: {
+                item: {
+                    name: filename
+                }
+            },
+        };
+
+        return this._post(options);
+    }
+
+    // Upload large file in chunks
+    async uploadFileWithSession(url, size, stream) {
+        const responses = [];
+        let current = 0;
+
+        for await (const chunk of stream) {
+            const chunkSize = chunk.length - 1;
+            const options = {
+                headers: {
+                    'Content-Length': chunkSize,
+                    'Content-Range': `bytes ${current}-${current + chunkSize}/${size}`
+                },
+                body: chunk,
+                url
+            };
+
+            const resp = await this._put(options, false);
+            responses.push(resp);
+
+            current += chunkSize + 1;
+        }
+
+        return responses;
     }
 }
 

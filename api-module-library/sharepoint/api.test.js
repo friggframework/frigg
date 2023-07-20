@@ -45,6 +45,16 @@ describe(`${Config.label} API Tests`, () => {
                     driveId: 'driveId',
                     query: 'query'
                 })).toEqual("/drives/driveId/root/search(q='query')?top=20&$select=id,image,name,file,parentReference,size,lastModifiedDateTime,@microsoft.graph.downloadUrl&$filter=");
+                expect(api.URLs.uploadFile({
+                    driveId: 'driveId',
+                    childId: 'childId',
+                    filename: 'filename'
+                })).toEqual('/drives/driveId/items/childId:/filename:/content');
+                expect(api.URLs.createUploadSession({
+                    driveId: 'driveId',
+                    childId: 'childId',
+                    filename: 'filename'
+                })).toEqual('/drives/driveId/childId:/filename:/createUploadSession');
                 expect(api.authorizationUri).toEqual('https://login.microsoftonline.com/tenant_id/oauth2/v2.0/authorize');
                 expect(api.tokenUri).toEqual('https://login.microsoftonline.com/tenant_id/oauth2/v2.0/token');
             });
@@ -96,6 +106,33 @@ describe(`${Config.label} API Tests`, () => {
 
             it('should pass params to parent', () => {
                 expect(api.access_token).toEqual('access_token');
+            });
+        });
+    });
+
+    describe('#buildParams', () => {
+        describe('Folder param missing', () => {
+            it('should replace with root value', () => {
+                const api = new Api({});
+                expect(api.buildParams({
+                    driveId: 'driveId'
+                })).toEqual({
+                    driveId: 'driveId',
+                    childId: 'root'
+                });
+            });
+        });
+
+        describe('Folder param present', () => {
+            it('should replace with root value', () => {
+                const api = new Api({});
+                expect(api.buildParams({
+                    driveId: 'driveId',
+                    folderId: 'folderId'
+                })).toEqual({
+                    driveId: 'driveId',
+                    childId: 'folderId'
+                });
             });
         });
     });
@@ -360,6 +397,129 @@ describe(`${Config.label} API Tests`, () => {
                     const file = await api.getFile(params);
                     expect(file).toEqual({ file: 'file' });
                     expect(scope.isDone()).toBe(true);
+                });
+            });
+        });
+
+        describe('#uploadFile', () => {
+            describe('Post buffer to endpoint', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl, {
+                        reqheaders: {
+                            'Content-Type': 'binary'
+                        },
+                    })
+                        .put('/drives/driveId/items/childId:/filename:/content', 'buffer')
+                        .reply(200, {
+                            id: 'id'
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const params = {
+                        driveId: 'driveId',
+                        folderId: 'childId'
+                    };
+
+                    const result = await api.uploadFile(params, 'filename', 'buffer');
+                    expect(result).toEqual({ id: 'id' });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+        });
+
+        describe('#createUploadSession', () => {
+            describe('Create link for uploading files', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl, {
+                        reqheaders: {
+                            'Content-Type': 'application/json'
+                        },
+                    }).post('/drives/driveId/childId:/filename:/createUploadSession', {
+                        item: {
+                            name: 'filename'
+                        }
+                    }).reply(200, {
+                        url: 'url'
+                    });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const params = {
+                        driveId: 'driveId',
+                        folderId: 'childId'
+                    };
+
+                    const result = await api.createUploadSession(params, 'filename');
+                    expect(result).toEqual({ url: 'url' });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+        });
+
+        describe('#uploadFileWithSession', () => {
+            describe('Post stream chunks to endpoint', () => {
+                let scopeOne, scopeTwo, scopeThree;
+
+                beforeEach(() => {
+                    scopeOne = nock('https://an_url', {
+                        reqheaders: {
+                            'Content-Length': 3,
+                            'Content-Range': 'bytes 0-2/10'
+                        },
+                    })
+                        .put('/', 'one')
+                        .reply(200, {
+                            any: 'one'
+                        });
+
+                    scopeTwo = nock('https://an_url', {
+                        reqheaders: {
+                            'Content-Length': 3,
+                            'Content-Range': 'bytes 3-5/10'
+                        },
+                    })
+                        .put('/', 'two')
+                        .reply(200, {
+                            any: 'two'
+                        });
+
+                    scopeThree = nock('https://an_url', {
+                        reqheaders: {
+                            'Content-Length': 5,
+                            'Content-Range': 'bytes 6-10/10'
+                        },
+                    })
+                        .put('/', 'three')
+                        .reply(200, {
+                            any: 'three'
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const params = {
+                        driveId: 'driveId',
+                        folderId: 'childId'
+                    };
+
+                    const result = await api.uploadFileWithSession('https://an_url/', 10, ['one', 'two', 'three']);
+
+                    expect(scopeOne.isDone()).toBe(true);
+                    expect(scopeTwo.isDone()).toBe(true);
+                    expect(scopeThree.isDone()).toBe(true);
+
+                    expect(result).toEqual([{
+                        any: 'one'
+                    }, {
+                        any: 'two'
+                    }, {
+                        any: 'three'
+                    }]);
+
                 });
             });
         });
