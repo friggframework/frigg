@@ -148,6 +148,53 @@ class Api extends OAuth2Requester {
         };
     }
 
+    async listBrandPermissions(query) {
+        const ql = `query Brands {
+                      brand(id: "${query.brandId}") {
+                        libraries {
+                          items {
+                            id
+                            name
+                            currentUserPermissions {
+                              canCreateAssets
+                              canViewCollaborators
+                              canCreateCollections
+                            }
+                          }
+                        }
+                        workspaceProjects{
+                          items{
+                            id
+                            name
+                            currentUserPermissions{
+                              canCreateAssets
+                              canViewCollaborators
+                            }
+                          }
+                        }
+                      }
+                    }`;
+
+        const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
+
+        const { brand } = response.data;
+
+        const libraries = brand.libraries.items.map(item => ({
+            id: item.id,
+            name: item.name,
+            permissions: item.currentUserPermissions
+        }));
+
+        const projects = brand.workspaceProjects.items.map(item => ({
+            id: item.id,
+            name: item.name,
+            permissions: item.currentUserPermissions
+        }));
+
+        return { libraries, projects };
+    }
+
     async getSearchFilterOptions() {
         return {
             status: ['FINISHED', 'PROCESSING', 'PROCESSING_FAILED'],
