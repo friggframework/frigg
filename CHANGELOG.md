@@ -1,3 +1,16 @@
+# (Thu Jul 20 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-microsoft-sharepoint@0.0.6`
+  - Feature/lef 275 export functionality [#200](https://github.com/friggframework/frigg/pull/200) ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
 # (Tue Jul 18 2023)
 
 #### 🐛 Bug Fix

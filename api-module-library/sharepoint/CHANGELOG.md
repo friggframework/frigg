@@ -1,3 +1,26 @@
+# v0.0.6 (Thu Jul 20 2023)
+
+#### 🐛 Bug Fix
+
+- Feature/lef 275 export functionality [#200](https://github.com/friggframework/frigg/pull/200) ([@roboli](https://github.com/roboli))
+- Implement buildParams aux method ([@roboli](https://github.com/roboli))
+- Test uploading in chunks ([@roboli](https://github.com/roboli))
+- Test and improve uploadFile and createUploadSession ([@roboli](https://github.com/roboli))
+- Test uploadFile ([@roboli](https://github.com/roboli))
+- Test upload endpoints URL ([@roboli](https://github.com/roboli))
+- Fix upload in one go ([@roboli](https://github.com/roboli))
+- Use params instead ([@roboli](https://github.com/roboli))
+- Implement methods to upload file in chunks ([@roboli](https://github.com/roboli))
+- Upload file in chunks ([@roboli](https://github.com/roboli))
+- Fix passing params to URL ([@roboli](https://github.com/roboli))
+- Implement upload method ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
 # v0.0.5 (Wed Jul 05 2023)
 
 :tada: This release contains work from a new contributor! :tada:
