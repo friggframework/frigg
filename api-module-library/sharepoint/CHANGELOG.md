@@ -1,3 +1,16 @@
+# v0.0.7 (Mon Jul 24 2023)
+
+#### 🐛 Bug Fix
+
+- Add the updated credential to an already existing entity in SharePoint integration [#202](https://github.com/friggframework/frigg/pull/202) ([@leofmds](https://github.com/leofmds))
+- Add the updated credential to an already existing entity in SharePoint integration ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 1
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
 # v0.0.6 (Thu Jul 20 2023)
 
 #### 🐛 Bug Fix
