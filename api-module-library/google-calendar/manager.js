@@ -64,7 +64,6 @@ class Manager extends ModuleManager {
         const code = get(params.data, 'code');
         // For OAuth2, generate the token and store in this.credential and the DB
         await this.api.getTokenFromCode(code);
-        // TODO: get entity identifying information from the api. You'll need to format this.
         const entityDetails = await this.api.getTokenIdentity();
         await this.findOrCreateEntity(entityDetails);
 
@@ -76,7 +75,6 @@ class Manager extends ModuleManager {
     }
 
     async findOrCreateEntity(params) {
-        // TODO this should be a changed to your entity needs
         const identifier = get(params, 'identifier');
         const name = get(params, 'name');
 
