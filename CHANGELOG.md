@@ -1,3 +1,16 @@
+# (Wed Jul 26 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-microsoft-teams@0.0.10`
+  - fr/teams-getuserbyid [#205](https://github.com/friggframework/frigg/pull/205) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 1
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+
+---
+
 # (Mon Jul 24 2023)
 
 #### 🐛 Bug Fix

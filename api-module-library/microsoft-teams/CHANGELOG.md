@@ -1,3 +1,16 @@
+# v0.0.10 (Wed Jul 26 2023)
+
+#### 🐛 Bug Fix
+
+- fr/teams-getuserbyid [#205](https://github.com/friggframework/frigg/pull/205) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- add method for retrieving user details ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 1
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+
+---
+
 # v0.0.9 (Wed Jun 21 2023)
 
 #### 🐛 Bug Fix
