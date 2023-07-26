@@ -53,7 +53,6 @@ describe(`${config.label} API Tests`, () => {
         });
     });
 
-
     let teamId;
     it('Get joined teams', async ()=> {
         api.setTenantId(tenantId);
@@ -62,7 +61,10 @@ describe(`${config.label} API Tests`, () => {
         teamId = joinedTeams.value.slice(-1)[0].id;
     });
 
-
+    it('Get a user by Id', async ()=> {
+        const userDetails = await api.getUserById(userId);
+        expect(userDetails).toHaveProperty('displayName');
+    });
 
     let createChannelResponse;
     // skip channel creation tests to avoid private channel limitations

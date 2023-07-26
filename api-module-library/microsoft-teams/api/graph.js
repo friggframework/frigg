@@ -84,6 +84,14 @@ class graphApi extends OAuth2Requester {
         const response = await this._get(options);
         return response;
     }
+
+    async getUserById(userId) {
+        const options = {
+            url: `${this.baseUrl}${this.URLs.user(userId)}`
+        };
+        const response = await this._get(options);
+        return response;
+    }
     async getOrganization() {
         const options = {
             url: `${this.baseUrl}${this.URLs.orgDetails}`
