@@ -40,8 +40,16 @@ describe('Dropbox API Tests', () => {
     describe('File and Folder requests', () => {
         it('Should retrieve folders', async () => {
             const folders = await api.listFolders();
-            expect(folders).toBeDefined()
-            expect(folders.entries).toBeInstanceOf(Array)
+            expect(folders).toBeDefined();
+            expect(folders.entries).toBeInstanceOf(Array);
+        });
+    });
+
+    describe('Shared File and Folder requests', () => {
+        it('Should retrieve folders', async () => {
+            const folders = await api.listSharedFolders();
+            expect(folders).toBeDefined();
+            expect(folders.entries).toBeInstanceOf(Array);
         });
     });
 });

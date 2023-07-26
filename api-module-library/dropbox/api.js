@@ -8,6 +8,9 @@ class Api extends OAuth2Requester {
         this.URLs = {
             me: '/openid/userinfo',
             listFolders: '/files/list_folder',
+            listFoldersContinue: '/files/list_folder/continue',
+            listSharedFolders: '/sharing/list_folders',
+            listSharedFoldersContinue: '/sharing/list_folders/continue',
         };
         this.authorizationUri = encodeURI(
             `https://www.dropbox.com/oauth2/authorize?response_type=code` +
@@ -76,7 +79,7 @@ class Api extends OAuth2Requester {
         return {identifier: userDetails.sub, name: `${userDetails.givenName} ${userDetails.familyName}`}
     }
 
-    async listFolders() {
+    async listFolders(bodyOverride) {
         const options = {
             url: this.baseUrl + this.URLs.listFolders,
             headers: {
@@ -89,7 +92,47 @@ class Api extends OAuth2Requester {
                 "include_media_info": false,
                 "include_mounted_folders": true,
                 "include_non_downloadable_files": true,
-                "recursive": false
+                "recursive": false,
+            }
+        };
+        options.body = {...options.body, ...bodyOverride}
+        return this._post(options);
+    }
+
+    async listFoldersContinue(cursor) {
+        const options = {
+            url: this.baseUrl + this.URLs.listFoldersContinue,
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: {
+                cursor
+            }
+        };
+        return this._post(options);
+    }
+
+    async listSharedFolders(bodyOverride) {
+        const options = {
+            url: this.baseUrl + this.URLs.listSharedFolders,
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: {
+            }
+        };
+        options.body = {...options.body, ...bodyOverride}
+        return this._post(options);
+    }
+
+    async listSharedFoldersContinue(cursor) {
+        const options = {
+            url: this.baseUrl + this.URLs.listSharedFoldersContinue,
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: {
+                cursor
             }
         };
         return this._post(options);
