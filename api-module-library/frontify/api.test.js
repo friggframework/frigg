@@ -75,18 +75,18 @@ describe(`${Config.label} API Tests`, () => {
 
             beforeEach(() => {
                 api = new Api({
-                  client_id: 'client_id',
-                  redirect_uri: 'redirect_uri',
-                  scope: 'scope',
-                  state: 'state',
-                  domain: 'other-domain',
+                    client_id: 'client_id',
+                    redirect_uri: 'redirect_uri',
+                    scope: 'scope',
+                    state: 'state',
+                    domain: 'other-domain',
                 });
             });
 
             it('should include domain in URL', () => {
                 const link = 'https://other-domain/'
-                      + 'api/oauth/authorize?'
-                      + 'client_id=client_id&response_type=code&redirect_uri=redirect_uri&scope=scope&state=state';
+                    + 'api/oauth/authorize?'
+                    + 'client_id=client_id&response_type=code&redirect_uri=redirect_uri&scope=scope&state=state';
                 expect(api.getAuthUri()).toEqual(link);
             });
         });
@@ -96,17 +96,17 @@ describe(`${Config.label} API Tests`, () => {
 
             beforeEach(() => {
                 api = new Api({
-                  client_id: 'client_id',
-                  redirect_uri: 'redirect_uri',
-                  scope: 'scope',
-                  state: 'state'
+                    client_id: 'client_id',
+                    redirect_uri: 'redirect_uri',
+                    scope: 'scope',
+                    state: 'state'
                 });
             });
 
             it('should include domain in URL', () => {
                 const link = 'https://{{domain}}/'
-                      + 'api/oauth/authorize?'
-                      + 'client_id=client_id&response_type=code&redirect_uri=redirect_uri&scope=scope&state=state';
+                    + 'api/oauth/authorize?'
+                    + 'client_id=client_id&response_type=code&redirect_uri=redirect_uri&scope=scope&state=state';
                 expect(api.getAuthUri()).toEqual(link);
             });
         });
@@ -118,10 +118,10 @@ describe(`${Config.label} API Tests`, () => {
 
             beforeEach(() => {
                 api = new Api({
-                  client_id: 'client_id',
-                  redirect_uri: 'redirect_uri',
-                  scope: 'scope',
-                  state: 'state'
+                    client_id: 'client_id',
+                    redirect_uri: 'redirect_uri',
+                    scope: 'scope',
+                    state: 'state'
                 });
             });
 
@@ -162,7 +162,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 currentUser: 'currentUser'
@@ -181,7 +181,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             errors: [
                                 {
@@ -231,7 +231,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 asset: {
@@ -252,7 +252,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             errors: [
                                 {
@@ -300,7 +300,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 asset: {
@@ -321,7 +321,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             errors: [
                                 {
@@ -368,7 +368,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 library: {
@@ -389,7 +389,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             errors: [
                                 {
@@ -435,7 +435,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 workspaceProject: {
@@ -456,7 +456,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             errors: [
                                 {
@@ -519,7 +519,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 brand: {
@@ -564,7 +564,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             errors: [
                                 {
@@ -628,7 +628,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 brands: 'brands'
@@ -647,7 +647,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             errors: [
                                 {
@@ -699,7 +699,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 brand: {
@@ -722,7 +722,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             errors: [
                                 {
@@ -775,7 +775,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 brand: {
@@ -800,7 +800,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             errors: [
                                 {
@@ -831,6 +831,80 @@ describe(`${Config.label} API Tests`, () => {
             });
         });
 
+        describe('#listCollections', () => {
+            const ql = `query Collections {
+                           library(id: "libraryId") {
+                             collections {
+                               items {
+                                 id
+                                 name
+                               }
+                             }
+                           }
+                         }`;
+
+            describe('Retrieve information about collections', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                library: {
+                                    collections: {
+                                        items: {
+                                            id: 'id',
+                                            name: 'name'
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                });
+
+                it('should return the correct response', async () => {
+                    const collections = await api.listCollections({ libraryId: 'libraryId' });
+                    expect(collections).toEqual({ id: 'id', name: 'name' });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Get error coming from collections endpoint', () => {
+
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            errors: [
+                                {
+                                    message: 'An error getting collections happened!',
+                                    locations: [
+                                        {
+                                            line: 1,
+                                            column: 1
+                                        }
+                                    ],
+                                    extensions: {
+                                        category: 'graphql'
+                                    }
+                                }
+                            ],
+                            data: null,
+                            extensions: {
+                                complexityScore: 0
+                            }
+                        });
+                });
+
+                it('should handle error', () => {
+                    expect(
+                        async () => await api.listCollections({ libraryId: 'libraryId' })
+                    ).rejects.toThrow(new Error('An error getting collections happened!'));
+                });
+            });
+        });
+
         describe('#listProjectAssets', () => {
             const ql = `query ProjectAssets {
                            workspaceProject(id: "projectId") {
@@ -851,7 +925,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 workspaceProject: {
@@ -874,7 +948,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             errors: [
                                 {
@@ -925,7 +999,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 workspaceProject: {
@@ -950,7 +1024,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             errors: [
                                 {
@@ -1001,7 +1075,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 library: {
@@ -1024,7 +1098,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             errors: [
                                 {
@@ -1077,7 +1151,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 library: {
@@ -1102,7 +1176,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             errors: [
                                 {
@@ -1211,7 +1285,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     nock(baseUrl)
-                        .post('', (body ) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
                         .reply(200, {
                             errors: [
                                 {
@@ -1313,7 +1387,7 @@ describe(`${Config.label} API Tests`, () => {
                         .reply(200, {
                             data: {
                                 uploadFile: {
-                                  uploadFile: 'uploadFile'
+                                    uploadFile: 'uploadFile'
                                 }
                             }
                         });
@@ -1343,7 +1417,7 @@ describe(`${Config.label} API Tests`, () => {
                         .reply(200, {
                             data: {
                                 uploadFile: {
-                                  uploadFile: 'uploadFile'
+                                    uploadFile: 'uploadFile'
                                 }
                             }
                         });
@@ -1353,7 +1427,7 @@ describe(`${Config.label} API Tests`, () => {
                         .reply(200, {
                             data: {
                                 uploadFile: {
-                                  uploadFile: 'uploadFile'
+                                    uploadFile: 'uploadFile'
                                 }
                             }
                         });
@@ -1528,10 +1602,10 @@ describe(`${Config.label} API Tests`, () => {
                     });
             });
 
-            it('should return the correct response', async() => {
+            it('should return the correct response', async () => {
                 const results = await api.getResponseUsingQuery(ql);
                 expect(results).toHaveProperty('data');
-                expect(results.data).toEqual({"library": {"type": "Brand"}});
+                expect(results.data).toEqual({ "library": { "type": "Brand" } });
                 expect(scope.isDone()).toBe(true);
             });
         });
