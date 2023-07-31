@@ -83,6 +83,7 @@ class Api extends OAuth2Requester {
                         status
                         __typename
                         tags {
+                          source
                           value
                         }
                         ${this._filesQuery()}
@@ -320,6 +321,10 @@ class Api extends OAuth2Requester {
                             id
                             title
                             description
+                            tags {
+                              source
+                              value
+                            }
                             __typename
                             ${this._filesQuery()}
                           }
@@ -367,6 +372,10 @@ class Api extends OAuth2Requester {
                                         items {
                                           id
                                           title
+                                          tags {
+                                            source
+                                            value
+                                          }
                                           __typename
                                           ${this._filesQuery()}
                                         }
