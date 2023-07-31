@@ -277,6 +277,10 @@ class Api extends OAuth2Requester {
                             id
                             title
                             description
+                            tags {
+                              source
+                              value
+                            }
                             __typename
                             ${this._filesQuery()}
                           }
