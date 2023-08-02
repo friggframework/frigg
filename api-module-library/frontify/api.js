@@ -343,6 +343,41 @@ class Api extends OAuth2Requester {
         };
     }
 
+    async listCollectionsAssets(query) {
+      const ql = `query ListCollectionsAssetsForLibrary {
+                    library(id: "${query.libraryId}") {
+                      id
+                      name
+                      collections {
+                        items {
+                          id
+                          name
+                          __typename
+                          assets	{
+                              items	{
+                                id
+                              title
+                                description
+                              tags {
+                                source
+                                value
+                              }
+                              __typename
+                              }
+                          }
+                        }
+                      }
+                    }
+                  }`;
+
+      const response = await this._post(this.buildRequestOptions(ql));
+      this.assertResponse(response);
+
+      const collectionsArray = Object.values(response.data.library.collections);
+      const collection = collectionsArray.find(collection => collection.id === query.collectionId);
+      return collection.assets.items;
+    }
+
     async listLibraryFolders(query) {
         const ql = `query LibraryFolders {
                       library(id: "${query.libraryId}") {

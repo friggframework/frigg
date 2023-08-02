@@ -754,6 +754,108 @@ describe(`${Config.label} API Tests`, () => {
             });
         });
 
+        describe('#listCollectionsAssetsForLibrary', () => {
+            const ql = `query ListCollectionsAssetsForLibrary {
+                library(id: "libraryId") {
+                  id
+                  name
+                  collections {
+                    items {
+                      id
+                      name
+                      __typename
+                      assets	{
+                          items	{
+                            id
+                          title
+                            description
+                          tags{
+                            source
+                            value
+                          }
+                          __typename
+                          }
+                      }
+                    }
+                  }
+                }
+              }`;
+
+            describe('Retrieve information about assets', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                library: {
+                                    collections: {
+                                        items: {
+                                            id: 'collectionId',
+                                            name: 'Test collection',
+                                            __typename: 'Collection',
+                                            assets:	{
+                                                items:	[{
+                                                    id: 'id',
+                                                    title: 'title',
+                                                    description: 'description',
+                                                    tags: {
+                                                        source: 'source',
+                                                        value: 'value'
+                                                    },
+                                                    __typename: 'Assets'
+                                                }]
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                });
+
+                it('should return the correct response', async () => {
+                    const collections = await api.listCollectionsAssets({ libraryId: 'libraryId', collectionId: 'collectionId' });
+                    expect(collections).toEqual([{ id: 'id', title: 'title', description: 'description', tags: { source: 'source', value: 'value' }, __typename: 'Assets' }]);
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Get error coming from collections endpoint', () => {
+
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .reply(200, {
+                            errors: [
+                                {
+                                    message: 'An error getting assets happened!',
+                                    locations: [
+                                        {
+                                            line: 1,
+                                            column: 1
+                                        }
+                                    ],
+                                    extensions: {
+                                        category: 'graphql'
+                                    }
+                                }
+                            ],
+                            data: null,
+                            extensions: {
+                                complexityScore: 0
+                            }
+                        });
+                });
+
+                it('should handle error', () => {
+                    expect(
+                        async () => await api.listCollectionsAssets({ libraryId: 'libraryId', collectionId: 'collectionId' })
+                    ).rejects.toThrow(new Error('An error getting assets happened!'));
+                });
+            });
+        });
+
         describe('#listLibraries', () => {
             const ql = `query Libraries {
                            brand(id: "brandId") {
