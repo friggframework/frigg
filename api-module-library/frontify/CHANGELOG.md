@@ -1,3 +1,20 @@
+# v0.0.15 (Wed Aug 02 2023)
+
+#### 🐛 Bug Fix
+
+- Feature/lef 597 implementcheck tags [#208](https://github.com/friggframework/frigg/pull/208) ([@roboli](https://github.com/roboli))
+- Fix tests [ci skip] ([@roboli](https://github.com/roboli))
+- Add tags when retreiving library or project assets [ci skip] ([@roboli](https://github.com/roboli))
+- Add tags when retreiving library or project assets ([@roboli](https://github.com/roboli))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.14 (Thu Jul 20 2023)
 
 #### 🐛 Bug Fix

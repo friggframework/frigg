@@ -1,3 +1,21 @@
+# (Wed Aug 02 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-google-calendar@0.0.2`
+  - Changing the Google Calendar publish access to public [#209](https://github.com/friggframework/frigg/pull/209) ([@leofmds](https://github.com/leofmds))
+  - Fr/google calendar [#203](https://github.com/friggframework/frigg/pull/203) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- `@friggframework/api-module-frontify@0.0.15`
+  - Feature/lef 597 implementcheck tags [#208](https://github.com/friggframework/frigg/pull/208) ([@roboli](https://github.com/roboli))
+
+#### Authors: 3
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
 # (Wed Jul 26 2023)
 
 #### 🐛 Bug Fix
