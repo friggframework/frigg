@@ -275,6 +275,7 @@ class Api extends OAuth2Requester {
                         items {
                           id
                           name
+                          __typename
                         }
                       }
                     }
