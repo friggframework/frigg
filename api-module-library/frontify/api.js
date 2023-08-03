@@ -243,8 +243,19 @@ class Api extends OAuth2Requester {
 
         const response = await this._post(this.buildRequestOptions(ql));
         this.assertResponse(response);
+
+        const {
+            items,
+            total,
+            page,
+            hasNextPage
+        } = response.data.brand.workspaceProjects;
+
         return {
-            projects: response.data.brand.workspaceProjects?.items,
+            items,
+            total,
+            page,
+            hasNextPage
         };
     }
 
@@ -268,7 +279,20 @@ class Api extends OAuth2Requester {
 
         const response = await this._post(this.buildRequestOptions(ql));
         this.assertResponse(response);
-        return response.data.brand.libraries.items;
+
+        const {
+            items,
+            total,
+            page,
+            hasNextPage
+        } = response.data.brand.libraries;
+
+        return {
+            items,
+            total,
+            page,
+            hasNextPage
+        };
     }
 
     async listCollections(query) {
@@ -311,8 +335,19 @@ class Api extends OAuth2Requester {
 
         const response = await this._post(this.buildRequestOptions(ql));
         this.assertResponse(response);
+
+        const {
+            items,
+            total,
+            page,
+            hasNextPage
+        } = response.data.workspaceProject.assets;
+
         return {
-            assets: response.data.workspaceProject?.assets.items,
+            items,
+            total,
+            page,
+            hasNextPage
         };
     }
 
@@ -334,8 +369,19 @@ class Api extends OAuth2Requester {
 
         const response = await this._post(this.buildRequestOptions(ql));
         this.assertResponse(response);
+
+        const {
+            items,
+            total,
+            page,
+            hasNextPage
+        } = response.data.workspaceProject.browse.folders;
+
         return {
-            folders: response.data.workspaceProject?.browse.folders.items,
+            items,
+            total,
+            page,
+            hasNextPage
         };
     }
 
@@ -361,8 +407,19 @@ class Api extends OAuth2Requester {
 
         const response = await this._post(this.buildRequestOptions(ql));
         this.assertResponse(response);
+
+        const {
+            items,
+            total,
+            page,
+            hasNextPage
+        } = response.data.library.assets;
+
         return {
-            assets: response.data.library.assets.items,
+            items,
+            total,
+            page,
+            hasNextPage
         };
     }
 
@@ -421,8 +478,19 @@ class Api extends OAuth2Requester {
 
         const response = await this._post(this.buildRequestOptions(ql));
         this.assertResponse(response);
+
+        const {
+            items,
+            total,
+            page,
+            hasNextPage
+        } = response.data.library.browse.folders;
+
         return {
-            folders: response.data.library.browse.folders.items,
+            items,
+            total,
+            page,
+            hasNextPage
         };
     }
 
@@ -449,8 +517,19 @@ class Api extends OAuth2Requester {
                     }`;
         const response = await this._post(this.buildRequestOptions(ql));
         this.assertResponse(response);
+
+        const {
+            items,
+            total,
+            page,
+            hasNextPage
+        } = response.data.node.assets;
+
         return {
-            assets: response.data.node.assets.items,
+            items,
+            total,
+            page,
+            hasNextPage
         };
     }
 
@@ -472,8 +551,19 @@ class Api extends OAuth2Requester {
                     }`;
         const response = await this._post(this.buildRequestOptions(ql));
         this.assertResponse(response);
+
+        const {
+            items,
+            total,
+            page,
+            hasNextPage
+        } = response.data.node.folders;
+
         return {
-            folders: response.data.node.folders.items,
+            items,
+            total,
+            page,
+            hasNextPage
         };
     }
 
@@ -525,8 +615,19 @@ class Api extends OAuth2Requester {
 
         const response = await this._post(this.buildRequestOptions(ql));
         this.assertResponse(response);
+
+        const {
+            edges: items,
+            total,
+            page,
+            hasNextPage
+        } = response.data.brand.search;
+
         return {
-            assets: response.data.brand.search.edges,
+            items,
+            total,
+            page,
+            hasNextPage
         };
     }
 

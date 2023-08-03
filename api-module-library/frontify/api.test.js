@@ -709,8 +709,11 @@ describe(`${Config.label} API Tests`, () => {
                             data: {
                                 brand: {
                                     workspaceProjects: {
-                                        items: 'items'
-                                    }
+                                        items: 'items',
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
+                                    },
                                 }
                             }
                         });
@@ -718,7 +721,12 @@ describe(`${Config.label} API Tests`, () => {
 
                 it('should return the correct response', async () => {
                     const projects = await api.listProjects({ brandId: 'brandId' });
-                    expect(projects).toEqual({ projects: 'items' });
+                    expect(projects).toEqual({
+                        items: 'items',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -733,8 +741,11 @@ describe(`${Config.label} API Tests`, () => {
                             data: {
                                 brand: {
                                     workspaceProjects: {
-                                        items: 'items'
-                                    }
+                                        items: 'items',
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
+                                    },
                                 }
                             }
                         });
@@ -746,7 +757,12 @@ describe(`${Config.label} API Tests`, () => {
                         page: 10,
                         limit: 50
                     });
-                    expect(projects).toEqual({ projects: 'items' });
+                    expect(projects).toEqual({
+                        items: 'items',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -922,9 +938,10 @@ describe(`${Config.label} API Tests`, () => {
                             data: {
                                 brand: {
                                     libraries: {
-                                        items: {
-                                            libraries: 'libraries'
-                                        }
+                                        items: 'items',
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
                                     }
                                 }
                             }
@@ -933,7 +950,12 @@ describe(`${Config.label} API Tests`, () => {
 
                 it('should return the correct response', async () => {
                     const libraries = await api.listLibraries({ brandId: 'brandId' });
-                    expect(libraries).toEqual({ libraries: 'libraries' });
+                    expect(libraries).toEqual({
+                        items: 'items',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -948,9 +970,10 @@ describe(`${Config.label} API Tests`, () => {
                             data: {
                                 brand: {
                                     libraries: {
-                                        items: {
-                                            libraries: 'libraries'
-                                        }
+                                        items: 'items',
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
                                     }
                                 }
                             }
@@ -963,7 +986,12 @@ describe(`${Config.label} API Tests`, () => {
                         page: 10,
                         limit: 30
                     });
-                    expect(libraries).toEqual({ libraries: 'libraries' });
+                    expect(libraries).toEqual({
+                        items: 'items',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -1112,7 +1140,10 @@ describe(`${Config.label} API Tests`, () => {
                             data: {
                                 workspaceProject: {
                                     assets: {
-                                        items: 'items'
+                                        items: 'items',
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
                                     }
                                 }
                             }
@@ -1121,7 +1152,12 @@ describe(`${Config.label} API Tests`, () => {
 
                 it('should return the correct response', async () => {
                     const projectAssets = await api.listProjectAssets({ projectId: 'projectId' });
-                    expect(projectAssets).toEqual({ assets: 'items' });
+                    expect(projectAssets).toEqual({
+                        items: 'items',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -1136,7 +1172,10 @@ describe(`${Config.label} API Tests`, () => {
                             data: {
                                 workspaceProject: {
                                     assets: {
-                                        items: 'items'
+                                        items: 'items',
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
                                     }
                                 }
                             }
@@ -1149,7 +1188,12 @@ describe(`${Config.label} API Tests`, () => {
                         page: 5,
                         limit: 15
                     });
-                    expect(projectAssets).toEqual({ assets: 'items' });
+                    expect(projectAssets).toEqual({
+                        items: 'items',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -1219,7 +1263,10 @@ describe(`${Config.label} API Tests`, () => {
                                 workspaceProject: {
                                     browse: {
                                         folders: {
-                                            items: 'items'
+                                            items: 'items',
+                                            total: 'total',
+                                            page: 'page',
+                                            hasNextPage: 'hasNextPage'
                                         }
                                     }
                                 }
@@ -1229,7 +1276,12 @@ describe(`${Config.label} API Tests`, () => {
 
                 it('should return the correct response', async () => {
                     const projectFolders = await api.listProjectFolders({ projectId: 'projectId' });
-                    expect(projectFolders).toEqual({ folders: 'items' });
+                    expect(projectFolders).toEqual({
+                        items: 'items',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -1245,7 +1297,10 @@ describe(`${Config.label} API Tests`, () => {
                                 workspaceProject: {
                                     browse: {
                                         folders: {
-                                            items: 'items'
+                                            items: 'items',
+                                            total: 'total',
+                                            page: 'page',
+                                            hasNextPage: 'hasNextPage'
                                         }
                                     }
                                 }
@@ -1259,7 +1314,12 @@ describe(`${Config.label} API Tests`, () => {
                         page: 2,
                         limit: 8
                     });
-                    expect(projectFolders).toEqual({ folders: 'items' });
+                    expect(projectFolders).toEqual({
+                        items: 'items',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -1332,7 +1392,10 @@ describe(`${Config.label} API Tests`, () => {
                             data: {
                                 library: {
                                     assets: {
-                                        items: 'items'
+                                        items: 'items',
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
                                     }
                                 }
                             }
@@ -1341,7 +1404,12 @@ describe(`${Config.label} API Tests`, () => {
 
                 it('should return the correct response', async () => {
                     const libraryAssets = await api.listLibraryAssets({ libraryId: 'libraryId' });
-                    expect(libraryAssets).toEqual({ assets: 'items' });
+                    expect(libraryAssets).toEqual({
+                        items: 'items',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -1356,7 +1424,10 @@ describe(`${Config.label} API Tests`, () => {
                             data: {
                                 library: {
                                     assets: {
-                                        items: 'items'
+                                        items: 'items',
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
                                     }
                                 }
                             }
@@ -1369,7 +1440,12 @@ describe(`${Config.label} API Tests`, () => {
                         page: 20,
                         limit: 100
                     });
-                    expect(libraryAssets).toEqual({ assets: 'items' });
+                    expect(libraryAssets).toEqual({
+                        items: 'items',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -1441,7 +1517,10 @@ describe(`${Config.label} API Tests`, () => {
                                 library: {
                                     browse: {
                                         folders: {
-                                            items: 'items'
+                                            items: 'items',
+                                            total: 'total',
+                                            page: 'page',
+                                            hasNextPage: 'hasNextPage'
                                         }
                                     }
                                 }
@@ -1451,7 +1530,12 @@ describe(`${Config.label} API Tests`, () => {
 
                 it('should return the correct response', async () => {
                     const libraryFolders = await api.listLibraryFolders({ libraryId: 'libraryId' });
-                    expect(libraryFolders).toEqual({ folders: 'items' });
+                    expect(libraryFolders).toEqual({
+                        items: 'items',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -1467,7 +1551,10 @@ describe(`${Config.label} API Tests`, () => {
                                 library: {
                                     browse: {
                                         folders: {
-                                            items: 'items'
+                                            items: 'items',
+                                            total: 'total',
+                                            page: 'page',
+                                            hasNextPage: 'hasNextPage'
                                         }
                                     }
                                 }
@@ -1481,7 +1568,12 @@ describe(`${Config.label} API Tests`, () => {
                         page: 15,
                         limit: 25
                     });
-                    expect(libraryFolders).toEqual({ folders: 'items' });
+                    expect(libraryFolders).toEqual({
+                        items: 'items',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -1576,8 +1668,10 @@ describe(`${Config.label} API Tests`, () => {
                                     id: "eyJpZGVudGlmaWVyIjoxLCJ0eXBlIjoiYnJhbmQifQ==",
                                     name: "Left Hook",
                                     search: {
-                                        total: 1,
-                                        edges: 'edges'
+                                        edges: 'edges',
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
                                     }
                                 }
                             }
@@ -1591,7 +1685,12 @@ describe(`${Config.label} API Tests`, () => {
                     };
 
                     const results = await api.searchInBrand(query);
-                    expect(results).toEqual({ assets: 'edges' });
+                    expect(results).toEqual({
+                        items: 'edges',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -1608,8 +1707,10 @@ describe(`${Config.label} API Tests`, () => {
                                     id: "eyJpZGVudGlmaWVyIjoxLCJ0eXBlIjoiYnJhbmQifQ==",
                                     name: "Left Hook",
                                     search: {
-                                        total: 1,
-                                        edges: 'edges'
+                                        edges: 'edges',
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
                                     }
                                 }
                             }
@@ -1625,7 +1726,12 @@ describe(`${Config.label} API Tests`, () => {
                     };
 
                     const results = await api.searchInBrand(query);
-                    expect(results).toEqual({ assets: 'edges' });
+                    expect(results).toEqual({
+                        items: 'edges',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -1866,7 +1972,10 @@ describe(`${Config.label} API Tests`, () => {
                                                 "width": 128,
                                                 "height": 128
                                             }
-                                        ]
+                                        ],
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
                                     }
                                 }
                             },
@@ -1883,8 +1992,11 @@ describe(`${Config.label} API Tests`, () => {
                     };
 
                     const results = await api.listSubFolderAssets(query);
-                    expect(results).toHaveProperty('assets');
-                    expect(results.assets).toHaveLength(2);
+                    expect(results).toHaveProperty('items');
+                    expect(results.items).toHaveLength(2);
+                    expect(results.total).toEqual('total');
+                    expect(results.page).toEqual('page');
+                    expect(results.hasNextPage).toEqual('hasNextPage');
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -1916,7 +2028,10 @@ describe(`${Config.label} API Tests`, () => {
                                                 "width": 128,
                                                 "height": 128
                                             }
-                                        ]
+                                        ],
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
                                     }
                                 }
                             },
@@ -1935,8 +2050,11 @@ describe(`${Config.label} API Tests`, () => {
                     };
 
                     const results = await api.listSubFolderAssets(query);
-                    expect(results).toHaveProperty('assets');
-                    expect(results.assets).toHaveLength(2);
+                    expect(results).toHaveProperty('items');
+                    expect(results.items).toHaveLength(2);
+                    expect(results.total).toEqual('total');
+                    expect(results.page).toEqual('page');
+                    expect(results.hasNextPage).toEqual('hasNextPage');
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -1962,7 +2080,10 @@ describe(`${Config.label} API Tests`, () => {
                                                 "name": "FolderName2",
                                                 "__typename": "SubFolder"
                                             }
-                                        ]
+                                        ],
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
                                     }
                                 }
                             },
@@ -1979,8 +2100,11 @@ describe(`${Config.label} API Tests`, () => {
                     };
 
                     const results = await api.listSubFolderFolders(query);
-                    expect(results).toHaveProperty('folders');
-                    expect(results.folders).toHaveLength(2);
+                    expect(results).toHaveProperty('items');
+                    expect(results.items).toHaveLength(2);
+                    expect(results.total).toEqual('total');
+                    expect(results.page).toEqual('page');
+                    expect(results.hasNextPage).toEqual('hasNextPage');
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -2006,7 +2130,10 @@ describe(`${Config.label} API Tests`, () => {
                                                 "name": "FolderName2",
                                                 "__typename": "SubFolder"
                                             }
-                                        ]
+                                        ],
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
                                     }
                                 }
                             },
@@ -2025,8 +2152,11 @@ describe(`${Config.label} API Tests`, () => {
                     };
 
                     const results = await api.listSubFolderFolders(query);
-                    expect(results).toHaveProperty('folders');
-                    expect(results.folders).toHaveLength(2);
+                    expect(results).toHaveProperty('items');
+                    expect(results.items).toHaveLength(2);
+                    expect(results.total).toEqual('total');
+                    expect(results.page).toEqual('page');
+                    expect(results.hasNextPage).toEqual('hasNextPage');
                     expect(scope.isDone()).toBe(true);
                 });
             });
