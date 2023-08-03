@@ -774,6 +774,7 @@ describe(`${Config.label} API Tests`, () => {
                             value
                           }
                           __typename
+                          ${api._filesQuery()}
                           }
                       }
                     }
@@ -790,8 +791,10 @@ describe(`${Config.label} API Tests`, () => {
                         .reply(200, {
                             data: {
                                 library: {
+                                    id: 'id',
+                                    name: 'name',
                                     collections: {
-                                        items: {
+                                        items: [{
                                             id: 'collectionId',
                                             name: 'Test collection',
                                             __typename: 'Collection',
@@ -800,14 +803,14 @@ describe(`${Config.label} API Tests`, () => {
                                                     id: 'id',
                                                     title: 'title',
                                                     description: 'description',
-                                                    tags: {
+                                                    tags: [{
                                                         source: 'source',
                                                         value: 'value'
-                                                    },
-                                                    __typename: 'Assets'
+                                                    }],
+                                                    __typename: 'Image'
                                                 }]
                                             }
-                                        }
+                                        }]
                                     }
                                 }
                             }
@@ -816,7 +819,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 it('should return the correct response', async () => {
                     const collections = await api.listCollectionsAssets({ libraryId: 'libraryId', collectionId: 'collectionId' });
-                    expect(collections).toEqual([{ id: 'id', title: 'title', description: 'description', tags: { source: 'source', value: 'value' }, __typename: 'Assets' }]);
+                    expect(collections).toEqual([{ id: 'id', title: 'title', description: 'description', tags: [{ source: 'source', value: 'value' }], __typename: 'Image' }]);
                     expect(scope.isDone()).toBe(true);
                 });
             });
