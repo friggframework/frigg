@@ -227,7 +227,7 @@ class Api extends OAuth2Requester {
     async listProjects(query) {
         const ql = `query Projects {
                       brand(id: "${query.brandId}") {
-                        workspaceProjects(page: ${query.page || 1}, limit: ${query.limit || 25}) {
+                        workspaceProjects(${this._paginationParamsQuery(query)}) {
                           items {
                             id
                             name
@@ -236,9 +236,7 @@ class Api extends OAuth2Requester {
                               canViewCollaborators
                             }
                           }
-                          total
-                          page
-                          hasNextPage
+                          ${this._paginationPropsQuery()}
                         }
                       }
                     }`;
@@ -253,7 +251,7 @@ class Api extends OAuth2Requester {
     async listLibraries(query) {
         const ql = `query Libraries {
                       brand(id: "${query.brandId}") {
-                        libraries(page: ${query.page || 1}, limit: ${query.limit || 25}) {
+                        libraries(${this._paginationParamsQuery(query)}) {
                           items {
                             id
                             name
@@ -263,9 +261,7 @@ class Api extends OAuth2Requester {
                               canCreateCollections
                             }
                           }
-                          total
-                          page
-                          hasNextPage
+                          ${this._paginationPropsQuery()}
                         }
                       }
                     }`;
@@ -296,7 +292,7 @@ class Api extends OAuth2Requester {
     async listProjectAssets(query) {
         const ql = `query ProjectAssets {
                       workspaceProject(id: "${query.projectId}") {
-                        assets(page: ${query.page || 1}, limit: ${query.limit || 25}) {
+                        assets(${this._paginationParamsQuery(query)}) {
                           items {
                             id
                             title
@@ -308,9 +304,7 @@ class Api extends OAuth2Requester {
                             __typename
                             ${this._filesQuery()}
                           }
-                          total
-                          page
-                          hasNextPage
+                          ${this._paginationPropsQuery()}
                         }
                       }
                     }`;
@@ -326,15 +320,13 @@ class Api extends OAuth2Requester {
         const ql = `query ProjectFolders {
                       workspaceProject(id: "${query.projectId}") {
                         browse {
-                          folders(page: ${query.page || 1}, limit: ${query.limit || 25}) {
+                          folders(${this._paginationParamsQuery(query)}) {
                             items {
                               id
                               name
                               __typename
                             }
-                            total
-                            page
-                            hasNextPage
+                            ${this._paginationPropsQuery()}
                           }
                         }
                       }
@@ -350,7 +342,7 @@ class Api extends OAuth2Requester {
     async listLibraryAssets(query) {
         const ql = `query LibraryAssets {
                       library(id: "${query.libraryId}") {
-                        assets(page: ${query.page || 1}, limit: ${query.limit || 25}) {
+                        assets(${this._paginationParamsQuery(query)}) {
                           items {
                             id
                             title
@@ -362,9 +354,7 @@ class Api extends OAuth2Requester {
                             __typename
                             ${this._filesQuery()}
                           }
-                          total
-                          page
-                          hasNextPage
+                          ${this._paginationPropsQuery()}
                         }
                       }
                     }`;
@@ -415,7 +405,7 @@ class Api extends OAuth2Requester {
         const ql = `query LibraryFolders {
                       library(id: "${query.libraryId}") {
                         browse {
-                          folders(page: ${query.page || 1}, limit: ${query.limit || 25}) {
+                          folders(${this._paginationParamsQuery(query)}) {
                             items {
                               id
                               name
@@ -423,9 +413,7 @@ class Api extends OAuth2Requester {
                               modifiedAt
                               __typename
                             }
-                            total
-                            page
-                            hasNextPage
+                            ${this._paginationPropsQuery()}
                           }
                         }
                       }
@@ -440,27 +428,25 @@ class Api extends OAuth2Requester {
 
     async listSubFolderAssets(query) {
         const ql = `query FolderById {
-                                  node(id: "${query.subFolderId}") {
-                                    ... on Folder {
-                                      name
-                                      assets(page: ${query.page || 1}, limit: ${query.limit || 25}) {
-                                        items {
-                                          id
-                                          title
-                                          tags {
-                                            source
-                                            value
-                                          }
-                                          __typename
-                                          ${this._filesQuery()}
-                                        }
-                                        total
-                                        page
-                                        hasNextPage
-                                      }
-                                    }
-                                  }
-                                }`;
+                      node(id: "${query.subFolderId}") {
+                        ... on Folder {
+                          name
+                          assets(${this._paginationParamsQuery(query)}) {
+                            items {
+                              id
+                              title
+                              tags {
+                                source
+                                value
+                              }
+                              __typename
+                              ${this._filesQuery()}
+                            }
+                            ${this._paginationPropsQuery()}
+                          }
+                        }
+                      }
+                    }`;
         const response = await this._post(this.buildRequestOptions(ql));
         this.assertResponse(response);
         return {
@@ -470,22 +456,20 @@ class Api extends OAuth2Requester {
 
     async listSubFolderFolders(query) {
         const ql = `query FolderById {
-                                  node(id: "${query.subFolderId}") {
-                                    ... on Folder {
-                                      name
-                                      folders(page: ${query.page || 1}, limit: ${query.limit || 25}) {
-                                        items {
-                                          id
-                                          name
-                                          __typename
-                                        }
-                                        total
-                                        page
-                                        hasNextPage
-                                      }
-                                    }
-                                  }
-                                }`;
+                      node(id: "${query.subFolderId}") {
+                        ... on Folder {
+                          name
+                          folders(${this._paginationParamsQuery(query)}) {
+                            items {
+                              id
+                              name
+                              __typename
+                            }
+                            ${this._paginationPropsQuery()}
+                          }
+                        }
+                      }
+                    }`;
         const response = await this._post(this.buildRequestOptions(ql));
         this.assertResponse(response);
         return {
@@ -504,7 +488,7 @@ class Api extends OAuth2Requester {
                       brand(id: "${query.brandId}") {
                         id
                         name
-                        search(page: ${query.page || 1}, limit: ${query.limit || 25}, query: {term: "${query.term}"}) {
+                        search(${this._paginationParamsQuery(query)}, query: {term: "${query.term}"}) {
                           edges {
                             title
                             node {
@@ -534,9 +518,7 @@ class Api extends OAuth2Requester {
                               ${this._filesQuery()}
                             }
                           }
-                          total
-                          page
-                          hasNextPage
+                          ${this._paginationPropsQuery()}
                         }
                       }
                     }`;
@@ -647,6 +629,16 @@ class Api extends OAuth2Requester {
                   previewUrl
                   status
                 }`;
+    }
+
+    _paginationParamsQuery(query) {
+        return `page: ${query.page || 1}, limit: ${query.limit || 25}`;
+    }
+
+    _paginationPropsQuery() {
+        return `total
+                page
+                hasNextPage`;
     }
 }
 
