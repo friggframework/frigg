@@ -363,6 +363,7 @@ class Api extends OAuth2Requester {
                                 value
                               }
                               __typename
+                              ${this._filesQuery()}
                               }
                           }
                         }
