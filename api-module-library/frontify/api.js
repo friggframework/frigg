@@ -227,7 +227,7 @@ class Api extends OAuth2Requester {
     async listProjects(query) {
         const ql = `query Projects {
                       brand(id: "${query.brandId}") {
-                        workspaceProjects {
+                        workspaceProjects(page: ${query.page || 1}, limit: ${query.limit || 25}) {
                           items {
                             id
                             name
@@ -236,6 +236,9 @@ class Api extends OAuth2Requester {
                               canViewCollaborators
                             }
                           }
+                          total
+                          page
+                          hasNextPage
                         }
                       }
                     }`;
@@ -250,7 +253,7 @@ class Api extends OAuth2Requester {
     async listLibraries(query) {
         const ql = `query Libraries {
                       brand(id: "${query.brandId}") {
-                        libraries {
+                        libraries(page: ${query.page || 1}, limit: ${query.limit || 25}) {
                           items {
                             id
                             name
@@ -260,6 +263,9 @@ class Api extends OAuth2Requester {
                               canCreateCollections
                             }
                           }
+                          total
+                          page
+                          hasNextPage
                         }
                       }
                     }`;
@@ -290,7 +296,7 @@ class Api extends OAuth2Requester {
     async listProjectAssets(query) {
         const ql = `query ProjectAssets {
                       workspaceProject(id: "${query.projectId}") {
-                        assets {
+                        assets(page: ${query.page || 1}, limit: ${query.limit || 25}) {
                           items {
                             id
                             title
@@ -302,6 +308,9 @@ class Api extends OAuth2Requester {
                             __typename
                             ${this._filesQuery()}
                           }
+                          total
+                          page
+                          hasNextPage
                         }
                       }
                     }`;
@@ -317,12 +326,15 @@ class Api extends OAuth2Requester {
         const ql = `query ProjectFolders {
                       workspaceProject(id: "${query.projectId}") {
                         browse {
-                          folders {
+                          folders(page: ${query.page || 1}, limit: ${query.limit || 25}) {
                             items {
                               id
                               name
                               __typename
                             }
+                            total
+                            page
+                            hasNextPage
                           }
                         }
                       }
@@ -338,7 +350,7 @@ class Api extends OAuth2Requester {
     async listLibraryAssets(query) {
         const ql = `query LibraryAssets {
                       library(id: "${query.libraryId}") {
-                        assets {
+                        assets(page: ${query.page || 1}, limit: ${query.limit || 25}) {
                           items {
                             id
                             title
@@ -350,6 +362,9 @@ class Api extends OAuth2Requester {
                             __typename
                             ${this._filesQuery()}
                           }
+                          total
+                          page
+                          hasNextPage
                         }
                       }
                     }`;
@@ -400,7 +415,7 @@ class Api extends OAuth2Requester {
         const ql = `query LibraryFolders {
                       library(id: "${query.libraryId}") {
                         browse {
-                          folders {
+                          folders(page: ${query.page || 1}, limit: ${query.limit || 25}) {
                             items {
                               id
                               name
@@ -408,6 +423,9 @@ class Api extends OAuth2Requester {
                               modifiedAt
                               __typename
                             }
+                            total
+                            page
+                            hasNextPage
                           }
                         }
                       }
@@ -425,7 +443,7 @@ class Api extends OAuth2Requester {
                                   node(id: "${query.subFolderId}") {
                                     ... on Folder {
                                       name
-                                      assets {
+                                      assets(page: ${query.page || 1}, limit: ${query.limit || 25}) {
                                         items {
                                           id
                                           title
@@ -436,6 +454,9 @@ class Api extends OAuth2Requester {
                                           __typename
                                           ${this._filesQuery()}
                                         }
+                                        total
+                                        page
+                                        hasNextPage
                                       }
                                     }
                                   }
@@ -452,12 +473,15 @@ class Api extends OAuth2Requester {
                                   node(id: "${query.subFolderId}") {
                                     ... on Folder {
                                       name
-                                      folders {
+                                      folders(page: ${query.page || 1}, limit: ${query.limit || 25}) {
                                         items {
                                           id
                                           name
                                           __typename
                                         }
+                                        total
+                                        page
+                                        hasNextPage
                                       }
                                     }
                                   }
@@ -480,8 +504,7 @@ class Api extends OAuth2Requester {
                       brand(id: "${query.brandId}") {
                         id
                         name
-                        search(page: 1, limit: ${query.limit}, query: {term: "${query.term}"}) {
-                          total
+                        search(page: ${query.page || 1}, limit: ${query.limit || 25}, query: {term: "${query.term}"}) {
                           edges {
                             title
                             node {
@@ -511,6 +534,9 @@ class Api extends OAuth2Requester {
                               ${this._filesQuery()}
                             }
                           }
+                          total
+                          page
+                          hasNextPage
                         }
                       }
                     }`;
