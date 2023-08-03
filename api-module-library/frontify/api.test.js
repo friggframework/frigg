@@ -220,6 +220,7 @@ describe(`${Config.label} API Tests`, () => {
                             status
                             __typename
                             tags {
+                              source
                               value
                             }
                             ${api._filesQuery()}
@@ -915,6 +916,10 @@ describe(`${Config.label} API Tests`, () => {
                                  id
                                  title
                                  description
+                                 tags {
+                                   source
+                                   value
+                                 }
                                  __typename
                                  ${api._filesQuery()}
                                }
@@ -1065,6 +1070,10 @@ describe(`${Config.label} API Tests`, () => {
                                  id
                                  title
                                  description
+                                 tags {
+                                   source
+                                   value
+                                 }
                                  __typename
                                  ${api._filesQuery()}
                                }
@@ -1473,6 +1482,10 @@ describe(`${Config.label} API Tests`, () => {
                                         items {
                                           id
                                           title
+                                          tags {
+                                            source
+                                            value
+                                          }
                                           __typename
                                           ${api._filesQuery()}
                                         }
