@@ -803,39 +803,43 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#listCollectionsAssetsForLibrary', () => {
-            const ql = `query ListCollectionsAssetsForLibrary {
-                library(id: "libraryId") {
-                  id
-                  name
-                  collections {
-                    items {
-                      id
-                      name
-                      __typename
-                      assets	{
-                          items	{
-                            id
-                          title
-                            description
-                          tags{
-                            source
-                            value
-                          }
-                          __typename
-                          ${api._filesQuery()}
-                          }
-                      }
-                    }
-                  }
-                }
-              }`;
+            const buildQl = (page, limit) => `
+                              query ListCollectionsAssetsForLibrary {
+                                library(id: "libraryId") {
+                                  id
+                                  name
+                                  collections {
+                                    items {
+                                      id
+                                      name
+                                      __typename
+                                      assets(page: ${page || 1}, limit: ${limit || 25}) {
+                                        items	{
+                                          id
+                                          title
+                                          description
+                                          tags {
+                                            source
+                                            value
+                                          }
+                                          __typename
+                                          ${api._filesQuery()}
+                                        }
+                                        total
+                                        page
+                                        hasNextPage
+                                      }
+                                    }
+                                  }
+                                }
+                              }`;
 
             describe('Retrieve information about assets', () => {
                 let scope;
 
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === buildQl().replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 library: {
@@ -856,7 +860,10 @@ describe(`${Config.label} API Tests`, () => {
                                                         value: 'value'
                                                     }],
                                                     __typename: 'Image'
-                                                }]
+                                                }],
+                                                total: 'total',
+                                                page: 'page',
+                                                hasNextPage: 'hasNextPage'
                                             }
                                         }]
                                     }
@@ -866,8 +873,64 @@ describe(`${Config.label} API Tests`, () => {
                 });
 
                 it('should return the correct response', async () => {
-                    const collections = await api.listCollectionsAssets({ libraryId: 'libraryId', collectionId: 'collectionId' });
-                    expect(collections).toEqual([{ id: 'id', title: 'title', description: 'description', tags: [{ source: 'source', value: 'value' }], __typename: 'Image' }]);
+                    const collection = await api.listCollectionsAssets({ libraryId: 'libraryId', collectionId: 'collectionId' });
+                    expect(collection.items).toEqual([{ id: 'id', title: 'title', description: 'description', tags: [{ source: 'source', value: 'value' }], __typename: 'Image' }]);
+                    expect(collection.total).toEqual('total');
+                    expect(collection.page).toEqual('page');
+                    expect(collection.hasNextPage).toEqual('hasNextPage');
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Retrieve information about assets using pagination', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body) => body.query.replace(/\s/g, '') === buildQl(5, 50).replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                library: {
+                                    id: 'id',
+                                    name: 'name',
+                                    collections: {
+                                        items: [{
+                                            id: 'collectionId',
+                                            name: 'Test collection',
+                                            __typename: 'Collection',
+                                            assets:	{
+                                                items:	[{
+                                                    id: 'id',
+                                                    title: 'title',
+                                                    description: 'description',
+                                                    tags: [{
+                                                        source: 'source',
+                                                        value: 'value'
+                                                    }],
+                                                    __typename: 'Image'
+                                                }],
+                                                total: 'total',
+                                                page: 'page',
+                                                hasNextPage: 'hasNextPage'
+                                            }
+                                        }]
+                                    }
+                                }
+                            }
+                        });
+                });
+
+                it('should return the correct response', async () => {
+                    const collection = await api.listCollectionsAssets({
+                        libraryId: 'libraryId',
+                        collectionId: 'collectionId',
+                        page: 5,
+                        limit: 50
+                    });
+                    expect(collection.items).toEqual([{ id: 'id', title: 'title', description: 'description', tags: [{ source: 'source', value: 'value' }], __typename: 'Image' }]);
+                    expect(collection.total).toEqual('total');
+                    expect(collection.page).toEqual('page');
+                    expect(collection.hasNextPage).toEqual('hasNextPage');
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -876,7 +939,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     nock(baseUrl)
-                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === buildQl().replace(/\s/g, ''))
                         .reply(200, {
                             errors: [
                                 {
@@ -903,6 +966,50 @@ describe(`${Config.label} API Tests`, () => {
                     expect(
                         async () => await api.listCollectionsAssets({ libraryId: 'libraryId', collectionId: 'collectionId' })
                     ).rejects.toThrow(new Error('An error getting assets happened!'));
+                });
+            });
+
+            describe('Get error when collection not found in response', () => {
+
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .post('', (body) => body.query.replace(/\s/g, '') === buildQl().replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                library: {
+                                    id: 'id',
+                                    name: 'name',
+                                    collections: {
+                                        items: [{
+                                            id: 'otherId',
+                                            name: 'Test collection',
+                                            __typename: 'Collection',
+                                            assets:	{
+                                                items:	[{
+                                                    id: 'id',
+                                                    title: 'title',
+                                                    description: 'description',
+                                                    tags: [{
+                                                        source: 'source',
+                                                        value: 'value'
+                                                    }],
+                                                    __typename: 'Image'
+                                                }],
+                                                total: 'total',
+                                                page: 'page',
+                                                hasNextPage: 'hasNextPage'
+                                            }
+                                        }]
+                                    }
+                                }
+                            }
+                        });
+                });
+
+                it('should handle error', () => {
+                    expect(
+                        async () => await api.listCollectionsAssets({ libraryId: 'libraryId', collectionId: 'collectionId' })
+                    ).rejects.toThrow(new Error('Collection not found'));
                 });
             });
         });

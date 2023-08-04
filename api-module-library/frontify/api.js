@@ -424,38 +424,56 @@ class Api extends OAuth2Requester {
     }
 
     async listCollectionsAssets(query) {
-      const ql = `query ListCollectionsAssetsForLibrary {
-                    library(id: "${query.libraryId}") {
-                      id
-                      name
-                      collections {
-                        items {
-                          id
-                          name
-                          __typename
-                          assets	{
-                              items	{
+        const ql = `query ListCollectionsAssetsForLibrary {
+                      library(id: "${query.libraryId}") {
+                        id
+                        name
+                        collections {
+                          items {
+                            id
+                            name
+                            __typename
+                            assets(${this._paginationParamsQuery(query)})	{
+                              items {
                                 id
-                              title
+                                title
                                 description
-                              tags {
-                                source
-                                value
+                                tags {
+                                  source
+                                  value
+                                }
+                                __typename
+                                ${this._filesQuery()}
                               }
-                              __typename
-                              ${this._filesQuery()}
-                              }
+                              ${this._paginationPropsQuery()}
+                            }
                           }
                         }
                       }
-                    }
-                  }`;
+                    }`;
 
-      const response = await this._post(this.buildRequestOptions(ql));
-      this.assertResponse(response);
+        const response = await this._post(this.buildRequestOptions(ql));
+        this.assertResponse(response);
 
-      const collection = response.data.library.collections.items.find(collection => collection.id === query.collectionId);
-      return collection.assets.items;
+        const collection = response.data.library.collections.items.find(collection => collection.id === query.collectionId);
+
+        if (collection) {
+            const {
+                items,
+                total,
+                page,
+                hasNextPage
+            } = collection.assets;
+
+            return {
+                items,
+                total,
+                page,
+                hasNextPage
+            };
+        } else {
+            throw new Error('Collection not found');
+        }
     }
 
     async listLibraryFolders(query) {
