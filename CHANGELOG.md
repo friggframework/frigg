@@ -1,3 +1,16 @@
+# (Fri Aug 04 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@0.0.16`
+  - LEF-610: list collection assets [#210](https://github.com/friggframework/frigg/pull/210) ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
 # (Thu Aug 03 2023)
 
 #### 🐛 Bug Fix

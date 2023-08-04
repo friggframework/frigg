@@ -1,3 +1,24 @@
+# v0.0.16 (Fri Aug 04 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti)), for all your work!
+
+#### 🐛 Bug Fix
+
+- LEF-610: list collection assets [#210](https://github.com/friggframework/frigg/pull/210) ([@msalvatti](https://github.com/msalvatti))
+- collection response fixed ([@msalvatti](https://github.com/msalvatti))
+- Add _filesQuery() ([@msalvatti](https://github.com/msalvatti))
+- LEF-610: list collection assets ([@msalvatti](https://github.com/msalvatti))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.15 (Wed Aug 02 2023)
 
 #### 🐛 Bug Fix
