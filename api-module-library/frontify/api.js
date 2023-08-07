@@ -269,6 +269,24 @@ class Api extends OAuth2Requester {
         return response.data.brand.libraries.items;
     }
 
+    async listCollections(query) {
+      const ql = `query Collections {
+                    library(id: "${query.libraryId}") {
+                      collections {
+                        items {
+                          id
+                          name
+                          __typename
+                        }
+                      }
+                    }
+                  }`;
+
+      const response = await this._post(this.buildRequestOptions(ql));
+      this.assertResponse(response);
+      return response.data.library.collections.items;
+  }
+
     async listProjectAssets(query) {
         const ql = `query ProjectAssets {
                       workspaceProject(id: "${query.projectId}") {
