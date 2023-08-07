@@ -1,3 +1,29 @@
+# v0.0.17 (Mon Aug 07 2023)
+
+:tada: This release contains work from new contributors! :tada:
+
+Thanks for all your work!
+
+:heart: Maximiliano Salvatti ([@msalvatti-ecotrak](https://github.com/msalvatti-ecotrak))
+
+:heart: Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+#### 🐛 Bug Fix
+
+- LEF-605: API listCollections [#207](https://github.com/friggframework/frigg/pull/207) ([@msalvatti-ecotrak](https://github.com/msalvatti-ecotrak) [@leofmds](https://github.com/leofmds))
+- Merge branch 'main' into feature/lef-605-add-listcollections-endpoint ([@leofmds](https://github.com/leofmds))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+- typename included ([@msalvatti-ecotrak](https://github.com/msalvatti-ecotrak))
+- API listCollections ([@msalvatti-ecotrak](https://github.com/msalvatti-ecotrak))
+
+#### Authors: 3
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+- Maximiliano Salvatti ([@msalvatti-ecotrak](https://github.com/msalvatti-ecotrak))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.16 (Fri Aug 04 2023)
 
 :tada: This release contains work from a new contributor! :tada:

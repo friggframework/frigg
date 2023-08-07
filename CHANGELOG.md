@@ -1,3 +1,28 @@
+# (Mon Aug 07 2023)
+
+:tada: This release contains work from new contributors! :tada:
+
+Thanks for all your work!
+
+:heart: Maximiliano Salvatti ([@msalvatti-ecotrak](https://github.com/msalvatti-ecotrak))
+
+:heart: Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@0.0.17`
+  - LEF-605: API listCollections [#207](https://github.com/friggframework/frigg/pull/207) ([@msalvatti-ecotrak](https://github.com/msalvatti-ecotrak) [@leofmds](https://github.com/leofmds))
+- `@friggframework/api-module-google-calendar@0.0.3`
+  - Fr/google calendar [#203](https://github.com/friggframework/frigg/pull/203) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 3
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+- Maximiliano Salvatti ([@msalvatti-ecotrak](https://github.com/msalvatti-ecotrak))
+
+---
+
 # (Fri Aug 04 2023)
 
 #### 🐛 Bug Fix
