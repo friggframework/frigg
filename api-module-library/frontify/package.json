@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-frontify",
-    "version": "0.0.16",
+    "version": "0.0.17",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
