@@ -1,3 +1,22 @@
+# v1.0.0 (Tue Aug 08 2023)
+
+#### 💥 Breaking Change
+
+- Feature/lef 598 implement pagination in the backend [#211](https://github.com/friggframework/frigg/pull/211) ([@roboli](https://github.com/roboli))
+
+#### 🐛 Bug Fix
+
+- Paginate listCollectionsAssets method [ci skip] ([@roboli](https://github.com/roboli))
+- Return pagination data in each response [ci skip] ([@roboli](https://github.com/roboli))
+- Crete pagination helper methods [ci skip] ([@roboli](https://github.com/roboli))
+- Implement and test pagination [ci skip] ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
 # v0.0.17 (Mon Aug 07 2023)
 
 :tada: This release contains work from new contributors! :tada:

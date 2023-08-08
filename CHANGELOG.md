@@ -1,3 +1,16 @@
+# (Tue Aug 08 2023)
+
+#### 💥 Breaking Change
+
+- `@friggframework/api-module-frontify@1.0.0`
+  - Feature/lef 598 implement pagination in the backend [#211](https://github.com/friggframework/frigg/pull/211) ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
 # (Mon Aug 07 2023)
 
 :tada: This release contains work from new contributors! :tada:
