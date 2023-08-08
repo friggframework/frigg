@@ -680,33 +680,40 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#listProjects', () => {
-            const ql = `query Projects {
-                           brand(id: "brandId") {
-                             workspaceProjects {
-                               items {
-                                 id
-                                 name
-                                 currentUserPermissions {
-                                   canCreateAssets
-                                   canViewCollaborators
-                                 }
-                               }
-                             }
-                           }
-                         }`;
+            const buildQl = (page, limit) => `
+                              query Projects {
+                                brand(id: "brandId") {
+                                  workspaceProjects(page: ${page || 1}, limit: ${limit || 25}) {
+                                    items {
+                                      id
+                                      name
+                                      currentUserPermissions {
+                                        canCreateAssets
+                                        canViewCollaborators
+                                      }
+                                    }
+                                    total
+                                    page
+                                    hasNextPage
+                                  }
+                                }
+                              }`;
 
             describe('Retrieve information about projects', () => {
                 let scope;
 
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body ) => body.query.replace(/\s/g, '') === buildQl().replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 brand: {
                                     workspaceProjects: {
-                                        items: 'items'
-                                    }
+                                        items: 'items',
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
+                                    },
                                 }
                             }
                         });
@@ -714,7 +721,48 @@ describe(`${Config.label} API Tests`, () => {
 
                 it('should return the correct response', async () => {
                     const projects = await api.listProjects({ brandId: 'brandId' });
-                    expect(projects).toEqual({ projects: 'items' });
+                    expect(projects).toEqual({
+                        items: 'items',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Retrieve information about projects using pagination', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === buildQl(10, 50).replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                brand: {
+                                    workspaceProjects: {
+                                        items: 'items',
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
+                                    },
+                                }
+                            }
+                        });
+                });
+
+                it('should return the correct response', async () => {
+                    const projects = await api.listProjects({
+                        brandId: 'brandId',
+                        page: 10,
+                        limit: 50
+                    });
+                    expect(projects).toEqual({
+                        items: 'items',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -723,7 +771,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     nock(baseUrl)
-                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body ) => body.query.replace(/\s/g, '') === buildQl().replace(/\s/g, ''))
                         .reply(200, {
                             errors: [
                                 {
@@ -755,39 +803,43 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#listCollectionsAssetsForLibrary', () => {
-            const ql = `query ListCollectionsAssetsForLibrary {
-                library(id: "libraryId") {
-                  id
-                  name
-                  collections {
-                    items {
-                      id
-                      name
-                      __typename
-                      assets	{
-                          items	{
-                            id
-                          title
-                            description
-                          tags{
-                            source
-                            value
-                          }
-                          __typename
-                          ${api._filesQuery()}
-                          }
-                      }
-                    }
-                  }
-                }
-              }`;
+            const buildQl = (page, limit) => `
+                              query ListCollectionsAssetsForLibrary {
+                                library(id: "libraryId") {
+                                  id
+                                  name
+                                  collections {
+                                    items {
+                                      id
+                                      name
+                                      __typename
+                                      assets(page: ${page || 1}, limit: ${limit || 25}) {
+                                        items	{
+                                          id
+                                          title
+                                          description
+                                          tags {
+                                            source
+                                            value
+                                          }
+                                          __typename
+                                          ${api._filesQuery()}
+                                        }
+                                        total
+                                        page
+                                        hasNextPage
+                                      }
+                                    }
+                                  }
+                                }
+                              }`;
 
             describe('Retrieve information about assets', () => {
                 let scope;
 
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === buildQl().replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 library: {
@@ -808,7 +860,10 @@ describe(`${Config.label} API Tests`, () => {
                                                         value: 'value'
                                                     }],
                                                     __typename: 'Image'
-                                                }]
+                                                }],
+                                                total: 'total',
+                                                page: 'page',
+                                                hasNextPage: 'hasNextPage'
                                             }
                                         }]
                                     }
@@ -818,8 +873,64 @@ describe(`${Config.label} API Tests`, () => {
                 });
 
                 it('should return the correct response', async () => {
-                    const collections = await api.listCollectionsAssets({ libraryId: 'libraryId', collectionId: 'collectionId' });
-                    expect(collections).toEqual([{ id: 'id', title: 'title', description: 'description', tags: [{ source: 'source', value: 'value' }], __typename: 'Image' }]);
+                    const collection = await api.listCollectionsAssets({ libraryId: 'libraryId', collectionId: 'collectionId' });
+                    expect(collection.items).toEqual([{ id: 'id', title: 'title', description: 'description', tags: [{ source: 'source', value: 'value' }], __typename: 'Image' }]);
+                    expect(collection.total).toEqual('total');
+                    expect(collection.page).toEqual('page');
+                    expect(collection.hasNextPage).toEqual('hasNextPage');
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Retrieve information about assets using pagination', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body) => body.query.replace(/\s/g, '') === buildQl(5, 50).replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                library: {
+                                    id: 'id',
+                                    name: 'name',
+                                    collections: {
+                                        items: [{
+                                            id: 'collectionId',
+                                            name: 'Test collection',
+                                            __typename: 'Collection',
+                                            assets:	{
+                                                items:	[{
+                                                    id: 'id',
+                                                    title: 'title',
+                                                    description: 'description',
+                                                    tags: [{
+                                                        source: 'source',
+                                                        value: 'value'
+                                                    }],
+                                                    __typename: 'Image'
+                                                }],
+                                                total: 'total',
+                                                page: 'page',
+                                                hasNextPage: 'hasNextPage'
+                                            }
+                                        }]
+                                    }
+                                }
+                            }
+                        });
+                });
+
+                it('should return the correct response', async () => {
+                    const collection = await api.listCollectionsAssets({
+                        libraryId: 'libraryId',
+                        collectionId: 'collectionId',
+                        page: 5,
+                        limit: 50
+                    });
+                    expect(collection.items).toEqual([{ id: 'id', title: 'title', description: 'description', tags: [{ source: 'source', value: 'value' }], __typename: 'Image' }]);
+                    expect(collection.total).toEqual('total');
+                    expect(collection.page).toEqual('page');
+                    expect(collection.hasNextPage).toEqual('hasNextPage');
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -828,7 +939,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     nock(baseUrl)
-                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === buildQl().replace(/\s/g, ''))
                         .reply(200, {
                             errors: [
                                 {
@@ -857,38 +968,87 @@ describe(`${Config.label} API Tests`, () => {
                     ).rejects.toThrow(new Error('An error getting assets happened!'));
                 });
             });
+
+            describe('Get error when collection not found in response', () => {
+
+                beforeEach(() => {
+                    nock(baseUrl)
+                        .post('', (body) => body.query.replace(/\s/g, '') === buildQl().replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                library: {
+                                    id: 'id',
+                                    name: 'name',
+                                    collections: {
+                                        items: [{
+                                            id: 'otherId',
+                                            name: 'Test collection',
+                                            __typename: 'Collection',
+                                            assets:	{
+                                                items:	[{
+                                                    id: 'id',
+                                                    title: 'title',
+                                                    description: 'description',
+                                                    tags: [{
+                                                        source: 'source',
+                                                        value: 'value'
+                                                    }],
+                                                    __typename: 'Image'
+                                                }],
+                                                total: 'total',
+                                                page: 'page',
+                                                hasNextPage: 'hasNextPage'
+                                            }
+                                        }]
+                                    }
+                                }
+                            }
+                        });
+                });
+
+                it('should handle error', () => {
+                    expect(
+                        async () => await api.listCollectionsAssets({ libraryId: 'libraryId', collectionId: 'collectionId' })
+                    ).rejects.toThrow(new Error('Collection not found'));
+                });
+            });
         });
 
         describe('#listLibraries', () => {
-            const ql = `query Libraries {
-                           brand(id: "brandId") {
-                             libraries {
-                               items {
-                                 id
-                                 name
-                                 currentUserPermissions {
-                                   canCreateAssets
-                                   canViewCollaborators
-                                   canCreateCollections
-                                 }
-                               }
-                             }
-                           }
-                         }`;
+            const buildQl = (page, limit) => `
+                              query Libraries {
+                                brand(id: "brandId") {
+                                  libraries(page: ${page || 1}, limit: ${limit || 25}) {
+                                    items {
+                                      id
+                                      name
+                                      currentUserPermissions {
+                                        canCreateAssets
+                                        canViewCollaborators
+                                        canCreateCollections
+                                      }
+                                    }
+                                    total
+                                    page
+                                    hasNextPage
+                                  }
+                                }
+                              }`;
 
             describe('Retrieve information about libraries', () => {
                 let scope;
 
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body ) => body.query.replace(/\s/g, '') === buildQl().replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 brand: {
                                     libraries: {
-                                        items: {
-                                            libraries: 'libraries'
-                                        }
+                                        items: 'items',
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
                                     }
                                 }
                             }
@@ -897,7 +1057,48 @@ describe(`${Config.label} API Tests`, () => {
 
                 it('should return the correct response', async () => {
                     const libraries = await api.listLibraries({ brandId: 'brandId' });
-                    expect(libraries).toEqual({ libraries: 'libraries' });
+                    expect(libraries).toEqual({
+                        items: 'items',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Retrieve information about libraries using pagination', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === buildQl(10, 30).replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                brand: {
+                                    libraries: {
+                                        items: 'items',
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
+                                    }
+                                }
+                            }
+                        });
+                });
+
+                it('should return the correct response', async () => {
+                    const libraries = await api.listLibraries({
+                        brandId: 'brandId',
+                        page: 10,
+                        limit: 30
+                    });
+                    expect(libraries).toEqual({
+                        items: 'items',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -906,7 +1107,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     nock(baseUrl)
-                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body ) => body.query.replace(/\s/g, '') === buildQl().replace(/\s/g, ''))
                         .reply(200, {
                             errors: [
                                 {
@@ -1014,35 +1215,42 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#listProjectAssets', () => {
-            const ql = `query ProjectAssets {
-                           workspaceProject(id: "projectId") {
-                             assets {
-                               items {
-                                 id
-                                 title
-                                 description
-                                 tags {
-                                   source
-                                   value
-                                 }
-                                 __typename
-                                 ${api._filesQuery()}
-                               }
-                             }
-                           }
-                         }`;
+            const buildQl = (page, limit) => `
+                              query ProjectAssets {
+                                workspaceProject(id: "projectId") {
+                                  assets(page: ${page || 1}, limit: ${limit || 25}) {
+                                    items {
+                                      id
+                                      title
+                                      description
+                                      tags {
+                                        source
+                                        value
+                                      }
+                                      __typename
+                                      ${api._filesQuery()}
+                                    }
+                                    total
+                                    page
+                                    hasNextPage
+                                  }
+                                }
+                              }`;
 
             describe('Retrieve information about a project\'s assets', () => {
                 let scope;
 
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body ) => body.query.replace(/\s/g, '') === buildQl().replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 workspaceProject: {
                                     assets: {
-                                        items: 'items'
+                                        items: 'items',
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
                                     }
                                 }
                             }
@@ -1051,7 +1259,48 @@ describe(`${Config.label} API Tests`, () => {
 
                 it('should return the correct response', async () => {
                     const projectAssets = await api.listProjectAssets({ projectId: 'projectId' });
-                    expect(projectAssets).toEqual({ assets: 'items' });
+                    expect(projectAssets).toEqual({
+                        items: 'items',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Retrieve information about a project\'s assets using pagination', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === buildQl(5, 15).replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                workspaceProject: {
+                                    assets: {
+                                        items: 'items',
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
+                                    }
+                                }
+                            }
+                        });
+                });
+
+                it('should return the correct response', async () => {
+                    const projectAssets = await api.listProjectAssets({
+                        projectId: 'projectId',
+                        page: 5,
+                        limit: 15
+                    });
+                    expect(projectAssets).toEqual({
+                        items: 'items',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -1060,7 +1309,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     nock(baseUrl)
-                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body ) => body.query.replace(/\s/g, '') === buildQl().replace(/\s/g, ''))
                         .reply(200, {
                             errors: [
                                 {
@@ -1092,32 +1341,39 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#listProjectFolders', () => {
-            const ql = `query ProjectFolders {
-                           workspaceProject(id: "projectId") {
-                             browse {
-                               folders {
-                                 items {
-                                   id
-                                   name
-                                   __typename
-                                 }
-                               }
-                             }
-                           }
-                         }`;
+            const buildQl = (page, limit) => `
+                              query ProjectFolders {
+                                workspaceProject(id: "projectId") {
+                                  browse {
+                                    folders(page: ${page || 1}, limit: ${limit || 25}) {
+                                      items {
+                                        id
+                                        name
+                                        __typename
+                                      }
+                                      total
+                                      page
+                                      hasNextPage
+                                    }
+                                  }
+                                }
+                              }`;
 
             describe('Retrieve information about a project\'s folders', () => {
                 let scope;
 
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body ) => body.query.replace(/\s/g, '') === buildQl().replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 workspaceProject: {
                                     browse: {
                                         folders: {
-                                            items: 'items'
+                                            items: 'items',
+                                            total: 'total',
+                                            page: 'page',
+                                            hasNextPage: 'hasNextPage'
                                         }
                                     }
                                 }
@@ -1127,7 +1383,50 @@ describe(`${Config.label} API Tests`, () => {
 
                 it('should return the correct response', async () => {
                     const projectFolders = await api.listProjectFolders({ projectId: 'projectId' });
-                    expect(projectFolders).toEqual({ folders: 'items' });
+                    expect(projectFolders).toEqual({
+                        items: 'items',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Retrieve information about a project\'s folders using pagination', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === buildQl(2, 8).replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                workspaceProject: {
+                                    browse: {
+                                        folders: {
+                                            items: 'items',
+                                            total: 'total',
+                                            page: 'page',
+                                            hasNextPage: 'hasNextPage'
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                });
+
+                it('should return the correct response', async () => {
+                    const projectFolders = await api.listProjectFolders({
+                        projectId: 'projectId',
+                        page: 2,
+                        limit: 8
+                    });
+                    expect(projectFolders).toEqual({
+                        items: 'items',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -1136,7 +1435,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     nock(baseUrl)
-                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body ) => body.query.replace(/\s/g, '') === buildQl().replace(/\s/g, ''))
                         .reply(200, {
                             errors: [
                                 {
@@ -1168,35 +1467,42 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#listLibraryAssets', () => {
-            const ql = `query LibraryAssets {
-                           library(id: "libraryId") {
-                             assets {
-                               items {
-                                 id
-                                 title
-                                 description
-                                 tags {
-                                   source
-                                   value
-                                 }
-                                 __typename
-                                 ${api._filesQuery()}
-                               }
-                             }
-                           }
-                         }`;
+            const buildQl = (page, limit) => `
+                              query LibraryAssets {
+                                library(id: "libraryId") {
+                                  assets(page: ${page || 1}, limit: ${limit || 25}) {
+                                    items {
+                                      id
+                                      title
+                                      description
+                                      tags {
+                                        source
+                                        value
+                                      }
+                                      __typename
+                                      ${api._filesQuery()}
+                                    }
+                                    total
+                                    page
+                                    hasNextPage
+                                  }
+                                }
+                              }`;
 
             describe('Retrieve information about a library\'s assets', () => {
                 let scope;
 
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body ) => body.query.replace(/\s/g, '') === buildQl().replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 library: {
                                     assets: {
-                                        items: 'items'
+                                        items: 'items',
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
                                     }
                                 }
                             }
@@ -1205,7 +1511,48 @@ describe(`${Config.label} API Tests`, () => {
 
                 it('should return the correct response', async () => {
                     const libraryAssets = await api.listLibraryAssets({ libraryId: 'libraryId' });
-                    expect(libraryAssets).toEqual({ assets: 'items' });
+                    expect(libraryAssets).toEqual({
+                        items: 'items',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Retrieve information about a library\'s assets using pagination', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === buildQl(20, 100).replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                library: {
+                                    assets: {
+                                        items: 'items',
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
+                                    }
+                                }
+                            }
+                        });
+                });
+
+                it('should return the correct response', async () => {
+                    const libraryAssets = await api.listLibraryAssets({
+                        libraryId: 'libraryId',
+                        page: 20,
+                        limit: 100
+                    });
+                    expect(libraryAssets).toEqual({
+                        items: 'items',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -1214,7 +1561,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     nock(baseUrl)
-                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body ) => body.query.replace(/\s/g, '') === buildQl().replace(/\s/g, ''))
                         .reply(200, {
                             errors: [
                                 {
@@ -1246,34 +1593,41 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#listLibraryFolders', () => {
-            const ql = `query LibraryFolders {
-                           library(id: "libraryId") {
-                             browse {
-                               folders {
-                                 items {
-                                   id
-                                   name
-                                   createdAt
-                                   modifiedAt
-                                   __typename
-                                 }
-                               }
-                             }
-                           }
-                         }`;
+            const buildQl = (page, limit) => `
+                              query LibraryFolders {
+                                library(id: "libraryId") {
+                                  browse {
+                                    folders(page: ${page || 1}, limit: ${limit || 25}) {
+                                      items {
+                                        id
+                                        name
+                                        createdAt
+                                        modifiedAt
+                                        __typename
+                                      }
+                                      total
+                                      page
+                                      hasNextPage
+                                    }
+                                  }
+                                }
+                              }`;
 
             describe('Retrieve information about a library\'s folders', () => {
                 let scope;
 
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body ) => body.query.replace(/\s/g, '') === buildQl().replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 library: {
                                     browse: {
                                         folders: {
-                                            items: 'items'
+                                            items: 'items',
+                                            total: 'total',
+                                            page: 'page',
+                                            hasNextPage: 'hasNextPage'
                                         }
                                     }
                                 }
@@ -1283,7 +1637,50 @@ describe(`${Config.label} API Tests`, () => {
 
                 it('should return the correct response', async () => {
                     const libraryFolders = await api.listLibraryFolders({ libraryId: 'libraryId' });
-                    expect(libraryFolders).toEqual({ folders: 'items' });
+                    expect(libraryFolders).toEqual({
+                        items: 'items',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Retrieve information about a library\'s folders using pagination', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body ) => body.query.replace(/\s/g, '') === buildQl(15, 25).replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                library: {
+                                    browse: {
+                                        folders: {
+                                            items: 'items',
+                                            total: 'total',
+                                            page: 'page',
+                                            hasNextPage: 'hasNextPage'
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                });
+
+                it('should return the correct response', async () => {
+                    const libraryFolders = await api.listLibraryFolders({
+                        libraryId: 'libraryId',
+                        page: 15,
+                        limit: 25
+                    });
+                    expect(libraryFolders).toEqual({
+                        items: 'items',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -1292,7 +1689,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     nock(baseUrl)
-                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body ) => body.query.replace(/\s/g, '') === buildQl().replace(/\s/g, ''))
                         .reply(200, {
                             errors: [
                                 {
@@ -1324,60 +1721,64 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#searchInBrand', () => {
-            const ql = `query BrandLevelSearch {
-                          brand(id: "brandId") {
-                            id
-                            name
-                            search(page: 1, limit: limit, query: {term: "term"}) {
-                              total
-                              edges {
-                                title
-                                node {
-                                  ... on Asset {
-                                    id,
-                                  modifiedAt,
-                                  description,
-                                  createdAt,
-                                  tags {
-                                    source,
-                                    value,
-                                  },
-                                  metadataValues {
-                                    id
-                                  },
-                                    externalId,
-                                    title,
-                                    status,
-                                    __typename,
-                                    creator {
-                                      id,
-                                      name,
-                                      email
+            const buildQl = (page, limit) => `
+                              query BrandLevelSearch {
+                                brand(id: "brandId") {
+                                  id
+                                  name
+                                  search(page: ${page || 1}, limit: ${limit || 25}, query: {term: "term"}) {
+                                    edges {
+                                      title
+                                      node {
+                                        ... on Asset {
+                                          id,
+                                        modifiedAt,
+                                        description,
+                                        createdAt,
+                                        tags {
+                                          source,
+                                          value,
+                                        },
+                                        metadataValues {
+                                          id
+                                        },
+                                          externalId,
+                                          title,
+                                          status,
+                                          __typename,
+                                          creator {
+                                            id,
+                                            name,
+                                            email
+                                          }
+
+                                        },
+                                        ${api._filesQuery()}
+                                      }
                                     }
-
-                                  },
-                                  ${api._filesQuery()}
-
+                                    total
+                                    page
+                                    hasNextPage
+                                  }
                                 }
-                              }
-                            }
-                          }
-                        }`;
+                              }`;
 
             describe('Retrieve information when searching in Brand', () => {
                 let scope;
 
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === buildQl().replace(/\s/g, ''))
                         .reply(200, {
                             data: {
                                 brand: {
                                     id: "eyJpZGVudGlmaWVyIjoxLCJ0eXBlIjoiYnJhbmQifQ==",
                                     name: "Left Hook",
                                     search: {
-                                        total: 1,
-                                        edges: 'edges'
+                                        edges: 'edges',
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
                                     }
                                 }
                             }
@@ -1387,12 +1788,57 @@ describe(`${Config.label} API Tests`, () => {
                 it('should return the correct response', async () => {
                     const query = {
                         brandId: 'brandId',
-                        limit: 'limit',
                         term: 'term'
                     };
 
                     const results = await api.searchInBrand(query);
-                    expect(results).toEqual({ assets: 'edges' });
+                    expect(results).toEqual({
+                        items: 'edges',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Retrieve information when searching in Brand using pagination', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body) => body.query.replace(/\s/g, '') === buildQl(5, 30).replace(/\s/g, ''))
+                        .reply(200, {
+                            data: {
+                                brand: {
+                                    id: "eyJpZGVudGlmaWVyIjoxLCJ0eXBlIjoiYnJhbmQifQ==",
+                                    name: "Left Hook",
+                                    search: {
+                                        edges: 'edges',
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
+                                    }
+                                }
+                            }
+                        });
+                });
+
+                it('should return the correct response', async () => {
+                    const query = {
+                        brandId: 'brandId',
+                        term: 'term',
+                        page: 5,
+                        limit: 30
+                    };
+
+                    const results = await api.searchInBrand(query);
+                    expect(results).toEqual({
+                        items: 'edges',
+                        total: 'total',
+                        page: 'page',
+                        hasNextPage: 'hasNextPage'
+                    });
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -1401,7 +1847,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 beforeEach(() => {
                     nock(baseUrl)
-                        .post('', (body) => body.query.replace(/\s/g, '') === ql.replace(/\s/g, ''))
+                        .post('', (body ) => body.query.replace(/\s/g, '') === buildQl().replace(/\s/g, ''))
                         .reply(200, {
                             errors: [
                                 {
@@ -1427,7 +1873,6 @@ describe(`${Config.label} API Tests`, () => {
                 it('should handle error', () => {
                     const query = {
                         brandId: 'brandId',
-                        limit: 'limit',
                         term: 'term'
                     };
 
@@ -1564,46 +2009,54 @@ describe(`${Config.label} API Tests`, () => {
         });
 
         describe('#getSubFolderContent', () => {
-            const qlFolders = `query FolderById {
-                                  node(id: "subFolderId") {
-                                    ... on Folder {
-                                      name
-                                      folders {
-                                        items {
-                                          id
-                                          name
-                                          __typename
-                                        }
-                                      }
-                                    }
-                                  }
-                                }`;
+            const buildQlFolders = (page, limit) => `
+                                     query FolderById {
+                                       node(id: "subFolderId") {
+                                         ... on Folder {
+                                           name
+                                           folders(page: ${page || 1}, limit: ${limit || 25}) {
+                                             items {
+                                               id
+                                               name
+                                               __typename
+                                             }
+                                             total
+                                             page
+                                             hasNextPage
+                                           }
+                                         }
+                                       }
+                                     }`;
 
-            const qlAssets = `query FolderById {
-                                  node(id: "subFolderId") {
-                                    ... on Folder {
-                                      name
-                                      assets {
-                                        items {
-                                          id
-                                          title
-                                          tags {
-                                            source
-                                            value
+            const buildQlAssets = (page, limit) => `
+                                    query FolderById {
+                                      node(id: "subFolderId") {
+                                        ... on Folder {
+                                          name
+                                          assets(page: ${page || 1}, limit: ${limit || 25}) {
+                                            items {
+                                              id
+                                              title
+                                              tags {
+                                                source
+                                                value
+                                              }
+                                              __typename
+                                              ${api._filesQuery()}
+                                            }
+                                            total
+                                            page
+                                            hasNextPage
                                           }
-                                          __typename
-                                          ${api._filesQuery()}
                                         }
                                       }
-                                    }
-                                  }
-                                }`;
+                                    }`;
 
             describe('Get subfolder assets', () => {
                 let scope;
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body) => body.query.replace(/\s/g, '') === qlAssets.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === buildQlAssets().replace(/\s/g, ''))
                         .reply(200, {
                             "data": {
                                 "node": {
@@ -1626,7 +2079,10 @@ describe(`${Config.label} API Tests`, () => {
                                                 "width": 128,
                                                 "height": 128
                                             }
-                                        ]
+                                        ],
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
                                     }
                                 }
                             },
@@ -1639,13 +2095,73 @@ describe(`${Config.label} API Tests`, () => {
                 it('should return the correct response', async () => {
                     const query = {
                         subFolderId: 'subFolderId',
-                        limit: 'limit',
                         term: 'term'
                     };
 
                     const results = await api.listSubFolderAssets(query);
-                    expect(results).toHaveProperty('assets');
-                    expect(results.assets).toHaveLength(2);
+                    expect(results).toHaveProperty('items');
+                    expect(results.items).toHaveLength(2);
+                    expect(results.total).toEqual('total');
+                    expect(results.page).toEqual('page');
+                    expect(results.hasNextPage).toEqual('hasNextPage');
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Get subfolder assets using pagination', () => {
+                let scope;
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body) => body.query.replace(/\s/g, '') === buildQlAssets(2, 4).replace(/\s/g, ''))
+                        .reply(200, {
+                            "data": {
+                                "node": {
+                                    "name": "Libfolder",
+                                    "assets": {
+                                        "items": [
+                                            {
+                                                "id": "eyJpZGVudGlmaWVyIjoxOSwidHlwZSI6ImFzc2V0In0=",
+                                                "title": "FriggbyLeftHookLogoJuly2022",
+                                                "__typename": "Image",
+                                                "previewUrl": "https://cdn-assets-us.frontify.com/s3/frontify-enterprise-files-us/eyJvYXV0aCI6eyJjbGllbnRfaWQiOiJmcm9udGlmeS1leHBsb3JlciJ9LCJwYXRoIjoibGVmdC1ob29rXC9maWxlXC9yNXpkZDQ5djJFaFg4QjZMbW1Rdi5zdmcifQ:left-hook:2ecHvM3WRlNvkinOWJXvxhYK0QBHNwaSiyioQ3ORC_s",
+                                                "width": 400,
+                                                "height": 202
+                                            },
+                                            {
+                                                "id": "eyJpZGVudGlmaWVyIjoxOCwidHlwZSI6ImFzc2V0In0=",
+                                                "title": "custom_avatar-1661205632",
+                                                "__typename": "Image",
+                                                "previewUrl": "https://cdn-assets-us.frontify.com/s3/frontify-enterprise-files-us/eyJvYXV0aCI6eyJjbGllbnRfaWQiOiJmcm9udGlmeS1leHBsb3JlciJ9LCJwYXRoIjoibGVmdC1ob29rXC9maWxlXC95ZFR1TDlwVnJUUks2d0tvUlROYS5wbmcifQ:left-hook:PMD4S_9gflsrMNEBDNHxwxQqHlgHaCjrZFiGML8AHU0",
+                                                "width": 128,
+                                                "height": 128
+                                            }
+                                        ],
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
+                                    }
+                                }
+                            },
+                            "extensions": {
+                                "complexityScore": 0
+                            }
+                        });
+                });
+
+                it('should return the correct response', async () => {
+                    const query = {
+                        subFolderId: 'subFolderId',
+                        term: 'term',
+                        page: 2,
+                        limit: 4
+                    };
+
+                    const results = await api.listSubFolderAssets(query);
+                    expect(results).toHaveProperty('items');
+                    expect(results.items).toHaveLength(2);
+                    expect(results.total).toEqual('total');
+                    expect(results.page).toEqual('page');
+                    expect(results.hasNextPage).toEqual('hasNextPage');
                     expect(scope.isDone()).toBe(true);
                 });
             });
@@ -1654,7 +2170,7 @@ describe(`${Config.label} API Tests`, () => {
                 let scope;
                 beforeEach(() => {
                     scope = nock(baseUrl)
-                        .post('', (body) => body.query.replace(/\s/g, '') === qlFolders.replace(/\s/g, ''))
+                        .post('', (body) => body.query.replace(/\s/g, '') === buildQlFolders().replace(/\s/g, ''))
                         .reply(200, {
                             "data": {
                                 "node": {
@@ -1671,7 +2187,10 @@ describe(`${Config.label} API Tests`, () => {
                                                 "name": "FolderName2",
                                                 "__typename": "SubFolder"
                                             }
-                                        ]
+                                        ],
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
                                     }
                                 }
                             },
@@ -1684,13 +2203,67 @@ describe(`${Config.label} API Tests`, () => {
                 it('should return the correct response', async () => {
                     const query = {
                         subFolderId: 'subFolderId',
-                        limit: 'limit',
                         term: 'term'
                     };
 
                     const results = await api.listSubFolderFolders(query);
-                    expect(results).toHaveProperty('folders');
-                    expect(results.folders).toHaveLength(2);
+                    expect(results).toHaveProperty('items');
+                    expect(results.items).toHaveLength(2);
+                    expect(results.total).toEqual('total');
+                    expect(results.page).toEqual('page');
+                    expect(results.hasNextPage).toEqual('hasNextPage');
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
+
+            describe('Get subfolder folders using pagination', () => {
+                let scope;
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('', (body) => body.query.replace(/\s/g, '') === buildQlFolders(3, 6).replace(/\s/g, ''))
+                        .reply(200, {
+                            "data": {
+                                "node": {
+                                    "name": "Libfolder",
+                                    "folders": {
+                                        "items": [
+                                            {
+                                                "id": "folderId",
+                                                "name": "FolderName",
+                                                "__typename": "SubFolder"
+                                            },
+                                            {
+                                                "id": "folderId2",
+                                                "name": "FolderName2",
+                                                "__typename": "SubFolder"
+                                            }
+                                        ],
+                                        total: 'total',
+                                        page: 'page',
+                                        hasNextPage: 'hasNextPage'
+                                    }
+                                }
+                            },
+                            "extensions": {
+                                "complexityScore": 0
+                            }
+                        });
+                });
+
+                it('should return the correct response', async () => {
+                    const query = {
+                        subFolderId: 'subFolderId',
+                        term: 'term',
+                        page: 3,
+                        limit: 6
+                    };
+
+                    const results = await api.listSubFolderFolders(query);
+                    expect(results).toHaveProperty('items');
+                    expect(results.items).toHaveLength(2);
+                    expect(results.total).toEqual('total');
+                    expect(results.page).toEqual('page');
+                    expect(results.hasNextPage).toEqual('hasNextPage');
                     expect(scope.isDone()).toBe(true);
                 });
             });
