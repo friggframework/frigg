@@ -1174,7 +1174,7 @@ describe(`${Config.label} API Tests`, () => {
 
                 it('should return the correct response', async () => {
                     const collections = await api.listCollections({ libraryId: 'libraryId' });
-                    expect(collections).toEqual({ id: 'id', name: 'Test collection', __typename: 'Collection' });
+                    expect(collections.items).toEqual({ id: 'id', name: 'Test collection', __typename: 'Collection' });
                     expect(scope.isDone()).toBe(true);
                 });
             });
