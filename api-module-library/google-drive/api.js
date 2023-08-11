@@ -96,6 +96,7 @@ class Api extends OAuth2Requester {
             query: {
                 alt: 'media',
             },
+            returnFullRes: true,
         };
         return this._get(options);
     }
