@@ -92,6 +92,7 @@ class Api extends OAuth2Requester {
 
     async getFileData(fileId) {
         // Return full response to have access to stream in response.body
+        // thanks to alt=media query param
         const options = {
             url: this.baseUrl + this.URLs.fileById(fileId),
             query: {
