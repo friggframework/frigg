@@ -1,3 +1,20 @@
+# v1.0.1 (Mon Aug 14 2023)
+
+#### 🐛 Bug Fix
+
+- Fix/ List Collections items prop removed [#212](https://github.com/friggframework/frigg/pull/212) ([@msalvatti](https://github.com/msalvatti))
+- Fix/ListCollections test fixed ([@msalvatti](https://github.com/msalvatti))
+- Fix/ListCollections Frontify test fixed ([@msalvatti](https://github.com/msalvatti))
+- Fix/ List Collections items prop removed ([@msalvatti](https://github.com/msalvatti))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.0.0 (Tue Aug 08 2023)
 
 #### 💥 Breaking Change
