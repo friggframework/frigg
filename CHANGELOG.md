@@ -1,3 +1,17 @@
+# (Mon Aug 14 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-google-drive@0.0.11`
+  - Push comment hoping for module to be released! [#214](https://github.com/friggframework/frigg/pull/214) ([@roboli](https://github.com/roboli))
+  - Return full response when fetching file [ci skip] [#213](https://github.com/friggframework/frigg/pull/213) ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
 # (Tue Aug 08 2023)
 
 #### 💥 Breaking Change
