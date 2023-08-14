@@ -310,7 +310,7 @@ class Api extends OAuth2Requester {
 
       const response = await this._post(this.buildRequestOptions(ql));
       this.assertResponse(response);
-      return response.data.library.collections.items;
+      return response.data.library.collections;
   }
 
     async listProjectAssets(query) {
