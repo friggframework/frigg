@@ -45,6 +45,7 @@ class Api extends OAuth2Requester {
             postEphemeral: '/chat.postEphemeral',
             updateMessage: '/chat.update',
             deleteMessage: '/chat.delete',
+            postUnfurl: '/chat.unfurl',
 
             // Files
             getFile: '/files.info', // Gets information about a file.
@@ -233,6 +234,15 @@ class Api extends OAuth2Requester {
     async postMessage(body) {
         const options = {
             url: this.baseUrl + this.URLs.postMessage,
+            body,
+        };
+        const response = await this._post(options);
+        return response;
+    }
+
+    async postUnfurl(body) {
+        const options = {
+            url: this.baseUrl + this.URLs.postUnfurl,
             body,
         };
         const response = await this._post(options);
