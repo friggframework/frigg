@@ -48,7 +48,10 @@ class Api extends OAuth2Requester {
             blogPosts: '/cms/v3/blogs/posts',
             landingPageById: (landingPageId) => `/cms/v3/pages/landing-pages/${landingPageId}`,
             sitePageById: (sitePageId) => `/cms/v3/pages/site-pages/${sitePageId}`,
-            blogPostById: (blogPostId) => `/cms/v3/blogs/posts/${blogPostId}`
+            blogPostById: (blogPostId) => `/cms/v3/blogs/posts/${blogPostId}`,
+            emailTemplates: '/content/api/v2/templates',
+            emailTemplateById: (templateId) => `/content/api/v2/templates/${templateId}`,
+            
         };
 
         this.authorizationUri = encodeURI(
@@ -820,6 +823,58 @@ class Api extends OAuth2Requester {
             }
         };
         return this._post(options);
+    }
+
+    // ***********************   Email Templates   **************************
+
+    async getEmailTemplates(query=''){
+        const options = {
+            url: `${this.baseUrl}${this.URLs.emailTemplates}`,
+        };
+        if (query !== '') {
+            options.url = `${options.url}?${query}`
+        }
+        return this._get(options);
+    }
+
+    async getEmailTemplate(id){
+        const options = {
+            url: `${this.baseUrl}${this.URLs.emailTemplateById(id)}`,
+        };
+        return this._get(options);
+    }
+
+    async updateEmailTemplate(objId, body) {
+        const options = {
+            url: `${this.baseUrl}${this.URLs.emailTemplateById(objId)}`,
+            body: body,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+
+            }
+        };
+        return this._put(options);
+    }
+
+    async createEmailTemplate(body) {
+        const options = {
+            url: `${this.baseUrl}${this.URLs.emailTemplates}`,
+            body: body,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+
+            }
+        };
+        return this._post(options);
+    }
+
+    async deleteEmailTemplate(id){
+        const options = {
+            url: `${this.baseUrl}${this.URLs.emailTemplateById(id)}`,
+        };
+        return this._delete(options);
     }
 
     // **************************   Other/All   **********************************
