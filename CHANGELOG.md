@@ -1,3 +1,16 @@
+# (Mon Aug 21 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-hubspot@0.8.31`
+  - HubSpot - add crud methods for Email Templates [#216](https://github.com/friggframework/frigg/pull/216) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 1
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+
+---
+
 # (Mon Aug 14 2023)
 
 #### 🐛 Bug Fix
