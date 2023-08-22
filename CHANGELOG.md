@@ -1,3 +1,16 @@
+# (Tue Aug 22 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.36`
+  - Add link unfurling endpoint [#215](https://github.com/friggframework/frigg/pull/215) ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 1
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
 # (Mon Aug 21 2023)
 
 #### 🐛 Bug Fix

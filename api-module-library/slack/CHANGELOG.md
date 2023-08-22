@@ -1,3 +1,18 @@
+# v0.1.36 (Tue Aug 22 2023)
+
+#### 🐛 Bug Fix
+
+- Add link unfurling endpoint [#215](https://github.com/friggframework/frigg/pull/215) ([@leofmds](https://github.com/leofmds))
+- Add link unfurling endpoint ([@leofmds](https://github.com/leofmds))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.1.35 (Thu Jun 08 2023)
 
 #### 🐛 Bug Fix
