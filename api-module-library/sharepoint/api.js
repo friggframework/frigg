@@ -35,7 +35,7 @@ class Api extends OAuth2Requester {
                 `/drives/${driveId}/root/search(q='${query}')?top=20&$select=id,image,name,file,parentReference,size,lastModifiedDateTime,@microsoft.graph.downloadUrl&$filter=`,
             uploadFile: ({ driveId, childId, filename }) =>
                 `/drives/${driveId}/items/${childId}:/${filename}:/content`,
-            createUploadSession: ({ driveId, childId,filename }) =>
+            createUploadSession: ({ driveId, childId, filename }) =>
                 `/drives/${driveId}/${childId}:/${filename}:/createUploadSession`
         };
 
@@ -125,6 +125,36 @@ class Api extends OAuth2Requester {
 
         const response = await this._get(options);
         return response;
+    }
+
+    async graphSearchQuery(query) {
+        const organizationId = query.organizationId;
+        const fileExtension = query.filter?.fileTypes;
+
+        let formattedTypes = '';
+        if (fileExtension) formattedTypes = fileExtension.map(type => `filetype:${type}`).join(' OR ');
+
+        const options = {
+            url: `${this.baseUrl}/search/query`,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: {
+                "requests": [
+                    {
+                        "entityTypes": [
+                            "driveItem"
+                        ],
+                        "query": {
+                            "queryString": `${query.query} driveId:${organizationId} ${formattedTypes}`
+                        },
+                        "from": `${query.nextPage || 0}`,
+                        "size": `${query.limit || 25}`
+                    }
+                ]
+            },
+        };
+        return await this._post(options);
     }
 
     async getFile(query) {

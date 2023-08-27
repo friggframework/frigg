@@ -1493,6 +1493,8 @@ describe(`${Config.label} API Tests`, () => {
                 let scope;
 
                 beforeEach(() => {
+
+                    console.log(buildQl())
                     scope = nock(baseUrl)
                         .post('', (body ) => body.query.replace(/\s/g, '') === buildQl().replace(/\s/g, ''))
                         .reply(200, {
