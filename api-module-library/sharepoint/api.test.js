@@ -374,6 +374,32 @@ describe(`${Config.label} API Tests`, () => {
                     expect(scope.isDone()).toBe(true);
                 });
             });
+
+            describe('Perform a graphSearchQuery', () => {
+                let scope;
+
+                beforeEach(() => {
+                    scope = nock(baseUrl)
+                        .post('/search/query')
+                        .reply(200, {
+                            results: 'results'
+                        });
+                });
+
+                it('should hit the correct endpoint', async () => {
+                    const query = {
+                        organizationId: 'driveId',
+                        query: 'query',
+                        filter: {
+                            fileTypes: ['jpg']
+                        }
+                    };
+
+                    const results = await api.graphSearchQuery(query);
+                    expect(results).toEqual({ results: 'results' });
+                    expect(scope.isDone()).toBe(true);
+                });
+            });
         });
 
         describe('#getFile', () => {
