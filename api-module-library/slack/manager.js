@@ -9,7 +9,7 @@ const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
 const { ConfigFields } = require('./authFields');
 const Config = require('./defaultConfig.json');
-const { IntegrationMapping } = require('./models/integrationMapping')
+const { IntegrationMapping } = require('./models/integrationMapping');
 
 class Manager extends ModuleManager {
     static Entity = Entity;
@@ -99,7 +99,6 @@ class Manager extends ModuleManager {
         const name = get(params, 'name', null);
 
         const search = await Entity.find({
-            user: this.userId,
             externalId,
         });
         if (search.length === 0) {
@@ -107,7 +106,7 @@ class Manager extends ModuleManager {
             // create entity
             const createObj = {
                 credential: this.credential.id,
-                user: this.userId,
+                user: this?.userId,
                 name,
                 externalId,
             };
@@ -119,7 +118,9 @@ class Manager extends ModuleManager {
                 'Multiple entities found with the same external ID:',
                 externalId
             );
-            this.throwException('');
+            throw new Error(
+                'Multiple entities found with the same external ID'
+            );
         }
     }
 
@@ -136,68 +137,59 @@ class Manager extends ModuleManager {
     }
 
     async receiveNotification(notifier, delegateString, object = null) {
-        if (notifier instanceof Api) {
-            if (delegateString === this.api.DLGT_TOKEN_UPDATE) {
-                const updatedToken = {
-                    user: this.userId.toString(),
-                    access_token: this.api.access_token,
-                    refresh_token: this.api.refresh_token,
-                    auth_is_valid: true,
-                };
-
-                Object.keys(updatedToken).forEach(
-                    (k) => updatedToken[k] == null && delete updatedToken[k]
-                );
-
-                if (!this.credential) {
-                    let credentialSearch = await Credential.find({
-                        user: this.userId.toString(),
-                    });
-                    if (credentialSearch.length === 0) {
-                        this.credential = await Credential.create(updatedToken);
-                    } else if (credentialSearch.length === 1) {
-                        this.credential = await Credential.findOneAndUpdate(
-                            { _id: credentialSearch[0] },
-                            { $set: updatedToken },
-                            { useFindAndModify: true, new: true }
-                        );
-                    } else {
-                        // Handling multiple credentials found with an error for the time being
-                        debug(
-                            'Multiple credentials found with the same client ID:'
-                        );
-                    }
-                } else {
-                    this.credential = await Credential.findOneAndUpdate(
-                        { _id: this.credential },
-                        { $set: updatedToken },
-                        { useFindAndModify: true, new: true }
-                    );
-                }
-            }
-            if (delegateString === this.api.DLGT_TOKEN_DEAUTHORIZED) {
-                await this.deauthorize();
-            }
-            if (delegateString === this.api.DLGT_INVALID_AUTH) {
-                return this.markCredentialsInvalid();
-            }
+        if (!(notifier instanceof Api)) {
+            // no-op
+        } else if (delegateString === this.api.DLGT_TOKEN_UPDATE) {
+            await this.updateOrCreateCredential();
+        } else if (delegateString === this.api.DLGT_TOKEN_DEAUTHORIZED) {
+            await this.deauthorize();
+        } else if (delegateString === this.api.DLGT_INVALID_AUTH) {
+            await this.markCredentialsInvalid();
         }
     }
 
+    async updateOrCreateCredential() {
+        const workspaceInfo = await this.api.authTest();
+        const externalId = get(workspaceInfo, 'team_id');
+        const updatedToken = {
+            access_token: this.api.access_token,
+            refresh_token: this.api.refresh_token,
+            externalId,
+            auth_is_valid: true,
+        };
+
+        // search for a credential for this externalId
+        // skip if we already have a credential
+        if (!this.credential) {
+            const credentialSearch = await Credential.find({ externalId });
+            if (credentialSearch.length > 1) {
+                debug(
+                    `Multiple credentials found with same externalId: ${externalId}`
+                );
+            } else if (credentialSearch.length === 1) {
+                // found exactly one credential with this externalId
+                this.credential = credentialSearch[0];
+            } else {
+                // found no credential with this externalId (match none for insert)
+                this.credential = { $exists: false };
+            }
+        }
+        // update credential or create if none was found
+        // NOTE: upsert skips validation
+        this.credential = await Credential.findOneAndUpdate(
+            { _id: this.credential },
+            { $set: updatedToken },
+            { useFindAndModify: true, new: true, upsert: true }
+        );
+    }
+
     async mark_credentials_invalid() {
-        let credentials = await Credential.find({ user: this.userId });
-        if (credentials.length === 1) {
-            return await Credential.updateOne(
-                { _id: credentials[0]._id },
+        if (this.credential) {
+            return Credential.updateOne(
+                { _id: this.credential },
                 {
                     auth_is_valid: false,
                 }
-            );
-        } else if (credentials.length > 1) {
-            throw new Error('User has multiple credentials???');
-        } else if (credentials.length === 0) {
-            throw new Error(
-                'How are we marking nonexistant credentials invalid???'
             );
         }
     }
