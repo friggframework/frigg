@@ -1,3 +1,17 @@
+# v1.0.2 (Wed Sep 06 2023)
+
+#### 🐛 Bug Fix
+
+- Feature/Add Sharepoint graphSearchQuery function [#217](https://github.com/friggframework/frigg/pull/217) ([@msalvatti](https://github.com/msalvatti))
+- Feature/Sharepoint graphSearchQuery test ([@msalvatti](https://github.com/msalvatti))
+- Feature/Add Sharepoint graphSearchQuery function ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
 # v1.0.1 (Mon Aug 14 2023)
 
 #### 🐛 Bug Fix

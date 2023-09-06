@@ -1,3 +1,16 @@
+# (Wed Sep 06 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@1.0.2`, `@friggframework/api-module-microsoft-sharepoint@0.0.8`
+  - Feature/Add Sharepoint graphSearchQuery function [#217](https://github.com/friggframework/frigg/pull/217) ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
 # (Tue Aug 22 2023)
 
 #### 🐛 Bug Fix
