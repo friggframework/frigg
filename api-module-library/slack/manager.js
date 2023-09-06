@@ -182,17 +182,6 @@ class Manager extends ModuleManager {
             { useFindAndModify: true, new: true, upsert: true }
         );
     }
-
-    async mark_credentials_invalid() {
-        if (this.credential) {
-            return Credential.updateOne(
-                { _id: this.credential },
-                {
-                    auth_is_valid: false,
-                }
-            );
-        }
-    }
 }
 
 module.exports = Manager;
