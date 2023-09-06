@@ -6,7 +6,7 @@ const schema = new mongoose.Schema(
         user: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User',
-            required: true,
+            required: false,
         },
         subType: { type: String },
         auth_is_valid: { type: Boolean },
