@@ -1,5 +1,18 @@
 # (Wed Sep 06 2023)
 
+#### 🚀 Enhancement
+
+- `@friggframework/api-module-slack@0.2.0`, `@friggframework/integrations@1.2.0`, `@friggframework/module-plugin@1.1.0`
+  - Slack lookup by externalId, remove the user requirement from Mongoose DB models [#218](https://github.com/friggframework/frigg/pull/218) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Wed Sep 06 2023)
+
 #### 🐛 Bug Fix
 
 - `@friggframework/api-module-frontify@1.0.2`, `@friggframework/api-module-microsoft-sharepoint@0.0.8`

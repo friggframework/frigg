@@ -1,3 +1,19 @@
+# v1.1.0 (Wed Sep 06 2023)
+
+#### 🚀 Enhancement
+
+- Slack lookup by externalId, remove the user requirement from Mongoose DB models [#218](https://github.com/friggframework/frigg/pull/218) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### 🐛 Bug Fix
+
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.0.2 (Wed Sep 06 2023)
 
 #### 🐛 Bug Fix
