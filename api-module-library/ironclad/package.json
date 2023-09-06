@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-ironclad",
-    "version": "0.0.38",
+    "version": "0.1.0",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -24,7 +24,7 @@
     },
     "dependencies": {
         "@friggframework/assertions": "^1.0.8",
-        "@friggframework/module-plugin": "^1.0.27"
+        "@friggframework/module-plugin": "^1.1.0"
     },
     "publishConfig": {
         "access": "public"

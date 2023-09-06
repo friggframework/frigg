@@ -1,6 +1,6 @@
 {
   "name": "@friggframework/types",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "FriggFramework type declarations",
   "types": "index.d.ts",
   "author": "Charef Bahria",
@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@friggframework/assertions": "^1.0.7",
-    "@friggframework/integrations": "^1.1.4",
+    "@friggframework/integrations": "^1.2.0",
     "lodash": "^4.17.21",
     "lodash.get": "^4.4.2"
   },
