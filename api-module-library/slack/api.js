@@ -235,6 +235,9 @@ class Api extends OAuth2Requester {
         const options = {
             url: this.baseUrl + this.URLs.postMessage,
             body,
+            headers: {
+                'Content-Type': 'application/json; charset=utf-8'
+            }
         };
         const response = await this._post(options);
         return response;
@@ -288,6 +291,9 @@ class Api extends OAuth2Requester {
         const options = {
             url: this.baseUrl + this.URLs.updateMessage,
             body,
+            headers: {
+                'Content-Type': 'application/json; charset=utf-8'
+            }
         };
         const response = await this._post(options);
         return response;
@@ -301,6 +307,9 @@ class Api extends OAuth2Requester {
         const options = {
             url: this.baseUrl + this.URLs.deleteMessage,
             body,
+            headers: {
+                'Content-Type': 'application/json; charset=utf-8'
+            }
         };
         const response = await this._post(options);
         return response;
@@ -513,6 +522,9 @@ class Api extends OAuth2Requester {
         const options = {
             url: this.baseUrl + this.URLs.openView,
             body,
+            headers: {
+                'Content-Type': 'application/json; charset=utf-8'
+            }
         };
         const response = await this._post(options);
         return response;
@@ -523,6 +535,9 @@ class Api extends OAuth2Requester {
         const options = {
             url: this.baseUrl + this.URLs.updateView,
             body,
+            headers: {
+                'Content-Type': 'application/json; charset=utf-8'
+            }
         };
         const response = await this._post(options);
         return response;
@@ -533,6 +548,9 @@ class Api extends OAuth2Requester {
         const options = {
             url: this.baseUrl + this.URLs.pushView,
             body,
+            headers: {
+                'Content-Type': 'application/json; charset=utf-8'
+            }
         };
         const response = await this._post(options);
         return response;
