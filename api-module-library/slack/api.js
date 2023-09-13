@@ -14,6 +14,7 @@ class Api extends OAuth2Requester {
         // this.client_id = get(params, 'client_id');
         // this.client_secret = get(params, 'client_secret');
         this.scope = process.env.SLACK_SCOPE;
+        this.user_scope = process.env.SLACK_USER_SCOPE || '';
         this.redirect_uri = get(
             params,
             'redirect_uri',
@@ -144,7 +145,7 @@ class Api extends OAuth2Requester {
 
     async getAuthUri() {
         const authUri = encodeURI(
-            `${this.URLs.authorize}?state=&client_id=${this.client_id}&scope=${this.scope}&redirect_uri=${this.redirect_uri}`
+            `${this.URLs.authorize}?state=${this.state}&client_id=${this.client_id}&scope=${this.scope}&user_scope=${this.user_scope}&redirect_uri=${this.redirect_uri}`
         );
         return authUri;
     }
