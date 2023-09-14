@@ -1,3 +1,16 @@
+# (Thu Sep 14 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.2.1`
+  - Fix/Add headers charset [#219](https://github.com/friggframework/frigg/pull/219) ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
 # (Wed Sep 06 2023)
 
 #### 🚀 Enhancement

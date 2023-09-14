@@ -1,3 +1,16 @@
+# v0.2.1 (Thu Sep 14 2023)
+
+#### 🐛 Bug Fix
+
+- Fix/Add headers charset [#219](https://github.com/friggframework/frigg/pull/219) ([@msalvatti](https://github.com/msalvatti))
+- Fix/Add headers charset ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
 # v0.2.0 (Wed Sep 06 2023)
 
 #### 🚀 Enhancement
