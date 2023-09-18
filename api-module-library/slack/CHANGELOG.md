@@ -1,3 +1,18 @@
+# v0.2.2 (Mon Sep 18 2023)
+
+#### 🐛 Bug Fix
+
+- Add state and user_scope variables to Slack auth URI [#220](https://github.com/friggframework/frigg/pull/220) ([@leofmds](https://github.com/leofmds))
+- Add state and user_scope variables to Slack auth URI ([@leofmds](https://github.com/leofmds))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.2.1 (Thu Sep 14 2023)
 
 #### 🐛 Bug Fix
