@@ -10,6 +10,7 @@ const { Credential } = require('./models/credential');
 const { ConfigFields } = require('./authFields');
 const Config = require('./defaultConfig.json');
 const { IntegrationMapping } = require('./models/integrationMapping');
+const moment = require("moment/moment");
 
 class Manager extends ModuleManager {
     static Entity = Entity;
@@ -64,9 +65,9 @@ class Manager extends ModuleManager {
         const code = get(params.data, 'code', null);
 
         // For OAuth2, generate the token and store in this.credential and the DB
-
+        let authInfo;
         try {
-            await this.api.getTokenFromCode(code);
+            authInfo = await this.api.getTokenFromCode(code);
         } catch (e) {
             flushDebugLog(e);
             throw new Error('Auth Error');
@@ -74,19 +75,62 @@ class Manager extends ModuleManager {
         const authRes = await this.testAuth();
         if (!authRes) throw new Error('Auth Error');
 
-        // get entity identifying information from the api. You'll need to format this.
-
-        const workspaceInfo = await this.api.authTest();
+        const isUserScopeAuthorized = authInfo.authed_user && authInfo.authed_user.access_token;
+        const teamId = authInfo.team.id;
+        // get entity identifying information from the api. If we have the user access token,
+        // it means we should store it along with their id
+        const externalId = isUserScopeAuthorized ?
+            authInfo.authed_user.id : teamId;
 
         await this.findOrCreateEntity({
-            externalId: workspaceInfo.team_id,
-            name: workspaceInfo.team,
+            externalId: externalId,
+            name: authInfo.team.name,
         });
-        return {
+
+        const returnObj = {
+            type: Manager.getName(),
             credential_id: this.credential.id,
             entity_id: this.entity.id,
-            type: Manager.getName(),
+            team_entity: null,
         };
+
+        if (isUserScopeAuthorized) {
+            const teamEntity = await this.createAndReturnTeamEntity({
+                authInfo,
+                teamId,
+            });
+
+            returnObj.team_entity = teamEntity.id;
+        }
+
+        return returnObj;
+    }
+
+    async createAndReturnTeamEntity({
+        authInfo,
+        teamId,
+    }) {
+        let teamEntity = await Entity.findOne({
+            externalId: teamId
+        });
+        if (!teamEntity) {
+            const credential = await Credential.create({
+                access_token: authInfo.access_token,
+                refresh_token: authInfo.refresh_token || null,
+                externalId: teamId,
+                auth_is_valid: true,
+            });
+
+            // create team entity
+            const createObj = {
+                credential: credential.id,
+                user: 0,
+                name: authInfo.team.name,
+                externalId: teamId,
+            };
+            teamEntity = await Entity.create(createObj);
+        }
+        return teamEntity;
     }
 
     async getEntityOptions() {
@@ -150,7 +194,7 @@ class Manager extends ModuleManager {
 
     async updateOrCreateCredential() {
         const workspaceInfo = await this.api.authTest();
-        const externalId = get(workspaceInfo, 'team_id');
+        const externalId = workspaceInfo['bot_user_id'] ? get(workspaceInfo, 'team_id') : get(workspaceInfo, 'user_id');
         const updatedToken = {
             access_token: this.api.access_token,
             refresh_token: this.api.refresh_token,

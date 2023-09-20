@@ -3,6 +3,7 @@ const qs = require('qs');
 const { OAuth2Requester } = require('@friggframework/module-plugin');
 const { get } = require('@friggframework/assertions');
 const { FetchError } = require('@friggframework/errors');
+const moment = require("moment/moment");
 
 class Api extends OAuth2Requester {
     constructor(params) {
@@ -20,6 +21,7 @@ class Api extends OAuth2Requester {
             `${process.env.REDIRECT_URI}/slack`
         );
         this.access_token = get(params, 'access_token', null);
+        this.team_access_token = get(params, 'access_token', null);
 
         this.URLs = {
             // Auth
@@ -76,6 +78,28 @@ class Api extends OAuth2Requester {
         };
 
         this.tokenUri = this.baseUrl + this.URLs.access_token;
+    }
+
+    async setTokens(params) {
+        this.access_token = get(params, 'access_token');
+        this.team_access_token = get(params, 'access_token');
+        this.refresh_token = get(params, 'refresh_token', null);
+        const authedUser = get(params, 'authed_user', null);
+        const accessExpiresIn = get(params, 'expires_in', null);
+        const refreshExpiresIn = get(
+            params,
+            'x_refresh_token_expires_in',
+            null
+        );
+
+        if (authedUser && authedUser.access_token) {
+            this.access_token = authedUser.access_token;
+        }
+
+        this.accessTokenExpire = moment().add(accessExpiresIn, 'seconds');
+        this.refreshTokenExpire = moment().add(refreshExpiresIn, 'seconds');
+
+        await this.notify(this.DLGT_TOKEN_UPDATE);
     }
 
     async _request(url, options, i = 0) {
