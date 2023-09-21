@@ -82,7 +82,7 @@ class Manager extends ModuleManager {
         const externalId = isUserScopeAuthorized ?
             authInfo.authed_user.id : teamId;
 
-        await this.findOrCreateEntity({
+        await this.findOrCreateUserEntity({
             externalId: externalId,
             name: authInfo.team.name,
         });
@@ -139,7 +139,7 @@ class Manager extends ModuleManager {
         return [];
     }
 
-    async findOrCreateEntity(params) {
+    async findOrCreateUserEntity(params) {
         const externalId = get(params, 'externalId', null);
         const name = get(params, 'name', null);
 
@@ -195,7 +195,8 @@ class Manager extends ModuleManager {
 
     async updateOrCreateCredential() {
         const workspaceInfo = await this.api.authTest();
-        const externalId = workspaceInfo['bot_user_id'] ? get(workspaceInfo, 'team_id') : get(workspaceInfo, 'user_id');
+        const isTeamUser = workspaceInfo['bot_user_id'];
+        const externalId = isTeamUser ? get(workspaceInfo, 'team_id') : get(workspaceInfo, 'user_id');
         const updatedToken = {
             access_token: this.api.access_token,
             refresh_token: this.api.refresh_token,

@@ -21,7 +21,6 @@ class Api extends OAuth2Requester {
             `${process.env.REDIRECT_URI}/slack`
         );
         this.access_token = get(params, 'access_token', null);
-        this.team_access_token = get(params, 'access_token', null);
 
         this.URLs = {
             // Auth
@@ -82,7 +81,6 @@ class Api extends OAuth2Requester {
 
     async setTokens(params) {
         this.access_token = get(params, 'access_token');
-        this.team_access_token = get(params, 'access_token');
         this.refresh_token = get(params, 'refresh_token', null);
         const authedUser = get(params, 'authed_user', null);
         const accessExpiresIn = get(params, 'expires_in', null);
