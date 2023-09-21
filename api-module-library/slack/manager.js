@@ -92,6 +92,7 @@ class Manager extends ModuleManager {
             credential_id: this.credential.id,
             entity_id: this.entity.id,
             team_entity: null,
+            auth_info: authInfo,
         };
 
         if (isUserScopeAuthorized) {
