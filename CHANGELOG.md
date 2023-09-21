@@ -1,3 +1,16 @@
+# (Thu Sep 21 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.2.3`
+  - Add the team entity to Slack if it doesn't exists and return it in pr… [#221](https://github.com/friggframework/frigg/pull/221) ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 1
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
 # (Mon Sep 18 2023)
 
 #### 🐛 Bug Fix

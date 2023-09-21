@@ -1,3 +1,21 @@
+# v0.2.3 (Thu Sep 21 2023)
+
+#### 🐛 Bug Fix
+
+- Add the team entity to Slack if it doesn't exists and return it in pr… [#221](https://github.com/friggframework/frigg/pull/221) ([@leofmds](https://github.com/leofmds))
+- Adding proposed changes ([@leofmds](https://github.com/leofmds))
+- Renaming team_entity to team_entity_id ([@leofmds](https://github.com/leofmds))
+- Returning auth info in Slack processAuthorizationCallback ([@leofmds](https://github.com/leofmds))
+- Add the team entity to Slack if it doesn't exists and return it in processAuthorizationCallback ([@leofmds](https://github.com/leofmds))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.2.2 (Mon Sep 18 2023)
 
 #### 🐛 Bug Fix
