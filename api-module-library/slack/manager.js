@@ -91,7 +91,7 @@ class Manager extends ModuleManager {
             type: Manager.getName(),
             credential_id: this.credential.id,
             entity_id: this.entity.id,
-            team_entity: null,
+            team_entity_id: null,
             auth_info: authInfo,
         };
 
@@ -101,7 +101,7 @@ class Manager extends ModuleManager {
                 teamId,
             });
 
-            returnObj.team_entity = teamEntity.id;
+            returnObj.team_entity_id = teamEntity.id;
         }
 
         return returnObj;
