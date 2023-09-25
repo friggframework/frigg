@@ -1,3 +1,16 @@
+# (Mon Sep 25 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.2.4`
+  - Feature/Add getChannelMembers endpoint [#222](https://github.com/friggframework/frigg/pull/222) ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
 # (Thu Sep 21 2023)
 
 #### 🐛 Bug Fix

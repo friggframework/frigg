@@ -1,3 +1,17 @@
+# v0.2.4 (Mon Sep 25 2023)
+
+#### 🐛 Bug Fix
+
+- Feature/Add getChannelMembers endpoint [#222](https://github.com/friggframework/frigg/pull/222) ([@msalvatti](https://github.com/msalvatti))
+- Fix/Name on channel members test fixed ([@msalvatti](https://github.com/msalvatti))
+- Feature/Add getChannelMembers endpoint ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
 # v0.2.3 (Thu Sep 21 2023)
 
 #### 🐛 Bug Fix
