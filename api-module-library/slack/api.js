@@ -40,6 +40,7 @@ class Api extends OAuth2Requester {
             inviteUsersToChannel: '/conversations.invite',
             renameChannel: '/conversations.rename',
             getChannelHistory: '/conversations.history',
+            getChannelMembers: '/conversations.members',
 
             // Chats
             getMessagePermalink: '/chat.getPermalink',
@@ -528,6 +529,23 @@ class Api extends OAuth2Requester {
         const response = await this._post(options, false);
         return response;
     }
+
+    // Args:
+    // channel: string, required
+    // cursor: string, optional
+    // limit: integer, optional
+    async getChannelMembers(query) {
+        const options = {
+            url: this.baseUrl + this.URLs.getChannelMembers,
+            query,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        };
+        const response = await this._get(options);
+        return response;
+    }
+
     async listChannels(query) {
         const options = {
             url: this.baseUrl + this.URLs.listChannels,
