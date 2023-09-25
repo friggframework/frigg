@@ -86,10 +86,10 @@ describe(`Should fully test the ${config.label} API Class`, () => {
                 expect(history.ok).toBeTruthy();
             });
             it('should return channel members', async () => {
-                const history = await api.getChannelMembers({
+                const members = await api.getChannelMembers({
                     channel: messageChannel
                 });
-                expect(history.ok).toBeTruthy();
+                expect(members.ok).toBeTruthy();
             });
         });
     });
