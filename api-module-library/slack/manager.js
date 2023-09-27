@@ -125,7 +125,7 @@ class Manager extends ModuleManager {
             // create team entity
             const createObj = {
                 credential: credential.id,
-                user: 0,
+                user: null,
                 name: authInfo.team.name,
                 externalId: teamId,
             };
