@@ -27,12 +27,12 @@ schema.static({
             throw new Error('multiple integration mappings with same sourceId');
         }
     },
-    upsert: async function (filter, obj) {
-        return this.findOneAndUpdate(filter, obj, {
-            new: true,
-            upsert: true,
-            setDefaultsOnInsert: true,
-        });
+    upsert: async function (integrationId, sourceId, mapping) {
+        return this.findOneAndUpdate(
+            { integration: integrationId, sourceId },
+            mapping,
+            { new: true, upsert: true, setDefaultsOnInsert: true }
+        );
     },
 });
 

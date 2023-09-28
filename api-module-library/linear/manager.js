@@ -125,8 +125,8 @@ class Manager extends ModuleManager {
             user: this.userId.toString(),
             auth_is_valid: true,
         };
-        if (this.access_token) { updatedToken.access_token = this.access_token};
-        if (this.refresh_token) { updatedToken.refresh_token = this.refresh_token};
+        if (this.api.access_token) { updatedToken.access_token = this.api.access_token};
+        if (this.api.refresh_token) { updatedToken.refresh_token = this.api.refresh_token};
 
         // search for a credential for this user and identifier
         // skip if we already have a credential

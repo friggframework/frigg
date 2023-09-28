@@ -18,6 +18,14 @@ class Api extends OAuth2Requester {
         this.tokenUri = 'https://api.linear.app/oauth/token';
     }
 
+    getClient() {
+        if (!this.client) {
+            this.client = new LinearClient({accessToken: this.access_token});
+        }
+        return this.client;
+    }
+
+
     async getTokenIdentity() {
         const user = await this.getUser();
         const org = await this.getOrganization();
@@ -25,18 +33,15 @@ class Api extends OAuth2Requester {
     }
 
     async getUser() {
-        const client = new LinearClient({accessToken: this.access_token});
-        return client.viewer;
+        return this.getClient().viewer;
     }
 
     async getOrganization() {
-        const client = new LinearClient({accessToken: this.access_token});
-        return client.organization;
+        return this.getClient().organization;
     }
 
     async getUsers() {
-        const client = new LinearClient({accessToken: this.access_token});
-        return (await client.users()).nodes;
+        return (await this.getClient().users()).nodes;
     }
 
     async getUserIssues(user){
@@ -44,8 +49,7 @@ class Api extends OAuth2Requester {
     }
 
     async getProjects(){
-        const client = new LinearClient({accessToken: this.access_token});
-        return (await client.projects()).nodes;
+        return (await this.getClient().projects()).nodes;
     }
 
 }
