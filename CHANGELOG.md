@@ -1,3 +1,19 @@
+# (Thu Sep 28 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@1.1.1`
+  - Fix/Frontify create asset parentId fixed [#224](https://github.com/friggframework/frigg/pull/224) ([@msalvatti](https://github.com/msalvatti))
+- `@friggframework/api-module-slack@0.2.5`
+  - Fix to team entity creation - user should be null instead of 0 [#223](https://github.com/friggframework/frigg/pull/223) ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 2
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
 # (Mon Sep 25 2023)
 
 #### 🐛 Bug Fix

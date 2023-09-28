@@ -1,3 +1,16 @@
+# v0.2.5 (Thu Sep 28 2023)
+
+#### 🐛 Bug Fix
+
+- Fix to team entity creation - user should be null instead of 0 [#223](https://github.com/friggframework/frigg/pull/223) ([@leofmds](https://github.com/leofmds))
+- Fix to team entity creation - user should be null instead of 0 ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 1
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
 # v0.2.4 (Mon Sep 25 2023)
 
 #### 🐛 Bug Fix

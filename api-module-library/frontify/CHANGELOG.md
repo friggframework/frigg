@@ -1,3 +1,16 @@
+# v1.1.1 (Thu Sep 28 2023)
+
+#### 🐛 Bug Fix
+
+- Fix/Frontify create asset parentId fixed [#224](https://github.com/friggframework/frigg/pull/224) ([@msalvatti](https://github.com/msalvatti))
+- Fix/Frontify create asset parentId fixed ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
 # v1.1.0 (Wed Sep 06 2023)
 
 #### 🚀 Enhancement
