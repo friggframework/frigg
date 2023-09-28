@@ -654,7 +654,7 @@ class Api extends OAuth2Requester {
                       createAsset(input: {
                         fileId: "${asset.id}",
                         title: "${asset.title}",
-                        projectId: "${asset.projectId}"
+                        parentId: "${asset.projectId}"
                       }) {
                         job {
                           assetId
