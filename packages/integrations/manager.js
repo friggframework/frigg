@@ -135,6 +135,10 @@ class IntegrationManager extends Delegate {
         );
     }
 
+    async getUserActions() {
+        // override to return dynamic actions
+        return [];
+    }
 }
 
 module.exports = { IntegrationManager };

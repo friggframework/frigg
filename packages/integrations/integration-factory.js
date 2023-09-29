@@ -84,23 +84,7 @@ class IntegrationFactory {
             config,
             version: '0.0.0',
         });
-
-        const instance = await integrationClassDef.getInstance({
-            userId,
-            integrationId: integrationRecord.id,
-        });
-        instance.record = integrationRecord;
-        instance.delegateTypes.push(...integrationClassDef.Config.events);
-        instance.primary = await this.moduleFactory.getModuleInstanceFromEntityId(
-            instance.record.entities[0],
-            instance.record.user
-        );
-        instance.target = await this.moduleFactory.getModuleInstanceFromEntityId(
-            instance.record.entities[1],
-            instance.record.user
-        );
-        instance.delegate = instance;
-        return instance;
+        return await this.getInstanceFromIntegrationId({integrationId: integrationRecord.id, userId});
     }
 }
 
@@ -135,7 +119,7 @@ class IntegrationHelper {
 
         for (const integration of integrationList) {
             const integrationObj =
-                await IntegrationFactory.getFormattedIntegration(integration);
+                await IntegrationHelper.getFormattedIntegration(integration);
             responseArray.push(integrationObj);
         }
 

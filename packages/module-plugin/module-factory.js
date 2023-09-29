@@ -58,6 +58,13 @@ class ModuleFactory {
         });
         return instance;
     }
+
+     async getInstanceFromTypeName(typeName, userId) {
+        const ModuleClassDef = this.getModuleClass(typeName);
+        return await ModuleClassDef.getInstance({
+            userId,
+        });
+    }
 }
 
 module.exports = { ModuleFactory };
