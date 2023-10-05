@@ -1,14 +1,13 @@
 const {IntegrationManager: IntegrationBase} = require('./manager')
-const { Credential, Entity } = require('@friggframework/module-plugin');
+const { ModuleFactory, Credential, Entity } = require('@friggframework/module-plugin');
 const {Integration} = require("./model");
 const _ = require('lodash');
 const {IntegrationMapping} = require("./integration-mapping");
 
 class IntegrationFactory {
-    constructor(integrationClasses = [], moduleFactory, primary) {
+    constructor(integrationClasses = []) {
         this.integrationClasses = integrationClasses;
-        this.moduleFactory = moduleFactory;
-        this.primary = primary;
+        this.moduleFactory = new ModuleFactory(...this.getModules());
         this.integrationTypes = this.integrationClasses.map(IntegrationClass => IntegrationClass.getName());
         this.getIntegrationConfigs = this.integrationClasses.map(IntegrationClass => IntegrationClass.Config);
     }
@@ -17,12 +16,29 @@ class IntegrationFactory {
         const options = this.integrationClasses.map(IntegrationClass => IntegrationClass.Options);
         return {
             entities: {
-                primary: this.primary.getName(),
+                primary: this.getPrimaryName(),
                 options: options.map(val => val.get()),
                 authorized: [],
             },
             integrations: [],
         };
+    }
+
+    getModules() {
+        return  [... new Set(this.integrationClasses.map(integration =>
+            Object.values(integration.modules)
+        ).flat())];
+    }
+
+    getPrimaryName() {
+        function findMostFrequentElement(array) {
+            const frequencyMap = _.countBy(array);
+            return _.maxBy(_.keys(frequencyMap), (element) => frequencyMap[element]);
+        }
+        const allModulesNames = _.flatten(this.integrationClasses.map(integration =>
+            Object.values(integration.modules).map(module => module.getName())
+        ));
+        return findMostFrequentElement(allModulesNames);
     }
 
     getIntegrationClassDefByType(type) {

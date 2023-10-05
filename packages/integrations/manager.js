@@ -12,6 +12,14 @@ class IntegrationManager {
         events: [],
     };
 
+    static getName() {
+        return this.Config.name;
+    }
+
+    static getCurrentVersion() {
+        return this.Config.version;
+    }
+
     constructor(params) {
         this.delegateTypes = [];
         this.userActions = [];
@@ -35,19 +43,9 @@ class IntegrationManager {
         );
     }
 
-
-
-    static getName() {
-        return this.Config.name;
-    }
-
-    static getCurrentVersion() {
-        return this.Config.version;
-    }
-
     async validateConfig() {
         const configOptions = await this.getConfigOptions();
-        const currentConfig = this.integration.config;
+        const currentConfig = this.record.config;
         let needsConfig = false;
         for (const option of configOptions) {
             if (option.required) {
@@ -59,7 +57,7 @@ class IntegrationManager {
                     )
                 ) {
                     needsConfig = true;
-                    this.integration.messages.warnings.push({
+                    this.record.messages.warnings.push({
                         title: 'Config Validation Error',
                         message: `Missing required field of ${option.label}`,
                         timestamp: Date.now(),
@@ -68,8 +66,8 @@ class IntegrationManager {
             }
         }
         if (needsConfig) {
-            this.integration.status = 'NEEDS_CONFIG';
-            await this.integration.save();
+            this.record.status = 'NEEDS_CONFIG';
+            await this.record.save();
         }
     }
 
@@ -77,33 +75,33 @@ class IntegrationManager {
         let didAuthPass = true;
 
         try {
-            await this.primaryInstance.testAuth();
+            await this.primary.testAuth();
         } catch {
             didAuthPass = false;
-            this.integration.messages.errors.push({
+            this.record.messages.errors.push({
                 title: 'Authentication Error',
-                message: `There was an error with your ${this.primaryInstance.constructor.getName()} Entity.
+                message: `There was an error with your ${this.primary.constructor.getName()} Entity.
                 Please reconnect/re-authenticate, or reach out to Support for assistance.`,
                 timestamp: Date.now(),
             });
         }
 
         try {
-            await this.targetInstance.testAuth();
+            await this.target.testAuth();
         } catch {
             didAuthPass = false;
-            this.integration.messages.errors.push({
+            this.record.messages.errors.push({
                 title: 'Authentication Error',
-                message: `There was an error with your ${this.targetInstance.constructor.getName()} Entity.
+                message: `There was an error with your ${this.target.constructor.getName()} Entity.
             Please reconnect/re-authenticate, or reach out to Support for assistance.`,
                 timestamp: Date.now(),
             });
         }
 
         if (!didAuthPass) {
-            this.integration.status = 'ERROR';
-            this.integration.markModified('messages.error');
-            await this.integration.save();
+            this.record.status = 'ERROR';
+            this.record.markModified('messages.error');
+            await this.record.save();
         }
     }
 
