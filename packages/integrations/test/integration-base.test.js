@@ -1,14 +1,15 @@
 const _ = require('lodash');
 const mongoose = require('mongoose');
 const { expect } = require('chai');
-const {IntegrationManager} = require("../manager");
+const { IntegrationBase } = require("../integration-base");
 const {Credential, Entity} = require("@friggframework/module-plugin");
 const { IntegrationMapping } = require('../integration-mapping')
-const {Integration} = require("../model");
+const {IntegrationModel} = require("../integration-model");
 
-describe(`Should fully test the IntegrationManager`, () => {
-    let integration;
+describe(`Should fully test the IntegrationBase Class`, () => {
+    let integrationRecord;
     let userId;
+    const integration = new IntegrationBase;
 
     beforeAll(async () => {
         await mongoose.connect(process.env.MONGO_URI);
@@ -56,65 +57,42 @@ describe(`Should fully test the IntegrationManager`, () => {
                 setDefaultsOnInsert: true,
             }
         );
-        integration = await Integration.create({
+        integrationRecord = await IntegrationModel.create({
             entities: [entity1, entity2],
             user: userId
         });
+        integration.record = integrationRecord;
     });
 
     afterAll(async () => {
         await Entity.deleteMany();
         await Credential.deleteMany();
         await IntegrationMapping.deleteMany();
-        await Integration.deleteMany();
+        await IntegrationModel.deleteMany();
         await mongoose.disconnect();
     });
 
+    beforeEach(() => {
+        integration.record = integrationRecord;
+    })
+
     describe('getIntegrationMapping()', () => {
         it('should return null if not found', async () => {
-            const mappings = await IntegrationManager.getIntegrationMapping(new mongoose.Types.ObjectId(), 'badId');
+            const mappings = await integration.getMapping('badId');
             expect(mappings).to.be.null;
         });
 
-        it('should throw error if invalid integrationId', async () => {
-            try {
-                await IntegrationManager.getIntegrationMapping('badId', 'badId');
-                fail('should have thrown error')
-            } catch(err) {
-                expect(err.message).to.contains('Cast to ObjectId');
-            }
-        });
-
         it('should return if valid ids', async () => {
-            await IntegrationManager.upsertIntegrationMapping(integration._id, userId, 'validId', {});
-            const mapping = await IntegrationManager.getIntegrationMapping(integration.id, 'validId');
+            await integration.upsertMapping('validId', {});
+            const mapping = await integration.getMapping('validId');
             expect(mapping).to.eql({})
         });
     })
 
     describe('upsertIntegrationMapping()', () => {
-        it('should throw error if integrationId does not match', async () => {
-            const id = new mongoose.Types.ObjectId();
-            try {
-                await IntegrationManager.upsertIntegrationMapping(id, userId, 'validId', {});
-                fail('should have thrown error')
-            } catch(err) {
-                expect(err.message).to.contain(`Integration with ID ${id} does not exist`);
-            }
-        });
-
-        it('should throw error if user id does not match', async () => {
-            try {
-                await IntegrationManager.upsertIntegrationMapping(integration._id, new mongoose.Types.ObjectId(), 'validId', {});
-                fail('should have thrown error')
-            } catch(err) {
-                expect(err.message).to.contain('the integration mapping does not belong to the user');
-            }
-        });
-
         it('should throw error if sourceId is null', async () => {
             try {
-                await IntegrationManager.upsertIntegrationMapping(integration._id, userId, null, {});
+                await integration.upsertMapping( null, {});
                 fail('should have thrown error')
             } catch(err) {
                 expect(err.message).to.contain('sourceId must be set');
@@ -122,21 +100,21 @@ describe(`Should fully test the IntegrationManager`, () => {
         });
 
         it('should return for empty mapping', async () => {
-            const mapping = await IntegrationManager.upsertIntegrationMapping(integration._id, userId, 'validId2', {});
+            const mapping = await integration.upsertMapping( 'validId2', {});
             expect(_.pick(mapping, ['integration', 'sourceId', 'mapping'])).to.eql({
-                integration: integration._id,
+                integration: integrationRecord._id,
                 sourceId: 'validId2',
                 mapping: {}
             })
         });
 
         it('should return for filled mapping', async () => {
-            const mapping = await IntegrationManager.upsertIntegrationMapping(integration._id, userId, 'validId3', {
+            const mapping = await integration.upsertMapping('validId3', {
                 name: 'someName',
                 value: 5
             });
             expect(_.pick(mapping, ['integration', 'sourceId', 'mapping'])).to.eql({
-                integration: integration._id,
+                integration: integrationRecord._id,
                 sourceId: 'validId3',
                 mapping: {
                     name: 'someName',
@@ -146,13 +124,13 @@ describe(`Should fully test the IntegrationManager`, () => {
         });
 
         it('should allow upserting to same id', async () => {
-            await IntegrationManager.upsertIntegrationMapping(integration._id, userId, 'validId4', {});
-            const mapping = await IntegrationManager.upsertIntegrationMapping(integration._id, userId, 'validId4', {
+            await integration.upsertMapping('validId4', {});
+            const mapping = await integration.upsertMapping('validId4', {
                 name: 'trustMe',
                 thisWorks: true,
             });
             expect(_.pick(mapping, ['integration', 'sourceId', 'mapping'])).to.eql({
-                integration: integration._id,
+                integration: integrationRecord._id,
                 sourceId: 'validId4',
                 mapping: {
                     name: 'trustMe',

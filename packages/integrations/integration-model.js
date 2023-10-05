@@ -39,4 +39,4 @@ const schema = new mongoose.Schema(
 
 const Integration =
     mongoose.models.Integration || mongoose.model('Integration', schema);
-module.exports = { Integration };
+module.exports = { IntegrationModel: Integration };

@@ -1,8 +1,9 @@
-const { loadInstalledModules, Delegate } = require('@friggframework/core');
-const { Integration } = require('./model');
 const { IntegrationMapping } = require('./integration-mapping');
 
-class IntegrationManager {
+class IntegrationBase {
+    /**
+     * CHILDREN SHOULD SPECIFY A CONFIG
+     */
     static Config = {
         name: 'Integration Name',
         version: '0.0.0', // Integration Version, used for migration and storage purposes, as well as display
@@ -121,35 +122,32 @@ class IntegrationManager {
     }
 
 
-    // Children must implement
-    async processCreate() {
-        throw new Error(
-            'processCreate method not implemented in child Manager'
-        );
+
+    /**
+     * CHILDREN CAN OVERRIDE THESE CONFIGURATION METHODS
+     */
+    async processCreate(params) {
+        this.record.status = 'ENABLED';
+        await this.record.save();
+        return this.record;
     }
 
-    async processDelete() {
-        throw new Error(
-            'processDelete method not implemented in child Manager'
-        );
+    async processUpdate(params) {
     }
 
-    async processUpdate() {
-        throw new Error(
-            'processUpdate method not implemented in child Manager'
-        );
-    }
+    async processDelete(params) { }
 
     async getConfigOptions() {
-        throw new Error(
-            'getConfigOptions method not implemented in child Manager'
-        );
+        const options = {
+            jsonSchema: {},
+            uiSchema: {},
+        };
+        return options;
     }
 
     async getUserActions() {
-        // override to return dynamic actions
         return [];
     }
 }
 
-module.exports = { IntegrationManager };
+module.exports = { IntegrationBase };

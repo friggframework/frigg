@@ -1,6 +1,5 @@
-const {IntegrationManager: IntegrationBase} = require('./manager')
 const { ModuleFactory, Credential, Entity } = require('@friggframework/module-plugin');
-const {Integration} = require("./model");
+const {IntegrationModel} = require("./integration-model");
 const _ = require('lodash');
 const {IntegrationMapping} = require("./integration-mapping");
 
@@ -93,7 +92,7 @@ class IntegrationFactory {
         // }
 
         // build integration
-        const integrationRecord = await Integration.create({
+        const integrationRecord = await IntegrationModel.create({
             entities: entities,
             user: userId,
             config,
@@ -129,7 +128,7 @@ class IntegrationHelper {
     }
 
     static async getIntegrationsForUserId(userId) {
-        const integrationList = await Integration.find({ user: userId });
+        const integrationList = await IntegrationModel.find({ user: userId });
         const responseArray = [];
 
         for (const integration of integrationList) {
@@ -142,12 +141,12 @@ class IntegrationHelper {
     }
 
     static async deleteIntegrationForUserById(userId, integrationId) {
-        const integrationList = await Integration.find({
+        const integrationList = await IntegrationModel.find({
             user: userId,
             _id: integrationId,
         });
         if (integrationList.length == 1) {
-            await Integration.deleteOne({ _id: integrationId });
+            await IntegrationModel.deleteOne({ _id: integrationId });
         } else {
             throw new Error(
                 `Integration with id of ${integrationId} does not exist for this user`
@@ -156,7 +155,7 @@ class IntegrationHelper {
     }
 
     static async getIntegrationById(id) {
-        return await Integration.findById(id);
+        return await IntegrationModel.findById(id);
     }
 
     static async listCredentials(options) {
@@ -177,7 +176,7 @@ class IntegrationHelper {
             throw new Error(`sourceId must be set`);
         }
         // verify integration id belongs to the user
-        const integration = await Integration.findById(integration_id);
+        const integration = await IntegrationModel.findById(integration_id);
 
         if (!integration) {
             throw new Error(
