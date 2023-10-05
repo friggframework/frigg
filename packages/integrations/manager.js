@@ -14,6 +14,7 @@ class IntegrationManager extends Delegate {
 
     constructor(params) {
         super(params);
+        this.userActions = [];
     }
 
     static async getInstance(params) {

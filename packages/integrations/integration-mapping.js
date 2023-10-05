@@ -30,7 +30,7 @@ schema.static({
     upsert: async function (integrationId, sourceId, mapping) {
         return this.findOneAndUpdate(
             { integration: integrationId, sourceId },
-            mapping,
+            { mapping },
             { new: true, upsert: true, setDefaultsOnInsert: true }
         );
     },
