@@ -2,7 +2,7 @@ const { loadInstalledModules, Delegate } = require('@friggframework/core');
 const { Integration } = require('./model');
 const { IntegrationMapping } = require('./integration-mapping');
 
-class IntegrationManager extends Delegate {
+class IntegrationManager {
     static Config = {
         name: 'Integration Name',
         version: '0.0.0', // Integration Version, used for migration and storage purposes, as well as display
@@ -13,16 +13,28 @@ class IntegrationManager extends Delegate {
     };
 
     constructor(params) {
-        super(params);
+        this.delegateTypes = [];
         this.userActions = [];
     }
 
-    static async getInstance(params) {
-        const instance = new this(params);
-        params.delegate = instance;
-        instance.delegateTypes.push(...this.Config.events);
-        return new this(params);
+    //psuedo delegate for backwards compatability
+    async receiveNotification(notifier, delegateString, object = null) {
+
     }
+
+    async notify(delegateString, object = null) {
+        if (!this.delegateTypes.includes(delegateString)) {
+            throw new Error(
+                `delegateString:${delegateString} is not defined in delegateTypes`
+            );
+        }
+        return this.receiveNotification(
+                this,
+                delegateString,
+                object
+        );
+    }
+
 
 
     static getName() {

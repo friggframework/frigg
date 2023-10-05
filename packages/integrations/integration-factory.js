@@ -44,7 +44,7 @@ class IntegrationFactory {
         }
 
         const integrationClassDef = this.getIntegrationClassDefByType(integrationRecord.config.type);
-        const instance = await integrationClassDef.getInstance({
+        const instance = new integrationClassDef({
             userId,
             integrationId: params.integrationId,
         });
@@ -58,7 +58,7 @@ class IntegrationFactory {
             instance.record.entities[1],
             instance.record.user
         );
-        instance.delegate = instance;
+
         await instance.getUserActions();
         instance.delegateTypes.push(...Object.keys(instance.userActions));
         return instance;
@@ -66,18 +66,17 @@ class IntegrationFactory {
 
     async createIntegration(entities, userId, config) {
         // verify entity ids belong to the user
-        for (const id of entities) {
-            const entity = await Entity.findById(id);
-            if (!entity) {
-                throw new Error(`Entity with ID ${id} does not exist.`);
-            }
-            if (entity.user.toString() !== userId.toString()) {
-                throw new Error('one or more the entities do not belong to the user');
-            }
-        }
+        // for (const id of entities) {
+        //     const entity = await Entity.findById(id);
+        //     if (!entity) {
+        //         throw new Error(`Entity with ID ${id} does not exist.`);
+        //     }
+        //     if (entity.user.toString() !== userId.toString()) {
+        //         throw new Error('one or more the entities do not belong to the user');
+        //     }
+        // }
 
         // build integration
-        const integrationClassDef = this.getIntegrationClassDefByType(config.type);
         const integrationRecord = await Integration.create({
             entities: entities,
             user: userId,
