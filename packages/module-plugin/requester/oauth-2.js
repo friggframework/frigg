@@ -111,7 +111,7 @@ class OAuth2Requester extends Requester {
 
         const options = {
             body: params,
-            url: this.tokenUri,
+            url: this.tokenRefresh,
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },

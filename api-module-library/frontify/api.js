@@ -11,6 +11,7 @@ class Api extends OAuth2Requester {
         if (this.domain) {
             this.baseUrl = `https://${this.domain}/graphql`;
             this.tokenUri = `https://${this.domain}/api/oauth/accesstoken`;
+            this.tokenRefresh = `https://${this.domain}/api/oauth/refresh`;
         }
     }
 
@@ -18,7 +19,8 @@ class Api extends OAuth2Requester {
         this.domain = domain;
         this.baseUrl = `https://${this.domain}/graphql`;
         this.tokenUri = `https://${this.domain}/api/oauth/accesstoken`;
-    }
+        this.tokenRefresh = `https://${this.domain}/api/oauth/refresh`;
+      }
 
     getAuthUri() {
         const query = {
