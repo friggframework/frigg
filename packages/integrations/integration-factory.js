@@ -103,16 +103,16 @@ class IntegrationFactory {
 }
 
 class IntegrationHelper {
-    static async getFormattedIntegration(integration) {
+    static async getFormattedIntegration(integrationRecord) {
         const integrationObj = {
-            id: integration.id,
-            status: integration.status,
-            config: integration.config,
+            id: integrationRecord.id,
+            status: integrationRecord.status,
+            config: integrationRecord.config,
             entities: [],
-            version: integration.version,
-            messages: integration.messages,
+            version: integrationRecord.version,
+            messages: integrationRecord.messages,
         };
-        for (const entityId of integration.entities) {
+        for (const entityId of integrationRecord.entities) {
             // Only return non-internal fields. Leverages "select" and "options" to non-excepted fields and a pure object.
             const entity = await Entity.findById(
                 entityId,
@@ -129,15 +129,9 @@ class IntegrationHelper {
 
     static async getIntegrationsForUserId(userId) {
         const integrationList = await IntegrationModel.find({ user: userId });
-        const responseArray = [];
-
-        for (const integration of integrationList) {
-            const integrationObj =
-                await IntegrationHelper.getFormattedIntegration(integration);
-            responseArray.push(integrationObj);
-        }
-
-        return responseArray;
+        return await Promise.all(integrationList.map(async (integrationRecord) =>
+            await IntegrationHelper.getFormattedIntegration(integrationRecord)
+        ));
     }
 
     static async deleteIntegrationForUserById(userId, integrationId) {
@@ -145,13 +139,12 @@ class IntegrationHelper {
             user: userId,
             _id: integrationId,
         });
-        if (integrationList.length == 1) {
-            await IntegrationModel.deleteOne({ _id: integrationId });
-        } else {
+        if (integrationList.length !== 1) {
             throw new Error(
                 `Integration with id of ${integrationId} does not exist for this user`
             );
         }
+        await IntegrationModel.deleteOne({ _id: integrationId });
     }
 
     static async getIntegrationById(id) {
@@ -160,46 +153,6 @@ class IntegrationHelper {
 
     static async listCredentials(options) {
         return Credential.find(options);
-    }
-
-    static async getIntegrationMapping(integration_id, source_id) {
-        return IntegrationMapping.findBy(integration_id, source_id);
-    }
-
-    static async upsertMapping(
-        integration_id,
-        userId,
-        source_id,
-        mapping
-    ) {
-        if (!source_id) {
-            throw new Error(`sourceId must be set`);
-        }
-        // verify integration id belongs to the user
-        const integration = await IntegrationModel.findById(integration_id);
-
-        if (!integration) {
-            throw new Error(
-                `Integration with ID ${integration_id} does not exist.`
-            );
-        }
-
-        if (integration.user.toString() !== userId.toString()) {
-            throw new Error(
-                'the integration mapping does not belong to the user'
-            );
-        }
-
-        const integrationMapping = await IntegrationMapping.upsert(
-            { integration, sourceId: source_id },
-            {
-                integration,
-                sourceId: source_id,
-                mapping,
-            }
-        );
-
-        return integrationMapping;
     }
 }
 
