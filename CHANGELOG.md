@@ -1,3 +1,16 @@
+# (Fri Oct 06 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@1.1.2`
+  - Fix/Frontify refresh token url fixed [#226](https://github.com/friggframework/frigg/pull/226) ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
 # (Thu Sep 28 2023)
 
 #### 🐛 Bug Fix

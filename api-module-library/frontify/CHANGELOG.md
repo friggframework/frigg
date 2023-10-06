@@ -1,3 +1,17 @@
+# v1.1.2 (Fri Oct 06 2023)
+
+#### 🐛 Bug Fix
+
+- Fix/Frontify refresh token url fixed [#226](https://github.com/friggframework/frigg/pull/226) ([@msalvatti](https://github.com/msalvatti))
+- Fix/Frontify refresh accessToken function changed ([@msalvatti](https://github.com/msalvatti))
+- Fix/Frontify refresh token url fixed ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
 # v1.1.1 (Thu Sep 28 2023)
 
 #### 🐛 Bug Fix
