@@ -22,6 +22,7 @@ describe(`${Config.label} API Tests`, () => {
                 expect(api.domain).toEqual('domain');
                 expect(api.baseUrl).toEqual('https://domain/graphql');
                 expect(api.tokenUri).toEqual('https://domain/api/oauth/accesstoken');
+                expect(api.tokenRefresh).toEqual('https://domain/api/oauth/refresh');
             });
         });
 
@@ -36,6 +37,7 @@ describe(`${Config.label} API Tests`, () => {
                 expect(api.domain).toBeNull();
                 expect(api.baseUrl).not.toBeDefined();
                 expect(api.tokenUri).not.toBeDefined();
+                expect(api.tokenRefresh).not.toBeDefined();
             });
         });
 
@@ -65,6 +67,7 @@ describe(`${Config.label} API Tests`, () => {
                 expect(api.domain).toEqual('my-domain');
                 expect(api.baseUrl).toEqual('https://my-domain/graphql');
                 expect(api.tokenUri).toEqual('https://my-domain/api/oauth/accesstoken');
+                expect(api.tokenRefresh).toEqual('https://my-domain/api/oauth/refresh');
             });
         });
     });
@@ -1889,7 +1892,7 @@ describe(`${Config.label} API Tests`, () => {
                           createAsset(input: {
                             fileId: "fileId",
                             title: "title",
-                            projectId: "projectId"
+                            parentId: "projectId"
                           }) {
                             job {
                               assetId

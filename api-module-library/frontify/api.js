@@ -11,6 +11,7 @@ class Api extends OAuth2Requester {
         if (this.domain) {
             this.baseUrl = `https://${this.domain}/graphql`;
             this.tokenUri = `https://${this.domain}/api/oauth/accesstoken`;
+            this.tokenRefresh = `https://${this.domain}/api/oauth/refresh`;
         }
     }
 
@@ -18,7 +19,8 @@ class Api extends OAuth2Requester {
         this.domain = domain;
         this.baseUrl = `https://${this.domain}/graphql`;
         this.tokenUri = `https://${this.domain}/api/oauth/accesstoken`;
-    }
+        this.tokenRefresh = `https://${this.domain}/api/oauth/refresh`;
+      }
 
     getAuthUri() {
         const query = {
@@ -39,6 +41,28 @@ class Api extends OAuth2Requester {
 
         return `${authorizationUri}?${querystring.stringify(query)}`;
     }
+
+    // Used because the Frontify API has a link to the refresh token that is different from the access token.
+    async refreshAccessToken(refreshTokenObject) {
+      this.access_token = undefined;
+      const params = new URLSearchParams();
+      params.append('grant_type', 'refresh_token');
+      params.append('client_id', this.client_id);
+      params.append('client_secret', this.client_secret);
+      params.append('refresh_token', refreshTokenObject.refresh_token);
+      params.append('redirect_uri', this.redirect_uri);
+
+      const options = {
+          body: params,
+          url: this.tokenRefresh,
+          headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+          },
+      };
+      const response = await this._post(options, false);
+      await this.setTokens(response);
+      return response;
+  }
 
     buildRequestOptions(query) {
         return {
