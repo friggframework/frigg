@@ -1,69 +1,62 @@
-const {Entity} = require("./entity");
+const { Entity } = require("./entity");
+const { Auther } = require('./auther');
 
 class ModuleFactory {
     constructor(...params) {
-        this.moduleClasses = params;
-        this.moduleTypes = this.moduleClasses.map(
-            (ModuleClass) => ModuleClass.getName()
+        this.moduleDefinitions = params;
+        this.moduleTypes = this.moduleDefinitions.map(
+            (def) => def.name
         );
     }
 
     async getEntitiesForUser(userId) {
-        const results = [];
-        for (const ModuleClass of this.moduleClasses) {
-            results.push(...(await ModuleClass.getEntitiesForUserId(userId)));
+        let results = [];
+        for (const moduleDefinition of this.moduleDefinitions) {
+            const list = await moduleDefinition.Entity.find(
+                { user: userId },
+                '-dateCreated -dateUpdated -user -credentials -credential -__t -__v',
+                { lean: true }
+            );
+            for (const entity of list) {
+                results.push({
+                    id: entity._id,
+                    type: moduleDefinition.getName(),
+                    ...entity,
+                })
+            }
         }
         return results;
     }
 
     checkIsValidType(entityType) {
-        const indexOfEntity = this.moduleTypes.indexOf(entityType);
-        return indexOfEntity >= 0;
+        return this.moduleTypes.includes(entityType);
     }
 
-    getModuleClass(entityType = '') {
-        const normalizedType = entityType.toLowerCase();
-
-        const indexOfEntityType =
-            this.moduleTypes.indexOf(normalizedType);
-        // if (!this.checkIsValidType(normalizedType)) {
-        //     throw new Error(
-        //         `Error: Invalid entity type of ${normalizedType}, options are ${this.moduleTypes.join(
-        //             ', '
-        //         )}`
-        //     );
-        // }
-
-        const moduleClass =
-            this.moduleClasses[indexOfEntityType];
-
-        // if (!(moduleClass.prototype instanceof Module)) {
-        //     throw new Error('The Entity is not an instance of ModuleManager');
-        // }
-
-        return moduleClass;
+    getModuleDefinitionFromTypeName(typeName) {
+        return
     }
+
 
     async getModuleInstanceFromEntityId(entityId, userId) {
         const entity = await Entity.findById(entityId);
-        let moduleClass;
-        for (const ModuleClass of this.moduleClasses) {
-            if (entity instanceof ModuleClass.Entity) {
-                moduleClass = ModuleClass;
-            }
-        }
-        const instance = await moduleClass.getInstance({
+        const moduleDefinition = this.moduleDefinitions.find(
+            (def) => entity instanceof def.Entity
+        )
+        return await Auther.getInstance({
             userId,
             entityId,
+            definition: moduleDefinition
         });
-        return instance;
     }
 
      async getInstanceFromTypeName(typeName, userId) {
-        const ModuleClassDef = this.getModuleClass(typeName);
-        return await ModuleClassDef.getInstance({
-            userId,
-        });
+        const moduleDefinition =this.moduleDefinitions.find(
+            (def) => def.getName() === typeName
+        );
+         return await Auther.getInstance({
+             userId,
+             definition: moduleDefinition
+         });
     }
 }
 

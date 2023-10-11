@@ -30,6 +30,9 @@ schema.static({
             throw new Error('multiple entities with same userId');
         }
     },
+    findAllByUserId(userId) {
+        return this.find({ user: userId });
+    },
     upsert: async function (filter, obj) {
         return this.findOneAndUpdate(filter, obj, {
             new: true,

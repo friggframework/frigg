@@ -51,16 +51,11 @@ class ModuleManager extends Delegate {
 
     async validateAuthorizationRequirements() {
         const requirements = await this.getAuthorizationRequirements();
-
-        if (
-            (requirements.type === 'oauth1' ||
-                requirements.type === 'oauth2') &&
-            !requirements.url
-        ) {
-            return false;
+        let valid = true;
+        if (['oauth1', 'oauth2'].includes(requirements.type) && !requirements.url) {
+            valid = false;
         }
-
-        return true;
+        return valid;
     }
 
     async getAuthorizationRequirements(params) {
