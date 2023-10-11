@@ -1,3 +1,16 @@
+# (Wed Oct 11 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@1.1.3`
+  - Feature/Add Frontify getRefreshAccessToken test [#227](https://github.com/friggframework/frigg/pull/227) ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
 # (Fri Oct 06 2023)
 
 #### 🐛 Bug Fix

@@ -1,3 +1,16 @@
+# v1.1.3 (Wed Oct 11 2023)
+
+#### 🐛 Bug Fix
+
+- Feature/Add Frontify getRefreshAccessToken test [#227](https://github.com/friggframework/frigg/pull/227) ([@msalvatti](https://github.com/msalvatti))
+- Feature/Add Frontify getRefreshAccessToken test ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
 # v1.1.2 (Fri Oct 06 2023)
 
 #### 🐛 Bug Fix
