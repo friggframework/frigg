@@ -28,6 +28,7 @@
 
 const { Delegate } = require('@friggframework/core');
 const { get } = require('@friggframework/assertions');
+const {flushDebugLog} = require("@friggframework/logs");
 
 class Auther extends Delegate {
     constructor(params) {
@@ -103,15 +104,21 @@ class Auther extends Delegate {
     }
 
     async testAuth(params) {
-        // this function must invoke a method on the API using authentication
-        // if it fails, an exception should be thrown
-        throw new Error(
-            'Authentication test method testAuth() is not defined in the class'
-        );
+        let validAuth = false;
+        try {
+            if (await this.testAuthRequest(this.api)) validAuth = true;
+        } catch (e) {
+            flushDebugLog(e);
+        }
+        return validAuth;
     }
 
     async processAuthorizationCallback(params) {
         const tokenResponse = await this.getToken(this.api, params);
+        const authRes = await this.testAuth();
+        if (!authRes) {
+            throw new Error('Authorization failed');
+        }
         const entityDetails = await this.getEntityDetails(
             this.api, params, tokenResponse
         );

@@ -62,7 +62,7 @@ class Api extends OAuth2Requester {
         this.access_token = get(params, 'access_token', null);
         this.refresh_token = get(params, 'refresh_token', null);
     }
-    async getAuthUri() {
+    getAuthUri() {
         return this.authorizationUri;
     }
 

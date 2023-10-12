@@ -17,22 +17,25 @@ const Definition = {
             return api.getTokenFromCode(code);
         },
         getEntityDetails: async function(api, callbackParams, tokenResponse) {
-            const entityDetails = await api.getTokenIdentity();
+            const userDetails = await api.getUserDetails();
             return {
-                identifiers: { externalId: entityDetails.identifier },
-                details: { name: entityDetails.name },
+                identifiers: { externalId: userDetails.portalId, userId: api.userId },
+                details: { name: userDetails.hub_domain },
             }
         },
         getCredentialDetails: async function(api) {
-            const userDetails = await api.getTokenIdentity();
+            const userDetails = await api.getUserDetails();
             const updatedToken = {
+                user: api.userId,
+                accessToken: api.access_token,
+                refreshToken: api.refresh_token,
+                accessTokenExpire: api.accessTokenExpire,
+                portalId: userDetails.portalId,
                 auth_is_valid: true,
             };
-            if (api.access_token) { updatedToken.access_token = api.access_token}
-            if (api.refresh_token) { updatedToken.refresh_token = api.refresh_token}
-            updatedToken.externalId = userDetails.identifier;
+
             return {
-                identifiers: { externalId: userDetails.identifier },
+                identifiers: { externalId: userDetails.portalId },
                 details: { ...updatedToken }
             };
         },
@@ -41,23 +44,25 @@ const Definition = {
                 return {};
             }
             return {
-                access_token: credential.access_token,
+                access_token: credential.accessToken,
+                refresh_token: credential.refreshToken,
             }
         },
         testAuthRequest: async function(api){
-            return await api.getUser()
+            return api.getUserDetails()
         },
         authorizationRequirements: function(api) {
             return {
-                url: api.getAuthorizationUri(),
+                url: api.getAuthUri(),
                 type: 'oauth2',
-            };}
+            };
+        }
     },
     env: {
-        client_id: process.env.LINEAR_CLIENT_ID,
-        client_secret: process.env.LINEAR_CLIENT_SECRET,
-        redirect_uri: `${process.env.REDIRECT_URI}/linear`,
-        scope: process.env.LINEAR_SCOPE,
+        client_id: process.env.HUBSPOT_CLIENT_ID,
+        client_secret: process.env.HUBSPOT_CLIENT_SECRET,
+        scope: process.env.HUBSPOT_SCOPE,
+        redirect_uri: `${process.env.REDIRECT_URI}/hubspot`,
     }
 };
 
