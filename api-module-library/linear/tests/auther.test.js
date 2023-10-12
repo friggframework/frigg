@@ -54,9 +54,10 @@ describe('Linear Manager Tests', () => {
     });
     describe('Test credential retrieval and manager instantiation', () => {
         it('retrieve by entity id', async () => {
-            const newManager = await Manager.getInstance({
+            const newManager = await Auther.getInstance({
                 userId: manager.userId,
                 entityId: manager.entity.id,
+                definition: Definition,
             });
             expect(newManager).toBeDefined();
             expect(newManager.entity).toBeDefined();
@@ -64,9 +65,10 @@ describe('Linear Manager Tests', () => {
         });
 
         it('retrieve by credential id', async () => {
-            const newManager = await Manager.getInstance({
+            const newManager = await Auther.getInstance({
                 userId: manager.userId,
                 credentialId: manager.credential.id,
+                definition: Definition,
             });
             expect(newManager).toBeDefined();
             expect(newManager.credential).toBeDefined();

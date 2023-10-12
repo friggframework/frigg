@@ -173,7 +173,7 @@ class Auther extends Delegate {
         const details = get(credentialDetails, 'details');
 
         if (!this.credential){
-            const credentialSearch = await Credential.find({
+            const credentialSearch = await this.CredentialModel.find({
                 ...identifiers
             })
             if (credentialSearch.length > 1) {
@@ -189,7 +189,7 @@ class Auther extends Delegate {
             }
         }
         // update credential or create if none was found
-        this.credential = await Credential.findOneAndUpdate(
+        this.credential = await this.CredentialModel.findOneAndUpdate(
             {_id: this.credential},
             {$set: {...identifiers, ...details}},
             {useFindAndModify: true, new: true, upsert: true}

@@ -19,8 +19,8 @@ const Definition = {
         getEntityDetails: async function(api, callbackParams, tokenResponse) {
             const entityDetails = await api.getTokenIdentity();
             return {
-                externalId: entityDetails.identifier,
-                name: entityDetails.name,
+                identifiers: { externalId: entityDetails.identifier },
+                details: { name: entityDetails.name },
             }
         },
         getCredentialDetails: async function(api) {
@@ -31,7 +31,10 @@ const Definition = {
             if (api.access_token) { updatedToken.access_token = api.access_token}
             if (api.refresh_token) { updatedToken.refresh_token = api.refresh_token}
             updatedToken.externalId = userDetails.identifier;
-            return updatedToken;
+            return {
+                identifiers: { externalId: userDetails.identifier },
+                details: { ...updatedToken }
+            };
         },
         apiParamsFromCredential: function(credential) {
             if (!credential) {
