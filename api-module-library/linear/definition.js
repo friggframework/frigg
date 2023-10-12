@@ -1,3 +1,4 @@
+require('dotenv').config();
 const {Api} = require('./api');
 const { Credential } = require('./models/credential');
 const { Entity } = require('./models/entity');
@@ -33,13 +34,21 @@ const Definition = {
             return updatedToken;
         },
         apiParamsFromCredential: function(credential) {
+            if (!credential) {
+                return {};
+            }
             return {
                 access_token: credential.access_token,
             }
         },
         testAuth: async function(api){
             return await api.UserDetails()
-        }
+        },
+        authorizationRequirements: function(api) {
+            return {
+                url: api.getAuthorizationUri(),
+                type: 'oauth2',
+            };}
     },
     env: {
         client_id: process.env.LINEAR_CLIENT_ID,

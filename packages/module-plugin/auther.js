@@ -27,7 +27,6 @@
 
 
 const { Delegate } = require('@friggframework/core');
-
 const { get } = require('@friggframework/assertions');
 
 class Auther extends Delegate {
@@ -55,7 +54,7 @@ class Auther extends Delegate {
             );
         }
         const apiParams = {
-            ...params.env,
+            ...params.definition.env,
             delegate: instance,
             ...instance.apiParamsFromCredential(instance.credential),
         };
@@ -91,7 +90,8 @@ class Auther extends Delegate {
         return valid;
     }
 
-    async getAuthorizationRequirements(params) {
+    getAuthorizationRequirements(params) {
+        // TODO: How can this be more helpful both to implement and consume
         // this function must return a dictionary with the following format
         // node only url key is required. Data would be used for Base Authentication
         // let returnData = {
@@ -99,9 +99,7 @@ class Auther extends Delegate {
         //     type: one of the types defined in modules/Constants.js
         //     data: ["required", "fields", "we", "may", "need"]
         // }
-        throw new Error(
-            'Authorization requirements method getAuthorizationRequirements() is not defined in the class'
-        );
+        return this.authorizationRequirements(this.api);
     }
 
     async testAuth(params) {

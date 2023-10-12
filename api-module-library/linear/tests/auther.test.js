@@ -1,12 +1,14 @@
-require('dotenv').config();
-const {Definition} = require('../definition');
+//require('dotenv').config();
+const { Definition} = require('../definition');
+const { Auther } = require('@friggframework/module-plugin');
 const mongoose = require('mongoose');
 const Authenticator = require("@friggframework/test-environment/Authenticator");
 describe('Linear Manager Tests', () => {
     let manager, authUrl;
     beforeAll(async () => {
         await mongoose.connect(process.env.MONGO_URI);
-        manager = await Manager.getInstance({
+        manager = await Auther.getInstance({
+            definition: Definition,
             userId: new mongoose.Types.ObjectId(),
         });
     });
