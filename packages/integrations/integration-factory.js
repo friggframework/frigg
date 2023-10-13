@@ -102,8 +102,8 @@ class IntegrationFactory {
     }
 }
 
-class IntegrationHelper {
-    static async getFormattedIntegration(integrationRecord) {
+const IntegrationHelper = {
+     getFormattedIntegration: async function(integrationRecord) {
         const integrationObj = {
             id: integrationRecord.id,
             status: integrationRecord.status,
@@ -125,16 +125,16 @@ class IntegrationHelper {
             });
         }
         return integrationObj;
-    }
+    },
 
-    static async getIntegrationsForUserId(userId) {
+     getIntegrationsForUserId: async function(userId) {
         const integrationList = await IntegrationModel.find({ user: userId });
         return await Promise.all(integrationList.map(async (integrationRecord) =>
             await IntegrationHelper.getFormattedIntegration(integrationRecord)
         ));
-    }
+    },
 
-    static async deleteIntegrationForUserById(userId, integrationId) {
+     deleteIntegrationForUserById: async function(userId, integrationId) {
         const integrationList = await IntegrationModel.find({
             user: userId,
             _id: integrationId,
@@ -145,13 +145,13 @@ class IntegrationHelper {
             );
         }
         await IntegrationModel.deleteOne({ _id: integrationId });
-    }
+    },
 
-    static async getIntegrationById(id) {
-        return await IntegrationModel.findById(id);
-    }
+     getIntegrationById: async function(id) {
+        return IntegrationModel.findById(id);
+    },
 
-    static async listCredentials(options) {
+     listCredentials: async function(options) {
         return Credential.find(options);
     }
 }
