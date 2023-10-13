@@ -23,35 +23,17 @@ const Definition = {
                 details: { name: entityDetails.name },
             }
         },
+        apiPropertiesToPersist: ['access_token'],
         getCredentialDetails: async function(api) {
             const userDetails = await api.getTokenIdentity();
-            const updatedToken = {
-                auth_is_valid: true,
-            };
-            if (api.access_token) { updatedToken.access_token = api.access_token}
-            if (api.refresh_token) { updatedToken.refresh_token = api.refresh_token}
-            updatedToken.externalId = userDetails.identifier;
             return {
                 identifiers: { externalId: userDetails.identifier },
-                details: { ...updatedToken }
+                details: {}
             };
-        },
-        apiParamsFromCredential: function(credential) {
-            if (!credential) {
-                return {};
-            }
-            return {
-                access_token: credential.access_token,
-            }
         },
         testAuthRequest: async function(api){
             return await api.getUser()
         },
-        authorizationRequirements: function(api) {
-            return {
-                url: api.getAuthorizationUri(),
-                type: 'oauth2',
-            };}
     },
     env: {
         client_id: process.env.LINEAR_CLIENT_ID,

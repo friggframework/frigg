@@ -23,40 +23,19 @@ const Definition = {
                 details: { name: userDetails.hub_domain },
             }
         },
+        apiPropertiesToPersist: [
+            'userId', 'access_token', 'refresh_token', 'portalId'
+        ],
         getCredentialDetails: async function(api) {
             const userDetails = await api.getUserDetails();
-            const updatedToken = {
-                user: api.userId,
-                accessToken: api.access_token,
-                refreshToken: api.refresh_token,
-                accessTokenExpire: api.accessTokenExpire,
-                portalId: userDetails.portalId,
-                auth_is_valid: true,
-            };
-
             return {
                 identifiers: { externalId: userDetails.portalId },
-                details: { ...updatedToken }
+                details: {}
             };
-        },
-        apiParamsFromCredential: function(credential) {
-            if (!credential) {
-                return {};
-            }
-            return {
-                access_token: credential.accessToken,
-                refresh_token: credential.refreshToken,
-            }
         },
         testAuthRequest: async function(api){
             return api.getUserDetails()
         },
-        authorizationRequirements: function(api) {
-            return {
-                url: api.getAuthUri(),
-                type: 'oauth2',
-            };
-        }
     },
     env: {
         client_id: process.env.HUBSPOT_CLIENT_ID,

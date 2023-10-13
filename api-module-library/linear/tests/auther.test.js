@@ -62,6 +62,7 @@ describe('Linear Manager Tests', () => {
             expect(newManager).toBeDefined();
             expect(newManager.entity).toBeDefined();
             expect(newManager.credential).toBeDefined();
+            expect(await newManager.testAuth()).toBeTruthy();
         });
 
         it('retrieve by credential id', async () => {
@@ -72,6 +73,7 @@ describe('Linear Manager Tests', () => {
             });
             expect(newManager).toBeDefined();
             expect(newManager.credential).toBeDefined();
+            expect(await newManager.testAuth()).toBeTruthy();
         });
     });
 });

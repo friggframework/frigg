@@ -28,6 +28,7 @@
 
 const { Delegate } = require('@friggframework/core');
 const { get } = require('@friggframework/assertions');
+const _ = require('lodash');
 const {flushDebugLog} = require("@friggframework/logs");
 
 class Auther extends Delegate {
@@ -67,6 +68,10 @@ class Auther extends Delegate {
         return this.name;
     }
 
+    apiParamsFromCredential(credential) {
+        return _.pick(credential, ...this.apiPropertiesToPersist);
+    }
+
     async getEntitiesForUserId(userId) {
         // Only return non-internal fields. Leverages "select" and "options" to non-excepted fields and a pure object.
         const list = await this.Entity.find(
@@ -100,7 +105,7 @@ class Auther extends Delegate {
         //     type: one of the types defined in modules/Constants.js
         //     data: ["required", "fields", "we", "may", "need"]
         // }
-        return this.authorizationRequirements(this.api);
+        return this.api.getAuthorizationRequirements();
     }
 
     async testAuth(params) {
@@ -133,6 +138,8 @@ class Auther extends Delegate {
     async receiveNotification(notifier, delegateString, object = null) {
         if (delegateString === this.api.DLGT_TOKEN_UPDATE) {
             const credentialDetails = await this.getCredentialDetails(this.api);
+            Object.assign(credentialDetails.details, this.apiParamsFromCredential(this.api));
+            credentialDetails.details.auth_is_valid = true;
             await this.updateOrCreateCredential(credentialDetails);
         }
         else if (delegateString === this.api.DLGT_TOKEN_DEAUTHORIZED) {
@@ -180,9 +187,7 @@ class Auther extends Delegate {
         const details = get(credentialDetails, 'details');
 
         if (!this.credential){
-            const credentialSearch = await this.CredentialModel.find({
-                ...identifiers
-            })
+            const credentialSearch = await this.CredentialModel.find(identifiers);
             if (credentialSearch.length > 1) {
                 throw new Error(`Multiple credentials found with same identifiers: ${identifiers}`);
             }

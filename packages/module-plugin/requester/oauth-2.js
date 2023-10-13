@@ -51,6 +51,13 @@ class OAuth2Requester extends Requester {
         return this.authorizationUri;
     }
 
+    getAuthorizationRequirements() {
+        return {
+            url: this.getAuthorizationUri(),
+            type: 'oauth2',
+        };
+    }
+
     // this.client_id, this.client_secret, this.redirect_uri, and this.tokenUri
     // will need to be defined in the child class before super(params)
     async getTokenFromCode(code) {
