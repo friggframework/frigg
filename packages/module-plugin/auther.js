@@ -32,10 +32,56 @@ const _ = require('lodash');
 const {flushDebugLog} = require("@friggframework/logs");
 
 class Auther extends Delegate {
+    static validateDefinition(definition) {
+        if (!definition) {
+            throw new Error('Auther definition is required');
+        }
+        if (!definition.name) {
+            throw new Error('Auther definition requires name');
+        }
+        if (!definition.API) {
+            throw new Error('Auther definition requires API class');
+        }
+        if (!definition.Credential) {
+            throw new Error('Auther definition requires Credential class');
+        }
+        if (!definition.Entity) {
+            throw new Error('Auther definition requires Entity class');
+        }
+        if (!definition.requiredAuthMethods) {
+            throw new Error('Auther definition requires requiredAuthMethods');
+        } else {
+            if (!definition.requiredAuthMethods.getToken) {
+                throw new Error('Auther definition requires requiredAuthMethods.getToken');
+            }
+            if (!definition.requiredAuthMethods.getEntityDetails) {
+                throw new Error('Auther definition requires requiredAuthMethods.getEntityDetails');
+            }
+            if (!definition.requiredAuthMethods.getCredentialDetails) {
+                throw new Error('Auther definition requires requiredAuthMethods.getCredentialDetails');
+            }
+            if (!definition.requiredAuthMethods.apiPropertiesToPersist) {
+                throw new Error('Auther definition requires requiredAuthMethods.apiPropertiesToPersist');
+            } else {
+                for (const prop of definition.requiredAuthMethods.apiPropertiesToPersist) {
+                    if (!definition.Credential.schema.paths.hasOwnProperty(prop)) {
+                        throw new Error(
+                            `Auther definition requires Credential schema to have property ${prop}`
+                        );
+                    }
+                }
+            }
+            if (!definition.requiredAuthMethods.testAuthRequest) {
+                throw new Error('Auther definition requires requiredAuthMethods.testAuth');
+            }
+        }
+    }
+
     constructor(params) {
         super(params);
         this.userId = get(params, 'userId', null); // Making this non-required
         const definition = get(params, 'definition');
+        Auther.validateDefinition(definition);
         Object.assign(this, definition.requiredAuthMethods);
         this.name = definition.moduleName;
         this.apiClass = definition.API;
@@ -85,7 +131,6 @@ class Auther extends Delegate {
             ...entity,
         }));
     }
-
 
     async validateAuthorizationRequirements() {
         const requirements = await this.getAuthorizationRequirements();
@@ -211,6 +256,15 @@ class Auther extends Delegate {
     async markCredentialsInvalid() {
         this.credential.auth_is_valid = false;
         return await this.credential.save();
+    }
+
+    async deauthorize() {
+        this.api = new this.apiClass();
+        if (this.entity?.credential) {
+            await this.CredentialModel.deleteOne({ _id: this.entity.credential });
+            this.entity.credential = undefined;
+            await this.entity.save();
+        }
     }
 }
 
