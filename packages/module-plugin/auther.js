@@ -225,6 +225,10 @@ class Auther extends Delegate {
         } else if (search.length === 1) {
             this.entity = search[0];
         }
+        if (this.entity.credential === undefined) {
+            this.entity.credential = this.credential.id;
+            await this.entity.save();
+        }
     }
 
     async updateOrCreateCredential(credentialDetails) {
