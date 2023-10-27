@@ -31,9 +31,13 @@ const connectToDatabase = async () => {
     debug('=> using new database connection');
     mongoose.set('strictQuery', false);
     await mongoose.connect(process.env.MONGO_URI, mongoConfig);
+    debug('Connection state:',  mongoose.STATES[mongoose.connection.readyState]);
     mongoose.connection.on('error', (error) => flushDebugLog(error));
 };
 
+const disconnectFromDatabase = async () => mongoose.disconnect();
+
 module.exports = {
     connectToDatabase,
+    disconnectFromDatabase
 };

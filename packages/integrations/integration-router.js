@@ -4,7 +4,7 @@ const Boom = require('@hapi/boom');
 const catchAsyncError = require('express-async-handler');
 const { debug } = require('@friggframework/logs');
 
-export function createIntegrationRouter(params) {
+function createIntegrationRouter(params) {
     const router = get(params, 'router', express());
     const factory = get(params, 'factory');
     const getUserId = get(params, 'getUserId', (req) => null);
@@ -371,3 +371,5 @@ function setEntityRoutes(router, factory, getUserId) {
         })
     );
 }
+
+module.exports = createIntegrationRouter;

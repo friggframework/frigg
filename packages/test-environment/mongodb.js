@@ -7,6 +7,7 @@ class TestMongo {
     async start() {
         this.#mongoServer = await MongoMemoryServer.create();
         process.env.MONGO_URI = this.#mongoServer.getUri();
+        console.log('Started in memory mongo server', process.env.MONGO_URI);
     }
 
     async stop() {

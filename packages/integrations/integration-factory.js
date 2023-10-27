@@ -1,7 +1,7 @@
 const { ModuleFactory, Credential, Entity } = require('@friggframework/module-plugin');
 const {IntegrationModel} = require("./integration-model");
 const _ = require('lodash');
-const {IntegrationMapping} = require("./integration-mapping");
+
 
 class IntegrationFactory {
     constructor(integrationClasses = []) {
@@ -74,8 +74,15 @@ class IntegrationFactory {
             instance.record.user
         );
 
-        await instance.getUserActions();
-        instance.delegateTypes.push(...Object.keys(instance.userActions));
+        try {
+            await instance.getUserActions();
+            instance.delegateTypes.push(...Object.keys(instance.userActions));
+        } catch(e) {
+            instance.userActions = {};
+            instance.record.status = 'ERROR';
+            instance.record.messages.errors.push(e);
+            await instance.record.save();
+        }
         return instance;
     }
 

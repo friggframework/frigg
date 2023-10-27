@@ -1,8 +1,10 @@
-import {Credential, Entity} from "@friggframework/module-plugin";
-import {Integration} from "@friggframework/integrations";
+const { Credential, Entity } = require("../module-plugin");
+const { IntegrationModel } = require("../integrations");
+const mongoose = require("mongoose");
 
-export async function mockIntegration(IntegrationClassDef, userId, config = {},) {
+async function createMockIntegration(IntegrationClassDef, userId = null, config = {},) {
     const integration = new IntegrationClassDef();
+    userId = userId || new mongoose.Types.ObjectId();
     integration.delegateTypes.push(...IntegrationClassDef.Config.events)
 
     const insertOptions = {
@@ -41,7 +43,7 @@ export async function mockIntegration(IntegrationClassDef, userId, config = {},)
     );
 
     const entities = [entity1, entity2]
-    integration.record = await Integration.create({
+    integration.record = await IntegrationModel.create({
         entities,
         user: userId,
         config: {type: IntegrationClassDef.Config.name, ...config}
@@ -58,3 +60,5 @@ export async function mockIntegration(IntegrationClassDef, userId, config = {},)
 
     return integration
 }
+
+module.exports = createMockIntegration;
