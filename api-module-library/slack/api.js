@@ -3,6 +3,7 @@ const qs = require('qs');
 const { OAuth2Requester } = require('@friggframework/module-plugin');
 const { get } = require('@friggframework/assertions');
 const { FetchError } = require('@friggframework/errors');
+const moment = require("moment/moment");
 
 class Api extends OAuth2Requester {
     constructor(params) {
@@ -14,6 +15,7 @@ class Api extends OAuth2Requester {
         // this.client_id = get(params, 'client_id');
         // this.client_secret = get(params, 'client_secret');
         this.scope = process.env.SLACK_SCOPE;
+        this.user_scope = process.env.SLACK_USER_SCOPE || '';
         this.redirect_uri = get(
             params,
             'redirect_uri',
@@ -38,6 +40,7 @@ class Api extends OAuth2Requester {
             inviteUsersToChannel: '/conversations.invite',
             renameChannel: '/conversations.rename',
             getChannelHistory: '/conversations.history',
+            getChannelMembers: '/conversations.members',
 
             // Chats
             getMessagePermalink: '/chat.getPermalink',
@@ -76,6 +79,27 @@ class Api extends OAuth2Requester {
         };
 
         this.tokenUri = this.baseUrl + this.URLs.access_token;
+    }
+
+    async setTokens(params) {
+        this.access_token = get(params, 'access_token');
+        this.refresh_token = get(params, 'refresh_token', null);
+        const authedUser = get(params, 'authed_user', null);
+        const accessExpiresIn = get(params, 'expires_in', null);
+        const refreshExpiresIn = get(
+            params,
+            'x_refresh_token_expires_in',
+            null
+        );
+
+        if (authedUser && authedUser.access_token) {
+            this.access_token = authedUser.access_token;
+        }
+
+        this.accessTokenExpire = moment().add(accessExpiresIn, 'seconds');
+        this.refreshTokenExpire = moment().add(refreshExpiresIn, 'seconds');
+
+        await this.notify(this.DLGT_TOKEN_UPDATE);
     }
 
     async _request(url, options, i = 0) {
@@ -144,7 +168,7 @@ class Api extends OAuth2Requester {
 
     async getAuthUri() {
         const authUri = encodeURI(
-            `${this.URLs.authorize}?state=&client_id=${this.client_id}&scope=${this.scope}&redirect_uri=${this.redirect_uri}`
+            `${this.URLs.authorize}?state=${this.state}&client_id=${this.client_id}&scope=${this.scope}&user_scope=${this.user_scope}&redirect_uri=${this.redirect_uri}`
         );
         return authUri;
     }
@@ -505,6 +529,23 @@ class Api extends OAuth2Requester {
         const response = await this._post(options, false);
         return response;
     }
+
+    // Args:
+    // channel: string, required
+    // cursor: string, optional
+    // limit: integer, optional
+    async getChannelMembers(query) {
+        const options = {
+            url: this.baseUrl + this.URLs.getChannelMembers,
+            query,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        };
+        const response = await this._get(options);
+        return response;
+    }
+
     async listChannels(query) {
         const options = {
             url: this.baseUrl + this.URLs.listChannels,

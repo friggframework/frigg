@@ -1,3 +1,43 @@
+# v1.1.3 (Wed Oct 11 2023)
+
+#### 🐛 Bug Fix
+
+- Feature/Add Frontify getRefreshAccessToken test [#227](https://github.com/friggframework/frigg/pull/227) ([@msalvatti](https://github.com/msalvatti))
+- Feature/Add Frontify getRefreshAccessToken test ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
+# v1.1.2 (Fri Oct 06 2023)
+
+#### 🐛 Bug Fix
+
+- Fix/Frontify refresh token url fixed [#226](https://github.com/friggframework/frigg/pull/226) ([@msalvatti](https://github.com/msalvatti))
+- Fix/Frontify refresh accessToken function changed ([@msalvatti](https://github.com/msalvatti))
+- Fix/Frontify refresh token url fixed ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
+# v1.1.1 (Thu Sep 28 2023)
+
+#### 🐛 Bug Fix
+
+- Fix/Frontify create asset parentId fixed [#224](https://github.com/friggframework/frigg/pull/224) ([@msalvatti](https://github.com/msalvatti))
+- Fix/Frontify create asset parentId fixed ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
 # v1.1.0 (Wed Sep 06 2023)
 
 #### 🚀 Enhancement

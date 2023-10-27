@@ -22,6 +22,7 @@ describe(`${Config.label} API Tests`, () => {
                 expect(api.domain).toEqual('domain');
                 expect(api.baseUrl).toEqual('https://domain/graphql');
                 expect(api.tokenUri).toEqual('https://domain/api/oauth/accesstoken');
+                expect(api.tokenRefresh).toEqual('https://domain/api/oauth/refresh');
             });
         });
 
@@ -36,6 +37,7 @@ describe(`${Config.label} API Tests`, () => {
                 expect(api.domain).toBeNull();
                 expect(api.baseUrl).not.toBeDefined();
                 expect(api.tokenUri).not.toBeDefined();
+                expect(api.tokenRefresh).not.toBeDefined();
             });
         });
 
@@ -65,6 +67,38 @@ describe(`${Config.label} API Tests`, () => {
                 expect(api.domain).toEqual('my-domain');
                 expect(api.baseUrl).toEqual('https://my-domain/graphql');
                 expect(api.tokenUri).toEqual('https://my-domain/api/oauth/accesstoken');
+                expect(api.tokenRefresh).toEqual('https://my-domain/api/oauth/refresh');
+            });
+        });
+    });
+
+    describe('#getRefreshAccessToken', () => {
+        describe('Get refresh access token', () => {
+            let api;
+            let scope;
+            const url = 'https://my-domain';
+
+            beforeEach(() => {
+                api = new Api({
+                    domain: 'my-domain',
+                });
+
+                scope = nock(url)
+                    .post('/api/oauth/refresh')
+                    .reply(200, {
+                        access_token: 'access_token',
+                        refresh_token: 'refresh_token',
+                        expires_in: 'expires_in'
+                    });
+            });
+
+            it('should get refresh access token', async () => {
+                api.access_token = 'foobar';
+                const response = await api.refreshAccessToken({refresh_token: 'refresh_token'});
+                expect(response).toBeTruthy();
+                expect(api.access_token).not.toEqual('foobar');
+                expect(api.refresh_token).toEqual('refresh_token');
+                expect(api.tokenRefresh).toEqual(`${url}/api/oauth/refresh`);
             });
         });
     });
@@ -1889,7 +1923,7 @@ describe(`${Config.label} API Tests`, () => {
                           createAsset(input: {
                             fileId: "fileId",
                             title: "title",
-                            projectId: "projectId"
+                            parentId: "projectId"
                           }) {
                             job {
                               assetId
