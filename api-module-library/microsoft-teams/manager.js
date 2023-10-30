@@ -15,6 +15,7 @@ class Manager extends ModuleManager {
     constructor(params) {
         super(params);
         this.tenant_id = get(params, 'tenant_id', null);
+        this.redirect_uri= get(params, 'redirect_uri', `${process.env.REDIRECT_URI}/microsoft-teams`)
     }
 
     //------------------------------------------------------------
@@ -31,7 +32,7 @@ class Manager extends ModuleManager {
         let teamsParams = {
             client_id: process.env.TEAMS_CLIENT_ID,
             client_secret: process.env.TEAMS_CLIENT_SECRET,
-            redirect_uri: `${process.env.REDIRECT_URI}/microsoft-teams/callback`,
+            redirect_uri: instance.redirect_uri,
             scope: process.env.TEAMS_SCOPE,
             delegate: instance,
         };
