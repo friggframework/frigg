@@ -1,6 +1,6 @@
 {
 	"name": "@friggframework/api-module-slack",
-	"version": "0.1.35",
+	"version": "0.2.5",
 	"prettier": "@friggframework/prettier-config",
 	"description": "",
 	"main": "index.js",
@@ -20,7 +20,7 @@
 	},
 	"dependencies": {
 		"@friggframework/assertions": "^1.0.8",
-		"@friggframework/module-plugin": "^1.0.27",
+		"@friggframework/module-plugin": "^1.1.0",
 		"qs": "^6.11.1"
 	},
 	"gitHead": "1ff6f32fa238512761a9c361f0e07f49b6bf5ed7"

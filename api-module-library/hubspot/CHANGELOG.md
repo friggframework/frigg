@@ -1,3 +1,28 @@
+# v0.9.0 (Wed Sep 06 2023)
+
+#### 🐛 Bug Fix
+
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.8.31 (Mon Aug 21 2023)
+
+#### 🐛 Bug Fix
+
+- HubSpot - add crud methods for Email Templates [#216](https://github.com/friggframework/frigg/pull/216) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- add CRUD methods for email templates ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 1
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+
+---
+
 # v0.8.30 (Thu Jun 22 2023)
 
 #### 🐛 Bug Fix

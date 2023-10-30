@@ -9,7 +9,7 @@ class ModuleManager extends Delegate {
 
     constructor(params) {
         super(params);
-        this.userId = get(params, 'userId');
+        this.userId = get(params, 'userId', null); // Making this non-required
     }
 
     static getName() {

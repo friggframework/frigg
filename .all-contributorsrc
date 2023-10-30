@@ -258,6 +258,28 @@
         "test",
         "code"
       ]
+    },
+    {
+      "login": "msalvatti",
+      "name": "Maximiliano Salvatti",
+      "avatar_url": "https://avatars.githubusercontent.com/u/40447063?v=4",
+      "profile": "https://github.com/msalvatti",
+      "contributions": [
+        "doc",
+        "test",
+        "code"
+      ]
+    },
+    {
+      "login": "msalvatti-ecotrak",
+      "name": "Maximiliano Salvatti",
+      "avatar_url": "https://avatars.githubusercontent.com/u/132104869?v=4",
+      "profile": "https://github.com/msalvatti-ecotrak",
+      "contributions": [
+        "doc",
+        "test",
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7

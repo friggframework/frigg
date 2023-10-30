@@ -1,3 +1,191 @@
+# v1.1.3 (Wed Oct 11 2023)
+
+#### 🐛 Bug Fix
+
+- Feature/Add Frontify getRefreshAccessToken test [#227](https://github.com/friggframework/frigg/pull/227) ([@msalvatti](https://github.com/msalvatti))
+- Feature/Add Frontify getRefreshAccessToken test ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
+# v1.1.2 (Fri Oct 06 2023)
+
+#### 🐛 Bug Fix
+
+- Fix/Frontify refresh token url fixed [#226](https://github.com/friggframework/frigg/pull/226) ([@msalvatti](https://github.com/msalvatti))
+- Fix/Frontify refresh accessToken function changed ([@msalvatti](https://github.com/msalvatti))
+- Fix/Frontify refresh token url fixed ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
+# v1.1.1 (Thu Sep 28 2023)
+
+#### 🐛 Bug Fix
+
+- Fix/Frontify create asset parentId fixed [#224](https://github.com/friggframework/frigg/pull/224) ([@msalvatti](https://github.com/msalvatti))
+- Fix/Frontify create asset parentId fixed ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
+# v1.1.0 (Wed Sep 06 2023)
+
+#### 🚀 Enhancement
+
+- Slack lookup by externalId, remove the user requirement from Mongoose DB models [#218](https://github.com/friggframework/frigg/pull/218) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### 🐛 Bug Fix
+
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v1.0.2 (Wed Sep 06 2023)
+
+#### 🐛 Bug Fix
+
+- Feature/Add Sharepoint graphSearchQuery function [#217](https://github.com/friggframework/frigg/pull/217) ([@msalvatti](https://github.com/msalvatti))
+- Feature/Sharepoint graphSearchQuery test ([@msalvatti](https://github.com/msalvatti))
+- Feature/Add Sharepoint graphSearchQuery function ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
+# v1.0.1 (Mon Aug 14 2023)
+
+#### 🐛 Bug Fix
+
+- Fix/ List Collections items prop removed [#212](https://github.com/friggframework/frigg/pull/212) ([@msalvatti](https://github.com/msalvatti))
+- Fix/ListCollections test fixed ([@msalvatti](https://github.com/msalvatti))
+- Fix/ListCollections Frontify test fixed ([@msalvatti](https://github.com/msalvatti))
+- Fix/ List Collections items prop removed ([@msalvatti](https://github.com/msalvatti))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v1.0.0 (Tue Aug 08 2023)
+
+#### 💥 Breaking Change
+
+- Feature/lef 598 implement pagination in the backend [#211](https://github.com/friggframework/frigg/pull/211) ([@roboli](https://github.com/roboli))
+
+#### 🐛 Bug Fix
+
+- Paginate listCollectionsAssets method [ci skip] ([@roboli](https://github.com/roboli))
+- Return pagination data in each response [ci skip] ([@roboli](https://github.com/roboli))
+- Crete pagination helper methods [ci skip] ([@roboli](https://github.com/roboli))
+- Implement and test pagination [ci skip] ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
+# v0.0.17 (Mon Aug 07 2023)
+
+:tada: This release contains work from new contributors! :tada:
+
+Thanks for all your work!
+
+:heart: Maximiliano Salvatti ([@msalvatti-ecotrak](https://github.com/msalvatti-ecotrak))
+
+:heart: Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+#### 🐛 Bug Fix
+
+- LEF-605: API listCollections [#207](https://github.com/friggframework/frigg/pull/207) ([@msalvatti-ecotrak](https://github.com/msalvatti-ecotrak) [@leofmds](https://github.com/leofmds))
+- Merge branch 'main' into feature/lef-605-add-listcollections-endpoint ([@leofmds](https://github.com/leofmds))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+- typename included ([@msalvatti-ecotrak](https://github.com/msalvatti-ecotrak))
+- API listCollections ([@msalvatti-ecotrak](https://github.com/msalvatti-ecotrak))
+
+#### Authors: 3
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+- Maximiliano Salvatti ([@msalvatti-ecotrak](https://github.com/msalvatti-ecotrak))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.0.16 (Fri Aug 04 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti)), for all your work!
+
+#### 🐛 Bug Fix
+
+- LEF-610: list collection assets [#210](https://github.com/friggframework/frigg/pull/210) ([@msalvatti](https://github.com/msalvatti))
+- collection response fixed ([@msalvatti](https://github.com/msalvatti))
+- Add _filesQuery() ([@msalvatti](https://github.com/msalvatti))
+- LEF-610: list collection assets ([@msalvatti](https://github.com/msalvatti))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.0.15 (Wed Aug 02 2023)
+
+#### 🐛 Bug Fix
+
+- Feature/lef 597 implementcheck tags [#208](https://github.com/friggframework/frigg/pull/208) ([@roboli](https://github.com/roboli))
+- Fix tests [ci skip] ([@roboli](https://github.com/roboli))
+- Add tags when retreiving library or project assets [ci skip] ([@roboli](https://github.com/roboli))
+- Add tags when retreiving library or project assets ([@roboli](https://github.com/roboli))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.0.14 (Thu Jul 20 2023)
+
+#### 🐛 Bug Fix
+
+- Feature/lef 539 return the user roles from the backend at the root container [#201](https://github.com/friggframework/frigg/pull/201) ([@roboli](https://github.com/roboli))
+- Restore listBrandPermissions ([@roboli](https://github.com/roboli))
+- Include permissions in listProjects and listLibraries ([@roboli](https://github.com/roboli))
+- Test retrieving brand permissions ([@roboli](https://github.com/roboli))
+- Return permissions for all libraries and projects in brand ([@roboli](https://github.com/roboli))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.0.13 (Tue Jul 18 2023)
 
 #### 🐛 Bug Fix

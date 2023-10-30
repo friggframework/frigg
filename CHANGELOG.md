@@ -1,3 +1,301 @@
+# (Wed Oct 11 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@1.1.3`
+  - Feature/Add Frontify getRefreshAccessToken test [#227](https://github.com/friggframework/frigg/pull/227) ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
+# (Fri Oct 06 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@1.1.2`
+  - Fix/Frontify refresh token url fixed [#226](https://github.com/friggframework/frigg/pull/226) ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
+# (Thu Sep 28 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@1.1.1`
+  - Fix/Frontify create asset parentId fixed [#224](https://github.com/friggframework/frigg/pull/224) ([@msalvatti](https://github.com/msalvatti))
+- `@friggframework/api-module-slack@0.2.5`
+  - Fix to team entity creation - user should be null instead of 0 [#223](https://github.com/friggframework/frigg/pull/223) ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 2
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
+# (Mon Sep 25 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.2.4`
+  - Feature/Add getChannelMembers endpoint [#222](https://github.com/friggframework/frigg/pull/222) ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
+# (Thu Sep 21 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.2.3`
+  - Add the team entity to Slack if it doesn't exists and return it in pr… [#221](https://github.com/friggframework/frigg/pull/221) ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 1
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
+# (Mon Sep 18 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.2.2`
+  - Add state and user_scope variables to Slack auth URI [#220](https://github.com/friggframework/frigg/pull/220) ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 1
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
+# (Thu Sep 14 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.2.1`
+  - Fix/Add headers charset [#219](https://github.com/friggframework/frigg/pull/219) ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
+# (Wed Sep 06 2023)
+
+#### 🚀 Enhancement
+
+- `@friggframework/api-module-slack@0.2.0`, `@friggframework/integrations@1.2.0`, `@friggframework/module-plugin@1.1.0`
+  - Slack lookup by externalId, remove the user requirement from Mongoose DB models [#218](https://github.com/friggframework/frigg/pull/218) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Wed Sep 06 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@1.0.2`, `@friggframework/api-module-microsoft-sharepoint@0.0.8`
+  - Feature/Add Sharepoint graphSearchQuery function [#217](https://github.com/friggframework/frigg/pull/217) ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
+# (Tue Aug 22 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.1.36`
+  - Add link unfurling endpoint [#215](https://github.com/friggframework/frigg/pull/215) ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 1
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
+# (Mon Aug 21 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-hubspot@0.8.31`
+  - HubSpot - add crud methods for Email Templates [#216](https://github.com/friggframework/frigg/pull/216) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 1
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+
+---
+
+# (Mon Aug 14 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@1.0.1`
+  - Fix/ List Collections items prop removed [#212](https://github.com/friggframework/frigg/pull/212) ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
+# (Mon Aug 14 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-google-drive@0.0.11`
+  - Push comment hoping for module to be released! [#214](https://github.com/friggframework/frigg/pull/214) ([@roboli](https://github.com/roboli))
+  - Return full response when fetching file [ci skip] [#213](https://github.com/friggframework/frigg/pull/213) ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
+# (Tue Aug 08 2023)
+
+#### 💥 Breaking Change
+
+- `@friggframework/api-module-frontify@1.0.0`
+  - Feature/lef 598 implement pagination in the backend [#211](https://github.com/friggframework/frigg/pull/211) ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
+# (Mon Aug 07 2023)
+
+:tada: This release contains work from new contributors! :tada:
+
+Thanks for all your work!
+
+:heart: Maximiliano Salvatti ([@msalvatti-ecotrak](https://github.com/msalvatti-ecotrak))
+
+:heart: Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@0.0.17`
+  - LEF-605: API listCollections [#207](https://github.com/friggframework/frigg/pull/207) ([@msalvatti-ecotrak](https://github.com/msalvatti-ecotrak) [@leofmds](https://github.com/leofmds))
+- `@friggframework/api-module-google-calendar@0.0.3`
+  - Fr/google calendar [#203](https://github.com/friggframework/frigg/pull/203) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 3
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+- Maximiliano Salvatti ([@msalvatti-ecotrak](https://github.com/msalvatti-ecotrak))
+
+---
+
+# (Fri Aug 04 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@0.0.16`
+  - LEF-610: list collection assets [#210](https://github.com/friggframework/frigg/pull/210) ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
+# (Thu Aug 03 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/integrations@1.1.4`
+  - remove check in Options [#206](https://github.com/friggframework/frigg/pull/206) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- `@friggframework/api-module-google-calendar@0.0.3`
+  - Fr/google calendar [#203](https://github.com/friggframework/frigg/pull/203) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 1
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+
+---
+
+# (Wed Aug 02 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-google-calendar@0.0.2`
+  - Changing the Google Calendar publish access to public [#209](https://github.com/friggframework/frigg/pull/209) ([@leofmds](https://github.com/leofmds))
+  - Fr/google calendar [#203](https://github.com/friggframework/frigg/pull/203) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- `@friggframework/api-module-frontify@0.0.15`
+  - Feature/lef 597 implementcheck tags [#208](https://github.com/friggframework/frigg/pull/208) ([@roboli](https://github.com/roboli))
+
+#### Authors: 3
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
+# (Wed Jul 26 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-microsoft-teams@0.0.10`
+  - fr/teams-getuserbyid [#205](https://github.com/friggframework/frigg/pull/205) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 1
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+
+---
+
+# (Mon Jul 24 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-microsoft-sharepoint@0.0.7`
+  - Add the updated credential to an already existing entity in SharePoint integration [#202](https://github.com/friggframework/frigg/pull/202) ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 1
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
+# (Thu Jul 20 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-frontify@0.0.14`
+  - Feature/lef 539 return the user roles from the backend at the root container [#201](https://github.com/friggframework/frigg/pull/201) ([@roboli](https://github.com/roboli))
+- `@friggframework/api-module-microsoft-sharepoint@0.0.7`
+  - Feature/lef 275 export functionality [#200](https://github.com/friggframework/frigg/pull/200) ([@roboli](https://github.com/roboli))
+
+#### Authors: 1
+
+- Roberto Oliveros ([@roboli](https://github.com/roboli))
+
+---
+
 # (Thu Jul 20 2023)
 
 #### 🐛 Bug Fix

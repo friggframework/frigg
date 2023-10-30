@@ -4,7 +4,7 @@ const { ModuleManager } = require('@friggframework/module-plugin');
 
 class Options {
     constructor(params) {
-        this.module = getAndVerifyType(params, 'module', ModuleManager);
+        this.module = get(params, 'module');
         this.isMany = Boolean(get(params, 'isMany', false));
         this.hasUserConfig = Boolean(get(params, 'hasUserConfig', false));
         this.requiresNewEntity = Boolean(

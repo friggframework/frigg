@@ -412,4 +412,38 @@ describe(`${config.label} API tests`, () => {
             expect(response).toBeDefined();
         });
     });
+
+    describe('HS Email Templates', () => {
+        let allEmailTemplates;
+        it('should return the Email Templates', async () => {
+            allEmailTemplates = await api.getEmailTemplates();
+            expect(allEmailTemplates).toBeDefined();
+            expect(allEmailTemplates).toHaveProperty('objects')
+        });
+        it('get Email Template by Id' , async () => {
+            const templateToGet = allEmailTemplates.objects.slice(-1)[0];
+            const response = await api.getEmailTemplate(templateToGet.id);
+            expect(response).toBeDefined();
+        });
+        it('update a Email Template' , async () => {
+            const postToUpdate = allEmailTemplates.objects.slice(-1)[0];
+            const response = await api.updateEmailTemplate(
+                postToUpdate.id,
+                {label: `test email template ${Date.now()}`},
+                 );
+            expect(response).toBeDefined();
+        });
+        let createdId;
+        it('create an Email Template' , async () => {
+            const response = await api.createEmailTemplate(
+                allEmailTemplates.objects.slice(-1)[0]
+            );
+            expect(response).toBeDefined();
+            createdId = response.id;
+        });
+        it('Delete an Email Template' , async () => {
+            const response = await api.deleteEmailTemplate(createdId)
+            expect(response.status).toBe(204);
+        });
+    });
 });

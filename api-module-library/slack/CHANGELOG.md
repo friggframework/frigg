@@ -1,3 +1,109 @@
+# v0.2.5 (Thu Sep 28 2023)
+
+#### 🐛 Bug Fix
+
+- Fix to team entity creation - user should be null instead of 0 [#223](https://github.com/friggframework/frigg/pull/223) ([@leofmds](https://github.com/leofmds))
+- Fix to team entity creation - user should be null instead of 0 ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 1
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
+# v0.2.4 (Mon Sep 25 2023)
+
+#### 🐛 Bug Fix
+
+- Feature/Add getChannelMembers endpoint [#222](https://github.com/friggframework/frigg/pull/222) ([@msalvatti](https://github.com/msalvatti))
+- Fix/Name on channel members test fixed ([@msalvatti](https://github.com/msalvatti))
+- Feature/Add getChannelMembers endpoint ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
+# v0.2.3 (Thu Sep 21 2023)
+
+#### 🐛 Bug Fix
+
+- Add the team entity to Slack if it doesn't exists and return it in pr… [#221](https://github.com/friggframework/frigg/pull/221) ([@leofmds](https://github.com/leofmds))
+- Adding proposed changes ([@leofmds](https://github.com/leofmds))
+- Renaming team_entity to team_entity_id ([@leofmds](https://github.com/leofmds))
+- Returning auth info in Slack processAuthorizationCallback ([@leofmds](https://github.com/leofmds))
+- Add the team entity to Slack if it doesn't exists and return it in processAuthorizationCallback ([@leofmds](https://github.com/leofmds))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.2.2 (Mon Sep 18 2023)
+
+#### 🐛 Bug Fix
+
+- Add state and user_scope variables to Slack auth URI [#220](https://github.com/friggframework/frigg/pull/220) ([@leofmds](https://github.com/leofmds))
+- Add state and user_scope variables to Slack auth URI ([@leofmds](https://github.com/leofmds))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.2.1 (Thu Sep 14 2023)
+
+#### 🐛 Bug Fix
+
+- Fix/Add headers charset [#219](https://github.com/friggframework/frigg/pull/219) ([@msalvatti](https://github.com/msalvatti))
+- Fix/Add headers charset ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
+# v0.2.0 (Wed Sep 06 2023)
+
+#### 🚀 Enhancement
+
+- Slack lookup by externalId, remove the user requirement from Mongoose DB models [#218](https://github.com/friggframework/frigg/pull/218) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### 🐛 Bug Fix
+
+- Vestiges ([@seanspeaks](https://github.com/seanspeaks))
+- Looking good ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.1.36 (Tue Aug 22 2023)
+
+#### 🐛 Bug Fix
+
+- Add link unfurling endpoint [#215](https://github.com/friggframework/frigg/pull/215) ([@leofmds](https://github.com/leofmds))
+- Add link unfurling endpoint ([@leofmds](https://github.com/leofmds))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.1.35 (Thu Jun 08 2023)
 
 #### 🐛 Bug Fix

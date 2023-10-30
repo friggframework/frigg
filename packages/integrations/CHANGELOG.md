@@ -1,3 +1,35 @@
+# v1.2.0 (Wed Sep 06 2023)
+
+#### 🚀 Enhancement
+
+- Slack lookup by externalId, remove the user requirement from Mongoose DB models [#218](https://github.com/friggframework/frigg/pull/218) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### 🐛 Bug Fix
+
+- Looking good ([@seanspeaks](https://github.com/seanspeaks))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v1.1.4 (Thu Aug 03 2023)
+
+#### 🐛 Bug Fix
+
+- remove check in Options [#206](https://github.com/friggframework/frigg/pull/206) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- remove check in Options ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.1.3 (Thu Jun 15 2023)
 
 #### 🐛 Bug Fix

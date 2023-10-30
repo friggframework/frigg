@@ -1,3 +1,28 @@
+# v0.1.0 (Wed Sep 06 2023)
+
+#### 🐛 Bug Fix
+
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.0.10 (Wed Jul 26 2023)
+
+#### 🐛 Bug Fix
+
+- fr/teams-getuserbyid [#205](https://github.com/friggframework/frigg/pull/205) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- add method for retrieving user details ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 1
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+
+---
+
 # v0.0.9 (Wed Jun 21 2023)
 
 #### 🐛 Bug Fix

@@ -85,6 +85,12 @@ describe(`Should fully test the ${config.label} API Class`, () => {
                 });
                 expect(history.ok).toBeTruthy();
             });
+            it('should return channel members', async () => {
+                const members = await api.getChannelMembers({
+                    channel: messageChannel
+                });
+                expect(members.ok).toBeTruthy();
+            });
         });
     });
 });

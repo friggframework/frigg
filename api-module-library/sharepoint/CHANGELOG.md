@@ -1,3 +1,46 @@
+# v0.1.0 (Wed Sep 06 2023)
+
+#### 🚀 Enhancement
+
+- Slack lookup by externalId, remove the user requirement from Mongoose DB models [#218](https://github.com/friggframework/frigg/pull/218) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### 🐛 Bug Fix
+
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.0.8 (Wed Sep 06 2023)
+
+#### 🐛 Bug Fix
+
+- Feature/Add Sharepoint graphSearchQuery function [#217](https://github.com/friggframework/frigg/pull/217) ([@msalvatti](https://github.com/msalvatti))
+- Feature/Sharepoint graphSearchQuery test ([@msalvatti](https://github.com/msalvatti))
+- Feature/Add Sharepoint graphSearchQuery function ([@msalvatti](https://github.com/msalvatti))
+
+#### Authors: 1
+
+- Maximiliano Salvatti ([@msalvatti](https://github.com/msalvatti))
+
+---
+
+# v0.0.7 (Mon Jul 24 2023)
+
+#### 🐛 Bug Fix
+
+- Add the updated credential to an already existing entity in SharePoint integration [#202](https://github.com/friggframework/frigg/pull/202) ([@leofmds](https://github.com/leofmds))
+- Add the updated credential to an already existing entity in SharePoint integration ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 1
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
 # v0.0.6 (Thu Jul 20 2023)
 
 #### 🐛 Bug Fix
