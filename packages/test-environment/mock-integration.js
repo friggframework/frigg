@@ -61,4 +61,22 @@ async function createMockIntegration(IntegrationClassDef, userId = null, config 
     return integration
 }
 
-module.exports = createMockIntegration;
+function createMockApiObject(jest, api = {}, mockMethodMap) {
+    // take in an api class and object with keys that are method names
+    // and values which are the mock response (or implementation)
+    const clone = (data) => JSON.parse(JSON.stringify(data));
+
+    for (const [methodName, mockDataOrImplementation] of Object.entries(mockMethodMap)) {
+        if (mockDataOrImplementation instanceof Function) {
+            api[methodName] = jest.fn(mockDataOrImplementation);
+        }
+        else if (api[methodName]?.constructor?.name === "AsyncFunction") {
+            api[methodName] = jest.fn().mockResolvedValue(clone(mockDataOrImplementation));
+        } else {
+            api[methodName] = jest.fn().mockReturnValue(clone(mockDataOrImplementation));
+        }
+    }
+    return api;
+}
+
+module.exports = {createMockIntegration, createMockApiObject};

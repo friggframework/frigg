@@ -5,7 +5,7 @@ const {
 } = require('./override-environment');
 const globalTeardown = require('./jest-global-teardown');
 const globalSetup = require('./jest-global-setup');
-const createMockIntegration = require('./mock-integration')
+const {createMockIntegration, createMockApiObject} = require('./mock-integration')
 
 module.exports = {
     TestMongo,
@@ -13,5 +13,6 @@ module.exports = {
     restoreEnvironment,
     globalTeardown,
     globalSetup,
-    createMockIntegration
+    createMockIntegration,
+    createMockApiObject
 };
