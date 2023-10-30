@@ -1,3 +1,20 @@
+# v0.1.1 (Mon Oct 30 2023)
+
+#### 🐛 Bug Fix
+
+- Vedantagrawal/ms teams fix [#228](https://github.com/friggframework/frigg/pull/228) ([@vedantagrawall](https://github.com/vedantagrawall))
+- pr feedback ([@vedantagrawall](https://github.com/vedantagrawall))
+- Merge branch 'main' of https://github.com/friggframework/frigg ([@vedantagrawall](https://github.com/vedantagrawall))
+- fixing ms teams redirect and admin consent urls ([@vedantagrawall](https://github.com/vedantagrawall))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@vedantagrawall](https://github.com/vedantagrawall)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.1.0 (Wed Sep 06 2023)
 
 #### 🐛 Bug Fix
