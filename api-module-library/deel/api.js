@@ -6,6 +6,7 @@ class Api extends OAuth2Requester {
     constructor(params) {
         super(params);
         this.access_token = get(params, 'access_token', null);
+        this.backOff = [1];
         this.baseUrl = 'https://api-staging.letsdeel.com/rest/v1';
         this.endpoints = {
             listPeople: '/people',
@@ -77,7 +78,7 @@ class Api extends OAuth2Requester {
 
     async getTokenIdentity() {
         const org = await this.getOrganization();
-        return {name: org.name, id: org.id};
+        return {name: org.data[0].name, id: org.data[0].id};
     }
 
     async listPeople(query) {

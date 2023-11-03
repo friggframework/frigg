@@ -32,7 +32,7 @@ const Definition = {
             };
         },
         testAuthRequest: async function(api){
-            return await api.getOrganization()
+            return await api.getOrganization();
         },
     },
     env: {

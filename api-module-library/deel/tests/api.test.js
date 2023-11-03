@@ -36,6 +36,11 @@ describe('Deel API Tests', () => {
             const org = await api.getOrganization();
             expect(org.data).toBeDefined();
         });
+        it('Should retrieve information about the token', async () => {
+            const tokenDetails = await api.getTokenIdentity();
+            expect(tokenDetails.identifiers).toBeDefined();
+            expect(tokenDetails.identifiers.externalId).toBeTruthy();
+        });
     });
 
     describe('API requests', () => {

@@ -3,6 +3,8 @@ const { Definition} = require('../definition');
 const { Auther } = require('@friggframework/module-plugin');
 const mongoose = require('mongoose');
 const Authenticator = require("@friggframework/test-environment/Authenticator");
+const {testDefinition} = require('@friggframework/test-environment/auther-test');
+
 describe('Deel Manager Tests', () => {
     let manager, authUrl;
     beforeAll(async () => {
@@ -14,8 +16,8 @@ describe('Deel Manager Tests', () => {
     });
 
     afterAll(async () => {
-        await Manager.Credential.deleteMany();
-        await Manager.Entity.deleteMany();
+        await Definition.Credential.deleteMany();
+        await Definition.Entity.deleteMany();
         await mongoose.disconnect();
     });
 
@@ -26,6 +28,10 @@ describe('Deel Manager Tests', () => {
             expect(requirements.type).toEqual('oauth2');
             expect(requirements.url).toBeDefined();
             authUrl = requirements.url;
+        });
+        it('should fail test auth', async () => {
+            const response = await manager.testAuth();
+            expect(response).toBeFalsy();
         });
     });
 
@@ -51,7 +57,11 @@ describe('Deel Manager Tests', () => {
             });
             expect(res).toEqual(firstRes);
         });
+        it('Should test the Definition methods', async () => {
+            await testDefinition(manager.api, Definition);
+        })
     });
+
     describe('Test credential retrieval and manager instantiation', () => {
         it('retrieve by entity id', async () => {
             const newManager = await Auther.getInstance({
