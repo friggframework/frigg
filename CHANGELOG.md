@@ -1,3 +1,16 @@
+# (Mon Oct 30 2023)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-microsoft-teams@0.1.1`
+  - Vedantagrawal/ms teams fix [#228](https://github.com/friggframework/frigg/pull/228) ([@vedantagrawall](https://github.com/vedantagrawall))
+
+#### Authors: 1
+
+- [@vedantagrawall](https://github.com/vedantagrawall)
+
+---
+
 # (Wed Oct 11 2023)
 
 #### 🐛 Bug Fix
