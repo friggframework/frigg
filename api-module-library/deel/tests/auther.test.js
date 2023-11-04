@@ -15,8 +15,8 @@ describe('Deel Auther Tests', () => {
     });
 
     afterAll(async () => {
-        await Definition.Credential.deleteMany();
-        await Definition.Entity.deleteMany();
+        await auther.CredentialModel.deleteMany();
+        await auther.EntityModel.deleteMany();
         await mongoose.disconnect();
     });
 

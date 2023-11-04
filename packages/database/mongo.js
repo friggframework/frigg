@@ -37,7 +37,10 @@ const connectToDatabase = async () => {
 
 const disconnectFromDatabase = async () => mongoose.disconnect();
 
+const createObjectId = () => new mongoose.Types.ObjectId();
+
 module.exports = {
     connectToDatabase,
-    disconnectFromDatabase
+    disconnectFromDatabase,
+    createObjectId
 };
