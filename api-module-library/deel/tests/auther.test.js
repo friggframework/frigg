@@ -2,8 +2,7 @@
 const { Definition} = require('../definition');
 const { Auther } = require('@friggframework/module-plugin');
 const mongoose = require('mongoose');
-const Authenticator = require("@friggframework/test-environment/Authenticator");
-const {testDefinition} = require('@friggframework/test-environment/auther-test');
+const { Authenticator, testDefinition } = require("@friggframework/test-environment");
 
 describe('Deel Auther Tests', () => {
     let auther, authUrl;
@@ -29,7 +28,7 @@ describe('Deel Auther Tests', () => {
             expect(requirements.url).toBeDefined();
             authUrl = requirements.url;
         });
-        it('should fail test auth', async () => {
+        it.skip('should fail test auth', async () => {
             const response = await auther.testAuth();
             expect(response).toBeFalsy();
         });

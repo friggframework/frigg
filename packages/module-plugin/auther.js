@@ -30,24 +30,27 @@ const { Delegate } = require('@friggframework/core');
 const { get } = require('@friggframework/assertions');
 const _ = require('lodash');
 const {flushDebugLog} = require("@friggframework/logs");
+const { Credential } = require('./credential');
+const { Entity } = require('./entity');
+const mongoose = require('mongoose');
 
 class Auther extends Delegate {
     static validateDefinition(definition) {
         if (!definition) {
             throw new Error('Auther definition is required');
         }
-        if (!definition.name) {
-            throw new Error('Auther definition requires name');
+        if (!definition.moduleName) {
+            throw new Error('Auther definition requires moduleName');
         }
         if (!definition.API) {
             throw new Error('Auther definition requires API class');
         }
-        if (!definition.Credential) {
-            throw new Error('Auther definition requires Credential class');
-        }
-        if (!definition.Entity) {
-            throw new Error('Auther definition requires Entity class');
-        }
+        // if (!definition.Credential) {
+        //     throw new Error('Auther definition requires Credential class');
+        // }
+        // if (!definition.Entity) {
+        //     throw new Error('Auther definition requires Entity class');
+        // }
         if (!definition.requiredAuthMethods) {
             throw new Error('Auther definition requires requiredAuthMethods');
         } else {
@@ -62,7 +65,7 @@ class Auther extends Delegate {
             }
             if (!definition.requiredAuthMethods.apiPropertiesToPersist) {
                 throw new Error('Auther definition requires requiredAuthMethods.apiPropertiesToPersist');
-            } else {
+            } else if (definition.Credential){
                 for (const prop of definition.requiredAuthMethods.apiPropertiesToPersist) {
                     if (!definition.Credential.schema.paths.hasOwnProperty(prop)) {
                         throw new Error(
@@ -85,8 +88,8 @@ class Auther extends Delegate {
         Object.assign(this, definition.requiredAuthMethods);
         this.name = definition.moduleName;
         this.apiClass = definition.API;
-        this.CredentialModel = definition.Credential;
-        this.EntityModel = definition.Entity;
+        this.CredentialModel = definition.Credential || this.getCredentialModel();
+        this.EntityModel = definition.Entity || this.getEntityModel();
     }
 
     static async getInstance(params) {
@@ -118,9 +121,34 @@ class Auther extends Delegate {
         return _.pick(credential, ...this.apiPropertiesToPersist);
     }
 
+    getEntityModel() {
+        if (!this.EntityModel) {
+            const schema = new mongoose.Schema({});
+            const name = `${_.upperFirst(this.getName())}Entity`;
+            this.EntityModel =
+                Entity.discriminators?.[name] || Entity.discriminator(name, schema);
+        }
+        return this.EntityModel;
+    }
+
+    getCredentialModel() {
+        if (!this.CredentialModel) {
+            const arrayToDefaultObject = (array, defaultValue) => _.mapValues(_.keyBy(array), () => defaultValue);
+            const schema = new mongoose.Schema(arrayToDefaultObject(this.apiPropertiesToPersist, {
+                type: mongoose.Schema.Types.Mixed,
+                trim: true,
+                lhEncrypt: true
+            }));
+            const name = `${_.upperFirst(this.getName())}Credential`;
+            this.CredentialModel =
+                Credential.discriminators?.[name] || Credential.discriminator(name, schema);
+        }
+        return this.CredentialModel;
+    }
+
     async getEntitiesForUserId(userId) {
         // Only return non-internal fields. Leverages "select" and "options" to non-excepted fields and a pure object.
-        const list = await this.Entity.find(
+        const list = await this.EntityModel.find(
             { user: userId },
             '-dateCreated -dateUpdated -user -credentials -credential -__t -__v',
             { lean: true }

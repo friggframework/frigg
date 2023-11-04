@@ -7,6 +7,7 @@ const globalTeardown = require('./jest-global-teardown');
 const globalSetup = require('./jest-global-setup');
 const {testDefinition} = require('./auther-test');
 const {createMockIntegration, createMockApiObject} = require('./mock-integration')
+const Authenticator = require('./Authenticator')
 
 module.exports = {
     TestMongo,
@@ -16,5 +17,6 @@ module.exports = {
     globalSetup,
     createMockIntegration,
     createMockApiObject,
-    testDefinition
+    testDefinition,
+    Authenticator
 };

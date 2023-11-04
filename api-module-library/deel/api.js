@@ -6,7 +6,8 @@ class Api extends OAuth2Requester {
     constructor(params) {
         super(params);
         this.access_token = get(params, 'access_token', null);
-        this.backOff = [1];
+        // consider setting backOff as refreshAuth request gets a 500 with bad token
+        this.backOff = [1, 3];
         this.baseUrl = 'https://api-staging.letsdeel.com/rest/v1';
         this.endpoints = {
             listPeople: '/people',
