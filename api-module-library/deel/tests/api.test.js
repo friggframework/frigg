@@ -80,7 +80,7 @@ describe('Deel API Tests', () => {
             let webhookId = '';
             const webhookDef = {
                 "name": "My webhook",
-                "description": "My first webhook.",
+                "description": `Test webhook ${Date.now()}`,
                 "events": [
                     "contract.created",
                 ],

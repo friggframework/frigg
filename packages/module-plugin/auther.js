@@ -33,6 +33,8 @@ const {flushDebugLog} = require("@friggframework/logs");
 const { Credential } = require('./credential');
 const { Entity } = require('./entity');
 const mongoose = require('mongoose');
+mongoose.set('strictQuery', true);
+
 
 class Auther extends Delegate {
     static validateDefinition(definition) {
@@ -113,6 +115,11 @@ class Auther extends Delegate {
         return instance;
     }
 
+    static getEntityModelFromDefinition(definition) {
+        const partialModule = new this({definition});
+        return partialModule.getEntityModel();
+    }
+
     getName() {
         return this.name;
     }
@@ -132,6 +139,8 @@ class Auther extends Delegate {
     }
 
     getCredentialModel() {
+        console.log('mongoose strictQuery', mongoose.get('strictQuery'));
+        mongoose.set('strictQuery', true);
         if (!this.CredentialModel) {
             const arrayToDefaultObject = (array, defaultValue) => _.mapValues(_.keyBy(array), () => defaultValue);
             const schema = new mongoose.Schema(arrayToDefaultObject(this.apiPropertiesToPersist, {
@@ -153,6 +162,7 @@ class Auther extends Delegate {
             '-dateCreated -dateUpdated -user -credentials -credential -__t -__v',
             { lean: true }
         );
+        console.log('getEntitiesForUserId list', list, userId);
         return list.map((entity) => ({
             id: entity._id,
             type: this.getName(),
@@ -198,7 +208,7 @@ class Auther extends Delegate {
             throw new Error('Authorization failed');
         }
         const entityDetails = await this.getEntityDetails(
-            this.api, params, tokenResponse
+            this.api, params, tokenResponse, this.userId
         );
         await this.findOrCreateEntity(entityDetails);
         return {

@@ -12,10 +12,10 @@ const Definition = {
             const code = get(params.data, 'code');
             return api.getTokenFromCodeBasicAuthHeader(code);
         },
-        getEntityDetails: async function(api, callbackParams, tokenResponse) {
+        getEntityDetails: async function(api, callbackParams, tokenResponse, userId) {
             const tokenDetails = await api.getTokenIdentity();
             return {
-                identifiers: { externalId: tokenDetails.id },
+                identifiers: { externalId: tokenDetails.id, user: userId },
                 details: { name: tokenDetails.name },
             }
         },

@@ -251,16 +251,16 @@ function checkRequiredParams(params, requiredKeys) {
     return returnDict;
 }
 function setEntityRoutes(router, factory, getUserId) {
-    const {moduleFactory, IntegrationHelper} = factory;
+    const {ModuleFactory, IntegrationHelper} = factory;
     const getModuleInstance = async (req, entityType) => {
-        if (!moduleFactory.checkIsValidType(entityType)) {
+        if (!ModuleFactory.checkIsValidType(entityType)) {
             throw Boom.badRequest(
-                `Error: Invalid entity type of ${entityType}, options are ${moduleFactory.moduleTypes.join(
+                `Error: Invalid entity type of ${entityType}, options are ${ModuleFactory.moduleTypes.join(
                     ', '
                 )}`
             );
         }
-        return await moduleFactory.getInstanceFromTypeName(entityType, getUserId(req));
+        return await ModuleFactory.getInstanceFromTypeName(entityType, getUserId(req));
     };
 
     router.route('/api/authorize').get(
@@ -269,7 +269,6 @@ function setEntityRoutes(router, factory, getUserId) {
                 'entityType',
             ]);
             const module = await getModuleInstance(req, params.entityType);
-
             const areRequirementsValid =
                 module.validateAuthorizationRequirements();
             if (!areRequirementsValid) {
@@ -277,7 +276,6 @@ function setEntityRoutes(router, factory, getUserId) {
                     `Error: EntityManager of type ${params.entityType} requires a valid url`
                 );
             }
-
             res.json(await module.getAuthorizationRequirements());
         })
     );
@@ -343,7 +341,7 @@ function setEntityRoutes(router, factory, getUserId) {
     router.route('/api/entities/:entityId/test-auth').get(
         catchAsyncError(async (req, res) => {
             const params = checkRequiredParams(req.params, ['entityId']);
-            const module = await moduleFactory.getModuleInstanceFromEntityId(
+            const module = await ModuleFactory.getModuleInstanceFromEntityId(
                 params.entityId,
                 getUserId(req)
             );
@@ -372,4 +370,4 @@ function setEntityRoutes(router, factory, getUserId) {
     );
 }
 
-module.exports = createIntegrationRouter;
+module.exports = { createIntegrationRouter };
