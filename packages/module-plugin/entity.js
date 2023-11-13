@@ -1,5 +1,4 @@
-const mongoose = require('mongoose');
-
+const { mongoose } = require('@friggframework/database/mongoose');
 const schema = new mongoose.Schema(
     {
         credential: {

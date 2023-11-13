@@ -32,7 +32,7 @@ const _ = require('lodash');
 const {flushDebugLog} = require("@friggframework/logs");
 const { Credential } = require('./credential');
 const { Entity } = require('./entity');
-const mongoose = require('mongoose');
+const { mongoose } = require('@friggframework/database/mongoose');
 mongoose.set('strictQuery', true);
 
 
@@ -95,6 +95,7 @@ class Auther extends Delegate {
     }
 
     static async getInstance(params) {
+        console.log('Auther getInstance', params);
         const instance = new this(params);
         if (params.entityId) {
             instance.entity = await instance.EntityModel.findById(params.entityId);

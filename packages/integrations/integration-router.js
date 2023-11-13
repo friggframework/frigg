@@ -286,7 +286,9 @@ function setEntityRoutes(router, factory, getUserId) {
                 'entityType',
                 'data',
             ]);
+            console.log('post authorize', params);
             const module = await getModuleInstance(req, params.entityType);
+            console.log('post authorize module', module);
             const results = await module.processAuthorizationCallback({
                 userId: getUserId(req),
                 data: params.data,

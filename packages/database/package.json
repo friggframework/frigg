@@ -6,7 +6,8 @@
     "main": "index.js",
     "dependencies": {
         "@friggframework/encrypt": "^1.1.7",
-        "@friggframework/logs": "^1.0.9"
+        "@friggframework/logs": "^1.0.9",
+        "mongoose": "6.11.6"
     },
     "devDependencies": {
         "@friggframework/eslint-config": "^1.0.8",

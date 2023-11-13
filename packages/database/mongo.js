@@ -42,5 +42,5 @@ const createObjectId = () => new mongoose.Types.ObjectId();
 module.exports = {
     connectToDatabase,
     disconnectFromDatabase,
-    createObjectId
+    createObjectId,
 };

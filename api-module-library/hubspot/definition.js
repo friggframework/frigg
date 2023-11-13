@@ -8,7 +8,7 @@ const config = require('./defaultConfig.json')
 const Definition = {
     API: Api,
     getName: function() {return config.name},
-    name: config.name,//maybe not required
+    moduleName: config.name,//maybe not required
     Credential,
     Entity,
     requiredAuthMethods: {
@@ -19,12 +19,12 @@ const Definition = {
         getEntityDetails: async function(api, callbackParams, tokenResponse) {
             const userDetails = await api.getUserDetails();
             return {
-                identifiers: { externalId: userDetails.portalId, userId: api.userId },
+                identifiers: { externalId: userDetails.portalId, user: api.userId },
                 details: { name: userDetails.hub_domain },
             }
         },
         apiPropertiesToPersist: [
-            'userId', 'access_token', 'refresh_token', 'portalId'
+            'access_token', 'refresh_token'
         ],
         getCredentialDetails: async function(api) {
             const userDetails = await api.getUserDetails();

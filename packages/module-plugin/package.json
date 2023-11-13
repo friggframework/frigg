@@ -25,7 +25,7 @@
         "@friggframework/errors": "^1.1.6",
         "aws-sdk": "^2.1200.0",
         "moment": "^2.29.4",
-        "mongoose": "^6.11.6",
+        "@friggframework/database": "^1.0.12",
         "node-fetch": "^2.6.7"
     }
 }

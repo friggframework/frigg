@@ -1,6 +1,6 @@
 require('dotenv').config();
 const Manager = require('../manager');
-const mongoose = require('mongoose');
+const { mongoose } = require('@friggframework/database/mongoose');
 const Authenticator = require("@friggframework/test-environment/Authenticator");
 describe('Linear Manager Tests', () => {
     let manager, authUrl;

@@ -30,6 +30,6 @@
         "@hapi/boom": "^10.0.1",
         "express": "^4.18.2",
         "express-async-handler": "^1.2.0",
-        "mongoose": "^6.11.6"
+        "@friggframework/database": "^1.0.12"
     }
 }

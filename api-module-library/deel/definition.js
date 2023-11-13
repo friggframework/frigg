@@ -10,6 +10,7 @@ const Definition = {
     requiredAuthMethods: {
         getToken: async function(api, params){
             const code = get(params.data, 'code');
+            console.log('getting token', code);
             return api.getTokenFromCodeBasicAuthHeader(code);
         },
         getEntityDetails: async function(api, callbackParams, tokenResponse, userId) {
