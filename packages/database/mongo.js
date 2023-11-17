@@ -3,7 +3,7 @@
 // https://mongoosejs.com/docs/lambda.html
 // https://www.mongodb.com/blog/post/optimizing-aws-lambda-performance-with-mongodb-atlas-and-nodejs
 const { Encrypt } = require('@friggframework/encrypt');
-const mongoose = require('mongoose'); // TODO maybe pass in / see what best way to make sure we have the same mongoose instance as the including package (something like peerDependencies but not deprecated)
+const { mongoose } = require('./mongoose');
 const { debug, flushDebugLog } = require('@friggframework/logs');
 
 mongoose.plugin(Encrypt);
@@ -29,7 +29,6 @@ const connectToDatabase = async () => {
     }
 
     debug('=> using new database connection');
-    mongoose.set('strictQuery', false);
     await mongoose.connect(process.env.MONGO_URI, mongoConfig);
     debug('Connection state:',  mongoose.STATES[mongoose.connection.readyState]);
     mongoose.connection.on('error', (error) => flushDebugLog(error));

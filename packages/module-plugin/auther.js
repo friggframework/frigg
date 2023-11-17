@@ -33,8 +33,6 @@ const {flushDebugLog} = require("@friggframework/logs");
 const { Credential } = require('./credential');
 const { Entity } = require('./entity');
 const { mongoose } = require('@friggframework/database/mongoose');
-mongoose.set('strictQuery', true);
-
 
 class Auther extends Delegate {
     static validateDefinition(definition) {
@@ -140,8 +138,6 @@ class Auther extends Delegate {
     }
 
     getCredentialModel() {
-        console.log('mongoose strictQuery', mongoose.get('strictQuery'));
-        mongoose.set('strictQuery', true);
         if (!this.CredentialModel) {
             const arrayToDefaultObject = (array, defaultValue) => _.mapValues(_.keyBy(array), () => defaultValue);
             const schema = new mongoose.Schema(arrayToDefaultObject(this.apiPropertiesToPersist, {
