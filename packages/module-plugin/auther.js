@@ -66,7 +66,7 @@ class Auther extends Delegate {
             if (!definition.requiredAuthMethods.apiPropertiesToPersist) {
                 throw new Error('Auther definition requires requiredAuthMethods.apiPropertiesToPersist');
             } else if (definition.Credential){
-                for (const prop of definition.requiredAuthMethods.apiPropertiesToPersist) {
+                for (const prop of definition.requiredAuthMethods.apiPropertiesToPersist?.credential) {
                     if (!definition.Credential.schema.paths.hasOwnProperty(prop)) {
                         throw new Error(
                             `Auther definition requires Credential schema to have property ${prop}`
@@ -109,6 +109,7 @@ class Auther extends Delegate {
             ...params.definition.env,
             delegate: instance,
             ...instance.apiParamsFromCredential(instance.credential),
+            ...instance.apiParamsFromEntity(instance.entity),
         };
         instance.api = new instance.apiClass(apiParams);
         return instance;
@@ -124,7 +125,11 @@ class Auther extends Delegate {
     }
 
     apiParamsFromCredential(credential) {
-        return _.pick(credential, ...this.apiPropertiesToPersist);
+        return _.pick(credential, ...this.apiPropertiesToPersist?.credential);
+    }
+
+    apiParamsFromEntity(entity) {
+        return _.pick(entity, ...this.apiPropertiesToPersist?.entity);
     }
 
     getEntityModel() {
@@ -140,7 +145,7 @@ class Auther extends Delegate {
     getCredentialModel() {
         if (!this.CredentialModel) {
             const arrayToDefaultObject = (array, defaultValue) => _.mapValues(_.keyBy(array), () => defaultValue);
-            const schema = new mongoose.Schema(arrayToDefaultObject(this.apiPropertiesToPersist, {
+            const schema = new mongoose.Schema(arrayToDefaultObject(this.apiPropertiesToPersist.credential, {
                 type: mongoose.Schema.Types.Mixed,
                 trim: true,
                 lhEncrypt: true
@@ -207,6 +212,7 @@ class Auther extends Delegate {
         const entityDetails = await this.getEntityDetails(
             this.api, params, tokenResponse, this.userId
         );
+        Object.assign(entityDetails.details, this.apiParamsFromEntity(this.api));
         await this.findOrCreateEntity(entityDetails);
         return {
             credential_id: this.credential.id,
@@ -294,7 +300,7 @@ class Auther extends Delegate {
 
     async markCredentialsInvalid() {
         this.credential.auth_is_valid = false;
-        return await this.credential.save();
+        await this.credential.save();
     }
 
     async deauthorize() {

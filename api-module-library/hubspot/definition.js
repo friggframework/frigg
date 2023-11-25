@@ -23,9 +23,12 @@ const Definition = {
                 details: { name: userDetails.hub_domain },
             }
         },
-        apiPropertiesToPersist: [
-            'access_token', 'refresh_token'
-        ],
+        apiPropertiesToPersist: {
+            credential: [
+                'access_token', 'refresh_token'
+            ],
+            entity: [],
+        },
         getCredentialDetails: async function(api) {
             const userDetails = await api.getUserDetails();
             return {

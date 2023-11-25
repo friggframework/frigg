@@ -20,7 +20,10 @@ const Definition = {
                 details: { name: tokenDetails.name },
             }
         },
-        apiPropertiesToPersist: ['access_token', 'expires_at', 'refresh_token'],
+        apiPropertiesToPersist: {
+            credential: ['access_token', 'refresh_token'],
+            entity: []
+        },
         getCredentialDetails: async function(api) {
             const tokenDetails = await api.getTokenIdentity();
             return {

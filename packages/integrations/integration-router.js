@@ -19,14 +19,38 @@ function createIntegrationRouter(params) {
     return router;
 }
 
+function checkRequiredParams(params, requiredKeys) {
+    const missingKeys = [];
+    const returnDict = {};
+    for (const key of requiredKeys) {
+        const val = get(params, key, null);
+        if (val) {
+            returnDict[key] = val;
+        } else {
+            missingKeys.push(key);
+        }
+    }
+
+    if (missingKeys.length > 0) {
+        throw Boom.badRequest(
+            `Missing Parameter${
+                missingKeys.length === 1 ? '' : 's'
+            }: ${missingKeys.join(', ')} ${
+                missingKeys.length === 1 ? 'is' : 'are'
+            } required.`
+        );
+    }
+    return returnDict;
+}
+
 function setIntegrationRoutes(router, factory, getUserId) {
-    const {ModuleFactory, IntegrationFactory, IntegrationHelper} = factory;
+    const {moduleFactory, integrationFactory, IntegrationHelper} = factory;
     router.route('/api/integrations').get(
         catchAsyncError(async (req, res) => {
-            const results = await IntegrationFactory.getIntegrationOptions();
+            const results = await integrationFactory.getIntegrationOptions();
 
             // get the list of entities
-            const entities = await ModuleFactory.getEntitiesForUser(
+            const entities = await moduleFactory.getEntitiesForUser(
                 getUserId(req)
             );
             results.entities.authorized = entities;
@@ -39,7 +63,7 @@ function setIntegrationRoutes(router, factory, getUserId) {
 
             for (const integrationRecord of results.integrations) {
                 // Load integration instance and get userActions
-                const integration = await IntegrationFactory.getInstanceFromIntegrationId({
+                const integration = await integrationFactory.getInstanceFromIntegrationId({
                     integrationId: integrationRecord.id,
                     userId: getUserId(req),
                 });
@@ -61,11 +85,11 @@ function setIntegrationRoutes(router, factory, getUserId) {
 
             // create integration
             const integration =
-                await IntegrationFactory.createIntegration(
+                await integrationFactory.createIntegration(
                     params.entities,
                     getUserId(req),
                     params.config,
-                    ModuleFactory
+                    moduleFactory
                 );
 
             // post integration initialization
@@ -88,7 +112,7 @@ function setIntegrationRoutes(router, factory, getUserId) {
             const params = checkRequiredParams(req.body, ['config']);
 
             const integration =
-                await IntegrationFactory.getInstanceFromIntegrationId({
+                await integrationFactory.getInstanceFromIntegrationId({
                     integrationId: req.params.integrationId,
                     userId: getUserId(req),
                 });
@@ -113,7 +137,7 @@ function setIntegrationRoutes(router, factory, getUserId) {
                 'integrationId',
             ]);
             const integration =
-                await IntegrationFactory.getInstanceFromIntegrationId({
+                await integrationFactory.getInstanceFromIntegrationId({
                     userId: getUserId(req),
                     integrationId: params.integrationId,
                 });
@@ -138,7 +162,7 @@ function setIntegrationRoutes(router, factory, getUserId) {
                 'integrationId',
             ]);
             const integration =
-                await IntegrationFactory.getInstanceFromIntegrationId(params);
+                await integrationFactory.getInstanceFromIntegrationId(params);
             const results = await integration.getConfigOptions();
             // We could perhaps augment router with dynamic options? Haven't decided yet, but here may be the place
             res.json(results);
@@ -152,7 +176,7 @@ function setIntegrationRoutes(router, factory, getUserId) {
                 'actionId'
             ]);
             const integration =
-                await IntegrationFactory.getInstanceFromIntegrationId(params);
+                await integrationFactory.getInstanceFromIntegrationId(params);
             const results = await integration.getActionOptions(
                 params.actionId
             );
@@ -168,7 +192,7 @@ function setIntegrationRoutes(router, factory, getUserId) {
                 'actionId'
             ]);
             const integration =
-                await IntegrationFactory.getInstanceFromIntegrationId(params);
+                await integrationFactory.getInstanceFromIntegrationId(params);
             const results = await integration.notify(
                 params.actionId,
                 req.body
@@ -202,7 +226,7 @@ function setIntegrationRoutes(router, factory, getUserId) {
             const params = checkRequiredParams(req.params, [
                 'integrationId',
             ]);
-            const instance = await IntegrationFactory.getInstanceFromIntegrationId({
+            const instance = await integrationFactory.getInstanceFromIntegrationId({
                 userId: getUserId(req),
                 integrationId: params.integrationId,
             });
@@ -227,40 +251,17 @@ function setIntegrationRoutes(router, factory, getUserId) {
     );
 }
 
-function checkRequiredParams(params, requiredKeys) {
-    const missingKeys = [];
-    const returnDict = {};
-    for (const key of requiredKeys) {
-        const val = get(params, key, null);
-        if (val) {
-            returnDict[key] = val;
-        } else {
-            missingKeys.push(key);
-        }
-    }
-
-    if (missingKeys.length > 0) {
-        throw Boom.badRequest(
-            `Missing Parameter${
-                missingKeys.length === 1 ? '' : 's'
-            }: ${missingKeys.join(', ')} ${
-                missingKeys.length === 1 ? 'is' : 'are'
-            } required.`
-        );
-    }
-    return returnDict;
-}
 function setEntityRoutes(router, factory, getUserId) {
-    const {ModuleFactory, IntegrationHelper} = factory;
+    const {moduleFactory, IntegrationHelper} = factory;
     const getModuleInstance = async (req, entityType) => {
-        if (!ModuleFactory.checkIsValidType(entityType)) {
+        if (!moduleFactory.checkIsValidType(entityType)) {
             throw Boom.badRequest(
-                `Error: Invalid entity type of ${entityType}, options are ${ModuleFactory.moduleTypes.join(
+                `Error: Invalid entity type of ${entityType}, options are ${moduleFactory.moduleTypes.join(
                     ', '
                 )}`
             );
         }
-        return await ModuleFactory.getInstanceFromTypeName(entityType, getUserId(req));
+        return await moduleFactory.getInstanceFromTypeName(entityType, getUserId(req));
     };
 
     router.route('/api/authorize').get(
@@ -343,7 +344,7 @@ function setEntityRoutes(router, factory, getUserId) {
     router.route('/api/entities/:entityId/test-auth').get(
         catchAsyncError(async (req, res) => {
             const params = checkRequiredParams(req.params, ['entityId']);
-            const module = await ModuleFactory.getModuleInstanceFromEntityId(
+            const module = await moduleFactory.getModuleInstanceFromEntityId(
                 params.entityId,
                 getUserId(req)
             );
@@ -372,4 +373,4 @@ function setEntityRoutes(router, factory, getUserId) {
     );
 }
 
-module.exports = { createIntegrationRouter };
+module.exports = { createIntegrationRouter, checkRequiredParams };

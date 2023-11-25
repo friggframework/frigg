@@ -1,6 +1,6 @@
 const {flushDebugLog} = require("@friggframework/logs");
 
-async function testDefinition(api, definition, authCallbackParams, tokenResponse) {
+async function testDefinition(api, definition, authCallbackParams, tokenResponse, userId) {
 
     // const response = await definition.getToken(api, authCallbackParams);
     // expect(api.setTokens).toHaveBeenCalled();
@@ -8,7 +8,7 @@ async function testDefinition(api, definition, authCallbackParams, tokenResponse
     //     expect(response).toMatchObject(tokenResponse);
     // }
 
-    const entityDetails = await definition.requiredAuthMethods.getEntityDetails(api, authCallbackParams, tokenResponse);
+    const entityDetails = await definition.requiredAuthMethods.getEntityDetails(api, authCallbackParams, tokenResponse, userId);
     expect(entityDetails).toHaveProperty('identifiers');
     expect(Object.values(entityDetails.identifiers).length).toBeGreaterThan(0);
     for (const key of Object.keys(entityDetails.identifiers)){
@@ -28,7 +28,7 @@ async function testDefinition(api, definition, authCallbackParams, tokenResponse
     const successResponse = await definition.requiredAuthMethods.testAuthRequest(api);
     expect(successResponse).toBeTruthy();
     const savedKeys = {};
-    for (const key of definition.requiredAuthMethods.apiPropertiesToPersist){
+    for (const key of definition.requiredAuthMethods.apiPropertiesToPersist.credential){
         savedKeys[key] = api[key];
         delete api[key];
     }

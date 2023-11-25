@@ -1,0 +1,30 @@
+{
+    "name": "@friggframework/api-module-freshbooks",
+    "version": "0.1.0",
+    "prettier": "@friggframework/prettier-config",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
+        "test": "jest"
+    },
+    "author": "",
+    "license": "MIT",
+    "devDependencies": {
+        "@friggframework/eslint-config": "^1.0.8",
+        "@friggframework/test-environment": "^1.1.6",
+        "@friggframework/database": "^1.0.12",
+        "dotenv": "^16.0.3",
+        "eslint": "^8.39.0",
+        "jest": "^29.5.0",
+        "prettier": "^2.8.8",
+        "sinon": "^15.0.4"
+    },
+    "dependencies": {
+        "@friggframework/assertions": "^1.0.8",
+        "@friggframework/module-plugin": "^1.1.0"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}

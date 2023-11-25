@@ -1,23 +1,23 @@
 //require('dotenv').config();
 const { Definition} = require('../definition');
 const { Auther } = require('@friggframework/module-plugin');
-const mongoose = require('mongoose');
+const {connectToDatabase, disconnectFromDatabase, createObjectId} = require('@friggframework/database/mongo');
 const { Authenticator, testDefinition } = require("@friggframework/test-environment");
 
 describe('Deel Auther Tests', () => {
     let auther, authUrl;
     beforeAll(async () => {
-        await mongoose.connect(process.env.MONGO_URI);
+        await connectToDatabase();
         auther = await Auther.getInstance({
             definition: Definition,
-            userId: new mongoose.Types.ObjectId(),
+            userId: createObjectId(),
         });
     });
 
     afterAll(async () => {
         await auther.CredentialModel.deleteMany();
         await auther.EntityModel.deleteMany();
-        await mongoose.disconnect();
+        await disconnectFromDatabase();
     });
 
     describe('getAuthorizationRequirements() test', () => {
@@ -57,7 +57,7 @@ describe('Deel Auther Tests', () => {
             expect(res).toEqual(firstRes);
         });
         it('Should test the Definition methods', async () => {
-            await testDefinition(auther.api, Definition);
+            await testDefinition(auther.api, Definition,undefined,undefined,auther.userId);
         })
     });
 
