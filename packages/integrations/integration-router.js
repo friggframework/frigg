@@ -94,9 +94,9 @@ function setIntegrationRoutes(router, factory, getUserId) {
 
             // post integration initialization
             debug(
-                `Calling processCreate on the ${integration?.constructor?.Config?.name} Integration with no arguments`
+                `Calling onCreate on the ${integration?.constructor?.Config?.name} Integration with no arguments`
             );
-            await integration.processCreate();
+            await integration.onCreate();
 
             // filtered set for results
             const response = await IntegrationHelper.getFormattedIntegration(
@@ -118,10 +118,10 @@ function setIntegrationRoutes(router, factory, getUserId) {
                 });
 
             debug(
-                `Calling processUpdate on the ${integration?.constructor?.Config?.name} Integration arguments: `,
+                `Calling onUpdate on the ${integration?.constructor?.Config?.name} Integration arguments: `,
                 params
             );
-            await integration.processUpdate(params);
+            await integration.onUpdate(params);
 
             const response = await IntegrationHelper.getFormattedIntegration(
                 integration.record
@@ -143,9 +143,9 @@ function setIntegrationRoutes(router, factory, getUserId) {
                 });
 
             debug(
-                `Calling processUpdate on the ${integration?.constructor?.Config?.name} Integration with no arguments`
+                `Calling onUpdate on the ${integration?.constructor?.Config?.name} Integration with no arguments`
             );
-            await integration.processDelete();
+            await integration.onDelete();
             await IntegrationHelper.deleteIntegrationForUserById(
                 getUserId(req),
                 params.integrationId

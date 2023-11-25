@@ -126,16 +126,16 @@ class IntegrationBase {
     /**
      * CHILDREN CAN OVERRIDE THESE CONFIGURATION METHODS
      */
-    async processCreate(params) {
+    async onCreate(params) {
         this.record.status = 'ENABLED';
         await this.record.save();
         return this.record;
     }
 
-    async processUpdate(params) {
+    async onUpdate(params) {
     }
 
-    async processDelete(params) { }
+    async onDelete(params) { }
 
     async getConfigOptions() {
         const options = {
