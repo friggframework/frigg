@@ -7,7 +7,9 @@
     "dependencies": {
         "@friggframework/encrypt": "^1.1.7",
         "@friggframework/logs": "^1.0.9",
-        "mongoose": "6.11.6"
+        "mongoose": "6.11.6",
+        "bcryptjs": "^2.4.3",
+        "moment": "^2.27.0"
     },
     "devDependencies": {
         "@friggframework/eslint-config": "^1.0.8",

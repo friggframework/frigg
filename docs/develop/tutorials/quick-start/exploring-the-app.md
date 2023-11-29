@@ -33,7 +33,7 @@ The Backend is comprised of the following folder structure:
 │   │   ├── configs
 │   │   │   └── dev.json
 │   │   ├── handlers
-│   │   │   ├── createHandler.js
+│   │   │   ├── create-handler.js
 │   │   │   ├── examplePollWorker.js
 │   │   │   ├── exampleQueuer.js
 │   │   │   └── http
