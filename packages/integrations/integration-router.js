@@ -3,7 +3,6 @@ const { get } = require('@friggframework/assertions');
 const Boom = require('@hapi/boom');
 const catchAsyncError = require('express-async-handler');
 const { debug } = require('@friggframework/logs');
-
 function createIntegrationRouter(params) {
     const router = get(params, 'router', express());
     const factory = get(params, 'factory');

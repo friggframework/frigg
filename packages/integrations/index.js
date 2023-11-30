@@ -4,6 +4,7 @@ const { Options } = require('./options');
 const { IntegrationMapping } = require('./integration-mapping');
 const { IntegrationFactory, IntegrationHelper } = require('./integration-factory');
 const { createIntegrationRouter, checkRequiredParams } = require('./integration-router');
+const { createFriggBackend } = require('./create-frigg-backend');
 
 module.exports = {
     IntegrationBase,
@@ -13,5 +14,6 @@ module.exports = {
     IntegrationFactory,
     IntegrationHelper,
     createIntegrationRouter,
-    checkRequiredParams
+    checkRequiredParams,
+    createFriggBackend
 };

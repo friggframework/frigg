@@ -17,7 +17,6 @@ class ModuleFactory {
                 definition: moduleDefinition
             });
             const list = await moduleInstance.getEntitiesForUserId(userId);
-            console.log('getEntitiesForUser list', list, userId, moduleInstance);
             results.push(...list);
         }
         return results;
@@ -35,15 +34,8 @@ class ModuleFactory {
     async getModuleInstanceFromEntityId(entityId, userId) {
         const entity = await Entity.findById(entityId);
         const moduleDefinition = this.moduleDefinitions.find(
-            (def) => {
-                console.log('entity', entity instanceof Auther.getEntityModelFromDefinition(def),
-                    entity['__t'] === Auther.getEntityModelFromDefinition(def).modelName,
-                    Auther.getEntityModelFromDefinition(def).modelName,
-                    entity, Auther.getEntityModelFromDefinition(def));
-                return entity['__t'] === Auther.getEntityModelFromDefinition(def).modelName
-            }
+            (def) => entity['__t'] === Auther.getEntityModelFromDefinition(def).modelName
         )
-        console.log('moduleDefinition', moduleDefinition);
         return await Auther.getInstance({
             userId,
             entityId,

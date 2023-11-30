@@ -93,7 +93,6 @@ class Auther extends Delegate {
     }
 
     static async getInstance(params) {
-        console.log('Auther getInstance', params);
         const instance = new this(params);
         if (params.entityId) {
             instance.entity = await instance.EntityModel.findById(params.entityId);
