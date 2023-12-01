@@ -13,7 +13,7 @@ const schema = new mongoose.Schema({
 });
 
 schema.pre('save', async function () {
-    if ('hashword' in this) {
+    if (this.hashword) {
         this.hashword = await bcrypt.hashSync(
             this.hashword,
             parseInt(this.schema.statics.decimals)
@@ -63,7 +63,7 @@ schema.static({
                 'Supposedly using a unique appUserId? Please reach out to our developers'
             );
         }
-        
+
 
         if (getByUser.length === 1) {
             return getByUser[0];
