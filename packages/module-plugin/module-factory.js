@@ -36,6 +36,9 @@ class ModuleFactory {
         const moduleDefinition = this.moduleDefinitions.find(
             (def) => entity['__t'] === Auther.getEntityModelFromDefinition(def).modelName
         )
+        if (!moduleDefinition) {
+            throw new Error('Module definition not found for entity type: ' + entity['__t']);
+        }
         return await Auther.getInstance({
             userId,
             entityId,

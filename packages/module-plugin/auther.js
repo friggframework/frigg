@@ -87,6 +87,7 @@ class Auther extends Delegate {
         Auther.validateDefinition(definition);
         Object.assign(this, definition.requiredAuthMethods);
         this.name = definition.moduleName;
+        this.modelName = definition.modelName;
         this.apiClass = definition.API;
         this.CredentialModel = definition.Credential || this.getCredentialModel();
         this.EntityModel = definition.Entity || this.getEntityModel();
@@ -133,8 +134,9 @@ class Auther extends Delegate {
 
     getEntityModel() {
         if (!this.EntityModel) {
+            const prefix = this.modelName ?? _.upperFirst(this.getName());
             const schema = new mongoose.Schema({});
-            const name = `${_.upperFirst(this.getName())}Entity`;
+            const name = `${prefix}Entity`;
             this.EntityModel =
                 Entity.discriminators?.[name] || Entity.discriminator(name, schema);
         }
@@ -149,7 +151,8 @@ class Auther extends Delegate {
                 trim: true,
                 lhEncrypt: true
             }));
-            const name = `${_.upperFirst(this.getName())}Credential`;
+            const prefix = this.modelName ?? _.upperFirst(this.getName());
+            const name = `${prefix}Credential`;
             this.CredentialModel =
                 Credential.discriminators?.[name] || Credential.discriminator(name, schema);
         }
