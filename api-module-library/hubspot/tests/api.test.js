@@ -8,7 +8,7 @@ describe(`${config.label} API tests`, () => {
     const apiParams = {
         client_id: process.env.HUBSPOT_CLIENT_ID,
         client_secret: process.env.HUBSPOT_CLIENT_SECRET,
-        redirect_uri: `${process.env.REDIRECT_URI}/hubspot`,
+        redirect_uri: `${process.env.REDIRECT_URI}`,
         scope: process.env.HUBSPOT_SCOPE
     };
     const api = new Api(apiParams);

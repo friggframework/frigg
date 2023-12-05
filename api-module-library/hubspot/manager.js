@@ -31,8 +31,9 @@ class Manager extends ModuleManager {
             client_id: process.env.HUBSPOT_CLIENT_ID,
             client_secret: process.env.HUBSPOT_CLIENT_SECRET,
             scope: process.env.HUBSPOT_SCOPE,
-            redirect_uri: `${process.env.REDIRECT_URI}/hubspot`,
+            redirect_uri: process.env.REDIRECT_URI,
             delegate: instance,
+            state: JSON.stringify({ app: 'hubspot' })
         };
 
         if (params.entityId) {
@@ -41,8 +42,8 @@ class Manager extends ModuleManager {
                 instance.entity.credential
             );
             instance.credential = credential;
-            apiParams.access_token = credential.accessToken;
-            apiParams.refresh_token = credential.refreshToken;
+            apiParams.access_token = credential.access_token;
+            apiParams.refresh_token = credential.refresh_token;
         }
         instance.api = new Api(apiParams);
 
@@ -64,6 +65,12 @@ class Manager extends ModuleManager {
             url: await this.api.getAuthUri(),
             type: 'oauth2',
         };
+    }
+
+    setCredential(credential) {
+        this.credential = credential;
+        this.api.access_token = credential.access_token;
+        this.api.refresh_token = credential.refresh_token;
     }
 
     async processAuthorizationCallback(params) {
@@ -138,21 +145,22 @@ class Manager extends ModuleManager {
                 const userDetails = await this.api.getUserDetails();
                 const updatedToken = {
                     user: this.userId,
-                    accessToken: this.api.access_token,
-                    refreshToken: this.api.refresh_token,
-                    accessTokenExpire: this.api.accessTokenExpire,
-                    portalId: userDetails.portalId,
+                    access_token: this.api.access_token,
+                    refresh_token: this.api.refresh_token,
+                    access_token_expire: this.api.accessTokenExpire,
+                    expires_at: this.api.accessTokenExpire,
+                    externalId: userDetails.portalId,
                     auth_is_valid: true,
                 };
 
                 if (!this.credential) {
                     let credentialSearch = await Credential.find({
-                        portalId: userDetails.portalId,
+                        externalId: userDetails.portalId,
                     });
                     if (credentialSearch.length === 0) {
                         this.credential = await Credential.create(updatedToken);
                     } else if (credentialSearch.length === 1) {
-                        if (credentialSearch[0].user === this.userId) {
+                        if (credentialSearch[0].user.toString() === this.userId.toString()) {
                             this.credential = await Credential.findOneAndUpdate(
                                 { _id: credentialSearch[0] },
                                 { $set: updatedToken },
