@@ -105,11 +105,16 @@ class Auther extends Delegate {
                 params.credentialId
             );
         }
+        let credential = {};
+        if (instance.credential) {
+            credential = instance.credential.toObject();
+        }
+        const entity = instance.entity;
         const apiParams = {
             ...params.definition.env,
             delegate: instance,
-            ...instance.apiParamsFromCredential(instance.credential),
-            ...instance.apiParamsFromEntity(instance.entity),
+            ...instance.apiParamsFromCredential(credential),
+            ...instance.apiParamsFromEntity(entity),
         };
         instance.api = new instance.apiClass(apiParams);
         return instance;
@@ -283,7 +288,7 @@ class Auther extends Delegate {
             if (credentialSearch.length > 1) {
                 throw new Error(`Multiple credentials found with same identifiers: ${identifiers}`);
             }
-            else if (credentialSearch === 1) {
+            else if (credentialSearch.length === 1) {
                 // found exactly one credential with these identifiers
                 this.credential = credentialSearch[0];
             }
@@ -301,8 +306,10 @@ class Auther extends Delegate {
     }
 
     async markCredentialsInvalid() {
-        this.credential.auth_is_valid = false;
-        await this.credential.save();
+        if (this.credential) {
+            this.credential.auth_is_valid = false;
+            await this.credential.save();
+        }
     }
 
     async deauthorize() {

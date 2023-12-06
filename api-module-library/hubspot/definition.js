@@ -13,10 +13,10 @@ const Definition = {
             const code = get(params.data, 'code');
             return api.getTokenFromCode(code);
         },
-        getEntityDetails: async function(api, callbackParams, tokenResponse) {
+        getEntityDetails: async function(api, callbackParams, tokenResponse, userId) {
             const userDetails = await api.getUserDetails();
             return {
-                identifiers: { externalId: userDetails.portalId, user: api.userId },
+                identifiers: { externalId: userDetails.portalId, user: userId },
                 details: { name: userDetails.hub_domain },
             }
         },
