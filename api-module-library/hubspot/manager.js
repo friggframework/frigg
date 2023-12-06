@@ -14,6 +14,7 @@ class Manager extends ModuleManager {
 
     constructor(params) {
         super(params);
+        this.redirect_uri = get(params, 'redirect_uri', `${process.env.REDIRECT_URI}/hubspot`)
     }
 
     //------------------------------------------------------------
@@ -31,9 +32,8 @@ class Manager extends ModuleManager {
             client_id: process.env.HUBSPOT_CLIENT_ID,
             client_secret: process.env.HUBSPOT_CLIENT_SECRET,
             scope: process.env.HUBSPOT_SCOPE,
-            redirect_uri: process.env.REDIRECT_URI,
+            redirect_uri: instance.redirect_uri,
             delegate: instance,
-            state: JSON.stringify({ app: 'hubspot' })
         };
 
         if (params.entityId) {
