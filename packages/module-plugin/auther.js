@@ -256,9 +256,7 @@ class Auther extends Delegate {
     async findOrCreateEntity(entityDetails) {
         const identifiers = get(entityDetails, 'identifiers');
         const details = get(entityDetails, 'details');
-        const search = await this.EntityModel.find({
-            ...identifiers
-        });
+        const search = await this.EntityModel.find(identifiers);
         if (search.length > 1) {
             throw new Error(
                 'Multiple entities found with the same identifiers: ' + JSON.stringify(identifiers)
