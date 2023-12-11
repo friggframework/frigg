@@ -21,8 +21,15 @@ class User {
         this.organizationUser = null;
     }
 
+    getPrimaryUser() {
+        if (User.primary === User.OrganizationUser) {
+            return this.organizationUser;
+        }
+        return this.individualUser;
+    }
+
     getUserId() {
-        return this.individualUser?.id || this.organizationUser?.id;
+        return this.getPrimaryUser()?.id;
     }
 
     isLoggedIn() {
@@ -47,7 +54,11 @@ class User {
         if (token) {
             const jsonToken = this.Token.getJSONTokenFromBase64BufferToken(token);
             const sessionToken = await this.Token.validateAndGetTokenFromJSONToken(jsonToken);
-            user.individualUser = await this.IndividualUser.findById(sessionToken.user);
+            if (this.primary === User.OrganizationUser) {
+                user.organizationUser = await this.OrganizationUser.findById(sessionToken.user);
+            } else {
+                user.individualUser = await this.IndividualUser.findById(sessionToken.user);
+            }
         }
         return user;
     }

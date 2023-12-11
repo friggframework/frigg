@@ -1,4 +1,4 @@
-const { Credential, Entity } = require("@friggframework/module-plugin");
+const { Auther, Credential, Entity } = require("@friggframework/module-plugin");
 const { IntegrationModel } = require("@friggframework/integrations");
 const { mongoose } = require('@friggframework/database/mongoose');
 
@@ -52,8 +52,8 @@ async function createMockIntegration(IntegrationClassDef, userId = null, config 
     integration.id = integration.record._id
 
     for (const i in entities){
-        const [moduleName, ModuleClass] = Object.entries(IntegrationClassDef.modules)[i];
-        const module = new ModuleClass({userId})
+        const [moduleName, ModuleDef] = Object.entries(IntegrationClassDef.modules)[i];
+        const module = Auther.getInstance({definition: ModuleDef, userId: userId})
         module.entity = entities[i];
         integration[moduleName] = module;
     }

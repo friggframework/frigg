@@ -7,6 +7,15 @@ function createFriggBackend(appDefinition) {
         if (user.usePassword) {
             User.usePassword = true;
         }
+        if (user.primary === 'organization') {
+            User.primary = User.OrganizationUser
+        }
+        if (user.individualUserRequired) {
+            User.individualUserRequired = true
+        }
+        if (user.organizationUserRequired) {
+            User.organizationUserRequired = true
+        }
 
     }
     const backend = {
