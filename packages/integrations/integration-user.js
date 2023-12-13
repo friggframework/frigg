@@ -38,12 +38,7 @@ class User {
 
     async createUserToken(minutes) {
         const rawToken = crypto.randomBytes(20).toString('hex');
-        const createdToken = await User.Token.createTokenWithExpire(
-            this.getUserId(),
-            rawToken,
-            120
-        );
-        // Return Session
+        const createdToken = await User.Token.createTokenWithExpire(this.getUserId(), rawToken, 120);
         const tokenBuf = User.Token.createBase64BufferToken(createdToken, rawToken);
         return tokenBuf;
     }
@@ -100,7 +95,6 @@ class User {
         return user;
     }
 
-    // returns a User if the user credentials are correct otherwise throws an exception
     static async loginUser(params) {
         const user = await this.newUser(params);
 
