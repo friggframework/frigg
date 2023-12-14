@@ -26,10 +26,10 @@ const Definition = {
             ],
             entity: [],
         },
-        getCredentialDetails: async function(api) {
+        getCredentialDetails: async function(api, userId) {
             const userDetails = await api.getUserDetails();
             return {
-                identifiers: { externalId: userDetails.portalId },
+                identifiers: { externalId: userDetails.portalId, user: userId },
                 details: {}
             };
         },

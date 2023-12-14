@@ -106,10 +106,13 @@ class Auther extends Delegate {
             );
         }
         let credential = {};
+        let entity = {};
         if (instance.credential) {
             credential = instance.credential.toObject();
         }
-        const entity = instance.entity;
+        if (instance.entity) {
+            entity = instance.entity.toObject();
+        }
         const apiParams = {
             ...params.definition.env,
             delegate: instance,
@@ -230,7 +233,7 @@ class Auther extends Delegate {
 
     async receiveNotification(notifier, delegateString, object = null) {
         if (delegateString === this.api.DLGT_TOKEN_UPDATE) {
-            const credentialDetails = await this.getCredentialDetails(this.api);
+            const credentialDetails = await this.getCredentialDetails(this.api, this.userId);
             Object.assign(credentialDetails.details, this.apiParamsFromCredential(this.api));
             credentialDetails.details.auth_is_valid = true;
             await this.updateOrCreateCredential(credentialDetails);
