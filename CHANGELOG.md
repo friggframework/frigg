@@ -1,3 +1,20 @@
+# (Tue Nov 07 2023)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, null[@Jo-lefthook](https://github.com/Jo-lefthook), for all your work!
+
+#### 🐛 Bug Fix
+
+- `@friggframework/core@0.2.14`
+  - Add support for Worker context [#229](https://github.com/friggframework/frigg/pull/229) ([@Jo-lefthook](https://github.com/Jo-lefthook))
+
+#### Authors: 1
+
+- [@Jo-lefthook](https://github.com/Jo-lefthook)
+
+---
+
 # (Mon Oct 30 2023)
 
 #### 🐛 Bug Fix
