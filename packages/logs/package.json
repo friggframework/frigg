@@ -6,7 +6,8 @@
   "main": "logger.js",
   "scripts": {
     "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
-    "test": "jest"
+    "test": "jest",
+    "bump": ""
   },
   "author": "",
   "license": "MIT",

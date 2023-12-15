@@ -6,7 +6,7 @@
   "prettier": "@friggframework/prettier-config",
   "scripts": {
     "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
-    "test": "jest --passWithNoTests # TODO"
+    "test": "jest --passWithNoTests #TODO"
   },
   "author": "",
   "license": "MIT",
