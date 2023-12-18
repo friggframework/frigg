@@ -75,7 +75,7 @@ class IntegrationFactory {
         );
 
         try {
-            await instance.getUserActions();
+            await instance.getAndSetUserActions();
             instance.delegateTypes.push(...Object.keys(instance.userActions));
         } catch(e) {
             instance.userActions = {};

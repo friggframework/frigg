@@ -121,6 +121,15 @@ class IntegrationBase {
         );
     }
 
+    async getAndSetUserActions() {
+        this.userActions = await this.getUserActions();
+        if (this.record?.config) {
+            this.record.config.userActions = this.userActions;
+            await this.record.save();
+        }
+        return this.userActions;
+    }
+
 
 
     /**
