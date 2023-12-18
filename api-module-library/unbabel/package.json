@@ -21,5 +21,8 @@
     "dependencies": {
         "@friggframework/assertions": "v1-alpha",
         "@friggframework/module-plugin": "v1-alpha"
+    },
+    "publishConfig": {
+        "access": "public"
     }
 }
