@@ -1,6 +1,6 @@
 {
   "name": "@friggframework/types",
-  "version": "0.2.2-next.0",
+  "version": "0.2.2",
   "description": "FriggFramework type declarations",
   "types": "index.d.ts",
   "author": "Charef Bahria",
@@ -14,13 +14,13 @@
     "eslint-plugin-import": "^2.27.5",
     "eslint-plugin-n": "^15.6.1",
     "eslint-plugin-promise": "^6.1.1",
-    "@friggframework/database": "^1.0.13-next.0",
+    "@friggframework/database": "^1.0.13",
     "prettier": "^2.8.5",
     "typescript": "^5.0.2"
   },
   "dependencies": {
     "@friggframework/assertions": "^1.0.7",
-    "@friggframework/integrations": "^1.2.2-next.0",
+    "@friggframework/integrations": "^1.2.2",
     "lodash": "^4.17.21",
     "lodash.get": "^4.4.2"
   },

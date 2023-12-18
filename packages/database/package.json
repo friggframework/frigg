@@ -1,12 +1,12 @@
 {
   "name": "@friggframework/database",
-  "version": "1.0.13-next.0",
+  "version": "1.0.13",
   "prettier": "@friggframework/prettier-config",
   "description": "",
   "main": "index.js",
   "dependencies": {
-    "@friggframework/encrypt": "^1.1.8-next.0",
-    "@friggframework/logs": "^1.0.10-next.0",
+    "@friggframework/encrypt": "^1.1.8",
+    "@friggframework/logs": "^1.0.10",
     "mongoose": "6.11.6",
     "bcryptjs": "^2.4.3",
     "moment": "^2.27.0"

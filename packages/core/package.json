@@ -1,7 +1,7 @@
 {
   "name": "@friggframework/core",
   "prettier": "@friggframework/prettier-config",
-  "version": "0.2.15-next.0",
+  "version": "0.2.15",
   "devDependencies": {
     "@friggframework/eslint-config": "^1.0.8",
     "eslint": "^8.22.0",

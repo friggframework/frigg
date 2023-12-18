@@ -1,0 +1,13 @@
+{
+  "source_text": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<xliff version=\"1.2\">\n<file id=\"607597589d2a25961a93cad3\">\n<header/>\n<body>\n<trans-unit id=\"id1\">\n<source><![CDATA[This is a client (inbound) sentence]]></source>\n<target/>\n<flag-handler>client</flag-handler>\n</trans-unit>\n<trans-unit id=\"id2\">\n<source><![CDATA[And an agent (outbound) sentence]]></source>\n<target/>\n<flag-handler>agent</flag-handler>\n</trans-unit>\n</body>\n</file>\n</xliff>\n",
+  "text_format": "xliff",
+  "tags": {
+    "content": [
+      "ticket"
+    ],
+    "origin": [
+      "api"
+    ]
+  },
+  "pipeline_id": "3733936f-5a31-465d-9722-ae476659f3b7"
+}

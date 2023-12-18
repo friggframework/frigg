@@ -1,6 +1,6 @@
 {
   "name": "@friggframework/api-module-frontify",
-  "version": "1.1.9-next.0",
+  "version": "1.1.9",
   "prettier": "@friggframework/prettier-config",
   "description": "",
   "main": "index.js",
@@ -22,11 +22,10 @@
   },
   "dependencies": {
     "@friggframework/assertions": "^1.0.7",
-    "@friggframework/logs": "^1.0.10-next.0",
-    "@friggframework/module-plugin": "^1.1.2-next.0"
+    "@friggframework/logs": "^1.0.10",
+    "@friggframework/module-plugin": "^1.1.2"
   },
   "publishConfig": {
     "access": "public"
-  },
-  "gitHead": "c6e25a9809a90f346d563f96972325b3bee35936"
+  }
 }
