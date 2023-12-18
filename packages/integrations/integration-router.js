@@ -47,28 +47,20 @@ function setIntegrationRoutes(router, factory, getUserId) {
     router.route('/api/integrations').get(
         catchAsyncError(async (req, res) => {
             const results = await integrationFactory.getIntegrationOptions();
-
-            // get the list of entities
-            const entities = await moduleFactory.getEntitiesForUser(
+            results.entities.authorized = await moduleFactory.getEntitiesForUser(
                 getUserId(req)
             );
-            results.entities.authorized = entities;
-
-            // get the list of integrations
-            results.integrations =
-                await IntegrationHelper.getIntegrationsForUserId(
-                    getUserId(req)
-                );
+            results.integrations = await IntegrationHelper.getIntegrationsForUserId(
+                getUserId(req)
+            );
 
             for (const integrationRecord of results.integrations) {
-                // Load integration instance and get userActions
                 const integration = await integrationFactory.getInstanceFromIntegrationId({
                     integrationId: integrationRecord.id,
                     userId: getUserId(req),
                 });
-                integrationRecord.userActions = await integration.getUserActions();
+                integrationRecord.userActions = integration.userActions;
             }
-
             res.json(results);
         })
     );
