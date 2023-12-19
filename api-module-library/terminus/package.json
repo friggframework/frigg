@@ -1,6 +1,6 @@
 {
   "name": "@friggframework/api-module-terminus",
-  "version": "0.9.11-v1-alpha.0",
+  "version": "0.9.11",
   "prettier": "@friggframework/prettier-config",
   "description": "",
   "main": "index.js",

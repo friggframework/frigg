@@ -1,6 +1,6 @@
 {
   "name": "@friggframework/integrations",
-  "version": "1.2.10-v1-alpha.0",
+  "version": "1.2.10",
   "prettier": "@friggframework/prettier-config",
   "description": "",
   "main": "index.js",

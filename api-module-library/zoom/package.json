@@ -1,6 +1,6 @@
 {
   "name": "@friggframework/api-module-zoom",
-  "version": "0.9.12-v1-alpha.0",
+  "version": "0.9.12",
   "prettier": "@friggframework/prettier-config",
   "description": "",
   "main": "index.js",

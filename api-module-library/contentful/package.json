@@ -1,6 +1,6 @@
 {
   "name": "@friggframework/api-module-contentful",
-  "version": "0.0.10-v1-alpha.0",
+  "version": "0.0.10",
   "prettier": "@friggframework/prettier-config",
   "description": "",
   "main": "index.js",
