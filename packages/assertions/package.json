@@ -1,7 +1,7 @@
 {
     "name": "@friggframework/assertions",
     "prettier": "@friggframework/prettier-config",
-    "version": "1.0.12",
+    "version": "1.0.13",
     "description": "",
     "dependencies": {
         "@friggframework/errors": "^1.1.7",

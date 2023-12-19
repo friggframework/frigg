@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-monday",
-    "version": "0.9.7",
+    "version": "0.9.8",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
