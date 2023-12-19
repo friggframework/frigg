@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-linear",
-    "version": "0.0.5",
+    "version": "0.0.6",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
