@@ -1,5 +1,5 @@
 {
-  "version": "0.9.11",
+  "version": "0.9.12-v1-alpha.0",
   "name": "@friggframework/api-module-pipedrive",
   "prettier": "@friggframework/prettier-config",
   "description": "",

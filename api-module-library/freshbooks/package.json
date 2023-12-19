@@ -1,6 +1,6 @@
 {
   "name": "@friggframework/api-module-freshbooks",
-  "version": "0.1.10",
+  "version": "0.1.11-v1-alpha.0",
   "prettier": "@friggframework/prettier-config",
   "description": "",
   "main": "index.js",
