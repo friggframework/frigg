@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-rollworks",
-    "version": "0.9.7",
+    "version": "0.9.8",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
