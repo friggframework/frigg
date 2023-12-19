@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/eslint-config",
-    "version": "1.0.9",
+    "version": "1.0.10",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",

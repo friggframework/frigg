@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/database",
-    "version": "1.0.15",
+    "version": "1.0.16",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
