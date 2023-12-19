@@ -1,28 +1,28 @@
 {
-    "name": "@friggframework/api-module-unbabel",
-    "version": "0.0.9",
-    "prettier": "@friggframework/prettier-config",
-    "description": "",
-    "main": "index.js",
-    "scripts": {
-        "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
-        "test": "jest"
-    },
-    "author": "",
-    "license": "MIT",
-    "devDependencies": {
-        "@friggframework/eslint-config": "v1-alpha",
-        "@friggframework/test-environment": "v1-alpha",
-        "dotenv": "^16.0.3",
-        "eslint": "^8.34.0",
-        "jest": "^29.4.3",
-        "prettier": "^2.8.4"
-    },
-    "dependencies": {
-        "@friggframework/assertions": "v1-alpha",
-        "@friggframework/module-plugin": "v1-alpha"
-    },
-    "publishConfig": {
-        "access": "public"
-    }
+  "name": "@friggframework/api-module-unbabel",
+  "version": "0.0.10-v1-alpha.0",
+  "prettier": "@friggframework/prettier-config",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
+    "test": "jest"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@friggframework/eslint-config": "v1-alpha",
+    "@friggframework/test-environment": "v1-alpha",
+    "dotenv": "^16.0.3",
+    "eslint": "^8.34.0",
+    "jest": "^29.4.3",
+    "prettier": "^2.8.4"
+  },
+  "dependencies": {
+    "@friggframework/assertions": "v1-alpha",
+    "@friggframework/module-plugin": "v1-alpha"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }
