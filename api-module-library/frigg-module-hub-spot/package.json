@@ -1,0 +1,24 @@
+{
+    "name": "@friggframework/frigg-module-hub-spot",
+    "version": "1.0.1",
+    "prettier": "@friggframework/prettier-config",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "lint:fix": "prettier --write --loglevel error  && eslint . --fix",
+        "test": "jest"
+    },
+    "author": "",
+    "license": "MIT",
+    "devDependencies": {
+        "@friggframework/eslint-config": "^1.0.0",
+        "@friggframework/test-environment": "^1.1.8",
+        "eslint": "^7.32.0",
+        "jest": "^27.4.7",
+        "prettier": "^2.5.1",
+        "sinon": "^12.0.1"
+    },
+    "dependencies": {
+        "@friggframework/module-plugin": "^1.1.3"
+    }
+}
