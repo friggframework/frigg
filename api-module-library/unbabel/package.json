@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-unbabel",
-    "version": "0.0.7",
+    "version": "0.0.8",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
