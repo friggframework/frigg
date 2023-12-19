@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-gorgias",
-    "version": "0.9.6",
+    "version": "0.9.7",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
