@@ -23,17 +23,17 @@ class Worker {
         });
     }
 
-    async run(params) {
+    async run(params, context = {}) {
         const records = get(params, 'Records');
 
         for (const record of records) {
             const runParams = JSON.parse(record.body);
             this._validateParams(runParams);
-            await this._run(runParams);
+            await this._run(runParams, context);
         }
     }
 
-    async _run(params) {
+    async _run(params, context = {}) {
         // validate params and instantiate any class to do work based on the
         // parameters
     }
