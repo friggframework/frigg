@@ -1,18 +1,18 @@
 {
     "name": "@friggframework/database",
-    "version": "1.0.18",
+    "version": "1.0.19",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
     "dependencies": {
-        "@friggframework/encrypt": "^1.1.10",
-        "@friggframework/logs": "^1.0.12",
+        "@friggframework/encrypt": "^1.1.14",
+        "@friggframework/logs": "^1.0.16",
         "bcryptjs": "^2.4.3",
         "moment": "^2.27.0",
         "mongoose": "6.11.6"
     },
     "devDependencies": {
-        "@friggframework/eslint-config": "^1.0.9",
+        "@friggframework/eslint-config": "^1.0.13",
         "eslint": "^8.22.0",
         "jest": "^28.1.3",
         "prettier": "^2.7.1"
