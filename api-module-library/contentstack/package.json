@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-contentstack",
-    "version": "0.0.8",
+    "version": "0.0.9",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",

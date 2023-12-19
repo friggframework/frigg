@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/frigg-module-hub-spot",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
