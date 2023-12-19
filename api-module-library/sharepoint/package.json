@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-microsoft-sharepoint",
-    "version": "0.1.13",
+    "version": "0.1.14",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
