@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/frigg-module-hub-spot",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -11,14 +11,14 @@
     "author": "",
     "license": "MIT",
     "devDependencies": {
-        "@friggframework/eslint-config": "^1.0.0",
-        "@friggframework/test-environment": "^1.1.8",
+        "@friggframework/eslint-config": "^1.0.9",
+        "@friggframework/test-environment": "^1.1.9",
         "eslint": "^7.32.0",
         "jest": "^27.4.7",
         "prettier": "^2.5.1",
         "sinon": "^12.0.1"
     },
     "dependencies": {
-        "@friggframework/module-plugin": "^1.1.3"
+        "@friggframework/module-plugin": "^1.1.4"
     }
 }
