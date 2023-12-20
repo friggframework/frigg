@@ -1,6 +1,6 @@
 {
   "name": "@friggframework/types",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "FriggFramework type declarations",
   "types": "index.d.ts",
   "author": "Charef Bahria",
