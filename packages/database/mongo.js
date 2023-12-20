@@ -6,7 +6,6 @@ const { Encrypt } = require('@friggframework/encrypt');
 const { mongoose } = require('./mongoose');
 const { debug, flushDebugLog } = require('@friggframework/logs');
 
-//test comment
 mongoose.plugin(Encrypt);
 mongoose.set('applyPluginsToDiscriminators', true); // Needed for LHEncrypt
 
