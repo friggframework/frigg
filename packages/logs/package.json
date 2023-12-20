@@ -12,8 +12,8 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@friggframework/eslint-config": "^1.0.16-v1-alpha.1",
-    "@friggframework/test-environment": "^1.1.16-v1-alpha.1",
+    "@friggframework/eslint-config": "^1.0.16",
+    "@friggframework/test-environment": "^1.1.16",
     "eslint": "^8.22.0",
     "jest": "^28.1.3",
     "prettier": "^2.7.1",

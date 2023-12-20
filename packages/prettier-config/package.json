@@ -5,7 +5,7 @@
   "main": "index.js",
   "prettier": "@friggframework/prettier-config",
   "devDependencies": {
-    "@friggframework/eslint-config": "^1.0.16-v1-alpha.1"
+    "@friggframework/eslint-config": "^1.0.16"
   },
   "scripts": {
     "lint:fix": "prettier --write --loglevel error . && eslint . --fix",

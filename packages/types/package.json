@@ -6,7 +6,7 @@
   "author": "Charef Bahria",
   "license": "MIT",
   "devDependencies": {
-    "@friggframework/database": "^1.0.22-v1-alpha.1",
+    "@friggframework/database": "^1.0.22",
     "@types/lodash": "^4.14.191",
     "@typescript-eslint/eslint-plugin": "^5.55.0",
     "aws-sdk": "^2.1339.0",
@@ -19,8 +19,8 @@
     "typescript": "^5.0.2"
   },
   "dependencies": {
-    "@friggframework/assertions": "^1.0.17-v1-alpha.1",
-    "@friggframework/integrations": "^1.2.11-v1-alpha.1",
+    "@friggframework/assertions": "^1.0.17",
+    "@friggframework/integrations": "^1.2.11",
     "lodash": "^4.17.21",
     "lodash.get": "^4.4.2"
   },

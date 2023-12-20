@@ -15,7 +15,7 @@
     "mongodb-memory-server": "^8.9.0"
   },
   "devDependencies": {
-    "@friggframework/eslint-config": "^1.0.16-v1-alpha.1",
+    "@friggframework/eslint-config": "^1.0.16",
     "eslint": "^8.22.0",
     "jest": "^28.1.3",
     "open": "8.4.2",
