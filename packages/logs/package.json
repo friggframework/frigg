@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/logs",
-    "version": "1.0.10",
+    "version": "1.0.11",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "logger.js",
