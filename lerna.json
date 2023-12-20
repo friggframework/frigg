@@ -1,5 +1,9 @@
 {
   "$schema": "node_modules/lerna/schemas/lerna-schema.json",
   "useNx": true,
+  "packages": [
+    "packages/*",
+    "api-module-library/*"
+  ],
   "version": "independent"
 }
