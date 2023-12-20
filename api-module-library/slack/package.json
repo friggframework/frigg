@@ -1,6 +1,6 @@
 {
   "name": "@friggframework/api-module-slack",
-  "version": "0.2.17",
+  "version": "0.2.19",
   "prettier": "@friggframework/prettier-config",
   "description": "",
   "main": "index.js",
