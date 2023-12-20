@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-deel",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -22,8 +22,7 @@
         "prettier": "^3.0.3",
         "sinon": "^16.0.0"
     },
-    "dependencies": {
-    },
+    "dependencies": {},
     "publishConfig": {
         "access": "public"
     }

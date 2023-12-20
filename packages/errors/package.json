@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/errors",
-    "version": "1.1.8",
+    "version": "1.1.9",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
