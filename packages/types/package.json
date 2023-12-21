@@ -1,12 +1,12 @@
 {
   "name": "@friggframework/types",
-  "version": "0.2.14",
+  "version": "0.2.15",
   "description": "FriggFramework type declarations",
   "types": "index.d.ts",
   "author": "Charef Bahria",
   "license": "MIT",
   "devDependencies": {
-    "@friggframework/database": "^1.0.22",
+    "@friggframework/database": "^1.0.26",
     "@types/lodash": "^4.14.191",
     "@typescript-eslint/eslint-plugin": "^5.55.0",
     "aws-sdk": "^2.1339.0",
@@ -19,8 +19,8 @@
     "typescript": "^5.0.2"
   },
   "dependencies": {
-    "@friggframework/assertions": "^1.0.17",
-    "@friggframework/integrations": "^1.2.11",
+    "@friggframework/assertions": "^1.0.21",
+    "@friggframework/integrations": "^1.2.15",
     "lodash": "^4.17.21",
     "lodash.get": "^4.4.2"
   },
