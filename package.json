@@ -1,6 +1,6 @@
 {
   "name": "frigg-monorepo",
-  "version": "1.0.5",
+  "version": "1.0.4",
   "description": "",
   "private": true,
   "scripts": {
@@ -32,11 +32,7 @@
   },
   "repository": "friggframework/frigg",
   "auto": {
-    "prereleaseBranches": [
-      "next",
-      "v1-alpha",
-      "v1-alpha-pre"
-    ],
+    "prereleaseBranches": ["next", "v1-alpha", "v1-alpha-pre"],
     "plugins": [
       "npm",
       "all-contributors",

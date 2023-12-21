@@ -1,6 +1,6 @@
 {
   "name": "@friggframework/api-module-salesforce",
-  "version": "0.9.14",
+  "version": "0.9.15",
   "prettier": "@friggframework/prettier-config",
   "description": "",
   "main": "index.js",
