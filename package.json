@@ -34,10 +34,11 @@
   "auto": {
     "prereleaseBranches": ["next", "v1-alpha", "v1-alpha-pre"],
     "plugins": [
-      "npm",
-      [{"exact": true},      {
-        "commitNextVersion": true
-      }],
+      [
+        "npm",
+        {"exact": true},
+        {"commitNextVersion": true}
+      ],
       "all-contributors",
       "conventional-commits",
       "first-time-contributor",
