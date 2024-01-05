@@ -16,10 +16,10 @@ const Definition = {
             const code = get(params.data, 'code');
             return api.getTokenFromCode(code);
         },
-        getEntityDetails: async function(api, callbackParams, tokenResponse) {
+        getEntityDetails: async function(api, callbackParams, tokenResponse, userId) {
             const entityDetails = await api.getTokenIdentity();
             return {
-                identifiers: { externalId: entityDetails.identifier, user: api.userId },
+                identifiers: { externalId: entityDetails.identifier, user: userId },
                 details: { name: entityDetails.name },
             }
         },
