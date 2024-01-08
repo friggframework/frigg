@@ -16,6 +16,7 @@ class Api extends OAuth2Requester {
             getBatchContactsById: '/crm/v3/objects/contacts/batch/read',
             companies: '/crm/v3/objects/companies',
             companyById: (compId) => `/crm/v3/objects/companies/${compId}`,
+            companySearch: '/crm/v3/objects/companies/search',
             getBatchCompaniesById: '/crm/v3/objects/companies/batch/read',
             createTimelineEvent: '/crm/v3/timeline/events',
             userDetails: '/integrations/v1/me',
@@ -51,7 +52,7 @@ class Api extends OAuth2Requester {
             blogPostById: (blogPostId) => `/cms/v3/blogs/posts/${blogPostId}`,
             emailTemplates: '/content/api/v2/templates',
             emailTemplateById: (templateId) => `/content/api/v2/templates/${templateId}`,
-            
+
         };
 
         this.authorizationUri = encodeURI(
@@ -80,6 +81,38 @@ class Api extends OAuth2Requester {
             },
         };
 
+        return this._post(options);
+    }
+
+    async listCompanies() {
+        const options = {
+            url: this.baseUrl + this.URLs.companies,
+        };
+
+        return this._get(options);
+    }
+
+    async updateCompany(id, body) {
+        const options = {
+            url: this.baseUrl + this.URLs.companyById(id),
+            body,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        };
+        return this._patch(options);
+    }
+
+    async searchCompanies(body) {
+        const options = {
+            url: this.baseUrl + this.URLs.companySearch,
+            body,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        };
         return this._post(options);
     }
 

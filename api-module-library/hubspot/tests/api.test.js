@@ -57,7 +57,7 @@ describe(`${config.label} API tests`, () => {
     describe('HS Companies', () => {
         let createRes;
         beforeAll(async () => {
-            let body = {
+            const body = {
                 domain: 'gitlab.com',
                 name: 'Gitlab',
             };
@@ -74,15 +74,15 @@ describe(`${config.label} API tests`, () => {
         });
 
         it('should return the company info', async () => {
-            let company_id = createRes.id;
-            let response = await api.getCompanyById(company_id);
+            const company_id = createRes.id;
+            const response = await api.getCompanyById(company_id);
             expect(response.id).toBe(company_id);
             // expect(response.properties.domain).to.eq('golabstech.com');
             // expect(response.properties.name).to.eq('Golabs');
         });
 
-        it.skip('should list Companies', async () => {
-            let response = await api.listCompanies();
+        it('should list Companies', async () => {
+            const response = await api.listCompanies();
             expect(response.results[0]).toHaveProperty('id');
             expect(response.results[0]).toHaveProperty('properties');
             expect(response.results[0].properties).toHaveProperty('domain');
@@ -92,16 +92,32 @@ describe(`${config.label} API tests`, () => {
             );
         });
 
-        it.skip('should update Company', async () => {
-            let body = {
-                name: 'Facebook 1',
+        it('should update Company', async () => {
+            const body = {
+                properties: {
+                    name: 'Facebook 1',
+                }
             };
-            let response = await api.updateCompany(
+            const response = await api.updateCompany(
                 createRes.id,
                 body
             );
             expect(response.properties.name).toBe('Facebook 1');
         });
+
+        it('should search for a company', async () => {
+            // case sensitive search of default searchable properties
+            // website, phone, name, domain
+            const body = {
+                query: 'Facebook',
+            };
+            const response = await api.searchCompanies(body);
+            expect(response.results[0]).toHaveProperty('id');
+            expect(response.results[0]).toHaveProperty('properties');
+            expect(response.results[0].properties).toHaveProperty('domain');
+            expect(response.results[0].properties).toHaveProperty('name');
+            expect(response.results[0].properties.name).toBe('Facebook 1');
+        })
 
         it('should delete a company', async () => {
             // Hope the after works!
@@ -112,7 +128,7 @@ describe(`${config.label} API tests`, () => {
     describe.skip('HS Companies BATCH', () => {
         let createResponse;
         beforeAll(async () => {
-            let body = [
+            const body = [
                 {
                     properties: {
                         domain: 'gitlab.com',
@@ -131,17 +147,17 @@ describe(`${config.label} API tests`, () => {
 
         afterAll(async () => {
             return createResponse.results.map(async (company) => {
-                return api.deleteCompany(company.id);
+                return api.deconsteCompany(company.id);
             });
         });
 
         it('should create a Batch of Companies', async () => {
-            let results = _.sortBy(createResponse.results, [
+            const results = _.sortBy(createResponse.results, [
                 function (o) {
                     return o.properties.name;
                 },
             ]);
-            expect(createResponse.status).toBe('COMPLETE');
+            expect(createResponse.status).toBe('COMPCONSTE');
             expect(results[0].properties.name).toBe('Facebook');
             expect(results[0].properties.domain).toBe('facebook.com');
             expect(results[1].properties.name).toBe('Gitlab');
@@ -149,7 +165,7 @@ describe(`${config.label} API tests`, () => {
         });
 
         it('should update a Batch of Companies', async () => {
-            let body = [
+            const body = [
                 {
                     properties: {
                         name: 'Facebook 2',
@@ -163,14 +179,14 @@ describe(`${config.label} API tests`, () => {
                     id: createResponse.results[1].id,
                 },
             ];
-            let response = await api.updateBatchCompany(body);
+            const response = await api.updateBatchCompany(body);
 
-            let results = _.sortBy(response.results, [
+            const results = _.sortBy(response.results, [
                 function (o) {
                     return o.properties.name;
                 },
             ]);
-            expect(response.status).toBe('COMPLETE');
+            expect(response.status).toBe('COMPCONSTE');
             expect(results[0].properties.name).toBe('Facebook 2');
             expect(results[1].properties.name).toBe('Gitlab 2');
         });
