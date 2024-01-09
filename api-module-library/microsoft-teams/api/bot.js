@@ -30,6 +30,7 @@ class botApi {
         await this.adapter.process(req, res, (context) => this.bot.run(context));
     }
 
+    // this circumvents the adapter middleware, only for testing
     async run(activity) {
         await this.bot.run(activity);
     }
@@ -98,7 +99,7 @@ class Bot extends TeamsActivityHandler {
         this.onMembersAdded(async (context, next) => {
             const membersAdded = context.activity.membersAdded;
             await Promise.all(membersAdded.map(async member => {
-                    return await this.setConversationReferenceForNewMember(context, member);
+                    await this.setConversationReferenceForNewMember(context, member);
             }));
             await next();
         });
@@ -129,7 +130,6 @@ class Bot extends TeamsActivityHandler {
             memberInfo = await this.adapter.getConversationMembers(context);
             this.conversationReferences[memberInfo[0].email] = ref;
         });
-        return this.conversationReferences[memberInfo[0].email];
     }
 }
 

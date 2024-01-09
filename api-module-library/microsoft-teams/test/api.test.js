@@ -82,6 +82,8 @@ describe('Test of cross API functionality', () => {
 
             await api.botApi.run({activity: membersAddedActivity});
             expect(api.botApi.conversationReferences[testEmail]).toBeDefined();
+            await api.botApi.sendProactive(testEmail, "hello from api.test.js again! woo!!");
+
         })
     });
 });
