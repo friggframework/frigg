@@ -72,6 +72,7 @@ class botApi {
         initialRef.user = member;
         await this.adapter.createConversation(initialRef, async (context) => {
             const ref = TurnContext.getConversationReference(context.activity);
+            ref.user = member;
             this.conversationReferences[member.email] = ref;
         });
         return this.conversationReferences[member.email];
