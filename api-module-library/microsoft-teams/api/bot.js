@@ -32,6 +32,7 @@ class botApi {
 
     // this circumvents the adapter middleware, only for testing
     async run(activity) {
+        console.log('only for testing!')
         await this.bot.run(activity);
     }
 
