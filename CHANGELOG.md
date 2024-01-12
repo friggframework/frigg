@@ -1,3 +1,25 @@
+# (Fri Jan 12 2024)
+
+#### 🐛 Bug Fix
+
+- revert auto upgrade [#246](https://github.com/friggframework/frigg/pull/246) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- update package.json [#239](https://github.com/friggframework/frigg/pull/239) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- `@friggframework/api-module-microsoft-teams@0.2.4`
+  - try bumping a minor version [#245](https://github.com/friggframework/frigg/pull/245) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - msteams module - bump version to force publish [#244](https://github.com/friggframework/frigg/pull/244) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - complete onMembersAdded implementation [#243](https://github.com/friggframework/frigg/pull/243) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### ⚠️ Pushed to `main`
+
+- autorc config ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Tue Nov 07 2023)
 
 :tada: This release contains work from a new contributor! :tada:
