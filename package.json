@@ -22,17 +22,17 @@
     "api-module-library/*"
   ],
   "devDependencies": {
-    "@auto-it/all-contributors": "^11.0.4",
-    "@auto-it/conventional-commits": "^11.0.4",
-    "@auto-it/first-time-contributor": "^11.0.4",
-    "@auto-it/slack": "^11.0.4",
-    "auto": "^11.0.4",
-    "lerna": "^7.4.2",
-    "nx": "^14.8.9"
+    "@auto-it/all-contributors": "^10.37.4",
+    "@auto-it/conventional-commits": "^10.37.4",
+    "@auto-it/first-time-contributor": "^10.37.4",
+    "@auto-it/slack": "^10.37.4",
+    "auto": "^10.37.4",
+    "lerna": "^5.5.0",
+    "nx": "^14.6.1"
   },
   "repository": "friggframework/frigg",
   "auto": {
-    "prereleaseBranches": ["next", "v1-alpha", "v1-alpha-pre"],
+    "prereleaseBranches": ["next", "v1-alpha"],
     "plugins": [
       "npm",
       "all-contributors",
