@@ -143,7 +143,11 @@ class Auther extends Delegate {
     getEntityModel() {
         if (!this.EntityModel) {
             const prefix = this.modelName ?? _.upperFirst(this.getName());
-            const schema = new mongoose.Schema({});
+            const arrayToDefaultObject = (array, defaultValue) => _.mapValues(_.keyBy(array), () => defaultValue);
+            const schema = new mongoose.Schema(arrayToDefaultObject(this.apiPropertiesToPersist.entity, {
+                type: mongoose.Schema.Types.Mixed,
+                trim: true,
+            }));
             const name = `${prefix}Entity`;
             this.EntityModel =
                 Entity.discriminators?.[name] || Entity.discriminator(name, schema);
@@ -222,6 +226,7 @@ class Auther extends Delegate {
         const entityDetails = await this.getEntityDetails(
             this.api, params, tokenResponse, this.userId
         );
+        // TODO: anything needed to make the params available
         Object.assign(entityDetails.details, this.apiParamsFromEntity(this.api));
         await this.findOrCreateEntity(entityDetails);
         return {

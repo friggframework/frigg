@@ -16,10 +16,10 @@ const Definition = {
         },
         apiPropertiesToPersist: {
             credential: [
-                'access_token', 'refresh_token', 'location', 'api_key',
+                'access_token', 'refresh_token', 'location',
             ],
             entity: [
-                'organization_uid',
+                'organization_uid','api_key',
             ],
         },
         getEntityDetails: async function(api, callbackParams, tokenResponse, userId) {
