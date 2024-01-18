@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-microsoft-teams",
-    "version": "0.2.3",
+    "version": "0.2.4",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
