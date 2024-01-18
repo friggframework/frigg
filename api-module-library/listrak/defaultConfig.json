@@ -1,0 +1,9 @@
+{
+    "name": "listrak",
+    "label": "Listrak",
+    "productUrl": "https://listrak.com",
+    "apiDocs": "https://developer.listrak.com",
+    "logoUrl": "https://friggframework.org/assets/img/listrak.jpeg",
+    "categories": ["Customer Service", "Helpdesk"],
+    "description": "Listrak"
+}
