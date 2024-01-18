@@ -1,3 +1,25 @@
+# (Thu Jan 18 2024)
+
+#### 🐛 Bug Fix
+
+- update package.json [#239](https://github.com/friggframework/frigg/pull/239) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- `@friggframework/api-module-microsoft-teams@0.2.5`
+  - Microsoft Teams - skip conversation reference re-creation [#247](https://github.com/friggframework/frigg/pull/247) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - try bumping a minor version [#245](https://github.com/friggframework/frigg/pull/245) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - msteams module - bump version to force publish [#244](https://github.com/friggframework/frigg/pull/244) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - complete onMembersAdded implementation [#243](https://github.com/friggframework/frigg/pull/243) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### ⚠️ Pushed to `main`
+
+- autorc config ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Fri Jan 12 2024)
 
 #### 🐛 Bug Fix
