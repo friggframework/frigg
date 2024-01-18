@@ -15,7 +15,7 @@ class Api {
         await this.botFrameworkApi.getTokenFromClientCredentials();
     }
 
-    async createConversationReferences(teamId=null){
+    async createConversationReferences(teamId=null, skipExisting=true){
         if (teamId) {
             this.graphApi.setTeamId(teamId);
         } else if (!this.graphApi.team_id) {
@@ -35,6 +35,9 @@ class Api {
                 channelId: teamChannel.id
             };
         await Promise.all(teamMembers.members.map(async (member) => {
+            if (skipExisting && this.botApi.conversationReferences[member.email]) {
+                return;
+            }
             await this.botApi.createConversationReference(initialRef, member);
         }));
         return this.botApi.conversationReferences;

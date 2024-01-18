@@ -30,6 +30,22 @@ describe('Test of cross API functionality', () => {
             expect(convRef[testEmail]).toBeDefined();
         });
 
+        it('Should not create the conversation references again', async () => {
+            api.botApi.createConversationReference = jest.fn().mockResolvedValueOnce({});
+           convRef = await api.createConversationReferences();
+            expect(convRef).toBeDefined();
+            expect(convRef[testEmail]).toBeDefined();
+            expect(api.botApi.createConversationReference).toHaveBeenCalledTimes(0);
+        })
+
+        it('Should only create the conversation references new members', async () => {
+            const ref = api.botApi.conversationReferences[testEmail];
+            delete api.botApi.conversationReferences[testEmail]
+            api.botApi.createConversationReference = jest.fn().mockResolvedValueOnce(ref);
+            await api.createConversationReferences();
+            expect(api.botApi.createConversationReference).toHaveBeenCalledTimes(1);
+            convRef[testEmail] = ref;
+        });
 
         it('Should send a proactive message from the bot', async () => {
             await api.botApi.sendProactive(testEmail, "hello from api.test.js!");
@@ -85,5 +101,7 @@ describe('Test of cross API functionality', () => {
             await api.botApi.sendProactive(testEmail, "hello from api.test.js again! woo!!");
 
         })
+
+
     });
 });
