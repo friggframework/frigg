@@ -30,6 +30,12 @@ class botApi {
         await this.adapter.process(req, res, (context) => this.bot.run(context));
     }
 
+    // this circumvents the adapter middleware, only for testing
+    async run(activity) {
+        console.log('only for testing!')
+        await this.bot.run(activity);
+    }
+
     async setConversationReferenceFromMembers(members){
         const ref = {
             bot: {
@@ -67,6 +73,7 @@ class botApi {
         initialRef.user = member;
         await this.adapter.createConversation(initialRef, async (context) => {
             const ref = TurnContext.getConversationReference(context.activity);
+            ref.user = member;
             this.conversationReferences[member.email] = ref;
         });
         return this.conversationReferences[member.email];
@@ -93,11 +100,9 @@ class Bot extends TeamsActivityHandler {
         this.adapter = adapter;
         this.onMembersAdded(async (context, next) => {
             const membersAdded = context.activity.membersAdded;
-            membersAdded.map(async member => {
-                if (member.id !== context.activity.recipient.id) {
-                    await this.setConversationReference(context, member);
-                }
-            });
+            await Promise.all(membersAdded.map(async member => {
+                    await this.setConversationReferenceForNewMember(context, member);
+            }));
             await next();
         });
     }
@@ -111,18 +116,21 @@ class Bot extends TeamsActivityHandler {
     async getUserConversationReference(context) {
         const TeamMembers = await TeamsInfo.getPagedMembers(context);
         TeamMembers.members.map(async member => {
-            await this.setConversationReference(context, member);
+            await this.setConversationReferenceForNewMember(context, member);
         });
     }
 
-    async setConversationReference(context, member){
-        const ref = TurnContext.getConversationReference(context.activity);
-        ref.user = member;
-        delete ref.conversation.id;
-        delete ref.activityId;
-        await context.adapter.createConversation(ref, async (context) => {
+    async setConversationReferenceForNewMember(context, member){
+        const initialRef = TurnContext.getConversationReference(context.activity);
+        initialRef.user = member;
+        delete initialRef.conversation.id;
+        delete initialRef.activityId;
+        initialRef.bot = {id: undefined}
+        let memberInfo;
+        await this.adapter.createConversation(initialRef, async (context) => {
             const ref = TurnContext.getConversationReference(context.activity);
-            this.conversationReferences[member.email] = ref;
+            memberInfo = await this.adapter.getConversationMembers(context);
+            this.conversationReferences[memberInfo[0].email] = ref;
         });
     }
 }

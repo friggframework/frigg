@@ -1,3 +1,47 @@
+# v0.2.5 (Thu Jan 18 2024)
+
+#### 🐛 Bug Fix
+
+- Microsoft Teams - skip conversation reference re-creation [#247](https://github.com/friggframework/frigg/pull/247) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- no longer re-create the conversation reference, by default, if a user already has one stored ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- try bumping a minor version [#245](https://github.com/friggframework/frigg/pull/245) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- junk change in case lerna is analyzing this ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- try bumping a minor version ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- msteams module - bump version to force publish [#244](https://github.com/friggframework/frigg/pull/244) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- bump version to force publish ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- complete onMembersAdded implementation [#243](https://github.com/friggframework/frigg/pull/243) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- overwrite the user on the retrieved reference (which was not mirroring the user on the initialRef which is also overwritten). this may have no functional implications (the conversation sub-object of the conversationReference is what matters), but will avoid future confusion. ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- remove some extraneous code ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- update bot api to handle membersAdded events and update the conversation reference ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.2.4 (Fri Jan 12 2024)
+
+#### 🐛 Bug Fix
+
+- try bumping a minor version [#245](https://github.com/friggframework/frigg/pull/245) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- junk change in case lerna is analyzing this ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- try bumping a minor version ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- msteams module - bump version to force publish [#244](https://github.com/friggframework/frigg/pull/244) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- bump version to force publish ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- complete onMembersAdded implementation [#243](https://github.com/friggframework/frigg/pull/243) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- overwrite the user on the retrieved reference (which was not mirroring the user on the initialRef which is also overwritten). this may have no functional implications (the conversation sub-object of the conversationReference is what matters), but will avoid future confusion. ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- remove some extraneous code ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- update bot api to handle membersAdded events and update the conversation reference ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 1
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+
+---
+
 # v0.1.1 (Mon Oct 30 2023)
 
 #### 🐛 Bug Fix
