@@ -10,7 +10,9 @@ class Api extends OAuth2Requester {
         this.endpoints = {
             accountStatus: 'account.json',
             googleLookup: 'android/apps/lookup.json',
+            googleSearch: 'android/apps/search.json',
             appleLookup: 'ios/apps/lookup.json',
+            appleSearch: 'ios/apps/search.json',
             tencentLookup: 'tencent/android/apps/lookup.json',
             amazonLookup: 'amazon/android/apps/lookup.json'
         }
@@ -47,6 +49,28 @@ class Api extends OAuth2Requester {
             url: this.URLs.googleLookup,
             query: {
                 p: packageName
+            }
+        }
+        return this._get(options);
+    }
+
+    async searchGoogleApps(searchPhrase, optionalParams={}) {
+        const options = {
+            url: this.URLs.googleSearch,
+            query: {
+                q: searchPhrase,
+                ...optionalParams
+            }
+        }
+        return this._get(options);
+    }
+
+    async searchAppleApps(searchPhrase, optionalParams={}) {
+        const options = {
+            url: this.URLs.appleSearch,
+            query: {
+                q: searchPhrase,
+                ...optionalParams
             }
         }
         return this._get(options);
