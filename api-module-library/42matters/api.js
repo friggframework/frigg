@@ -51,6 +51,16 @@ class Api extends OAuth2Requester {
         }
         return this._get(options);
     }
+
+    async getAppleAppData(trackId) {
+        const options = {
+            url: this.URLs.appleLookup,
+            query: {
+                id: trackId
+            }
+        }
+        return this._get(options);
+    }
 }
 
 module.exports = { Api };

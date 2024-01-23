@@ -26,6 +26,11 @@ describe('42matters API Tests', () => {
                 expect(appData).toBeDefined();
                 expect(appData.title).toBe('Facebook');
             });
+            it('Should retrieve an apple app', async () => {
+                const appData = await api.getAppleAppData('284882215');
+                expect(appData).toBeDefined();
+                expect(appData.trackCensoredName).toBe('Facebook');
+            });
         });
     });
 });
