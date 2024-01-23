@@ -2,6 +2,7 @@ require('dotenv').config();
 const {Api} = require('./api');
 const {get} = require("@friggframework/assertions");
 const config = require('./defaultConfig.json')
+const md5 = require('md5');
 
 const Definition = {
     API: Api,
@@ -13,7 +14,7 @@ const Definition = {
         },
         getEntityDetails: async function(api, callbackParams, tokenResponse, userId) {
             return {
-                identifiers: { externalId: '42matters', user: userId },
+                identifiers: { externalId: md5(api.access_token), user: userId },
                 details: {  },
             }
         },
@@ -23,7 +24,7 @@ const Definition = {
         },
         getCredentialDetails: async function(api, userId) {
             return {
-                identifiers: { externalId: '42matters', user: userId },
+                identifiers: { externalId: md5(api.access_token), user: userId },
                 details: {}
             };
         },
