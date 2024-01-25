@@ -38,6 +38,7 @@ class Api extends OAuth2Requester {
             customObjectSchemaByObjectType: (objectType) =>
                 `/crm/v3/schemas/${objectType}`,
             customObjects: (objectType) => `/crm/v3/objects/${objectType}`,
+            customObjectsSearch: (objectType) => `/crm/v3/objects/${objectType}/search`,
             customObjectById: (objectType, objId) =>
                 `/crm/v3/objects/${objectType}/${objId}`,
             bulkCreateCustomObjects: (objectType) =>
@@ -580,6 +581,22 @@ class Api extends OAuth2Requester {
         }
 
         return this._get(options);
+    }
+
+    async searchCustomObject(objectType, body) {
+        const options = {
+            url: this.baseUrl + this.URLs.searchCustomObject(objectType),
+            body,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        };
+        if (this.api_key) {
+            options.query = { hapikey: this.api_key };
+        }
+
+        return this._post(options);
     }
 
     async updateCustomObject(objectType, objId, body) {
