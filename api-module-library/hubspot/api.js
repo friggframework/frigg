@@ -585,7 +585,7 @@ class Api extends OAuth2Requester {
 
     async searchCustomObjects(objectType, body) {
         const options = {
-            url: this.baseUrl + this.URLs.searchCustomObject(objectType),
+            url: this.baseUrl + this.URLs.customObjectsSearch(objectType),
             body,
             headers: {
                 'Content-Type': 'application/json',
