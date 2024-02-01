@@ -43,6 +43,10 @@ class Api extends OAuth2Requester {
                 `/crm/v3/objects/${objectType}/${objId}`,
             bulkCreateCustomObjects: (objectType) =>
                 `/crm/v3/objects/${objectType}/batch/create`,
+            bulkReadCustomObjects: (objectType) =>
+                `/crm/v3/objects/${objectType}/batch/read`,
+            bulkUpdateCustomObjects: (objectType) =>
+                `/crm/v3/objects/${objectType}/batch/update`,
             bulkArchiveCustomObjects: (objectType) =>
                 `/crm/v3/objects/${objectType}/batch/archive`,
             landingPages: '/cms/v3/pages/landing-pages',
@@ -570,6 +574,22 @@ class Api extends OAuth2Requester {
         return this._get(options);
     }
 
+    async bulkReadCustomObjects(objectType, body) {
+        const options = {
+            url: this.baseUrl + this.URLs.bulkReadCustomObjects(objectType),
+            body,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        };
+        if (this.api_key) {
+            options.query = { hapikey: this.api_key };
+        }
+
+        return this._post(options);
+    }
+
     async listCustomObjects(objectType, query = {}) {
         const options = {
             url: this.baseUrl + this.URLs.customObjects(objectType),
@@ -614,6 +634,21 @@ class Api extends OAuth2Requester {
         }
 
         return this._patch(options);
+    }
+
+    async bulkUpdateCustomObjects(objectType, body) {
+        const options = {
+            url: this.baseUrl + this.URLs.bulkUpdateCustomObjects(objectType),
+            body,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        };
+        if (this.api_key) {
+            options.query = { hapikey: this.api_key };
+        }
+        return this._post(options);
     }
 
     // **************************   Properties / Custom Fields   **********************************

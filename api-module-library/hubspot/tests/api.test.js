@@ -462,4 +462,161 @@ describe(`${config.label} API tests`, () => {
             expect(response.status).toBe(204);
         });
     });
+
+    describe.only('HS Custom Objects', () => {
+        let allCustomObjects;
+        const testObjType = 'tests';
+        let oneWord;
+        const createWord = 'Test Custom Object Create';
+        const updateWord = 'Test Custom Object Update';
+        it('should return the Custom Objects', async () => {
+            allCustomObjects = await api.listCustomObjects(
+                testObjType,
+                {properties: 'word'}
+            );
+            expect(allCustomObjects).toBeDefined();
+            expect(allCustomObjects).toHaveProperty('results')
+            oneWord = allCustomObjects.results.find(o => o.properties.word === 'One');
+        });
+        it('get Custom Object by Id' , async () => {
+            const objectToGet = allCustomObjects.results.slice(-1)[0];
+            const response = await api.getCustomObject(testObjType, objectToGet.id);
+            expect(response).toBeDefined();
+        });
+        let createdObject;
+        it('create a Custom Object' , async () => {
+            createdObject = await api.createCustomObject(
+                testObjType,
+                {
+                    properties: {
+                        word: createWord
+                    }
+                },
+             );
+            expect(createdObject).toBeDefined();
+        })
+        it('update a Custom Object' , async () => {
+            const response = await api.updateCustomObject(
+                testObjType,
+                createdObject.id,
+                {
+                    properties: {
+                        word: updateWord
+                    }
+                },
+             );
+            expect(response).toBeDefined();
+        });
+        it('Search for custom object' , async () => {
+            // Search doesn't work on objects that were very recently created
+            const response = await api.searchCustomObjects(
+                testObjType,
+                {
+                    "query": 'One',
+                    "filterGroups": [
+                        {
+                            "filters": [
+                                {
+                                    "propertyName": "word",
+                                    "value": 'One',
+                                    "operator": "EQ"
+                                }
+                            ]
+                        }
+                    ]
+                }
+             );
+            expect(response).toBeDefined();
+            expect(response.results).toHaveProperty('length');
+            expect(response.results[0].id).toBe(oneWord.id);
+        });
+        it('delete a Custom Object' , async () => {
+            const response = await api.deleteCustomObject(testObjType, createdObject.id);
+            expect(response.status).toBe(204);
+        })
+
+        // BATCH TESTS
+        const batchSize = 5;
+        let createdBatch;
+        it('Should bulk create a batch of objects', async () => {
+            const range = Array.from({ length: batchSize }, (_, i) => i);
+            const objectsToCreate = range.map(i => ({
+                properties: {
+                    word: `Test Bulk Create ${i}`
+                },
+            }))
+            const response = await api.bulkCreateCustomObjects(
+                testObjType,
+                {inputs: objectsToCreate}
+            );
+            expect(response.results).toHaveProperty('length');
+            expect(response.results.length).toBe(batchSize);
+            createdBatch = response.results;
+        })
+        it('Should read a batch of objects', async () => {
+            const inputs = createdBatch.map(o => {return {id: o.id}});
+            const response = await api.bulkReadCustomObjects(
+                testObjType,
+                {
+                    inputs,
+                    properties: ['word']
+                }
+            );
+            expect(response).toBeDefined();
+            expect(response.results).toHaveProperty('length');
+            expect(response.results.length).toBe(batchSize);
+        });
+        it('Should update a batch of objects', async () => {
+            const inputs = createdBatch.map(o => {
+                return {
+                    id: o.id,
+                    properties: {word: 'Test Update'}
+                }
+            });
+
+            const response = await api.bulkUpdateCustomObjects(
+                testObjType,
+                {
+                    inputs,
+                }
+            );
+            expect(response).toBeDefined();
+            expect(response.results).toHaveProperty('length');
+            expect(response.results.length).toBe(batchSize);
+        });
+        it('Should delete a batch of objects', async () => {
+            const inputs = createdBatch.map(o => {return {id: o.id}});
+            const response = await api.bulkArchiveCustomObjects(
+                testObjType,
+                {
+                    inputs
+                }
+            );
+            expect(response).toBeDefined();
+            expect(response).toBe("");
+        });
+        afterAll(async () => {
+            // Search doesn't work on objects that were very recently created
+            const response = await api.searchCustomObjects(
+                testObjType,
+                {
+                    "query": 'Test',
+                    "limit": 100,
+                    "filterGroups": [
+                        {
+                            "filters": [
+                                {
+                                    "propertyName": "word",
+                                    "value": 'Test',
+                                    "operator": "CONTAINS_TOKEN"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            );
+            const inputs = response.results.map(o => {return {id: o.id}});
+            await api.bulkArchiveCustomObjects(testObjType, {inputs});
+        })
+    })
 });
