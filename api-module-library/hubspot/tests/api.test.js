@@ -536,7 +536,7 @@ describe(`${config.label} API tests`, () => {
         })
 
         // BATCH TESTS
-        const batchSize = 5;
+        const batchSize = 100;
         let createdBatch;
         it('Should bulk create a batch of objects', async () => {
             const range = Array.from({ length: batchSize }, (_, i) => i);

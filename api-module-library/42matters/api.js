@@ -11,8 +11,10 @@ class Api extends OAuth2Requester {
             accountStatus: 'account.json',
             googleLookup: 'android/apps/lookup.json',
             googleSearch: 'android/apps/search.json',
+            googleQuery: 'android/apps/query.json',
             appleLookup: 'ios/apps/lookup.json',
             appleSearch: 'ios/apps/search.json',
+            appleQuery: 'ios/apps/query.json',
             tencentLookup: 'tencent/android/apps/lookup.json',
             amazonLookup: 'amazon/android/apps/lookup.json'
         }
@@ -65,6 +67,18 @@ class Api extends OAuth2Requester {
         return this._get(options);
     }
 
+    async queryGoogleApps(query, optionalParams={}) {
+        const options = {
+            url: this.URLs.googleQuery,
+            body: query,
+            query: optionalParams,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        }
+        return this._post(options);
+    }
+
     async searchAppleApps(searchPhrase, optionalParams={}) {
         const options = {
             url: this.URLs.appleSearch,
@@ -84,6 +98,18 @@ class Api extends OAuth2Requester {
             }
         }
         return this._get(options);
+    }
+
+    async queryAppleApps(query, optionalParams={}) {
+        const options = {
+            url: this.URLs.appleQuery,
+            body: query,
+            query: optionalParams,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        }
+        return this._post(options);
     }
 }
 
