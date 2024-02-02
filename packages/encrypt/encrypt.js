@@ -14,14 +14,20 @@ const findOneEvents = [
     'findOneAndReplace',
 ];
 
+const shouldBypassEncryption = (STAGE) => {
+    if (!process.env.BYPASS_ENCRYPTION_STAGE) {
+        return false;
+    }
+
+    const bypassStages = process.env.BYPASS_ENCRYPTION_STAGE.split(',').map((stage) => stage.trim());
+    return bypassStages.indexOf(STAGE) > -1;
+};
+
 // The Mongoose plug-in function
 function Encrypt(schema, options) {
     const { STAGE, KMS_KEY_ARN, AES_KEY_ID } = process.env;
-    const isEnabledForStage =
-        ['staging', 'QA', 'prod', 'encryption-test'].indexOf(STAGE) > -1;
 
-    // No-op if not enabled
-    if (!isEnabledForStage) {
+    if (shouldBypassEncryption(STAGE)) {
         return;
     }
 
