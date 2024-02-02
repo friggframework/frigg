@@ -34,6 +34,7 @@ describe('Encrypt', () => {
             process.env = {
                 ...originalEnv,
                 STAGE: 'not-encryption-test',
+                BYPASS_ENCRYPTION_STAGE: 'not-encryption-test',
             };
 
             try {
