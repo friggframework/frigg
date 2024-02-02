@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/module-plugin",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -21,7 +21,7 @@
     "dependencies": {
         "@friggframework/assertions": "^1.0.8",
         "@friggframework/core": "^0.2.14",
-        "@friggframework/encrypt": "^1.1.7",
+        "@friggframework/encrypt": "^1.1.8",
         "@friggframework/errors": "^1.1.6",
         "aws-sdk": "^2.1200.0",
         "moment": "^2.29.4",
