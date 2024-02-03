@@ -15,11 +15,12 @@ const findOneEvents = [
 ];
 
 const shouldBypassEncryption = (STAGE) => {
-    if (!process.env.BYPASS_ENCRYPTION_STAGE) {
-        return false;
-    }
-
-    const bypassStages = process.env.BYPASS_ENCRYPTION_STAGE.split(',').map((stage) => stage.trim());
+    const bypassStageEnv = process.env.BYPASS_ENCRYPTION_STAGE;
+    // If the env is set to anything or an empty string, use the env. Otherwise, use the default array
+    const useEnv = !String(bypassStageEnv) || !!bypassStageEnv;
+    const bypassStages = useEnv
+        ? bypassStageEnv.split(',').map((stage) => stage.trim())
+        : ['dev', 'test', 'local', 'staging'];
     return bypassStages.indexOf(STAGE) > -1;
 };
 
