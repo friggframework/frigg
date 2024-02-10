@@ -23,7 +23,8 @@ class Requester extends Delegate {
 
         if (
             contentType.match(/^application\/json/) ||
-            contentType.match(/^application\/vnd.api\+json/)
+            contentType.match(/^application\/vnd.api\+json/) ||
+            contentType.match(/^application\/hal\+json/)
         ) {
             return resp.json();
         }
