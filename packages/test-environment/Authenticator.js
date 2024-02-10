@@ -14,7 +14,7 @@ class Authenticator {
         return result;
     }
 
-    static async oauth2(authorizeUrl, port = 3000) {
+    static async oauth2(authorizeUrl, port = 3000, browserName = undefined) {
         return new Promise((resolve, reject) => {
             const server = http
                 .createServer(async (req, res) => {
@@ -49,8 +49,9 @@ class Authenticator {
                     }
                 })
                 .listen(port, () => {
+                    const options = browserName ? {app: {name: browserName }} : undefined
                     // open the browser to the authorize url to start the workflow
-                    open(authorizeUrl).then((childProcess) => {
+                    open(authorizeUrl, options).then((childProcess) => {
                         childProcess.unref();
                         clearTimeout(timeoutId);
                     });
