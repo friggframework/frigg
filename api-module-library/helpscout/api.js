@@ -12,7 +12,8 @@ class Api extends OAuth2Requester {
             me: '/v2/users/me',
             conversations: '/v2/conversations',
             mailboxes: '/v2/mailboxes',
-            // contactById: (contactId) => `/crm/v3/objects/contacts/${contactId}`,
+            customers: '/v2/customers',
+            deleteCustomerById: (customerId) => `/v2/customers/${customerId}`,
         };
 
         this.authorizationUri = encodeURI(
@@ -28,23 +29,7 @@ class Api extends OAuth2Requester {
         return this.authorizationUri;
     }
 
-    // **************************   Companies   **********************************
-
-    // async createCompany(body) {
-    //     const options = {
-    //         url: this.baseUrl + this.URLs.companies,
-    //         body: {
-    //             properties: body,
-    //         },
-    //         headers: {
-    //             'Content-Type': 'application/json',
-    //             Accept: 'application/json',
-    //         },
-    //     };
-
-    //     return this._post(options);
-    // }
-    
+    // **************************   User (me)   **********************************
     async getUserDetails() {
         const options = {
             url: this.baseUrl + this.URLs.me,
@@ -52,6 +37,38 @@ class Api extends OAuth2Requester {
 
         return this._get(options);
     }
+
+    // **************************   Customers   **********************************
+    async listCustomers() {
+        const options = {
+            url: this.baseUrl + this.URLs.customers,
+        };
+
+        return this._get(options);
+    }
+
+    async createCustomer(body) {
+        const options = {
+            url: this.baseUrl + this.URLs.customers,
+            body,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+            returnFullRes: true
+        };
+
+        return this._post(options);
+    }
+
+    async deleteCustomer(id){
+        const options = {
+            url: `${this.baseUrl}${this.URLs.deleteCustomerById(id)}`,
+        };
+        return this._delete(options);
+    }
+    
+    // **************************   Conversations   **********************************
 
     async listConversations() {
         const options = {
@@ -61,25 +78,15 @@ class Api extends OAuth2Requester {
         return this._get(options);
     }
 
+    // **************************   Mailboxes   **********************************
+
     async listMailboxes() {
         const options = {
             url: this.baseUrl + this.URLs.mailboxes,
         };
 
         return this._get(options);
-    }    
-
-    // async updateCompany(id, body) {
-    //     const options = {
-    //         url: this.baseUrl + this.URLs.companyById(id),
-    //         body,
-    //         headers: {
-    //             'Content-Type': 'application/json',
-    //             Accept: 'application/json',
-    //         },
-    //     };
-    //     return this._patch(options);
-    // }
+    }
 }
 
 module.exports = { Api };

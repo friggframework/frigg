@@ -33,15 +33,54 @@ describe('HelpScout API Tests', () => {
         });
     });
 
-    describe('Other requests', () => {
+    describe('Customers', () => {
+        let createRes;
+        beforeAll(async () => {
+            const body = {
+                firstName : "Any",
+                lastName : "Person",
+                photoUrl : "https://api.helpscout.net/img/some-avatar.jpg",
+                photoType : "twitter",
+                jobTitle : "CEO and Co-Founder",
+                location : "Greater Dallas/FT Worth Area",
+                background : "I've worked with Vernon before and he's really great.",
+                age : "30-35",
+                gender : "Male",
+                organization : "Acme, Inc",
+                emails : [ {
+                  "type" : "work",
+                  "value" : "bear118@acme.com"
+                } ]
+              }
+            createRes = await api.createCustomer(body);
+        });
+
+        afterAll(async () => {
+            const id = createRes.headers.get('location').split('/').pop();
+            await api.deleteCustomer(id);
+        });
+
+        it('Should get all customers', async () => {
+            const customers = await api.listCustomers();
+            expect(customers).toBeDefined();
+        });
+        it('Should create a customer', async () => {
+            expect(createRes.status).toBe(201);
+            expect(createRes.headers.get('location')).toBeTruthy();
+        });
+    });
+
+    describe('Conversations', () => {
         it('Should get all conversations', async () => {
             const conversations = await api.listConversations();
             expect(conversations).toBeDefined();
-        });        
+        });
+    });
+
+    describe('Mailboxes', () => {
         it('Should get all mailboxes', async () => {
             const mailboxes = await api.listMailboxes();
             expect(mailboxes).toBeDefined();
         });
     });
-
 });
