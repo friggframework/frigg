@@ -1,0 +1,37 @@
+{
+  "name": "@friggframework/api-module-github",
+  "version": "0.1.17-v1-alpha.9",
+  "prettier": "@friggframework/prettier-config",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
+    "test": "jest"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@friggframework/assertions": "^1.0.22-v1-alpha.6",
+    "@friggframework/eslint-config": "^1.0.21-v1-alpha.4",
+    "@friggframework/logs": "^1.0.24-v1-alpha.4",
+    "@friggframework/module-plugin": "^1.1.16-v1-alpha.7",
+    "@friggframework/test-environment": "^1.1.21-v1-alpha.4",
+    "mongoose": "^6.5.2",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@friggframework/assertions": "^1.0.22-v1-alpha.6",
+    "@friggframework/eslint-config": "^1.0.21-v1-alpha.4",
+    "@friggframework/logs": "^1.0.24-v1-alpha.4",
+    "@friggframework/module-plugin": "^1.1.16-v1-alpha.7",
+    "@friggframework/test-environment": "^1.1.21-v1-alpha.4",
+    "dotenv": "^16.3.1",
+    "eslint": "^8.45.0",
+    "jest": "^29.6.1",
+    "prettier": "^3.0.0",
+    "sinon": "^15.2.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
