@@ -9,6 +9,7 @@ class Api extends OAuth2Requester {
         this.baseUrl = 'https://api.helpscout.net';
 
         this.URLs = {
+            me: '/v2/users/me',
             conversations: '/v2/conversations',
             mailboxes: '/v2/mailboxes',
             // contactById: (contactId) => `/crm/v3/objects/contacts/${contactId}`,
@@ -22,6 +23,7 @@ class Api extends OAuth2Requester {
         this.access_token = get(params, 'access_token', null);
         this.refresh_token = get(params, 'refresh_token', null);
     }
+
     getAuthUri() {
         return this.authorizationUri;
     }
@@ -42,6 +44,14 @@ class Api extends OAuth2Requester {
 
     //     return this._post(options);
     // }
+    
+    async getUserDetails() {
+        const options = {
+            url: this.baseUrl + this.URLs.me,
+        };
+
+        return this._get(options);
+    }
 
     async listConversations() {
         const options = {
@@ -53,11 +63,11 @@ class Api extends OAuth2Requester {
 
     async listMailboxes() {
         const options = {
-            url: this.baseUrl + this.URLs.conversations,
+            url: this.baseUrl + this.URLs.mailboxes,
         };
 
         return this._get(options);
-    }
+    }    
 
     // async updateCompany(id, body) {
     //     const options = {
