@@ -350,7 +350,7 @@ export type Issue = {
      * Contents of the issue
      */
     body?: string | null;
-    user: null | SimpleUser;
+    user: null | User;
     /**
      * Labels to associate with this issue; pass one or more label names to replace the set of labels on this issue; send an empty array to clear all labels from the issue; note that the labels are silently dropped for users without push access to the repository
      */
@@ -366,8 +366,8 @@ export type Issue = {
               default?: boolean;
           }
     )[];
-    assignee: null | SimpleUser1;
-    assignees?: SimpleUser2[] | null;
+    assignee: null | User;
+    assignees?: User[] | null;
     milestone: null | Milestone;
     locked: boolean;
     active_lock_reason?: string | null;
@@ -383,7 +383,7 @@ export type Issue = {
     created_at: string;
     updated_at: string;
     draft?: boolean;
-    closed_by?: null | SimpleUser4;
+    closed_by?: null | User;
     body_html?: string;
     body_text?: string;
     timeline_url?: string;
