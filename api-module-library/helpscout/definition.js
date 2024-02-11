@@ -8,7 +8,7 @@ const config = require('./defaultConfig.json')
 const Definition = {
     API: Api,
     getName: function() {return config.name},
-    moduleName: config.name,//maybe not required
+    moduleName: config.name,
     Credential,
     Entity,
     requiredAuthMethods: {
@@ -42,7 +42,8 @@ const Definition = {
         client_id: process.env.HELPSCOUT_CLIENT_ID,
         client_secret: process.env.HELPSCOUT_CLIENT_SECRET,
         redirect_uri: `${process.env.REDIRECT_URI}/helpscout`,
-        scope: process.env.HELPSCOUT_SCOPE,
+        // HELP SCOUT doesn't provide any information about scopes
+        // scope: process.env.HELPSCOUT_SCOPE,
     }
 };
 

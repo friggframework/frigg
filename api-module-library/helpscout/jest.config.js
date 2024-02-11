@@ -7,10 +7,10 @@ module.exports = {
     // preset: '@friggframework/test-environment',
     coverageThreshold: {
         global: {
-            statements: 13,
-            branches: 0,
-            functions: 1,
-            lines: 13,
+            statements: 85,
+            branches: 85,
+            functions: 85,
+            lines: 85,
         },
     },
     // A path to a module which exports an async function that is triggered once before all test suites

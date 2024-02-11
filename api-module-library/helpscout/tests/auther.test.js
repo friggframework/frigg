@@ -1,11 +1,10 @@
-//require('dotenv').config();
 const { Definition} = require('../definition');
 const { Auther } = require('@friggframework/module-plugin');
 const {connectToDatabase, disconnectFromDatabase, createObjectId} = require('@friggframework/database/mongo');
 const { Authenticator, testDefinition } = require("@friggframework/test-environment");
 
 describe('HelpScout Auther Tests', () => {
-    let auther, authUrl;
+    let auther;
     beforeAll(async () => {
         await connectToDatabase();
         auther = await Auther.getInstance({
@@ -22,16 +21,20 @@ describe('HelpScout Auther Tests', () => {
 
     describe('getAuthorizationRequirements() test', () => {
         it('should return auth requirements', async () => {
-            const requirements = auther.getAuthorizationRequirements();
+            const requirements = auther.getAuthorizationRequirements();            
             expect(requirements).toBeDefined();
             expect(requirements.type).toEqual('oauth2');
             expect(requirements.url).toBeDefined();
-            authUrl = requirements.url;
         });
     });
 
     describe('Authorization requests', () => {
-        let firstRes;
+        let authUrl, firstRes;
+        beforeAll(async () => {
+            const requirements = auther.getAuthorizationRequirements();
+            authUrl = requirements.url;
+        });
+
         it('processAuthorizationCallback()', async () => {
             const response = await Authenticator.oauth2(authUrl, 3000, 'google chrome');            
             firstRes = await auther.processAuthorizationCallback({
@@ -51,7 +54,7 @@ describe('HelpScout Auther Tests', () => {
                 },
             });
             expect(res).toEqual(firstRes);
-        });
+        }, 10000);
         it('Should test the Definition methods', async () => {
             await testDefinition(auther.api, Definition,undefined,undefined,auther.userId);
         }, 10000)

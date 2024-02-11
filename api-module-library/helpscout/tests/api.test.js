@@ -15,20 +15,36 @@ describe('HelpScout API Tests', () => {
     const api = new Api(apiParams);
 
     beforeAll(async () => {
-        const url = api.getAuthorizationUri();
-        const response = await Authenticator.oauth2(url, 3000, 'google chrome');
-        await api.getTokenFromCode(response.data.code);
+        // Note: Bring back the authorization_code flow to test refreshing a token
+        // const url = api.getAuthorizationUri();
+        // const response = await Authenticator.oauth2(url);
+        // await api.getTokenFromCode(response.data.code);
+
+        await api.getTokenFromClientCredentials();
     });
     
     describe('OAuth Flow Tests', () => {
         it('Should generate a token', async () => {
             expect(api.access_token).toBeTruthy();
         });
+
+        it.skip('Should refresh a token', async () => {
+            const oldToken = api.access_token;
+            await api.refreshAuth();
+            expect(api.access_token).toBeTruthy();
+            expect(oldToken).not.toBe(api.access_token);
+         });
     });
+
     describe('Basic Identification Requests', () => {
         it('Should retrieve information about the user', async () => {
             const user = await api.getUserDetails();
             expect(user).toBeDefined();
+        });
+
+        it('Should retrieve information about the token', async () => {
+            const tokenDetails = await api.getTokenIdentity();
+            expect(tokenDetails.identifier).toBeDefined();
         });
     });
 
@@ -82,4 +98,4 @@ describe('HelpScout API Tests', () => {
             expect(mailboxes).toBeDefined();
         });
     });
-});
+}, 20000);
