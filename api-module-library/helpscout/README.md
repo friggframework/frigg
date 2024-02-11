@@ -6,6 +6,8 @@ Read more on the [Frigg documentation site](https://docs.friggframework.org/api-
 
 ### Repo instructions
 
+From the root folder, run:
+
 ```
 npm install
 ```
@@ -23,4 +25,6 @@ MONGO_URI=your mongodb connection string
 
 Please ensure your Help Scout app includes `http://localhost:3000/redirect` as a Redirection URL.
 
-Ready! You should now be able to run tests: `npm run tests`.
+Ready! You should now be able to run tests: 
+1. `cd api-module-library/helpscout`
+2. `npm run tests`.
