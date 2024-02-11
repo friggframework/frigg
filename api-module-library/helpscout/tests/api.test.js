@@ -1,6 +1,6 @@
 require('dotenv').config();
 const { Api } = require('../api');
-const Authenticator = require("@friggframework/test-environment/Authenticator");
+// const Authenticator = require("@friggframework/test-environment/Authenticator");
 
 describe('HelpScout API Tests', () => {
     /* eslint-disable camelcase */
@@ -64,7 +64,7 @@ describe('HelpScout API Tests', () => {
                 organization : "Acme, Inc",
                 emails : [ {
                   "type" : "work",
-                  "value" : "bear118@acme.com"
+                  "value" : "example1@acme.com"
                 } ]
               }
             createRes = await api.createCustomer(body);
@@ -79,9 +79,19 @@ describe('HelpScout API Tests', () => {
             const customers = await api.listCustomers();
             expect(customers).toBeDefined();
         });
+
         it('Should create a customer', async () => {
             expect(createRes.status).toBe(201);
             expect(createRes.headers.get('location')).toBeTruthy();
+        });
+
+        it("Should fail to create a customer with invalid data", async () => {
+            const body = {}
+            try {
+                await api.createCustomer(body);
+            } catch (error) {
+                expect(error.response.status).toBe(400);
+            }
         });
     });
 
