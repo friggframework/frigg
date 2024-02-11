@@ -24,7 +24,7 @@ const Definition = {
             }
         },
         apiPropertiesToPersist: {
-            credential: ['access_token'],
+            credential: ['access_token', 'refresh_token'],
             entity: [],
         },
         getCredentialDetails: async function(api) {
@@ -35,7 +35,7 @@ const Definition = {
             };
         },
         testAuthRequest: async function(api){
-            return await api.getUser()
+            return await api.getUserDetails()
         },
     },
     env: {

@@ -38,6 +38,11 @@ class Api extends OAuth2Requester {
         return this._get(options);
     }
 
+    async getTokenIdentity() {
+        const user = await this.getUserDetails();
+        return {identifier: user.id, name: user.firstName + ' ' + user.lastName};
+    }
+
     // **************************   Customers   **********************************
     async listCustomers() {
         const options = {

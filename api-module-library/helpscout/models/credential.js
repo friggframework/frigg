@@ -6,9 +6,13 @@ const schema = new mongoose.Schema({
         trim: true,
         lhEncrypt: true,
     },
-    expires_at: { type: Number },
+    refresh_token: {
+        type: String,
+        trim: true,
+        lhEncrypt: true,
+    },
+    expires_in: { type: Number },
 });
-// TODO CHECK SCHEMA
 const name = 'HelpscoutCredential';
 const Credential = Parent.discriminators?.[name] || Parent.discriminator(name, schema);
 module.exports = { Credential };
