@@ -48,13 +48,25 @@ class Authenticator {
                         reject(e);
                     }
                 })
-                .listen(port, () => {
+
+            const startServer = () => {
+                server.listen(port, () => {
                     // open the browser to the authorize url to start the workflow
                     open(authorizeUrl).then((childProcess) => {
                         childProcess.unref();
                         clearTimeout(timeoutId);
                     });
                 });
+            }
+            server.on('error', (e) => {
+                if (e.code === 'EADDRINUSE') {
+                    console.log('Address in use, retrying...');
+                    setTimeout(() => {
+                        startServer();
+                    }, 1000);
+                }
+            });
+            startServer();
 
             const timeoutId = setTimeout(() => {
                 if (server.listening) {
