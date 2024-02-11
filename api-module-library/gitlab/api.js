@@ -86,7 +86,7 @@ class Api extends OAuth2Requester {
 
     async getRepos() {
         const userData = await this.getUserDetails();
-        //const [userData, token] = await Promise.all([this.getUserDetails(), this.getAccessTokenAndTokenType()]);
+
         const options = {
             headers: {
                 'Authorization': `${(this.token_type || '').toUpperCase()} ${this.access_token}`,
