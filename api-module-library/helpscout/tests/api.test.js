@@ -9,18 +9,17 @@ describe('HelpScout API Tests', () => {
         client_secret: process.env.HELPSCOUT_CLIENT_SECRET,
         redirect_uri: `${process.env.REDIRECT_URI}/helpscout`,
         scope: process.env.HELPSCOUT_SCOPE,
-        // access_token: process.env.HELPSCOUT_ACCESS_TOKEN
     };
     /* eslint-enable camelcase */
 
     const api = new Api(apiParams);
 
-    //Disabling auth flow for speed (access tokens expire after ten years)
     beforeAll(async () => {
         const url = api.getAuthorizationUri();
         const response = await Authenticator.oauth2(url, 3000, 'google chrome');
         await api.getTokenFromCode(response.data.code);
     });
+    
     describe('OAuth Flow Tests', () => {
         it('Should generate a token', async () => {
             expect(api.access_token).toBeTruthy();

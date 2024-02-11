@@ -6,7 +6,7 @@
   "main": "index.js",
   "scripts": {
     "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
-    "test": "jest"
+    "test": "jest --detectOpenHandles"
   },
   "author": "",
   "license": "MIT",

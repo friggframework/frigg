@@ -66,7 +66,7 @@ class Api extends OAuth2Requester {
         return this._post(options);
     }
 
-    async deleteCustomer(id){
+    async deleteCustomer(id) {
         const options = {
             url: `${this.baseUrl}${this.URLs.deleteCustomerById(id)}`,
         };
