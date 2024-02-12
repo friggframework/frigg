@@ -9,7 +9,7 @@ Read more on the [Frigg documentation site](https://docs.friggframework.org/api-
 1- Go to this url: https://bitbucket.org/{YOUR_WORKSPACE_SLUG}/workspace/settings/oauth-consumers/new (replace `{YOUR_WORKSPACE_SLUG}` with your workspace slug url)
 2- Fill in the form with the following information:
 
--   **GitHub App name**: The name of your app
+-   **App name**: The name of your app
 -   **Homepage URL**: [The URL of your app](https://lefthook.com/)
 -   **Callback URL**: http://localhost:3000/redirect/bitbucket
 -   **Permissions**: Select
