@@ -62,6 +62,11 @@ class Api extends OAuth2Requester {
         return response;
     }
 
+    /**
+     * Gets the current logged user data.
+     * 
+     * @returns {Promise<import('./types').CurrentUser>} - The current user data.
+     */
     async getUserDetails() {
         const options = {
             headers: {
@@ -79,9 +84,16 @@ class Api extends OAuth2Requester {
 
     async getTokenIdentity() {
         const userInfo = await this.getUserDetails();
-        return { identifier: userInfo.id, name: userInfo.username }
+        return { identifier: userInfo.uuid, name: userInfo.username }
     }
 
+    /**
+     * Gets all public repositories the user has access to or is able to see.
+     * 
+     * @param {import('./types').PublicRepositoriesQueryParams | undefined} params - The query parameters to filter the repositories.
+     * 
+     * @returns {Promise<import('./types').PublicRepositoriesResponse>} The response from the API is paginated, so make sure to handle that on your api.
+     */
     async getPublicRepos(params) {
         const options = {
             headers: {
