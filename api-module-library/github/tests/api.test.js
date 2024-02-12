@@ -50,7 +50,7 @@ describe('Github API Tests', () => {
     describe('Issues Test', () => {
         const [owner, repoName] = process.env.TEST_REPO.split('/');
         let issues;
-        beforeEach(async () => {
+        beforeAll(async () => {
             issues = await api.getIssues(owner, repoName);
         });
 
