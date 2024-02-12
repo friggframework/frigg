@@ -30,7 +30,7 @@ class Manager extends ModuleManager {
         let instance = new this(params);
 
         const apiParams = { delegate: instance };
-        if (this.redirect_uri) apiParams.redirect_uri = this.redirect_uri;
+        if (instance.redirect_uri) apiParams.redirect_uri = instance.redirect_uri;
         if (params.entityId) {
             instance.entity = await Entity.findById(params.entityId);
             instance.credential = await Credential.findById(
