@@ -41,7 +41,7 @@ const Definition = {
     env: {
         client_id: process.env.BITBUCKET_CLIENT_ID,
         client_secret: process.env.BITBUCKET_CLIENT_SECRET,
-        redirect_uri: `${process.env.REDIRECT_URI}/gitlab`,
+        redirect_uri: `${process.env.REDIRECT_URI}/bitbucket`,
     }
 };
 
