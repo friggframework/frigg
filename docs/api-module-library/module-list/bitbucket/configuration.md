@@ -30,7 +30,7 @@ This guide assumes you already have a Frigg App working.
 ```json
 {
   "BITBUCKET_CLIENT_ID": "YOUR_CLIENT_ID/KEY",
-  "BITBUCKET__CLIENT_SECRET": "YOUR_CLIENT_SECRET/SECRET"
+  "BITBUCKET_CLIENT_SECRET": "YOUR_CLIENT_SECRET/SECRET"
 }
 ```
 
