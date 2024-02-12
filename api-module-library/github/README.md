@@ -4,7 +4,7 @@ This is the API Module for Github that allows the [Frigg](https://friggframework
 
 Read more on the [Frigg documentation site](https://docs.friggframework.org/api-modules/list/github)
 
-### Create a new App
+### How to create a new App
 
 1- Go to [this url](https://github.com/settings/applications/new).
 2- Fill in the form with the following information:
