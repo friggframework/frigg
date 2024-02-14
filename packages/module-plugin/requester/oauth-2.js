@@ -5,7 +5,7 @@ const { get } = require('@friggframework/assertions');
 class OAuth2Requester extends Requester {
     constructor(params) {
         super(params);
-        console.log('symlink working');
+        this.requesterType = 'oauth2';
         this.DLGT_TOKEN_UPDATE = 'TOKEN_UPDATE';
         this.DLGT_TOKEN_DEAUTHORIZED = 'TOKEN_DEAUTHORIZED';
 
