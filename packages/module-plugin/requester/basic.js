@@ -2,9 +2,11 @@ const { Requester } = require('./requester');
 const { get } = require('@friggframework/assertions');
 
 class BasicAuthRequester extends Requester {
+
+    static requesterType = 'basic';
     constructor(params) {
         super(params);
-        this.requesterType = 'basic';
+
         this.username = get(params, 'username', null);
         this.password = get(params, 'password', null);
     }

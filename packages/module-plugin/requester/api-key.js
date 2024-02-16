@@ -1,6 +1,8 @@
 const { Requester } = require('./requester');
 
 class ApiKeyRequester extends Requester {
+
+    static requesterType = 'apiKey';
     constructor(params) {
         super(params);
         this.requesterType = 'apiKey';

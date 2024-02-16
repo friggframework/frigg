@@ -3,9 +3,10 @@ const { Requester } = require('./requester');
 const { get } = require('@friggframework/assertions');
 
 class OAuth2Requester extends Requester {
+
+    static requesterType = 'oauth2';
     constructor(params) {
         super(params);
-        this.requesterType = 'oauth2';
         this.DLGT_TOKEN_UPDATE = 'TOKEN_UPDATE';
         this.DLGT_TOKEN_DEAUTHORIZED = 'TOKEN_DEAUTHORIZED';
 
