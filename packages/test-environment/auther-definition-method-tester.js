@@ -1,6 +1,6 @@
 const {flushDebugLog} = require("@friggframework/logs");
 
-async function testDefinition(api, definition, authCallbackParams, tokenResponse, userId) {
+async function testDefinitionRequiredAuthMethods(api, definition, authCallbackParams, tokenResponse, userId) {
 
     // const response = await definition.getToken(api, authCallbackParams);
     // expect(api.setTokens).toHaveBeenCalled();
@@ -42,4 +42,4 @@ async function testDefinition(api, definition, authCallbackParams, tokenResponse
     Object.assign(api, savedKeys);
 }
 
-module.exports = { testDefinition }
+module.exports = { testDefinitionRequiredAuthMethods }

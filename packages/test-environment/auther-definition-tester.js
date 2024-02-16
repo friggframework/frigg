@@ -1,4 +1,4 @@
-const {Auther} = require("@friggframework/module-plugin");
+const {Auther, ModuleConstants} = require("@friggframework/module-plugin");
 const { createObjectId, connectToDatabase, disconnectFromDatabase } = require("@friggframework/database/mongo");
 const { createMockApiObject } = require("./mock-integration");
 
@@ -26,60 +26,53 @@ function testAutherDefinition(jest, definition, mocks) {
             await disconnectFromDatabase();
         });
 
-
-        if (definition.API.requesterType === 'oauth2') {
+        let requirements, authorizeParams;
+        if (definition.API.requesterType === ModuleConstants.authType.oauth2) {
+            authorizeParams = mocks.authorizeResponse;
             describe('getAuthorizationRequirements() test', () => {
                 it('should return auth requirements', async () => {
-                    const requirements = module.getAuthorizationRequirements();
+                    requirements = module.getAuthorizationRequirements();
                     expect(requirements).toBeDefined();
-                    expect(requirements.type).toEqual('oauth2');
+                    expect(requirements.type).toEqual(ModuleConstants.authType.oauth2);
                     expect(requirements.url).toBeDefined();
                     authUrl = requirements.url;
                 });
-                describe('Authorization requests', () => {
-                    let firstRes;
-                    it('processAuthorizationCallback()', async () => {
-                        const response = mocks.authorizeResponse;
-                        firstRes = await module.processAuthorizationCallback({
-                            data: {
-                                code: response.data.code,
-                            },
-                        });
-                        expect(firstRes).toBeDefined();
-                        expect(firstRes.entity_id).toBeDefined();
-                        expect(firstRes.credential_id).toBeDefined();
-                    });
-                    it('retrieves existing entity on subsequent calls', async () => {
-                        const response = mocks.authorizeResponse;
-                        const res = await module.processAuthorizationCallback({
-                            data: {
-                                code: response.data.code,
-                            },
-                        });
-                        expect(res).toEqual(firstRes);
-                    });
-                });
             });
-        } else if (definition.API.requesterType === 'basic') {
+        } else if (definition.API.requesterType === ModuleConstants.authType.basic) {
+            // could also confirm authorizeParams against the auth requirements
+            authorizeParams = mocks.authorizeParams
             describe('getAuthorizationRequirements() test', () => {
                 it('should return auth requirements', async () => {
-                    const requirements = module.getAuthorizationRequirements();
+                    requirements = module.getAuthorizationRequirements();
                     expect(requirements).toBeDefined();
-                    expect(requirements.type).toEqual('basic');
+                    expect(requirements.type).toEqual(ModuleConstants.authType.basic);
                 });
             });
-        } else if (definition.API.requesterType === 'apiKey') {
+        } else if (definition.API.requesterType === ModuleConstants.authType.apiKey) {
+            // could also confirm authorizeParams against the auth requirements
+            authorizeParams = mocks.authorizeParams
             describe('getAuthorizationRequirements() test', () => {
                 it('should return auth requirements', async () => {
-                    const requirements = module.getAuthorizationRequirements();
+                    requirements = module.getAuthorizationRequirements();
                     expect(requirements).toBeDefined();
-                    expect(requirements.type).toEqual('apiKey');
+                    expect(requirements.type).toEqual(ModuleConstants.authType.apiKey);
                 });
             });
         }
 
-
-
+        describe('Authorization requests', () => {
+            let firstRes;
+            it('processAuthorizationCallback()', async () => {
+                firstRes = await module.processAuthorizationCallback(authorizeParams);
+                expect(firstRes).toBeDefined();
+                expect(firstRes.entity_id).toBeDefined();
+                expect(firstRes.credential_id).toBeDefined();
+            });
+            it('retrieves existing entity on subsequent calls', async () => {
+                const res = await module.processAuthorizationCallback(authorizeParams);
+                expect(res).toEqual(firstRes);
+            });
+        });
 
         describe('Test credential retrieval and module instantiation', () => {
             it('retrieve by entity id', async () => {
