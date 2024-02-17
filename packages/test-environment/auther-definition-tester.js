@@ -3,7 +3,7 @@ const { createObjectId, connectToDatabase, disconnectFromDatabase } = require("@
 const { createMockApiObject } = require("./mock-integration");
 
 
-function testAutherDefinition(jest, definition, mocks) {
+function testAutherDefinition(definition, mocks) {
     const getModule = async (params) => {
         const module = await Auther.getInstance({
             definition,

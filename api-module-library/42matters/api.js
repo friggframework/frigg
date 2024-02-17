@@ -1,8 +1,8 @@
-const { OAuth2Requester } = require('@friggframework/module-plugin');
+const { ApiKeyRequester, ModuleConstants} = require('@friggframework/module-plugin');
 const { get } = require('@friggframework/assertions');
 
 
-class Api extends OAuth2Requester {
+class Api extends ApiKeyRequester {
     constructor(params) {
         super(params);
         this.access_token = get(params, 'access_token', null);
@@ -35,6 +35,32 @@ class Api extends OAuth2Requester {
     async _request(url, options, i = 0) {
         options.query.access_token = this.access_token;
         return super._request(url, options, i);
+    }
+
+    getAuthorizationRequirements() {
+        return {
+            url: null,
+            type: ModuleConstants.authType.apiKey,
+            data: {
+                jsonSchema: {
+                    type: 'object',
+                    required: ['access_token'],
+                    properties: {
+                        access_token: {
+                            type: 'string',
+                            title: 'Access Token',
+                        },
+                    },
+                },
+                uiSchema: {
+                    clientKey: {
+                        'ui:help':
+                            'To obtain your Access Token, log in to 42Matters Launchpad and click Access Token under API.',
+                        'ui:placeholder': 'Access Token',
+                    },
+                },
+            },
+        };
     }
 
     // API METHODS

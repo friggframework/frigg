@@ -2,10 +2,20 @@
 const { Definition} = require('../definition');
 const { Auther } = require('@friggframework/module-plugin');
 const {connectToDatabase, disconnectFromDatabase, createObjectId} = require('@friggframework/database/mongo');
-const { Authenticator, testDefinition } = require("@friggframework/test-environment");
+const {
+    testDefinitionRequiredAuthMethods,
+    testAutherDefinition
+} = require("@friggframework/test-environment");
 
-describe('42matters Auther Tests', () => {
-    let auther, authUrl;
+const mocks = {
+    getAccountStatus: {
+        status: 'active',
+    }
+}
+testAutherDefinition(Definition, mocks)
+
+describe('42matters Module Live Tests', () => {
+    let auther;
     beforeAll(async () => {
         await connectToDatabase();
         auther = await Auther.getInstance({
@@ -32,9 +42,9 @@ describe('42matters Auther Tests', () => {
             const res = await auther.processAuthorizationCallback();
             expect(res).toEqual(firstRes);
         });
-        it('Should test the Definition methods', async () => {
-            await testDefinition(auther.api, Definition,undefined,undefined,auther.userId);
-        })
+        it('Should test the Definition methods individually', async () => {
+            await testDefinitionRequiredAuthMethods(auther.api, Definition,undefined,undefined,auther.userId);
+        });
     });
 
     describe('Test credential retrieval and auther instantiation', () => {

@@ -1,10 +1,12 @@
 const moment = require('moment');
 const { Requester } = require('./requester');
 const { get } = require('@friggframework/assertions');
+const { ModuleConstants } = require('../ModuleConstants');
 
 class OAuth2Requester extends Requester {
 
-    static requesterType = 'oauth2';
+    static requesterType = ModuleConstants.authType.oauth2;
+
     constructor(params) {
         super(params);
         this.DLGT_TOKEN_UPDATE = 'TOKEN_UPDATE';

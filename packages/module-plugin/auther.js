@@ -33,6 +33,7 @@ const {flushDebugLog} = require("@friggframework/logs");
 const { Credential } = require('./credential');
 const { Entity } = require('./entity');
 const { mongoose } = require('@friggframework/database/mongoose');
+const {ModuleConstants} = require("./ModuleConstants");
 
 class Auther extends Delegate {
     static validateDefinition(definition) {
@@ -54,7 +55,8 @@ class Auther extends Delegate {
         if (!definition.requiredAuthMethods) {
             throw new Error('Auther definition requires requiredAuthMethods');
         } else {
-            if (!definition.requiredAuthMethods.getToken) {
+            if (definition.API.requesterType === ModuleConstants.authType.oauth2 &&
+                !definition.requiredAuthMethods.getToken) {
                 throw new Error('Auther definition requires requiredAuthMethods.getToken');
             }
             if (!definition.requiredAuthMethods.getEntityDetails) {
@@ -218,7 +220,13 @@ class Auther extends Delegate {
     }
 
     async processAuthorizationCallback(params) {
-        const tokenResponse = await this.getToken(this.api, params);
+        let tokenResponse;
+        if (this.apiClass.requesterType === ModuleConstants.authType.oauth2) {
+            tokenResponse = await this.getToken(this.api, params);
+        } else {
+            tokenResponse = await this.setAuthParams(this.api, params);
+            await this.onTokenUpdate();
+        }
         const authRes = await this.testAuth();
         if (!authRes) {
             throw new Error('Authorization failed');
@@ -226,7 +234,6 @@ class Auther extends Delegate {
         const entityDetails = await this.getEntityDetails(
             this.api, params, tokenResponse, this.userId
         );
-        // TODO: anything needed to make the params available
         Object.assign(entityDetails.details, this.apiParamsFromEntity(this.api));
         await this.findOrCreateEntity(entityDetails);
         return {
@@ -236,12 +243,16 @@ class Auther extends Delegate {
         }
     }
 
+    async onTokenUpdate() {
+        const credentialDetails = await this.getCredentialDetails(this.api, this.userId);
+        Object.assign(credentialDetails.details, this.apiParamsFromCredential(this.api));
+        credentialDetails.details.auth_is_valid = true;
+        await this.updateOrCreateCredential(credentialDetails);
+    }
+
     async receiveNotification(notifier, delegateString, object = null) {
         if (delegateString === this.api.DLGT_TOKEN_UPDATE) {
-            const credentialDetails = await this.getCredentialDetails(this.api, this.userId);
-            Object.assign(credentialDetails.details, this.apiParamsFromCredential(this.api));
-            credentialDetails.details.auth_is_valid = true;
-            await this.updateOrCreateCredential(credentialDetails);
+            await this.onTokenUpdate();
         }
         else if (delegateString === this.api.DLGT_TOKEN_DEAUTHORIZED) {
             await this.deauthorize();

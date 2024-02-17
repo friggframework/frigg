@@ -1,8 +1,11 @@
 const { Requester } = require('./requester');
+const { ModuleConstants } = require('../ModuleConstants');
+
 
 class ApiKeyRequester extends Requester {
 
-    static requesterType = 'apiKey';
+    static requesterType = ModuleConstants.authType.apiKey;
+
     constructor(params) {
         super(params);
         this.requesterType = 'apiKey';

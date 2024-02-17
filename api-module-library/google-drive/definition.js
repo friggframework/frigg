@@ -1,16 +1,12 @@
 require('dotenv').config();
 const {Api} = require('./api');
-const { Credential } = require('./models/credential');
-const { Entity } = require('./models/entity');
 const {get} = require("@friggframework/assertions");
 const config = require('./defaultConfig.json')
 
 const Definition = {
     API: Api,
     getName: function() {return config.name},
-    name: config.name,//maybe not required
-    Credential,
-    Entity,
+    moduleName: config.name,//maybe not required
     requiredAuthMethods: {
         getToken: async function(api, params){
             const code = get(params.data, 'code');
@@ -23,7 +19,10 @@ const Definition = {
                 details: { name: userDetails.name },
             }
         },
-        apiPropertiesToPersist: ['access_token', 'refresh_token', 'userId', 'expires_in'],
+        apiPropertiesToPersist: {
+            credential: ['access_token', 'refresh_token', 'userId', 'expires_in'],
+            entity: []
+        },
         getCredentialDetails: async function(api) {
             const userDetails = await api.getUserDetails();
             return {
