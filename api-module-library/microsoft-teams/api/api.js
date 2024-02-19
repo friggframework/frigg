@@ -2,12 +2,22 @@ const { graphApi } = require('./graph');
 const { botFrameworkApi } = require('./botFramework');
 const { botApi } = require('./bot')
 const { get } = require('@friggframework/assertions');
+const {ModuleConstants} = require("@friggframework/module-plugin");
 
 class Api {
     constructor(params) {
         this.graphApi = new graphApi({ access_token: get(params, 'graph_access_token', null), ...params});
         this.botFrameworkApi = new botFrameworkApi({  access_token: get(params, 'bot_access_token', null), ...params});
         this.botApi = new botApi(params);
+    }
+
+
+    async getAuthorizationRequirements(params) {
+        return {
+            url: await this.graphApi.getAuthUri(),
+            type: ModuleConstants.authType.oauth2,
+            data: {},
+        };
     }
 
     async getTokenFromClientCredentials(){
