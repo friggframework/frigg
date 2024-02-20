@@ -1,6 +1,6 @@
 require('dotenv').config();
 const {Api} = require('./api');
-const {get} = require("@friggframework/assertions");
+const {get} = require('@friggframework/assertions');
 const config = {name: 'anapi'}
 
 const Definition = {

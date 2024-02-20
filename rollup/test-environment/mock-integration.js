@@ -1,5 +1,5 @@
-const { Auther, Credential, Entity } = require("@friggframework/module-plugin");
-const { IntegrationModel } = require("@friggframework/integrations");
+const { Auther, Credential, Entity } = require('@friggframework/module-plugin');
+const { IntegrationModel } = require('@friggframework/integrations');
 const { mongoose } = require('@friggframework/database/mongoose');
 
 async function createMockIntegration(IntegrationClassDef, userId = null, config = {},) {

@@ -29,7 +29,7 @@
 const { Delegate } = require('@friggframework/core');
 const { get } = require('@friggframework/assertions');
 const _ = require('lodash');
-const {flushDebugLog} = require("@friggframework/logs");
+const {flushDebugLog} = require('@friggframework/logs');
 const { Credential } = require('./credential');
 const { Entity } = require('./entity');
 const { mongoose } = require('@friggframework/database/mongoose');
