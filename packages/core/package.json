@@ -28,7 +28,6 @@
     "@friggframework/errors": "^1.1.18",
     "aws-sdk": "^2.1200.0",
     "lodash": "^4.17.21",
-    "moment": "^2.29.4",
     "node-fetch": "^2.6.7"
   },
   "description": ""

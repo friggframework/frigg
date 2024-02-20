@@ -11,11 +11,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@friggframework/assertions": "^1.0.21",
-    "@friggframework/eslint-config": "^1.0.20",
-    "@friggframework/logs": "^1.0.23",
-    "@friggframework/module-plugin": "^1.1.15",
-    "@friggframework/test-environment": "^1.1.20",
+    "@friggframework/core-rollup":  "^1.0.0",
     "dotenv": "^16.3.1",
     "eslint": "^8.49.0",
     "jest": "^29.7.0",

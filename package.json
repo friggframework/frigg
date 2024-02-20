@@ -19,7 +19,8 @@
   "license": "MIT",
   "workspaces": [
     "packages/*",
-    "api-module-library/*"
+    "api-module-library/*",
+    "rollup"
   ],
   "devDependencies": {
     "@auto-it/all-contributors": "^11.0.4",
