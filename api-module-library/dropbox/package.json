@@ -1,0 +1,25 @@
+{
+    "name": "@friggframework/api-module-dropbox",
+    "version": "0.0.1",
+    "prettier": "@friggframework/prettier-config",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
+        "test": "jest"
+    },
+    "author": "",
+    "license": "MIT",
+    "devDependencies": {
+        "@friggframework/assertions": "^1.0.8",
+        "@friggframework/eslint-config": "^1.0.8",
+        "@friggframework/logs": "^1.0.9",
+        "@friggframework/module-plugin": "^1.0.27",
+        "@friggframework/test-environment": "^1.1.6",
+        "dotenv": "^16.3.1",
+        "eslint": "^8.45.0",
+        "jest": "^29.6.1",
+        "prettier": "^3.0.0",
+        "sinon": "^15.2.0"
+    }
+}
