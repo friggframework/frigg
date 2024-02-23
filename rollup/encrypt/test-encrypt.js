@@ -1,5 +1,5 @@
 const AWS = require('aws-sdk');
-const { mongoose } = require('@friggframework/database/mongoose');
+const { mongoose } = require('../database/mongoose');
 const crypto = require('crypto');
 const { Encrypt } = require('./encrypt');
 

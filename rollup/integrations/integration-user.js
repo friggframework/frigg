@@ -1,9 +1,9 @@
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const { get } = require('@friggframework/assertions');
-const { Token } = require('@friggframework/database/models/Token');
-const { IndividualUser } = require('@friggframework/database/models/IndividualUser');
-const { OrganizationUser } = require('@friggframework/database/models/OrganizationUser');
+const { get } = require('../assertions');
+const { Token } = require('../database/models/Token');
+const { IndividualUser } = require('../database/models/IndividualUser');
+const { OrganizationUser } = require('../database/models/OrganizationUser');
 const Boom = require('@hapi/boom');
 
 class User {

@@ -1,5 +1,5 @@
 const md5 = require("md5");
-const ModuleManager = require('@friggframework/module-plugin');
+const ModuleManager = require('../module-plugin');
 const { debug } = require("packages/logs");
 const { get } = require("packages/assertions");
 

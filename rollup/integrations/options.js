@@ -1,6 +1,6 @@
-const { RequiredPropertyError } = require('@friggframework/errors');
-const { get, getAndVerifyType } = require('@friggframework/assertions');
-const { ModuleManager } = require('@friggframework/module-plugin');
+const { RequiredPropertyError } = require('../errors');
+const { get, getAndVerifyType } = require('../assertions');
+const { ModuleManager } = require('../module-plugin');
 
 class Options {
     constructor(params) {

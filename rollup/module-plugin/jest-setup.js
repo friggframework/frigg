@@ -1,3 +1,3 @@
 require('dotenv').config();
-const { globalSetup } = require('@friggframework/test-environment');
+const { globalSetup } = require('../test-environment');
 module.exports = globalSetup;

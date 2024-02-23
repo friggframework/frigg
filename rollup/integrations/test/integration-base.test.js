@@ -1,8 +1,8 @@
 const _ = require('lodash');
-const { mongoose } = require('@friggframework/database/mongoose');
+const { mongoose } = require('../../database/mongoose');
 const { expect } = require('chai');
 const { IntegrationBase } = require("../integration-base");
-const {Credential, Entity} = require('@friggframework/module-plugin');
+const {Credential, Entity} = require('../../module-plugin');
 const { IntegrationMapping } = require('../integration-mapping')
 const {IntegrationModel} = require("../integration-model");
 

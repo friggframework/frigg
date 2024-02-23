@@ -1,6 +1,6 @@
-const { Delegate } = require('@friggframework/core');
-const { Integration } = require('@friggframework/integrations');
-const { get } = require('@friggframework/assertions');
+const { Delegate } = require('../core');
+const { Integration } = require('../integrations');
+const { get } = require('../assertions');
 
 class Migrator extends Delegate {
   constructor(params) {

@@ -2,9 +2,9 @@
 // https://dev.to/adnanrahic/building-a-serverless-rest-api-with-nodejs-and-mongodb-43db
 // https://mongoosejs.com/docs/lambda.html
 // https://www.mongodb.com/blog/post/optimizing-aws-lambda-performance-with-mongodb-atlas-and-nodejs
-const { Encrypt } = require('@friggframework/encrypt');
+const { Encrypt } = require('../encrypt');
 const { mongoose } = require('./mongoose');
-const { debug, flushDebugLog } = require('@friggframework/logs');
+const { debug, flushDebugLog } = require('../logs');
 
 mongoose.plugin(Encrypt);
 mongoose.set('applyPluginsToDiscriminators', true); // Needed for LHEncrypt

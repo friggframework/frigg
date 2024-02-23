@@ -3,7 +3,7 @@ const hubspotMocks = require('./mock-api/mocks/hubspot');
 
 const { Definition } = require('./mock-api/definition');
 const { Auther } = require('../auther');
-const { mongoose } = require('@friggframework/database/mongoose');
+const { mongoose } = require('../../database/mongoose');
 
 
 

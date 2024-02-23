@@ -26,13 +26,13 @@
 // 2.
 
 
-const { Delegate } = require('@friggframework/core');
-const { get } = require('@friggframework/assertions');
+const { Delegate } = require('../core');
+const { get } = require('../assertions');
 const _ = require('lodash');
-const {flushDebugLog} = require('@friggframework/logs');
+const {flushDebugLog} = require('../logs');
 const { Credential } = require('./credential');
 const { Entity } = require('./entity');
-const { mongoose } = require('@friggframework/database/mongoose');
+const { mongoose } = require('../database/mongoose');
 const {ModuleConstants} = require("./ModuleConstants");
 
 class Auther extends Delegate {

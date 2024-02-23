@@ -1,5 +1,5 @@
 const { Requester } = require('./requester');
-const { get } = require('@friggframework/assertions');
+const { get } = require('../../assertions');
 const { ModuleConstants } = require('../ModuleConstants');
 
 class BasicAuthRequester extends Requester {

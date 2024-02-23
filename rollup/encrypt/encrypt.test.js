@@ -1,5 +1,5 @@
 const AWS = require('aws-sdk');
-const { mongoose } = require('@friggframework/database/mongoose');
+const { mongoose } = require('../database/mongoose');
 const crypto = require('crypto');
 const {
     expectValidSecret,
@@ -8,7 +8,7 @@ const {
     createModel,
     saveTestDocument,
 } = require('./test-encrypt');
-const { TestMongo } = require('@friggframework/test-environment');
+const { TestMongo } = require('../test-environment');
 
 const testMongo = new TestMongo();
 const originalEnv = process.env;

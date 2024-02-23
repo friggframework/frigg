@@ -1,7 +1,7 @@
-const { Delegate } = require('@friggframework/core');
+const { Delegate } = require('../core');
 const { Credential } = require('./credential');
 const { Entity } = require('./entity');
-const { get } = require('@friggframework/assertions');
+const { get } = require('../assertions');
 
 class ModuleManager extends Delegate {
     static Entity = Entity;

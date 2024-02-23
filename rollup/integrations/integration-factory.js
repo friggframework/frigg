@@ -1,4 +1,4 @@
-const { ModuleFactory, Credential, Entity } = require('@friggframework/module-plugin');
+const { ModuleFactory, Credential, Entity } = require('../module-plugin');
 const {IntegrationModel} = require("./integration-model");
 const _ = require('lodash');
 
