@@ -1,6 +1,4 @@
-const core = require('@friggframework/core-rollup');
-const { ApiKeyRequester, ModuleConstants} = core.modulePlugin;
-const { get } = core.assertions;
+const { ApiKeyRequester, ModuleConstants, get } = require('@friggframework/core-rollup');
 
 
 class Api extends ApiKeyRequester {
