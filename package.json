@@ -23,17 +23,17 @@
     "rollup"
   ],
   "devDependencies": {
-    "@auto-it/all-contributors": "^11.0.4",
-    "@auto-it/conventional-commits": "^11.0.4",
-    "@auto-it/first-time-contributor": "^11.0.4",
-    "@auto-it/slack": "^11.0.4",
-    "auto": "^11.0.4",
-    "lerna": "^7.4.2",
-    "nx": "^17.2.6"
+    "@auto-it/all-contributors": "^11.1.1",
+    "@auto-it/conventional-commits": "^11.1.1",
+    "@auto-it/first-time-contributor": "^11.1.1",
+    "@auto-it/slack": "^11.1.1",
+    "auto": "^11.1.1",
+    "lerna": "^8.1.2",
+    "nx": "^18.0.5"
   },
   "repository": "friggframework/frigg",
   "auto": {
-    "prereleaseBranches": ["next", "v1-alpha"],
+    "prereleaseBranches": ["next", "v1-alpha", "v1-alpha-package-update"],
     "plugins": [
       [
         "npm",
