@@ -1,5 +1,5 @@
+const { globalSetup } = require('@friggframework/core-rollup');
 const dotenv= require('dotenv');
-const { globalSetup } = require('@friggframework/test-environment');
 
 const parsed = {
     FRONTIFY_SCOPE: 'frontify_scope_test',

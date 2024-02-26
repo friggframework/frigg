@@ -1,12 +1,10 @@
+const { debug, flushDebugLog, get } = require('@friggframework/core-rollup');
 const { Api } = require('./api');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
 const {
     ModuleManager,
     ModuleConstants,
-} = require('@friggframework/module-plugin');
-const { get } = require('@friggframework/assertions');
-const { debug, flushDebugLog } = require('@friggframework/logs');
 const Config = require('./defaultConfig.json');
 
 class Manager extends ModuleManager {

@@ -4,8 +4,8 @@ const { Credential } = require('./models/credential.js');
 const {
     ModuleManager,
     ModuleConstants,
-} = require('@friggframework/module-plugin');
-const _ = require('lodash');
+= require('@friggframework/module-plugin');
+= require('@friggframework/core-rollup');const _ = require('lodash');
 const Config = require('./defaultConfig.json');
 
 class Manager extends ModuleManager {

@@ -1,7 +1,7 @@
+const { Authenticator } = require('@friggframework/core-rollup');
 require('dotenv').config();
 const Manager = require('../manager');
 const mongoose = require('mongoose');
-const Authenticator = require('@friggframework/test-environment/Authenticator');
 
 describe('Google Drive Manager Tests', () => {
     let manager, authUrl, initialAccessToken;

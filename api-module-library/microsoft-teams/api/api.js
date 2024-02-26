@@ -1,7 +1,7 @@
+const { get } = require('@friggframework/core-rollup');
 const { graphApi } = require('./graph');
 const { botFrameworkApi } = require('./botFramework');
 const { botApi } = require('./bot')
-const { get } = require('@friggframework/assertions');
 const {ModuleConstants} = require("@friggframework/module-plugin");
 
 class Api {

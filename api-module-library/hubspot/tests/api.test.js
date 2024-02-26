@@ -1,6 +1,6 @@
+const { Authenticator } = require('@friggframework/core-rollup');
 const {Api} = require('../api');
 const config = require('../defaultConfig.json');
-const Authenticator = require('@friggframework/test-environment/Authenticator');
 
 describe(`${config.label} API tests`, () => {
 

@@ -1,6 +1,5 @@
-const { mongoose } = require('@friggframework/database/mongoose');
+const { Credential: Parent, mongoose } = require('@friggframework/core-rollup');
 const { Schema } = mongoose;
-const { Credential: Parent } = require('@friggframework/module-plugin');
 
 const schema = new Schema({
     access_token: {

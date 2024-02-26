@@ -1,6 +1,5 @@
-const { OAuth2Requester } = require('@friggframework/module-plugin');
+const { get, OAuth2Requester } = require('@friggframework/core-rollup');
 const crypto = require('crypto');
-const { get } = require('@friggframework/assertions');
 const fs = require('fs');
 const path = require('path');
 const FormData = require('form-data');

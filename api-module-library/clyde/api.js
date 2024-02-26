@@ -1,6 +1,5 @@
-const { BasicAuthRequester } = require('@friggframework/module-plugin');
+const { get, BasicAuthRequester } = require('@friggframework/core-rollup');
 const crypto = require('crypto');
-const { get } = require('@friggframework/assertions');
 let nonce = crypto.randomBytes(16).toString('base64');
 
 class Api extends BasicAuthRequester {

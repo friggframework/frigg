@@ -1,9 +1,8 @@
+const { Authenticator, mongoose } = require('@friggframework/core-rollup');
 require('dotenv').config();
 const Manager = require('../manager');
-const { mongoose } = require('@friggframework/database/mongoose');
 const config = require('../defaultConfig.json');
 const { expect } = require('chai');
-const Authenticator = require('@friggframework/test-environment/Authenticator');
 
 describe(`Should fully test the ${config.label} Manager`, () => {
     let manager, userManager;

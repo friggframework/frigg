@@ -1,5 +1,4 @@
-const { debug, flushDebugLog } = require('@friggframework/logs');
-const { get } = require('@friggframework/assertions');
+const { get, debug, flushDebugLog } = require('@friggframework/core-rollup');
 const {
     ModuleManager,
     ModuleConstants,

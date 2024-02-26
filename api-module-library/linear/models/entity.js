@@ -1,5 +1,4 @@
-const { mongoose } = require('@friggframework/database/mongoose');
-const { Entity: Parent } = require('@friggframework/module-plugin');
+const { Entity: Parent, mongoose } = require('@friggframework/core-rollup');
 
 const schema = new mongoose.Schema({});
 const name = 'LinearEntity';

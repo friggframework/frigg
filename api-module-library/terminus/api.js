@@ -1,5 +1,4 @@
-const { ApiKeyRequester } = require('@friggframework/module-plugin');
-const { FetchError } = require('@friggframework/errors');
+const { FetchError, ApiKeyRequester } = require('@friggframework/core-rollup');
 
 class Api extends ApiKeyRequester {
     constructor(params) {

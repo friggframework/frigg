@@ -1,7 +1,7 @@
+const { ModuleManager } = require('@friggframework/core-rollup');
 const { Api } = require('./api');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
-const { ModuleManager } = require('@friggframework/module-plugin');
 
 const Config = require('./defaultConfig.json');
 

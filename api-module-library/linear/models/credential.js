@@ -1,5 +1,4 @@
-const { mongoose } = require('@friggframework/database/mongoose');
-const { Credential: Parent } = require('@friggframework/module-plugin');
+const { Credential: Parent, mongoose } = require('@friggframework/core-rollup');
 const schema = new mongoose.Schema({
     access_token: {
         type: String,

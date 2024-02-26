@@ -6,8 +6,8 @@ const { Credential } = require('./models/credential');
 const {
     ModuleManager,
     ModuleConstants,
-} = require('@friggframework/module-plugin');
-const AuthFields = require('./authFields');
+= require('@friggframework/module-plugin');
+= require('@friggframework/core-rollup');const AuthFields = require('./authFields');
 
 const MANAGER_NAME = 'Personio';
 

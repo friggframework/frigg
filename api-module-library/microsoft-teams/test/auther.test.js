@@ -1,6 +1,5 @@
+const { connectToDatabase, disconnectFromDatabase, createObjectId, Auther } = require('@friggframework/core-rollup');
 const { Definition} = require('../definition');
-const { Auther } = require('@friggframework/module-plugin');
-const { connectToDatabase, disconnectFromDatabase, createObjectId } = require('@friggframework/database/mongo');
 const {
     Authenticator,
     testDefinitionRequiredAuthMethods,

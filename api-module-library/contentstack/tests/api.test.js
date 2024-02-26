@@ -1,5 +1,5 @@
+const { Authenticator } = require('@friggframework/core-rollup');
 require('dotenv').config();
-const Authenticator = require('@friggframework/test-environment/Authenticator');
 const config = require('../defaultConfig.json');
 const { Api } = require('../api');
 describe('Contentstack API Tests', () => {

@@ -1,5 +1,5 @@
+const { Entity: Parent } = require('@friggframework/core-rollup');
 const mongoose = require('mongoose');
-const { Entity: Parent } = require('@friggframework/module-plugin');
 
 const schema = new mongoose.Schema({});
 const name = 'YotpoEntity';
