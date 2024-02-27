@@ -1,4 +1,4 @@
-const { get } = require('@friggframework/core-rollup');
+const { get } = require('@friggframework/core');
 const { graphApi } = require('./graph');
 const { botFrameworkApi } = require('./botFramework');
 const { botApi } = require('./bot')

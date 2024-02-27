@@ -1,4 +1,4 @@
-const { get, OAuth2Requester } = require('@friggframework/core-rollup');
+const { get, OAuth2Requester } = require('@friggframework/core');
 const mondaySdk = require('monday-sdk-js');
 
 const monday = mondaySdk();

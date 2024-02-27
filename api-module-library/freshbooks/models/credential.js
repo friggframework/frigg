@@ -1,4 +1,4 @@
-const { Credential: Parent, mongoose } = require('@friggframework/core-rollup');
+const { Credential: Parent, mongoose } = require('@friggframework/core');
 const { Schema } = mongoose;
 
 const schema = new Schema({

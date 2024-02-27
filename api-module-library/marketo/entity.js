@@ -1,4 +1,4 @@
-const { Entity: Parent } = require('@friggframework/core-rollup');
+const { Entity: Parent } = require('@friggframework/core');
 'use strict';
 const mongoose = require('mongoose');
 

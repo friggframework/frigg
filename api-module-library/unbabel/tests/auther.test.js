@@ -1,4 +1,4 @@
-const { mongoose, Auther } = require('@friggframework/core-rollup');
+const { mongoose, Auther } = require('@friggframework/core');
 
 require('dotenv').config();
 const { Definition} = require('../definition');

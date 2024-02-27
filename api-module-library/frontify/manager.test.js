@@ -1,4 +1,4 @@
-const { logs } = require('@friggframework/core-rollup');
+const { logs } = require('@friggframework/core');
 const mongoose = require('mongoose');
 const nock = require('nock');
 const querystring = require('querystring');

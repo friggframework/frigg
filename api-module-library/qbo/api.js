@@ -1,4 +1,4 @@
-const { get, OAuth2Requester } = require('@friggframework/core-rollup');
+const { get, OAuth2Requester } = require('@friggframework/core');
 const moment = require('moment');
 const fetch = require('node-fetch');
 const OAuthClient = require('intuit-oauth');

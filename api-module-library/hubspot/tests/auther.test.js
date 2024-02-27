@@ -1,4 +1,4 @@
-const { mongoose, Auther } = require('@friggframework/core-rollup');
+const { mongoose, Auther } = require('@friggframework/core');
 const { Definition} = require('../definition');
 const Authenticator = require("@friggframework/test-environment/Authenticator");
 describe('HubSpot Manager Tests', () => {

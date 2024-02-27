@@ -1,4 +1,4 @@
-const { get, OAuth2Requester } = require('@friggframework/core-rollup');
+const { get, OAuth2Requester } = require('@friggframework/core');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');

@@ -1,4 +1,4 @@
-const { Auther } = require('@friggframework/core-rollup');
+const { Auther } = require('@friggframework/core');
 const { Definition} = require('../definition');
 const mongoose = require('mongoose');
 const Authenticator = require("@friggframework/test-environment/Authenticator");

@@ -1,4 +1,4 @@
-const { IntegrationMapping: Parent } = require('@friggframework/core-rollup');
+const { IntegrationMapping: Parent } = require('@friggframework/core');
 'use strict';
 const mongoose = require('mongoose');
 

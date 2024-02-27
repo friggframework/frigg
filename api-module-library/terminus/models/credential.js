@@ -1,4 +1,4 @@
-const { Credential: Parent } = require('@friggframework/core-rollup');
+const { Credential: Parent } = require('@friggframework/core');
 const mongoose = require('mongoose');
 const schema = new mongoose.Schema({
     apiKey: {

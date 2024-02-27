@@ -1,4 +1,4 @@
-const { get, Requester } = require('@friggframework/core-rollup');
+const { get, Requester } = require('@friggframework/core');
 const fetch = require('node-fetch');
 const FormatPatchBody = require('./formatPatchBody');
 

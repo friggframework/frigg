@@ -1,4 +1,4 @@
-const { connectToDatabase, disconnectFromDatabase, createObjectId, Auther } = require('@friggframework/core-rollup');
+const { connectToDatabase, disconnectFromDatabase, createObjectId, Auther } = require('@friggframework/core');
 //require('dotenv').config();
 const { Definition} = require('../definition');
 const {

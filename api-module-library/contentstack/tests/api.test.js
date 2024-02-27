@@ -1,4 +1,4 @@
-const { Authenticator } = require('@friggframework/core-rollup');
+const { Authenticator } = require('@friggframework/core');
 require('dotenv').config();
 const config = require('../defaultConfig.json');
 const { Api } = require('../api');

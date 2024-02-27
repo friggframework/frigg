@@ -1,4 +1,4 @@
-const { mongoose } = require('@friggframework/core-rollup');
+const { mongoose } = require('@friggframework/core');
 require('dotenv').config();
 const Manager = require('../manager');
 const Authenticator = require("@friggframework/test-environment/Authenticator");

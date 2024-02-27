@@ -1,4 +1,4 @@
-const { ModuleManager, ModuleConstants, get, debug, flushDebugLog } = require('@friggframework/core-rollup');
+const { ModuleManager, ModuleConstants, get, debug, flushDebugLog } = require('@friggframework/core');
 const { Api } = require('./api/api');
 const { graphApi } = require('./api/graph');
 const { botFrameworkApi } = require('./api/botFramework');

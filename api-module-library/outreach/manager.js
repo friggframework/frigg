@@ -1,4 +1,4 @@
-const { flushDebugLog, debug } = require('@friggframework/core-rollup');
+const { flushDebugLog, debug } = require('@friggframework/core');
 const _ = require('lodash');
 const { update } = require('lodash');
 const { Api } = require('./api.js');

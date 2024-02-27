@@ -1,4 +1,4 @@
-const { Requester } = require('@friggframework/core-rollup');
+const { Requester } = require('@friggframework/core');
 const FormatPatchBody = require('./formatPatchBody');
 
 class Api extends Requester {

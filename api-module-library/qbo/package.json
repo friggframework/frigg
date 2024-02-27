@@ -19,6 +19,6 @@
     "dependencies": {
         "intuit-oauth": "^4.0.0",
         "node-quickbooks": "^2.0.39",
-        "@friggframework/core": "^0.2.0"
+        "@friggframework/core": "^1.0.0"
     }
 }

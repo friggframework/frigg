@@ -1,4 +1,4 @@
-const { BaseModelObjectTest } = require('@friggframework/core-rollup');
+const { BaseModelObjectTest } = require('@friggframework/core');
 
 describe('HubSpot Credential', () => {
     it.skip('does the test', () => {

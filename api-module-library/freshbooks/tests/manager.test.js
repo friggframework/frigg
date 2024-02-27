@@ -1,4 +1,4 @@
-const { Authenticator, connectToDatabase, disconnectFromDatabase, createObjectId } = require('@friggframework/core-rollup');
+const { Authenticator, connectToDatabase, disconnectFromDatabase, createObjectId } = require('@friggframework/core');
 require('dotenv').config();
 const Manager = require('../manager'); // Manager = require('../manager');
 const config = require('../defaultConfig.json');

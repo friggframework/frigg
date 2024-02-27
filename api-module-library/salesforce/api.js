@@ -1,4 +1,4 @@
-const { flushDebugLog, get, OAuth2Requester } = require('@friggframework/core-rollup');
+const { flushDebugLog, get, OAuth2Requester } = require('@friggframework/core');
 const jsforce = require('jsforce');
 
 class Api extends OAuth2Requester {

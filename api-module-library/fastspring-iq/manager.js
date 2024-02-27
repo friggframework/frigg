@@ -1,4 +1,4 @@
-const { ModuleManager, get } = require('@friggframework/core-rollup');
+const { ModuleManager, get } = require('@friggframework/core');
 const { Credential } = require('./models/credential');
 const { Entity } = require('./models/entity');
 const { Api } = require('./api');

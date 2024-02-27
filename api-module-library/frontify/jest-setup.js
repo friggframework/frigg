@@ -1,4 +1,4 @@
-const { globalSetup } = require('@friggframework/core-rollup');
+const { globalSetup } = require('@friggframework/core');
 const dotenv= require('dotenv');
 
 const parsed = {

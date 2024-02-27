@@ -1,4 +1,4 @@
-const { mockApi } = require('@friggframework/core-rollup');
+const { mockApi } = require('@friggframework/core');
 const { loyaltyApi } = require('../api/loyaltyApi');
 const MockedApi = mockApi(loyaltyApi, {
     authenticationMode: 'manual',

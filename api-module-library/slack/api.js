@@ -1,4 +1,4 @@
-const { FetchError, get, OAuth2Requester } = require('@friggframework/core-rollup');
+const { FetchError, get, OAuth2Requester } = require('@friggframework/core');
 const qs = require('qs');
 
 const moment = require("moment/moment");

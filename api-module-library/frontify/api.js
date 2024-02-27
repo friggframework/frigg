@@ -1,4 +1,4 @@
-const { OAuth2Requester, get } = require('@friggframework/core-rollup');
+const { OAuth2Requester, get } = require('@friggframework/core');
 const fetch = require('node-fetch');
 const querystring = require('querystring');
 

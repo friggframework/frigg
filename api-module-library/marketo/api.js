@@ -1,4 +1,4 @@
-const { get, Requester } = require('@friggframework/core-rollup');
+const { get, Requester } = require('@friggframework/core');
 const util = require('util');
 const { default: OpenAPIClientAxios } = require('openapi-client-axios');
 const marketoApiDefinition = require('./marketo-openapi-bulk.json');

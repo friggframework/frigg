@@ -1,4 +1,4 @@
-const { get } = require('@friggframework/core-rollup');
+const { get } = require('@friggframework/core');
 const { appDeveloperApi } = require('./appDeveloperApi');
 const { coreApi } = require('./coreApi');
 const { loyaltyApi } = require('./loyaltyApi');

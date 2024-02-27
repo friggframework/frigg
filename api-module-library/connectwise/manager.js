@@ -1,4 +1,4 @@
-const { ModuleManager, get } = require('@friggframework/core-rollup');
+const { ModuleManager, get } = require('@friggframework/core');
 const _ = require('lodash');
 const moment = require('moment');
 const { Api } = require('./api');

@@ -1,4 +1,4 @@
-const { OAuth2Requester, get } = require('@friggframework/core-rollup');
+const { OAuth2Requester, get } = require('@friggframework/core');
 
 class Api extends OAuth2Requester {
     constructor(params) {

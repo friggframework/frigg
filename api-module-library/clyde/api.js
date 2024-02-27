@@ -1,4 +1,4 @@
-const { get, BasicAuthRequester } = require('@friggframework/core-rollup');
+const { get, BasicAuthRequester } = require('@friggframework/core');
 const crypto = require('crypto');
 let nonce = crypto.randomBytes(16).toString('base64');
 

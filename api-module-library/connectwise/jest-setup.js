@@ -1,2 +1,2 @@
-const { globalSetup } = require('@friggframework/core-rollup');
+const { globalSetup } = require('@friggframework/core');
 module.exports = globalSetup;

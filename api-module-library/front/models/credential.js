@@ -1,4 +1,4 @@
-const { Credential: Parent } = require('@friggframework/core-rollup');
+const { Credential: Parent } = require('@friggframework/core');
 'use strict';
 const mongoose = require('mongoose');
 
