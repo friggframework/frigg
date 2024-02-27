@@ -1,5 +1,5 @@
 {
-  "name": "@friggframework/core-rollup",
+  "name": "@friggframework/core",
   "prettier": "@friggframework/prettier-config",
   "version": "1.0.0",
   "dependencies": {
