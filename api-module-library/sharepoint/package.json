@@ -21,7 +21,7 @@
     },
     "dependencies": {
         "probe-image-size": "^7.2.3",
-        "@friggframework/core": "^1.0.0"
+        "@friggframework/core": "v1-alpha-package-update"
     },
     "publishConfig": {
         "access": "public"

@@ -20,6 +20,6 @@
         "sinon": "^14.0.0"
     },
     "dependencies": {
-        "@friggframework/core": "^1.0.0"
+        "@friggframework/core": "v1-alpha-package-update"
     }
 }

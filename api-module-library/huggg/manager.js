@@ -4,8 +4,8 @@ const { Credential } = require('./models/credential');
 const {
     ModuleManager,
     ModuleConstants,
-= require('@friggframework/module-plugin');
-= require('@friggframework/core');const AuthFields = require('./authFields');
+} = require('@friggframework/core');
+const AuthFields = require('./authFields');
 const Config = require('./defaultConfig.json');
 
 class Manager extends ModuleManager {

@@ -18,6 +18,6 @@
     },
     "dependencies": {
         "openapi-client-axios": "^5.1.2",
-        "@friggframework/core": "^1.0.0"
+        "@friggframework/core": "v1-alpha-package-update"
     }
 }
