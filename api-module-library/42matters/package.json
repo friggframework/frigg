@@ -22,6 +22,6 @@
     },
     "dependencies": {
         "md5": "^2.3.0",
-        "@friggframework/core": "^0.2.0"
+        "@friggframework/core": "^1.0.0"
     }
 }
