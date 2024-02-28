@@ -19,7 +19,7 @@
         "sinon": "^15.0.4"
     },
     "dependencies": {
-        "@friggframework/core": "v1-alpha-package-update"
+        "@friggframework/core": "^1.0.0"
     },
     "publishConfig": {
         "access": "public"
