@@ -16,7 +16,7 @@
         "prettier": "^2.8.8"
     },
     "dependencies": {
-        "@friggframework/core": "^1.0.0"
+        "@friggframework/core": "^1.0.2"
     },
     "publishConfig": {
         "access": "public"
