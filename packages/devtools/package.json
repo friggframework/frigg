@@ -32,5 +32,8 @@
     "url": "https://github.com/friggframework/frigg/issues"
   },
   "homepage": "https://github.com/friggframework/frigg#readme",
-  "description": ""
+  "description": "",
+  "publishConfig": {
+    "access": "public"
+  }
 }
