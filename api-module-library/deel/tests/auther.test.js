@@ -2,7 +2,7 @@
 const { Definition} = require('../definition');
 const { Auther } = require('@friggframework/module-plugin');
 const {connectToDatabase, disconnectFromDatabase, createObjectId} = require('@friggframework/database/mongo');
-const { Authenticator, testDefinition } = require("@friggframework/test-environment");
+const { Authenticator, testDefinitionRequiredAuthMethods } = require("@friggframework/test-environment");
 
 describe('Deel Auther Tests', () => {
     let auther, authUrl;
@@ -57,7 +57,7 @@ describe('Deel Auther Tests', () => {
             expect(res).toEqual(firstRes);
         });
         it('Should test the Definition methods', async () => {
-            await testDefinition(auther.api, Definition,undefined,undefined,auther.userId);
+            await testDefinitionRequiredAuthMethods(auther.api, Definition,undefined,undefined,auther.userId);
         })
     });
 

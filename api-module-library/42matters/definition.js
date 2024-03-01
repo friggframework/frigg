@@ -9,9 +9,7 @@ const Definition = {
     getName: function() {return config.name},
     moduleName: config.name,//maybe not required
     requiredAuthMethods: {
-        getToken: async function(api, params){
-            return api.setTokens({access_token: api.access_token});
-        },
+        setAuthParams: async function(api, params){},
         getEntityDetails: async function(api, callbackParams, tokenResponse, userId) {
             return {
                 identifiers: { externalId: md5(api.access_token), user: userId },

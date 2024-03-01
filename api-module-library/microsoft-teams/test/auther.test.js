@@ -38,10 +38,10 @@ const mocks = {
         return tokenResponse
     }
 }
-testAutherDefinition(Definition, mocks)
+//testAutherDefinition(Definition, mocks)
 
 
-describe.skip(`${Definition.moduleName} Module Live Tests`, () => {
+describe(`${Definition.moduleName} Module Live Tests`, () => {
     let module, authUrl;
     beforeAll(async () => {
         await connectToDatabase();
