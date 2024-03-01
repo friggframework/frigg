@@ -4,7 +4,7 @@ const { Definition} = require('../definition');
 const {
     testDefinitionRequiredAuthMethods,
     testAutherDefinition
-} = require("@friggframework/test-environment");
+} = require("@friggframework/devtools");
 
 const mocks = {
     getAccountStatus: {

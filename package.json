@@ -18,7 +18,7 @@
   "author": "seanspeaks <sean.matthews@lefthook.co>",
   "license": "MIT",
   "workspaces": [
-    "core",
+    "packages/*",
     "api-module-library/*"
   ],
   "devDependencies": {
@@ -36,8 +36,7 @@
     "plugins": [
       [
         "npm",
-        {"exact": true},
-        {"commitNextVersion": true}
+        {"forcePublish": false}
       ],
       "all-contributors",
       "conventional-commits",
