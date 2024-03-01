@@ -7,6 +7,8 @@ const { stripIndent } = require('common-tags');
 // https://developer.mozilla.org/en-US/docs/Web/API/fetch
 
 class FetchError extends BaseError {
+    response = null;
+
     constructor(options = {}) {
         const { resource, init, response, responseBody } = options;
         const method = init?.method ?? 'GET';
@@ -17,7 +19,7 @@ class FetchError extends BaseError {
                       return JSON.stringify({ init }, null, 2);
                   })()
                 : JSON.stringify({ init }, null, 2)
-            : '';
+            : '';        
 
         let responseBodyText = '<response body is unavailable>';
         if (typeof responseBody === 'string') {
@@ -59,6 +61,8 @@ class FetchError extends BaseError {
         ];
 
         super(messageParts.filter(Boolean).join('\n'));
+        
+        this.response = response;
     }
 
     static async create(options = {}) {
