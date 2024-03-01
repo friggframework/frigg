@@ -1,5 +1,5 @@
-const {Auther, ModuleConstants} = require('../module-plugin');
-const { createObjectId, connectToDatabase, disconnectFromDatabase } = require('../database/mongo');
+const {Auther, ModuleConstants} = require('../../core/module-plugin');
+const { createObjectId, connectToDatabase, disconnectFromDatabase } = require('../../core/database/mongo');
 const { createMockApiObject } = require("./mock-integration");
 
 

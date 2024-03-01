@@ -1,0 +1,27 @@
+{
+  "name": "@friggframework/devtools",
+  "prettier": "@friggframework/prettier-config",
+  "version": "1.0.0",
+  "dependencies": {
+
+  },
+  "devDependencies": {
+
+  },
+  "scripts": {
+    "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
+    "test": "jest --passWithNoTests # TODO"
+  },
+  "author": "",
+  "license": "MIT",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/friggframework/frigg.git"
+  },
+  "bugs": {
+    "url": "https://github.com/friggframework/frigg/issues"
+  },
+  "homepage": "https://github.com/friggframework/frigg#readme",
+  "description": ""
+}

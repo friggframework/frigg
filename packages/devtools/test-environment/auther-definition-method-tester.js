@@ -1,4 +1,4 @@
-const {flushDebugLog} = require('../logs');
+const {flushDebugLog} = require('../../core/logs');
 
 async function testDefinitionRequiredAuthMethods(api, definition, authCallbackParams, tokenResponse, userId) {
 

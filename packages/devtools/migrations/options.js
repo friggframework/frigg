@@ -1,5 +1,5 @@
-const IntegrationManager = require('../integrations');
-const { get, getAndVerifyType } = require('../assertions');
+const IntegrationManager = require('../../core/integrations');
+const { get, getAndVerifyType } = require('../../core/assertions');
 
 class Options {
   constructor(params) {

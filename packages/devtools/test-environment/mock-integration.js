@@ -1,6 +1,6 @@
-const { Auther, Credential, Entity } = require('../module-plugin');
-const { IntegrationModel } = require('../integrations');
-const { mongoose } = require('../database/mongoose');
+const { Auther, Credential, Entity } = require('../../core/module-plugin');
+const { IntegrationModel } = require('../../core/integrations');
+const { mongoose } = require('../../core/database/mongoose');
 
 async function createMockIntegration(IntegrationClassDef, userId = null, config = {},) {
     const integration = new IntegrationClassDef();

@@ -1,4 +1,4 @@
-const testEnvironment = require('./test-environment/index');
+
 const core = require('./core/index');
 const database = require('./database/index');
 const assertions = require('./assertions/index');
@@ -9,13 +9,9 @@ const lambda = require('./lambda/index');
 const logs = require('./logs/index');
 const modulePlugin = require('./module-plugin/index');
 
-const eslintConfig = require('./eslint-config')
-const prettierConfig = require('./prettier-config')
-
 // const {Sync } = require('./syncs/model');
 
 module.exports = {
-    ...testEnvironment,
     ...core,
     ...database,
     ...assertions,
@@ -25,6 +21,4 @@ module.exports = {
     ...lambda,
     ...logs,
     ...modulePlugin,
-    eslintConfig,
-    prettierConfig
 }

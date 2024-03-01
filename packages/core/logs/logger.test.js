@@ -3,7 +3,7 @@ const sinon = require('sinon');
 const {
     overrideEnvironment,
     restoreEnvironment,
-} = require('../test-environment');
+} = require('../../devtools/test-environment');
 
 /* eslint-disable no-console */
 

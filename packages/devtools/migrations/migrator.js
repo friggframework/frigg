@@ -1,6 +1,6 @@
-const { Delegate } = require('../core');
-const { Integration } = require('../integrations');
-const { get } = require('../assertions');
+const { Delegate } = require('../../core/core');
+const { Integration } = require('../../core/integrations');
+const { get } = require('../../core/assertions');
 
 class Migrator extends Delegate {
   constructor(params) {
