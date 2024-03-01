@@ -1,37 +1,40 @@
 require('dotenv').config();
-const {Api} = require('./api');
+const { Api } = require('./api');
 const { Credential } = require('./models/credential');
 const { Entity } = require('./models/entity');
-const {get} = require("@friggframework/assertions");
+const { get } = require("@friggframework/assertions");
 const config = require('./defaultConfig.json')
 
 const Definition = {
     API: Api,
-    getName: function() {return config.name},
-    name: config.name,//maybe not required
+    getName: function () { return config.name },
+    moduleName: config.name,//maybe not required
     Credential,
     Entity,
     requiredAuthMethods: {
-        getToken: async function(api, params){
+        getToken: async function (api, params) {
             const code = get(params.data, 'code');
             return api.getTokenFromCode(code);
         },
-        getEntityDetails: async function(api, callbackParams, tokenResponse) {
+        getEntityDetails: async function (api, callbackParams, tokenResponse, userId) {
             const entityDetails = await api.getTokenIdentity();
             return {
-                identifiers: { externalId: entityDetails.identifier },
+                identifiers: { externalId: entityDetails.identifier, user: userId },
                 details: { name: entityDetails.name },
             }
         },
-        apiPropertiesToPersist: ['access_token', 'refresh_token', 'userId'],
-        getCredentialDetails: async function(api) {
+        apiPropertiesToPersist: {
+            credential: ['access_token', 'refresh_token'],
+            entity: [],
+        },
+        getCredentialDetails: async function (api) {
             const userDetails = await api.getTokenIdentity();
             return {
-                identifiers: { externalId: userDetails.identifier},
+                identifiers: { externalId: userDetails.identifier },
                 details: {}
             };
         },
-        testAuthRequest: async function(api){
+        testAuthRequest: async function (api) {
             return await api.getUserDetails()
         },
     },
