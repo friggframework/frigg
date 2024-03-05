@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/lerna/schemas/lerna-schema.json",
   "useNx": true,
+  "version": "fixed",
   "command": {
     "changed": {
       "forcePublish": "@friggframework/core"
