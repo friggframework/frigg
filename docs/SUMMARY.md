@@ -2,42 +2,42 @@
 
 * [🥳 Introduction to Frigg](README.md)
 
-## 👩💻 Developing Integrations with Frigg <a href="#develop" id="develop"></a>
+## 👩‍💻 Tutorials
 
-* [Overview](develop/overview.md)
-* [Tutorials](develop/tutorials/README.md)
-  * [Quick Start Tutorial](develop/tutorials/quick-start/README.md)
-    * [Create Frigg App](develop/tutorials/quick-start/create-frigg-app.md)
-    * [Exploring the App](develop/tutorials/quick-start/exploring-the-app.md)
-    * [Connecting to the Database](develop/tutorials/quick-start/connecting-to-the-database.md)
-    * [Installing an API Module](develop/tutorials/quick-start/installing-an-api-module.md)
-    * [Building your first integration](develop/tutorials/quick-start/building-your-first-integration.md)
-    * [Testing the Integration](develop/tutorials/quick-start/testing-the-integration.md)
-    * [Next Steps](develop/tutorials/quick-start/next-steps.md)
-* [Framework Development Guide](develop/framework-development-guide.md)
-* [API Module Development Guide](develop/api-module-development-guide/README.md)
-  * [Introduction](develop/api-module-development-guide/introduction.md)
-  * [Getting Started](develop/api-module-development-guide/getting-started.md)
-  * [Conventions](develop/api-module-development-guide/conventions.md)
-  * [Deployment](develop/api-module-development-guide/deployment/README.md)
-    * [Testing](develop/api-module-development-guide/deployment/testing.md)
-    * [Publishing](develop/api-module-development-guide/deployment/publishing.md)
-    * [Extending](develop/api-module-development-guide/deployment/extending.md)
-* [Integration Development Guide](develop/integration-development-guide.md)
-* [Authentication](develop/authentication.md)
+* [Overview](tutorials/overview.md)
+* [Quick Start Tutorial](tutorials/quick-start/README.md)
+  * [Create Frigg App](tutorials/quick-start/create-frigg-app.md)
+  * [Exploring the App](tutorials/quick-start/exploring-the-app.md)
+  * [Connecting to the Database](tutorials/quick-start/connecting-to-the-database.md)
+  * [Installing an API Module](tutorials/quick-start/installing-an-api-module.md)
+  * [Building your first integration](tutorials/quick-start/building-your-first-integration.md)
+  * [Testing the Integration](tutorials/quick-start/testing-the-integration.md)
+  * [Next Steps](tutorials/quick-start/next-steps.md)
+* [API Module Development Guide](tutorials/api-module-development-guide/README.md)
+  * [Introduction](tutorials/api-module-development-guide/introduction.md)
+  * [Getting Started](tutorials/api-module-development-guide/getting-started.md)
+  * [Conventions](tutorials/api-module-development-guide/conventions.md)
+  * [Deployment](tutorials/api-module-development-guide/deployment/README.md)
+    * [Testing](tutorials/api-module-development-guide/deployment/testing.md)
+    * [Publishing](tutorials/api-module-development-guide/deployment/publishing.md)
+    * [Extending](tutorials/api-module-development-guide/deployment/extending.md)
+* [Integration Development Guide](tutorials/integration-development-guide.md)
+* [Authentication](tutorials/authentication.md)
 
-## 📖 Frigg Reference <a href="#reference" id="reference"></a>
+## ✅ Guides
+
+* [Overview](guides/overview.md)
+
+## 💭 Discussion & Core Concepts
+
+* [Overview](discussion-and-core-concepts/overview.md)
+
+## 📖 Reference
 
 * [Overview](reference/introduction.md)
 * [Core Concepts](reference/core-concepts.md)
 * [Architecture](reference/architecture.md)
 * [API Reference](reference/api-reference.md)
-
-## 🤝 Contributing
-
-* [Contributing](contributing/contributing/README.md)
-  * [Contributor Covenant Code of Conduct](contributing/contributing/code\_of\_conduct.md)
-  * [PULL\_REQUEST\_TEMPLATE](contributing/contributing/pull\_request\_template.md)
 
 ## 🔌 API Modules
 
@@ -53,6 +53,9 @@
     * [Configuration](api-module-library/module-list/connectwise/configuration.md)
   * [Fastspring](api-module-library/module-list/fastspring/README.md)
     * [Configuration](api-module-library/module-list/fastspring/configuration.md)
+  * [Help Scout](api-module-library/module-list/helpscout/README.md)
+    * [Configuration](api-module-library/module-list/helpscout/configuration.md)
+    * [Help Scout Docs](https://developer.helpscout.com/mailbox-api/)
   * [Hubspot](api-module-library/module-list/hubspot/README.md)
     * [Configuration](api-module-library/module-list/hubspot/configuration.md)
     * [Hubspot Docs](https://developers.activecampaign.com/reference/overview)
@@ -67,6 +70,12 @@
     * [Configuration](api-module-library/module-list/salesloft/configuration.md)
 * [Building Your Own Module](api-module-library/building-your-own-module.md)
 
+## 🤝 Contributing
+
+* [Contributing](contributing/contributing/README.md)
+  * [Contributor Covenant Code of Conduct](contributing/contributing/code\_of\_conduct.md)
+  * [PULL\_REQUEST\_TEMPLATE](contributing/contributing/pull\_request\_template.md)
+
 ## 📞 Support
 
 * [Contact](support/support.md)
@@ -74,6 +83,6 @@
   * [Chat with Us](support/support/chat-with-us.md)
 * [Frequently Asked Questions (FAQs)](support/frequently-asked-questions.md)
 
-## 🗺 Roadmap
+## 🗺️ Roadmap
 
 * [Overview](roadmap/page-1.md)
