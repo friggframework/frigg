@@ -23,6 +23,6 @@
     },
     "dependencies": {
         "botbuilder": "^4.19.2",
-        "@friggframework/core": "^1.0.2"
+        "@friggframework/core": "^1.0.0"
     }
 }

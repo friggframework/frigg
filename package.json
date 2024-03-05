@@ -1,6 +1,6 @@
 {
   "name": "frigg-monorepo",
-  "version": "1.0.4",
+  "version": "1.0.0",
   "description": "",
   "private": true,
   "scripts": {
@@ -18,7 +18,7 @@
   "author": "seanspeaks <sean.matthews@lefthook.co>",
   "license": "MIT",
   "workspaces": [
-    "core",
+    "packages/*",
     "api-module-library/*"
   ],
   "devDependencies": {
@@ -36,8 +36,7 @@
     "plugins": [
       [
         "npm",
-        {"exact": true},
-        {"commitNextVersion": true}
+        {"forcePublish": true}
       ],
       "all-contributors",
       "conventional-commits",

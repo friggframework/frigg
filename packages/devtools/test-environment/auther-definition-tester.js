@@ -1,5 +1,9 @@
-const {Auther, ModuleConstants} = require('../module-plugin');
-const { createObjectId, connectToDatabase, disconnectFromDatabase } = require('../database/mongo');
+const {Auther,
+    ModuleConstants,
+    createObjectId,
+    connectToDatabase,
+    disconnectFromDatabase,
+} = require('@friggframework/core');
 const { createMockApiObject } = require("./mock-integration");
 
 
