@@ -1,7 +1,6 @@
+const { get, Requester } = require('@friggframework/core');
 const fetch = require('node-fetch');
-const { Requester } = require('@friggframework/module-plugin');
 const FormatPatchBody = require('./formatPatchBody');
-const { get } = require('@friggframework/assertions');
 
 class Api extends Requester {
     constructor(params) {

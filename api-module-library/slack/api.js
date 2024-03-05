@@ -1,8 +1,6 @@
+const { FetchError, get, OAuth2Requester } = require('@friggframework/core');
 const qs = require('qs');
 
-const { OAuth2Requester } = require('@friggframework/module-plugin');
-const { get } = require('@friggframework/assertions');
-const { FetchError } = require('@friggframework/errors');
 const moment = require("moment/moment");
 
 class Api extends OAuth2Requester {

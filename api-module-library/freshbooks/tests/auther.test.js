@@ -1,7 +1,6 @@
+const { connectToDatabase, disconnectFromDatabase, createObjectId, Auther } = require('@friggframework/core');
 //require('dotenv').config();
 const { Definition} = require('../definition');
-const { Auther } = require('@friggframework/module-plugin');
-const { connectToDatabase, disconnectFromDatabase, createObjectId } = require('@friggframework/database/mongo');
 const Authenticator = require("@friggframework/test-environment/Authenticator");
 describe('Freshbooks Auther Tests', () => {
     let manager, authUrl;

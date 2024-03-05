@@ -1,5 +1,4 @@
-const { ApiKeyRequester, ModuleConstants} = require('@friggframework/module-plugin');
-const { get } = require('@friggframework/assertions');
+const { ApiKeyRequester, ModuleConstants, get } = require('@friggframework/core');
 
 
 class Api extends ApiKeyRequester {

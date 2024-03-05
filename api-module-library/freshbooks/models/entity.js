@@ -1,6 +1,5 @@
-const { mongoose } = require('@friggframework/database/mongoose');
+const { Entity: Parent, mongoose } = require('@friggframework/core');
 const { Schema } = mongoose;
-const { Entity: Parent } = require('@friggframework/module-plugin');
 
 const schema = new Schema({
     account_id: {

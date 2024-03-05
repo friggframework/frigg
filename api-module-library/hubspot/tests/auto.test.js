@@ -1,4 +1,4 @@
-const { testAutherDefinition } = require('@friggframework/test-environment');
+const { testAutherDefinition } = require('@friggframework/core');
 const { Definition } = require('../definition')
 
 const authorizeResponse = {

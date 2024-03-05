@@ -1,7 +1,6 @@
+const { ModuleManager, get } = require('@friggframework/core');
 const _ = require('lodash');
 const moment = require('moment');
-const { get } = require('@friggframework/assertions');
-const { ModuleManager } = require('@friggframework/module-plugin');
 const { Api } = require('./api');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');

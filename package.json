@@ -1,6 +1,6 @@
 {
   "name": "frigg-monorepo",
-  "version": "1.0.4",
+  "version": "1.0.0",
   "description": "",
   "private": true,
   "scripts": {
@@ -22,22 +22,21 @@
     "api-module-library/*"
   ],
   "devDependencies": {
-    "@auto-it/all-contributors": "^11.0.4",
-    "@auto-it/conventional-commits": "^11.0.4",
-    "@auto-it/first-time-contributor": "^11.0.4",
-    "@auto-it/slack": "^11.0.4",
-    "auto": "^11.0.4",
+    "@auto-it/all-contributors": "^11.1.1",
+    "@auto-it/conventional-commits": "^11.1.1",
+    "@auto-it/first-time-contributor": "^11.1.1",
+    "@auto-it/slack": "^11.1.1",
+    "auto": "^11.1.1",
     "lerna": "^7.4.2",
-    "nx": "^17.2.6"
+    "nx": "^16.10.0"
   },
   "repository": "friggframework/frigg",
   "auto": {
-    "prereleaseBranches": ["next", "v1-alpha"],
+    "prereleaseBranches": ["next", "v1-alpha", "v1-alpha-package-update"],
     "plugins": [
       [
         "npm",
-        {"exact": true},
-        {"commitNextVersion": true}
+        {"forcePublish": true}
       ],
       "all-contributors",
       "conventional-commits",

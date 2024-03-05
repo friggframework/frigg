@@ -1,5 +1,5 @@
+const { globalSetup } = require('@friggframework/core');
 const dotenv= require('dotenv');
-const { globalSetup } = require('@friggframework/test-environment');
 
 const parsed = {
     SHAREPOINT_SCOPE: 'sharepoint_scope_test',

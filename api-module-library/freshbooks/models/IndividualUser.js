@@ -1,4 +1,4 @@
-const { mongoose } = require('@friggframework/database/mongoose');
+const { mongoose } = require('@friggframework/core');
 const { Schema, model, models} = mongoose;
 const schema1 = new Schema({}, {timestamps: true})
 

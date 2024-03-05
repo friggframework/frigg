@@ -1,6 +1,6 @@
+const { Entity: Parent } = require('@friggframework/core');
 'use strict';
 const mongoose = require('mongoose');
-const { Entity: Parent } = require('@friggframework/module-plugin');
 
 const schema = new mongoose.Schema({});
 const name = 'TerminusEntity';

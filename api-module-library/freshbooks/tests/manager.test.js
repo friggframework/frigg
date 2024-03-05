@@ -1,8 +1,7 @@
+const { Authenticator, connectToDatabase, disconnectFromDatabase, createObjectId } = require('@friggframework/core');
 require('dotenv').config();
 const Manager = require('../manager'); // Manager = require('../manager');
-const { connectToDatabase, disconnectFromDatabase, createObjectId } = require('@friggframework/database/mongo');
 const config = require('../defaultConfig.json');
-const Authenticator = require('@friggframework/test-environment/Authenticator');
 
 describe(`Should fully test the ${config.label} Manager`, () => {
     let manager, userManager;

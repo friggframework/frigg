@@ -1,9 +1,8 @@
+const { get, ModuleManager } = require('@friggframework/core');
 const { Api } = require('./api');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
-const { ModuleManager } = require('@friggframework/module-plugin');
 const Config = require('./defaultConfig.json');
-const { get } = require('@friggframework/assertions');
 
 class Manager extends ModuleManager {
     static Entity = Entity;

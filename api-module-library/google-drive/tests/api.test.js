@@ -1,6 +1,6 @@
+const { Authenticator } = require('@friggframework/core');
 require('dotenv').config();
 const { Api } = require('../api');
-const Authenticator = require('@friggframework/test-environment/Authenticator');
 const fs = require('fs');
 const path = require('path');
 

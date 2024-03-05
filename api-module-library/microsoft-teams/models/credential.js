@@ -1,6 +1,6 @@
+const { Credential: Parent } = require('@friggframework/core');
 'use strict';
 const mongoose = require('mongoose');
-const { Credential: Parent } = require('@friggframework/module-plugin');
 
 const schema = new mongoose.Schema({
     graph_access_token: { type: String, trim: true, lhEncrypt: true },
