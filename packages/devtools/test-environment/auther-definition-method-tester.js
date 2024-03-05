@@ -1,4 +1,4 @@
-const {flushDebugLog} = require('../../core/logs');
+const {flushDebugLog} = require('@friggframework/core');
 
 async function testDefinitionRequiredAuthMethods(api, definition, authCallbackParams, tokenResponse, userId) {
 

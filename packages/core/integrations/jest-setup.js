@@ -1,2 +1,2 @@
-const { globalSetup } = require('../../devtools/test-environment');
+const { globalSetup } = require('@friggframework/devtools');
 module.exports = globalSetup;
