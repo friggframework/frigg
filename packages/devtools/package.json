@@ -3,6 +3,7 @@
   "prettier": "@friggframework/prettier-config",
   "version": "1.0.0",
   "dependencies": {
+    "@friggframework/core": "^1.0.0",
     "jest-runner-groups": "^2.2.0",
     "mongodb-memory-server": "^8.9.0",
     "@babel/eslint-parser": "^7.18.9",

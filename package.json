@@ -36,7 +36,7 @@
     "plugins": [
       [
         "npm",
-        {"forcePublish": false}
+        {"forcePublish": true}
       ],
       "all-contributors",
       "conventional-commits",
