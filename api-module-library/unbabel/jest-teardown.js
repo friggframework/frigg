@@ -1,2 +1,2 @@
-const { globalTeardown } = require('@friggframework/core');
+const { globalTeardown } = require('@friggframework/devtools');
 module.exports = globalTeardown;

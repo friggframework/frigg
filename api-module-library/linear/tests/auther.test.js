@@ -1,7 +1,7 @@
-const { mongoose, Auther } = require('@friggframework/core');
+const { connectToDatabase, disconnectFromDatabase, createObjectId, Auther } = require('@friggframework/core');
 //require('dotenv').config();
 const { Definition} = require('../definition');
-const Authenticator = require("@friggframework/test-environment/Authenticator");
+const { Authenticator } = require('@friggframework/devtools');
 describe('Linear Manager Tests', () => {
     let manager, authUrl;
     beforeAll(async () => {

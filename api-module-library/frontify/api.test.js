@@ -1,4 +1,4 @@
-const { Authenticator } = require('@friggframework/core');
+const { Authenticator } = require('@friggframework/devtools');
 const nock = require('nock');
 const { Api } = require('./api');
 const Config = require('./defaultConfig');

@@ -1,6 +1,6 @@
 require('dotenv').config();
 const {Api} = require('./api');
-const {get} = require("@friggframework/assertions");
+const {get} = require("@friggframework/core");
 const config = require('./defaultConfig.json')
 
 const Definition = {
@@ -12,7 +12,7 @@ const Definition = {
             const code = get(params.data, 'code');
             const state = get(params.data, 'state', null);
             api.location = get(params.data, 'location');
-            await api.getTokenFromCode(code);
+            return await api.getTokenFromCode(code);
         },
         apiPropertiesToPersist: {
             credential: [

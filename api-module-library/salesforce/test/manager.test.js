@@ -1,4 +1,4 @@
-const { Authenticator } = require('@friggframework/core');
+const { Authenticator } = require('@friggframework/devtools');
 require('dotenv').config();
 const Manager = require('../manager');
 const mongoose = require('mongoose');

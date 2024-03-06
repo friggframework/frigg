@@ -1,16 +1,12 @@
 require('dotenv').config();
+const { get } = require("@friggframework/core");
 const { Api } = require('./api');
-const { Credential } = require('./models/credential');
-const { Entity } = require('./models/entity');
-const { get } = require("@friggframework/assertions");
 const config = require('./defaultConfig.json')
 
 const Definition = {
     API: Api,
     getName: function () { return config.name },
     moduleName: config.name,//maybe not required
-    Credential,
-    Entity,
     requiredAuthMethods: {
         getToken: async function (api, params) {
             const code = get(params.data, 'code');

@@ -1,7 +1,7 @@
 require('dotenv').config();
 const { Api } = require('../api');
-const Authenticator = require("@friggframework/test-environment/Authenticator");
-const {createEntryBody, updateEntryBody, patchEntryBody} = require('../../../../test/mocks/contentful/index');
+const { Authenticator } = require("@friggframework/devtools");
+const {createEntryBody, updateEntryBody, patchEntryBody} = require('./mocks');
 
 describe('Contentful API Tests', () => {
     /* eslint-disable camelcase */

@@ -1,4 +1,4 @@
-const { globalSetup } = require('@friggframework/core');
+const { globalSetup } = require('@friggframework/devtools');
 const dotenv= require('dotenv');
 
 const parsed = {

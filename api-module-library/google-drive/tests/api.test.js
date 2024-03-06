@@ -1,4 +1,4 @@
-const { Authenticator } = require('@friggframework/core');
+const { Authenticator } = require('@friggframework/devtools');
 require('dotenv').config();
 const { Api } = require('../api');
 const fs = require('fs');

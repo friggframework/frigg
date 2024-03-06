@@ -1,6 +1,6 @@
 require('dotenv').config();
 const {Api} = require('./api/api');
-const {get} = require("@friggframework/assertions");
+const {get} = require("@friggframework/core");
 const config = require('./defaultConfig.json')
 const {flushDebugLog} = require("@friggframework/logs");
 

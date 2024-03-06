@@ -1,21 +1,21 @@
-const { mongoose, Auther } = require('@friggframework/core');
+const { connectToDatabase, disconnectFromDatabase, createObjectId, Auther } = require('@friggframework/core');
 const { Definition} = require('../definition');
-const Authenticator = require("@friggframework/test-environment/Authenticator");
+const { Authenticator } = require("@friggframework/devtools");
 
 describe('Contentful Manager Tests', () => {
     let module, authUrl;
     beforeAll(async () => {
-        await mongoose.connect(process.env.MONGO_URI);
+        await connectToDatabase();
         module = await Auther.getInstance({
             definition: Definition,
-            userId: new mongoose.Types.ObjectId(),
+            userId: createObjectId(),
         });
     });
 
     afterAll(async () => {
         await Auther.CredentialModel.deleteMany();
         await Auther.EntityModel.deleteMany();
-        await mongoose.disconnect();
+        await disconnectFromDatabase();
     });
 
     describe('getAuthorizationRequirements() test', () => {

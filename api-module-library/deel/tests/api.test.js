@@ -1,6 +1,6 @@
 require('dotenv').config();
 const { Api } = require('../api');
-const Authenticator = require("@friggframework/test-environment/Authenticator");
+const { Authenticator } = require('@friggframework/devtools');
 
 describe('Deel API Tests', () => {
     /* eslint-disable camelcase */

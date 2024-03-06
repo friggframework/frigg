@@ -2,7 +2,7 @@ require('dotenv').config();
 const {Api} = require('./api');
 const { Credential } = require('./models/credential');
 const { Entity } = require('./models/entity');
-const {get} = require("@friggframework/assertions");
+const {get} = require("@friggframework/core");
 const config = require('./defaultConfig.json')
 
 const Definition = {

@@ -1,2 +1,2 @@
-const { globalSetup } = require('@friggframework/core');
+const { globalSetup } = require('@friggframework/devtools');
 module.exports = globalSetup;

@@ -1,4 +1,4 @@
-const { Authenticator } = require('@friggframework/core');
+const { Authenticator } = require('@friggframework/devtools');
 const Manager = require('../manager');
 const mongoose = require('mongoose');
 const config = require('../defaultConfig.json');

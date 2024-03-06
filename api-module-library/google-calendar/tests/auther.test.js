@@ -1,26 +1,65 @@
-const { Auther } = require('@friggframework/core');
+const { connectToDatabase, disconnectFromDatabase, createObjectId, Auther } = require('@friggframework/core');
+const {
+    Authenticator,
+    testAutherDefinition
+} = require('@friggframework/devtools');
 const { Definition} = require('../definition');
-const mongoose = require('mongoose');
-const Authenticator = require("@friggframework/test-environment/Authenticator");
-describe(`${Definition.name} Manager Tests`, () => {
-    let manager, authUrl;
+
+const mocks = {
+    authorizeResponse:{
+        "base": "/redirect/google-calendar",
+        "data": {
+            "state": "null",
+            "code": "<redacted>",
+            "scope": "email profile https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile openid",
+            "authuser": "0",
+            "hd": "lefthook.com",
+            "prompt": "consent"
+        }
+    },
+    getTokenIdentity: {
+        "identifier": "redacted",
+        "name": "redacted"
+    },
+    getUserDetails: {
+        "identifier": "redacted",
+        "name": "redacted"
+    },
+    getTokenFromCode: async function (code) {
+        const tokenResponse = {
+            "access_token": "redacted",
+            "expires_in": 3599,
+            "refresh_token": "redacted",
+            "scope": "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar.readonly openid https://www.googleapis.com/auth/userinfo.profile",
+            "token_type": "Bearer",
+            "id_token": "redacted"
+        }
+        await this.setTokens(tokenResponse);
+        return tokenResponse
+    }
+}
+
+testAutherDefinition(Definition, mocks)
+
+describe.skip(`${Definition.name} Module Live Tests`, () => {
+    let module, authUrl;
     beforeAll(async () => {
-        await mongoose.connect(process.env.MONGO_URI);
-        manager = await Auther.getInstance({
+        await connectToDatabase();
+        module = await Auther.getInstance({
             definition: Definition,
-            userId: new mongoose.Types.ObjectId(),
+            userId: createObjectId(),
         });
     });
 
     afterAll(async () => {
-        await Manager.Credential.deleteMany();
-        await Manager.Entity.deleteMany();
-        await mongoose.disconnect();
+        await module.CredentialModel.deleteMany();
+        await module.EntityModel.deleteMany();
+        await disconnectFromDatabase();
     });
 
     describe('getAuthorizationRequirements() test', () => {
         it('should return auth requirements', async () => {
-            const requirements = manager.getAuthorizationRequirements();
+            const requirements = module.getAuthorizationRequirements();
             expect(requirements).toBeDefined();
             expect(requirements.type).toEqual('oauth2');
             expect(requirements.url).toBeDefined();
@@ -32,7 +71,7 @@ describe(`${Definition.name} Manager Tests`, () => {
         let firstRes;
         it('processAuthorizationCallback()', async () => {
             const response = await Authenticator.oauth2(authUrl);
-            firstRes = await manager.processAuthorizationCallback({
+            firstRes = await module.processAuthorizationCallback({
                 data: {
                     code: response.data.code,
                 },
@@ -41,9 +80,9 @@ describe(`${Definition.name} Manager Tests`, () => {
             expect(firstRes.entity_id).toBeDefined();
             expect(firstRes.credential_id).toBeDefined();
         });
-        it('retrieves existing entity on subsequent calls', async () =>{
+        it.skip('retrieves existing entity on subsequent calls', async () =>{
             const response = await Authenticator.oauth2(authUrl);
-            const res = await manager.processAuthorizationCallback({
+            const res = await module.processAuthorizationCallback({
                 data: {
                     code: response.data.code,
                 },
@@ -51,29 +90,29 @@ describe(`${Definition.name} Manager Tests`, () => {
             expect(res).toEqual(firstRes);
         });
     });
-    describe('Test credential retrieval and manager instantiation', () => {
+    describe('Test credential retrieval and module instantiation', () => {
         it('retrieve by entity id', async () => {
-            const newManager = await Auther.getInstance({
-                userId: manager.userId,
-                entityId: manager.entity.id,
+            const newModule = await Auther.getInstance({
+                userId: module.userId,
+                entityId: module.entity.id,
                 definition: Definition,
             });
-            expect(newManager).toBeDefined();
-            expect(newManager.entity).toBeDefined();
-            expect(newManager.credential).toBeDefined();
-            expect(await newManager.testAuth()).toBeTruthy();
+            expect(newModule).toBeDefined();
+            expect(newModule.entity).toBeDefined();
+            expect(newModule.credential).toBeDefined();
+            expect(await newModule.testAuth()).toBeTruthy();
 
         });
 
         it('retrieve by credential id', async () => {
-            const newManager = await Auther.getInstance({
-                userId: manager.userId,
-                credentialId: manager.credential.id,
+            const newModule = await Auther.getInstance({
+                userId: module.userId,
+                credentialId: module.credential.id,
                 definition: Definition,
             });
-            expect(newManager).toBeDefined();
-            expect(newManager.credential).toBeDefined();
-            expect(await newManager.testAuth()).toBeTruthy();
+            expect(newModule).toBeDefined();
+            expect(newModule.credential).toBeDefined();
+            expect(await newModule.testAuth()).toBeTruthy();
 
         });
     });
