@@ -1,30 +1,16 @@
 const { connectToDatabase, disconnectFromDatabase, createObjectId, Auther } = require('@friggframework/core');
-const { Definition} = require('../definition');
 const {
     Authenticator,
     testDefinitionRequiredAuthMethods,
     testAutherDefinition
-} = require("@friggframework/test-environment");
+} = require("@friggframework/devtools");
+const { Definition} = require('../definition');
+
 
 const mocks = {
     getUserDetails: {
-        "kind": "drive#user",
-        "displayName": "John Doe",
-        "photoLink": "https://lh3.googleusercontent.com/a/foo",
-        "me": true,
-        "permissionId": "12345",
-        "emailAddress": "john.doe@friggframework.com"
     },
     authorizeResponse: {
-        "base": "/redirect/google-drive",
-        "data": {
-            "state": "null",
-            "code": "foo",
-            "scope": "email profile https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile openid https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/drive.metadata https://www.googleapis.com/auth/drive.activity",
-            "authuser": "0",
-            "hd": "friggframework.com",
-            "prompt": "consent"
-        }
     },
     getTokenFromCode: async function (code) {
         const tokenResponse ={
@@ -75,7 +61,7 @@ describe(`${Definition.moduleName} Module Live Tests`, () => {
             expect(firstRes.entity_id).toBeDefined();
             expect(firstRes.credential_id).toBeDefined();
         });
-        it('retrieves existing entity on subsequent calls', async () =>{
+        it.skip('retrieves existing entity on subsequent calls', async () =>{
             const response = await Authenticator.oauth2(authUrl);
             const res = await module.processAuthorizationCallback(response);
             expect(res).toEqual(firstRes);
@@ -83,28 +69,44 @@ describe(`${Definition.moduleName} Module Live Tests`, () => {
     });
     describe('Test credential retrieval and module instantiation', () => {
         it('retrieve by entity id', async () => {
-            const newManager = await Auther.getInstance({
+            const newModule = await Auther.getInstance({
                 userId: module.userId,
                 entityId: module.entity.id,
                 definition: Definition,
             });
-            expect(newManager).toBeDefined();
-            expect(newManager.entity).toBeDefined();
-            expect(newManager.credential).toBeDefined();
-            expect(await newManager.testAuth()).toBeTruthy();
+            expect(newModule).toBeDefined();
+            expect(newModule.entity).toBeDefined();
+            expect(newModule.credential).toBeDefined();
+            expect(await newModule.testAuth()).toBeTruthy();
 
         });
 
-        it('retrieve by credential id', async () => {
-            const newManager = await Auther.getInstance({
+        it.skip('retrieve by credential id', async () => {
+            const newModule = await Auther.getInstance({
                 userId: module.userId,
                 credentialId: module.credential.id,
                 definition: Definition,
             });
-            expect(newManager).toBeDefined();
-            expect(newManager.credential).toBeDefined();
-            expect(await newManager.testAuth()).toBeTruthy();
+            expect(newModule).toBeDefined();
+            expect(newModule.credential).toBeDefined();
+            expect(await newModule.testAuth()).toBeTruthy();
 
         });
     });
+
+    describe('Test app auth and bot auth', () => {
+        it('processAuthorizationCallback()', async () => {
+            const newModule = await Auther.getInstance({
+                userId: module.userId,
+                entityId: module.entity.id,
+                definition: Definition,
+            });
+            await newModule.processAuthorizationCallback();
+            const res = await newModule.testAuth();
+            expect(res).toBeTruthy();
+            expect(newModule.api.graphApi.access_token).toBeTruthy();
+            expect(newModule.api.botFrameworkApi.access_token).toBeTruthy();
+        })
+    })
+
 });

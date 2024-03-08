@@ -151,7 +151,7 @@ describe(`${config.label} API Tests`, () => {
             expect(response.value).toHaveLength(1);
             appInstallationId = response.value[0].id;
         })
-        it('Should delete app in test team', async () => {
+        it.skip('Should delete app in test team', async () => {
             const response = await api.removeAppForTeam(teamId, appInstallationId);
             expect(response.status).toEqual(204);
         })

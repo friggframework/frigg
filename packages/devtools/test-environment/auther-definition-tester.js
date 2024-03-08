@@ -1,4 +1,5 @@
-const {Auther,
+const {
+    Auther,
     ModuleConstants,
     createObjectId,
     connectToDatabase,
@@ -14,6 +15,22 @@ function testAutherDefinition(definition, mocks) {
             userId: createObjectId(),
             ...params,
         });
+        if (mocks.tokenResponse) {
+            mocks.getTokenFrom = async function(code) {
+                await this.setTokens(mocks.tokenResponse);
+                return mocks.tokenResponse
+            }
+            mocks.getTokenFromCode = mocks.getTokenFromCode || mocks.getTokenFrom
+            mocks.getTokenFromCodeBasicAuthHeader = mocks.getTokenFromCodeBasicAuthHeader || mocks.getTokenFrom
+            mocks.getTokenFromClientCredentials = mocks.getTokenFromClientCredentials || mocks.getTokenFrom
+            mocks.getTokenFromUsernamePassword = mocks.getTokenFromUsernamePassword || mocks.getTokenFrom
+        }
+        if (mocks.refreshResponse) {
+            mocks.refreshAccessToken = async function(code) {
+                await this.setTokens(mocks.refreshResponse);
+                return mocks.refreshResponse
+            }
+        }
         module.api = createMockApiObject(jest, module.api, mocks);
         return module
     }
@@ -30,9 +47,9 @@ function testAutherDefinition(definition, mocks) {
             await disconnectFromDatabase();
         });
 
-        let requirements, authorizeParams;
+        let requirements, authCallbackParams;
         if (definition.API.requesterType === ModuleConstants.authType.oauth2) {
-            authorizeParams = mocks.authorizeResponse;
+            authCallbackParams = mocks.authorizeResponse || mocks.authorizeParams;
             describe('getAuthorizationRequirements() test', () => {
                 it('should return auth requirements', async () => {
                     requirements = module.getAuthorizationRequirements();
@@ -43,8 +60,8 @@ function testAutherDefinition(definition, mocks) {
                 });
             });
         } else if (definition.API.requesterType === ModuleConstants.authType.basic) {
-            // could also confirm authorizeParams against the auth requirements
-            authorizeParams = mocks.authorizeParams
+            // could also confirm authCallbackParams against the auth requirements
+            authCallbackParams = mocks.authorizeParams
             describe('getAuthorizationRequirements() test', () => {
                 it('should return auth requirements', async () => {
                     requirements = module.getAuthorizationRequirements();
@@ -53,8 +70,8 @@ function testAutherDefinition(definition, mocks) {
                 });
             });
         } else if (definition.API.requesterType === ModuleConstants.authType.apiKey) {
-            // could also confirm authorizeParams against the auth requirements
-            authorizeParams = mocks.authorizeParams
+            // could also confirm authCallbackParams against the auth requirements
+            authCallbackParams = mocks.authorizeParams
             describe('getAuthorizationRequirements() test', () => {
                 it('should return auth requirements', async () => {
                     requirements = module.getAuthorizationRequirements();
@@ -67,13 +84,13 @@ function testAutherDefinition(definition, mocks) {
         describe('Authorization requests', () => {
             let firstRes;
             it('processAuthorizationCallback()', async () => {
-                firstRes = await module.processAuthorizationCallback(authorizeParams);
+                firstRes = await module.processAuthorizationCallback(authCallbackParams);
                 expect(firstRes).toBeDefined();
                 expect(firstRes.entity_id).toBeDefined();
                 expect(firstRes.credential_id).toBeDefined();
             });
             it('retrieves existing entity on subsequent calls', async () => {
-                const res = await module.processAuthorizationCallback(authorizeParams);
+                const res = await module.processAuthorizationCallback(authCallbackParams);
                 expect(res).toEqual(firstRes);
             });
         });

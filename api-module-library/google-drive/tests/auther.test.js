@@ -4,7 +4,7 @@ const {
     Authenticator,
     testDefinitionRequiredAuthMethods,
     testAutherDefinition
-} = require("@friggframework/test-environment");
+} = require("@friggframework/devtools");
 
 const mocks = {
     getUserDetails: {
@@ -26,15 +26,11 @@ const mocks = {
             "prompt": "consent"
         }
     },
-    getTokenFromCode: async function (code) {
-        const tokenResponse ={
-            "access_token": "foo",
-            "token_type": "Bearer",
-            "refresh_token": "bar",
-            "expires_in": 3600
-        }
-        await this.setTokens(tokenResponse);
-        return tokenResponse
+    tokenResponse: {
+        "access_token": "foo",
+        "token_type": "Bearer",
+        "refresh_token": "bar",
+        "expires_in": 360
     }
 }
 testAutherDefinition(Definition, mocks)

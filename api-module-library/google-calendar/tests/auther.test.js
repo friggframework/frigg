@@ -25,17 +25,13 @@ const mocks = {
         "identifier": "redacted",
         "name": "redacted"
     },
-    getTokenFromCode: async function (code) {
-        const tokenResponse = {
-            "access_token": "redacted",
-            "expires_in": 3599,
-            "refresh_token": "redacted",
-            "scope": "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar.readonly openid https://www.googleapis.com/auth/userinfo.profile",
-            "token_type": "Bearer",
-            "id_token": "redacted"
-        }
-        await this.setTokens(tokenResponse);
-        return tokenResponse
+    tokenResponse: {
+        "access_token": "redacted",
+        "expires_in": 3599,
+        "refresh_token": "redacted",
+        "scope": "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar.readonly openid https://www.googleapis.com/auth/userinfo.profile",
+        "token_type": "Bearer",
+        "id_token": "redacted"
     }
 }
 

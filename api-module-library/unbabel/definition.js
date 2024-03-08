@@ -13,7 +13,7 @@ const Definition = {
             return {
                 url: null,
                 data: AuthFields,
-                type: 'password',
+                type: Api.requesterType,
             };
         },
         getToken: async function(api, params){

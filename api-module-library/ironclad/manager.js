@@ -1,12 +1,9 @@
-const { flushDebugLog, debug, get } = require('@friggframework/core');
+const { ModuleManager, ModuleConstants, flushDebugLog, debug, get } = require('@friggframework/core');
 const _ = require('lodash');
 const { Api } = require('./api');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
 const { IntegrationMapping } = require('./models/integrationMapping');
-const {
-    ModuleManager,
-    ModuleConstants,
 const AuthFields = require('./authFields');
 const Config = require('./defaultConfig.json');
 const { createHash } = require('crypto');

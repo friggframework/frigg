@@ -26,7 +26,7 @@ describe(`${config.label} API Tests`, () => {
 
     describe('Team Member Requests', () => {
         it('Should retrieve information about the members of the team', async () => {
-            const teamChannelId = '19:N6cQDh5RfdWomP_UJ6CA7tKlsvMkaCEN-PrHWtAvwPk1@thread.tacv2';
+            const teamChannelId = '19:0cdx-UsvOXLsr6Y2y3C5f7oCJsRGWjTf_xM77aegNYY1@thread.tacv2';
             const members = await api.getTeamMembers(teamChannelId);
             members.should.exist;
         });

@@ -33,7 +33,7 @@ describe(`${config.label} API Tests`, () => {
             const teams = await api.graphApi.getGroups();
             teams.should.exist;
             // team could be selected from these, hard-coding for now
-            const teamChannelId = '19:N6cQDh5RfdWomP_UJ6CA7tKlsvMkaCEN-PrHWtAvwPk1@thread.tacv2';
+            const teamChannelId = '19:RYVw9QYyjzcX_RQPt7Yy7g1nVsBQ4UX92tZYNoNAvsk1@thread.tacv2';
             const members = await api.botFrameworkApi.getTeamMembers(teamChannelId);
             members.should.exist;
             // const conversationReferences = {};

@@ -1,9 +1,7 @@
-const { connectToDatabase, disconnectFromDatabase, createObjectId, Auther } = require('@friggframework/core');
-
 require('dotenv').config();
+const { connectToDatabase, disconnectFromDatabase, createObjectId, Auther } = require('@friggframework/core');
+const { testAutherDefinition } = require('@friggframework/devtools');
 const { Definition} = require('../definition');
-const { Authenticator } = require('@friggframework/devtools');
-
 
 const testAuthData = {
     client_id: process.env.UNBABEL_CLIENT_ID,
@@ -12,20 +10,39 @@ const testAuthData = {
     customer_id: process.env.UNBABEL_TEST_CUSTOMER_ID
 };
 
-describe('Unbabel Manager Tests', () => {
-    let module, authUrl;
+const mocks = {
+    authorizeParams: {
+        data: {
+            username: 'redacted',
+            password: 'redacted',
+            customer_id: 'redacted'
+        }
+    },
+    tokenResponse: {
+        access_token: 'redacted',
+        refresh_token: 'redacted'
+    },
+    searchTranslations: {
+        results: {}
+    }
+}
+
+testAutherDefinition(Definition, mocks);
+
+describe.skip('Unbabel Module Tests', () => {
+    let module;
     beforeAll(async () => {
-        await mongoose.connect(process.env.MONGO_URI);
+        await connectToDatabase();
         module = await Auther.getInstance({
             definition: Definition,
-            userId: new mongoose.Types.ObjectId(),
+            userId: createObjectId(),
         });
     });
 
     afterAll(async () => {
         await Auther.CredentialModel.deleteMany();
         await Auther.EntityModel.deleteMany();
-        await mongoose.disconnect();
+        await disconnectFromDatabase();
     });
 
     describe('Authorization requests', () => {

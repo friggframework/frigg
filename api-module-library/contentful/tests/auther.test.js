@@ -2,7 +2,7 @@ const { connectToDatabase, disconnectFromDatabase, createObjectId, Auther } = re
 const { Definition} = require('../definition');
 const { Authenticator } = require("@friggframework/devtools");
 
-describe('Contentful Manager Tests', () => {
+describe('Contentful Module Tests', () => {
     let module, authUrl;
     beforeAll(async () => {
         await connectToDatabase();

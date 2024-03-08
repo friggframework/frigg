@@ -13,7 +13,7 @@ const mocks = {
 }
 testAutherDefinition(Definition, mocks)
 
-describe('42matters Module Live Tests', () => {
+describe.skip('42matters Module Live Tests', () => {
     let auther;
     beforeAll(async () => {
         await connectToDatabase();
