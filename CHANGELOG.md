@@ -1,3 +1,16 @@
+# (Fri Feb 02 2024)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/encrypt@1.1.8`
+  - Added variable BYPASS_ENCRYPTION_STAGE to encrypt module [#248](https://github.com/friggframework/frigg/pull/248) ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 1
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
 # (Thu Jan 18 2024)
 
 #### 🐛 Bug Fix

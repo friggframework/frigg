@@ -1,3 +1,16 @@
+# v1.1.8 (Fri Feb 02 2024)
+
+#### 🐛 Bug Fix
+
+- Added variable BYPASS_ENCRYPTION_STAGE to encrypt module [#248](https://github.com/friggframework/frigg/pull/248) ([@leofmds](https://github.com/leofmds))
+- Added variable BYPASS_ENCRYPTION_STAGE to encrypt module ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 1
+
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
 # v1.1.7 (Tue Apr 04 2023)
 
 :tada: This release contains work from a new contributor! :tada:
