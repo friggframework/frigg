@@ -199,13 +199,13 @@ describe(`${config.label} API tests`, () => {
             expect(response.results[0].properties).toHaveProperty('firstname');
         });
 
-        it.skip('should update a Contact', async () => {
-            let body = {
+        it('should update a Contact', async () => {
+            let properties = {
                 lastname: 'Johnson (Sample Contact) 1',
             };
             let response = await api.updateContact(
-                body,
-                createResponse.id
+                createResponse.id,
+                properties,
             );
             expect(response.properties.lastname).toBe(
                 'Johnson (Sample Contact) 1'
