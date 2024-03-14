@@ -1,24 +1,124 @@
-
-const core = require('./core/index');
-const database = require('./database/index');
-const assertions = require('./assertions/index');
-const integrations = require('./integrations/index');
-const errors =  require('./errors/index');
-const encrypt = require('./encrypt/encrypt');
-const lambda = require('./lambda/index');
-const logs = require('./logs/index');
-const modulePlugin = require('./module-plugin/index');
+const {
+    expectShallowEqualDbObject,
+    get,
+    getAll,
+    verifyType,
+    getParamAndVerifyParamType,
+    getArrayParamAndVerifyParamType,
+    getAndVerifyType,
+} = require('./assertions/index');
+const  { Delegate, Worker, loadInstalledModules, createHandler } = require('./core/index');
+const {
+    mongoose,
+    connectToDatabase,
+    disconnectFromDatabase,
+    createObjectId,
+    IndividualUser,
+    OrganizationUser,
+    State,
+    Token,
+    UserModel
+} = require('./database/index');
+const { Encrypt, Cryptor } = require('./encrypt/encrypt');
+const {
+    BaseError,
+    FetchError,
+    HaltError,
+    RequiredPropertyError,
+    ParameterTypeError,
+} =  require('./errors/index');
+const {
+    IntegrationBase,
+    IntegrationModel,
+    Options,
+    IntegrationMapping,
+    IntegrationFactory,
+    IntegrationHelper,
+    createIntegrationRouter,
+    checkRequiredParams,
+    createFriggBackend
+} = require('./integrations/index');
+const { TimeoutCatcher } = require('./lambda/index');
+const {
+    debug,
+    initDebugLog,
+    flushDebugLog
+} = require('./logs/index');
+const {
+    Credential,
+    EntityManager,
+    Entity,
+    ModuleManager,
+    ApiKeyRequester,
+    BasicAuthRequester,
+    OAuth2Requester,
+    Requester,
+    ModuleConstants,
+    ModuleFactory,
+    Auther
+} = require('./module-plugin/index');
 
 // const {Sync } = require('./syncs/model');
 
 module.exports = {
-    ...core,
-    ...database,
-    ...assertions,
-    ...integrations,
-    ...errors,
-    ...encrypt,
-    ...lambda,
-    ...logs,
-    ...modulePlugin,
+    // assertions
+    expectShallowEqualDbObject,
+    get,
+    getAll,
+    verifyType,
+    getParamAndVerifyParamType,
+    getArrayParamAndVerifyParamType,
+    getAndVerifyType,
+    // core
+    Delegate,
+    Worker,
+    loadInstalledModules,
+    createHandler,
+    // database
+    mongoose,
+    connectToDatabase,
+    disconnectFromDatabase,
+    createObjectId,
+    IndividualUser,
+    OrganizationUser,
+    State,
+    Token,
+    UserModel,
+    // encrypt
+    Encrypt,
+    Cryptor,
+    // errors
+    BaseError,
+    FetchError,
+    HaltError,
+    RequiredPropertyError,
+    ParameterTypeError,
+    // integrations
+    IntegrationBase,
+    IntegrationModel,
+    Options,
+    IntegrationMapping,
+    IntegrationFactory,
+    IntegrationHelper,
+    checkRequiredParams,
+    createIntegrationRouter,
+    createFriggBackend,
+    // lambda
+    TimeoutCatcher,
+    // logs
+    debug,
+    initDebugLog,
+    flushDebugLog,
+    // module plugin
+    Credential,
+    EntityManager,
+    Entity,
+    ModuleManager,
+    ApiKeyRequester,
+    BasicAuthRequester,
+    OAuth2Requester,
+    Requester,
+    ModuleConstants,
+    ModuleFactory,
+    Auther
 }
