@@ -1,9 +1,9 @@
 const moment = require('moment');
 const {
     ModuleManager,
-    ModuleConstants,
-= require('@friggframework/module-plugin');
-= require('@friggframework/core');const { Api } = require('./api.js');
+    ModuleConstants
+} = require('@friggframework/core');
+const { Api } = require('./api.js');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
 const AuthFields = require('./authFields');

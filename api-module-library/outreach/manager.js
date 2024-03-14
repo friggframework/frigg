@@ -1,12 +1,12 @@
-const { flushDebugLog, debug } = require('@friggframework/core');
-const _ = require('lodash');
-const { update } = require('lodash');
-const { Api } = require('./api.js');
-const { Entity } = require('./models/entity');
-const { Credential } = require('./models/credential');
 const {
     ModuleManager,
     ModuleConstants,
+    flushDebugLog,
+    debug
+} = require('@friggframework/core');
+const {Api} = require('./api.js');
+const {Entity} = require('./models/entity');
+const {Credential} = require('./models/credential');
 const Config = require('./defaultConfig.json');
 
 class Manager extends ModuleManager {
@@ -25,7 +25,7 @@ class Manager extends ModuleManager {
     static async getInstance(params) {
         const instance = new this(params);
 
-        const oParams = { delegate: instance };
+        const oParams = {delegate: instance};
         if (params.entityId) {
             instance.entity = await instance.entityMO.get(params.entityId);
             instance.credential = await instance.credentialMO.get(

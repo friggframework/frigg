@@ -8,7 +8,6 @@ const { Sync } = require("./model");
 
 class SyncManager {
   constructor(params) {
-    super(params);
     // TODO verify type????????
     // this.primaryModule = getAndVerifyType(params, 'primary', ModuleManager);
     // this.secondaryModule = getAndVerifyType(
@@ -36,7 +35,6 @@ class SyncManager {
 
     this.integration = get(params, "integration", null); // TODO Change to type validation
 
-    Sync = new Sync();
   }
 
   // calls getAllSyncObjects() on the modules and then finds the difference between each. The Primary Module
