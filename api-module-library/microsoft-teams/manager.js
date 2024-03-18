@@ -95,8 +95,8 @@ class Manager extends ModuleManager {
         await this.findAndUpsertCredential({
             tenant_id: this.tenant_id,
             graph_access_token: this.api.graphApi.access_token,
-            graph_refresh_token: this.api.botFrameworkApi.access_token,
-            bot_api_access_token: this.api.graphApi.refresh_token,
+            graph_refresh_token: this.api.graphApi.refresh_token,
+            bot_api_access_token: this.api.botFrameworkApi.access_token,
         });
 
         await this.findOrCreateEntity({
