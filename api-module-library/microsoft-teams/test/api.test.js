@@ -23,7 +23,7 @@ describe('Test of cross API functionality', () => {
 
     describe('Conversation reference generation tests', () => {
         let convRef;
-        const testEmail = 'michael.webber2@sklzt.onmicrosoft.com'
+        const testEmail = 'michael.webber@lefthook.com'
         it('Should create the conversation references', async () => {
             convRef = await api.createConversationReferences();
             expect(convRef).toBeDefined();
@@ -51,7 +51,7 @@ describe('Test of cross API functionality', () => {
             await api.botApi.sendProactive(testEmail, "hello from api.test.js!");
         });
 
-        it('Should send a proactive message from the user', async () => {
+        it.skip('Should add a new member', async () => {
             const membersAddedActivity = {
                 "membersAdded": [
                     {

@@ -1,5 +1,4 @@
-const { get } = require('@friggframework/assertions');
-const { OAuth2Requester } = require('@friggframework/module-plugin');
+const { OAuth2Requester, get } = require('@friggframework/core');
 
 class Api extends OAuth2Requester {
     constructor(params) {
@@ -16,6 +15,7 @@ class Api extends OAuth2Requester {
             getBatchContactsById: '/crm/v3/objects/contacts/batch/read',
             companies: '/crm/v3/objects/companies',
             companyById: (compId) => `/crm/v3/objects/companies/${compId}`,
+            companySearch: '/crm/v3/objects/companies/search',
             getBatchCompaniesById: '/crm/v3/objects/companies/batch/read',
             createTimelineEvent: '/crm/v3/timeline/events',
             userDetails: '/integrations/v1/me',
@@ -37,10 +37,15 @@ class Api extends OAuth2Requester {
             customObjectSchemaByObjectType: (objectType) =>
                 `/crm/v3/schemas/${objectType}`,
             customObjects: (objectType) => `/crm/v3/objects/${objectType}`,
+            customObjectsSearch: (objectType) => `/crm/v3/objects/${objectType}/search`,
             customObjectById: (objectType, objId) =>
                 `/crm/v3/objects/${objectType}/${objId}`,
             bulkCreateCustomObjects: (objectType) =>
                 `/crm/v3/objects/${objectType}/batch/create`,
+            bulkReadCustomObjects: (objectType) =>
+                `/crm/v3/objects/${objectType}/batch/read`,
+            bulkUpdateCustomObjects: (objectType) =>
+                `/crm/v3/objects/${objectType}/batch/update`,
             bulkArchiveCustomObjects: (objectType) =>
                 `/crm/v3/objects/${objectType}/batch/archive`,
             landingPages: '/cms/v3/pages/landing-pages',
@@ -51,7 +56,7 @@ class Api extends OAuth2Requester {
             blogPostById: (blogPostId) => `/cms/v3/blogs/posts/${blogPostId}`,
             emailTemplates: '/content/api/v2/templates',
             emailTemplateById: (templateId) => `/content/api/v2/templates/${templateId}`,
-            
+
         };
 
         this.authorizationUri = encodeURI(
@@ -62,7 +67,7 @@ class Api extends OAuth2Requester {
         this.access_token = get(params, 'access_token', null);
         this.refresh_token = get(params, 'refresh_token', null);
     }
-    async getAuthUri() {
+    getAuthUri() {
         return this.authorizationUri;
     }
 
@@ -80,6 +85,38 @@ class Api extends OAuth2Requester {
             },
         };
 
+        return this._post(options);
+    }
+
+    async listCompanies() {
+        const options = {
+            url: this.baseUrl + this.URLs.companies,
+        };
+
+        return this._get(options);
+    }
+
+    async updateCompany(id, body) {
+        const options = {
+            url: this.baseUrl + this.URLs.companyById(id),
+            body,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        };
+        return this._patch(options);
+    }
+
+    async searchCompanies(body) {
+        const options = {
+            url: this.baseUrl + this.URLs.companySearch,
+            body,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        };
         return this._post(options);
     }
 
@@ -550,6 +587,22 @@ class Api extends OAuth2Requester {
         return this._get(options);
     }
 
+    async bulkReadCustomObjects(objectType, body) {
+        const options = {
+            url: this.baseUrl + this.URLs.bulkReadCustomObjects(objectType),
+            body,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        };
+        if (this.api_key) {
+            options.query = { hapikey: this.api_key };
+        }
+
+        return this._post(options);
+    }
+
     async listCustomObjects(objectType, query = {}) {
         const options = {
             url: this.baseUrl + this.URLs.customObjects(objectType),
@@ -561,6 +614,22 @@ class Api extends OAuth2Requester {
         }
 
         return this._get(options);
+    }
+
+    async searchCustomObjects(objectType, body) {
+        const options = {
+            url: this.baseUrl + this.URLs.customObjectsSearch(objectType),
+            body,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        };
+        if (this.api_key) {
+            options.query = { hapikey: this.api_key };
+        }
+
+        return this._post(options);
     }
 
     async updateCustomObject(objectType, objId, body) {
@@ -578,6 +647,21 @@ class Api extends OAuth2Requester {
         }
 
         return this._patch(options);
+    }
+
+    async bulkUpdateCustomObjects(objectType, body) {
+        const options = {
+            url: this.baseUrl + this.URLs.bulkUpdateCustomObjects(objectType),
+            body,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        };
+        if (this.api_key) {
+            options.query = { hapikey: this.api_key };
+        }
+        return this._post(options);
     }
 
     // **************************   Properties / Custom Fields   **********************************

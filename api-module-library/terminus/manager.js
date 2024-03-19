@@ -1,12 +1,13 @@
-const { Api } = require('./api.js');
-const { Entity } = require('./models/entity');
-const { Credential } = require('./models/credential');
 const {
     ModuleManager,
     ModuleConstants,
-} = require('@friggframework/module-plugin');
-const Config = require('./defaultConfig.json');
-const { debug } = require('@friggframework/logs');
+    debug
+} = require('@friggframework/core');
+const {Api} = require('./api.js');
+const {Entity} = require('./models/entity');
+const {Credential} = require('./models/credential');
+
+Config = require('./defaultConfig.json');
 
 class Manager extends ModuleManager {
     static Entity = Entity;
@@ -27,7 +28,7 @@ class Manager extends ModuleManager {
         const instance = new this(params);
 
         // initializes the Api
-        const terminusParams = { delegate: instance };
+        const terminusParams = {delegate: instance};
         if (params.entityId) {
             try {
                 instance.entity = await Entity.findById(params.entityId);
@@ -92,7 +93,7 @@ class Manager extends ModuleManager {
                 if (credentialSearch[0].apiKey !== api_key) {
                     credential = await this.credentialMO.update(
                         credentialSearch[0]._id,
-                        { apiKey: api_key }
+                        {apiKey: api_key}
                     );
                 } else {
                     credential = await this.credentialMO.get(

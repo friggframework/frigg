@@ -1,11 +1,11 @@
 const _ = require('lodash');
-const { Api } = require('./api.js');
-const { Entity } = require('./models/entity');
-const { Credential } = require('./models/credential.js');
+const {Api} = require('./api.js');
+const {Entity} = require('./models/entity');
+const {Credential} = require('./models/credential.js');
 const {
     ModuleManager,
     ModuleConstants,
-} = require('@friggframework/module-plugin');
+} = require('@friggframework/core');
 const Config = require('./defaultConfig.json');
 
 class Manager extends ModuleManager {
@@ -27,7 +27,7 @@ class Manager extends ModuleManager {
         const instance = new this(params);
 
         // initializes the Api
-        const xbeamParams = { delegate: instance };
+        const xbeamParams = {delegate: instance};
         if (params.entityId) {
             instance.entity = await instance.entityMO.get(params.entityId);
             xbeamParams.organization_id = instance.entity.organization_id;
@@ -59,7 +59,7 @@ class Manager extends ModuleManager {
         const code = get(params.data, 'code');
         const response = await this.api.getTokenFromCode(code);
 
-        const credentials = await this.credentialMO.list({ user: this.userId });
+        const credentials = await this.credentialMO.list({user: this.userId});
 
         if (credentials.length === 0) {
             throw new Error('Credential failed to create');
@@ -209,7 +209,7 @@ class Manager extends ModuleManager {
         }
     }
 
-    async listAllPartnerPopulations(query = { page: 1, limit: 100 }) {
+    async listAllPartnerPopulations(query = {page: 1, limit: 100}) {
         const results = await this.api.getPartnerPopulations(query);
         if (results.pagination) {
             if (results.pagination.next_href) {
@@ -221,7 +221,7 @@ class Manager extends ModuleManager {
         return results.items;
     }
 
-    async listAllPartners(query = { page: 1, limit: 100 }) {
+    async listAllPartners(query = {page: 1, limit: 100}) {
         const results = await this.api.getPartners(query);
         if (results.pagination) {
             if (results.pagination.next_href) {
@@ -233,7 +233,7 @@ class Manager extends ModuleManager {
         return results.partner_orgs;
     }
 
-    async listAllPartnerRecords(query = { page: 1, limit: 100 }) {
+    async listAllPartnerRecords(query = {page: 1, limit: 100}) {
         const results = await this.api.getPartnerRecords(query);
         if (results.pagination) {
             if (results.pagination.next_href) {
@@ -245,7 +245,7 @@ class Manager extends ModuleManager {
         return results.items;
     }
 
-    async listAllPopulations(query = { page: 1, limit: 100 }) {
+    async listAllPopulations(query = {page: 1, limit: 100}) {
         const results = await this.api.getPopulations(query);
         if (results.pagination) {
             if (results.pagination.next_href) {
@@ -257,7 +257,7 @@ class Manager extends ModuleManager {
         return results.items;
     }
 
-    async listAllReports(query = { page: 1, limit: 100 }) {
+    async listAllReports(query = {page: 1, limit: 100}) {
         const results = await this.api.getReports(query);
         if (results.pagination) {
             if (results.pagination.next_href) {
@@ -269,7 +269,7 @@ class Manager extends ModuleManager {
         return results.items;
     }
 
-    async listAllReportData(report_id, query = { page: 1, limit: 100 }) {
+    async listAllReportData(report_id, query = {page: 1, limit: 100}) {
         const results = await this.api.getReportData(report_id, query);
         if (results.pagination) {
             if (results.pagination.next_href) {
@@ -284,7 +284,7 @@ class Manager extends ModuleManager {
         return results.items;
     }
 
-    async listAllThreads(query = { page: 1, limit: 100 }) {
+    async listAllThreads(query = {page: 1, limit: 100}) {
         const results = await this.api.getThreads(query);
         if (results.pagination) {
             if (results.pagination.next_href) {
@@ -296,7 +296,7 @@ class Manager extends ModuleManager {
         return results.items;
     }
 
-    async listAllThreadTimelines(thread_id, query = { page: 1, limit: 100 }) {
+    async listAllThreadTimelines(thread_id, query = {page: 1, limit: 100}) {
         const results = await this.api.getThreads(thread_id, query);
         if (results.pagination) {
             if (results.pagination.next_href) {

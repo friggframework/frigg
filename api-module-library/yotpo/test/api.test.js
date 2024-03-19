@@ -1,3 +1,4 @@
+const { Authenticator, Authenticator } = require('@friggframework/core');
 'use strict';
 require('dotenv').config();
 const chai = require('chai');
@@ -7,7 +8,6 @@ const { expect } = require('chai');
 const nockBack = require('nock').back;
 const authResponse = require('../fixtures/responses/authResponse.json');
 const createOrderFulfillmentResponse = require('../fixtures/responses/createOrderFulfillmentResponse.json');
-const Authenticator = require('@friggframework/test-environment/Authenticator');
 
 const testCustomer = {
     email: process.env.TEST_CUSTOMER_EMAIL || 'test@example.com',
@@ -39,7 +39,6 @@ describe('Yotpo API class', () => {
             };
 
             it('should get Token if no token is set', async () => {
-                const Authenticator = require('@friggframework/test-environment/Authenticator');
 
                 createOrderFulfillmentCall = nock('https://api.yotpo.com/core')
                     .post(

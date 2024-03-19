@@ -1,5 +1,5 @@
-const { get } = require('@friggframework/assertions');
-const { OAuth2Requester } = require('@friggframework/module-plugin');
+const { OAuth2Requester, get } = require('@friggframework/core');
+
 class botFrameworkApi extends OAuth2Requester {
     constructor(params) {
         super(params);

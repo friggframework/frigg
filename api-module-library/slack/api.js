@@ -1,9 +1,6 @@
+const { FetchError, get, OAuth2Requester } = require('@friggframework/core');
 const qs = require('qs');
 
-const { OAuth2Requester } = require('@friggframework/module-plugin');
-const { get } = require('@friggframework/assertions');
-const { FetchError } = require('@friggframework/errors');
-const moment = require("moment/moment");
 
 class Api extends OAuth2Requester {
     constructor(params) {
@@ -96,8 +93,8 @@ class Api extends OAuth2Requester {
             this.access_token = authedUser.access_token;
         }
 
-        this.accessTokenExpire = moment().add(accessExpiresIn, 'seconds');
-        this.refreshTokenExpire = moment().add(refreshExpiresIn, 'seconds');
+        this.accessTokenExpire = new Date(Date.now() + accessExpiresIn * 1000);
+        this.refreshTokenExpire = new Date(Date.now() + refreshExpiresIn * 1000);
 
         await this.notify(this.DLGT_TOKEN_UPDATE);
     }
@@ -166,12 +163,18 @@ class Api extends OAuth2Requester {
         return headers;
     }
 
-    async getAuthUri() {
+    getAuthorizationUri() {
         const authUri = encodeURI(
             `${this.URLs.authorize}?state=${this.state}&client_id=${this.client_id}&scope=${this.scope}&user_scope=${this.user_scope}&redirect_uri=${this.redirect_uri}`
         );
         return authUri;
     }
+
+    // for backwards compatibility
+    getAuthUri() {
+        return this.getAuthorizationUri();
+    }
+
     async listTeams() {
         const options = {
             url: this.baseUrl + this.URLs.listTeams,

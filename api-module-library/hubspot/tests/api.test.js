@@ -1,6 +1,6 @@
+const { Authenticator } = require('@friggframework/devtools');
 const {Api} = require('../api');
 const config = require('../defaultConfig.json');
-const Authenticator = require('@friggframework/test-environment/Authenticator');
 
 describe(`${config.label} API tests`, () => {
 
@@ -57,7 +57,7 @@ describe(`${config.label} API tests`, () => {
     describe('HS Companies', () => {
         let createRes;
         beforeAll(async () => {
-            let body = {
+            const body = {
                 domain: 'gitlab.com',
                 name: 'Gitlab',
             };
@@ -74,15 +74,15 @@ describe(`${config.label} API tests`, () => {
         });
 
         it('should return the company info', async () => {
-            let company_id = createRes.id;
-            let response = await api.getCompanyById(company_id);
+            const company_id = createRes.id;
+            const response = await api.getCompanyById(company_id);
             expect(response.id).toBe(company_id);
             // expect(response.properties.domain).to.eq('golabstech.com');
             // expect(response.properties.name).to.eq('Golabs');
         });
 
-        it.skip('should list Companies', async () => {
-            let response = await api.listCompanies();
+        it('should list Companies', async () => {
+            const response = await api.listCompanies();
             expect(response.results[0]).toHaveProperty('id');
             expect(response.results[0]).toHaveProperty('properties');
             expect(response.results[0].properties).toHaveProperty('domain');
@@ -92,16 +92,32 @@ describe(`${config.label} API tests`, () => {
             );
         });
 
-        it.skip('should update Company', async () => {
-            let body = {
-                name: 'Facebook 1',
+        it('should update Company', async () => {
+            const body = {
+                properties: {
+                    name: 'Facebook 1',
+                }
             };
-            let response = await api.updateCompany(
+            const response = await api.updateCompany(
                 createRes.id,
                 body
             );
             expect(response.properties.name).toBe('Facebook 1');
         });
+
+        it('should search for a company', async () => {
+            // case sensitive search of default searchable properties
+            // website, phone, name, domain
+            const body = {
+                query: 'Facebook',
+            };
+            const response = await api.searchCompanies(body);
+            expect(response.results[0]).toHaveProperty('id');
+            expect(response.results[0]).toHaveProperty('properties');
+            expect(response.results[0].properties).toHaveProperty('domain');
+            expect(response.results[0].properties).toHaveProperty('name');
+            expect(response.results[0].properties.name).toBe('Facebook 1');
+        })
 
         it('should delete a company', async () => {
             // Hope the after works!
@@ -112,7 +128,7 @@ describe(`${config.label} API tests`, () => {
     describe.skip('HS Companies BATCH', () => {
         let createResponse;
         beforeAll(async () => {
-            let body = [
+            const body = [
                 {
                     properties: {
                         domain: 'gitlab.com',
@@ -131,17 +147,17 @@ describe(`${config.label} API tests`, () => {
 
         afterAll(async () => {
             return createResponse.results.map(async (company) => {
-                return api.deleteCompany(company.id);
+                return api.deconsteCompany(company.id);
             });
         });
 
         it('should create a Batch of Companies', async () => {
-            let results = _.sortBy(createResponse.results, [
+            const results = _.sortBy(createResponse.results, [
                 function (o) {
                     return o.properties.name;
                 },
             ]);
-            expect(createResponse.status).toBe('COMPLETE');
+            expect(createResponse.status).toBe('COMPCONSTE');
             expect(results[0].properties.name).toBe('Facebook');
             expect(results[0].properties.domain).toBe('facebook.com');
             expect(results[1].properties.name).toBe('Gitlab');
@@ -149,7 +165,7 @@ describe(`${config.label} API tests`, () => {
         });
 
         it('should update a Batch of Companies', async () => {
-            let body = [
+            const body = [
                 {
                     properties: {
                         name: 'Facebook 2',
@@ -163,14 +179,14 @@ describe(`${config.label} API tests`, () => {
                     id: createResponse.results[1].id,
                 },
             ];
-            let response = await api.updateBatchCompany(body);
+            const response = await api.updateBatchCompany(body);
 
-            let results = _.sortBy(response.results, [
+            const results = _.sortBy(response.results, [
                 function (o) {
                     return o.properties.name;
                 },
             ]);
-            expect(response.status).toBe('COMPLETE');
+            expect(response.status).toBe('COMPCONSTE');
             expect(results[0].properties.name).toBe('Facebook 2');
             expect(results[1].properties.name).toBe('Gitlab 2');
         });
@@ -446,4 +462,161 @@ describe(`${config.label} API tests`, () => {
             expect(response.status).toBe(204);
         });
     });
+
+    describe.only('HS Custom Objects', () => {
+        let allCustomObjects;
+        const testObjType = 'tests';
+        let oneWord;
+        const createWord = 'Test Custom Object Create';
+        const updateWord = 'Test Custom Object Update';
+        it('should return the Custom Objects', async () => {
+            allCustomObjects = await api.listCustomObjects(
+                testObjType,
+                {properties: 'word'}
+            );
+            expect(allCustomObjects).toBeDefined();
+            expect(allCustomObjects).toHaveProperty('results')
+            oneWord = allCustomObjects.results.find(o => o.properties.word === 'One');
+        });
+        it('get Custom Object by Id' , async () => {
+            const objectToGet = allCustomObjects.results.slice(-1)[0];
+            const response = await api.getCustomObject(testObjType, objectToGet.id);
+            expect(response).toBeDefined();
+        });
+        let createdObject;
+        it('create a Custom Object' , async () => {
+            createdObject = await api.createCustomObject(
+                testObjType,
+                {
+                    properties: {
+                        word: createWord
+                    }
+                },
+             );
+            expect(createdObject).toBeDefined();
+        })
+        it('update a Custom Object' , async () => {
+            const response = await api.updateCustomObject(
+                testObjType,
+                createdObject.id,
+                {
+                    properties: {
+                        word: updateWord
+                    }
+                },
+             );
+            expect(response).toBeDefined();
+        });
+        it('Search for custom object' , async () => {
+            // Search doesn't work on objects that were very recently created
+            const response = await api.searchCustomObjects(
+                testObjType,
+                {
+                    "query": 'One',
+                    "filterGroups": [
+                        {
+                            "filters": [
+                                {
+                                    "propertyName": "word",
+                                    "value": 'One',
+                                    "operator": "EQ"
+                                }
+                            ]
+                        }
+                    ]
+                }
+             );
+            expect(response).toBeDefined();
+            expect(response.results).toHaveProperty('length');
+            expect(response.results[0].id).toBe(oneWord.id);
+        });
+        it('delete a Custom Object' , async () => {
+            const response = await api.deleteCustomObject(testObjType, createdObject.id);
+            expect(response.status).toBe(204);
+        })
+
+        // BATCH TESTS
+        const batchSize = 100;
+        let createdBatch;
+        it('Should bulk create a batch of objects', async () => {
+            const range = Array.from({ length: batchSize }, (_, i) => i);
+            const objectsToCreate = range.map(i => ({
+                properties: {
+                    word: `Test Bulk Create ${i}`
+                },
+            }))
+            const response = await api.bulkCreateCustomObjects(
+                testObjType,
+                {inputs: objectsToCreate}
+            );
+            expect(response.results).toHaveProperty('length');
+            expect(response.results.length).toBe(batchSize);
+            createdBatch = response.results;
+        })
+        it('Should read a batch of objects', async () => {
+            const inputs = createdBatch.map(o => {return {id: o.id}});
+            const response = await api.bulkReadCustomObjects(
+                testObjType,
+                {
+                    inputs,
+                    properties: ['word']
+                }
+            );
+            expect(response).toBeDefined();
+            expect(response.results).toHaveProperty('length');
+            expect(response.results.length).toBe(batchSize);
+        });
+        it('Should update a batch of objects', async () => {
+            const inputs = createdBatch.map(o => {
+                return {
+                    id: o.id,
+                    properties: {word: 'Test Update'}
+                }
+            });
+
+            const response = await api.bulkUpdateCustomObjects(
+                testObjType,
+                {
+                    inputs,
+                }
+            );
+            expect(response).toBeDefined();
+            expect(response.results).toHaveProperty('length');
+            expect(response.results.length).toBe(batchSize);
+        });
+        it('Should delete a batch of objects', async () => {
+            const inputs = createdBatch.map(o => {return {id: o.id}});
+            const response = await api.bulkArchiveCustomObjects(
+                testObjType,
+                {
+                    inputs
+                }
+            );
+            expect(response).toBeDefined();
+            expect(response).toBe("");
+        });
+        afterAll(async () => {
+            // Search doesn't work on objects that were very recently created
+            const response = await api.searchCustomObjects(
+                testObjType,
+                {
+                    "query": 'Test',
+                    "limit": 100,
+                    "filterGroups": [
+                        {
+                            "filters": [
+                                {
+                                    "propertyName": "word",
+                                    "value": 'Test',
+                                    "operator": "CONTAINS_TOKEN"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            );
+            const inputs = response.results.map(o => {return {id: o.id}});
+            await api.bulkArchiveCustomObjects(testObjType, {inputs});
+        })
+    })
 });

@@ -1,13 +1,27 @@
+const { get, ModuleConstants, OAuth2Requester } = require('@friggframework/core');
 const { graphApi } = require('./graph');
 const { botFrameworkApi } = require('./botFramework');
 const { botApi } = require('./bot')
-const { get } = require('@friggframework/assertions');
 
-class Api {
+class Api extends OAuth2Requester {
+
     constructor(params) {
-        this.graphApi = new graphApi({ access_token: get(params, 'graph_access_token', null), ...params});
+        super(params);
+        this.graphApi = new graphApi({
+            access_token: get(params, 'graph_access_token', null),
+            refresh_token: get(params, 'graph_refresh_token', null),
+            ...params});
         this.botFrameworkApi = new botFrameworkApi({  access_token: get(params, 'bot_access_token', null), ...params});
         this.botApi = new botApi(params);
+    }
+
+
+    async getAuthorizationRequirements(params) {
+        return {
+            url: await this.graphApi.getAuthUri(),
+            type: ModuleConstants.authType.oauth2,
+            data: {},
+        };
     }
 
     async getTokenFromClientCredentials(){

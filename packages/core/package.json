@@ -1,35 +1,51 @@
 {
-    "name": "@friggframework/core",
-    "prettier": "@friggframework/prettier-config",
-    "version": "0.2.14",
-    "devDependencies": {
-        "@friggframework/eslint-config": "^1.0.8",
-        "eslint": "^8.22.0",
-        "jest": "^28.1.3",
-        "prettier": "^2.7.1"
-    },
-    "scripts": {
-        "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
-        "test": "jest --passWithNoTests # TODO"
-    },
-    "author": "",
-    "license": "MIT",
-    "main": "index.js",
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/friggframework/frigg.git"
-    },
-    "bugs": {
-        "url": "https://github.com/friggframework/frigg/issues"
-    },
-    "homepage": "https://github.com/friggframework/frigg#readme",
-    "dependencies": {
-        "@friggframework/assertions": "^1.0.8",
-        "@friggframework/errors": "^1.1.6",
-        "aws-sdk": "^2.1200.0",
-        "lodash": "^4.17.21",
-        "moment": "^2.29.4",
-        "node-fetch": "^2.6.7"
-    },
-    "description": ""
+  "name": "@friggframework/core",
+  "prettier": "@friggframework/prettier-config",
+  "version": "1.0.0",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "mongoose": "6.11.6",
+    "lodash": "^4.17.21",
+    "lodash.get": "^4.4.2",
+    "aws-sdk": "^2.1200.0",
+    "node-fetch": "^2.6.7",
+    "@hapi/boom": "^10.0.1",
+    "express": "^4.18.2",
+    "express-async-handler": "^1.2.0",
+    "common-tags": "^1.8.2"
+  },
+  "devDependencies": {
+    "@friggframework/devtools": "^1.0.0",
+    "eslint": "^8.36.0",
+    "jest": "^28.1.3",
+    "jest-runner-groups": "^2.2.0",
+    "mongodb-memory-server": "^8.9.0",
+    "prettier": "^2.8.5",
+    "@types/lodash": "^4.14.191",
+    "@typescript-eslint/eslint-plugin": "^5.55.0",
+    "eslint-config-standard-with-typescript": "^34.0.1",
+    "eslint-plugin-import": "^2.27.5",
+    "eslint-plugin-n": "^15.6.1",
+    "eslint-plugin-promise": "^6.1.1",
+    "typescript": "^5.0.2",
+    "chai": "^4.3.6",
+    "sinon": "^14.0.0"
+  },
+  "scripts": {
+    "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
+    "test": "jest --passWithNoTests # TODO"
+  },
+  "author": "",
+  "license": "MIT",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/friggframework/frigg.git"
+  },
+  "bugs": {
+    "url": "https://github.com/friggframework/frigg/issues"
+  },
+  "homepage": "https://github.com/friggframework/frigg#readme",
+
+  "description": ""
 }

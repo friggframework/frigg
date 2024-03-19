@@ -1,7 +1,5 @@
-const { BotFrameworkAdapter, StatusCodes, TeamsActivityHandler, CardFactory, MessageFactory, TeamsInfo, TurnContext
+const { BotFrameworkAdapter, StatusCodes, TeamsActivityHandler, TeamsInfo, TurnContext
 } = require('botbuilder');
-const {OAuth2Requester} = require("@friggframework/module-plugin");
-const {get} = require("@friggframework/assertions");
 
 
 class botApi {

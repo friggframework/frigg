@@ -1,7 +1,7 @@
+const { Authenticator } = require('@friggframework/devtools');
 const Manager = require('../manager');
 const mongoose = require('mongoose');
 const config = require('../defaultConfig.json');
-const Authenticator = require('@friggframework/test-environment/Authenticator');
 const authFields = require('../authFields');
 
 const yotpoCreds = {

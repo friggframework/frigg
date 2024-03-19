@@ -1,0 +1,9 @@
+{
+    "name": "freshbooks",
+    "label": "FreshBooks",
+    "productUrl": "https://freshbooks.com",
+    "apiDocs": "https://www.freshbooks.com/api/start",
+    "logoUrl": "https://logo.clearbit.com/freshbooks.com",
+    "categories": ["Finance"],
+    "description": "FreshBooks is cloud-based invoice and accounting software for small and midsize businesses. It is an easy-to-use solution for creating invoices, organizing expenses, running accounting reports, and getting paid."
+}

@@ -1,5 +1,5 @@
+const { Authenticator } = require('@friggframework/devtools');
 const { Api } = require('../api');
-const Authenticator = require('@friggframework/test-environment/Authenticator');
 const config = require('../defaultConfig.json');
 require('dotenv').config();
 
@@ -17,7 +17,7 @@ describe(`Should fully test the ${config.label} API Class`, () => {
             expect(authUri).exists;
         });
 
-        it.skip('should generate an access_token from a code', async () => {
+        it('should generate an access_token from a code', async () => {
             const authUri = await api.getAuthUri();
             const response = await Authenticator.oauth2(authUri);
             const baseArr = response.base.split('/');

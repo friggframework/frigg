@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-ironclad",
-    "version": "0.1.2",
+    "version": "0.1.16",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -11,8 +11,6 @@
     "author": "",
     "license": "MIT",
     "devDependencies": {
-        "@friggframework/eslint-config": "^1.0.8",
-        "@friggframework/test-environment": "^1.1.6",
         "chai": "^4.3.6",
         "dotenv": "^16.0.2",
         "eslint": "^8.22.0",
@@ -23,8 +21,7 @@
         "sinon": "^14.0.0"
     },
     "dependencies": {
-        "@friggframework/assertions": "^1.0.8",
-        "@friggframework/module-plugin": "^1.1.2"
+        "@friggframework/core": "^1.0.0"
     },
     "publishConfig": {
         "access": "public"

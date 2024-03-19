@@ -1,7 +1,5 @@
+const { flushDebugLog, get, OAuth2Requester } = require('@friggframework/core');
 const jsforce = require('jsforce');
-const { OAuth2Requester } = require('@friggframework/module-plugin');
-const { get } = require('@friggframework/assertions');
-const { flushDebugLog } = require('@friggframework/logs');
 
 class Api extends OAuth2Requester {
     constructor(params) {

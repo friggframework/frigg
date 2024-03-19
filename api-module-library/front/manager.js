@@ -4,7 +4,7 @@ const { Credential } = require('./models/credential.js');
 const {
     ModuleManager,
     ModuleConstants,
-} = require('@friggframework/module-plugin');
+} = require('@friggframework/core');
 const _ = require('lodash');
 const Config = require('./defaultConfig.json');
 

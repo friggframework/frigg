@@ -1,9 +1,6 @@
-const { debug, flushDebugLog } = require('@friggframework/logs');
-const { get } = require('@friggframework/assertions');
-const {
+const { get, debug, flushDebugLog,
     ModuleManager,
-    ModuleConstants,
-} = require('@friggframework/module-plugin');
+    ModuleConstants} = require('@friggframework/core');
 const { Api } = require('./api');
 const { Entity } = require('./models/entity');
 const { Credential } = require('./models/credential');
