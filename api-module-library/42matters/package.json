@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-42matters",
-    "version": "0.0.5",
+    "version": "1.0.0",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
