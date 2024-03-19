@@ -1,3 +1,22 @@
+# v0.2.9 (Tue Mar 19 2024)
+
+#### 🐛 Bug Fix
+
+- publish msteams [#270](https://github.com/friggframework/frigg/pull/270) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- also update package-lock.json ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- bump teams (w version) to publish [#269](https://github.com/friggframework/frigg/pull/269) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- bump teams to publish ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- bump teams to publish [#268](https://github.com/friggframework/frigg/pull/268) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- update auto / lerna [#267](https://github.com/friggframework/frigg/pull/267) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- fix teams credential [#266](https://github.com/friggframework/frigg/pull/266) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- fix a typo/mistake for the credential save ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 1
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+
+---
+
 # v0.2.5 (Thu Jan 18 2024)
 
 #### 🐛 Bug Fix
