@@ -5,6 +5,7 @@
   "dependencies": {
     "@friggframework/core": "^1.0.0",
     "@friggframework/eslint-config": "^1.0.8",
+    "@friggframework/prettier-config": "^1.0.6",
     "jest-runner-groups": "^2.2.0",
     "mongodb-memory-server": "^8.9.0",
     "@babel/eslint-parser": "^7.18.9",
