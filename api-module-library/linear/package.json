@@ -15,7 +15,8 @@
         "eslint": "^8.49.0",
         "jest": "^29.7.0",
         "prettier": "^3.0.3",
-        "sinon": "^16.0.0"
+        "sinon": "^16.0.0",
+        "@friggframework/devtools": "^1.0.0"
     },
     "dependencies": {
         "@linear/sdk": "^8.0.0",
