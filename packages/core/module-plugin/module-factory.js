@@ -27,7 +27,7 @@ class ModuleFactory {
     }
 
     getModuleDefinitionFromTypeName(typeName) {
-        return
+
     }
 
 
