@@ -6,5 +6,10 @@
         "cacheableOperations": ["build", "test"]
       }
     }
+  },
+  "pluginsConfig": {
+    "@nrwl/js": {
+      "analyzeSourceFiles": true
+    }
   }
 }
