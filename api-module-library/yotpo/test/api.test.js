@@ -1,4 +1,4 @@
-const { Authenticator, Authenticator } = require('@friggframework/core');
+const { Authenticator } = require('@friggframework/core');
 'use strict';
 require('dotenv').config();
 const chai = require('chai');
