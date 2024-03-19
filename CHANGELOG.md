@@ -1,3 +1,29 @@
+# (Tue Mar 19 2024)
+
+#### 🐛 Bug Fix
+
+- correct lerna.json for this version [#272](https://github.com/friggframework/frigg/pull/272) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- update auto / lerna [#267](https://github.com/friggframework/frigg/pull/267) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- add temporary pre-release branch [#263](https://github.com/friggframework/frigg/pull/263) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- `@friggframework/api-module-hubspot@0.9.5`, `@friggframework/api-module-slack@0.2.10`
+  - update hubspot and slack versions to addres publishing issue [#273](https://github.com/friggframework/frigg/pull/273) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- `@friggframework/api-module-microsoft-teams@0.2.9`
+  - publish msteams [#270](https://github.com/friggframework/frigg/pull/270) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - bump teams (w version) to publish [#269](https://github.com/friggframework/frigg/pull/269) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - bump teams to publish [#268](https://github.com/friggframework/frigg/pull/268) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - fix teams credential [#266](https://github.com/friggframework/frigg/pull/266) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- `@friggframework/api-module-hubspot@0.9.5`
+  - Added the updateContact call to HubSpot API module [#265](https://github.com/friggframework/frigg/pull/265) ([@leofmds](https://github.com/leofmds))
+- `@friggframework/api-module-slack@0.2.10`
+  - Fix the redirect_uri passed by the user in getInstance method [#255](https://github.com/friggframework/frigg/pull/255) ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
 # (Fri Feb 02 2024)
 
 #### 🐛 Bug Fix

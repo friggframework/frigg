@@ -1,3 +1,19 @@
+# v0.2.10 (Tue Mar 19 2024)
+
+#### 🐛 Bug Fix
+
+- update hubspot and slack versions to addres publishing issue [#273](https://github.com/friggframework/frigg/pull/273) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- update hubspot and slack versions as they seem to be causing an issue ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Fix the redirect_uri passed by the user in getInstance method [#255](https://github.com/friggframework/frigg/pull/255) ([@leofmds](https://github.com/leofmds))
+- Fix the redirect_uri passed by the user in getInstance method ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
 # v0.2.5 (Thu Sep 28 2023)
 
 #### 🐛 Bug Fix
