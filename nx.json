@@ -6,10 +6,5 @@
         "cacheableOperations": ["build", "test"]
       }
     }
-  },
-  "pluginsConfig": {
-    "@nx/js": {
-      "analyzeSourceFiles": true
-    }
   }
 }
