@@ -32,7 +32,6 @@
   "repository": "friggframework/frigg",
   "auto": {
     "prereleaseBranches": ["next", "v1-alpha"],
-    "versionBranches": true,
     "plugins": [
       "all-contributors",
       "conventional-commits",
