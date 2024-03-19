@@ -220,6 +220,20 @@ class Api extends OAuth2Requester {
         return this._get(options);
     }
 
+    async updateContact(contactId, properties) {
+        const options = {
+            url: this.baseUrl + this.URLs.contactById(contactId),
+            body: {
+                properties,
+            },
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        }
+        return this._patch(options);
+    }
+
     async batchGetContactsById(body) {
         // const props = await this.listProperties('contact');
         // const properties = props.results.map((prop) => prop.name);

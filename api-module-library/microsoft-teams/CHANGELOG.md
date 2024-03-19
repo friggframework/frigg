@@ -1,3 +1,44 @@
+# v0.2.10 (Tue Mar 19 2024)
+
+#### 🐛 Bug Fix
+
+- Test publishing / release response to change [#275](https://github.com/friggframework/frigg/pull/275) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Merge branch 'main' into fr/publish-msteams ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- update msteams module to test publishing / version mechanics ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- also update package-lock.json [#270](https://github.com/friggframework/frigg/pull/270) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- bump teams to publish [#269](https://github.com/friggframework/frigg/pull/269) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- bump teams to publish [#268](https://github.com/friggframework/frigg/pull/268) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- update auto / lerna [#267](https://github.com/friggframework/frigg/pull/267) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- fix teams credential [#266](https://github.com/friggframework/frigg/pull/266) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- fix a typo/mistake for the credential save ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# v0.2.9 (Tue Mar 19 2024)
+
+#### 🐛 Bug Fix
+
+- publish msteams [#270](https://github.com/friggframework/frigg/pull/270) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- also update package-lock.json ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- bump teams (w version) to publish [#269](https://github.com/friggframework/frigg/pull/269) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- bump teams to publish ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- bump teams to publish [#268](https://github.com/friggframework/frigg/pull/268) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- update auto / lerna [#267](https://github.com/friggframework/frigg/pull/267) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- fix teams credential [#266](https://github.com/friggframework/frigg/pull/266) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- fix a typo/mistake for the credential save ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 1
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+
+---
+
 # v0.2.5 (Thu Jan 18 2024)
 
 #### 🐛 Bug Fix

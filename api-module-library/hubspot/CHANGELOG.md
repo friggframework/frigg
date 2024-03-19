@@ -1,3 +1,19 @@
+# v0.9.5 (Tue Mar 19 2024)
+
+#### 🐛 Bug Fix
+
+- update hubspot and slack versions to addres publishing issue [#273](https://github.com/friggframework/frigg/pull/273) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- update hubspot and slack versions as they seem to be causing an issue ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Added the updateContact call to HubSpot API module [#265](https://github.com/friggframework/frigg/pull/265) ([@leofmds](https://github.com/leofmds))
+- Added the updateContact call to HubSpot API module ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+
+---
+
 # v0.9.0 (Wed Sep 06 2023)
 
 #### 🐛 Bug Fix
