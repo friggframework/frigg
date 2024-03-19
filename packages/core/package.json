@@ -15,7 +15,7 @@
     "common-tags": "^1.8.2"
   },
   "devDependencies": {
-    "@friggframework/devtools": "^1.0.0",
+    "@friggframework/devtools": "v1-alpha",
     "@friggframework/prettier-config": "^1.0.6",
     "eslint": "^8.36.0",
     "jest": "^28.1.3",

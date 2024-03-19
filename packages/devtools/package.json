@@ -3,7 +3,7 @@
   "prettier": "@friggframework/prettier-config",
   "version": "1.0.0",
   "dependencies": {
-    "@friggframework/core": "^1.0.0",
+    "@friggframework/core": "v1-alpha",
     "@friggframework/eslint-config": "^1.0.8",
     "@friggframework/prettier-config": "^1.0.6",
     "jest-runner-groups": "^2.2.0",
