@@ -1,5 +1,18 @@
 # (Wed Mar 20 2024)
 
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-microsoft-teams@0.4.1`
+  - Fix MS Teams refresh token and patch version 0. [#280](https://github.com/friggframework/frigg/pull/280) ([@brendanrmoore](https://github.com/brendanrmoore))
+
+#### Authors: 1
+
+- Brendan Moore ([@brendanrmoore](https://github.com/brendanrmoore))
+
+---
+
+# (Wed Mar 20 2024)
+
 #### 🚀 Enhancement
 
 - `@friggframework/api-module-activecampaign@0.11.0`, `@friggframework/api-module-airwallex@0.11.0`, `@friggframework/api-module-attentive@0.11.0`, `@friggframework/api-module-clyde@0.11.0`, `@friggframework/api-module-connectwise@0.11.0`, `@friggframework/api-module-crossbeam@0.11.0`, `@friggframework/api-module-fastspring-iq@0.11.0`, `@friggframework/api-module-front@0.11.0`, `@friggframework/api-module-frontify@1.3.0`, `@friggframework/api-module-google-calendar@0.3.0`, `@friggframework/api-module-google-drive@0.3.0`, `@friggframework/api-module-gorgias@0.11.0`, `@friggframework/api-module-hubspot@0.11.0`, `@friggframework/api-module-huggg@0.11.0`, `@friggframework/api-module-ironclad@0.3.0`, `@friggframework/api-module-marketo@0.11.0`, `@friggframework/api-module-microsoft-teams@0.4.0`, `@friggframework/api-module-monday@0.11.0`, `@friggframework/api-module-netx@0.11.0`, `@friggframework/api-module-outreach@0.11.0`, `@friggframework/api-module-personio@0.11.0`, `@friggframework/api-module-pipedrive@0.11.0`, `@friggframework/api-module-qbo@0.11.0`, `@friggframework/api-module-rev-io@0.11.0`, `@friggframework/api-module-rollworks@0.11.0`, `@friggframework/api-module-salesforce@0.11.0`, `@friggframework/api-module-salesloft@0.11.0`, `@friggframework/api-module-microsoft-sharepoint@0.3.0`, `@friggframework/api-module-slack@0.4.0`, `@friggframework/api-module-terminus@0.11.0`, `@friggframework/api-module-yotpo@0.3.0`, `@friggframework/api-module-zoom@0.11.0`
