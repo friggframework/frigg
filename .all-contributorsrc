@@ -289,6 +289,17 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "nmilcoff",
+      "name": "nmilcoff",
+      "avatar_url": "https://avatars.githubusercontent.com/u/12127846?v=4",
+      "profile": "http://nmilcoff.com/",
+      "contributions": [
+        "doc",
+        "test",
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7
