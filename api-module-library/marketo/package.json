@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-marketo",
-    "version": "0.9.16",
+    "version": "0.10.0",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -17,7 +17,7 @@
         "sinon": "^14.0.0"
     },
     "dependencies": {
-        "openapi-client-axios": "^5.1.2",
-        "@friggframework/core": "^1.0.0"
+        "@friggframework/core": "^1.1.0",
+        "openapi-client-axios": "^5.1.2"
     }
 }

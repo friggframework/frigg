@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-google-drive",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -19,7 +19,7 @@
         "sinon": "^15.0.4"
     },
     "dependencies": {
-        "@friggframework/core": "^1.0.0"
+        "@friggframework/core": "^1.1.0"
     },
     "publishConfig": {
         "access": "public"

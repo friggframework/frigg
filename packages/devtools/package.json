@@ -1,18 +1,18 @@
 {
   "name": "@friggframework/devtools",
   "prettier": "@friggframework/prettier-config",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "dependencies": {
-    "@friggframework/core": "^1.0.0",
-    "jest-runner-groups": "^2.2.0",
-    "mongodb-memory-server": "^8.9.0",
     "@babel/eslint-parser": "^7.18.9",
+    "@friggframework/core": "^1.1.0",
     "eslint": "^8.22.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-json": "^3.1.0",
     "eslint-plugin-markdown": "^3.0.0",
     "eslint-plugin-no-only-tests": "^3.0.0",
-    "eslint-plugin-yaml": "^0.5.0"
+    "eslint-plugin-yaml": "^0.5.0",
+    "jest-runner-groups": "^2.2.0",
+    "mongodb-memory-server": "^8.9.0"
   },
   "devDependencies": {
     "jest": "^28.1.3",

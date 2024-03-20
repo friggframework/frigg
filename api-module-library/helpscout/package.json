@@ -1,6 +1,6 @@
 {
   "name": "@friggframework/api-module-helpscout",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "prettier": "@friggframework/prettier-config",
   "description": "",
   "main": "index.js",
@@ -12,7 +12,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@friggframework/devtools": "^1.0.0",
+    "@friggframework/devtools": "^1.1.0",
     "dotenv": "^16.3.1",
     "eslint": "^8.49.0",
     "jest": "^29.7.0",
@@ -20,7 +20,7 @@
     "sinon": "^16.0.0"
   },
   "dependencies": {
-    "@friggframework/core": "^1.0.0"
+    "@friggframework/core": "^1.1.0"
   },
   "publishConfig": {
     "access": "public"

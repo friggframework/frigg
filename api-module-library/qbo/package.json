@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-qbo",
-    "version": "0.9.16",
+    "version": "0.10.0",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -17,8 +17,8 @@
         "sinon": "^14.0.0"
     },
     "dependencies": {
+        "@friggframework/core": "^1.1.0",
         "intuit-oauth": "^4.0.0",
-        "node-quickbooks": "^2.0.39",
-        "@friggframework/core": "^1.0.0"
+        "node-quickbooks": "^2.0.39"
     }
 }

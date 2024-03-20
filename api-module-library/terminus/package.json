@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-terminus",
-    "version": "0.9.16",
+    "version": "0.10.0",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -17,6 +17,6 @@
         "sinon": "^14.0.0"
     },
     "dependencies": {
-        "@friggframework/core": "^1.0.0"
+        "@friggframework/core": "^1.1.0"
     }
 }
