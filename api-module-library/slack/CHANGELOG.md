@@ -1,3 +1,34 @@
+# v1.1.0 (Wed Mar 20 2024)
+
+:tada: This release contains work from new contributors! :tada:
+
+Thanks for all your work!
+
+:heart: Nicolas Leal ([@nicolasmelo1](https://github.com/nicolasmelo1))
+
+:heart: nmilcoff ([@nmilcoff](https://github.com/nmilcoff))
+
+#### 🚀 Enhancement
+
+
+#### 🐛 Bug Fix
+
+- Preparing auto for managing "major old versions" [#271](https://github.com/friggframework/frigg/pull/271) ([@seanspeaks](https://github.com/seanspeaks))
+- correct some bad automated edits, though they are not in relevant files ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Fix the redirect_uri passed by the user in getInstance method [#255](https://github.com/friggframework/frigg/pull/255) ([@leofmds](https://github.com/leofmds))
+- Fix the redirect_uri passed by the user in getInstance method ([@leofmds](https://github.com/leofmds))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 5
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+- Nicolas Leal ([@nicolasmelo1](https://github.com/nicolasmelo1))
+- nmilcoff ([@nmilcoff](https://github.com/nmilcoff))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.2.10 (Tue Mar 19 2024)
 
 #### 🐛 Bug Fix

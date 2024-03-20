@@ -1,3 +1,43 @@
+# (Wed Mar 20 2024)
+
+:tada: This release contains work from new contributors! :tada:
+
+Thanks for all your work!
+
+:heart: Nicolas Leal ([@nicolasmelo1](https://github.com/nicolasmelo1))
+
+:heart: nmilcoff ([@nmilcoff](https://github.com/nmilcoff))
+
+#### 🚀 Enhancement
+
+
+#### 🐛 Bug Fix
+
+- add back npm plugin [#278](https://github.com/friggframework/frigg/pull/278) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Fix package-lock.json [#277](https://github.com/friggframework/frigg/pull/277) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Preparing auto for managing "major old versions" [#271](https://github.com/friggframework/frigg/pull/271) ([@seanspeaks](https://github.com/seanspeaks))
+- update auto / lerna [#267](https://github.com/friggframework/frigg/pull/267) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- add temporary pre-release branch [#263](https://github.com/friggframework/frigg/pull/263) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- `@friggframework/api-module-microsoft-teams@1.1.0`
+  - publish msteams [#270](https://github.com/friggframework/frigg/pull/270) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - bump teams (w version) to publish [#269](https://github.com/friggframework/frigg/pull/269) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - bump teams to publish [#268](https://github.com/friggframework/frigg/pull/268) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - fix teams credential [#266](https://github.com/friggframework/frigg/pull/266) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- `@friggframework/api-module-hubspot@1.1.0`
+  - Added the updateContact call to HubSpot API module [#265](https://github.com/friggframework/frigg/pull/265) ([@leofmds](https://github.com/leofmds))
+- `@friggframework/api-module-slack@1.1.0`
+  - Fix the redirect_uri passed by the user in getInstance method [#255](https://github.com/friggframework/frigg/pull/255) ([@leofmds](https://github.com/leofmds))
+
+#### Authors: 5
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+- Nicolas Leal ([@nicolasmelo1](https://github.com/nicolasmelo1))
+- nmilcoff ([@nmilcoff](https://github.com/nmilcoff))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Tue Mar 19 2024)
 
 #### 🐛 Bug Fix
