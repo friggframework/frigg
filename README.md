@@ -1,6 +1,6 @@
 # Frigg Integration Framework
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-24-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-25-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 <img src="docs/FriggLogo.svg" style="width:250px">
@@ -90,6 +90,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="https://github.com/msalvatti"><img src="https://avatars.githubusercontent.com/u/40447063?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Maximiliano Salvatti</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=msalvatti" title="Documentation">📖</a> <a href="https://github.com/friggframework/frigg/commits?author=msalvatti" title="Tests">⚠️</a> <a href="https://github.com/friggframework/frigg/commits?author=msalvatti" title="Code">💻</a></td>
     <td align="center"><a href="https://github.com/msalvatti-ecotrak"><img src="https://avatars.githubusercontent.com/u/132104869?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Maximiliano Salvatti</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=msalvatti-ecotrak" title="Documentation">📖</a> <a href="https://github.com/friggframework/frigg/commits?author=msalvatti-ecotrak" title="Tests">⚠️</a> <a href="https://github.com/friggframework/frigg/commits?author=msalvatti-ecotrak" title="Code">💻</a></td>
     <td align="center"><a href="https://github.com/Jo-lefthook"><img src="https://avatars.githubusercontent.com/u/139414886?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Jo-lefthook</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=Jo-lefthook" title="Code">💻</a></td>
+    <td align="center"><a href="https://github.com/brendanrmoore"><img src="https://avatars.githubusercontent.com/u/106133758?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Brendan Moore</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=brendanrmoore" title="Code">💻</a></td>
   </tr>
 </table>
 
