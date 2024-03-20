@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-google-calendar",
-    "version": "0.1.2",
+    "version": "0.2.0",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
