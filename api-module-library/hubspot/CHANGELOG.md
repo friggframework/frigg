@@ -1,3 +1,25 @@
+# v0.11.0 (Wed Mar 20 2024)
+
+#### 🚀 Enhancement
+
+- bump minor version [#279](https://github.com/friggframework/frigg/pull/279) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### 🐛 Bug Fix
+
+- bump minor version ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Preparing auto for managing "major old versions" [#271](https://github.com/friggframework/frigg/pull/271) ([@seanspeaks](https://github.com/seanspeaks))
+- Added the updateContact call to HubSpot API module [#265](https://github.com/friggframework/frigg/pull/265) ([@leofmds](https://github.com/leofmds))
+- Added the updateContact call to HubSpot API module ([@leofmds](https://github.com/leofmds))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 3
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.9.5 (Tue Mar 19 2024)
 
 #### 🐛 Bug Fix

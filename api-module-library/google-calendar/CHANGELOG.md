@@ -1,3 +1,21 @@
+# v0.3.0 (Wed Mar 20 2024)
+
+#### 🚀 Enhancement
+
+- bump minor version [#279](https://github.com/friggframework/frigg/pull/279) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### 🐛 Bug Fix
+
+- bump minor version ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.1.0 (Wed Sep 06 2023)
 
 #### 🐛 Bug Fix

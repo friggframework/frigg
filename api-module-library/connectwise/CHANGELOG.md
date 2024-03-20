@@ -1,3 +1,26 @@
+# v0.11.0 (Wed Mar 20 2024)
+
+#### 🚀 Enhancement
+
+- bump minor version [#279](https://github.com/friggframework/frigg/pull/279) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### 🐛 Bug Fix
+
+- bump minor version ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### ⚠️ Pushed to `main`
+
+- bump past a previous version ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- try releasing a previous version of an api module ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.9.0 (Wed Sep 06 2023)
 
 #### 🐛 Bug Fix
