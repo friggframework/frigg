@@ -17,95 +17,54 @@ describe('Connectwise API Tests', () => {
     //Disabling auth flow for speed (access tokens expire after ten years)
     describe('Test Auth', () => {
         it('Should retrieve account status', async () => {
-            const status = await api.listCompanies();
-            expect(status.status).toBe('OK');
+            const results = await api.listCallbacks();
+            expect(results).toHaveProperty('length');
         });
     });
 
-    describe('API requests', () => {
-        describe('App Data requests', () => {
-            it('Should retrieve an android app', async () => {
-                const appData = await api.getGoogleAppData('com.facebook.katana');
-                expect(appData).toBeDefined();
-                expect(appData.title).toBe('Facebook');
-            });
-            it('Should retrieve an android app', async () => {
-                const appData = await api.searchGoogleApps('Facebook');
-                expect(appData).toBeDefined();
-                expect(appData.results).toHaveProperty('length');
-                expect(appData.results[0].title).toBe('Facebook');
-            });
-            it('Should retrieve an apple app', async () => {
-                const appData = await api.getAppleAppData('284882215');
-                expect(appData).toBeDefined();
-                expect(appData.trackCensoredName).toBe('Facebook');
-            });
-            it('Should retrieve an apple app', async () => {
-                const appData = await api.searchAppleApps('Facebook');
-                expect(appData).toBeDefined();
-                expect(appData.results).toHaveProperty('length');
-                expect(appData.results[0].trackCensoredName).toBe('Facebook');
-            })
-        });
-        describe('Bulk requests', () => {
-            it('Google bulk request advanced search', async () => {
-                const results = await api.queryGoogleApps({
-                    query: {
-                        query_params: {
-                            from: 0,
-                            num: 50,
-                            sort: "number_ratings",
-                            sort_order: "desc"
-                        }
-                    },
-                });
-                expect(results).toBeDefined();
-                expect(results.results).toHaveProperty('length');
-                const ids = results.results.map(app => app.package_name);
-                const appData = await api.queryGoogleApps({
-                    query: {
-                        query_params: {
-                            package_name: ids,
-                        }
-                    }
-                });
-                expect(appData).toBeDefined();
-                expect(appData.results).toHaveProperty('length');
-                expect(appData.results.length).toBe(50);
-                appData.results.map(app => {
-                    expect(ids.find(id => app.package_name === id)).toBeDefined();
-                })
-            });
-            it('Apple bulk request advanced search', async () => {
-                const results = await api.queryAppleApps({
-                    query: {
-                        query_params: {
-                            from: 0,
-                            num: 50,
-                            sort: "number_ratings",
-                            sort_order: "desc"
-                        }
-                    },
-                });
-                expect(results).toBeDefined();
-                expect(results.results).toHaveProperty('length');
 
-                const ids = results.results.map(app => app.trackId);
-                const appData = await api.queryAppleApps({
-                    query: {
-                        query_params: {
-                            trackId: ids,
-                        }
-                    }
-                });
-                expect(appData).toBeDefined();
-                expect(appData.results).toHaveProperty('length');
-                expect(appData.results.length).toBe(50);
-                appData.results.map(app => {
-                    expect(ids.find(id => app.trackId === id)).toBeDefined();
-                })
-            })
+    describe('Company Requests', () => {
+        it('Should retrieve companies', async () => {
+            const companies = await api.listCompanies();
+            expect(companies).toBeDefined();
+            expect(companies).toHaveProperty('length');
+        });
+    });
+
+    describe('Contact Requests', () => {
+        it('Should retrieve contacts', async () => {
+            const contacts = await api.listContacts();
+            expect(contacts).toBeDefined();
+            expect(contacts).toHaveProperty('length');
+        });
+        let createdContact;
+        it('Should create a contact', async () => {
+            const contact = {
+                firstName: 'John',
+                lastName: 'Doe',
+            };
+            createdContact = await api.createContact(contact);
+            expect(createdContact).toHaveProperty('id');
         })
-
-    });
+        it('Should retrieve created contact', async () => {
+            const contact = await api.getContact(createdContact.id);
+            expect(contact).toHaveProperty('id');
+            expect(contact).toHaveProperty('firstName');
+            expect(contact).toHaveProperty('lastName');
+        });
+        it('Should update created contact', async () => {
+            const contact = {
+                firstName: 'Jane',
+                lastName: 'Doe',
+            };
+            const updatedContact = await api.updateContact(createdContact.id, contact);
+            expect(updatedContact).toHaveProperty('id');
+            expect(updatedContact).toHaveProperty('firstName');
+            expect(updatedContact).toHaveProperty('lastName');
+        })
+        it('Should delete created contact', async () => {
+            const response = await api.deleteContact(createdContact.id);
+            expect(response.status).toBe(204)
+        })
+    })
 });
