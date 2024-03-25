@@ -6,7 +6,7 @@ const {
     testAutherDefinition
 } = require("@friggframework/devtools");
 
-const authParams = {
+const authorizeParams = {
     company_id: process.env.CONNECTWISE_COMPANY_ID,
     public_key: process.env.CONNECTWISE_PUBLIC_KEY,
     private_key: process.env.CONNECTWISE_PRIVATE_KEY,
@@ -14,11 +14,10 @@ const authParams = {
 }
 
 const mocks = {
-    getAccountStatus: {
-        status: 'active',
-    }
+    listCallbacks: [],
+    authorizeParams,
 }
-//testAutherDefinition(Definition, mocks)
+testAutherDefinition(Definition, mocks)
 
 describe('Connectwise Module Live Tests', () => {
     let auther;
@@ -39,13 +38,13 @@ describe('Connectwise Module Live Tests', () => {
     describe('Authorization requests', () => {
         let firstRes;
         it('processAuthorizationCallback()', async () => {
-            firstRes = await auther.processAuthorizationCallback(authParams);
+            firstRes = await auther.processAuthorizationCallback(authorizeParams);
             expect(firstRes).toBeDefined();
             expect(firstRes.entity_id).toBeDefined();
             expect(firstRes.credential_id).toBeDefined();
         });
         it('retrieves existing entity on subsequent calls', async () =>{
-            const res = await auther.processAuthorizationCallback(authParams);
+            const res = await auther.processAuthorizationCallback(authorizeParams);
             expect(res).toEqual(firstRes);
         });
         it('Should test the Definition methods individually', async () => {

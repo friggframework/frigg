@@ -2,12 +2,20 @@ require('dotenv').config();
 const {Api} = require('./api');
 const {get} = require("@friggframework/core");
 const config = require('./defaultConfig.json')
+const AuthFields = require("./authFields");
 
 const Definition = {
     API: Api,
     getName: function() {return config.name},
     moduleName: config.name,//maybe not required
     requiredAuthMethods: {
+        getAuthorizationRequirements: function() {
+            return {
+                url: null,
+                data: AuthFields,
+                type: Api.requesterType,
+            };
+        },
         setAuthParams: async function(api, params){
             api.public_key = get(params, 'public_key');
             api.private_key = get(params, 'private_key');
@@ -32,6 +40,7 @@ const Definition = {
             };
         },
         testAuthRequest: async function(api){
+            api.setup();
             return api.listCallbacks();
         },
     },
