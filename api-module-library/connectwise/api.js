@@ -1,4 +1,4 @@
-const { Requester } = require('@friggframework/core');
+const { get, Requester } = require('@friggframework/core');
 const FormatPatchBody = require('./formatPatchBody');
 
 class Api extends Requester {
@@ -6,17 +6,24 @@ class Api extends Requester {
         super(params);
         this.COMPANY_ID = get(params, 'company_id', null);
         this.PUBLIC_KEY = get(params, 'public_key', null);
-        this.SECRET_KEY = get(params, 'private_key', null);
+        this.PRIVATE_KEY = get(params, 'private_key', null);
         // Will need to implement SITE into API requests
         this.SITE = get(params, 'site', null);
         this.SITE = this.cleanUrl(this.SITE);
-        // this.clientId = get(params, "clientId", null);
-        this.clientId = process.env.CWISE_CLIENT_ID;
-        const credentials = `${this.COMPANY_ID}+${this.PUBLIC_KEY}:${this.SECRET_KEY}`;
+        this.clientId = get(params, "client_id", null);
+        const credentials = `${this.COMPANY_ID}+${this.PUBLIC_KEY}:${this.PRIVATE_KEY}`;
         const buff = new Buffer.from(credentials);
         this.Credentials = `Basic ${buff.toString('base64')}`;
     }
 
+    addAuthHeaders(headers) {
+        const authHeaders = {
+            clientId: this.clientId,
+            authorization: this.Credentials,
+        }
+        return { ...headers, ...authHeaders }
+
+    }
     cleanUrl(auth_site) {
         if (auth_site.indexOf('://') === -1) {
             if (
