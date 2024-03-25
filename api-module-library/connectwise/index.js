@@ -1,9 +1,13 @@
 const { Api } = require('./api');
-const { Definition } = require('./definition');
+const { Credential } = require('./models/credential');
+const { Entity } = require('./models/entity');
+const ModuleManager = require('./manager');
 const Config = require('./defaultConfig');
 
 module.exports = {
     Api,
-    Definition,
+    Credential,
+    Entity,
+    ModuleManager,
     Config,
 };
