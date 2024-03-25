@@ -1,160 +1,129 @@
-const { Requester } = require('@friggframework/core');
+const { get, BasicAuthRequester } = require('@friggframework/core');
 const FormatPatchBody = require('./formatPatchBody');
 
-class Api extends Requester {
+class Api extends BasicAuthRequester {
     constructor(params) {
         super(params);
-        this.COMPANY_ID = get(params, 'company_id', null);
-        this.PUBLIC_KEY = get(params, 'public_key', null);
-        this.SECRET_KEY = get(params, 'private_key', null);
-        // Will need to implement SITE into API requests
-        this.SITE = get(params, 'site', null);
-        this.SITE = this.cleanUrl(this.SITE);
-        // this.clientId = get(params, "clientId", null);
-        this.clientId = process.env.CWISE_CLIENT_ID;
-        const credentials = `${this.COMPANY_ID}+${this.PUBLIC_KEY}:${this.SECRET_KEY}`;
-        const buff = new Buffer.from(credentials);
-        this.Credentials = `Basic ${buff.toString('base64')}`;
+        this.company_id = get(params, 'company_id', null);
+        this.public_key = get(params, 'public_key', null);
+        this.private_key = get(params, 'private_key', null);
+        this.client_id = get(params, 'client_id', null);
+        this.site = get(params, 'site', null);
+        this.setup();
     }
 
-    cleanUrl(auth_site) {
-        if (auth_site.indexOf('://') === -1) {
-            if (
-                (auth_site.indexOf('na.myconnectwise.net') > -1 &&
-                    auth_site.indexOf('api-') === -1) ||
-                (auth_site.indexOf('eu.myconnectwise.net') > -1 &&
-                    auth_site.indexOf('api-') === -1) ||
-                (auth_site.indexOf('au.myconnectwise.net') > -1 &&
-                    auth_site.indexOf('api-') === -1) ||
-                (auth_site.indexOf('aus.myconnectwise.net') > -1 &&
-                    auth_site.indexOf('api-') === -1) ||
-                (auth_site.indexOf('za.myconnectwise.net') > -1 &&
-                    auth_site.indexOf('api-') === -1) ||
-                (auth_site.indexOf('staging.connectwisedev.com') > -1 &&
-                    auth_site.indexOf('api-') === -1)
-            ) {
-                auth_site = `api-${auth_site}`;
-            } else {
-                auth_site = auth_site;
-            }
-        } else {
-            const auth_split = auth_site.split('://');
-
-            auth_site = `${auth_split[0]}://${this.cleanUrl(auth_split[1])}`;
+    setup() {
+        this.site = this.site && this.cleanSiteUrl(this.site);
+        this.urls = {
+            companies:  `${this.site}/v4_6_release/apis/3.0/company/companies`,
+            companyById: (id) => `${this.site}/v4_6_release/apis/3.0/company/companies/${id}`,
+            companyTypeAssociation: (id) => `${this.site}/v4_6_release/apis/3.0/company/companies/${id}/typeAssociations`,
+            communicationTypes:  `${this.site}/v4_6_release/apis/3.0/company/communicationTypes`,
+            contacts:  `${this.site}/v4_6_release/apis/3.0/company/contacts`,
+            contactById: (id) => `${this.site}/v4_6_release/apis/3.0/company/contacts/${id}`,
+            invoices:  `${this.site}/v4_6_release/apis/3.0/finance/invoices`,
+            invoicePayments: (id) => `${this.site}/v4_6_release/apis/3.0/finance/invoices/${id}/payments`,
+            procurement: `${this.site}/v4_6_release/apis/3.0/procurement`,
+            companyTypes: `${this.site}/v4_6_release/apis/3.0/company/companies/types`,
+            countries: `${this.site}/v4_6_release/apis/3.0/company/countries`,
+            callbacks: `${this.site}/v4_6_release/apis/3.0/system/callbacks`,
+            callbackById: (id) => `${this.site}/v4_6_release/apis/3.0/system/callbacks/${id}`,
         }
-        return auth_site;
+        const credentials = `${this.company_id}+${this.public_key}:${this.private_key}`;
+        const buff = new Buffer.from(credentials);
+        this.Credentials = `Basic ${buff.toString('base64')}`
+    }
+    addAuthHeaders(headers) {
+        const authHeaders = {
+            clientId: this.client_id,
+            authorization: this.Credentials,
+        }
+        return { ...headers, ...authHeaders }
+    }
+
+    async _post(options) {
+        const postHeaders = {
+            'content-type': 'application/json',
+            Accept: 'application/vnd.connectwise.com+json; version=2019.1',
+        }
+        options.headers = { ...options.headers, ...postHeaders }
+        return super._post(options);
+    }
+
+    async _patch(options) {
+        const patchHeaders = {
+            'content-type': 'application/json',
+            Accept: 'application/vnd.connectwise.com+json; version=2019.1',
+        }
+        options.headers = { ...options.headers, ...patchHeaders }
+        return super._patch(options);
+    }
+
+    cleanSiteUrl(authSite) {
+        const authSplit = authSite.split('://');
+        const regionsCodes = ['na', 'eu', 'au', 'aus', 'za']
+        const regions = regionsCodes.map(r => `${r}.myconnectwise.net`);
+        regions.map(r => {
+            if (authSplit[1].includes(r) && !(authSplit[1].includes('api-'))) {
+                authSite[1] = `api-${authSplit[1]}`;
+            }
+        })
+        return authSplit.join('://');
     }
 
     async listCompanies(query) {
         const options = {
-            // credentials: "include",
-            // method: 'GET',
-            url: `${this.SITE}/v4_6_release/apis/3.0/company/companies`,
-            headers: {
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: this.urls.companies,
             query,
         };
-        return await this._get(options);
-        // let response = await fetch(encodeURI(`${this.SITE}/v4_6_release/apis/3.0/company/companies`), options);
-        // return response.json();
+        return this._get(options);
     }
 
     async createCompany(company) {
         const options = {
-            // credentials: "include",
-            // method: 'POST',
-            url: `${this.SITE}/v4_6_release/apis/3.0/company/companies`,
-            headers: {
-                'content-type': 'application/json',
-                clientId: this.clientId,
-                Accept: 'application/vnd.connectwise.com+json; version=2019.1',
-                authorization: this.Credentials,
-            },
+            url: this.urls.companies,
             body: company,
         };
-        return await this._post(options);
-        // let response = await fetch(encodeURI(`${this.SITE}/v4_6_release/apis/3.0/company/companies`), options);
-        // return response.json();
+        return this._post(options);
     }
 
     async getCompanyById(id) {
         const options = {
-            // credentials: "include",
-            // method: 'GET',
-            url: `${this.SITE}/v4_6_release/apis/3.0/company/companies/${id}`,
-            headers: {
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: this.urls.companyById(id),
         };
-        return await this._get(options);
-        // let response = await fetch(encodeURI(`${this.SITE}/v4_6_release/apis/3.0/company/companies/`) + id, options);
-        // return response.json();
+        return this._get(options);
     }
 
     async deleteCompanyById(id) {
         const options = {
-            // credentials: "include",
-            // method: 'DELETE',
-            url: `${this.SITE}/v4_6_release/apis/3.0/company/companies/${id}`,
-            headers: {
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: this.urls.companyById(id),
         };
-        return await this._delete(options);
-        // let response = await fetch(encodeURI(`${this.SITE}/v4_6_release/apis/3.0/company/companies/`) + id, options);
-        // return response;
+        return this._delete(options);
     }
 
     async patchCompanyById(id, company) {
         const body = FormatPatchBody('/', company);
         const options = {
-            // credentials: "include",
-            // method: 'PATCH',
-            url: `${this.SITE}/v4_6_release/apis/3.0/company/companies/${id}`,
-            headers: {
-                'content-type': 'application/json',
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: this.urls.companyById(id),
             body,
         };
-        return await this._patch(options);
-        // let response = await fetch(encodeURI(`${this.SITE}/v4_6_release/apis/3.0/company/companies/`) + id, options);
-        // return response.json();
+        return this._patch(options);
     }
 
     async listCompanyTypes(query) {
         const options = {
-            url: `${this.SITE}/v4_6_release/apis/3.0/company/companies/types`,
-            headers: {
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: this.urls.companyTypes,
             query,
         };
-        return await this._get(options);
+        return this._get(options);
     }
 
     async listCommunicationTypes(query) {
         const options = {
-            url: `${this.SITE}/v4_6_release/apis/3.0/company/communicationTypes`,
-            headers: {
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: this.urls.communicationTypes,
             query,
         };
-        return await this._get(options);
+        return this._get(options);
     }
 
     async createCompanyType(companyType) {
@@ -162,16 +131,10 @@ class Api extends Requester {
             name: companyType,
         };
         const options = {
-            url: `${this.SITE}/v4_6_release/apis/3.0/company/companies/types`,
-            headers: {
-                'content-type': 'application/json',
-                clientId: this.clientId,
-                Accept: 'application/vnd.connectwise.com+json; version=2019.1',
-                authorization: this.Credentials,
-            },
+            url: this.urls.companyTypes,
             body,
         };
-        return await this._post(options);
+        return this._post(options);
     }
 
     async addTypeToCompany(company_id, type_id) {
@@ -181,58 +144,35 @@ class Api extends Requester {
             },
         };
         const options = {
-            url: `${this.SITE}/v4_6_release/apis/3.0/company/companies/${company_id}/typeAssociations`,
-            headers: {
-                'content-type': 'application/json',
-                clientId: this.clientId,
-                Accept: 'application/vnd.connectwise.com+json; version=2019.1',
-                authorization: this.Credentials,
-            },
+            url: this.urls.companyTypeAssociation(company_id),
             body,
         };
-        return await this._post(options);
+        return this._post(options);
     }
 
     async deleteCompanyType(id) {
         const options = {
-            url: `${this.SITE}/v4_6_release/apis/3.0/company/companies/types/${id}`,
-            headers: {
-                'content-type': 'application/json',
-                clientId: this.clientId,
-                Accept: 'application/vnd.connectwise.com+json; version=2019.1',
-                authorization: this.Credentials,
-            },
+            url: `${this.urls.companyTypes}/${id}`,
+
         };
-        return await this._delete(options);
+        return this._delete(options);
     }
 
     async listCountries() {
         const options = {
-            url: `${this.SITE}/v4_6_release/apis/3.0/company/countries?pageSize=1000`,
-            headers: {
-                'content-type': 'application/json',
-                clientId: this.clientId,
-                Accept: 'application/vnd.connectwise.com+json; version=2019.1',
-                authorization: this.Credentials,
-            },
+            url: `${this.urls.countries}?pageSize=1000`,
         };
-        return await this._get(options);
+        return this._get(options);
     }
 
     async listInvoices(query) {
         const options = {
-            url: `${this.SITE}/v4_6_release/apis/3.0/finance/invoices`,
-            headers: {
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: this.urls.invoices,
             query,
         };
-        return await this._get(options);
+        return this._get(options);
     }
 
-    // TODO Create Invoice... Miscellaneous? Could use SOOO many more fields
     async createInvoiceForCompany(params) {
         const body = {
             type: get(params, 'type'),
@@ -241,81 +181,50 @@ class Api extends Requester {
             },
         };
         const options = {
-            url: `${this.SITE}/v4_6_release/apis/3.0/finance/invoices`,
-            headers: {
-                'content-type': 'application/json',
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: this.urls.invoices,
             body,
         };
-        return await this._post(options);
+        return this._post(options);
     }
 
     async listUnitOfMeasures(query) {
         const options = {
-            url: `${this.SITE}/v4_6_release/apis/3.0/procurement/unitOfMeasures`,
-            headers: {
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: `${this.urls.procurement}/unitOfMeasures`,
             query,
         };
-        return await this._get(options);
+        return this._get(options);
     }
 
     async listProductSubcategories(query) {
         const options = {
-            url: `${this.SITE}/v4_6_release/apis/3.0/procurement/subcategories`,
-            headers: {
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: `${this.urls.procurement}/subcategories`,
             query,
         };
-        return await this._get(options);
+        return this._get(options);
     }
 
     async listProductCategories(query) {
         const options = {
-            url: `${this.SITE}/v4_6_release/apis/3.0/procurement/categories`,
-            headers: {
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: `${this.urls.procurement}/categories`,
             query,
         };
-        return await this._get(options);
+        return this._get(options);
     }
 
     async listCatalogItems(query) {
         const options = {
-            url: `${this.SITE}/v4_6_release/apis/3.0/procurement/catalog`,
-            headers: {
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: `${this.urls.procurement}/catalog`,
             query,
         };
-        return await this._get(options);
+        return this._get(options);
     }
 
     async listProductTypes(query) {
         const options = {
-            url: `${this.SITE}/v4_6_release/apis/3.0/procurement/types`,
-            headers: {
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: `${this.urls.procurement}/types`,
             query,
         };
-        return await this._get(options);
+        return this._get(options);
     }
 
     async createCatalogItem(params) {
@@ -357,16 +266,10 @@ class Api extends Requester {
             },
         };
         const options = {
-            url: `${this.SITE}/v4_6_release/apis/3.0/procurement/catalog`,
-            headers: {
-                'content-type': 'application/json',
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: `${this.urls.procurement}/catalog`,
             body,
         };
-        return await this._post(options);
+        return this._post(options);
     }
 
     async addProductToInvoice(params) {
@@ -403,16 +306,10 @@ class Api extends Requester {
             );
         }
         const options = {
-            url: `${this.SITE}/v4_6_release/apis/3.0/procurement/products`,
-            headers: {
-                'content-type': 'application/json',
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: `${this.urls.procurement}/products`,
             body,
         };
-        return await this._post(options);
+        return this._post(options);
     }
 
     async createProductType(params) {
@@ -420,181 +317,86 @@ class Api extends Requester {
             name: get(params, 'name'),
         };
         const options = {
-            url: `${this.SITE}/v4_6_release/apis/3.0/procurement/types`,
-            headers: {
-                'content-type': 'application/json',
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: `${this.site}/v4_6_release/apis/3.0/procurement/types`,
             body,
         };
-        return await this._post(options);
+        return this._post(options);
     }
 
     async getPaymentsForInvoice(id, query) {
         const options = {
-            url: `${this.SITE}/v4_6_release/apis/3.0/finance/invoices/${id}/payments`,
-            headers: {
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: this.urls.invoicePayments(id),
             query,
         };
-        return await this._get(options);
+        return this._get(options);
     }
 
     async createCallback(callback) {
         const options = {
-            // credentials: "include",
-            // method: 'POST',
-            url: `${this.SITE}/v4_6_release/apis/3.0/system/callbacks`,
-            headers: {
-                'content-type': 'application/json',
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: this.urls.callbacks,
             body: callback,
         };
-        return await this._post(options);
-        // let response = await fetch(encodeURI(`${this.SITE}/v4_6_release/apis/3.0/system/callbacks`), options);
-        // return response.json();
+        return this._post(options);
     }
 
     async listCallbacks() {
         const options = {
-            // credentials: "include",
-            // method: 'GET',
-            url: `${this.SITE}/v4_6_release/apis/3.0/system/callbacks`,
-            headers: {
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: this.urls.callbacks,
         };
-        return await this._get(options);
-        // let response = await fetch(encodeURI(`${this.SITE}/v4_6_release/apis/3.0/system/callbacks`), options);
-        // return response.json();
+        return this._get(options);
     }
 
     async getCallbackId(id) {
         const options = {
-            // credentials: "include",
-            // method: 'GET',
-            url: `${this.SITE}/v4_6_release/apis/3.0/system/callbacks/${id}`,
-            headers: {
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: this.urls.callbackById(id),
         };
-        return await this._get(options);
-        // let response = await fetch(encodeURI(`${this.SITE}/v4_6_release/apis/3.0/system/callbacks/`) + id, options);
-        // return response.json();
+        return this._get(options);
     }
 
     async deleteCallbackId(id) {
         const options = {
-            // credentials: "include",
-            // method: 'DELETE',
-            url: `${this.SITE}/v4_6_release/apis/3.0/system/callbacks/${id}`,
-            headers: {
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: this.urls.callbackById(id),
         };
-        return await this._delete(options);
-        // let response = await fetch(encodeURI(`${this.SITE}/v4_6_release/apis/3.0/system/callbacks/`) + id, options);
-        // return response;
+        return this._delete(options);
     }
 
     async listContacts(query) {
         const options = {
-            // credentials: "include",
-            // method: 'GET',
-            url: `${this.SITE}/v4_6_release/apis/3.0/company/contacts`,
-            headers: {
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: this.urls.contacts,
             query,
         };
-        return await this._get(options);
-        // let response = await fetch(encodeURI(`${this.SITE}/v4_6_release/apis/3.0/company/contacts`), options);
-        // return response.json();
+        return this._get(options);
     }
 
-    async getContactbyId(id) {
+    async getContact(id) {
         const options = {
-            // credentials: "include",
-            // method: 'GET',
-            url: `${this.SITE}/v4_6_release/apis/3.0/company/contacts/${id}`,
-            headers: {
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: this.urls.contactById(id),
         };
-        return await this._get(options);
-        // let response = await fetch(encodeURI(`${this.SITE}/v4_6_release/apis/3.0/company/contacts/`) + id, options);
-        // return response.json();
+        return this._get(options);
     }
 
     async createContact(contact) {
         const options = {
-            // credentials: "include",
-            // method: 'POST',
-            url: `${this.SITE}/v4_6_release/apis/3.0/company/contacts`,
-            headers: {
-                'Content-Type': 'application/json',
-                clientId: this.clientId,
-                accept: '*/*',
-                authorization: this.Credentials,
-            },
+            url: this.urls.contacts,
             body: contact,
         };
-        return await this._post(options);
-        // let response = await fetch(encodeURI(`${this.SITE}/v4_6_release/apis/3.0/company/contacts`), options);
-        // return response.json();
+        return this._post(options);
     }
 
     async deleteContact(id) {
         const options = {
-            // credentials: "include",
-            // method: 'DELETE',
-            url: `${this.SITE}/v4_6_release/apis/3.0/company/contacts/${id}`,
-            headers: {
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: this.urls.contactById(id),
         };
-        return await this._delete(options);
-        // let response = await fetch(encodeURI(`${this.SITE}/v4_6_release/apis/3.0/company/contacts/`) + id, options);
-        // return response;
+        return this._delete(options);
     }
 
     async updateContact(id, contacts) {
         const body = FormatPatchBody('/', contacts);
         const options = {
-            // credentials: "include",
-            // method: 'PATCH',
-            url: `${this.SITE}/v4_6_release/apis/3.0/company/contacts/${id}`,
-            headers: {
-                'content-type': 'application/json',
-                clientId: this.clientId,
-                accept: 'application/json',
-                authorization: this.Credentials,
-            },
+            url: this.urls.contactById(id),
             body,
         };
-        return await this._patch(options);
-        // let response = await fetch(encodeURI(`${this.SITE}/v4_6_release/apis/3.0/company/contacts/`) + id, options);
-        // return response;
+        return this._patch(options);
     }
 }
 
