@@ -183,9 +183,22 @@ class Api extends OAuth2Requester {
         return this._post(options);
     }
 
-    async listContacts() {
+    async listContacts(params) {
+        const limit = get(params, 'limit', 100);
+        const after = get(params, 'after', null);
+
+        let properties = get(params, 'properties', null);
+        if (!properties) {
+            properties = await this._propertiesList('contact');
+        }
+
         const options = {
             url: this.baseUrl + this.URLs.contacts,
+            query: {
+                limit,
+                after,
+                properties,
+            }
         };
 
         return this._get(options);
