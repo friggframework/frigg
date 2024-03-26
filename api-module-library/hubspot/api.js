@@ -130,12 +130,8 @@ class Api extends OAuth2Requester {
     }
 
     async getCompanyById(compId) {
-        const props = await this.listProperties('company');
-        let propsString = '';
-        for (let i = 0; i < props.results.length; i++) {
-            propsString += `${props.results[i].name},`;
-        }
-        propsString = propsString.slice(0, propsString.length - 1);
+        const propsString = await this._propertiesList('company');
+
         const options = {
             url: this.baseUrl + this.URLs.companyById(compId),
             query: {
@@ -187,9 +183,22 @@ class Api extends OAuth2Requester {
         return this._post(options);
     }
 
-    async listContacts() {
+    async listContacts(params) {
+        const limit = get(params, 'limit', 100);
+        const after = get(params, 'after', null);
+
+        let properties = get(params, 'properties', null);
+        if (!properties) {
+            properties = await this._propertiesList('contact');
+        }
+
         const options = {
             url: this.baseUrl + this.URLs.contacts,
+            query: {
+                limit,
+                after,
+                properties,
+            }
         };
 
         return this._get(options);
@@ -204,12 +213,8 @@ class Api extends OAuth2Requester {
     }
 
     async getContactById(contactId) {
-        const props = await this.listProperties('contact');
-        let propsString = '';
-        for (let i = 0; i < props.results.length; i++) {
-            propsString += `${props.results[i].name},`;
-        }
-        propsString = propsString.slice(0, propsString.length - 1);
+        const propsString = await this._propertiesList('contact');
+
         const options = {
             url: this.baseUrl + this.URLs.contactById(contactId),
             query: {
@@ -282,12 +287,8 @@ class Api extends OAuth2Requester {
     }
 
     async getDealById(dealId) {
-        const props = await this.listProperties('deal');
-        let propsString = '';
-        for (let i = 0; i < props.results.length; i++) {
-            propsString += `${props.results[i].name},`;
-        }
-        propsString = propsString.slice(0, propsString.length - 1);
+        const propsString = await this._propertiesList('deal');
+
         const options = {
             url: this.baseUrl + this.URLs.dealById(dealId),
             query: {
@@ -310,12 +311,8 @@ class Api extends OAuth2Requester {
     // pageObj can look something like this:
     // { limit: 10, after: 10 }
     async listDeals(pageObj) {
-        const props = await this.listProperties('deal');
-        let propsString = '';
-        for (let i = 0; i < props.results.length; i++) {
-            propsString += `${props.results[i].name},`;
-        }
-        propsString = propsString.slice(0, propsString.length - 1);
+        const propsString = await this._propertiesList('deal');
+
         const options = {
             url: this.baseUrl + this.URLs.deals,
             query: {
@@ -722,12 +719,6 @@ class Api extends OAuth2Requester {
     // **************************   Owners   **********************************
 
     async getOwnerById(ownerId) {
-        // const props = await this.listProperties('owner');
-        // let propsString = '';
-        // for (let i = 0; i < props.results.length; i++) {
-        //     propsString += `${props.results[i].name},`;
-        // }
-        // propsString = propsString.slice(0, propsString.length - 1);
         const options = {
             url: this.baseUrl + this.URLs.getOwnerById(ownerId),
         };
@@ -1014,6 +1005,16 @@ class Api extends OAuth2Requester {
         const res = await this._post(options);
         const { results } = res;
         return results;
+    }
+
+    async _propertiesList(objType) {
+        const props = await this.listProperties(objType);
+        let propsString = '';
+        for (let i = 0; i < props.results.length; i++) {
+            propsString += `${props.results[i].name},`;
+        }
+        propsString = propsString.slice(0, propsString.length - 1);
+        return propsString;
     }
 }
 
