@@ -12,8 +12,8 @@
     "contributors:generate": "all-contributors generate"
   },
   "engines": {
-    "node": ">=20",
-    "npm": ">=10"
+    "node": ">=18",
+    "npm": ">=9"
   },
   "author": "seanspeaks <sean.matthews@lefthook.co>",
   "license": "MIT",
