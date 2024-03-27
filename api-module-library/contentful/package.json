@@ -1,25 +1,25 @@
 {
-    "name": "@friggframework/api-module-contentful",
-    "version": "1.1.0",
-    "prettier": "@friggframework/prettier-config",
-    "description": "",
-    "main": "index.js",
-    "scripts": {
-        "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
-        "test": "jest"
-    },
-    "author": "",
-    "license": "MIT",
-    "devDependencies": {
-        "@friggframework/devtools": "^1.1.0",
-        "dotenv": "^16.0.3",
-        "jest": "^29.5.0",
-        "prettier": "^2.8.8"
-    },
-    "dependencies": {
-        "@friggframework/core": "^1.1.0"
-    },
-    "publishConfig": {
-        "access": "public"
-    }
+  "name": "@friggframework/api-module-contentful",
+  "version": "1.1.0",
+  "prettier": "@friggframework/prettier-config",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
+    "test": "jest"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@friggframework/devtools": "^1.1.0",
+    "dotenv": "^16.0.3",
+    "jest": "^29.5.0",
+    "prettier": "^2.8.8"
+  },
+  "dependencies": {
+    "@friggframework/core": "^1.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }
