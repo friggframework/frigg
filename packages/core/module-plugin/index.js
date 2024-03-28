@@ -9,6 +9,8 @@ const { Requester } = require('./requester/requester');
 const { ModuleConstants } = require('./ModuleConstants');
 const { ModuleFactory } = require('./module-factory');
 const { Auther } = require('./auther');
+const { testAutherDefinition } = require('./auther-definition-tester');
+const { testDefinitionRequiredAuthMethods } = require('./auther-definition-method-tester');
 
 module.exports = {
     Credential,
@@ -21,5 +23,7 @@ module.exports = {
     Requester,
     ModuleConstants,
     ModuleFactory,
-    Auther
+    Auther,
+    testAutherDefinition,
+    testDefinitionRequiredAuthMethods
 };

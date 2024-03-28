@@ -4,8 +4,8 @@ const {
     createObjectId,
     connectToDatabase,
     disconnectFromDatabase,
-} = require('@friggframework/core');
-const { createMockApiObject } = require("./mock-integration");
+} = require('index');
+const { createMockApiObject } = require("integrations/mock-integration");
 
 
 function testAutherDefinition(definition, mocks) {

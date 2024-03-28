@@ -36,7 +36,9 @@ const {
     IntegrationHelper,
     createIntegrationRouter,
     checkRequiredParams,
-    createFriggBackend
+    createFriggBackend,
+    createMockIntegration,
+    createMockApiObject
 } = require('./integrations/index');
 const { TimeoutCatcher } = require('./lambda/index');
 const {
@@ -55,7 +57,9 @@ const {
     Requester,
     ModuleConstants,
     ModuleFactory,
-    Auther
+    Auther,
+    testAutherDefinition,
+    testDefinitionRequiredAuthMethods
 } = require('./module-plugin/index');
 
 // const {Sync } = require('./syncs/model');
@@ -103,6 +107,8 @@ module.exports = {
     checkRequiredParams,
     createIntegrationRouter,
     createFriggBackend,
+    createMockIntegration,
+    createMockApiObject,
     // lambda
     TimeoutCatcher,
     // logs
@@ -120,5 +126,7 @@ module.exports = {
     Requester,
     ModuleConstants,
     ModuleFactory,
-    Auther
+    Auther,
+    testAutherDefinition,
+    testDefinitionRequiredAuthMethods
 }

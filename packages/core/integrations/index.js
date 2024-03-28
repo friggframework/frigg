@@ -5,6 +5,7 @@ const { IntegrationMapping } = require('./integration-mapping');
 const { IntegrationFactory, IntegrationHelper } = require('./integration-factory');
 const { createIntegrationRouter, checkRequiredParams } = require('./integration-router');
 const { createFriggBackend } = require('./create-frigg-backend');
+const { createMockApiObject, createMockIntegration } = require('./mock-integration');
 
 module.exports = {
     IntegrationBase,
@@ -15,5 +16,7 @@ module.exports = {
     IntegrationHelper,
     createIntegrationRouter,
     checkRequiredParams,
-    createFriggBackend
+    createFriggBackend,
+    createMockIntegration,
+    createMockApiObject
 };
