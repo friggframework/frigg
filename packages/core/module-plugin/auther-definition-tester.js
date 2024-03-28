@@ -1,11 +1,7 @@
-const {
-    Auther,
-    ModuleConstants,
-    createObjectId,
-    connectToDatabase,
-    disconnectFromDatabase,
-} = require('index');
-const { createMockApiObject } = require("integrations/mock-integration");
+const { Auther } = require('./auther');
+const { ModuleConstants } = require('./ModuleConstants');
+const { createObjectId,connectToDatabase, disconnectFromDatabase } = require('../database');
+const { createMockApiObject } = require("../integrations/mock-integration");
 
 
 function testAutherDefinition(definition, mocks) {

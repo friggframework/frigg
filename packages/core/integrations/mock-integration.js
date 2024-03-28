@@ -1,9 +1,10 @@
-const { Auther, Credential, Entity, IntegrationModel, mongoose } = require('index');
-
+const { Auther, Credential, Entity } = require('../module-plugin')
+const { IntegrationModel } = require('./integration-model');
+const { createObjectId } = require('../database');
 
 async function createMockIntegration(IntegrationClassDef, userId = null, config = {},) {
     const integration = new IntegrationClassDef();
-    userId = userId || new mongoose.Types.ObjectId();
+    userId = userId || createObjectId();
     integration.delegateTypes.push(...IntegrationClassDef.Config.events)
 
     const insertOptions = {
