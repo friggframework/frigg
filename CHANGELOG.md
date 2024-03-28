@@ -1,3 +1,16 @@
+# (Thu Mar 28 2024)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-google-drive@0.3.1`
+  - Implement createFile function in google drive [#292](https://github.com/friggframework/frigg/pull/292) ([@Jo-lefthook](https://github.com/Jo-lefthook))
+
+#### Authors: 1
+
+- [@Jo-lefthook](https://github.com/Jo-lefthook)
+
+---
+
 # (Wed Mar 20 2024)
 
 #### 🐛 Bug Fix
