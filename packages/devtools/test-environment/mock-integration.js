@@ -51,8 +51,9 @@ async function createMockIntegration(IntegrationClassDef, userId = null, config 
     integration.id = integration.record._id
 
     for (const i in entities){
+        if (Object.entries(IntegrationClassDef.modules).length <= i) break
         const [moduleName, ModuleDef] = Object.entries(IntegrationClassDef.modules)[i];
-        const module = Auther.getInstance({definition: ModuleDef, userId: userId})
+        const module = await Auther.getInstance({definition: ModuleDef, userId: userId})
         module.entity = entities[i];
         integration[moduleName] = module;
     }
