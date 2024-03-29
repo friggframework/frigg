@@ -42,7 +42,12 @@
     ],
     "versionBranches": true,
     "plugins": [
-      "npm",
+      [
+        "npm",
+        {
+          "forcePublish": true
+        }
+      ],
       "all-contributors",
       "conventional-commits",
       "first-time-contributor",
