@@ -107,8 +107,6 @@ module.exports = {
     checkRequiredParams,
     createIntegrationRouter,
     createFriggBackend,
-    createMockIntegration,
-    createMockApiObject,
     // lambda
     TimeoutCatcher,
     // logs
@@ -126,7 +124,5 @@ module.exports = {
     Requester,
     ModuleConstants,
     ModuleFactory,
-    Auther,
-    testAutherDefinition,
-    testDefinitionRequiredAuthMethods
+    Auther
 }

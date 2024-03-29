@@ -1,7 +1,7 @@
-const { Auther } = require('./auther');
-const { ModuleConstants } = require('./ModuleConstants');
-const { createObjectId,connectToDatabase, disconnectFromDatabase } = require('../database');
-const { createMockApiObject } = require("../integrations/mock-integration");
+const { Auther } = require('@friggframework/core/module-plugin/auther');
+const { ModuleConstants } = require('@friggframework/core/module-plugin/ModuleConstants');
+const { createObjectId,connectToDatabase, disconnectFromDatabase } = require('@friggframework/core/database');
+const { createMockApiObject } = require("@friggframework/devtools/test-environment/mock-integration");
 
 
 function testAutherDefinition(definition, mocks) {

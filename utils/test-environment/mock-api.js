@@ -1,5 +1,5 @@
 const nock = require('nock');
-const Authenticator = require('./Authenticator');
+const Authenticator = require('@friggframework/devtools/test/Authenticator');
 const { join: joinPath } = require('path');
 const { parse: parseUrl } = require('url');
 const { mkdir, readFile, rename, rm, writeFile } = require('fs/promises');
