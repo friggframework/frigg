@@ -1,14 +1,8 @@
 {
-  "name": "@friggframework/devtools",
-  "prettier": "@friggframework/prettier-config",
+  "name": "@friggframework/prettier-config",
   "version": "1.1.0",
   "dependencies": {
-    "@friggframework/core": "^1.1.0",
-    "@friggframework/test": "^1.1.0"
-  },
-  "devDependencies": {
-    "@friggframework/eslint-config": "^1.0.8",
-    "@friggframework/prettier-config": "^1.0.8"
+    "prettier": "^2.7.1"
   },
   "scripts": {
     "lint:fix": "prettier --write --loglevel error . && eslint . --fix",

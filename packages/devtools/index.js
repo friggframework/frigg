@@ -1,9 +1,5 @@
-const eslintConfig = require('./eslint-config')
-const prettierConfig = require('./prettier-config')
-const testEnvironment = require('./test-environment/index');
+const test = require('./test');
 
 module.exports = {
-    eslintConfig,
-    prettierConfig,
-    ...testEnvironment
+    ...test
 }

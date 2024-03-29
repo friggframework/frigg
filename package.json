@@ -19,8 +19,7 @@
   "author": "seanspeaks <sean.matthews@lefthook.co>",
   "license": "MIT",
   "workspaces": [
-    "packages/*",
-    "api-module-library/*"
+    "packages/*"
   ],
   "devDependencies": {
     "@auto-it/all-contributors": "^11.1.1",
