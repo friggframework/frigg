@@ -23,4 +23,5 @@ yarn-error.log*
 
 .env
 .npmrc
+.autorc
 /.nx/
