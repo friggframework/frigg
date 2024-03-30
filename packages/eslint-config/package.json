@@ -1,10 +1,7 @@
 {
-  "name": "@friggframework/devtools",
-  "prettier": "@friggframework/prettier-config",
+  "name": "@friggframework/eslint-config",
   "version": "1.1.0",
   "dependencies": {
-    "@friggframework/core": "^1.1.0",
-    "@friggframework/test": "^1.1.0",
     "@babel/eslint-parser": "^7.18.9",
     "eslint": "^8.22.0",
     "eslint-config-prettier": "^8.5.0",
@@ -12,10 +9,6 @@
     "eslint-plugin-markdown": "^3.0.0",
     "eslint-plugin-no-only-tests": "^3.0.0",
     "eslint-plugin-yaml": "^0.5.0"
-  },
-  "devDependencies": {
-    "@friggframework/eslint-config": "^1.0.8",
-    "@friggframework/prettier-config": "^1.0.8"
   },
   "scripts": {
     "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
