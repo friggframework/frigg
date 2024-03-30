@@ -1,7 +1,7 @@
 {
   "name": "@friggframework/test",
   "prettier": "@friggframework/prettier-config",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "dependencies": {
     "@babel/eslint-parser": "^7.18.9",
     "eslint": "^8.22.0",
@@ -14,8 +14,8 @@
     "mongodb-memory-server": "^8.9.0"
   },
   "devDependencies": {
-    "@friggframework/eslint-config": "^1.1.0",
-    "@friggframework/prettier-config": "^1.1.0",
+    "@friggframework/eslint-config": "^1.2.0",
+    "@friggframework/prettier-config": "^1.2.0",
     "jest": "^28.1.3",
     "prettier": "^2.7.1"
   },
