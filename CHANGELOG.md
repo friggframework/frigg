@@ -1,3 +1,50 @@
+# v1.0.0 (Sat Mar 30 2024)
+
+#### 💥 Breaking Change
+
+- release v1 connectwise (again) [#285](https://github.com/friggframework/frigg/pull/285) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- revert HEAD to a corrected v1-connectwise release [#283](https://github.com/friggframework/frigg/pull/283) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- V1 connectwise module [#281](https://github.com/friggframework/frigg/pull/281) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### 🚀 Enhancement
+
+- `@friggframework/core`, `@friggframework/devtools`, `@friggframework/eslint-config`, `@friggframework/prettier-config`, `@friggframework/test`
+  - Package redo [#294](https://github.com/friggframework/frigg/pull/294) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### 🐛 Bug Fix
+
+- Bump node and npm version for the whole repo (Fix CI) [#274](https://github.com/friggframework/frigg/pull/274) ([@seanspeaks](https://github.com/seanspeaks))
+- Improve listcontacts for hubspot api [#287](https://github.com/friggframework/frigg/pull/287) ([@leofmds](https://github.com/leofmds))
+- try manual bump [#286](https://github.com/friggframework/frigg/pull/286) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- correct lerna.json for this version [#272](https://github.com/friggframework/frigg/pull/272) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- publish msteams [#270](https://github.com/friggframework/frigg/pull/270) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- bump teams (w version) to publish [#269](https://github.com/friggframework/frigg/pull/269) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- bump teams to publish [#268](https://github.com/friggframework/frigg/pull/268) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- update auto / lerna [#267](https://github.com/friggframework/frigg/pull/267) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- fix teams credential [#266](https://github.com/friggframework/frigg/pull/266) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Added the updateContact call to HubSpot API module [#265](https://github.com/friggframework/frigg/pull/265) ([@leofmds](https://github.com/leofmds))
+- add temporary pre-release branch [#263](https://github.com/friggframework/frigg/pull/263) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Fix the redirect_uri passed by the user in getInstance method [#255](https://github.com/friggframework/frigg/pull/255) ([@leofmds](https://github.com/leofmds))
+- `@friggframework/devtools`
+  - slight fix to mock integration module instantiation [#290](https://github.com/friggframework/frigg/pull/290) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - Revert main to last release [#284](https://github.com/friggframework/frigg/pull/284) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - Add stage to test env [#282](https://github.com/friggframework/frigg/pull/282) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### ⚠️ Pushed to `main`
+
+- Only publish with release label ([@seanspeaks](https://github.com/seanspeaks))
+- Merge remote-tracking branch 'origin/main' ([@seanspeaks](https://github.com/seanspeaks))
+- Results of lerna repair ([@seanspeaks](https://github.com/seanspeaks))
+- Updating lerna ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 3
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Leonardo Ferreira ([@leofmds](https://github.com/leofmds))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Wed Mar 20 2024)
 
 :tada: This release contains work from new contributors! :tada:
