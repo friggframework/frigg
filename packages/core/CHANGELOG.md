@@ -1,3 +1,17 @@
+# v1.1.3 (Tue Apr 02 2024)
+
+#### 🐛 Bug Fix
+
+- test release [#296](https://github.com/friggframework/frigg/pull/296) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- add a commit to fix canary and workaround auto bug ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- bump to test release ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 1
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+
+---
+
 # v2.0.0 (Sat Mar 30 2024)
 
 #### 🚀 Enhancement
