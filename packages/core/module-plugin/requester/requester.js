@@ -48,7 +48,21 @@ class Requester extends Delegate {
 
         if (this.agent) options.agent = this.agent;
 
-        const response = await this.fetch(encodedUrl, options);
+        let response;
+        try {
+            response = await this.fetch(encodedUrl, options);
+        } catch (e) {
+            if (e.code === 'ECONNRESET' && i < this.backOff.length) {
+                const delay = this.backOff[i] * 1000;
+                await new Promise((resolve) => setTimeout(resolve, delay));
+                return this._request(url, options, i + 1);
+            }
+            throw await FetchError.create({
+                resource: encodedUrl,
+                init: options,
+                responseBody: e,
+            });
+        }
         const { status } = response;
 
         // If the status is retriable and there are back off requests left, retry the request
