@@ -1,8 +1,0 @@
-[
-  { "op": "add", "path": "/fields/nofollow/de-DE", "value": true },
-  { "op": "replace", "path": "/fields/pageTitle", "value": {
-    "de-DE": "Bonelli2",
-    "en-US": "Bonelli2"
-  }
-  }
-]

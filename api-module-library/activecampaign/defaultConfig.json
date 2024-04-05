@@ -1,9 +1,0 @@
-{
-    "name": "activecampaign",
-    "label": "ActiveCampaign",
-    "productUrl": "https://activecampaign.com",
-    "apiDocs": "https://developers.activecampaign.com",
-    "logoUrl": "https://friggframework.org/assets/img/activecampaign.jpeg",
-    "categories": ["Marketing Automation, Email Marketing, CRM, Marketing"],
-    "description": "ActiveCampaign gives you the email marketing, marketing automation, and CRM tools you need to create incredible customer experiences."
-}
