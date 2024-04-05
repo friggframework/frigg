@@ -1,7 +1,7 @@
 {
   "name": "@friggframework/core",
   "prettier": "@friggframework/prettier-config",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "dependencies": {
     "@hapi/boom": "^10.0.1",
     "aws-sdk": "^2.1200.0",
@@ -15,9 +15,9 @@
     "node-fetch": "^2.6.7"
   },
   "devDependencies": {
-    "@friggframework/eslint-config": "^1.1.3",
-    "@friggframework/prettier-config": "^1.1.3",
-    "@friggframework/test": "^1.1.3",
+    "@friggframework/eslint-config": "^1.1.4",
+    "@friggframework/prettier-config": "^1.1.4",
+    "@friggframework/test": "^1.1.4",
     "@types/lodash": "^4.14.191",
     "@typescript-eslint/eslint-plugin": "^5.55.0",
     "chai": "^4.3.6",
