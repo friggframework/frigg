@@ -1,3 +1,16 @@
+# v1.1.4 (Fri Apr 05 2024)
+
+#### 🐛 Bug Fix
+
+- Socket hang up / ECONNRESET error retry for requester [#297](https://github.com/friggframework/frigg/pull/297) ([@seanspeaks](https://github.com/seanspeaks))
+- Check linear task description for offending error. Unclear if this is the best approach. ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.1.3 (Tue Apr 02 2024)
 
 #### 🐛 Bug Fix
