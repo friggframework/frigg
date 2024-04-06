@@ -1,9 +1,0 @@
-{
-    "name": "front",
-    "label": "FrontApp",
-    "productUrl": "https://frontapp.com",
-    "apiDocs": "https://developer.frontapp.com",
-    "logoUrl": "https://friggframework.org/assets/img/front.jpeg",
-    "categories": ["Email", "Team Communication"],
-    "description": "Front"
-}

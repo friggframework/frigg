@@ -1,9 +1,0 @@
-{
-    "name": "gorgias",
-    "label": "Gorgias",
-    "productUrl": "https://gorgias.com",
-    "apiDocs": "https://developer.gorgias.com",
-    "logoUrl": "https://friggframework.org/assets/img/gorgias.jpeg",
-    "categories": ["Customer Service", "Helpdesk"],
-    "description": "Gorgias"
-}

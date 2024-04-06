@@ -1,9 +1,0 @@
-{
-    "name": "salesforce",
-    "label": "Salesforce",
-    "productUrl": "https://salesforce.com",
-    "apiDocs": "https://developer.salesforce.com",
-    "logoUrl": "https://friggframework.org/assets/img/salesforce.jpeg",
-    "categories": ["Marketing", "Sales", "CMS", "Marketing Automation", "CRM"],
-    "description": "Salesforce is the world’s #1 customer relationship management (CRM) platform. We help your marketing, sales, commerce, service and IT teams work as one from anywhere — so you can keep your customers happy everywhere."
-}

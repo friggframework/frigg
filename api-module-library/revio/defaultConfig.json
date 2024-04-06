@@ -1,9 +1,0 @@
-{
-    "name": "revio",
-    "label": "Rev.io",
-    "productUrl": "https://rev.io",
-    "apiDocs": "https://developer.rev.io",
-    "logoUrl": "https://friggframework.org/assets/img/revio.jpeg",
-    "categories": ["Sales"],
-    "description": "Rev.io"
-}
