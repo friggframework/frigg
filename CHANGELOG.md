@@ -1,3 +1,16 @@
+# (Sat Apr 06 2024)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/module-plugin@1.1.3`
+  - Add ECONNRESET update [#300](https://github.com/friggframework/frigg/pull/300) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Thu Mar 28 2024)
 
 #### 🐛 Bug Fix

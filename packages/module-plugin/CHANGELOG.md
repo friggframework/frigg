@@ -1,3 +1,16 @@
+# v1.1.3 (Sat Apr 06 2024)
+
+#### 🐛 Bug Fix
+
+- Add ECONNRESET update [#300](https://github.com/friggframework/frigg/pull/300) ([@seanspeaks](https://github.com/seanspeaks))
+- Add ECONNRESET update ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.1.0 (Wed Sep 06 2023)
 
 #### 🚀 Enhancement
