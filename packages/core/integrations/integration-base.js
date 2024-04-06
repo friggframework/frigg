@@ -154,8 +154,24 @@ class IntegrationBase {
         return options;
     }
 
+    async refreshConfigOptions(params) {
+        const options = {
+            jsonSchema: {},
+            uiSchema: {},
+        }
+        return options
+    }
+
     async getUserActions() {
         return [];
+    }
+
+    async getActionOptions() {
+
+    }
+
+    async refreshActionOptions() {
+
     }
 }
 

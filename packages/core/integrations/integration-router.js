@@ -155,7 +155,20 @@ function setIntegrationRoutes(router, factory, getUserId) {
             const integration =
                 await integrationFactory.getInstanceFromIntegrationId(params);
             const results = await integration.getConfigOptions();
-            // We could perhaps augment router with dynamic options? Haven't decided yet, but here may be the place
+            res.json(results);
+        })
+    );
+
+    router.route('/api/integrations/:integrationId/config/options/refresh').post(
+        catchAsyncError(async (req, res) => {
+            const params = checkRequiredParams(req.params, [
+                'integrationId',
+            ]);
+            const integration =
+                await integrationFactory.getInstanceFromIntegrationId(params);
+            const results = await integration.refreshConfigOptions(
+                req.body
+            );
             res.json(results);
         })
     );
@@ -170,6 +183,23 @@ function setIntegrationRoutes(router, factory, getUserId) {
                 await integrationFactory.getInstanceFromIntegrationId(params);
             const results = await integration.getActionOptions(
                 params.actionId
+            );
+            // We could perhaps augment router with dynamic options? Haven't decided yet, but here may be the place
+            res.json(results);
+        })
+    );
+
+    router.route('/api/integrations/:integrationId/actions/:actionId/options/refresh').post(
+        catchAsyncError(async (req, res) => {
+            const params = checkRequiredParams(req.params, [
+                'integrationId',
+                'actionId'
+            ]);
+            const integration =
+                await integrationFactory.getInstanceFromIntegrationId(params);
+            const results = await integration.refreshActionOptions(
+                params.actionId,
+                req.body
             );
             // We could perhaps augment router with dynamic options? Haven't decided yet, but here may be the place
             res.json(results);
@@ -310,28 +340,6 @@ function setEntityRoutes(router, factory, getUserId) {
         })
     );
 
-    router.route('/api/entity').post(
-        catchAsyncError(async (req, res) => {
-            const params = checkRequiredParams(req.body, [
-                'entityType',
-                'data',
-            ]);
-            checkRequiredParams(req.body.data, ['credential_id']);
-
-            // May want to pass along the user ID as well so credential ID's can't be fished???
-            const credential = await IntegrationHelper.getCredentialById(
-                params.data.credential_id
-            );
-
-            if (!credential) {
-                throw Boom.badRequest('Invalid credential ID');
-            }
-
-            const module = await getModuleInstance(req, params.entityType);
-            res.json(await module.findOrCreateEntity(params.data));
-        })
-    );
-
     router.route('/api/entities/:entityId/test-auth').get(
         catchAsyncError(async (req, res) => {
             const params = checkRequiredParams(req.params, ['entityId']);
@@ -352,7 +360,7 @@ function setEntityRoutes(router, factory, getUserId) {
                     errors: [
                         {
                             title: 'Authentication Error',
-                            message: `There was an error with your ${module.constructor.getName()} Entity.  Please reconnect/re-authenticate, or reach out to Support for assistance.`,
+                            message: `There was an error with your ${module.getName()} Entity.  Please reconnect/re-authenticate, or reach out to Support for assistance.`,
                             timestamp: Date.now(),
                         },
                     ],
@@ -360,6 +368,59 @@ function setEntityRoutes(router, factory, getUserId) {
             } else {
                 res.json({status: 'ok'});
             }
+        })
+    );
+
+    router.route('/api/entities/:entityId').get(
+        catchAsyncError(async (req, res) => {
+            const params = checkRequiredParams(req.params, ['entityId']);
+            const module = await moduleFactory.getModuleInstanceFromEntityId(
+                params.entityId,
+                getUserId(req)
+            );
+
+            if (!module) {
+                throw Boom.notFound();
+            }
+            res.json(module.entity);
+        })
+    );
+
+    router.route('/api/entities/:entityId/options').post(
+        catchAsyncError(async (req, res) => {
+            const params = checkRequiredParams(req.params, [
+                'entityId',
+                getUserId(req)
+            ]);
+            const module = await moduleFactory.getModuleInstanceFromEntityId(
+                params.entityId,
+                getUserId(req)
+            );
+
+            if (!module) {
+                throw Boom.notFound();
+            }
+
+            res.json(await module.getEntityOptions());
+        })
+    );
+
+    router.route('/api/entities/:entityId/options/refresh').post(
+        catchAsyncError(async (req, res) => {
+            const params = checkRequiredParams(req.params, [
+                'entityId',
+                getUserId(req)
+            ]);
+            const module = await moduleFactory.getModuleInstanceFromEntityId(
+                params.entityId,
+                getUserId(req)
+            );
+
+            if (!module) {
+                throw Boom.notFound();
+            }
+
+            res.json(await module.refreshEntityOptions());
         })
     );
 }
