@@ -89,11 +89,6 @@ function setIntegrationRoutes(router, factory, getUserId) {
             );
             await integration.onCreate();
 
-            // filtered set for results
-            const response = await IntegrationHelper.getFormattedIntegration(
-                integration.record
-            );
-
             res.status(201).json(
                 await IntegrationHelper.getFormattedIntegration(integration.record)
             );
@@ -116,11 +111,9 @@ function setIntegrationRoutes(router, factory, getUserId) {
             );
             await integration.onUpdate(params);
 
-            const response = await IntegrationHelper.getFormattedIntegration(
-                integration.record
+            res.json(
+                await IntegrationHelper.getFormattedIntegration(integration.record)
             );
-
-            res.json(response);
         })
     );
 
@@ -144,8 +137,7 @@ function setIntegrationRoutes(router, factory, getUserId) {
                 params.integrationId
             );
 
-            res.status(201);
-            res.json({});
+            res.status(201).json({});
         })
     );
 
@@ -156,8 +148,7 @@ function setIntegrationRoutes(router, factory, getUserId) {
             ]);
             const integration =
                 await integrationFactory.getInstanceFromIntegrationId(params);
-            const results = await integration.getConfigOptions();
-            res.json(results);
+            res.json(await integration.getConfigOptions());
         })
     );
 
@@ -168,10 +159,10 @@ function setIntegrationRoutes(router, factory, getUserId) {
             ]);
             const integration =
                 await integrationFactory.getInstanceFromIntegrationId(params);
-            const results = await integration.refreshConfigOptions(
-                req.body
+
+            res.json(
+                await integration.refreshConfigOptions(req.body)
             );
-            res.json(results);
         })
     );
 
@@ -183,11 +174,10 @@ function setIntegrationRoutes(router, factory, getUserId) {
             ]);
             const integration =
                 await integrationFactory.getInstanceFromIntegrationId(params);
-            const results = await integration.getActionOptions(
-                params.actionId
+
+            res.json(
+                await integration.getActionOptions(params.actionId)
             );
-            // We could perhaps augment router with dynamic options? Haven't decided yet, but here may be the place
-            res.json(results);
         })
     );
 
@@ -199,12 +189,10 @@ function setIntegrationRoutes(router, factory, getUserId) {
             ]);
             const integration =
                 await integrationFactory.getInstanceFromIntegrationId(params);
-            const results = await integration.refreshActionOptions(
-                params.actionId,
-                req.body
+
+            res.json(
+                await integration.refreshActionOptions(params.actionId, req.body)
             );
-            // We could perhaps augment router with dynamic options? Haven't decided yet, but here may be the place
-            res.json(results);
         })
     );
 
@@ -216,14 +204,12 @@ function setIntegrationRoutes(router, factory, getUserId) {
             ]);
             const integration =
                 await integrationFactory.getInstanceFromIntegrationId(params);
-            const results = await integration.notify(
-                params.actionId,
-                req.body
+
+            res.json(
+                await integration.notify(params.actionId, req.body)
             );
-            // We could perhaps augment router with dynamic options? Haven't decided yet, but here may be the place
-            res.json(results);
         })
-    )
+    );
 
     router.route('/api/integrations/:integrationId').get(
         catchAsyncError(async (req, res) => {
@@ -300,6 +286,7 @@ function setEntityRoutes(router, factory, getUserId) {
                     `Error: EntityManager of type ${params.entityType} requires a valid url`
                 );
             }
+
             res.json(await module.getAuthorizationRequirements());
         })
     );
@@ -310,15 +297,14 @@ function setEntityRoutes(router, factory, getUserId) {
                 'entityType',
                 'data',
             ]);
-            console.log('post authorize', params);
             const module = await getModuleInstance(req, params.entityType);
-            console.log('post authorize module', module);
-            const results = await module.processAuthorizationCallback({
-                userId: getUserId(req),
-                data: params.data,
-            });
 
-            res.json(results);
+            res.json(
+                await module.processAuthorizationCallback({
+                    userId: getUserId(req),
+                    data: params.data,
+                })
+            );
         })
     );
 
@@ -384,6 +370,7 @@ function setEntityRoutes(router, factory, getUserId) {
             if (!module) {
                 throw Boom.notFound();
             }
+
             res.json(module.entity);
         })
     );
