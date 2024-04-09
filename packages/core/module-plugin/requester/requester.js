@@ -16,7 +16,6 @@ class Requester extends Delegate {
         // Allow passing in the fetch function
         // Instance methods can use this.fetch without differentiating
         this.fetch = get(params, 'fetch', fetch);
-
     }
 
     parsedBody = async (resp) => {
