@@ -93,8 +93,10 @@ function setIntegrationRoutes(router, factory, getUserId) {
             const response = await IntegrationHelper.getFormattedIntegration(
                 integration.record
             );
-            res.status(201);
-            res.json(response);
+
+            res.status(201).json(
+                await IntegrationHelper.getFormattedIntegration(integration.record)
+            );
         })
     );
 
