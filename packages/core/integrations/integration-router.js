@@ -420,7 +420,7 @@ function setEntityRoutes(router, factory, getUserId) {
                 throw Boom.notFound();
             }
 
-            res.json(await module.refreshEntityOptions());
+            res.json(await module.refreshEntityOptions(req.body));
         })
     );
 }

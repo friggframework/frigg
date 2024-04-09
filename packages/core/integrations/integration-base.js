@@ -167,11 +167,19 @@ class IntegrationBase {
     }
 
     async getActionOptions() {
-
+        const options = {
+            jsonSchema: {},
+            uiSchema: {},
+        }
+        return options
     }
 
-    async refreshActionOptions() {
-
+    async refreshActionOptions(params) {
+        const options = {
+            jsonSchema: {},
+            uiSchema: {},
+        }
+        return options
     }
 }
 
