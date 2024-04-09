@@ -308,6 +308,36 @@ function setEntityRoutes(router, factory, getUserId) {
         })
     );
 
+    router.route('/api/entity').post(
+        catchAsyncError(async (req, res) => {
+            const params = checkRequiredParams(req.body, [
+                'entityType',
+                'data',
+            ]);
+            checkRequiredParams(req.body.data, ['credential_id']);
+
+            // May want to pass along the user ID as well so credential ID's can't be fished???
+            const credential = await IntegrationHelper.getCredentialById(
+                params.data.credential_id
+            );
+
+            if (!credential) {
+                throw Boom.badRequest('Invalid credential ID');
+            }
+
+            const module = await getModuleInstance(req, params.entityType);
+            const entityDetails = await module.getEntityDetails(
+                module.api,
+                null,
+                null,
+                getUserId(req)
+            )
+            res.json(
+                await module.findOrCreateEntity(entityDetails)
+            );
+        })
+    );
+
     router.route('/api/entity/options/:credentialId').get(
         catchAsyncError(async (req, res) => {
             // TODO May want to pass along the user ID as well so credential ID's can't be fished???
