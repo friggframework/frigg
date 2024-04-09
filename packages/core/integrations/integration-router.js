@@ -332,6 +332,7 @@ function setEntityRoutes(router, factory, getUserId) {
                 null,
                 getUserId(req)
             )
+
             res.json(
                 await module.findOrCreateEntity(entityDetails)
             );
