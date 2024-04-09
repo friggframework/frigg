@@ -37,6 +37,7 @@ class FetchError extends BaseError {
             ? JSON.stringify({ headers: responseHeaders }, null, 2)
             : '';
 
+        const hideRequestData = process.env.HIDE_REQUEST_DATA === 'true';
         const messageParts = [
             stripIndent`
                 -----------------------------------------------------
@@ -45,18 +46,25 @@ class FetchError extends BaseError {
                 >>> Request Details >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
                 ${method} ${resource}
             `,
-            initText,
+        ];
+        if (!hideRequestData) {
+            messageParts.push(initText);
+        }
+        messageParts.push(
             stripIndent`
                 <<< Response Details <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                 ${response?.status} ${response?.statusText}
-            `,
-            responseHeaderText,
-            responseBodyText,
+            `
+        );
+        if (!hideRequestData) {
+            messageParts.push(responseHeaderText, responseBodyText);
+        }
+        messageParts.push(
             stripIndent`
                 -----------------------------------------------------
                 Stack Trace:
-            `,
-        ];
+            `
+        );
 
         super(messageParts.filter(Boolean).join('\n'));
     }
