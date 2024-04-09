@@ -1,3 +1,18 @@
+# v1.1.5 (Tue Apr 09 2024)
+
+#### 🐛 Bug Fix
+
+- update router to include options and refresh [#301](https://github.com/friggframework/frigg/pull/301) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Bump version to: v1.1.4 \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+- Bump version to: v1.1.3 \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v2.0.0 (Sat Mar 30 2024)
 
 #### 💥 Breaking Change

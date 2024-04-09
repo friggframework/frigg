@@ -1,3 +1,18 @@
+# v1.1.4 (Tue Apr 09 2024)
+
+#### 🐛 Bug Fix
+
+- Remove the API Module Library [#299](https://github.com/friggframework/frigg/pull/299) ([@seanspeaks](https://github.com/seanspeaks))
+- `@friggframework/core`
+  - update router to include options and refresh [#301](https://github.com/friggframework/frigg/pull/301) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.1.4 (Fri Apr 05 2024)
 
 #### 🐛 Bug Fix

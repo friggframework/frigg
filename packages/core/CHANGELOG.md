@@ -1,3 +1,24 @@
+# v1.1.5 (Tue Apr 09 2024)
+
+#### 🐛 Bug Fix
+
+- update router to include options and refresh [#301](https://github.com/friggframework/frigg/pull/301) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- consistent spacing ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- add back the /api/entity POST of a credential with a tentative adjustment to implementation ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- be consistent about not using redundant variables for the response json ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- remove accidental newline ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- fixes to router and stubs ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- update router to include options and refresh for entities, integration config, and integration user actions ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Bump version to: v1.1.4 \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+- Bump version to: v1.1.3 \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.1.4 (Fri Apr 05 2024)
 
 #### 🐛 Bug Fix
