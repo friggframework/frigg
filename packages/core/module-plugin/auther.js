@@ -88,6 +88,12 @@ class Auther extends Delegate {
         const definition = get(params, 'definition');
         Auther.validateDefinition(definition);
         Object.assign(this, definition.requiredAuthMethods);
+        if (definition.getEntityOptions) {
+            this.getEntityOptions = definition.getEntityOptions;
+        }
+        if (definition.refreshEntityOptions) {
+            this.refreshEntityOptions = definition.refreshEntityOptions;
+        }
         this.name = definition.moduleName;
         this.modelName = definition.modelName;
         this.apiClass = definition.API;
@@ -263,12 +269,14 @@ class Auther extends Delegate {
     }
 
     async getEntityOptions() {
-        // May not be needed if the callback already creates the entity, such as in situations
-        // like HubSpot where the account is determined in the authorization flow.
-        // This should only be used in situations such as FreshBooks where the user needs to make
-        // an account decision on the front end.
         throw new Error(
-            'Entity requirement method getEntityOptions() is not defined in the class'
+            'Method getEntityOptions() is not defined in the class'
+        );
+    }
+
+    async refreshEntityOptions() {
+        throw new Error(
+            'Method refreshEntityOptions() is not defined in the class'
         );
     }
 
