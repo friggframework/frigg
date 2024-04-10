@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-microsoft-sharepoint",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -24,7 +24,7 @@
     "dependencies": {
         "@friggframework/assertions": "^1.0.7",
         "@friggframework/logs": "^1.0.9",
-        "@friggframework/module-plugin": "^1.1.2",
+        "@friggframework/module-plugin": "^1.1.3",
         "probe-image-size": "^7.2.3"
     },
     "publishConfig": {

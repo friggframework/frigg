@@ -1,3 +1,22 @@
+# v0.4.1 (Wed Mar 20 2024)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, Brendan Moore ([@brendanrmoore](https://github.com/brendanrmoore)), for all your work!
+
+#### 🐛 Bug Fix
+
+- Fix MS Teams refresh token and patch version 0. [#280](https://github.com/friggframework/frigg/pull/280) ([@brendanrmoore](https://github.com/brendanrmoore))
+- Revert "bump version" ([@brendanrmoore](https://github.com/brendanrmoore))
+- bump version ([@brendanrmoore](https://github.com/brendanrmoore))
+- set refresh token when constructing graph API ([@brendanrmoore](https://github.com/brendanrmoore))
+
+#### Authors: 1
+
+- Brendan Moore ([@brendanrmoore](https://github.com/brendanrmoore))
+
+---
+
 # v0.4.0 (Wed Mar 20 2024)
 
 #### 🚀 Enhancement

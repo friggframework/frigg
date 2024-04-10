@@ -1,3 +1,42 @@
+# (Sat Apr 06 2024)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/module-plugin@1.1.3`
+  - Add ECONNRESET update [#300](https://github.com/friggframework/frigg/pull/300) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
+# (Thu Mar 28 2024)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-google-drive@0.3.1`
+  - Implement createFile function in google drive [#292](https://github.com/friggframework/frigg/pull/292) ([@Jo-lefthook](https://github.com/Jo-lefthook))
+
+#### Authors: 1
+
+- [@Jo-lefthook](https://github.com/Jo-lefthook)
+
+---
+
+# (Wed Mar 20 2024)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-microsoft-teams@0.4.1`
+  - Fix MS Teams refresh token and patch version 0. [#280](https://github.com/friggframework/frigg/pull/280) ([@brendanrmoore](https://github.com/brendanrmoore))
+
+#### Authors: 1
+
+- Brendan Moore ([@brendanrmoore](https://github.com/brendanrmoore))
+
+---
+
 # (Wed Mar 20 2024)
 
 #### 🚀 Enhancement
