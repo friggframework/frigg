@@ -8,7 +8,6 @@
 * [Quick Start Tutorial](tutorials/quick-start/README.md)
   * [Create Frigg App](tutorials/quick-start/create-frigg-app.md)
   * [Exploring the App](tutorials/quick-start/exploring-the-app.md)
-  * [Connecting to the Database](tutorials/quick-start/connecting-to-the-database.md)
   * [Installing an API Module](tutorials/quick-start/installing-an-api-module.md)
   * [Building your first integration](tutorials/quick-start/building-your-first-integration.md)
   * [Testing the Integration](tutorials/quick-start/testing-the-integration.md)
@@ -37,6 +36,7 @@
 * [Overview](reference/introduction.md)
 * [Core Concepts](reference/core-concepts.md)
 * [Architecture](reference/architecture.md)
+* [Data Model](reference/data-model.md)
 * [API Reference](reference/api-reference.md)
 
 ## 🔌 API Modules

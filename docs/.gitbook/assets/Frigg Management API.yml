@@ -1,0 +1,358 @@
+openapi: 3.0.3
+info:
+    title: Frigg Management API BASE
+    description: >-
+        This base management API comes out-of-the-box with every Frigg
+        implementation. It can be customized to your needs, but is intended to work
+        immediately once you've got some initial integrations configured and API
+        Modules installed.
+    version: 1.0.0
+    contact: {}
+servers:
+    - url: http://localhost:3001/dev
+paths:
+    /api/authorize:
+        get:
+            summary: Get Auth Requirements
+            description: Get Auth Requirements
+            operationId: getAuthRequirements
+            parameters:
+                - name: entityType
+                  in: query
+                  schema:
+                      type: string
+                      example: sharepoint
+                - name: connectingEntityType
+                  in: query
+                  schema:
+                      type: string
+                      example: demo
+            responses:
+                '200':
+                    description: ''
+        post:
+            summary: Auth (Callback)
+            description: Auth (Callback)
+            operationId: authCallback
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            properties:
+                                data:
+                                    type: object
+                                    properties:
+                                        code:
+                                            type: string
+                                            example: '{{code}}'
+                                entityType:
+                                    type: string
+                                    example: '{{entityType}}'
+                        examples:
+                            Auth (Callback):
+                                value: |-
+                                    {
+                                        "entityType":"{{targetEntityType}}",
+                                        "data": {
+                                            "subdomain": {{userProvidedSubdomain}},
+                                            "public_key": {{userProvidedPublicKey}},
+                                            "private_key": {{userProvidedPrivateKey}}
+                                        }
+                                    }
+            responses:
+                '201':
+                    description: OAuth Example
+                    content:
+                        text/plain:
+                            examples:
+                                OAuth Example:
+                                    value: |
+                                        {
+                                        
+                                            "type": "{{entityType}}",
+                                            "credential_id": {{generatedCredentialId}},
+                                            "entity_id": {{generatedEntityId}}
+                                        }
+    /api/entities/options/{credentialId}:
+        get:
+            summary: Get Entity Options
+            description: Get Entity Options
+            operationId: getEntityOptions
+            responses:
+                '200':
+                    description: ''
+        parameters:
+            - name: credentialId
+              in: path
+              required: true
+              schema:
+                  type: string
+                  example: ''
+    /api/entities:
+        post:
+            summary: Create Entity
+            description: Create Entity
+            operationId: createEntity
+            responses:
+                '200':
+                    description: ''
+    /api/integrations:
+        get:
+            summary: List Integrations
+            description: List Integrations
+            operationId: listIntegrations
+            parameters:
+                - name: x-frigg-apporgid
+                  in: header
+                  schema:
+                      type: string
+                      example: '{{appOrgId}}'
+                - name: x-frigg-appuserid
+                  in: header
+                  schema:
+                      type: string
+                      example: '{{appUserId}}'
+            responses:
+                '200':
+                    description: ''
+        post:
+            summary: Create Integration
+            description: Create Integration
+            operationId: createIntegration
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            properties:
+                                entities:
+                                    type: array
+                                    items:
+                                        type: string
+                                        example: '{{yourAppEntityId}}'
+                                    example:
+                                        - '{{yourAppEntityId}}'
+                                        - '{{targetAppEntityId}}'
+                        examples:
+                            Create Integration:
+                                value:
+                                    entities:
+                                        - '{{yourAppEntityId}}'
+                                        - '{{targetAppEntityId}}'
+            responses:
+                '201':
+                    description: Create Integration
+                    content:
+                        text/plain:
+                            examples:
+                                Create Integration:
+                                    value: |-
+                                        {
+                                            "id":"{{generatedIntegrationId}}",
+                                            "entities":[
+                                                "{{yourAppEntityId}}",
+                                                "{{targetAppEntityId}}"
+                                            ],
+                                            "status": "ENABLED", // Enums: ENABLED, DISABLED, NEEDS_CONFIG, PROCESSING, ERROR
+                                            "config": {
+                                                "type": "{{targetIntegrationType}}",
+                                                "enable": {
+                                                    "sync": true,
+                                                    "webhooks": "true"
+                                                },
+                                                "map": {
+                                                    "syncMap": {
+                                                        "freshbooksEntityId": [
+                                                            "name.first",
+                                                            "name.last"
+                                                        ],
+                                                        "salesforceEntityId": [
+                                                            "firstName",
+                                                            "lastName"
+                                                        ]
+                                                    }
+                                                }
+                                            }
+                                        }
+            security:
+                - bearerAuth: []
+    /api/integrations/options:
+        get:
+            summary: List Integration Options
+            description: List Integration Options
+            operationId: listIntegrationOptions
+            responses:
+                '200':
+                    description: ''
+    /api/integrations/{integrationId}:
+        get:
+            summary: Get Integration
+            description: Get Integration
+            operationId: getIntegration
+            responses:
+                '200':
+                    description: ''
+        delete:
+            summary: Delete Integration
+            description: Delete Integration
+            operationId: deleteIntegration
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            properties:
+                                id:
+                                    type: string
+                                    example: integration1
+                        examples:
+                            Delete Integration:
+                                value:
+                                    id: integration1
+            responses:
+                '202':
+                    description: Delete Integration
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties: {}
+                            examples:
+                                Delete Integration:
+                                    value: {}
+        patch:
+            summary: Update Integration
+            description: Update Integration
+            operationId: updateIntegration
+            parameters:
+                - name: x-frigg-appuserid
+                  in: header
+                  schema:
+                      type: string
+                      example: user123
+                - name: x-frigg-apporgid
+                  in: header
+                  schema:
+                      type: string
+                      example: org123
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            properties:
+                                config:
+                                    type: object
+                                    properties:
+                                        enable:
+                                            type: object
+                                            properties:
+                                                sync:
+                                                    type: boolean
+                                                    example: true
+                                                webhooks:
+                                                    type: boolean
+                                                    example: false
+                                        map:
+                                            type: object
+                                            properties:
+                                                syncMap:
+                                                    type: object
+                                                    properties:
+                                                        freshbooksEntityId:
+                                                            type: array
+                                                            items:
+                                                                type: string
+                                                                example: name.first
+                                                            example:
+                                                                - name.first
+                                                                - name.last
+                                                        salesforceEntityId:
+                                                            type: array
+                                                            items:
+                                                                type: string
+                                                                example: firstName
+                                                            example:
+                                                                - firstName
+                                                                - lastName
+                                id:
+                                    type: string
+                                    example: integration1
+                        examples:
+                            Update Integration:
+                                value:
+                                    config:
+                                        enable:
+                                            sync: true
+                                            webhooks: false
+                                        map:
+                                            syncMap:
+                                                freshbooksEntityId:
+                                                    - name.first
+                                                    - name.last
+                                                salesforceEntityId:
+                                                    - firstName
+                                                    - lastName
+                                    id: integration1
+            responses:
+                '200':
+                    description: ''
+        parameters:
+            - name: integrationId
+              in: path
+              required: true
+              schema:
+                  type: string
+                  example: ''
+    /api/integrations/{integrationId}/config/options:
+        get:
+            summary: Get Integration Config Options
+            description: Get Integration Config Options
+            operationId: getIntegrationConfigOptions
+            responses:
+                '200':
+                    description: ''
+        parameters:
+            - name: integrationId
+              in: path
+              required: true
+              schema:
+                  type: string
+                  example: ''
+    /api/integrations/{integrationId}/actions/{actionId}/options:
+        get:
+            summary: Get User Action Options
+            description: Get User Action Options
+            operationId: getUserActionOptions
+            responses:
+                '200':
+                    description: ''
+        parameters:
+            - name: integrationId
+              in: path
+              required: true
+              schema:
+                  type: string
+                  example: ''
+            - name: actionId
+              in: path
+              required: true
+              schema:
+                  type: string
+    /api/integrations/65bbfe8e4124ba1e42b939e4/actions/DELETE_ALL_CUSTOM_OBJECTS:
+        post:
+            summary: Submit User Action
+            description: Submit User Action
+            operationId: submitUserAction
+            responses:
+                '200':
+                    description: ''
+            security:
+                - bearerAuth: []
+components:
+    securitySchemes:
+        bearerAuth:
+            type: http
+            scheme: bearer
+tags: []
