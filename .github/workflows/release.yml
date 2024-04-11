@@ -3,6 +3,8 @@ on:
   push:
     branches-ignore:
       - gitbook-updates
+    paths-ignore:
+      - docs/**
 jobs:
   release:
     runs-on: ubuntu-latest
