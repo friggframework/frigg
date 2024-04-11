@@ -6,6 +6,8 @@ name: Frigg CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - docs/**
   pull_request:
     branches: ["**"]
 
