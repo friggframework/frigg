@@ -120,9 +120,6 @@ class Api extends OAuth2Requester {
         const parsedResponse = await this.parsedBody(response);
         const { status } = response;
         const { ok, error } = parsedResponse;
-        if (process.env.HIDE_REQUEST_DATA !== 'true') {
-            console.log(parsedResponse);
-        }
 
         // If the status is retriable and there are back off requests left, retry the request
         if ((status === 429 || status >= 500) && i < this.backOff.length) {
