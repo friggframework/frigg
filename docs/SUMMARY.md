@@ -2,7 +2,7 @@
 
 * [🥳 Introduction to Frigg](README.md)
 
-## 👩💻 Developing Integrations with Frigg <a href="#develop" id="develop"></a>
+## 👩‍💻 Developing Integrations with Frigg <a href="#develop" id="develop"></a>
 
 * [Overview](develop/overview.md)
 * [Tutorials](develop/tutorials/README.md)
@@ -41,39 +41,39 @@
 
 ## 🔌 API Modules
 
-* [Overview](api-module-library/overview.md)
-* [API Module Library](api-module-library/module-list/README.md)
-  * [ActiveCampaign](api-module-library/module-list/activecampaign/README.md)
-    * [Configuration](api-module-library/module-list/activecampaign/configuration.md)
+* [Overview](api-modules/overview.md)
+* [API Module Library](api-modules/module-list/README.md)
+  * [ActiveCampaign](api-modules/module-list/activecampaign/README.md)
+    * [Configuration](api-modules/module-list/activecampaign/configuration.md)
     * [ActiveCampaign Docs](https://developers.activecampaign.com/reference/overview)
-  * [Attentive](api-module-library/module-list/attentive/README.md)
-    * [Configuration](api-module-library/module-list/attentive/configuration.md)
+  * [Attentive](api-modules/module-list/attentive/README.md)
+    * [Configuration](api-modules/module-list/attentive/configuration.md)
     * [Attentive Docs](https://docs.attentivemobile.com)
-  * [ConnectWise](api-module-library/module-list/connectwise/README.md)
-    * [Configuration](api-module-library/module-list/connectwise/configuration.md)
-  * [Fastspring](api-module-library/module-list/fastspring/README.md)
-    * [Configuration](api-module-library/module-list/fastspring/configuration.md)
-  * [Hubspot](api-module-library/module-list/hubspot/README.md)
-    * [Configuration](api-module-library/module-list/hubspot/configuration.md)
+  * [ConnectWise](api-modules/module-list/connectwise/README.md)
+    * [Configuration](api-modules/module-list/connectwise/configuration.md)
+  * [Fastspring](api-modules/module-list/fastspring/README.md)
+    * [Configuration](api-modules/module-list/fastspring/configuration.md)
+  * [Hubspot](api-modules/module-list/hubspot/README.md)
+    * [Configuration](api-modules/module-list/hubspot/configuration.md)
     * [Hubspot Docs](https://developers.activecampaign.com/reference/overview)
-  * [Monday.com](api-module-library/module-list/monday.com/README.md)
-    * [Configuration](api-module-library/module-list/monday.com/configuration.md)
+  * [Monday.com](api-modules/module-list/monday.com/README.md)
+    * [Configuration](api-modules/module-list/monday.com/configuration.md)
     * [Monday.com Docs](https://apps.developer.monday.com/docs)
-  * [RollWorks](api-module-library/module-list/rollworks/README.md)
-    * [Configuration](api-module-library/module-list/rollworks/configuration.md)
-  * [Salesforce](api-module-library/module-list/salesforce/README.md)
-    * [Configuration](api-module-library/module-list/salesforce/configuration.md)
-  * [Salesloft](api-module-library/module-list/salesloft/README.md)
-    * [Configuration](api-module-library/module-list/salesloft/configuration.md)
-* [Building Your Own Module](api-module-library/building-your-own-module.md)
+  * [RollWorks](api-modules/module-list/rollworks/README.md)
+    * [Configuration](api-modules/module-list/rollworks/configuration.md)
+  * [Salesforce](api-modules/module-list/salesforce/README.md)
+    * [Configuration](api-modules/module-list/salesforce/configuration.md)
+  * [Salesloft](api-modules/module-list/salesloft/README.md)
+    * [Configuration](api-modules/module-list/salesloft/configuration.md)
+* [Building Your Own Module](api-modules/building-your-own-module.md)
 
 ## 📞 Support
 
-* [Contact](support/support.md)
+* [Contact](support/support/README.md)
   * [Join Slack Channel](support/support/join-slack-channel.md)
   * [Chat with Us](support/support/chat-with-us.md)
 * [Frequently Asked Questions (FAQs)](support/frequently-asked-questions.md)
 
-## 🗺 Roadmap
+## 🗺️ Roadmap
 
 * [Overview](roadmap/page-1.md)

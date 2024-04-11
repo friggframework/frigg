@@ -10,10 +10,9 @@ This FAQ page is divided into three sections: General, Technical/Product and Non
 
 <summary>What SaaS companies are already using Frigg?</summary>
 
-Frigg is powering +10 integrations (total) for these early adopters:\
+Frigg is powering +10 integrations (total) for these early adopters:\\
 
-
-### ****[**Crossbeam**](https://partnercloud.crossbeam.com/)****
+#### [**Crossbeam**](https://partnercloud.crossbeam.com/)
 
 * **monday.com**
 * **ActiveCampaign**
@@ -23,17 +22,17 @@ Frigg is powering +10 integrations (total) for these early adopters:\
 * **Terminus**
 * **Outreach.io**
 
-### ****[**Clyde**](https://partners.joinclyde.com/tech-partners/)****
+#### [**Clyde**](https://partners.joinclyde.com/tech-partners/)
 
 * **Gorgias**
 * **Attentive**
 
-### ****[**FastSpring Interactive Quotes**](https://fastspring.com/docs/interactive-quotes-overview/)
+#### \*\*\*\*[**FastSpring Interactive Quotes**](https://fastspring.com/docs/interactive-quotes-overview/)
 
 * **SalesForce**
 * **HubSpot**
 
-****
+***
 
 </details>
 
@@ -65,7 +64,7 @@ Yes. Frigg provides developers with an opinionated, ready-to-use framework, as w
 
 Frigg was first created by [Left Hook](https://lefthook.com). It is now used by several B2B SaaS companies to power more than 20 different direct/native integrations.
 
-An open source community of contributors and supporters is now forming around the Frigg Framework project. Please [join us](support.md)!
+An open source community of contributors and supporters is now forming around the Frigg Framework project. Please [join us](support/)!
 
 </details>
 
@@ -105,7 +104,7 @@ Frigg is written in Node.js and relies on the Serverless.com framework, but is o
 
 <summary>Does Frigg work alongside my other integrations?</summary>
 
-Absolutely. Frigg can power all of your direct/native integrations, or a subset of them.&#x20;
+Absolutely. Frigg can power all of your direct/native integrations, or a subset of them.
 
 Because Frigg's backend service is accessible via API, your frontend team can add a Frigg-powered integration into your existing directory/marketplace, and leverage your existing UI for user-managed authentication and configuration.
 
@@ -131,8 +130,7 @@ Yes, if that tool can facilitate using APIs to authenticate and configure a user
 
 <summary>Which cloud providers are supported?</summary>
 
-Frigg leverages (and requires) the [Serverless.com framework](https://github.com/serverless/serverless), which means it can run on many different cloud services including:\
-
+Frigg leverages (and requires) the [Serverless.com framework](https://github.com/serverless/serverless), which means it can run on many different cloud services including:\\
 
 AWS
 
