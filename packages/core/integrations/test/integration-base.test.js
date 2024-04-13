@@ -2,7 +2,8 @@ const _ = require('lodash');
 const { mongoose } = require('../../database/mongoose');
 const { expect } = require('chai');
 const { IntegrationBase } = require("../integration-base");
-const {Credential, Entity} = require('../../module-plugin');
+const {Credential} = require('../../module-plugin/credential');
+const {Entity} = require('../../module-plugin/entity');
 const { IntegrationMapping } = require('../integration-mapping')
 const {IntegrationModel} = require("../integration-model");
 
