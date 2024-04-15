@@ -1,10 +1,9 @@
-const { Auther, Credential, Entity, IntegrationModel, mongoose } = require('@friggframework/core');
+const { Auther, Credential, Entity, IntegrationFactory, createObjectId } = require('@friggframework/core');
 
 
 async function createMockIntegration(IntegrationClassDef, userId = null, config = {},) {
-    const integration = new IntegrationClassDef();
-    userId = userId || new mongoose.Types.ObjectId();
-    integration.delegateTypes.push(...IntegrationClassDef.Config.events)
+    const integrationFactory = new IntegrationFactory([IntegrationClassDef]);
+    userId = userId || createObjectId();
 
     const insertOptions = {
         new: true,
@@ -42,11 +41,13 @@ async function createMockIntegration(IntegrationClassDef, userId = null, config 
     );
 
     const entities = [entity1, entity2]
-    integration.record = await IntegrationModel.create({
-        entities,
-        user: userId,
-        config: {type: IntegrationClassDef.Config.name, ...config}
-    })
+
+    const integration =
+        await integrationFactory.createIntegration(
+            entities,
+            userId,
+            config,
+        );
 
     integration.id = integration.record._id
 
