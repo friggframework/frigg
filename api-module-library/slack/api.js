@@ -3,7 +3,7 @@ const qs = require('qs');
 const { OAuth2Requester } = require('@friggframework/module-plugin');
 const { get } = require('@friggframework/assertions');
 const { FetchError } = require('@friggframework/errors');
-const moment = require("moment/moment");
+const moment = require('moment/moment');
 
 class Api extends OAuth2Requester {
     constructor(params) {
@@ -120,7 +120,6 @@ class Api extends OAuth2Requester {
         const parsedResponse = await this.parsedBody(response);
         const { status } = response;
         const { ok, error } = parsedResponse;
-        console.log(parsedResponse);
 
         // If the status is retriable and there are back off requests left, retry the request
         if ((status === 429 || status >= 500) && i < this.backOff.length) {
@@ -260,8 +259,8 @@ class Api extends OAuth2Requester {
             url: this.baseUrl + this.URLs.postMessage,
             body,
             headers: {
-                'Content-Type': 'application/json; charset=utf-8'
-            }
+                'Content-Type': 'application/json; charset=utf-8',
+            },
         };
         const response = await this._post(options);
         return response;
@@ -316,8 +315,8 @@ class Api extends OAuth2Requester {
             url: this.baseUrl + this.URLs.updateMessage,
             body,
             headers: {
-                'Content-Type': 'application/json; charset=utf-8'
-            }
+                'Content-Type': 'application/json; charset=utf-8',
+            },
         };
         const response = await this._post(options);
         return response;
@@ -332,8 +331,8 @@ class Api extends OAuth2Requester {
             url: this.baseUrl + this.URLs.deleteMessage,
             body,
             headers: {
-                'Content-Type': 'application/json; charset=utf-8'
-            }
+                'Content-Type': 'application/json; charset=utf-8',
+            },
         };
         const response = await this._post(options);
         return response;
@@ -523,8 +522,8 @@ class Api extends OAuth2Requester {
             url: this.baseUrl + this.URLs.getChannelHistory,
             body: qs.stringify(body),
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            }
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
         };
         const response = await this._post(options, false);
         return response;
@@ -539,8 +538,8 @@ class Api extends OAuth2Requester {
             url: this.baseUrl + this.URLs.getChannelMembers,
             query,
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            }
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
         };
         const response = await this._get(options);
         return response;
@@ -564,8 +563,8 @@ class Api extends OAuth2Requester {
             url: this.baseUrl + this.URLs.openView,
             body,
             headers: {
-                'Content-Type': 'application/json; charset=utf-8'
-            }
+                'Content-Type': 'application/json; charset=utf-8',
+            },
         };
         const response = await this._post(options);
         return response;
@@ -577,8 +576,8 @@ class Api extends OAuth2Requester {
             url: this.baseUrl + this.URLs.updateView,
             body,
             headers: {
-                'Content-Type': 'application/json; charset=utf-8'
-            }
+                'Content-Type': 'application/json; charset=utf-8',
+            },
         };
         const response = await this._post(options);
         return response;
@@ -590,8 +589,8 @@ class Api extends OAuth2Requester {
             url: this.baseUrl + this.URLs.pushView,
             body,
             headers: {
-                'Content-Type': 'application/json; charset=utf-8'
-            }
+                'Content-Type': 'application/json; charset=utf-8',
+            },
         };
         const response = await this._post(options);
         return response;
