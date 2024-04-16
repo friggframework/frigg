@@ -1,7 +1,7 @@
 {
     "name": "@friggframework/core",
     "prettier": "@friggframework/prettier-config",
-    "version": "0.2.14",
+    "version": "0.2.15",
     "devDependencies": {
         "@friggframework/eslint-config": "^1.0.8",
         "eslint": "^8.22.0",
@@ -24,8 +24,8 @@
     },
     "homepage": "https://github.com/friggframework/frigg#readme",
     "dependencies": {
-        "@friggframework/assertions": "^1.0.8",
-        "@friggframework/errors": "^1.1.6",
+        "@friggframework/assertions": "^1.0.9",
+        "@friggframework/errors": "^1.1.7",
         "aws-sdk": "^2.1200.0",
         "lodash": "^4.17.21",
         "moment": "^2.29.4",

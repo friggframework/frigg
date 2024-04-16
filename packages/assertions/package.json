@@ -1,10 +1,10 @@
 {
     "name": "@friggframework/assertions",
     "prettier": "@friggframework/prettier-config",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "description": "",
     "dependencies": {
-        "@friggframework/errors": "^1.1.6",
+        "@friggframework/errors": "^1.1.7",
         "lodash.get": "^4.4.2"
     },
     "devDependencies": {
