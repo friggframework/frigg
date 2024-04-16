@@ -1,3 +1,23 @@
+# (Tue Apr 16 2024)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-slack@0.4.2`, `@friggframework/errors@1.1.7`
+  - Add environment variable check to optionally hide request data from logs [#303](https://github.com/friggframework/frigg/pull/303) ([@brendanrmoore](https://github.com/brendanrmoore))
+
+#### ⚠️ Pushed to `main`
+
+- GITBOOK-135: No subject ([@seanspeaks](https://github.com/seanspeaks))
+- Update release.yml ([@seanspeaks](https://github.com/seanspeaks))
+- GITBOOK-136: No subject ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Brendan Moore ([@brendanrmoore](https://github.com/brendanrmoore))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # (Sat Apr 06 2024)
 
 #### 🐛 Bug Fix

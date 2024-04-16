@@ -1,3 +1,15 @@
+# v0.2.15 (Tue Apr 16 2024)
+
+#### 🐛 Bug Fix
+
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.2.14 (Tue Nov 07 2023)
 
 :tada: This release contains work from a new contributor! :tada:
