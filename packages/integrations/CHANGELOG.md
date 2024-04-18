@@ -1,3 +1,16 @@
+# v1.2.5 (Thu Apr 18 2024)
+
+#### 🐛 Bug Fix
+
+- Remove user ID check from createIntegration [#305](https://github.com/friggframework/frigg/pull/305) ([@brendanrmoore](https://github.com/brendanrmoore))
+- remove user ID check ([@brendanrmoore](https://github.com/brendanrmoore))
+
+#### Authors: 1
+
+- Brendan Moore ([@brendanrmoore](https://github.com/brendanrmoore))
+
+---
+
 # v1.2.4 (Tue Apr 16 2024)
 
 :tada: This release contains work from a new contributor! :tada:
