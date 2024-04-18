@@ -180,12 +180,6 @@ class IntegrationManager extends Delegate {
             if (!entity) {
                 throw new Error(`Entity with ID ${id} does not exist.`);
             }
-
-            if (entity.user.toString() !== userId.toString()) {
-                throw new Error(
-                    'one or more the entities do not belong to the user'
-                );
-            }
         }
 
         // build integration
