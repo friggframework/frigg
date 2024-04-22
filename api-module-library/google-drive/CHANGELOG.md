@@ -1,3 +1,16 @@
+# v0.4.0 (Mon Apr 22 2024)
+
+#### 🚀 Enhancement
+
+- feat: add contentHints to google-drive createFile [#306](https://github.com/friggframework/frigg/pull/306) ([@Jo-lefthook](https://github.com/Jo-lefthook))
+- feat: add contentHints to google-drive createFile ([@Jo-lefthook](https://github.com/Jo-lefthook))
+
+#### Authors: 1
+
+- [@Jo-lefthook](https://github.com/Jo-lefthook)
+
+---
+
 # v0.3.3 (Tue Apr 16 2024)
 
 :tada: This release contains work from a new contributor! :tada:

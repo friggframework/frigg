@@ -1,3 +1,16 @@
+# (Mon Apr 22 2024)
+
+#### 🚀 Enhancement
+
+- `@friggframework/api-module-google-drive@0.4.0`
+  - feat: add contentHints to google-drive createFile [#306](https://github.com/friggframework/frigg/pull/306) ([@Jo-lefthook](https://github.com/Jo-lefthook))
+
+#### Authors: 1
+
+- [@Jo-lefthook](https://github.com/Jo-lefthook)
+
+---
+
 # (Thu Apr 18 2024)
 
 #### 🐛 Bug Fix
