@@ -82,14 +82,15 @@ class Api extends OAuth2Requester {
         });
     }
 
-    async createFile(name, mimeType, parents, appProperties) {
+    async createFile(name, mimeType, parents, appProperties, contentHints) {
         const options = {
             url: this.baseUrl + this.URLs.files,
             body: {
                 name,
                 mimeType,
                 appProperties,
-                parents
+                parents,
+                contentHints
             }
         };
         return this._post(options)
