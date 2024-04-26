@@ -2,8 +2,9 @@
  * For a detailed explanation regarding each configuration property, visit:
  * https://jestjs.io/docs/configuration
  */
+
 module.exports = {
-    // preset: '@friggframework/test-environment',
+    // preset: '@friggframework/test',
     coverageThreshold: {
         global: {
             statements: 13,
