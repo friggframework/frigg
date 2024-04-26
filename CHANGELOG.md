@@ -1,3 +1,23 @@
+# v0.4.1 (Fri Apr 26 2024)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/core`, `@friggframework/devtools`
+  - Small fix to validation errors and cleanup [#307](https://github.com/friggframework/frigg/pull/307) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+
+#### ⚠️ Pushed to `main`
+
+- Ignore Docs updates ([@seanspeaks](https://github.com/seanspeaks))
+- GITBOOK-2: No subject ([@seanspeaks](https://github.com/seanspeaks))
+- Update release.yml ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.1.4 (Tue Apr 09 2024)
 
 #### 🐛 Bug Fix

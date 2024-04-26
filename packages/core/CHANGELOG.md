@@ -1,3 +1,18 @@
+# v1.1.6 (Fri Apr 26 2024)
+
+#### 🐛 Bug Fix
+
+- Small fix to validation errors and cleanup [#307](https://github.com/friggframework/frigg/pull/307) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- remove excess files to centralize jest config and cleanup ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Bump version to: v1.1.5 \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.1.5 (Tue Apr 09 2024)
 
 #### 🐛 Bug Fix
