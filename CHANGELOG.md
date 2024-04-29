@@ -1,3 +1,16 @@
+# (Mon Apr 29 2024)
+
+#### 🚀 Enhancement
+
+- `@friggframework/api-module-google-drive@0.5.0`
+  - feat: Add updateFileMetadata function to google-drive api [#308](https://github.com/friggframework/frigg/pull/308) ([@Jo-lefthook](https://github.com/Jo-lefthook))
+
+#### Authors: 1
+
+- [@Jo-lefthook](https://github.com/Jo-lefthook)
+
+---
+
 # (Mon Apr 22 2024)
 
 #### 🚀 Enhancement
