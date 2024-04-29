@@ -96,6 +96,15 @@ class Api extends OAuth2Requester {
         return this._post(options)
     }
 
+    async updateFileMetadata(fileId, query, body) {
+        const options = {
+            url: this.baseUrl + this.URLs.fileById(fileId),
+            query,
+            body,
+        };
+        return this._patch(options);
+    }
+
     async getFile(fileId, query) {
         const options = {
             url: this.baseUrl + this.URLs.fileById(fileId),
