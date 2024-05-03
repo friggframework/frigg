@@ -1,3 +1,16 @@
+# v0.6.0 (Fri May 03 2024)
+
+#### 🚀 Enhancement
+
+- feat: add getOAuthUserInfo function to google-drive api [#310](https://github.com/friggframework/frigg/pull/310) ([@Jo-lefthook](https://github.com/Jo-lefthook))
+- feat: add getOAuthUserInfo function to google-drive api ([@Jo-lefthook](https://github.com/Jo-lefthook))
+
+#### Authors: 1
+
+- [@Jo-lefthook](https://github.com/Jo-lefthook)
+
+---
+
 # v0.5.0 (Mon Apr 29 2024)
 
 #### 🚀 Enhancement
