@@ -16,6 +16,7 @@ class Api extends OAuth2Requester {
             files: '/drive/v3/files',
             fileUpload: '/upload/drive/v3/files',
             permissions: '/permissions',
+            oauthUserInfo: '/oauth2/v2/userinfo'
         };
 
         this.tokenUri = 'https://oauth2.googleapis.com/token';
@@ -48,6 +49,13 @@ class Api extends OAuth2Requester {
     async getUserDetails() {
         const response = await this.getAbout('user');
         return response.user;
+    }
+
+    async getOAuthUserInfo() {
+        const options = {
+            url: this.baseUrl + this.URLs.oauthUserInfo
+        };
+        return this._get(options)
     }
 
     async getMyDriveRoot(query) {
