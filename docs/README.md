@@ -1,5 +1,6 @@
 ---
 description: Developing integrations as easy as `npm install`
+layout: landing
 ---
 
 # 🥳 Introduction to Frigg
@@ -95,49 +96,3 @@ In the backend, Frigg is based on the serverless.com framework. This key piece o
 * Horizontal Scalability
 * Pay as you go
 {% endhint %}
-
-## Navigating the Docs
-
-We've got a lot to unpack! These docs should be your go-to resource for all things Frigg related. Over time, there will doubtless be other properties and places (courses?) where you'll get more deep dives into topics and example implementations, but for now, this is the place.
-
-In general, there are five main areas of the docs
-
-{% content-ref url="broken-reference" %}
-[Broken link](broken-reference)
-{% endcontent-ref %}
-
-^ Here you'll find Quick Start tutorials and examples, along with deeper dive documentation on how to develop integrations with Frigg.
-
-{% content-ref url="broken-reference" %}
-[Broken link](broken-reference)
-{% endcontent-ref %}
-
-^ This is the main area where you'll find documentation around all Frigg concepts
-
-{% content-ref url="broken-reference" %}
-[Broken link](broken-reference)
-{% endcontent-ref %}
-
-^ Here's where we lay out how to get involved in contributing to the Frigg core project. And oh boy are we glad to have you!
-
-{% content-ref url="broken-reference" %}
-[Broken link](broken-reference)
-{% endcontent-ref %}
-
-^ Ah, the ever-expanding documentation section! At some point when we've reached critical mass (read: 1,000+ API Modules), "we're going to need a bigger boat". But for now, basic docs around any specific module live here.
-
-{% content-ref url="broken-reference" %}
-[Broken link](broken-reference)
-{% endcontent-ref %}
-
-^ Yup, we all need support sometimes. When it comes to Frigg-related support, you've got a few options. Hit us up in those places! Or in person. Novel concept these days.
-
-{% content-ref url="broken-reference" %}
-[Broken link](broken-reference)
-{% endcontent-ref %}
-
-^ This is probably both the most exciting and most daunting part of the whole enterprise. So much possibility! We're using an external tool for now, so we're just linking out to there and giving a high level short-medium-long term road map on which you can anchor your expectations. Or if you want to sponsor pieces of the roadmap, you can greatly change its shape.
-
-## Contributing Developers
-
-See [CONTRIBUTING.md](contributing/contributing/) for details about getting started as a Frigg contributor.

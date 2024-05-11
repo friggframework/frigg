@@ -1,8 +1,9 @@
 # Table of contents
 
 * [🥳 Introduction to Frigg](README.md)
+* [🧭 Navigating the Docs](navigating-the-docs.md)
 
-## 👩‍💻 Tutorials
+## 👩‍💻 Tutorials (Learning) <a href="#tutorials" id="tutorials"></a>
 
 * [Overview](tutorials/overview.md)
 * [Quick Start Tutorial](tutorials/quick-start/README.md)
@@ -23,15 +24,15 @@
 * [Integration Development Guide](tutorials/integration-development-guide.md)
 * [Authentication](tutorials/authentication.md)
 
-## ✅ Guides
+## ✅ How-To Guides (Goals) <a href="#guides" id="guides"></a>
 
 * [Overview](guides/overview.md)
 
-## 💭 Discussion & Core Concepts
+## 💭 Explanation (Understanding) <a href="#explanation" id="explanation"></a>
 
-* [Overview](discussion-and-core-concepts/overview.md)
+* [Overview](explanation/overview.md)
 
-## 📖 Reference
+## 📖 Reference (Information) <a href="#reference" id="reference"></a>
 
 * [Overview](reference/introduction.md)
 * [Core Concepts](reference/core-concepts.md)
@@ -72,7 +73,7 @@
 
 ## 🤝 Contributing
 
-* [Contributing](contributing/contributing/README.md)
+* [Overview](contributing/contributing/README.md)
   * [Contributor Covenant Code of Conduct](contributing/contributing/code\_of\_conduct.md)
   * [PULL\_REQUEST\_TEMPLATE](contributing/contributing/pull\_request\_template.md)
 
