@@ -3,9 +3,44 @@ description: Developing integrations as easy as `npm install`
 layout: landing
 ---
 
-# 🥳 Introduction to Frigg
+# 🥳 Welcome to Frigg!
 
-## How do we define "Integration"?
+## Integrations shouldn't be that hard to build and maintain...
+
+Frigg was built with the core principles that user-facing self-serve software integrations should be:
+
+* Easy to Develop
+* Inexpensive
+* Modular and Extensible
+* Scalable
+
+This is our answer to the question "hasn't this already been done before?"
+
+Modern stack; easy to understand; fast to develop and deploy; comprehensive enough to cover any use case; fully open source. Interoperability, the way it should be.
+
+## Navigating the Docs
+
+These docs should be your go-to resource for all things Frigg related. Secondary are GitHub READMEs and Slack community channels.
+
+We are attempting to embrace a [Diátaxis](https://diataxis.fr/) approach to documenting Frigg. Any recommendations are welcome!
+
+In general, there are four main areas of the docs, and four supplemental sections
+
+### Main Documentation Areas
+
+<table data-view="cards"><thead><tr><th></th><th></th><th data-hidden data-card-target data-type="content-ref"></th></tr></thead><tbody><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f9d1-1f4bb">🧑‍💻</span> Tutorials (Learning)</td><td>Hands-on activities to learn how to use Frigg, and how to think about and build high quality integrations.</td><td><a href="broken-reference">Broken link</a></td></tr><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="2705">✅</span> How-To Guides (Goals)</td><td>In-depth directions for achieving different integration goals with Frigg, both general and specific to marketplaces.</td><td><a href="broken-reference">Broken link</a></td></tr><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f4d6">📖</span> Reference (Information)</td><td>Technical definitions for all things Frigg. Classes, Objects, Methods, APIs, and more</td><td><a href="broken-reference">Broken link</a></td></tr><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f4ad">💭</span> Explanation (Understanding)</td><td>Here you'll find our thought processes for building Frigg the way we have, and for how we think about integration development</td><td><a href="broken-reference">Broken link</a></td></tr></tbody></table>
+
+### Supplemental Documentation Areas
+
+<table data-view="cards"><thead><tr><th></th><th></th><th data-hidden data-card-target data-type="content-ref"></th></tr></thead><tbody><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f50c">🔌</span> API Modules</td><td>Documentation for each API module published in Frigg's main library.</td><td><a href="broken-reference">Broken link</a></td></tr><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f91d">🤝</span> Contributing</td><td>All things contributing to Frigg from as little as a typo-fixer to as deep as a core maintainer.</td><td><a href="broken-reference">Broken link</a></td></tr><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f4de">📞</span> Support</td><td>Notes about how to get support</td><td><a href="broken-reference">Broken link</a></td></tr><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f5fa">🗺️</span> Roadmap</td><td>The short, medium, and long term features and opportunities roadmap for Frigg</td><td><a href="broken-reference">Broken link</a></td></tr></tbody></table>
+
+
+
+## Before you go any further, some quick FAQs
+
+<details>
+
+<summary>How does Frigg define "Integration"?</summary>
 
 Application Programming Interfaces (APIs) are everywhere in software development. They can be made for SDKs, hardware, internal modules, HTTP requests to external systems, and more.
 
@@ -16,6 +51,8 @@ An integration, then, is the code that is used to "glue" these APIs together; an
 At it's core, Frigg is intended to help developers build all types of integrations. And as we grow our footprint and community, we are undoubtedly going to see support added for enhanced features depending on your type of integration.&#x20;
 
 To start, however, our roadmap and framework is focused on one specific use case - software teams building native integrations to external systems for end-user integration. **In a phrase: rapidly enabling technology partnerships.**
+
+</details>
 
 <details>
 

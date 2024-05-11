@@ -1,6 +1,6 @@
 # Table of contents
 
-* [🥳 Introduction to Frigg](README.md)
+* [🥳 Welcome to Frigg!](README.md)
 * [🧭 Navigating the Docs](navigating-the-docs.md)
 
 ## 👩‍💻 Tutorials (Learning) <a href="#tutorials" id="tutorials"></a>
