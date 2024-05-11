@@ -10,9 +10,7 @@ In general, there are four main areas of the docs, and four supplemental section
 
 ### Main Documentation Areas
 
-{% content-ref url="broken-reference" %}
-[Broken link](broken-reference)
-{% endcontent-ref %}
+<table data-view="cards"><thead><tr><th></th><th data-hidden data-card-target data-type="content-ref"></th></tr></thead><tbody><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f9d1-1f4bb">🧑‍💻</span> Tutorials (Learning)</td><td><a href="broken-reference">Broken link</a></td></tr><tr><td></td><td></td></tr><tr><td></td><td></td></tr></tbody></table>
 
 ^ Here you'll find Quick Start tutorials and examples, along with deeper dive documentation on how to develop integrations with Frigg. The intent here is for you to learn integration development generally and Frigg specific concepts while actually developing along with the tutorials.
 
