@@ -6,9 +6,9 @@ description: Developing integrations as easy as `npm install`
 
 ## How do we define "Integration"?
 
-APIs are everywhere in software development. Application Programming Interfaces can be made for SDKs, hardware, internal modules, HTTP requests to external systems, and more.
+Application Programming Interfaces (APIs) are everywhere in software development. They can be made for SDKs, hardware, internal modules, HTTP requests to external systems, and more.
 
-Let's hone you in- Frigg is focused on building integrations between separate software systems, powered the majority of the time via HTTP APIs.&#x20;
+Frigg is focused on building integrations between separate software systems, powered the majority of the time via HTTP APIs.&#x20;
 
 An integration, then, is the code that is used to "glue" these APIs together; an integration record is state managed by the software to keep track of which accounts and what settings a user desires.
 
