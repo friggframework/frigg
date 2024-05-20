@@ -5,14 +5,23 @@ layout: landing
 
 # 🥳 Welcome to Frigg!
 
+{% hint style="success" %}
+**"TLDR, let me get my hands into the code!" \~ You, maybe**
+
+Sure, we hear you. [**Check out our Quick Start tutorial.**](tutorials/quick-start/)
+
+For our thorough readers, read on!
+{% endhint %}
+
 ## Integrations shouldn't be that hard to build and maintain...
 
 Frigg was built with the core principles that user-facing self-serve software integrations should be:
 
 * Easy to Develop
-* Inexpensive
+* Inexpensive to run
 * Modular and Extensible
-* Scalable
+* Easy to Scale
+* Easy to maintain
 
 This is our answer to the question "hasn't this already been done before?"
 
@@ -28,7 +37,7 @@ In general, there are four main areas of the docs, and four supplemental section
 
 ### Main Documentation Areas
 
-<table data-view="cards"><thead><tr><th></th><th></th><th data-hidden data-card-target data-type="content-ref"></th></tr></thead><tbody><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f9d1-1f4bb">🧑‍💻</span> Tutorials (Learning)</td><td>Hands-on activities to learn how to use Frigg, and how to think about and build high quality integrations.</td><td><a href="broken-reference">Broken link</a></td></tr><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="2705">✅</span> How-To Guides (Goals)</td><td>In-depth directions for achieving different integration goals with Frigg, both general and specific to marketplaces.</td><td><a href="broken-reference">Broken link</a></td></tr><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f4d6">📖</span> Reference (Information)</td><td>Technical definitions for all things Frigg. Classes, Objects, Methods, APIs, and more</td><td><a href="broken-reference">Broken link</a></td></tr><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f4ad">💭</span> Explanation (Understanding)</td><td>Here you'll find our thought processes for building Frigg the way we have, and for how we think about integration development</td><td><a href="broken-reference">Broken link</a></td></tr></tbody></table>
+<table data-view="cards"><thead><tr><th></th><th></th><th data-hidden data-card-target data-type="content-ref"></th></tr></thead><tbody><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f9d1-1f4bb">🧑‍💻</span> Tutorials (Learning)</td><td>Hands-on activities to learn how to use Frigg, and how to think about and build high quality integrations.</td><td><a href="broken-reference">Broken link</a></td></tr><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="2705">✅</span> How-To Guides (Goals)</td><td>In-depth directions for achieving different integration goals with Frigg, both general and on specific app/integration marketplaces.</td><td><a href="broken-reference">Broken link</a></td></tr><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f4d6">📖</span> Reference (Information)</td><td>Technical definitions for all things Frigg. Classes, Objects, Methods, APIs, and more</td><td><a href="broken-reference">Broken link</a></td></tr><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f4ad">💭</span> Explanation (Understanding)</td><td>Here you'll find our thought processes for building Frigg the way we have, and for how we think about integration development</td><td><a href="broken-reference">Broken link</a></td></tr></tbody></table>
 
 ### Supplemental Documentation Areas
 

@@ -4,7 +4,7 @@
 
 ## 👩‍💻 Tutorials (Learning) <a href="#tutorials" id="tutorials"></a>
 
-* [Overview](tutorials/overview.md)
+* [Learning Frigg](tutorials/overview.md)
 * [Quick Start Tutorial](tutorials/quick-start/README.md)
   * [Create Frigg App](tutorials/quick-start/create-frigg-app.md)
   * [Exploring the App](tutorials/quick-start/exploring-the-app.md)
@@ -12,24 +12,14 @@
   * [Building your first integration](tutorials/quick-start/building-your-first-integration.md)
   * [Testing the Integration](tutorials/quick-start/testing-the-integration.md)
   * [Next Steps](tutorials/quick-start/next-steps.md)
-* [API Module Development Guide](tutorials/api-module-development-guide/README.md)
-  * [Introduction](tutorials/api-module-development-guide/introduction.md)
-  * [Getting Started](tutorials/api-module-development-guide/getting-started.md)
-  * [Conventions](tutorials/api-module-development-guide/conventions.md)
-  * [Deployment](tutorials/api-module-development-guide/deployment/README.md)
-    * [Testing](tutorials/api-module-development-guide/deployment/testing.md)
-    * [Publishing](tutorials/api-module-development-guide/deployment/publishing.md)
-    * [Extending](tutorials/api-module-development-guide/deployment/extending.md)
-* [Integration Development Guide](tutorials/integration-development-guide.md)
-* [Authentication](tutorials/authentication.md)
 
 ## ✅ How-To Guides (Goals) <a href="#guides" id="guides"></a>
 
-* [Overview](guides/overview.md)
+* [Cooking with Frigg](guides/cooking-with-frigg.md)
 
 ## 💭 Explanation (Understanding) <a href="#explanation" id="explanation"></a>
 
-* [Overview](explanation/overview.md)
+* [The "Why" of Frigg Technical Decisions](explanation/the-why-of-frigg-technical-decisions.md)
 
 ## 📖 Reference (Information) <a href="#reference" id="reference"></a>
 

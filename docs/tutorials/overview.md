@@ -1,3 +1,23 @@
-# Overview
+---
+layout:
+  title:
+    visible: true
+  description:
+    visible: false
+  tableOfContents:
+    visible: true
+  outline:
+    visible: true
+  pagination:
+    visible: false
+---
 
-As noted in Diátaxis, tutorials are learning-oriented activities written by knowledgeable guides. Learning how to develop integrations, and how to use Frigg to develop these integrations, go hand in hand. You'll find a healthy mix of both below.
+# Learning Frigg
+
+## Tutorials are for learning
+
+We've been busy cooking up some tutorials to get you onboarded quickly into the Frigg landscape. We'll keep this page fresh as new tutorials come out. Please let us know as you go through them if you have any issues or recommendations to improve the experience. As you probably know... "It works on my computer!" :smile: YMMV
+
+{% content-ref url="quick-start/" %}
+[quick-start](quick-start/)
+{% endcontent-ref %}
