@@ -113,9 +113,11 @@ const invokeResponse = (card) => {
 };
 
 class Bot extends TeamsActivityHandler {
+    #conversationReferences;
+
     constructor(adapter, conversationReferences) {
         super();
-        this.conversationReferences = conversationReferences;
+        this.#conversationReferences = conversationReferences;
         this.adapter = adapter;
         this.onMembersAdded(async (context, next) => {
             const membersAdded = context.activity.membersAdded;
@@ -160,7 +162,7 @@ class Bot extends TeamsActivityHandler {
         await this.adapter.createConversation(initialRef, async (context) => {
             const ref = TurnContext.getConversationReference(context.activity);
             memberInfo = await this.adapter.getConversationMembers(context);
-            this.conversationReferences[memberInfo[0].email] = ref;
+            this.#conversationReferences[memberInfo[0].email] = ref;
         });
     }
 }
