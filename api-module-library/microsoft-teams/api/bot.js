@@ -160,6 +160,10 @@ class Bot extends TeamsActivityHandler {
         await this.adapter.createConversation(initialRef, async (context) => {
             const ref = TurnContext.getConversationReference(context.activity);
             memberInfo = await this.adapter.getConversationMembers(context);
+            ref.user = {
+                ...memberInfo[0],
+                aadObjectId: memberInfo[0].objectId,
+            };
             this.conversationReferences[memberInfo[0].email] = ref;
         });
     }
