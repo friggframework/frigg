@@ -1,5 +1,5 @@
-const { get } = require('../../assertions');
-const { OAuth2Requester } = require('../../module-plugin');
+const { get } = require('../../../assertions/get');
+const { OAuth2Requester } = require('../../../module-plugin/index');
 
 class Api extends OAuth2Requester {
     constructor(params) {
@@ -22,8 +22,6 @@ class Api extends OAuth2Requester {
     getAuthUri() {
         return this.authorizationUri;
     }
-
-
 }
 
 module.exports = { Api };
