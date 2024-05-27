@@ -1,7 +1,7 @@
 // "use strict";
 const http = require('http');
 const url = require('url');
-const open = require('open');
+import open from 'open';
 
 class Authenticator {
     static searchParamsToDictionary(params) {
@@ -49,7 +49,9 @@ class Authenticator {
                     }
                 })
                 .listen(port, () => {
-                    const options = browserName ? {app: {name: browserName }} : undefined
+                    const options = browserName
+                        ? { app: { name: browserName } }
+                        : undefined;
                     // open the browser to the authorize url to start the workflow
                     open(authorizeUrl, options).then((childProcess) => {
                         childProcess.unref();
