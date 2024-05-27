@@ -1,11 +1,8 @@
-const {Api} = require('./mock-api/api');
 const hubspotMocks = require('./mock-api/mocks/hubspot');
 
 const { Definition } = require('./mock-api/definition');
 const { Auther } = require('../auther');
 const { mongoose } = require('../../database/mongoose');
-
-
 
 const getModule = async (params) => {
     const module = await Auther.getInstance({
@@ -13,16 +10,15 @@ const getModule = async (params) => {
         userId: new mongoose.Types.ObjectId(),
         ...params,
     });
-    module.api.getTokenFromCode = async function(code) {
+    module.api.getTokenFromCode = async function (code) {
         await this.setTokens(hubspotMocks.tokenResponse);
         return hubspotMocks.tokenResponse;
-    }
-    module.api.getUserDetails = async function() {
+    };
+    module.api.getUserDetails = async function () {
         return hubspotMocks.userDetailsResponse;
-    }
-    return module
-}
-
+    };
+    return module;
+};
 
 describe('HubSpot Module Tests', () => {
     let module, authUrl;
@@ -58,7 +54,7 @@ describe('HubSpot Module Tests', () => {
             expect(firstRes.entity_id).toBeDefined();
             expect(firstRes.credential_id).toBeDefined();
         });
-        it('retrieves existing entity on subsequent calls', async () =>{
+        it('retrieves existing entity on subsequent calls', async () => {
             const response = hubspotMocks.authorizeResponse;
             const res = await module.processAuthorizationCallback({
                 data: {
@@ -79,7 +75,6 @@ describe('HubSpot Module Tests', () => {
             expect(newModule.entity).toBeDefined();
             expect(newModule.credential).toBeDefined();
             expect(await newModule.testAuth()).toBeTruthy();
-
         });
 
         it('retrieve by credential id', async () => {
@@ -91,7 +86,6 @@ describe('HubSpot Module Tests', () => {
             expect(newModule).toBeDefined();
             expect(newModule.credential).toBeDefined();
             expect(await newModule.testAuth()).toBeTruthy();
-
         });
     });
 });
