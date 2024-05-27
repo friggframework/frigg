@@ -1,7 +1,7 @@
 // "use strict";
 const http = require('http');
 const url = require('url');
-import open from 'open';
+const open = require('open');
 
 class Authenticator {
     static searchParamsToDictionary(params) {
