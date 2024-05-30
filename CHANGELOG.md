@@ -2,6 +2,22 @@
 
 #### 🐛 Bug Fix
 
+- `@friggframework/api-module-microsoft-teams@0.4.5`
+  - bump teams to address release issue [#315](https://github.com/friggframework/frigg/pull/315) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+  - Add new Graph API method to search a user by email [#314](https://github.com/friggframework/frigg/pull/314) ([@brendanrmoore](https://github.com/brendanrmoore))
+  - Fixes for Microsoft Teams conversation references [#311](https://github.com/friggframework/frigg/pull/311) ([@brendanrmoore](https://github.com/brendanrmoore))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Brendan Moore ([@brendanrmoore](https://github.com/brendanrmoore))
+
+---
+
+# (Thu May 30 2024)
+
+#### 🐛 Bug Fix
+
 - `@friggframework/api-module-microsoft-teams@0.4.4`
   - Add new Graph API method to search a user by email [#314](https://github.com/friggframework/frigg/pull/314) ([@brendanrmoore](https://github.com/brendanrmoore))
   - Fixes for Microsoft Teams conversation references [#311](https://github.com/friggframework/frigg/pull/311) ([@brendanrmoore](https://github.com/brendanrmoore))

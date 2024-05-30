@@ -1,3 +1,27 @@
+# v0.4.5 (Thu May 30 2024)
+
+#### 🐛 Bug Fix
+
+- bump teams to address release issue [#315](https://github.com/friggframework/frigg/pull/315) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- bump teams to address release issue ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+- Update CHANGELOG.md \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+- Add new Graph API method to search a user by email [#314](https://github.com/friggframework/frigg/pull/314) ([@brendanrmoore](https://github.com/brendanrmoore))
+- Fixes for Microsoft Teams conversation references [#311](https://github.com/friggframework/frigg/pull/311) ([@brendanrmoore](https://github.com/brendanrmoore))
+- add new Graph API method to search a user by email ([@brendanrmoore](https://github.com/brendanrmoore))
+- populate the conversation reference with extra user data ([@brendanrmoore](https://github.com/brendanrmoore))
+- Revert "make conversationReferences private in the Bot class" ([@brendanrmoore](https://github.com/brendanrmoore))
+- make conversationReferences private in the Bot class ([@brendanrmoore](https://github.com/brendanrmoore))
+- Filter out the bot from conversation members. Make sure conversation references stay synced between botApi and Bot. ([@brendanrmoore](https://github.com/brendanrmoore))
+
+#### Authors: 3
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Brendan Moore ([@brendanrmoore](https://github.com/brendanrmoore))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.4.4 (Thu May 30 2024)
 
 #### 🐛 Bug Fix
