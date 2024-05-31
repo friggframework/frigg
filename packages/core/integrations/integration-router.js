@@ -137,7 +137,7 @@ function setIntegrationRoutes(router, factory, getUserId) {
                 params.integrationId
             );
 
-            res.status(201).json({});
+            res.status(204).json({});
         })
     );
 
