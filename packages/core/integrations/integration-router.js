@@ -80,7 +80,6 @@ function setIntegrationRoutes(router, factory, getUserId) {
                     params.entities,
                     getUserId(req),
                     params.config,
-                    moduleFactory
                 );
 
             // post integration initialization
