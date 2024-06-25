@@ -52,7 +52,7 @@ function testAutherDefinition(definition, mocks) {
             authCallbackParams = mocks.authorizeResponse || mocks.authorizeParams;
             describe('getAuthorizationRequirements() test', () => {
                 it('should return auth requirements', async () => {
-                    requirements = module.getAuthorizationRequirements();
+                    requirements = await module.getAuthorizationRequirements();
                     expect(requirements).toBeDefined();
                     expect(requirements.type).toEqual(ModuleConstants.authType.oauth2);
                     expect(requirements.url).toBeDefined();
