@@ -203,7 +203,7 @@ class Auther extends Delegate {
         return valid;
     }
 
-    getAuthorizationRequirements(params) {
+    async getAuthorizationRequirements(params) {
         // TODO: How can this be more helpful both to implement and consume
         // this function must return a dictionary with the following format
         // node only url key is required. Data would be used for Base Authentication
