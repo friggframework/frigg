@@ -300,6 +300,15 @@
         "test",
         "code"
       ]
+    },
+    {
+      "login": "igorschechtel",
+      "name": "Igor Schechtel",
+      "avatar_url": "https://avatars.githubusercontent.com/u/21978920?v=4",
+      "profile": "https://github.com/igorschechtel",
+      "contributions": [
+        "test"
+      ]
     }
   ],
   "contributorsPerLine": 7
