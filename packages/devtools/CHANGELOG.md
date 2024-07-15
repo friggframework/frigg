@@ -1,3 +1,18 @@
+# v1.1.7 (Mon Jul 15 2024)
+
+#### 🐛 Bug Fix
+
+- getAuthorizationRequirements() async [#318](https://github.com/friggframework/frigg/pull/318) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- await getAuthorizeRequirements() ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Bump version to: v1.1.6 \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.1.6 (Fri Apr 26 2024)
 
 #### 🐛 Bug Fix

@@ -1,3 +1,33 @@
+# v0.4.6 (Mon Jul 15 2024)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, Igor Schechtel ([@igorschechtel](https://github.com/igorschechtel)), for all your work!
+
+#### 🐛 Bug Fix
+
+- `@friggframework/core`, `@friggframework/devtools`
+  - getAuthorizationRequirements() async [#318](https://github.com/friggframework/frigg/pull/318) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- `@friggframework/test`
+  - Add missing dependency for tests [#312](https://github.com/friggframework/frigg/pull/312) ([@igorschechtel](https://github.com/igorschechtel))
+
+#### ⚠️ Pushed to `main`
+
+- GITBOOK-9: No subject ([@seanspeaks](https://github.com/seanspeaks))
+- GITBOOK-8: Revamped the intro and started fleshing out the doc areas ([@seanspeaks](https://github.com/seanspeaks))
+- GITBOOK-7: No subject ([@seanspeaks](https://github.com/seanspeaks))
+- GITBOOK-6: No subject ([@seanspeaks](https://github.com/seanspeaks))
+- GITBOOK-4: No subject ([@seanspeaks](https://github.com/seanspeaks))
+- GITBOOK-3: Small tweak to Integration Definition ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 3
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Igor Schechtel ([@igorschechtel](https://github.com/igorschechtel))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.4.1 (Fri Apr 26 2024)
 
 #### 🐛 Bug Fix
