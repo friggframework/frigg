@@ -1,3 +1,17 @@
+# v1.1.8 (Thu Jul 18 2024)
+
+#### 🐛 Bug Fix
+
+- Revert open to support commonjs [#319](https://github.com/friggframework/frigg/pull/319) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Bump version to: v1.1.6 \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.1.7 (Mon Jul 15 2024)
 
 #### 🐛 Bug Fix

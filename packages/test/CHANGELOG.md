@@ -1,3 +1,25 @@
+# v1.1.8 (Thu Jul 18 2024)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, Igor Schechtel ([@igorschechtel](https://github.com/igorschechtel)), for all your work!
+
+#### 🐛 Bug Fix
+
+- Revert open to support commonjs [#319](https://github.com/friggframework/frigg/pull/319) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- revert open to 8.4.2 to for commonjs support ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Add missing dependency for tests [#312](https://github.com/friggframework/frigg/pull/312) ([@igorschechtel](https://github.com/igorschechtel))
+- Add missing dependency: open ([@igorschechtel](https://github.com/igorschechtel))
+- Bump version to: v1.1.6 \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 3
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Igor Schechtel ([@igorschechtel](https://github.com/igorschechtel))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.1.7 (Mon Jul 15 2024)
 
 :tada: This release contains work from a new contributor! :tada:
