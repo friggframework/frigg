@@ -28,6 +28,7 @@
 * [Architecture](reference/architecture.md)
 * [Data Model](reference/data-model.md)
 * [API Reference](reference/api-reference.md)
+* [Definition of Terms](reference/definition-of-terms.md)
 
 ## 🔌 API Modules
 
