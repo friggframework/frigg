@@ -26,6 +26,7 @@
 
 * [Overview](reference/introduction.md)
 * [Core Concepts](reference/core-concepts.md)
+* [API Module Definition and Functions](reference/api-module-definition-and-functions.md)
 * [Architecture](reference/architecture.md)
 * [Data Model](reference/data-model.md)
 * [API Reference](reference/api-reference.md)
