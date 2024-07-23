@@ -7,6 +7,7 @@
 * [Learning Frigg](tutorials/overview.md)
 * [Quick Start Tutorial](tutorials/quick-start/README.md)
   * [Create Frigg App](tutorials/quick-start/create-frigg-app.md)
+  * [Deploying your Frigg Application](tutorials/quick-start/deploying-your-frigg-application.md)
   * [Exploring the App](tutorials/quick-start/exploring-the-app.md)
   * [Installing an API Module](tutorials/quick-start/installing-an-api-module.md)
   * [Building your first integration](tutorials/quick-start/building-your-first-integration.md)
