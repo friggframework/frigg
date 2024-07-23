@@ -5,6 +5,8 @@ layout: landing
 
 # 🥳 Welcome to Frigg!
 
+Welcome to Frigg Framework Documentation. Frigg is an open source serverless framework for developing integrations at scale. This documentation will help you get started with Frigg, understand its core concepts, and contribute effectively.
+
 {% hint style="success" %}
 **"TLDR, let me get my hands into the code!" \~ You, maybe**
 
