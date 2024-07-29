@@ -300,6 +300,17 @@
         "doc",
         "infra"
       ]
+    },
+    {
+      "login": "d-klotz",
+      "name": "Daniel Klotz",
+      "avatar_url": "https://avatars.githubusercontent.com/u/15193959?v=4",
+      "profile": "https://bento.me/dklotz",
+      "contributions": [
+        "infra",
+        "test",
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7
