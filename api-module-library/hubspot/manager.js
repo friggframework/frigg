@@ -59,9 +59,9 @@ class Manager extends ModuleManager {
         return validAuth;
     }
 
-    async getAuthorizationRequirements() {
+    async getAuthorizationRequirements(params = { redirect_uri: null, state: null }) {
         return {
-            url: await this.api.getAuthUri(),
+            url: await this.api.getAuthUri(params),
             type: 'oauth2',
         };
     }
