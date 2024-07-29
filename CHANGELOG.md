@@ -1,3 +1,16 @@
+# (Mon Jul 29 2024)
+
+#### 🚀 Enhancement
+
+- `@friggframework/api-module-hubspot@0.12.0`
+  - Feature: For Hubspot API module make redirect uri and state overridable [#320](https://github.com/friggframework/frigg/pull/320) ([@d-klotz](https://github.com/d-klotz))
+
+#### Authors: 1
+
+- Daniel Klotz ([@d-klotz](https://github.com/d-klotz))
+
+---
+
 # (Thu May 30 2024)
 
 #### 🐛 Bug Fix

@@ -1,3 +1,20 @@
+# v0.12.0 (Mon Jul 29 2024)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, Daniel Klotz ([@d-klotz](https://github.com/d-klotz)), for all your work!
+
+#### 🚀 Enhancement
+
+- Feature: For Hubspot API module make redirect uri and state overridable [#320](https://github.com/friggframework/frigg/pull/320) ([@d-klotz](https://github.com/d-klotz))
+- feat: allow redirect_uri and state to be overriten for hubspot Oauth client ([@d-klotz](https://github.com/d-klotz))
+
+#### Authors: 1
+
+- Daniel Klotz ([@d-klotz](https://github.com/d-klotz))
+
+---
+
 # v0.11.2 (Tue Apr 16 2024)
 
 :tada: This release contains work from a new contributor! :tada:
