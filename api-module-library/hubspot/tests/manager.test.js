@@ -27,6 +27,12 @@ describe(`Should fully test the ${config.label} Manager`, () => {
         expect(requirements.type).to.equal('oauth2');
         authUrl = requirements.url;
     });
+
+    it('getAuthorizationRequirements() allows to override redirect_uri and state', async () => {
+        const requirements = await manager.getAuthorizationRequirements({ redirect_uri: 'http://example.com', state: { test: "123" } });
+        expect(requirements.url).to.equal(`https://app.hubspot.com/oauth/authorize?client_id=${process.env.HUBSPOT_CLIENT_ID}&redirect_uri=http://example.com&scope=${process.env.HUBSPOT_SCOPE}&state={\"test\":\"123\"}`);
+    });
+
     describe('processAuthorizationCallback()', () => {
         it('should return auth details', async () => {
             const response = await Authenticator.oauth2(authUrl);

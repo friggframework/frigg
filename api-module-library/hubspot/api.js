@@ -54,15 +54,21 @@ class Api extends OAuth2Requester {
             
         };
 
-        this.authorizationUri = encodeURI(
-            `https://app.hubspot.com/oauth/authorize?client_id=${this.client_id}&redirect_uri=${this.redirect_uri}&scope=${this.scope}&state=${this.state}`
-        );
         this.tokenUri = 'https://api.hubapi.com/oauth/v1/token';
 
         this.access_token = get(params, 'access_token', null);
         this.refresh_token = get(params, 'refresh_token', null);
     }
-    async getAuthUri() {
+
+    async getAuthUri(params = { redirect_uri: null, state: null }) {
+        const redirectURI = params.redirect_uri || this.redirect_uri;
+        const state = params.state ? JSON.stringify(params.state) : this.state;
+        this.authorizationUri = [
+            `https://app.hubspot.com/oauth/authorize?client_id=${this.client_id}`,
+            `redirect_uri=${redirectURI}`,
+            `scope=${this.scope}`,
+            `state=${state}`
+        ].join('&');
         return this.authorizationUri;
     }
 
