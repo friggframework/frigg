@@ -1,3 +1,25 @@
+# (Tue Jul 30 2024)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, Daniel Klotz ([@d-klotz](https://github.com/d-klotz)), for all your work!
+
+#### 🚀 Enhancement
+
+- `@friggframework/api-module-hubspot@0.13.0`
+  - feat: allow redirect_uri to be passed as parameter for getInstance [#321](https://github.com/friggframework/frigg/pull/321) ([@d-klotz](https://github.com/d-klotz))
+  - feat: allow redirect_uri and state to be overriten for hubspot Oauth client [#320](https://github.com/friggframework/frigg/pull/320) ([@d-klotz](https://github.com/d-klotz))
+
+#### 🐛 Bug Fix
+
+- chore: bump npm and node versions [#320](https://github.com/friggframework/frigg/pull/320) ([@d-klotz](https://github.com/d-klotz))
+
+#### Authors: 1
+
+- Daniel Klotz ([@d-klotz](https://github.com/d-klotz))
+
+---
+
 # (Mon Jul 29 2024)
 
 #### 🚀 Enhancement

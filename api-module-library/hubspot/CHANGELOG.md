@@ -1,3 +1,26 @@
+# v0.13.0 (Tue Jul 30 2024)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, Daniel Klotz ([@d-klotz](https://github.com/d-klotz)), for all your work!
+
+#### 🚀 Enhancement
+
+- feat: allow redirect_uri to be passed as parameter for getInstance [#321](https://github.com/friggframework/frigg/pull/321) ([@d-klotz](https://github.com/d-klotz))
+- feat: allow redirect_uri to be passed as parameter for getInstance ([@d-klotz](https://github.com/d-klotz))
+- feat: allow redirect_uri and state to be overriten for hubspot Oauth client [#320](https://github.com/friggframework/frigg/pull/320) ([@d-klotz](https://github.com/d-klotz))
+
+#### 🐛 Bug Fix
+
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Daniel Klotz ([@d-klotz](https://github.com/d-klotz))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.12.0 (Mon Jul 29 2024)
 
 :tada: This release contains work from a new contributor! :tada:
