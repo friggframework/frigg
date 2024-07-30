@@ -31,7 +31,7 @@ class Manager extends ModuleManager {
             client_id: process.env.HUBSPOT_CLIENT_ID,
             client_secret: process.env.HUBSPOT_CLIENT_SECRET,
             scope: process.env.HUBSPOT_SCOPE,
-            redirect_uri: `${process.env.REDIRECT_URI}/hubspot`,
+            redirect_uri: params.redirect_uri ?? `${process.env.REDIRECT_URI}/hubspot`,
             delegate: instance,
         };
 
