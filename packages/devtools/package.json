@@ -6,12 +6,15 @@
     "@babel/eslint-parser": "^7.18.9",
     "@friggframework/core": "^1.1.8",
     "@friggframework/test": "^1.1.8",
+    "axios": "^1.7.2",
+    "commander": "^12.1.0",
     "eslint": "^8.22.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-json": "^3.1.0",
     "eslint-plugin-markdown": "^3.0.0",
     "eslint-plugin-no-only-tests": "^3.0.0",
-    "eslint-plugin-yaml": "^0.5.0"
+    "eslint-plugin-yaml": "^0.5.0",
+    "fs-extra": "^11.2.0"
   },
   "devDependencies": {
     "@friggframework/eslint-config": "^1.1.8",
@@ -20,6 +23,9 @@
   "scripts": {
     "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
     "test": "jest --passWithNoTests # TODO"
+  },
+  "bin": {
+    "frigg": "./frigg-cli/index.js"
   },
   "author": "",
   "license": "MIT",
