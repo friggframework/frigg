@@ -4,7 +4,7 @@ const { logInfo } = require('./logger');
 const { getIntegrationTemplate } = require('./template');
 const INTEGRATIONS_DIR = 'src/integrations';
 
-function createIntegrationFile(backendPath, apiModuleName) {
+function createIntegrationFile(backendPath, apiModuleName, ApiClass) {
     const integrationDir = path.join(
         path.dirname(backendPath),
         INTEGRATIONS_DIR
@@ -19,7 +19,8 @@ function createIntegrationFile(backendPath, apiModuleName) {
     logInfo(`Writing integration file: ${integrationFilePath}`);
     const integrationTemplate = getIntegrationTemplate(
         apiModuleName,
-        backendPath
+        backendPath,
+        ApiClass
     );
     fs.writeFileSync(integrationFilePath, integrationTemplate);
 }

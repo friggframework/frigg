@@ -1,12 +1,6 @@
 const path = require('path');
 
-function getIntegrationTemplate(apiModuleName, backendPath) {
-    const modulePath = path.resolve(
-        backendPath,
-        `../../node_modules/@friggframework/api-module-${apiModuleName.toLowerCase()}`
-    );
-    const { Api: ApiClass } = require(modulePath);
-
+function getIntegrationTemplate(apiModuleName, backendPath, ApiClass) {
     // Find the sample data method
     const apiMethods = Object.getOwnPropertyNames(ApiClass.prototype);
     const sampleDataMethod =
