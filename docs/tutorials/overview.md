@@ -21,3 +21,7 @@ We've been busy cooking up some tutorials to get you onboarded quickly into the 
 {% content-ref url="quick-start/" %}
 [quick-start](quick-start/)
 {% endcontent-ref %}
+
+{% content-ref url="advanced-tutorials/" %}
+[advanced-tutorials](advanced-tutorials/)
+{% endcontent-ref %}

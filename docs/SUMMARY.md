@@ -6,13 +6,14 @@
 
 * [Learning Frigg](tutorials/overview.md)
 * [Quick Start Tutorial](tutorials/quick-start/README.md)
-  * [Create Frigg App](tutorials/quick-start/create-frigg-app.md)
-  * [Deploying your Frigg Application](tutorials/quick-start/deploying-your-frigg-application.md)
-  * [Exploring the App](tutorials/quick-start/exploring-the-app.md)
-  * [Installing an API Module](tutorials/quick-start/installing-an-api-module.md)
-  * [Building your first integration](tutorials/quick-start/building-your-first-integration.md)
-  * [Testing the Integration](tutorials/quick-start/testing-the-integration.md)
-  * [Next Steps](tutorials/quick-start/next-steps.md)
+  * [Initialize With Create Frigg App](tutorials/quick-start/create-frigg-app.md)
+  * [Configuration](tutorials/quick-start/configuration.md)
+  * [Start Your Application](tutorials/quick-start/start-your-application.md)
+  * [Connecting and Seeing Live Data](tutorials/quick-start/connecting-and-seeing-live-data.md)
+  * [Updating the Integration Logic](tutorials/quick-start/updating-the-integration-logic.md)
+* [Advanced Tutorials](tutorials/advanced-tutorials/README.md)
+  * [Deploying your Frigg Application](tutorials/advanced-tutorials/deploying-your-frigg-application/README.md)
+    * [Deploying to AWS](tutorials/advanced-tutorials/deploying-your-frigg-application/deploying-to-aws.md)
 
 ## ✅ How-To Guides (Goals) <a href="#guides" id="guides"></a>
 

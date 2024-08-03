@@ -1,4 +1,4 @@
-# Deploying your Frigg Application
+# Deploying to AWS
 
 Frigg is built using Infrastructure As Code, namely via the serverless.com framework. We have tried to stay close to basic as possible with deploy instructions and implementation.
 
