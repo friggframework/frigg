@@ -87,18 +87,6 @@ class IntegrationFactory {
     }
 
     async createIntegration(entities, userId, config) {
-        // verify entity ids belong to the user
-        // for (const id of entities) {
-        //     const entity = await Entity.findById(id);
-        //     if (!entity) {
-        //         throw new Error(`Entity with ID ${id} does not exist.`);
-        //     }
-        //     if (entity.user.toString() !== userId.toString()) {
-        //         throw new Error('one or more the entities do not belong to the user');
-        //     }
-        // }
-
-        // build integration
         const integrationRecord = await IntegrationModel.create({
             entities: entities,
             user: userId,
