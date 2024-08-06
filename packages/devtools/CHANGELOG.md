@@ -1,3 +1,29 @@
+# v1.2.0 (Tue Aug 06 2024)
+
+#### 🚀 Enhancement
+
+- CLI for Frigg - Install command for now [#322](https://github.com/friggframework/frigg/pull/322) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### 🐛 Bug Fix
+
+- Add READMEs that will need updating, but for version releasing [#324](https://github.com/friggframework/frigg/pull/324) ([@seanspeaks](https://github.com/seanspeaks))
+- Add READMEs that will need updating, but for version releasing ([@seanspeaks](https://github.com/seanspeaks))
+- small update to integration testing / tooling [#304](https://github.com/friggframework/frigg/pull/304) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Added missing dependencies ([@seanspeaks](https://github.com/seanspeaks))
+- Added a missing dependency ([@seanspeaks](https://github.com/seanspeaks))
+- Updated to handle envs properly, also further refactoring, and better templating. ([@seanspeaks](https://github.com/seanspeaks))
+- WIP with help from Tabnine AI chat. ([@seanspeaks](https://github.com/seanspeaks))
+- Bump version to: v1.1.8 \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+- use the factory methods for creating the mock integration so that everything is set up (mostly events and userActions) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- Bump version to: v1.1.5 \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.1.8 (Thu Jul 18 2024)
 
 #### 🐛 Bug Fix

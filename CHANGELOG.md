@@ -1,3 +1,48 @@
+# v0.14.0 (Tue Aug 06 2024)
+
+:tada: This release contains work from new contributors! :tada:
+
+Thanks for all your work!
+
+:heart: Daniel Klotz ([@d-klotz](https://github.com/d-klotz))
+
+:heart: Fer Riffel ([@FerRiffel-LeftHook](https://github.com/FerRiffel-LeftHook))
+
+#### 🚀 Enhancement
+
+- `@friggframework/devtools`
+  - CLI for Frigg - Install command for now [#322](https://github.com/friggframework/frigg/pull/322) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### 🐛 Bug Fix
+
+- `@friggframework/core`, `@friggframework/devtools`
+  - Add READMEs that will need updating, but for version releasing [#324](https://github.com/friggframework/frigg/pull/324) ([@seanspeaks](https://github.com/seanspeaks))
+  - small update to integration testing / tooling [#304](https://github.com/friggframework/frigg/pull/304) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- `@friggframework/core`, `@friggframework/test`
+  - chore: bump deprecated npm package versions [#323](https://github.com/friggframework/frigg/pull/323) ([@d-klotz](https://github.com/d-klotz) [@seanspeaks](https://github.com/seanspeaks))
+
+#### ⚠️ Pushed to `main`
+
+- GITBOOK-22: Tom's Aug 4 changes ([@tomlefthook](https://github.com/tomlefthook))
+- GITBOOK-21: Small update for ConnectWise and QBO ([@seanspeaks](https://github.com/seanspeaks))
+- GITBOOK-20: Updates in Quick Start Tutorial & Create Frigg App ([@seanspeaks](https://github.com/seanspeaks))
+- GITBOOK-14: Fer's Module Definition and Functions ([@FerRiffel-LeftHook](https://github.com/FerRiffel-LeftHook))
+- GITBOOK-16: API Module library + sections ([@FerRiffel-LeftHook](https://github.com/FerRiffel-LeftHook))
+- GITBOOK-11: Fer's Deployment and Secrets changes ([@seanspeaks](https://github.com/seanspeaks))
+- GITBOOK-17: Add a short FYI of Frigg's documentation at the top ([@seanspeaks](https://github.com/seanspeaks))
+- GITBOOK-12: Fer's Definition of Terms ([@seanspeaks](https://github.com/seanspeaks))
+- GITBOOK-18: Added Core Concepts ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 5
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Daniel Klotz ([@d-klotz](https://github.com/d-klotz))
+- Fer Riffel ([@FerRiffel-LeftHook](https://github.com/FerRiffel-LeftHook))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+- Tom Elliott ([@tomlefthook](https://github.com/tomlefthook))
+
+---
+
 # v1.1.8 (Thu Jul 18 2024)
 
 :tada: This release contains work from a new contributor! :tada:
