@@ -1,6 +1,8 @@
 # Updating the Integration Logic
 
-Now that your Frigg app is installed fresh out of the box and your data is being fetched from your connected HubSpot account, how about we switch it up and display data from another section within the same CRM? Roll up your sleeves, now it’s time to get your hands code-dirty.
+Now that your Frigg app is installed fresh out-of-the-box and your data is returning from your connected HubSpot account, let's pull data from another section within the same HubSpot account.&#x20;
+
+Roll up your sleeves- now it’s time to get your hands in the code and customize your integration.
 
 ## Getting Started
 
