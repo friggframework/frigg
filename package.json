@@ -23,7 +23,7 @@
   ],
   "devDependencies": {
     "@auto-it/all-contributors": "^11.1.2",
-    "@auto-it/conventional-commits": "^11.1.2",
+    "@auto-it/conventional-commits": "^11.2.0",
     "@auto-it/first-time-contributor": "^11.1.2",
     "@auto-it/slack": "^11.1.2",
     "auto": "^11.1.2",
