@@ -117,8 +117,8 @@ paths:
                 '200':
                     description: ''
         post:
-            summary: Create Integration
-            description: Create Integration
+            summary: Create integration
+            description: Create integration
             operationId: createIntegration
             requestBody:
                 content:
@@ -142,7 +142,7 @@ paths:
                                         - '{{targetAppEntityId}}'
             responses:
                 '201':
-                    description: Create Integration
+                    description: Create integration
                     content:
                         text/plain:
                             examples:
@@ -179,23 +179,23 @@ paths:
                 - bearerAuth: []
     /api/integrations/options:
         get:
-            summary: List Integration Options
-            description: List Integration Options
+            summary: List integration Options
+            description: List integration Options
             operationId: listIntegrationOptions
             responses:
                 '200':
                     description: ''
     /api/integrations/{integrationId}:
         get:
-            summary: Get Integration
-            description: Get Integration
+            summary: Get integration
+            description: Get integration
             operationId: getIntegration
             responses:
                 '200':
                     description: ''
         delete:
-            summary: Delete Integration
-            description: Delete Integration
+            summary: Delete integration
+            description: Delete integration
             operationId: deleteIntegration
             requestBody:
                 content:
@@ -212,7 +212,7 @@ paths:
                                     id: integration1
             responses:
                 '202':
-                    description: Delete Integration
+                    description: Delete integration
                     content:
                         application/json:
                             schema:
@@ -222,8 +222,8 @@ paths:
                                 Delete Integration:
                                     value: {}
         patch:
-            summary: Update Integration
-            description: Update Integration
+            summary: Update integration
+            description: Update integration
             operationId: updateIntegration
             parameters:
                 - name: x-frigg-appuserid
@@ -307,8 +307,8 @@ paths:
                   example: ''
     /api/integrations/{integrationId}/config/options:
         get:
-            summary: Get Integration Config Options
-            description: Get Integration Config Options
+            summary: Get integration Config Options
+            description: Get integration Config Options
             operationId: getIntegrationConfigOptions
             responses:
                 '200':

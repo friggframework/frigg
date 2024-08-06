@@ -5,11 +5,11 @@ class IntegrationBase {
      * CHILDREN SHOULD SPECIFY A CONFIG
      */
     static Config = {
-        name: 'Integration Name',
-        version: '0.0.0', // Integration Version, used for migration and storage purposes, as well as display
+        name: 'integration Name',
+        version: '0.0.0', // integration Version, used for migration and storage purposes, as well as display
         supportedVersions: [], // Eventually usable for deprecation and future test version purposes
 
-        // an array of events that are process(able) by this Integration
+        // an array of events that are process(able) by this integration
         events: [],
     };
 
