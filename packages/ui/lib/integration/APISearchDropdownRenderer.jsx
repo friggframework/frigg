@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
-import { withJsonFormsControlProps } from '@jsonforms/react';
-import TextField from '@mui/material/TextField';
-import Autocomplete from '@mui/material/Autocomplete';
-import CircularProgress from '@mui/material/CircularProgress';
-import API from '../api/api';
-import { useFormContext } from '../context/FormContext';
-import { useIntegrationContext } from '../context/IntegrationContext';
+import React, { useState } from "react";
+import { withJsonFormsControlProps } from "@jsonforms/react";
+import TextField from "@mui/material/TextField";
+import Autocomplete from "@mui/material/Autocomplete";
+import CircularProgress from "@mui/material/CircularProgress";
+import API from "../api/api";
+// import { useFormContext } from '../context/FormContext';
+// import { useIntegrationContext } from '../context/IntegrationContext';
 
 const APISearchDropdownRenderer = ({
   data,
@@ -21,16 +21,19 @@ const APISearchDropdownRenderer = ({
   const [selectedValue, setSelectedValue] = useState(data?.[path]);
   const [loading, setLoading] = useState(false);
   const api = new API();
-  const jwt = sessionStorage.getItem('jwt');
-  const { integrationId, userAction, entityId } = useIntegrationContext();
-  const { formType } = useFormContext();
+  const jwt = sessionStorage.getItem("jwt");
+  // const { integrationId, userAction, entityId } = useIntegrationContext();
+  // const { formType } = useFormContext();
+  const { integrationId, userAction, entityId } = {}; // this properties need to be passed from the parent component
+  const { formType } = {}; // this property needs to be replaced by the search URL
+
   api.setJwt(jwt);
 
   const customErrors = getCustomErrors(required, selectedValue, errors);
-  console.log('schema', schema);
-  console.log('rest:', rest);
-  console.log('data', data);
-  console.log('path', path);
+  console.log("schema", schema);
+  console.log("rest:", rest);
+  console.log("data", data);
+  console.log("path", path);
 
   // Debounce helper to minimize requests while typing
   const debounce = (func, wait) => {
@@ -62,7 +65,7 @@ const APISearchDropdownRenderer = ({
 
       setOptions(response);
     } catch (error) {
-      console.error('Error fetching autocomplete options:', error);
+      console.error("Error fetching autocomplete options:", error);
       setOptions(schema.oneOf);
     } finally {
       setLoading(false);
@@ -77,11 +80,11 @@ const APISearchDropdownRenderer = ({
       onOpen={() => setOpen(true)}
       onClose={() => setOpen(false)}
       getOptionSelected={(option, value) => option.const === value.const}
-      getOptionLabel={(option) => option.title || ''}
+      getOptionLabel={(option) => option.title || ""}
       options={options}
       loading={loading}
       onChange={(event, newValue) => {
-        const value = newValue ? newValue.const : '';
+        const value = newValue ? newValue.const : "";
         handleChange(path, value);
         setSelectedValue(value);
         if (newValue === null) {
@@ -109,7 +112,7 @@ const APISearchDropdownRenderer = ({
             ),
           }}
           error={!!customErrors}
-          helperText={customErrors ?? ''}
+          helperText={customErrors ?? ""}
         />
       )}
     />
@@ -123,12 +126,12 @@ export default withJsonFormsControlProps(APISearchDropdownRenderer);
  */
 const getCustomErrors = (required, data, errors) => {
   if (required) {
-    if (errors.includes('must match exactly one schema in oneOf') && !data) {
-      return 'is a required property';
+    if (errors.includes("must match exactly one schema in oneOf") && !data) {
+      return "is a required property";
     }
 
-    if (errors.includes('must match exactly one schema in oneOf') && data) {
-      return '';
+    if (errors.includes("must match exactly one schema in oneOf") && data) {
+      return "";
     }
 
     return errors;

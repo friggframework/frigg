@@ -24,6 +24,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@jsonforms/material-renderers": "^3.2.1",
+    "@jsonforms/react": "^3.2.1",
+    "@mui/material": "^5.16.6",
+    "@radix-ui/react-dropdown-menu": "^2.1.1",
     "@radix-ui/react-switch": "^1.1.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",

@@ -1,11 +1,10 @@
-import { Form } from '../../Form';
-import { useEffect, useState } from 'react';
-import API from '../../../api/api';
-import { LoadingSpinner } from '../../LoadingSpinner';
-import { useFormContext } from '../../../context/FormContext';
-import FormType from '../../../enums/FormType';
-import { Button } from '../../ui2/button';
-import { useToast } from '../../ui2/use-toast';
+import { Form } from "../Form";
+import { useEffect, useState } from "react";
+import API from "../../api/api";
+import { LoadingSpinner } from "../../components/LoadingSpinner";
+import FormType from "../../enums/FormType";
+import { Button } from "../../components/button";
+import { useToast } from "../../components/use-toast";
 
 function UserActionModal({
   closeConfigModal,
@@ -18,11 +17,9 @@ function UserActionModal({
   const [isLoading, setIsLoading] = useState(true);
   const [formData, setFormData] = useState({});
   const api = new API();
-  const { setFormType } = useFormContext();
   const { toast } = useToast();
 
   useEffect(() => {
-    setFormType(FormType.USER_ACTION);
     getUserActionOptions({
       api,
       integrationId,
@@ -41,7 +38,7 @@ function UserActionModal({
 
   const onSubmit = async () => {
     setIsLoading(true);
-    api.setJwt(sessionStorage.getItem('jwt'));
+    api.setJwt(sessionStorage.getItem("jwt"));
     const response = await api.submitUserAction(
       integrationId,
       userActionDetails.action,
@@ -54,9 +51,9 @@ function UserActionModal({
       return;
     }
     toast({
-      variant: 'success',
-      title: 'Success!',
-      description: 'User action executed successfully!',
+      variant: "success",
+      title: "Success!",
+      description: "User action executed successfully!",
     });
 
     closeConfigModal();
@@ -92,6 +89,7 @@ function UserActionModal({
                   <p></p>
                 ) : (
                   <Form
+                    //todo: set form type here? formType={FormType.USER_ACTION}
                     schema={jsonSchema}
                     uiSchema={uiSchema}
                     data={formData}
@@ -120,7 +118,7 @@ const getUserActionOptions = async ({
   integrationId,
   selectedUserAction,
 }) => {
-  api.setJwt(sessionStorage.getItem('jwt'));
+  api.setJwt(sessionStorage.getItem("jwt"));
   const response = await api.getUserActionOptions(
     integrationId,
     selectedUserAction

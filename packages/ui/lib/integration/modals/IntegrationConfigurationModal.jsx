@@ -1,15 +1,16 @@
-import { Form } from '../../Form';
-import { useEffect, useState } from 'react';
-import API from '../../../api/api';
-import { LoadingSpinner } from '../../LoadingSpinner';
-import { Button } from '../../ui2/button';
-import { useToast } from '../../ui2/use-toast';
+import { Form } from "../Form";
+import { useEffect, useState } from "react";
+import API from "../../api/api";
+import { LoadingSpinner } from "../../components/LoadingSpinner";
+import { Button } from "../../components/button";
+import { useToast } from "../../components/use-toast";
 
 function IntegrationConfigurationModal({
   closeConfigModal,
   name,
   refreshIntegrations,
   integrationId,
+  friggBaseUrl,
   ...props
 }) {
   const [jsonSchema, setJsonSchema] = useState({});
@@ -18,7 +19,7 @@ function IntegrationConfigurationModal({
   const [formData, setFormData] = useState({});
   const { toast } = useToast();
 
-  const api = new API();
+  const api = new API(friggBaseUrl);
 
   useEffect(() => {
     getIntegrationConfigOptions({ api, integrationId })
@@ -36,7 +37,7 @@ function IntegrationConfigurationModal({
 
   const onSubmit = async () => {
     setIsLoading(true);
-    api.setJwt(sessionStorage.getItem('jwt'));
+    api.setJwt(sessionStorage.getItem("jwt"));
     const response = await api.updateIntegration(integrationId, formData);
 
     if (!response || response.error) {
@@ -45,9 +46,9 @@ function IntegrationConfigurationModal({
       return;
     }
     toast({
-      variant: 'success',
-      title: 'Success!',
-      description: 'Configuration updated successfully!',
+      variant: "success",
+      title: "Success!",
+      description: "Configuration updated successfully!",
     });
     await refreshIntegrations(props);
     closeConfigModal();
@@ -103,7 +104,7 @@ function IntegrationConfigurationModal({
 export default IntegrationConfigurationModal;
 
 const getIntegrationConfigOptions = async ({ api, integrationId }) => {
-  api.setJwt(sessionStorage.getItem('jwt'));
+  api.setJwt(sessionStorage.getItem("jwt"));
   const response = await api.getIntegrationConfigOptions(integrationId);
 
   return {

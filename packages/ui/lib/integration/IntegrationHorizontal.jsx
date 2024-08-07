@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { Settings } from "lucide-react";
 import Api from "./../api/api";
-// import QuickActionsMenu from './QuickActionsMenu';
-// import { FormBasedAuthModal, IntegrationConfigurationModal } from './modals';
+import QuickActionsMenu from "./QuickActionsMenu";
+import { FormBasedAuthModal, IntegrationConfigurationModal } from "./modals";
 import { Switch } from "../components/switch";
 import { Button } from "../components/button";
 import { LoadingSpinner } from "../components/LoadingSpinner";
-// import { useIntegrationContext } from '../../context/IntegrationContext';
 
 /**
  *
@@ -21,8 +20,9 @@ import { LoadingSpinner } from "../components/LoadingSpinner";
  * @constructor
  */
 function IntegrationHorizontal(props) {
+  console.log(">>> props", props);
   const { name, description, icon } = props.data.display;
-  const { type, status: initialStatus } = props.data;
+  const { type, status: initialStatus, id: integrationId } = props.data;
   const refreshIntegrations = props.refreshIntegrations;
 
   const [isProcessing, setIsProcessing] = useState(false);
@@ -30,12 +30,10 @@ function IntegrationHorizontal(props) {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [userActions, setUserActions] = useState([]);
-  // const { setIntegrationId } = useIntegrationContext();
 
   const api = new Api(props.friggBaseUrl);
 
   useEffect(() => {
-    // setIntegrationId(props.data.id);
     const userActions = [
       {
         title: "Get Sample Data",
@@ -54,7 +52,7 @@ function IntegrationHorizontal(props) {
 
   const getAuthorizeRequirements = async () => {
     setIsProcessing(true);
-    api.setJwt(sessionStorage.getItem("jwt"));
+    api.setJwt(sessionStorage.getItem("jwt")); // todo: should this be passed in as prop?
     const authorizeData = await api.getAuthorizeRequirements(type, "");
     if (authorizeData.type === "oauth2") {
       window.location.href = authorizeData.url;
@@ -74,10 +72,12 @@ function IntegrationHorizontal(props) {
   function openAuthModal() {
     setIsAuthModalOpen(true);
   }
+
   function closeAuthModal() {
     setIsAuthModalOpen(false);
     setIsProcessing(false);
   }
+
   function openConfigModal() {
     setIsConfigModalOpen(true);
   }
@@ -88,7 +88,7 @@ function IntegrationHorizontal(props) {
   }
 
   const disconnectIntegration = async () => {
-    const jwt = sessionStorage.getItem("jwt");
+    const jwt = sessionStorage.getItem("jwt"); // todo: should this be passed in as prop?
     api.setJwt(jwt);
     await api.deleteIntegration(props.data.id);
     setIsProcessing(true);
@@ -96,6 +96,7 @@ function IntegrationHorizontal(props) {
     await refreshIntegrations(props);
     setIsProcessing(false);
   };
+
   return (
     <>
       <div
@@ -135,11 +136,12 @@ function IntegrationHorizontal(props) {
                   </label>
                 </div>
                 <div className="flex flex-row-reverse">
-                  {/*<QuickActionsMenu*/}
-                  {/*  userActions={userActions}*/}
-                  {/*  integrationConfiguration={openConfigModal}*/}
-                  {/*  disconnectIntegration={disconnectIntegration}*/}
-                  {/*/>*/}
+                  <QuickActionsMenu
+                    userActions={userActions}
+                    integrationConfiguration={openConfigModal}
+                    disconnectIntegration={disconnectIntegration}
+                    integrationId={integrationId}
+                  />
                 </div>
               </>
             ) : (
@@ -151,34 +153,28 @@ function IntegrationHorizontal(props) {
         </div>
       </div>
 
-      {/*{isAuthModalOpen ? (*/}
-      {/*  <FormBasedAuthModal*/}
-      {/*    isAuthModalOpen={isAuthModalOpen}*/}
-      {/*    closeAuthModal={closeAuthModal}*/}
-      {/*    refreshIntegrations={refreshIntegrations}*/}
-      {/*    name={name}*/}
-      {/*    type={type}*/}
-      {/*  ></FormBasedAuthModal>*/}
-      {/*) : null}*/}
+      {isAuthModalOpen ? (
+        <FormBasedAuthModal
+          isAuthModalOpen={isAuthModalOpen}
+          closeAuthModal={closeAuthModal}
+          refreshIntegrations={refreshIntegrations}
+          name={name}
+          type={type}
+        ></FormBasedAuthModal>
+      ) : null}
 
-      {/*{isConfigModalOpen ? (*/}
-      {/*  <IntegrationConfigurationModal*/}
-      {/*    isConfigModalOpen={isConfigModalOpen}*/}
-      {/*    closeConfigModal={closeConfigModal}*/}
-      {/*    name={name}*/}
-      {/*    refreshIntegrations={() => refreshIntegrations(props)}*/}
-      {/*    integrationId={props.data.id}*/}
-      {/*  ></IntegrationConfigurationModal>*/}
-      {/*) : null}*/}
+      {isConfigModalOpen ? (
+        <IntegrationConfigurationModal
+          isConfigModalOpen={isConfigModalOpen}
+          closeConfigModal={closeConfigModal}
+          name={name}
+          refreshIntegrations={() => refreshIntegrations(props)}
+          integrationId={props.data.id}
+          friggBaseUrl={props.friggBaseUrl}
+        ></IntegrationConfigurationModal>
+      ) : null}
     </>
   );
-}
-function mapStateToProps({ auth, integrations }) {
-  console.log(`integrations: ${JSON.stringify(integrations)}`);
-  return {
-    authToken: auth.token,
-    integrations,
-  };
 }
 
 export default IntegrationHorizontal;
