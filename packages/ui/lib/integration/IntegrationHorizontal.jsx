@@ -20,7 +20,6 @@ import { LoadingSpinner } from "../components/LoadingSpinner";
  * @constructor
  */
 function IntegrationHorizontal(props) {
-  console.log(">>> props", props);
   const { name, description, icon } = props.data.display;
   const { type, status: initialStatus, id: integrationId } = props.data;
   const refreshIntegrations = props.refreshIntegrations;
