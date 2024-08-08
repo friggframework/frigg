@@ -1,3 +1,16 @@
+# v1.2.1 (Thu Aug 08 2024)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/core`
+  - Fix bug during local running [#326](https://github.com/friggframework/frigg/pull/326) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.14.0 (Tue Aug 06 2024)
 
 :tada: This release contains work from new contributors! :tada:

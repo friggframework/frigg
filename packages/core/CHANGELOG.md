@@ -1,3 +1,16 @@
+# v1.2.1 (Thu Aug 08 2024)
+
+#### 🐛 Bug Fix
+
+- Fix bug during local running [#326](https://github.com/friggframework/frigg/pull/326) ([@seanspeaks](https://github.com/seanspeaks))
+- Adding toJSON so that the descriminator decorator will be evaluated/added to the mongoose model (currently undefined on initialization and first invocation) ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.2.0 (Tue Aug 06 2024)
 
 :tada: This release contains work from a new contributor! :tada:
