@@ -6,9 +6,9 @@
 
 * [Learning Frigg](tutorials/overview.md)
 * [Quick Start Tutorial](tutorials/quick-start/README.md)
-  * [Initialize With Create Frigg App](tutorials/quick-start/create-frigg-app.md)
+  * [Initialize With Create Frigg App (CFA)](tutorials/quick-start/create-frigg-app.md)
   * [Configuration](tutorials/quick-start/configuration.md)
-  * [Start Your Application](tutorials/quick-start/start-your-application.md)
+  * [Start Your Frigg App](tutorials/quick-start/start-your-frigg-app.md)
   * [Connecting and Seeing Live Data](tutorials/quick-start/connecting-and-seeing-live-data.md)
   * [Updating the Integration Logic](tutorials/quick-start/updating-the-integration-logic.md)
 * [Advanced Tutorials](tutorials/advanced-tutorials/README.md)

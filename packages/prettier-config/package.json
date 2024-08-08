@@ -1,6 +1,6 @@
 {
   "name": "@friggframework/prettier-config",
-  "version": "1.1.8",
+  "version": "1.2.0",
   "dependencies": {
     "prettier": "^2.7.1"
   },

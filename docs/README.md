@@ -51,7 +51,7 @@ In general, there are four main areas of the docs, and four supplemental section
 
 <details>
 
-<summary>How does Frigg define "Integration"?</summary>
+<summary>How does Frigg define "Integration?"</summary>
 
 Application Programming Interfaces (APIs) are everywhere in software development. They can be made for SDKs, hardware, internal modules, HTTP requests to external systems, and more.
 
@@ -126,11 +126,11 @@ Read more about Frigg on [Wikipedia](https://en.wikipedia.org/wiki/Frigg).
 
 ## Frigg Explained to Developers
 
-Simply put- Frigg is what you would build to rapidly develop integrations if you had unlimited resources and time. The added difference is the promise of Open Source-- not just your company, but a community of developers collaborating to solve the same core set of problems over and over again. Something you could never do internally.
+Frigg is the framework you would have built to develop integrations, if you had unlimited resources and time. The added difference is the promise of Open Source-- i.e. a community of developers collaborating to solve the same core set of problems over and over again. This is something you could never do internally.
 
-The Frigg Framework is an opinionated set of development tools, modules, classes, and plugins built with modern software development teams in mind. The aim of the framework is to have you up and running out of the box with a flexible set of tools to help rapidly add integrations to your software that your end users can manage individually without any intervention.
+The Frigg Framework is an opinionated set of development tools, modules, classes, and plugins built with modern software development teams in mind. Frigg will have you up and running out-of-the-box with a flexible set of tools to help rapidly add integrations that your end users can self-serve.
 
-The framework handles integration listing, authentication, and configuration "out of the box," built on a scalable serverless architecture with a growing library of prebuilt API Modules to greatly reduce time to wow. Along with the core "out of the box" features, the framework contains primitives to help address and flex to any use case.
+Frigg handles integration listing, authentication, and configuration out-of-the-box, built on a scalable serverless architecture. It includes a growing library of prebuilt API Modules to greatly reduce time to "wow." Along with the core "out of the box" features, the framework contains primitives to help address and flex to any use case.
 
 {% hint style="info" %}
 #### A Note on Basic Architecture

@@ -309,6 +309,15 @@
       "contributions": [
         "test"
       ]
+    },
+    {
+      "login": "FerRiffel-LeftHook",
+      "name": "Fer Riffel",
+      "avatar_url": "https://avatars.githubusercontent.com/u/146733776?v=4",
+      "profile": "https://github.com/FerRiffel-LeftHook",
+      "contributions": [
+        "doc"
+      ]
     }
   ],
   "contributorsPerLine": 7

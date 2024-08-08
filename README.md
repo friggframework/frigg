@@ -1,6 +1,6 @@
 # Frigg Integration Framework
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-26-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-27-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 <img src="docs/FriggLogo.svg" style="width:250px">
@@ -92,6 +92,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="https://github.com/Jo-lefthook"><img src="https://avatars.githubusercontent.com/u/139414886?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Jo-lefthook</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=Jo-lefthook" title="Code">💻</a></td>
     <td align="center"><a href="http://nmilcoff.com/"><img src="https://avatars.githubusercontent.com/u/12127846?v=4?s=100" width="100px;" alt=""/><br /><sub><b>nmilcoff</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=nmilcoff" title="Documentation">📖</a> <a href="https://github.com/friggframework/frigg/commits?author=nmilcoff" title="Tests">⚠️</a> <a href="https://github.com/friggframework/frigg/commits?author=nmilcoff" title="Code">💻</a></td>
     <td align="center"><a href="https://github.com/igorschechtel"><img src="https://avatars.githubusercontent.com/u/21978920?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Igor Schechtel</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=igorschechtel" title="Tests">⚠️</a></td>
+    <td align="center"><a href="https://github.com/FerRiffel-LeftHook"><img src="https://avatars.githubusercontent.com/u/146733776?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Fer Riffel</b></sub></a><br /><a href="https://github.com/friggframework/frigg/commits?author=FerRiffel-LeftHook" title="Documentation">📖</a></td>
   </tr>
 </table>
 

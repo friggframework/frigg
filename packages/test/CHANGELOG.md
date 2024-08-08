@@ -1,3 +1,25 @@
+# v1.2.0 (Tue Aug 06 2024)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, Daniel Klotz ([@d-klotz](https://github.com/d-klotz)), for all your work!
+
+#### 🐛 Bug Fix
+
+- small update to integration testing / tooling [#304](https://github.com/friggframework/frigg/pull/304) ([@MichaelRyanWebber](https://github.com/MichaelRyanWebber))
+- chore: bump deprecated npm package versions [#323](https://github.com/friggframework/frigg/pull/323) ([@d-klotz](https://github.com/d-klotz) [@seanspeaks](https://github.com/seanspeaks))
+- chore: bump deprecated package versions ([@d-klotz](https://github.com/d-klotz))
+- Bump version to: v1.1.8 \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+- Bump version to: v1.1.5 \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 3
+
+- [@MichaelRyanWebber](https://github.com/MichaelRyanWebber)
+- Daniel Klotz ([@d-klotz](https://github.com/d-klotz))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.1.8 (Thu Jul 18 2024)
 
 :tada: This release contains work from a new contributor! :tada:
