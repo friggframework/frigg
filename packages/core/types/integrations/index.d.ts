@@ -103,7 +103,7 @@ declare module "@friggframework/integrations" {
   interface IFriggIntegrationManager extends IFriggDelegate {
     primaryInstance: any; //  Returns the Freshbooks manager instance
     targetInstance: any; // Returns a manager e.g. StripeManager instance containing the entitiy, credential, api etc
-    integration: Integration; // integration model instance
+    integration: Integration; // Integration model instance
 
     validateConfig(): Promise<void>;
     testAuth(): Promise<void>;

@@ -5,11 +5,11 @@ class IntegrationBase {
      * CHILDREN SHOULD SPECIFY A CONFIG
      */
     static Config = {
-        name: 'integration Name',
-        version: '0.0.0', // integration Version, used for migration and storage purposes, as well as display
+        name: 'Integration Name',
+        version: '0.0.0', // Integration Version, used for migration and storage purposes, as well as display
         supportedVersions: [], // Eventually usable for deprecation and future test version purposes
 
-        // an array of events that are process(able) by this integration
+        // an array of events that are process(able) by this Integration
         events: [],
     };
 
@@ -27,9 +27,7 @@ class IntegrationBase {
     }
 
     //psuedo delegate for backwards compatability
-    async receiveNotification(notifier, delegateString, object = null) {
-
-    }
+    async receiveNotification(notifier, delegateString, object = null) {}
 
     async notify(delegateString, object = null) {
         if (!this.delegateTypes.includes(delegateString)) {
@@ -37,11 +35,7 @@ class IntegrationBase {
                 `delegateString:${delegateString} is not defined in delegateTypes`
             );
         }
-        return this.receiveNotification(
-                this,
-                delegateString,
-                object
-        );
+        return this.receiveNotification(this, delegateString, object);
     }
 
     async validateConfig() {
@@ -130,8 +124,6 @@ class IntegrationBase {
         return this.userActions;
     }
 
-
-
     /**
      * CHILDREN CAN OVERRIDE THESE CONFIGURATION METHODS
      */
@@ -141,10 +133,9 @@ class IntegrationBase {
         return this.record;
     }
 
-    async onUpdate(params) {
-    }
+    async onUpdate(params) {}
 
-    async onDelete(params) { }
+    async onDelete(params) {}
 
     async getConfigOptions() {
         const options = {
@@ -158,8 +149,8 @@ class IntegrationBase {
         const options = {
             jsonSchema: {},
             uiSchema: {},
-        }
-        return options
+        };
+        return options;
     }
 
     async getUserActions() {
@@ -170,16 +161,16 @@ class IntegrationBase {
         const options = {
             jsonSchema: {},
             uiSchema: {},
-        }
-        return options
+        };
+        return options;
     }
 
     async refreshActionOptions(params) {
         const options = {
             jsonSchema: {},
             uiSchema: {},
-        }
-        return options
+        };
+        return options;
     }
 }
 
