@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { CircleAlert } from "lucide-react";
 import Api from "./../api/api";
 import IntegrationDropdown from "./IntegrationDropdown";
-import { Button } from "../components/button";
+import { Button } from "../components/Button";
 import { LoadingSpinner } from "../components/LoadingSpinner.jsx";
 
 /**
