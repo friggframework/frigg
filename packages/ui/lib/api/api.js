@@ -1,10 +1,9 @@
 import FormType from "../enums/FormType";
 
 export default class API {
-  constructor(baseUrl) {
+  constructor(baseUrl, jwt) {
     this.baseURL = baseUrl;
-
-    this.jwt = null;
+    this.jwt = jwt;
 
     this.endpointLogin = "/user/login";
     this.endpointCreateUser = "/user/create";
@@ -20,10 +19,6 @@ export default class API {
       `/api/integrations/${id}/actions/${action}/options`;
     this.endpointIntegrationUserActionSubmit = (id, action) =>
       `/api/integrations/${id}/actions/${action}`;
-  }
-
-  setJwt(jwt) {
-    this.jwt = jwt;
   }
 
   async login(username, password) {
@@ -164,28 +159,6 @@ export default class API {
     return this._post(url, params); // todo: to improve dev experience, return a clear response, with this current implementation one does not now what returns from this request.
   }
 
-  // update integration (aka, update the settings or the configuration for it).
-  // example data params:
-  // {
-  //     "id":"integration1",
-  //     "config": {
-  //         "enable": {
-  //             "sync": true,
-  //             "webhooks": "false"
-  //         },
-  //         "map": {
-  //             "syncMap": {
-  //                 "freshbooksEntityId": [
-  //                     "name.first",
-  //                     "name.last"
-  //                 ],
-  //                 "salesforceEntityId": [
-  //                     "firstName",
-  //                     "lastName"
-  //                 ]
-  //             }
-  //         }
-  //     }
   async updateIntegration(integrationId, config) {
     const url = this.endpointIntegration(integrationId);
     const params = {
@@ -194,7 +167,6 @@ export default class API {
     return this._patch(url, params);
   }
 
-  // delete an integration using its id
   async deleteIntegration(integrationId) {
     const url = this.endpointIntegration(integrationId);
     return this._delete(url, {});

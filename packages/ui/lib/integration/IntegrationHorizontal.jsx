@@ -8,21 +8,27 @@ import { Button } from "../components/button.jsx";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 
 /**
+ * IntegrationHorizontal component
  *
- * @param props.data.display.name {string}
- * @param props.data.display.description {string}
- * @param props.data.display.icon {string}
- * @param props.data.type {string}
- * @param props.data.status {string}
- * @param props.refreshIntegrations {Function}
- * @param props.friggBaseUrl {string}
- * @returns {JSX.Element}
+ * @param {Object} props - The component props
+ * @param {Object} props.data - The data object
+ * @param {Object} props.data.display - Display properties
+ * @param {string} props.data.display.name - The name to display
+ * @param {string} props.data.display.description - The description to display
+ * @param {string} props.data.display.icon - The icon to display
+ * @param {string} props.data.type - The type of integration
+ * @param {string} props.data.status - The current status of the integration
+ * @param {string} props.data.id - The integration ID
+ * @param {Function} props.refreshIntegrations - Function to refresh integrations
+ * @param {string} props.friggBaseUrl - The base URL for the Frigg service
+ * @param {string} props.authToken - JWT token for authenticated user in Frigg
+ * @returns {JSX.Element} The rendered component
  * @constructor
  */
 function IntegrationHorizontal(props) {
+  const { authToken, refreshIntegrations } = props;
   const { name, description, icon } = props.data.display;
   const { type, status: initialStatus, id: integrationId } = props.data;
-  const refreshIntegrations = props.refreshIntegrations;
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState(initialStatus);
@@ -30,7 +36,7 @@ function IntegrationHorizontal(props) {
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [userActions, setUserActions] = useState([]);
 
-  const api = new Api(props.friggBaseUrl);
+  const api = new Api(props.friggBaseUrl, authToken);
 
   useEffect(() => {
     const userActions = [
@@ -47,11 +53,10 @@ function IntegrationHorizontal(props) {
       });
     });
     setUserActions(userActions);
-  }, []);
+  }, [props.data.userActions]);
 
   const getAuthorizeRequirements = async () => {
     setIsProcessing(true);
-    api.setJwt(sessionStorage.getItem("jwt")); // todo: should this be passed in as prop?
     const authorizeData = await api.getAuthorizeRequirements(type, "");
     if (authorizeData.type === "oauth2") {
       window.location.href = authorizeData.url;
@@ -87,8 +92,6 @@ function IntegrationHorizontal(props) {
   }
 
   const disconnectIntegration = async () => {
-    const jwt = sessionStorage.getItem("jwt"); // todo: should this be passed in as prop?
-    api.setJwt(jwt);
     await api.deleteIntegration(props.data.id);
     setIsProcessing(true);
     setStatus(false);

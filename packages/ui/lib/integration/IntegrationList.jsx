@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import IntegrationSkeleton from "./IntegrationSkeleton";
 import IntegrationUtils from "../utils/IntegrationUtils";
 import API from "../api/api";
@@ -9,6 +9,7 @@ import { IntegrationHorizontal, IntegrationVertical } from "../integration";
  * @param props.integrationType - Type of integration to filter by
  * @param props.friggBaseUrl - Base URL for Frigg backend
  * @param props.componentLayout - Layout for displaying integrations - either 'default-horizontal' or 'default-vertical'
+ * @param props.authToken - JWT token for authenticated user in Frigg
  * @returns {Element}
  * @constructor
  */
@@ -17,11 +18,8 @@ const IntegrationList = (props) => {
   const [integrations, setIntegrations] = useState({});
   const integrationUtils = useRef(null);
 
-  const refreshIntegrations = async () => {
-    const api = new API(props.friggBaseUrl);
-    const jwt = sessionStorage.getItem("jwt");
-    api.setJwt(jwt);
-
+  const refreshIntegrations = useCallback(async () => {
+    const api = new API(props.friggBaseUrl, props.authToken);
     const integrationsData = await api.listIntegrations();
 
     if (integrationsData.error) {
@@ -33,21 +31,17 @@ const IntegrationList = (props) => {
     if (integrationsData.integrations) {
       integrationUtils.current = new IntegrationUtils(integrationsData);
     }
-  };
+  }, [props.authToken, props.friggBaseUrl]);
 
   useEffect(() => {
     const init = async () => {
-      const jwt = sessionStorage.getItem("jwt");
-
-      //todo: should we check if token is expired here?
-
-      if (jwt) {
+      if (props.authToken) {
         await refreshIntegrations();
       }
     };
 
     init();
-  }, []);
+  }, [props.authToken, refreshIntegrations]);
 
   const setInstalled = (data) => {
     const items = [data, ...installedIntegrations];
@@ -63,6 +57,7 @@ const IntegrationList = (props) => {
           handleInstall={setInstalled}
           refreshIntegrations={refreshIntegrations}
           friggBaseUrl={props.friggBaseUrl}
+          authToken={props.authToken}
         />
       );
     }

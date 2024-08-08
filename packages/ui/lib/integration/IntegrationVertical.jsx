@@ -6,27 +6,31 @@ import { Button } from "../components/button.jsx";
 import { LoadingSpinner } from "../components/LoadingSpinner.jsx";
 
 /**
+ * IntegrationVertical component
  *
- * @param props.data.display.name {string}
- * @param props.data.display.description {string}
- * @param props.data.display.icon {string}
- * @param props.data.type {string}
- * @param props.data.status {string}
- * @param props.refreshIntegrations {Function}
- * @param props.friggBaseUrl {string}
- * @returns {JSX.Element}
- * @constructor
+ * @param {Object} props - The component props
+ * @param {Object} props.data - The data object
+ * @param {Object} props.data.display - Display properties
+ * @param {string} props.data.display.name - The name to display
+ * @param {string} props.data.display.description - The description to display
+ * @param {string} props.data.display.icon - The icon to display
+ * @param {string} props.data.type - The type of integration
+ * @param {string} props.data.status - The current status of the integration
+ * @param {Function} props.refreshIntegrations - Function to refresh integrations
+ * @param {string} props.friggBaseUrl - The base URL for the Frigg service
+ * @param {string} props.authToken - JWT token for authenticated user in Frigg
+ * @returns {JSX.Element} The rendered component
  */
 function IntegrationVertical(props) {
   const { name, description, category, icon } = props.data.display;
   const { hasUserConfig, type } = props.data;
+  const { authToken, refreshIntegrations } = props;
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState("");
   const [installed, setInstalled] = useState([]);
 
-  const api = new Api(props.friggBaseUrl);
-  api.setJwt(sessionStorage.getItem("jwt")); //todo: should this be passed in as prop?
+  const api = new Api(props.friggBaseUrl, authToken);
 
   const getAuthorizeRequirements = async () => {
     setIsProcessing(true);
