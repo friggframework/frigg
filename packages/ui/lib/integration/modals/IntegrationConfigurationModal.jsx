@@ -2,7 +2,7 @@ import { Form } from "../Form";
 import { useEffect, useState } from "react";
 import API from "../../api/api";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
-import { Button } from "../../components/button";
+import { Button } from "../../components/button.jsx";
 import { useToast } from "../../components/use-toast";
 
 function IntegrationConfigurationModal({

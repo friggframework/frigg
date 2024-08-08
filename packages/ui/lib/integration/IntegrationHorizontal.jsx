@@ -4,7 +4,7 @@ import Api from "./../api/api";
 import QuickActionsMenu from "./QuickActionsMenu";
 import { FormBasedAuthModal, IntegrationConfigurationModal } from "./modals";
 import { Switch } from "../components/switch";
-import { Button } from "../components/Button";
+import { Button } from "../components/button.jsx";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 
 /**
