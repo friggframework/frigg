@@ -1,7 +1,7 @@
 {
   "name": "@friggframework/test",
   "prettier": "@friggframework/prettier-config",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "dependencies": {
     "@babel/eslint-parser": "^7.18.9",
     "eslint": "^8.22.0",
@@ -15,8 +15,8 @@
     "open": "^8.4.2"
   },
   "devDependencies": {
-    "@friggframework/eslint-config": "^1.2.1",
-    "@friggframework/prettier-config": "^1.2.1",
+    "@friggframework/eslint-config": "^1.2.2",
+    "@friggframework/prettier-config": "^1.2.2",
     "jest": "^29.7.0",
     "prettier": "^2.7.1"
   },
