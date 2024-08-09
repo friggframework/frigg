@@ -13,9 +13,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 18
-      - uses: npm/action-setup@v2
-        with:
-          version: 6.0.2
       - run: npm i
       - run: npm build
       - name: save build artifact
