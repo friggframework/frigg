@@ -9,15 +9,20 @@ import {
   DropdownMenuTrigger,
 } from "../components/dropdown-menu";
 import { UserActionModal } from "./modals";
+import SampleDataModal from "./modals/SampleDataModal.jsx";
 
 function QuickActionsMenu({
   disconnectIntegration,
   userActions,
   integrationConfiguration,
   integrationId,
+  sampleDataRoute,
+  friggBaseUrl,
+  authToken,
 }) {
   const [isUserActionModalOpen, setIsUserActionModalOpen] = useState(false);
   const [userActionDetails, setUserActionDetails] = useState({});
+  const [isSampleDataModalOpen, setIsSampleDataModalOpen] = useState(false);
 
   const dropDownDisconnect = async () => {
     await disconnectIntegration();
@@ -37,7 +42,12 @@ function QuickActionsMenu({
   }
 
   const getSampleData = async () => {
-    alert("Implement sample data fetching logic here");
+    if (sampleDataRoute) {
+      window.location.href = sampleDataRoute;
+      return;
+    }
+
+    setIsSampleDataModalOpen(true);
   };
 
   function openUserActionModal(userAction) {
@@ -96,8 +106,18 @@ function QuickActionsMenu({
           closeConfigModal={closeUserActionModal}
           integrationId={integrationId}
           userActionDetails={userActionDetails}
+          friggBaseUrl={friggBaseUrl}
+          authToken={authToken}
         ></UserActionModal>
       ) : null}
+
+      <SampleDataModal
+        isOpen={isSampleDataModalOpen}
+        setOpen={setIsSampleDataModalOpen}
+        integrationId={integrationId}
+        friggBaseUrl={friggBaseUrl}
+        authToken={authToken}
+      />
     </>
   );
 }

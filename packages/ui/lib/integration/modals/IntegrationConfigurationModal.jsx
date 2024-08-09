@@ -1,5 +1,5 @@
 import { Form } from "../Form";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import API from "../../api/api";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { Button } from "../../components/button.jsx";
@@ -11,6 +11,7 @@ function IntegrationConfigurationModal({
   refreshIntegrations,
   integrationId,
   friggBaseUrl,
+  authToken,
   ...props
 }) {
   const [jsonSchema, setJsonSchema] = useState({});
@@ -19,7 +20,10 @@ function IntegrationConfigurationModal({
   const [formData, setFormData] = useState({});
   const { toast } = useToast();
 
-  const api = new API(friggBaseUrl);
+  const api = useMemo(
+    () => new API(friggBaseUrl, authToken),
+    [friggBaseUrl, authToken]
+  );
 
   useEffect(() => {
     getIntegrationConfigOptions({ api, integrationId })
@@ -29,7 +33,7 @@ function IntegrationConfigurationModal({
         setFormData(response.data);
       })
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [api, integrationId]);
 
   const onChange = (formData) => {
     setFormData(formData.data);
@@ -37,7 +41,6 @@ function IntegrationConfigurationModal({
 
   const onSubmit = async () => {
     setIsLoading(true);
-    api.setJwt(sessionStorage.getItem("jwt"));
     const response = await api.updateIntegration(integrationId, formData);
 
     if (!response || response.error) {
@@ -104,7 +107,6 @@ function IntegrationConfigurationModal({
 export default IntegrationConfigurationModal;
 
 const getIntegrationConfigOptions = async ({ api, integrationId }) => {
-  api.setJwt(sessionStorage.getItem("jwt"));
   const response = await api.getIntegrationConfigOptions(integrationId);
 
   return {

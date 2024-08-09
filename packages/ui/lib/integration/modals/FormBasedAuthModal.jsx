@@ -1,5 +1,5 @@
 import { Form } from "../Form";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import API from "../../api/api.js";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { useToast } from "../../components/use-toast.js";
@@ -9,8 +9,13 @@ function FormBasedAuthModal({
   name,
   entityType,
   refreshIntegrations,
+  friggBaseUrl,
+  authToken,
 }) {
-  const api = new API();
+  const api = useMemo(
+    () => new API(friggBaseUrl, authToken),
+    [friggBaseUrl, authToken]
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [uiSchema, setUiSchema] = useState({});
   const [jsonSchema, setJsonSchema] = useState({});
@@ -31,7 +36,7 @@ function FormBasedAuthModal({
         }
       })
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [api, closeAuthModal, entityType, name]);
 
   const onChange = (formData) => {
     setFormData(formData.data);
@@ -136,7 +141,6 @@ async function getAuthorizationRequirements({
   api,
   closeAuthModal,
 }) {
-  api.setJwt(sessionStorage.getItem("jwt"));
   const authorizeData = await api.getAuthorizeRequirements(entityType, name);
 
   if (authorizeData.type === "oauth2") {
@@ -159,8 +163,6 @@ async function getAuthorizationRequirements({
 }
 
 async function authorize({ api, entityType, authData }) {
-  api.setJwt(sessionStorage.getItem("jwt"));
-
   try {
     return await api.authorize(entityType, authData);
   } catch (e) {

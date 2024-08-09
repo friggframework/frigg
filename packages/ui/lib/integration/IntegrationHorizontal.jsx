@@ -22,11 +22,12 @@ import { LoadingSpinner } from "../components/LoadingSpinner";
  * @param {Function} props.refreshIntegrations - Function to refresh integrations
  * @param {string} props.friggBaseUrl - The base URL for the Frigg service
  * @param {string} props.authToken - JWT token for authenticated user in Frigg
+ * @param {string} props.sampleDataRoute - A route to display sample data for the integration
  * @returns {JSX.Element} The rendered component
  * @constructor
  */
 function IntegrationHorizontal(props) {
-  const { authToken, refreshIntegrations } = props;
+  const { authToken, refreshIntegrations, friggBaseUrl } = props;
   const { name, description, icon } = props.data.display;
   const { type, status: initialStatus, id: integrationId } = props.data;
 
@@ -36,7 +37,7 @@ function IntegrationHorizontal(props) {
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [userActions, setUserActions] = useState([]);
 
-  const api = new Api(props.friggBaseUrl, authToken);
+  const api = new Api(friggBaseUrl, authToken);
 
   useEffect(() => {
     const userActions = [
@@ -143,6 +144,9 @@ function IntegrationHorizontal(props) {
                     integrationConfiguration={openConfigModal}
                     disconnectIntegration={disconnectIntegration}
                     integrationId={integrationId}
+                    sampleDataRoute={props.sampleDataRoute}
+                    friggBaseUrl={friggBaseUrl}
+                    authToken={authToken}
                   />
                 </div>
               </>
@@ -162,6 +166,8 @@ function IntegrationHorizontal(props) {
           refreshIntegrations={refreshIntegrations}
           name={name}
           type={type}
+          friggBaseUrl={friggBaseUrl}
+          authToken={authToken}
         ></FormBasedAuthModal>
       ) : null}
 
@@ -172,7 +178,8 @@ function IntegrationHorizontal(props) {
           name={name}
           refreshIntegrations={() => refreshIntegrations(props)}
           integrationId={props.data.id}
-          friggBaseUrl={props.friggBaseUrl}
+          friggBaseUrl={friggBaseUrl}
+          authToken={authToken}
         ></IntegrationConfigurationModal>
       ) : null}
     </>

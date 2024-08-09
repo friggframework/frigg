@@ -20,14 +20,14 @@ const APISearchDropdownRenderer = ({
   const [options, setOptions] = useState(schema.oneOf ?? []);
   const [selectedValue, setSelectedValue] = useState(data?.[path]);
   const [loading, setLoading] = useState(false);
-  const api = new API();
+  const api = new API(); //todo: pass in friggBaseUrl and authToken from the parent component
   const jwt = sessionStorage.getItem("jwt");
   // const { integrationId, userAction, entityId } = useIntegrationContext();
   // const { formType } = useFormContext();
   const { integrationId, userAction, entityId } = {}; // this properties need to be passed from the parent component
   const { formType } = {}; // this property needs to be replaced by the search URL
 
-  api.setJwt(jwt);
+  api.setJwt(jwt); //todo: remove this line when jwt is passed from the parent component
 
   const customErrors = getCustomErrors(required, selectedValue, errors);
   console.log("schema", schema);

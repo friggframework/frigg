@@ -1,22 +1,25 @@
 import { Form } from "../Form";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import API from "../../api/api";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
-import FormType from "../../enums/FormType";
 import { Button } from "../../components/button.jsx";
 import { useToast } from "../../components/use-toast";
 
 function UserActionModal({
   closeConfigModal,
-  name,
   integrationId,
   userActionDetails,
+  friggBaseUrl,
+  authToken,
 }) {
   const [jsonSchema, setJsonSchema] = useState({});
   const [uiSchema, setUiSchema] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [formData, setFormData] = useState({});
-  const api = new API();
+  const api = useMemo(
+    () => new API(friggBaseUrl, authToken),
+    [friggBaseUrl, authToken]
+  );
   const { toast } = useToast();
 
   useEffect(() => {
@@ -30,7 +33,7 @@ function UserActionModal({
         setUiSchema(response.uiSchema);
       })
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [api, integrationId, userActionDetails.action]);
 
   const onChange = (formData) => {
     setFormData(formData.data);
@@ -38,7 +41,6 @@ function UserActionModal({
 
   const onSubmit = async () => {
     setIsLoading(true);
-    api.setJwt(sessionStorage.getItem("jwt"));
     const response = await api.submitUserAction(
       integrationId,
       userActionDetails.action,
@@ -118,7 +120,6 @@ const getUserActionOptions = async ({
   integrationId,
   selectedUserAction,
 }) => {
-  api.setJwt(sessionStorage.getItem("jwt"));
   const response = await api.getUserActionOptions(
     integrationId,
     selectedUserAction
