@@ -14,7 +14,9 @@ jobs:
         with:
           node-version: 18
       - run: npm i
-      - run: npm run build
+      - run: |
+          cd packages/ui
+          npm run build
       - name: save build artifact
         uses: actions/upload-artifact@v3
         with:
