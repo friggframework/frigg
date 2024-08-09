@@ -3,6 +3,7 @@ require('source-map-support').install();
 
 const { connectToDatabase } = require('../database/mongo');
 const { initDebugLog, flushDebugLog } = require('../logs');
+const { secretsToEnv } = require('./secrets-to-env');
 
 const createHandler = (optionByName = {}) => {
     const {
@@ -19,6 +20,15 @@ const createHandler = (optionByName = {}) => {
     return async (event, context) => {
         try {
             initDebugLog(eventName, event);
+
+            const requestMethod = event.httpMethod;
+            const requestPath = event.path;
+            if (requestMethod && requestPath) {
+                console.info(`${requestMethod} ${requestPath}`);
+            }
+
+            // If enabled (i.e. if SECRET_ARN is set in process.env) Fetch secrets from AWS Secrets Manager, and set them as environment variables.
+            await secretsToEnv();
 
             // Helps mongoose reuse the connection.  Lowers response times.
             context.callbackWaitsForEmptyEventLoop = false;
