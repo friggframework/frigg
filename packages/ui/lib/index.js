@@ -7,6 +7,7 @@ import {
   IntegrationHorizontal,
   IntegrationVertical,
   IntegrationList,
+  RedirectFromAuth,
 } from "./integration";
 
 export {
@@ -16,4 +17,5 @@ export {
   IntegrationHorizontal,
   IntegrationVertical,
   IntegrationList,
+  RedirectFromAuth,
 };

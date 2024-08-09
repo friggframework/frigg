@@ -1,104 +1,80 @@
-// class to wrap the response of the /api/integrations endpoint
-// and provide helper methods from that data.
+export const getActiveAndPossibleIntegrationsCombined = (integrationsData) => {
+  const combinedIntegrations = [];
+  const activeIntegrations = getActiveIntegrations(integrationsData);
+  const possibleIntegrations = getPossibleIntegrations(integrationsData);
 
-const ENTITIES = 'entities';
-const INTEGRATIONS = 'integrations';
-const PRIMARY = 'primary';
-const AUTHORIZED = 'authorized';
-const OPTIONS = 'options';
+  possibleIntegrations.forEach((integration) => {
+    const foundActive = activeIntegrations.filter(
+      (ai) => ai.type === integration.type
+    );
+    if (foundActive.length > 0) {
+      foundActive.forEach((ai) => {
+        combinedIntegrations.push(ai);
+      });
+    } else {
+      combinedIntegrations.push(integration);
+    }
+  });
 
-export default class IntegrationUtils {
-	constructor(integrations) {
-		this.integrations = integrations;
-	}
+  return combinedIntegrations;
+};
 
-	//
-	// return a list of objects containing data related to the possible
-	// new integrations you may connect
-	getPossibleIntegrations() {
-		const options = this.integrations[ENTITIES][OPTIONS];
-		return options;
+// return a list of objects containing data related to the active/existing user integrations
+const getActiveIntegrations = (integrationsData) => {
+  const activeIntegrations = [];
+  integrationsData.integrations.forEach((integration) => {
+    const clone = { ...integration };
+    const secondaryId = clone.entities[1].id; // get 2nd element
+    const type = getTypeForId(secondaryId, integrationsData);
+    clone.type = type;
+    clone.display = getDisplayDataForType(type, integrationsData);
+    // clone.connected = true;
+    // clone['secondaryId'] = secondaryId;
+    activeIntegrations.push(clone);
+  });
 
-		// exclude the primary
-		const possibleOptions = [];
-		options.forEach((opt) => {
-			if (opt.type !== this.getPrimaryType()) {
-				// opt.connected = false;
-				possibleOptions.push(opt);
-			}
-		});
-		return possibleOptions;
-	}
+  return activeIntegrations;
+};
 
-	//
-	// get entities primary type (a string, ie: "Freshbooks")
-	getPrimaryType() {
-		return this.integrations[ENTITIES][PRIMARY];
-	}
+const getTypeForId = (entityId, integrationsData) => {
+  const authorizedEntities = integrationsData.entities.authorized;
+  const entity = authorizedEntities.find((ae) => ae.id === entityId);
 
-	//
-	// get a list of authorized entities
-	getAuthorizedEntities() {
-		return this.integrations[ENTITIES][AUTHORIZED];
-	}
+  if (entity) {
+    return entity.type;
+  }
 
-	getDisplayDataForType(type) {
-		const possibleIntegrations = this.getPossibleIntegrations();
-		const integration = possibleIntegrations.find((pi) => pi.type === type);
+  throw Error(
+    `getTypeForId() ERR - entityId ${entityId} does not exist in authorized entities!`
+  );
+};
 
-		if (integration) {
-			return integration.display;
-		}
+const getDisplayDataForType = (type, integrationsData) => {
+  const possibleIntegrations = getPossibleIntegrations(integrationsData);
+  const integration = possibleIntegrations.find((pi) => pi.type === type);
 
-		throw Error(`getDisplayForType() ERR - type ${type} does not exist in possible integrations!`);
-	}
+  if (integration) {
+    return integration.display;
+  }
 
-	getTypeForId(entityId) {
-		const authorizedEntities = this.getAuthorizedEntities();
-		const entity = authorizedEntities.find((ae) => ae.id === entityId);
+  throw Error(
+    `getDisplayForType() ERR - type ${type} does not exist in possible integrations!`
+  );
+};
 
-		if (entity) {
-			return entity.type;
-		}
+// return a list of objects containing data related to the possible
+// new integrations you may connect
+const getPossibleIntegrations = (integrationsData) => {
+  const options = integrationsData.entities.options;
+  return options;
 
-		throw Error(`getTypeForId() ERR - entityId ${entityId} does not exist in authorized entities!`);
-	}
-
-	//
-	// return a list of objects containing data related to the active/existing user integrations
-	getActiveIntegrations() {
-		const activeIntegrations = [];
-		const integrations = this.integrations[INTEGRATIONS];
-		integrations.forEach((integration) => {
-			const clone = { ...integration };
-			const secondaryId = clone.entities[1].id; // get 2nd element
-			const type = this.getTypeForId(secondaryId);
-			clone.type = type;
-			clone.display = this.getDisplayDataForType(type);
-			// clone.connected = true;
-			// clone['secondaryId'] = secondaryId;
-			activeIntegrations.push(clone);
-		});
-
-		return activeIntegrations;
-	}
-
-	getActiveAndPossibleIntegrationsCombined() {
-		const combinedIntegrations = [];
-		const activeIntegrations = this.getActiveIntegrations();
-		const possibleIntegrations = this.getPossibleIntegrations();
-
-		possibleIntegrations.forEach((integration) => {
-			const foundActive = activeIntegrations.filter((ai) => ai.type === integration.type);
-			if (foundActive.length > 0) {
-				foundActive.forEach((ai) => {
-					combinedIntegrations.push(ai);
-				});
-			} else {
-				combinedIntegrations.push(integration);
-			}
-		});
-
-		return combinedIntegrations;
-	}
-}
+  // exclude the primary
+  const possibleOptions = [];
+  options.forEach((opt) => {
+    if (opt.type !== integrationsData.entities.primary) {
+      // opt.connected = false;
+      possibleOptions.push(opt);
+    }
+  });
+  return possibleOptions;
+};

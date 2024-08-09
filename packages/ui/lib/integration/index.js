@@ -4,6 +4,7 @@ import IntegrationList from "./IntegrationList.jsx";
 import IntegrationSkeleton from "./IntegrationSkeleton.jsx";
 import IntegrationVertical from "./IntegrationVertical";
 import QuickActionsMenu from "./QuickActionsMenu";
+import RedirectFromAuth from "./RedirectFromAuth.jsx";
 
 export {
   IntegrationDropdown,
@@ -12,4 +13,5 @@ export {
   IntegrationSkeleton,
   IntegrationVertical,
   QuickActionsMenu,
+  RedirectFromAuth,
 };

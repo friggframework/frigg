@@ -131,15 +131,6 @@ export default class API {
     return this._get(url);
   }
 
-  // authorize callback for scrive with the following params as an example:
-  //  {
-  //     "originalUrl":"https://redirecturl/",
-  //     "entityType":"Freshbooks",
-  //     "data": data
-  //   }
-  //
-  // 'authData' should be the qString parsed dictionary of all the
-  // query params from the auth redirect once the user signs into the third party
   async authorize(entityType, authData) {
     const url = `${this.endpointAuthorize}`;
     const params = {
@@ -156,7 +147,7 @@ export default class API {
       entities: [entity1, entity2],
       config,
     };
-    return this._post(url, params); // todo: to improve dev experience, return a clear response, with this current implementation one does not now what returns from this request.
+    return this._post(url, params);
   }
 
   async updateIntegration(integrationId, config) {
