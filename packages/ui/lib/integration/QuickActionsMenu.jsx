@@ -43,7 +43,7 @@ function QuickActionsMenu({
 
   const getSampleData = async () => {
     if (sampleDataRoute) {
-      window.location.href = sampleDataRoute;
+      window.location.href = `${sampleDataRoute}/${integrationId}`;
       return;
     }
 

@@ -19,8 +19,8 @@ const Data = ({ friggBaseUrl, authToken, integrationId }) => {
     const fetchData = async () => {
       if (authToken) {
         const api = new API(friggBaseUrl, authToken);
-        // let sampleData = await api.getSampleData(integrationId);
-        let sampleData = getFakeData(); // Uncomment if you need fake data
+        let sampleData = await api.getSampleData(integrationId);
+        // let sampleData = getFakeData(); // Uncomment if you need fake data
 
         if (sampleData && sampleData.error) {
           toast({

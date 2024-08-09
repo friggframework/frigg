@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import IntegrationSkeleton from "./IntegrationSkeleton";
 import { getActiveAndPossibleIntegrationsCombined } from "../utils/IntegrationUtils";
 import API from "../api/api";
@@ -10,6 +10,7 @@ import { IntegrationHorizontal, IntegrationVertical } from "../integration";
  * @param props.friggBaseUrl - Base URL for Frigg backend
  * @param props.componentLayout - Layout for displaying integrations - either 'default-horizontal' or 'default-vertical'
  * @param props.authToken - JWT token for authenticated user in Frigg
+ * @param {string} props.sampleDataRoute - A route to display sample data for the integration
  * @returns {JSX.Element} The rendered component
  * @constructor
  */
@@ -18,11 +19,7 @@ const IntegrationList = (props) => {
   const [integrations, setIntegrations] = useState([]);
   const [isloading, setIsLoading] = useState(true);
 
-  const loadIntegrations = async () => {
-    if (!props.authToken) {
-      console.log("Authentication token is required to fetch integrations.");
-    }
-
+  const loadIntegrations = useCallback(async () => {
     const api = new API(props.friggBaseUrl, props.authToken);
     const integrationsData = await api.listIntegrations();
 
@@ -37,11 +34,16 @@ const IntegrationList = (props) => {
         getActiveAndPossibleIntegrationsCombined(integrationsData);
       setIntegrations(activeAndPossibleIntegrations);
     }
-  };
+  }, [props.authToken, props.friggBaseUrl]);
 
   useEffect(() => {
+    if (!props.authToken) {
+      console.log("Authentication token is required to fetch integrations.");
+      return;
+    }
+
     loadIntegrations().then(() => setIsLoading(false));
-  }, []);
+  }, [loadIntegrations, props.authToken]);
 
   const setInstalled = (data) => {
     const items = [data, ...installedIntegrations];
@@ -58,6 +60,7 @@ const IntegrationList = (props) => {
           refreshIntegrations={loadIntegrations}
           friggBaseUrl={props.friggBaseUrl}
           authToken={props.authToken}
+          sampleDataRoute={props.sampleDataRoute}
         />
       );
     }
