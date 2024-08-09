@@ -6,6 +6,18 @@ on:
     paths-ignore:
       - docs/**
 jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+        matrix:
+          node-version: [ 18.x ]
+
+    steps:
+      - name: Build UI Package 🏗
+        run: |
+          cd packages/ui
+          npm run build
   release:
     runs-on: ubuntu-latest
     if: "!contains(github.event.head_commit.message, 'ci skip') && !contains(github.event.head_commit.message, 'skip ci')"
