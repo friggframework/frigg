@@ -6,6 +6,23 @@ on:
     paths-ignore:
       - docs/**
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - uses: npm/action-setup@v2
+        with:
+          version: 6.0.2
+      - run: npm i
+      - run: npm build
+      - name: save build artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: dist
+          path: ./packages/ui/dist
   release:
     runs-on: ubuntu-latest
     if: "!contains(github.event.head_commit.message, 'ci skip') && !contains(github.event.head_commit.message, 'skip ci')"
@@ -23,10 +40,6 @@ jobs:
         node-version: 18
         cache: 'npm'
         registry-url: 'https://registry.npmjs.org'
-    - name: Build UI Package 🏗
-      run: |
-        cd packages/ui
-        npm run build
     - name: Auto release
       env:
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
