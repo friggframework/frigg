@@ -50,6 +50,11 @@ jobs:
       - name: Install Dependencies 🛠
         run: npm ci
 
+      - name: Build UI Package 🏗
+        run: |
+          cd packages/ui
+          npm run build
+
       - name: Tests 🧪
         run: npm run test:all
         timeout-minutes: 10

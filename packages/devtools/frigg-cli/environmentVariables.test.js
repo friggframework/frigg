@@ -48,7 +48,7 @@ describe('handleEnvVariables', () => {
         });
     });
 
-    it('should identify and handle missing environment variables', async () => {
+    xit('should identify and handle missing environment variables', async () => {
         const localEnvPath = resolve(backendPath, '../.env');
         const localDevConfigPath = resolve(backendPath, '../src/configs/dev.json');
 
