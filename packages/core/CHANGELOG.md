@@ -1,3 +1,16 @@
+# v1.2.2 (Fri Aug 09 2024)
+
+#### 🐛 Bug Fix
+
+- Add support for secrets loading from SECRET_ARN [#327](https://github.com/friggframework/frigg/pull/327) ([@seanspeaks](https://github.com/seanspeaks))
+- Adding support for secrets loading ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 1
+
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v1.2.1 (Thu Aug 08 2024)
 
 #### 🐛 Bug Fix
