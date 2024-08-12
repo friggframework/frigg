@@ -23,6 +23,9 @@ export default defineConfig({
     },
     sourcemap: true,
     emptyOutDir: true,
+    manifest: true,
+    minify: true,
+    reportCompressedSize: true,
   },
   plugins: [react()],
   css: {
