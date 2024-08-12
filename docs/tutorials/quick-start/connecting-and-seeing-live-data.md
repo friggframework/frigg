@@ -5,7 +5,7 @@ After receiving a successful confirmation message, you're now able to log in as 
 
 You will see a directory with HubSpot as an available connection.
 
-<figure><img src="../../.gitbook/assets/image (9).png" alt="" width="563"><figcaption><p>Your Dashboard in Frigg with your available integrations</p></figcaption></figure>
+<figure><img src="../../.gitbook/assets/Screenshot 2024-08-12 at 6.50.07 PM.png" alt=""><figcaption><p>Your Dashboard in Frigg with your available integrations</p></figcaption></figure>
 
 Click on the Connect button next to it and follow HubSpot's authorization flow.
 
@@ -17,7 +17,7 @@ Select "Get Sample Data" from the HubSpot app dropdown menu to see live data fet
 
 Note that you might receive a "No data available" message. This is totally normal, given that we didn't add any info to your HubSpot account. There's nothing for our integration to fetch (yet).
 
-<figure><img src="../../.gitbook/assets/image (10).png" alt="" width="563"><figcaption><p>Oops! Looks like we forgot to add some test data to HubSpot</p></figcaption></figure>
+<figure><img src="../../.gitbook/assets/Screenshot 2024-08-12 at 6.57.22 PM.png" alt=""><figcaption><p>Oops! Looks like we forgot to add some test data to HubSpot</p></figcaption></figure>
 
 ### Adding Test Data to HubSpot
 
@@ -34,7 +34,7 @@ For more detailed instructions on how to add test data, visit the [HubSpot docum
 
 Once you've added test data, refresh the page and select "Get Sample Data" again. Now you should see Deals data displayed in your app. This confirms that everything is connected and working correctly!
 
-<figure><img src="../../.gitbook/assets/image (12).png" alt="" width="563"><figcaption><p>We see you, Antique Star Wars Droids collection!</p></figcaption></figure>
+<figure><img src="../../.gitbook/assets/Screenshot 2024-08-12 at 6.59.00 PM.png" alt=""><figcaption><p>We see you, Antique Star Wars Droids collection!</p></figcaption></figure>
 
 ***
 

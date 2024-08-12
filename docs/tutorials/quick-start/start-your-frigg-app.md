@@ -10,7 +10,7 @@ npm run start
 
 Your browser should open to `http://localhost:3000` and you should see your Login screen.
 
-<figure><img src="../../.gitbook/assets/image (8).png" alt="" width="353"><figcaption><p>Login screen of your Frigg app</p></figcaption></figure>
+<figure><img src="../../.gitbook/assets/Screenshot 2024-08-12 at 5.28.30 PM.png" alt="" width="328"><figcaption><p>Login screen of your Frigg app</p></figcaption></figure>
 
 Before you continue, make sure that both your frontend and backend are running. An easy way to know is to check if your terminal looks something like this:
 

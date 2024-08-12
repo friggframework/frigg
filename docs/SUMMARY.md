@@ -25,7 +25,6 @@
 
 ## 📖 Reference (Information) <a href="#reference" id="reference"></a>
 
-* [Overview](reference/introduction.md)
 * [Core Concepts](reference/core-concepts.md)
 * [API Module Definition and Functions](reference/api-module-definition-and-functions.md)
 * [Architecture](reference/architecture.md)
