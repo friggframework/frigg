@@ -18,7 +18,7 @@ jobs:
           cd packages/ui
           npm run build
       - name: save build artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: dist
           path: ./packages/ui/dist
@@ -39,6 +39,10 @@ jobs:
           node-version: 18
           cache: 'npm'
           registry-url: 'https://registry.npmjs.org'
+      - name: Download ui package
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
       - name: Auto release
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
