@@ -23,10 +23,6 @@ jobs:
           node-version: 18
           cache: 'npm'
           registry-url: 'https://registry.npmjs.org'
-      - run: npm i
-      - run: |
-          cd packages/ui
-          npm run build
       - name: Auto release
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -35,4 +31,6 @@ jobs:
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
         run: |
           npm ci
+          cd packages/ui
+          npm run build
           npx auto shipit
