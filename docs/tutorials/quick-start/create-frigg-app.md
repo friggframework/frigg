@@ -19,7 +19,7 @@ This process might take a couple of minutes to complete, but at the end of it yo
 <figure><img src="../../.gitbook/assets/Screenshot 2024-08-13 at 3.07.12 PM (1).png" alt=""><figcaption><p>Your terminal once Create Frigg App is completed</p></figcaption></figure>
 
 {% hint style="warning" %}
-During the installation process, you might encounter several warnings and messages related to deprecated dependencies and Git initialization errors. These issues are expected and do not impact the overall functionality of the installation. However, it's important to be aware that these warnings are visible in the terminal output. Rest assured, your Frigg application will still be set up correctly, and you can proceed with the integration as outlined.
+During the installation process, you will likely encounter warnings related to deprecated dependencies and Git initialization errors. These warnings are expected and will not impact your ability to run Frigg successfully. We are working to resolve any/all warnings, but we do not believe they indicate any acute security or functionality concerns. If you have any concerns, please contact us.
 {% endhint %}
 
 Now navigate to your newly created app directory using the following command:
