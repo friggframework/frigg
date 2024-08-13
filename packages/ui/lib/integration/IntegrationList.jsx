@@ -10,7 +10,7 @@ import { IntegrationHorizontal, IntegrationVertical } from "../integration";
  * @param props.friggBaseUrl - Base URL for Frigg backend
  * @param props.componentLayout - Layout for displaying integrations - either 'default-horizontal' or 'default-vertical'
  * @param props.authToken - JWT token for authenticated user in Frigg
- * @param {string} props.sampleDataRoute - A route to display sample data for the integration
+ * @param {Function} props.navigateToSampleDataFn - A function to navigate to sample data route, receives integration ID as a parameter
  * @returns {JSX.Element} The rendered component
  * @constructor
  */
@@ -60,7 +60,7 @@ const IntegrationList = (props) => {
           refreshIntegrations={loadIntegrations}
           friggBaseUrl={props.friggBaseUrl}
           authToken={props.authToken}
-          sampleDataRoute={props.sampleDataRoute}
+          navigateToSampleDataFn={props.navigateToSampleDataFn}
         />
       );
     }

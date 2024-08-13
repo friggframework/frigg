@@ -8,6 +8,7 @@ import { LoadingSpinner } from "../components/LoadingSpinner.jsx";
  * @param {string} props.friggBaseUrl - The base URL for the Frigg service
  * @param {string} props.authToken - JWT token for authenticated user in Frigg
  * @param {string} props.primaryEntityName - The name of the primary entity in the app
+ * @param {function} props.redirectToUrl - A function to navigate when authorization is successful
  * @returns {JSX.Element} The rendered component
  * @constructor
  */
@@ -25,7 +26,7 @@ const RedirectFromAuth = (props) => {
 
         if (targetEntity?.error) {
           alert(targetEntity.error);
-          window.location.href = "/integrations";
+          props.redirectToUrl();
           return;
         }
 
@@ -51,12 +52,12 @@ const RedirectFromAuth = (props) => {
           return;
         }
 
-        window.location.href = "/integrations";
+        props.redirectToUrl();
       }
     };
 
     handleAuth();
-  }, [props.app]);
+  }, [props.app, props.redirectToUrl]);
 
   return (
     <div className="container">

@@ -22,12 +22,17 @@ import { LoadingSpinner } from "../components/LoadingSpinner";
  * @param {Function} props.refreshIntegrations - Function to refresh integrations
  * @param {string} props.friggBaseUrl - The base URL for the Frigg service
  * @param {string} props.authToken - JWT token for authenticated user in Frigg
- * @param {string} props.sampleDataRoute - A route to display sample data for the integration
+ * @param {Function} props.navigateToSampleDataFn - A function to navigate to sample data route, receives integration ID as a parameter
  * @returns {JSX.Element} The rendered component
  * @constructor
  */
 function IntegrationHorizontal(props) {
-  const { authToken, refreshIntegrations, friggBaseUrl } = props;
+  const {
+    authToken,
+    refreshIntegrations,
+    friggBaseUrl,
+    navigateToSampleDataFn,
+  } = props;
   const { name, description, icon } = props.data.display;
   const { type, status: initialStatus, id: integrationId } = props.data;
 
@@ -144,7 +149,7 @@ function IntegrationHorizontal(props) {
                     integrationConfiguration={openConfigModal}
                     disconnectIntegration={disconnectIntegration}
                     integrationId={integrationId}
-                    sampleDataRoute={props.sampleDataRoute}
+                    navigateToSampleDataFn={navigateToSampleDataFn}
                     friggBaseUrl={friggBaseUrl}
                     authToken={authToken}
                   />

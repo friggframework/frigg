@@ -16,7 +16,7 @@ function QuickActionsMenu({
   userActions,
   integrationConfiguration,
   integrationId,
-  sampleDataRoute,
+  navigateToSampleDataFn,
   friggBaseUrl,
   authToken,
 }) {
@@ -42,8 +42,8 @@ function QuickActionsMenu({
   }
 
   const getSampleData = async () => {
-    if (sampleDataRoute) {
-      window.location.href = `${sampleDataRoute}/${integrationId}`;
+    if (navigateToSampleDataFn !== undefined) {
+      navigateToSampleDataFn(integrationId);
       return;
     }
 
