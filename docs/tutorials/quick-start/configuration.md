@@ -5,11 +5,13 @@ We've streamlined the setup process to make it as smooth as possible. We've pre-
 ### Set up your HubSpot App
 
 You need to add your HubSpot credentials into the `.env` file located in `backend/*.env`, so open that file using your IDE to paste the next information in it:\
+
 Go to your HubSpot account and create a new HubSpot App, and explore HubSpot if you're not familiar with it. Inside your HubSpot App, head to the "Auth" Tab, next to "App Info," where your can find your app settings.&#x20;
 
 <figure><img src="../../.gitbook/assets/image (5).png" alt=""><figcaption><p>HubSpot's Auth tab for your app</p></figcaption></figure>
 
 Now copy your Client ID and Client Secret into the  `HUBSPOT_CLIENT_ID` and `HUBSPOT_CLIENT_SECRET` fields in the `.env` file. In the same file, add `oauth` to the HUBSPOT\_SCOPE array.\
+
 In HubSpot's tab, click the `+Add new scope` button, search for and add the scopes listed in your `.env` file.
 
 <figure><img src="../../.gitbook/assets/image (6).png" alt=""><figcaption><p>Your scopes should look like this after adding them</p></figcaption></figure>
