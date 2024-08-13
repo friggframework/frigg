@@ -1,13 +1,14 @@
 # Connecting and Seeing Live Data
 
-If you haven't already, select the "Create account (demo user)" option from the Login menu. A new user will be created for you with the pre-populated data you see on screen.\
+If you haven't already, select the "Create account (demo user)" option from the Login menu. A new user will be created for you with the pre-populated data you see on screen.
+
 After receiving a successful confirmation message, you're now able to log in as the Demo User.
 
 You will see a directory with HubSpot as an available connection.
 
-<figure><img src="../../.gitbook/assets/Screenshot 2024-08-12 at 6.50.07 PM.png" alt=""><figcaption><p>Your Dashboard in Frigg with your available integrations</p></figcaption></figure>
+<figure><img src="../../.gitbook/assets/Screenshot 2024-08-12 at 6.50.07 PM.png" alt=""><figcaption><p>Your Dashboard in Frigg with the HubSpot Integration Available for Testing</p></figcaption></figure>
 
-Click on the Connect button next to it and follow HubSpot's authorization flow.
+Click on the "Connect" button and complete HubSpot's authorization flow.
 
 When finished, you should see a connected HubSpot card. Now it's time to see your app in action with live data from HubSpot!
 
