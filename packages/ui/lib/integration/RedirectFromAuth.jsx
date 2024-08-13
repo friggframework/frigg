@@ -19,10 +19,10 @@ const RedirectFromAuth = (props) => {
       const params = qString.parse(window.location.search);
 
       if (params.code) {
-        const integrations = await api.listIntegrations();
         const targetEntity = await api.authorize(props.app, {
           code: params.code,
         });
+        const integrations = await api.listIntegrations();
 
         if (targetEntity?.error) {
           alert(targetEntity.error);
@@ -39,8 +39,6 @@ const RedirectFromAuth = (props) => {
           (entity) => entity.type === props.primaryEntityName
         );
 
-        //todo: shouldn't the integration be created only if primary and target entities exist and are different?
-        //todo2: move the createIntegration function to the integrationList component
         const integration = await api.createIntegration(
           primaryEntity.id ?? targetEntity.entity_id,
           targetEntity.entity_id,
@@ -57,15 +55,11 @@ const RedirectFromAuth = (props) => {
     };
 
     handleAuth();
-  }, [props.app, props.redirectToUrl]);
+  }, []);
 
   return (
-    <div className="container">
-      <div id="card-wrap" className="card">
-        <div className="card-body">
-          <LoadingSpinner />
-        </div>
-      </div>
+    <div className="flex items-center justify-center h-screen w-screen">
+      <LoadingSpinner />
     </div>
   );
 };
