@@ -1,5 +1,3 @@
-import FormType from "../enums/FormType";
-
 export default class API {
   constructor(baseUrl, jwt) {
     this.baseURL = baseUrl;
@@ -197,39 +195,7 @@ export default class API {
     return this._post(url, data);
   }
 
-  async refreshOptions({
-    formType,
-    integrationId,
-    userAction,
-    entityId,
-    data,
-  }) {
-    const refreshEndpoint = buildRefreshProperties({
-      formType,
-      integrationId,
-      userAction,
-      entityId,
-    });
-
-    return this._post(refreshEndpoint, data);
+  async refreshOptions({ endpoint, data }) {
+    return this._post(endpoint, data);
   }
 }
-
-const buildRefreshProperties = ({
-  formType,
-  integrationId,
-  userAction,
-  entityId,
-  searchValue,
-}) => {
-  switch (formType) {
-    case FormType.USER_ACTION:
-      return `/api/integrations/${integrationId}/actions/${userAction}/options/refresh`;
-    case FormType.INTEGRATION_CONFIG_OPTIONS:
-      return `/api/integrations/${integrationId}/options/refresh`;
-    case FormType.AUTHENTICATION_OPTIONS:
-      return `/api/entities/${entityId}/options/refresh`;
-    default:
-      return "";
-  }
-};

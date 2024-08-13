@@ -5,6 +5,13 @@ import IntegrationSkeleton from "./IntegrationSkeleton.jsx";
 import IntegrationVertical from "./IntegrationVertical";
 import QuickActionsMenu from "./QuickActionsMenu";
 import RedirectFromAuth from "./RedirectFromAuth.jsx";
+import { Form } from "./Form";
+import {
+  FormBasedAuthModal,
+  IntegrationConfigurationModal,
+  UserActionModal,
+} from "./modals";
+import * as BaseComponents from "../components";
 
 export {
   IntegrationDropdown,
@@ -14,4 +21,9 @@ export {
   IntegrationVertical,
   QuickActionsMenu,
   RedirectFromAuth,
+  Form,
+  FormBasedAuthModal,
+  IntegrationConfigurationModal,
+  UserActionModal,
+  BaseComponents,
 };

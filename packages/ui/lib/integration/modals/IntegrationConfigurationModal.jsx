@@ -107,7 +107,71 @@ function IntegrationConfigurationModal({
 export default IntegrationConfigurationModal;
 
 const getIntegrationConfigOptions = async ({ api, integrationId }) => {
-  const response = await api.getIntegrationConfigOptions(integrationId);
+  // const response = await api.getIntegrationConfigOptions(integrationId);
+  // Mock response for demonstration purposes
+  // case FormType.USER_ACTION:
+  //   return `/api/integrations/${integrationId}/actions/${userAction}/options/refresh`;
+  // case FormType.INTEGRATION_CONFIG_OPTIONS:
+  //   return `/api/integrations/${integrationId}/options/refresh`;
+  // case FormType.AUTHENTICATION_OPTIONS:
+  //   return `/api/entities/${entityId}/options/refresh`;
+  const response = {
+    jsonSchema: {
+      type: "object",
+      properties: {
+        companyName: {
+          type: "string",
+          title: "Enter Text",
+          oneOf: [
+            {
+              const: "foo",
+              title: "Foo",
+            },
+            {
+              const: "bar",
+              title: "Bar",
+            },
+            {
+              const: "foobar",
+              title: "FooBar",
+            },
+          ],
+          asyncRefresh: true,
+          baseUrl: "https://api.example.com",
+          endpoint: `/api/integrations/${integrationId}/options/refresh`,
+          authToken: "YOUR_AUTH_TOKEN",
+        },
+      },
+      required: ["autocomplete"],
+    },
+    uiSchema: {
+      type: "VerticalLayout",
+      elements: [
+        {
+          type: "Control",
+          scope: "#/properties/autocomplete",
+        },
+        {
+          type: "Control",
+          scope: "#/properties/birthDate",
+        },
+        {
+          type: "Control",
+          scope: "#/properties/nationality",
+        },
+        {
+          type: "Control",
+          scope: "#/properties/occupation",
+        },
+      ],
+    },
+    data: {
+      name: "John Doe",
+      birthDate: "1990-01-01",
+      nationality: "USA",
+      occupation: "Software Developer",
+    },
+  };
 
   return {
     jsonSchema: response.jsonSchema,

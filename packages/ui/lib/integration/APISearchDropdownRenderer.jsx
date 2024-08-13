@@ -1,12 +1,54 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { withJsonFormsControlProps } from "@jsonforms/react";
 import TextField from "@mui/material/TextField";
 import Autocomplete from "@mui/material/Autocomplete";
 import CircularProgress from "@mui/material/CircularProgress";
 import API from "../api/api";
-// import { useFormContext } from '../context/FormContext';
-// import { useIntegrationContext } from '../context/IntegrationContext';
 
+/**
+ * APISearchDropdownRenderer Component
+ *
+ * This component renders an Autocomplete dropdown that fetches options from an API
+ * based on user input. It is designed to work with JSONForms to render a form control
+ * with dynamic data fetching.
+ *
+ * @component
+ * @example
+ * // Example usage:
+ * <APISearchDropdownRenderer
+ *   data={{ name: 'John Doe' }}
+ *   handleChange={handleChangeFunction}
+ *   path="searchKey"
+ *   schema={{
+ *     baseUrl: 'https://api.example.com',
+ *     endpoint: '/search',
+ *     jwt: 'your-jwt-token',
+ *     asyncRefresh: true,
+ *     oneOf: [
+ *       { const: 'option1', title: 'Option 1' },
+ *       { const: 'option2', title: 'Option 2' }
+ *     ]
+ *   }}
+ *   errors={[]}
+ *   required={true}
+ * />
+ *
+ * @param {object} props - The properties passed to the component.
+ * @param {object} props.data - The current data object for the form.
+ * @param {Function} props.handleChange - Function to call when the input value changes.
+ * @param {string} props.path - The path in the data object where the value should be stored.
+ * @param {object} props.schema - The schema defining the structure and validation of the input.
+ * @param {string} props.schema.asyncRefresh - In order to JSONForms use this component to automatically fetch options, we have to set this to true.
+ * @param {string} props.schema.baseUrl - The base URL for the API request.
+ * @param {string} props.schema.endpoint - The API endpoint to fetch options from.
+ * @param {string} props.schema.jwt - The JWT token for authenticating API requests.
+ * @param {Array<object>} [props.schema.oneOf] - Predefined options for the dropdown.
+ * @param {string} props.schema.oneOf[].const - The value of the option.
+ * @param {string} props.schema.oneOf[].title - The display title of the option.
+ * @param {Array<string>} props.errors - The list of validation errors.
+ * @param {boolean} props.required - Whether the field is required.
+ *
+ */
 const APISearchDropdownRenderer = ({
   data,
   handleChange,
@@ -20,20 +62,9 @@ const APISearchDropdownRenderer = ({
   const [options, setOptions] = useState(schema.oneOf ?? []);
   const [selectedValue, setSelectedValue] = useState(data?.[path]);
   const [loading, setLoading] = useState(false);
-  const api = new API(); //todo: pass in friggBaseUrl and authToken from the parent component
-  const jwt = sessionStorage.getItem("jwt");
-  // const { integrationId, userAction, entityId } = useIntegrationContext();
-  // const { formType } = useFormContext();
-  const { integrationId, userAction, entityId } = {}; // this properties need to be passed from the parent component
-  const { formType } = {}; // this property needs to be replaced by the search URL
-
-  api.setJwt(jwt); //todo: remove this line when jwt is passed from the parent component
+  const api = new API(schema.baseUrl, schema.jwt);
 
   const customErrors = getCustomErrors(required, selectedValue, errors);
-  console.log("schema", schema);
-  console.log("rest:", rest);
-  console.log("data", data);
-  console.log("path", path);
 
   // Debounce helper to minimize requests while typing
   const debounce = (func, wait) => {
@@ -56,10 +87,7 @@ const APISearchDropdownRenderer = ({
         [path]: searchValue,
       };
       const response = await api.refreshOptions({
-        integrationId,
-        formType,
-        userAction,
-        entityId,
+        endpoint: schema.endpoint,
         data,
       });
 
