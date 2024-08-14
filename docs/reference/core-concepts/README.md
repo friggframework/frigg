@@ -4,13 +4,16 @@ Understanding these core concepts will help you get the most out of the Frigg fr
 
 ## Integration
 
-Integration is how Frigg hooks up with third-party services to create a smooth and cohesive user experience.\
-Connects (usually 2) modules for the connection of data and actions. Business logic goes here.&#x20;
+An "integration" is how Frigg connects two different services together. Each service has its own API Module to represent its API to the middleware; use case-specific business logic will also be required.
 
 ## API Module
 
-**Composed of an API Class (generally extending a subclass of @friggframework/requester) and a Module Definition.** \
-The API Class handles the requests to external APIs, such as for authentication, identification and data retrieval.\
+An API Module is composed of an API Class (generally extending a subclass of @friggframework/requester) and a Module Definition. \
+
+
+The API Class handles the requests to external APIs, i.e. authentication, identification, and data retrieval.\
+
+
 The Module Definition lets the @friggframework know how to use this API Class as an API Module, such that tokens and other metadata the connection to an external api, can be stored (and refreshed).
 
 ## Entity (authorizing entity)
