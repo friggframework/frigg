@@ -17,12 +17,8 @@ layout:
 
 ## Tutorials are for learning
 
-We've been busy cooking up some tutorials to get you onboarded quickly into the Frigg landscape. We'll keep this page fresh as new tutorials come out. Please let us know as you go through them if you have any issues or recommendations to improve the experience. As you probably know... "It works on my computer!" :smile: YMMV
+Get Frigg up and running locally using our Quick Start Tutorial. More advanced tutorials are in progress.
 
 {% content-ref url="quick-start/" %}
 [quick-start](quick-start/)
-{% endcontent-ref %}
-
-{% content-ref url="advanced-tutorials/" %}
-[advanced-tutorials](advanced-tutorials/)
 {% endcontent-ref %}
