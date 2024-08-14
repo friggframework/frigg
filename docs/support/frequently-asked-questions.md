@@ -1,3 +1,7 @@
+---
+hidden: true
+---
+
 # Frequently Asked Questions (FAQs)
 
 _Last Updated 9/6/2022_

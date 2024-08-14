@@ -167,8 +167,6 @@
 ## 📞 Support
 
 * [Contact](support/support.md)
-  * [Join Slack Channel](support/support/join-slack-channel.md)
-  * [Chat with Us](support/support/chat-with-us.md)
 * [Frequently Asked Questions (FAQs)](support/frequently-asked-questions.md)
 
 ## 🗺️ Roadmap
