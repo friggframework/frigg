@@ -4,7 +4,7 @@ Frigg began as many products and open source projects do- a group of developers 
 
 As such, the first few years of Frigg development were largely driven by client projects needs, and we (Left Hook) were only able to move Frigg along in between critical paths for those individual projects. So, we're still working out the kinks in inviting contributing developers.
 
-Rule of thumb is- if you find something you need fixed,&#x20;
+If you find something you need fixed:&#x20;
 
 * Go to the relevant repo (Core, API Module Library, Example Apps, Create Frigg App, etc.)
 * Create a branch or fork from `main`

@@ -5,3 +5,5 @@ API Modules are the Lego bricks that make Frigg-powered integrations develop fas
 Frigg's API Modules are available for free under the MIT license. Translation: if your target partner's logo is in this library already, Frigg just saved you many hours of work.
 
 [View our library of v1-ready API Modules](https://github.com/friggframework/api-module-library/tree/main/packages/v1-ready).
+
+Read our [API Module Definition and Functions](../reference/api-module-definition-and-functions.md) reference doc.

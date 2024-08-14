@@ -6,7 +6,7 @@
 
 * [Learning Frigg](tutorials/overview.md)
 * [Quick Start Tutorial](tutorials/quick-start/README.md)
-  * [Initialize With Create Frigg App (CFA)](tutorials/quick-start/create-frigg-app.md)
+  * [Initialize with Create Frigg App (CFA)](tutorials/quick-start/create-frigg-app.md)
   * [Configuration](tutorials/quick-start/configuration.md)
   * [Start Your Frigg App](tutorials/quick-start/start-your-frigg-app.md)
   * [Connecting and Seeing Live Data](tutorials/quick-start/connecting-and-seeing-live-data.md)
@@ -25,12 +25,12 @@
 
 ## 📖 Reference (Information) <a href="#reference" id="reference"></a>
 
-* [Core Concepts](reference/core-concepts.md)
+* [Core Concepts](reference/core-concepts/README.md)
+  * [Definition of Terms](reference/core-concepts/definition-of-terms.md)
 * [API Module Definition and Functions](reference/api-module-definition-and-functions.md)
 * [Architecture](reference/architecture.md)
 * [Data Model](reference/data-model.md)
 * [API Reference](reference/api-reference.md)
-* [Definition of Terms](reference/definition-of-terms.md)
 
 ## 🔌 API Modules
 
