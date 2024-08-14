@@ -33,5 +33,5 @@ jobs:
           npm ci
           cd packages/ui
           npm run build
-          cd ..
+          ls -la
           npx auto shipit
