@@ -8,8 +8,12 @@
     "@babel/traverse": "^7.25.3",
     "@friggframework/core": "^1.2.2",
     "@friggframework/test": "^1.2.2",
+    "@hapi/boom": "^7.4.11",
+    "@inquirer/prompts": "^5.3.8",
     "axios": "^1.7.2",
+    "body-parser": "^1.20.2",
     "commander": "^12.1.0",
+    "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "eslint": "^8.22.0",
     "eslint-config-prettier": "^8.5.0",
@@ -17,8 +21,11 @@
     "eslint-plugin-markdown": "^3.0.0",
     "eslint-plugin-no-only-tests": "^3.0.0",
     "eslint-plugin-yaml": "^0.5.0",
+    "express": "^4.19.2",
+    "express-async-handler": "^1.2.0",
     "fs-extra": "^11.2.0",
-    "inquirer": "^10.1.6"
+    "lodash": "^4.17.21",
+    "serverless-http": "^2.7.0"
   },
   "devDependencies": {
     "@friggframework/eslint-config": "^1.2.2",
