@@ -3,8 +3,7 @@ const dotenv = require('dotenv');
 const { readFileSync, writeFileSync, existsSync } = require('fs');
 const { logInfo } = require('./logger');
 const { resolve } = require('node:path');
-const inquirer = require('inquirer');
-
+const { confirm, input } = require('@inquirer/prompts');
 const { parse } = require('@babel/parser');
 const traverse = require('@babel/traverse').default;
 
@@ -82,26 +81,20 @@ const handleEnvVariables = async (backendPath, modulePath) => {
         logInfo(`Missing environment variables: ${missingEnvVars.join(', ')}`);
 
         if (missingEnvVars.length > 0) {
-            const { addEnvVars } = await inquirer.prompt([
-                {
-                    type: 'confirm',
-                    name: 'addEnvVars',
-                    message: `The following environment variables are required: ${missingEnvVars.join(
-                        ', '
-                    )}. Do you want to add them now?`,
-                },
-            ]);
+            const addEnvVars = await confirm({
+                message: `The following environment variables are required: ${missingEnvVars.join(
+                    ', '
+                )}. Do you want to add them now?`,
+            });
 
             if (addEnvVars) {
                 const envValues = {};
                 for (const envVar of missingEnvVars) {
-                    const { value } = await inquirer.prompt([
-                        {
-                            type: 'input',
-                            name: 'value',
-                            message: `Enter value for ${envVar}:`,
-                        },
-                    ]);
+                    const value = await input({
+                        type: 'input',
+                        name: 'value',
+                        message: `Enter value for ${envVar}:`,
+                    });
                     envValues[envVar] = value;
                 }
 
