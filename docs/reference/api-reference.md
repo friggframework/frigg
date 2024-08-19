@@ -1,3 +1,7 @@
+---
+hidden: true
+---
+
 # API Reference
 
 Management API

@@ -25,8 +25,7 @@
 
 ## 📖 Reference (Information) <a href="#reference" id="reference"></a>
 
-* [Core Concepts](reference/core-concepts/README.md)
-  * [Definition of Terms](reference/core-concepts/definition-of-terms.md)
+* [Core Concepts](reference/core-concepts.md)
 * [API Module Definition and Functions](reference/api-module-definition-and-functions.md)
 * [Architecture](reference/architecture.md)
 * [Data Model](reference/data-model.md)

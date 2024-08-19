@@ -1,3 +1,7 @@
+---
+hidden: true
+---
+
 # Data Model
 
 Frigg has a fairly straightforward data model
