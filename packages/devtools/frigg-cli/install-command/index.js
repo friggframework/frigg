@@ -1,18 +1,18 @@
-const { installPackage } = require('./installPackage');
-const { createIntegrationFile } = require('./integrationFile');
+const { installPackage } = require('./install-package');
+const { createIntegrationFile } = require('./integration-file');
 const { resolve } = require('node:path');
-const { updateBackendJsFile } = require('./backendJs');
+const { updateBackendJsFile } = require('./backend-js');
 const { logInfo, logError } = require('./logger');
-const { commitChanges } = require('./commitChanges');
+const { commitChanges } = require('./commit-changes');
 const {
     findNearestBackendPackageJson,
     validateBackendPath,
-} = require('./backendPath');
-const { handleEnvVariables } = require('./environmentVariables');
+} = require('../utils/backend-path');
+const { handleEnvVariables } = require('./environment-variables');
 const {
     validatePackageExists,
     searchAndSelectPackage,
-} = require('./validatePackage');
+} = require('./validate-package');
 
 const installCommand = async (apiModuleName) => {
     try {
