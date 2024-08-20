@@ -1,5 +1,7 @@
 const { createFriggBackend } = require('@friggframework/core');
-const { findNearestBackendPackageJson } = require('../frigg-cli/utils/backend-path');
+const {
+    findNearestBackendPackageJson,
+} = require('../frigg-cli/utils/backend-path');
 const path = require('path');
 const fs = require('fs-extra');
 
@@ -9,9 +11,9 @@ if (!backendPath) {
 }
 
 const backendDir = path.dirname(backendPath);
-const backendFilePath = path.join(backendDir, 'backend.js');
+const backendFilePath = path.join(backendDir, 'index.js');
 if (!fs.existsSync(backendFilePath)) {
-    throw new Error('Could not find backend.js');
+    throw new Error('Could not find index.js');
 }
 
 const backendJsFile = require(backendFilePath);
