@@ -1,4 +1,6 @@
 const path = require('path');
+const fs = require('fs');
+
 
 module.exports = {
     frameworkVersion: '>=3.17.0',
@@ -27,7 +29,8 @@ module.exports = {
             },
         ],
     },
-    plugins: ['serverless-webpack', 'serverless-offline'],
+    // plugins: ['serverless-webpack', 'serverless-offline'],
+    plugins: ['serverless-offline'],
     custom: {
         'serverless-offline': {
             httpPort: 3001,
@@ -43,7 +46,7 @@ module.exports = {
     },
     functions: {
         auth: {
-            handler: require.resolve('./routers/auth.js'),
+            handler: '/../node_modules/@friggframework/devtools/infrastructure/routers/auth.handler',
             events: [
                 {
                     http: {
@@ -69,7 +72,7 @@ module.exports = {
             ],
         },
         user: {
-            handler: require.resolve('./routers/user.js'),
+            handler: '/../node_modules/@friggframework/devtools/infrastructure/routers/user.handler',
             events: [
                 {
                     http: {

@@ -12,9 +12,9 @@ function createFriggInfrastructure() {
     }
 
     const backendDir = path.dirname(backendPath);
-    const backendFilePath = path.join(backendDir, 'backend.js');
+    const backendFilePath = path.join(backendDir, 'index.js');
     if (!fs.existsSync(backendFilePath)) {
-        throw new Error('Could not find backend.js');
+        throw new Error('Could not find index.js');
     }
 
     const backend = require(backendFilePath);

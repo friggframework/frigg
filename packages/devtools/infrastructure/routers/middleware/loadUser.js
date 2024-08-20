@@ -1,5 +1,5 @@
 const catchAsyncError = require('express-async-handler');
-const { User } = require('../../../../../../prototyping/backend/backend');
+const { User } = require('../../backend-utils');
 
 module.exports = catchAsyncError(async (req, res, next) => {
     const authorizationHeader = req.headers.authorization;
