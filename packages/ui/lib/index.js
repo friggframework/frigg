@@ -8,6 +8,7 @@ import {
   IntegrationVertical,
   IntegrationList,
   RedirectFromAuth,
+  UserActionModal,
 } from "./integration";
 
 export {
@@ -18,4 +19,5 @@ export {
   IntegrationVertical,
   IntegrationList,
   RedirectFromAuth,
+  UserActionModal,
 };

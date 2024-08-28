@@ -45,21 +45,25 @@ function IntegrationHorizontal(props) {
   const api = new Api(friggBaseUrl, authToken);
 
   useEffect(() => {
-    const userActions = [
-      {
-        title: "Get Sample Data",
-        action: "SAMPLE_DATA",
-      },
-    ];
-    Object.keys(props.data.userActions || {}).map((key) => {
-      userActions.push({
-        title: props.data.userActions[key].title,
-        description: props.data.userActions[key].description,
-        action: key,
+    const loadUserActions = async () => {
+      const userActionRes = await api.getUserActions(
+        integrationId,
+        "QUICK_ACTION"
+      );
+      const userActions = [];
+      Object.keys(userActionRes || {}).map((key) => {
+        userActions.push({
+          title: userActionRes[key].title,
+          description: userActionRes[key].description,
+          action: key,
+        });
       });
+      setUserActions(userActions);
+    };
+    loadUserActions().catch((error) => {
+      console.error(error);
     });
-    setUserActions(userActions);
-  }, [props.data.userActions]);
+  }, []);
 
   const getAuthorizeRequirements = async () => {
     setIsProcessing(true);

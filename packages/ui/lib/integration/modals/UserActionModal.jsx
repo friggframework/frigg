@@ -8,6 +8,7 @@ import { useToast } from "../../components/use-toast";
 function UserActionModal({
   closeConfigModal,
   integrationId,
+  initialData,
   userActionDetails,
   friggBaseUrl,
   authToken,
@@ -15,7 +16,7 @@ function UserActionModal({
   const [jsonSchema, setJsonSchema] = useState({});
   const [uiSchema, setUiSchema] = useState({});
   const [isLoading, setIsLoading] = useState(true);
-  const [formData, setFormData] = useState({});
+  const [formData, setFormData] = useState(initialData);
   const api = useMemo(
     () => new API(friggBaseUrl, authToken),
     [friggBaseUrl, authToken]
@@ -27,10 +28,12 @@ function UserActionModal({
       api,
       integrationId,
       selectedUserAction: userActionDetails.action,
+      initialData,
     })
       .then((response) => {
         setJsonSchema(response.jsonSchema);
         setUiSchema(response.uiSchema);
+        setFormData(response.data);
       })
       .finally(() => setIsLoading(false));
   }, [api, integrationId, userActionDetails.action]);
@@ -119,14 +122,17 @@ const getUserActionOptions = async ({
   api,
   integrationId,
   selectedUserAction,
+  initialData,
 }) => {
   const response = await api.getUserActionOptions(
     integrationId,
-    selectedUserAction
+    selectedUserAction,
+    { ...initialData }
   );
 
   return {
     jsonSchema: response.jsonSchema,
     uiSchema: response.uiSchema,
+    data: response.data,
   };
 };
