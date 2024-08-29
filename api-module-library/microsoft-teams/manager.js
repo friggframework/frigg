@@ -1,6 +1,9 @@
 const { debug, flushDebugLog } = require('@friggframework/logs');
 const { get } = require('@friggframework/assertions');
-const { ModuleManager, ModuleConstants} = require('@friggframework/module-plugin');
+const {
+    ModuleManager,
+    ModuleConstants,
+} = require('@friggframework/module-plugin');
 const { Api } = require('./api/api');
 const { graphApi } = require('./api/graph');
 const { botFrameworkApi } = require('./api/botFramework');
@@ -15,7 +18,11 @@ class Manager extends ModuleManager {
     constructor(params) {
         super(params);
         this.tenant_id = get(params, 'tenant_id', null);
-        this.redirect_uri= get(params, 'redirect_uri', `${process.env.REDIRECT_URI}/microsoft-teams`)
+        this.redirect_uri = get(
+            params,
+            'redirect_uri',
+            `${process.env.REDIRECT_URI}/microsoft-teams`
+        );
     }
 
     //------------------------------------------------------------
@@ -39,13 +46,14 @@ class Manager extends ModuleManager {
 
         if (params.entityId) {
             instance.entity = await Entity.findById(params.entityId);
+            instance.tenant_id = instance.entity.externalId;
             instance.credential = await Credential.findById(
                 instance.entity.credential
             );
             teamsParams = {
                 ...teamsParams,
                 ...instance.credential.toObject(),
-                tenant_id: instance.entity.externalId
+                tenant_id: instance.entity.externalId,
             };
         }
         instance.api = new Api(teamsParams);
@@ -83,15 +91,14 @@ class Manager extends ModuleManager {
             }
             const authRes = await this.testAuth();
             if (!authRes) throw new Error('Auth Error');
-        }
-        else {
+        } else {
             await this.api.getTokenFromClientCredentials();
             const authCheck = await this.testAuth();
             if (!authCheck) throw new Error('Auth Error');
         }
 
         const orgDetails = await this.api.graphApi.getOrganization();
-        this.tenant_id =  orgDetails.id;
+        this.tenant_id = orgDetails.id;
         await this.findAndUpsertCredential({
             tenant_id: this.tenant_id,
             graph_access_token: this.api.graphApi.access_token,
