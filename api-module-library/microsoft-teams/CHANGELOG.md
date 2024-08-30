@@ -1,3 +1,18 @@
+# v0.4.6 (Fri Aug 30 2024)
+
+#### 🐛 Bug Fix
+
+- Fix Microsoft Graph API token refresh [#329](https://github.com/friggframework/frigg/pull/329) ([@brendanrmoore](https://github.com/brendanrmoore))
+- fix Graph API refresh ([@brendanrmoore](https://github.com/brendanrmoore))
+- Bump independent versions \[skip ci\] ([@seanspeaks](https://github.com/seanspeaks))
+
+#### Authors: 2
+
+- Brendan Moore ([@brendanrmoore](https://github.com/brendanrmoore))
+- Sean Matthews ([@seanspeaks](https://github.com/seanspeaks))
+
+---
+
 # v0.4.5 (Thu May 30 2024)
 
 #### 🐛 Bug Fix

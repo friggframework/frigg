@@ -1,3 +1,16 @@
+# (Fri Aug 30 2024)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-microsoft-teams@0.4.6`
+  - Fix Microsoft Graph API token refresh [#329](https://github.com/friggframework/frigg/pull/329) ([@brendanrmoore](https://github.com/brendanrmoore))
+
+#### Authors: 1
+
+- Brendan Moore ([@brendanrmoore](https://github.com/brendanrmoore))
+
+---
+
 # (Tue Jul 30 2024)
 
 :tada: This release contains work from a new contributor! :tada:
