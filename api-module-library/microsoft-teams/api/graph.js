@@ -75,6 +75,28 @@ class graphApi extends OAuth2Requester {
         }
     }
 
+    async refreshAccessToken(refreshTokenObject) {
+        this.access_token = undefined;
+        const params = new URLSearchParams();
+        params.append('grant_type', 'refresh_token');
+        params.append('client_id', this.client_id);
+        params.append('client_secret', this.client_secret);
+        params.append('refresh_token', refreshTokenObject.refresh_token);
+        params.append('redirect_uri', this.redirect_uri);
+        params.append('scope', this.scope);
+
+        const options = {
+            body: params,
+            url: this.tokenUri,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+        };
+        const response = await this._post(options, false);
+        await this.setTokens(response);
+        return response;
+    }
+
     setTenantId(tenantId) {
         this.tenant_id = tenantId;
         this.generateUrls();
