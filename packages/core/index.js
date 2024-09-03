@@ -7,7 +7,12 @@ const {
     getArrayParamAndVerifyParamType,
     getAndVerifyType,
 } = require('./assertions/index');
-const  { Delegate, Worker, loadInstalledModules, createHandler } = require('./core/index');
+const {
+    Delegate,
+    Worker,
+    loadInstalledModules,
+    createHandler,
+} = require('./core/index');
 const {
     mongoose,
     connectToDatabase,
@@ -17,7 +22,7 @@ const {
     OrganizationUser,
     State,
     Token,
-    UserModel
+    UserModel,
 } = require('./database/index');
 const { Encrypt, Cryptor } = require('./encrypt/encrypt');
 const {
@@ -26,7 +31,7 @@ const {
     HaltError,
     RequiredPropertyError,
     ParameterTypeError,
-} =  require('./errors/index');
+} = require('./errors/index');
 const {
     IntegrationBase,
     IntegrationModel,
@@ -36,14 +41,10 @@ const {
     IntegrationHelper,
     createIntegrationRouter,
     checkRequiredParams,
-    createFriggBackend
+    createFriggBackend,
 } = require('./integrations/index');
 const { TimeoutCatcher } = require('./lambda/index');
-const {
-    debug,
-    initDebugLog,
-    flushDebugLog
-} = require('./logs/index');
+const { debug, initDebugLog, flushDebugLog } = require('./logs/index');
 const {
     Credential,
     EntityManager,
@@ -55,10 +56,12 @@ const {
     Requester,
     ModuleConstants,
     ModuleFactory,
-    Auther
+    Auther,
 } = require('./module-plugin/index');
 
 // const {Sync } = require('./syncs/model');
+
+const { QueuerUtil } = require('./queues');
 
 module.exports = {
     // assertions
@@ -69,11 +72,13 @@ module.exports = {
     getParamAndVerifyParamType,
     getArrayParamAndVerifyParamType,
     getAndVerifyType,
+
     // core
     Delegate,
     Worker,
     loadInstalledModules,
     createHandler,
+
     // database
     mongoose,
     connectToDatabase,
@@ -84,15 +89,18 @@ module.exports = {
     State,
     Token,
     UserModel,
+
     // encrypt
     Encrypt,
     Cryptor,
+
     // errors
     BaseError,
     FetchError,
     HaltError,
     RequiredPropertyError,
     ParameterTypeError,
+
     // integrations
     IntegrationBase,
     IntegrationModel,
@@ -103,12 +111,15 @@ module.exports = {
     checkRequiredParams,
     createIntegrationRouter,
     createFriggBackend,
+
     // lambda
     TimeoutCatcher,
+
     // logs
     debug,
     initDebugLog,
     flushDebugLog,
+
     // module plugin
     Credential,
     EntityManager,
@@ -120,5 +131,8 @@ module.exports = {
     Requester,
     ModuleConstants,
     ModuleFactory,
-    Auther
-}
+    Auther,
+
+    // queues
+    QueuerUtil,
+};

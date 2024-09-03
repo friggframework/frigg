@@ -223,7 +223,7 @@ class IntegrationBase {
 
         return {};
     }
-    async loadUserActions({ actionType }) {
+    async loadUserActions({ actionType } = {}) {
         console.log('loadUserActions called with actionType:', actionType);
         const userActions = {};
         for (const [key, event] of Object.entries(this.events)) {

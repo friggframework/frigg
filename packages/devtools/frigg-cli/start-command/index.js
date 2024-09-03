@@ -3,6 +3,8 @@ const path = require('path');
 
 function startCommand() {
     console.log('Starting backend and optional frontend...');
+    // Suppress AWS SDK warning message about maintenance mode
+    process.env.AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE = 1;
     const backendPath = path.resolve(process.cwd());
     console.log(`Starting backend in ${backendPath}...`);
     const infrastructurePath = 'infrastructure.js';
