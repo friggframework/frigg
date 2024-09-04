@@ -23,6 +23,7 @@ const {
     State,
     Token,
     UserModel,
+    WebsocketConnection,
 } = require('./database/index');
 const { Encrypt, Cryptor } = require('./encrypt/encrypt');
 const {
@@ -89,6 +90,7 @@ module.exports = {
     State,
     Token,
     UserModel,
+    WebsocketConnection,
 
     // encrypt
     Encrypt,

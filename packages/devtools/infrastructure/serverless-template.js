@@ -30,6 +30,7 @@ const composeServerlessDefinition = (AppDefinition, IntegrationFactory) => {
             ],
         },
         plugins: [
+            'serverless-dotenv-plugin',
             'serverless-offline-sqs',
             'serverless-offline',
             '@friggframework/serverless-plugin',
@@ -38,6 +39,7 @@ const composeServerlessDefinition = (AppDefinition, IntegrationFactory) => {
             'serverless-offline': {
                 httpPort: 3001,
                 lambdaPort: 4001,
+                websocketPort: 3002,
             },
             'serverless-offline-sqs': {
                 autoCreate: false,
@@ -58,6 +60,27 @@ const composeServerlessDefinition = (AppDefinition, IntegrationFactory) => {
             },
         },
         functions: {
+            defaultWebsocket: {
+                handler:
+                    '/../node_modules/@friggframework/devtools/infrastructure/routers/websocket.handler',
+                events: [
+                    {
+                        websocket: {
+                            route: '$connect',
+                        },
+                    },
+                    {
+                        websocket: {
+                            route: '$default',
+                        },
+                    },
+                    {
+                        websocket: {
+                            route: '$disconnect',
+                        },
+                    },
+                ],
+            },
             auth: {
                 handler:
                     '/../node_modules/@friggframework/devtools/infrastructure/routers/auth.handler',
