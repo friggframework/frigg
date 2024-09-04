@@ -67,7 +67,7 @@ const createQueueWorker = (integrationClass) => {
                     );
                 }
                 const res = await instance.send(params.event, {
-                    ...params.data,
+                    data: params.data,
                     context,
                 });
                 return res;
