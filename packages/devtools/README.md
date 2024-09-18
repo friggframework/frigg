@@ -9,6 +9,7 @@ The devtools package includes the following main components:
 1. Frigg CLI
 2. Migrations
 3. Test Utilities
+4. Local runner and deploy tooling
 
 ## Frigg CLI
 
