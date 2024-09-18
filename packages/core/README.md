@@ -2,6 +2,8 @@
 
 The `frigg-core` package is the heart of the Frigg Framework. It contains the core functionality and essential modules required to build and maintain integrations at scale.
 
+Over time, Frigg's core will evolve to facilitate all manner of integration needs. For now, you'll find that it's highly catered towards existing Frigg apps.
+
 ## Table of Contents
 
 - [Introduction](#introduction)
