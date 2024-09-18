@@ -114,7 +114,7 @@ function IntegrationHorizontal(props) {
   return (
     <>
       <div
-        className="flex flex-nowrap p-4 bg-white rounded-lg shadow-xs"
+        className="flex flex-nowrap p-4 bg-white rounded-lg shadow-xs h-[128px]"
         data-testid="integration-horizontal"
       >
         <div className="flex flex-1">
