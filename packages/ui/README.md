@@ -6,6 +6,9 @@ The Frigg UI package provides a set of reusable and self-contained components fo
 
 ## Features
 
+1. IntegrationList component to automatically find and list all integrations configured in your Frigg Application
+2. QuickActions for menu options corresponding to UserAction model inside Frigg's integration model
+
 ### Self-Contained Components
 Each exported component is self-contained, meaning that by passing the correct properties, users can manage their integrations effortlessly from any app.
 
