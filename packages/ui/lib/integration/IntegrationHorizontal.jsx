@@ -45,21 +45,27 @@ function IntegrationHorizontal(props) {
   const api = new Api(friggBaseUrl, authToken);
 
   useEffect(() => {
-    const userActions = [
-      {
-        title: "Get Sample Data",
-        action: "SAMPLE_DATA",
-      },
-    ];
-    Object.keys(props.data.userActions || {}).map((key) => {
-      userActions.push({
-        title: props.data.userActions[key].title,
-        description: props.data.userActions[key].description,
-        action: key,
+    if (props.data.id) {
+      const loadUserActions = async () => {
+        const userActionRes = await api.getUserActions(
+          integrationId,
+          "QUICK_ACTION"
+        );
+        const userActions = [];
+        Object.keys(userActionRes || {}).map((key) => {
+          userActions.push({
+            title: userActionRes[key].title,
+            description: userActionRes[key].description,
+            action: key,
+          });
+        });
+        setUserActions(userActions);
+      };
+      loadUserActions().catch((error) => {
+        console.error(error);
       });
-    });
-    setUserActions(userActions);
-  }, [props.data.userActions]);
+    }
+  }, []);
 
   const getAuthorizeRequirements = async () => {
     setIsProcessing(true);
@@ -108,7 +114,7 @@ function IntegrationHorizontal(props) {
   return (
     <>
       <div
-        className="flex flex-nowrap p-4 bg-white rounded-lg shadow-xs"
+        className="flex flex-nowrap p-4 bg-white rounded-lg shadow-xs h-[128px]"
         data-testid="integration-horizontal"
       >
         <div className="flex flex-1">
