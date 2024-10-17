@@ -9,6 +9,10 @@ const schema = new mongoose.Schema(
                 required: true,
             },
         ],
+        entityReference: {
+            type: mongoose.Schema.Types.Map,
+            of: String,
+        },
         user: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User',
