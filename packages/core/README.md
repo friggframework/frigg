@@ -28,6 +28,7 @@ The Frigg Core package provides the foundational components and utilities for th
 - **Logging**: Structured logging utilities.
 - **Module Plugin**: Plugin system for extending core functionality.
 - **Syncs**: Synchronization utilities for data consistency.
+- **Infrastructure**: Frigg reads through your integration definitions and auto-generates the infrastructure your code needs to run smoothly.
 
 ## Installation
 
