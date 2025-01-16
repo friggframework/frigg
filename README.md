@@ -5,7 +5,7 @@
 
 <img src="docs/FriggLogo.svg" style="width:250px">
 
-**Frigg** is a **Framework** that powers **direct/native integrations** between your product and external software partners.
+**Frigg** is a **Framework** that powers **direct/native integrations** between your product and external software partners. It's full of opinionated structured code that gets you to integration development faster. Yup, another "don't rebuild the wheel. Build the car." thing. Better yet, build the rocket ship.
 
 Build enterprise-grade integrations as simply as _`create-frigg-app`_.
 
