@@ -66,6 +66,7 @@ The frigg-core package is organized into several modules:
 - **Logs**: @friggframework/core/logs
 - **Module Plugin**: @friggframework/core/module-plugin
 - **Syncs**: @friggframework/core/syncs
+- **Infrastructure**: @friggframework/core/infrastructure
 
 
 Each module provides specific functionality and can be imported individually as needed.

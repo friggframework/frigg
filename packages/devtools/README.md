@@ -35,6 +35,12 @@ frigg install <api-module-name>
 
 This command will search for the specified API module, install it, and update your project accordingly.
 
+```sh
+frigg start
+```
+
+This command will look for the closest infrastructure.js file and run a start command, programmatically generating the serverless yml needed to run locally.
+
 ## Migrations
 
 (Add information about migrations here if available)
