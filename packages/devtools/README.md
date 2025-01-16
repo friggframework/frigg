@@ -10,6 +10,7 @@ The devtools package includes the following main components:
 2. Migrations
 3. Test Utilities
 4. Local runner and deploy tooling
+5. Infrastructure
 
 ## Frigg CLI
 
@@ -22,6 +23,8 @@ The Frigg CLI is a command-line interface tool that helps developers manage and 
 - Automatically update project files
 - Handle environment variables
 - Validate package existence and backend paths
+- Run your Frigg instance locally
+- Deploy your Frigg application to your configured provider
 
 ### Usage
 
