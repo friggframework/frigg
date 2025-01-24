@@ -32,7 +32,7 @@ const loadRouterFromObject = (IntegrationClass, routerObject) => {
             const integration = new IntegrationClass({});
             await integration.loadModules();
             await integration.registerEventHandlers();
-            const result = await integration.send(event, {req, res, next});
+            const result = await integration.send(event, req.body);
             res.json(result);
         } catch (error) {
             next(error);
