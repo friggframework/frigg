@@ -2,7 +2,7 @@ const { createFriggBackend, Worker } = require('@friggframework/core');
 const {
     findNearestBackendPackageJson,
 } = require('../frigg-cli/utils/backend-path');
-const path = require('path');
+const path = require('node:path');
 const fs = require('fs-extra');
 
 const backendPath = findNearestBackendPackageJson();
@@ -32,7 +32,7 @@ const loadRouterFromObject = (IntegrationClass, routerObject) => {
             const integration = new IntegrationClass({});
             await integration.loadModules();
             await integration.registerEventHandlers();
-            const result = await integration.send(event, req.body);
+            const result = await integration.send(event, {req, res, next});
             res.json(result);
         } catch (error) {
             next(error);
@@ -43,9 +43,6 @@ const loadRouterFromObject = (IntegrationClass, routerObject) => {
 };
 const createQueueWorker = (integrationClass) => {
     class QueueWorker extends Worker {
-        constructor(params) {
-            super(params);
-        }
         async _run(params, context) {
             try {
                 let instance;
