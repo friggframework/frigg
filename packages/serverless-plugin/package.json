@@ -1,0 +1,14 @@
+{
+  "name": "@friggframework/serverless-plugin",
+  "version": "0.0.1",
+  "description": "Plugin to help dynamically load frigg resources",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "author": "Left Hook, Inc.",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}
