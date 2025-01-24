@@ -1,30 +1,35 @@
-const { createIntegrationRouter } = require('@friggframework/core');
 const { createAppHandler } = require('./../app-handler-helpers');
-const { requireLoggedInUser } = require('./middleware/requireLoggedInUser');
 const {
-    moduleFactory,
     integrationFactory,
-    IntegrationHelper,
     loadRouterFromObject,
 } = require('./../backend-utils');
 const { Router } = require('express');
 
 const handlers = {};
-integrationFactory.integrationClasses.forEach((IntegrationClass) => {
+for (const IntegrationClass of integrationFactory.integrationClasses) {
     const router = Router();
     const basePath = `/api/${IntegrationClass.Definition.name}-integration`;
-    IntegrationClass.Definition.routes.forEach((routeDef) => {
+    
+    console.log(`\n│ Configuring routes for ${IntegrationClass.Definition.name} Integration:`);
+
+    for (const routeDef of IntegrationClass.Definition.routes) {
         if (typeof routeDef === 'function') {
             router.use(basePath, routeDef(IntegrationClass));
+            console.log(`│ ANY ${basePath}/* (function handler)`);
         } else if (typeof routeDef === 'object') {
             router.use(
                 basePath,
                 loadRouterFromObject(IntegrationClass, routeDef)
             );
+            const method = (routeDef.method || 'ANY').toUpperCase();
+            const fullPath = `${basePath}${routeDef.path}`;
+            console.log(`│ ${method} ${fullPath}`);
         } else if (routeDef instanceof express.Router) {
             router.use(basePath, routeDef);
+            console.log(`│ ANY ${basePath}/* (express router)`);
         }
-    });
+    }
+    console.log('│');
 
     handlers[`${IntegrationClass.Definition.name}`] = {
         handler: createAppHandler(
@@ -32,6 +37,6 @@ integrationFactory.integrationClasses.forEach((IntegrationClass) => {
             router
         ),
     };
-});
+}
 
 module.exports = { handlers };
