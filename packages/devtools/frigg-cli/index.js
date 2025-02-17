@@ -3,6 +3,8 @@
 const { Command } = require('commander');
 const { installCommand } = require('./install-command');
 const { startCommand } = require('./start-command'); // Assuming you have a startCommand module
+const { buildCommand } = require('./build-command');
+const { deployCommand } = require('./deploy-command');
 
 const program = new Command();
 program
@@ -15,6 +17,16 @@ program
     .description('Run the backend and optional frontend')
     .action(startCommand);
 
+program
+    .command('build')
+    .description('Build the serverless application')
+    .action(buildCommand);
+
+program
+    .command('deploy')
+    .description('Deploy the serverless application')
+    .action(deployCommand);
+
 program.parse(process.argv);
 
-module.exports = { installCommand, startCommand };
+module.exports = { installCommand, startCommand, buildCommand, deployCommand };
