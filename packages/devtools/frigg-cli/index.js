@@ -15,16 +15,19 @@ program
 program
     .command('start')
     .description('Run the backend and optional frontend')
+    .option('-s, --stage <stage>', 'deployment stage', 'dev')
     .action(startCommand);
 
 program
     .command('build')
     .description('Build the serverless application')
+    .option('-s, --stage <stage>', 'deployment stage', 'dev')
     .action(buildCommand);
 
 program
     .command('deploy')
     .description('Deploy the serverless application')
+    .option('-s, --stage <stage>', 'deployment stage', 'dev')
     .action(deployCommand);
 
 program.parse(process.argv);
