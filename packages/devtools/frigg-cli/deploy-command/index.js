@@ -1,12 +1,18 @@
 const { spawn } = require('child_process');
 const path = require('path');
 
-function deployCommand(...args) {
+function deployCommand(options) {
     console.log('Deploying the serverless application...');
     const backendPath = path.resolve(process.cwd());
     const infrastructurePath = 'infrastructure.js';
     const command = 'serverless';
-    const serverlessArgs = ['deploy', '--config', infrastructurePath, ...args.filter(arg => arg !== 'deploy')];
+    const serverlessArgs = [
+        'deploy',
+        '--config',
+        infrastructurePath,
+        '--stage',
+        options.stage
+    ];
 
     const childProcess = spawn(command, serverlessArgs, {
         cwd: backendPath,

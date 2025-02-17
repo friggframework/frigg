@@ -1,7 +1,7 @@
 const { spawn } = require('child_process');
 const path = require('path');
 
-function startCommand() {
+function startCommand(options) {
     console.log('Starting backend and optional frontend...');
     // Suppress AWS SDK warning message about maintenance mode
     process.env.AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE = 1;
@@ -9,7 +9,13 @@ function startCommand() {
     console.log(`Starting backend in ${backendPath}...`);
     const infrastructurePath = 'infrastructure.js';
     const command = 'serverless';
-    const args = ['offline', '--config', infrastructurePath, '--stage=dev'];
+    const args = [
+        'offline',
+        '--config',
+        infrastructurePath,
+        '--stage',
+        options.stage
+    ];
 
     const childProcess = spawn(command, args, {
         cwd: backendPath,

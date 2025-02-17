@@ -1,12 +1,18 @@
 const { spawn } = require('child_process');
 const path = require('path');
 
-function buildCommand(...args) {
+function buildCommand(options) {
     console.log('Building the serverless application...');
     const backendPath = path.resolve(process.cwd());
     const infrastructurePath = 'infrastructure.js';
     const command = 'serverless';
-    const serverlessArgs = ['package', '--config', infrastructurePath, ...args.filter(arg => arg !== 'build')];
+    const serverlessArgs = [
+        'package',
+        '--config',
+        infrastructurePath,
+        '--stage',
+        options.stage
+    ];
 
     const childProcess = spawn(command, serverlessArgs, {
         cwd: backendPath,
@@ -22,6 +28,6 @@ function buildCommand(...args) {
             console.log(`Child process exited with code ${code}`);
         }
     });
-} 
+}
 
 module.exports = { buildCommand };
