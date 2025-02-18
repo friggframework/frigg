@@ -247,6 +247,7 @@ const composeServerlessDefinition = (AppDefinition) => {
             Properties: {
                 QueueName: `\${self:custom.${queueReference}}`,
                 MessageRetentionPeriod: 60,
+                VisibilityTimeout: 1800,  // 30 minutes
                 RedrivePolicy: {
                     maxReceiveCount: 1,
                     deadLetterTargetArn: {
