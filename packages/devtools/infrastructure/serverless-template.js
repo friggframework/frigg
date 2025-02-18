@@ -1,7 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 
-const composeServerlessDefinition = (AppDefinition, IntegrationFactory) => {
+const composeServerlessDefinition = (AppDefinition) => {
     const definition = {
         frameworkVersion: '>=3.17.0',
         service: AppDefinition.name || 'create-frigg-app',
@@ -213,7 +213,7 @@ const composeServerlessDefinition = (AppDefinition, IntegrationFactory) => {
     };
 
     // Add integration-specific functions and resources
-    AppDefinition.integrations.forEach((integration) => {
+    for (const integration of AppDefinition.integrations) {
         const integrationName = integration.Definition.name;
 
         // Add function for the integration
@@ -229,7 +229,7 @@ const composeServerlessDefinition = (AppDefinition, IntegrationFactory) => {
             events: [
                 {
                     http: {
-                        path: `/api/${integrationName}-integration/{proxy*}`,
+                        path: `/api/${integrationName}-integration/{proxy+}`,
                         method: 'ANY',
                         cors: true,
                     },
@@ -277,13 +277,13 @@ const composeServerlessDefinition = (AppDefinition, IntegrationFactory) => {
         // Add Queue URL for the integration to the ENVironment variables
         definition.provider.environment = {
             ...definition.provider.environment,
-            [integrationName.toUpperCase() + '_QUEUE_URL']: {
+            [`${integrationName.toUpperCase()}_QUEUE_URL`]: {
                 Ref: queueReference,
             },
         };
 
         definition.custom[queueReference] = queueName;
-    });
+    }
 
     return definition;
 };
