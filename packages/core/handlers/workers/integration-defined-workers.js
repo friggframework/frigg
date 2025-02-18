@@ -1,5 +1,5 @@
 const { createHandler } = require('@friggframework/core');
-const { integrationFactory, createQueueWorker } = require('./../backend-utils');
+const { integrationFactory, createQueueWorker } = require('../backend-utils');
 
 const handlers = {};
 integrationFactory.integrationClasses.forEach((IntegrationClass) => {

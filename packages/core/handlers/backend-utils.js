@@ -1,7 +1,7 @@
 const { createFriggBackend, Worker } = require('@friggframework/core');
 const {
     findNearestBackendPackageJson,
-} = require('../frigg-cli/utils/backend-path');
+} = require('../../devtools/frigg-cli/utils/backend-path');
 const path = require('node:path');
 const fs = require('fs-extra');
 

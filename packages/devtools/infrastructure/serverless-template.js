@@ -30,6 +30,7 @@ const composeServerlessDefinition = (AppDefinition) => {
             ],
         },
         plugins: [
+            // 'serverless-webpack',
             'serverless-dotenv-plugin',
             'serverless-offline-sqs',
             'serverless-offline',
@@ -61,8 +62,7 @@ const composeServerlessDefinition = (AppDefinition) => {
         },
         functions: {
             defaultWebsocket: {
-                handler:
-                    '/../node_modules/@friggframework/devtools/infrastructure/routers/websocket.handler',
+                handler: 'node_modules/@friggframework/core/handlers/routers/websocket.handler',
                 events: [
                     {
                         websocket: {
@@ -82,8 +82,7 @@ const composeServerlessDefinition = (AppDefinition) => {
                 ],
             },
             auth: {
-                handler:
-                    '/../node_modules/@friggframework/devtools/infrastructure/routers/auth.handler',
+                handler: 'node_modules/@friggframework/core/handlers/routers/auth.handler',
                 events: [
                     {
                         http: {
@@ -109,8 +108,7 @@ const composeServerlessDefinition = (AppDefinition) => {
                 ],
             },
             user: {
-                handler:
-                    '/../node_modules/@friggframework/devtools/infrastructure/routers/user.handler',
+                handler: 'node_modules/@friggframework/core/handlers/routers/user.handler',
                 events: [
                     {
                         http: {
@@ -218,14 +216,7 @@ const composeServerlessDefinition = (AppDefinition) => {
 
         // Add function for the integration
         definition.functions[integrationName] = {
-            handler: `/../node_modules/@friggframework/devtools/infrastructure/routers/integration-defined-routers.handlers.${integrationName}.handler`,
-            // events: integration.Definition.routes.map((route) => ({
-            //     http: {
-            //         path: `/api/${integrationName}-integration${route.path}`,
-            //         method: route.method || 'ANY',
-            //         cors: true,
-            //     },
-            // })),
+            handler: `node_modules/@friggframework/core/handlers/routers/integration-defined-routers.handlers.${integrationName}.handler`,
             events: [
                 {
                     http: {
@@ -260,7 +251,7 @@ const composeServerlessDefinition = (AppDefinition) => {
         // Add Queue Worker for the integration
         const queueWorkerName = `${integrationName}QueueWorker`;
         definition.functions[queueWorkerName] = {
-            handler: `/../node_modules/@friggframework/devtools/infrastructure/workers/integration-defined-workers.handlers.${integrationName}.queueWorker`,
+            handler: `node_modules/@friggframework/core/handlers/workers/integration-defined-workers.handlers.${integrationName}.queueWorker`,
             reservedConcurrency: 5,
             events: [
                 {
