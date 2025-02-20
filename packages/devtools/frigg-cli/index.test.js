@@ -1,10 +1,7 @@
 const { Command } = require('commander');
 const { installCommand } = require('./index');
 const { validatePackageExists } = require('./install-command/validate-package');
-const {
-    findNearestBackendPackageJson,
-    validateBackendPath,
-} = require('./utils/backend-path');
+const { findNearestBackendPackageJson, validateBackendPath } = require('@friggframework/core');
 const { installPackage } = require('./install-command/install-package');
 const { createIntegrationFile } = require('./install-command/integration-file');
 const { updateBackendJsFile } = require('./install-command/backend-js');
