@@ -4,15 +4,12 @@ const { resolve } = require('node:path');
 const { updateBackendJsFile } = require('./backend-js');
 const { logInfo, logError } = require('./logger');
 const { commitChanges } = require('./commit-changes');
-const {
-    findNearestBackendPackageJson,
-    validateBackendPath,
-} = require('../utils/backend-path');
 const { handleEnvVariables } = require('./environment-variables');
 const {
     validatePackageExists,
     searchAndSelectPackage,
 } = require('./validate-package');
+const { findNearestBackendPackageJson, validateBackendPath } = require('@friggframework/core');
 
 const installCommand = async (apiModuleName) => {
     try {

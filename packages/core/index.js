@@ -59,6 +59,7 @@ const {
     ModuleFactory,
     Auther,
 } = require('./module-plugin/index');
+const utils = require('./utils');
 
 // const {Sync } = require('./syncs/model');
 
@@ -137,4 +138,7 @@ module.exports = {
 
     // queues
     QueuerUtil,
+
+    // utils
+    ...utils,
 };

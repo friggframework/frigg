@@ -23,4 +23,4 @@ function validateBackendPath(backendPath) {
 module.exports = {
     findNearestBackendPackageJson,
     validateBackendPath,
-};
+}; 
