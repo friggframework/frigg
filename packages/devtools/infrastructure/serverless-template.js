@@ -7,6 +7,7 @@ const composeServerlessDefinition = (AppDefinition) => {
         service: AppDefinition.name || 'create-frigg-app',
         package: {
             individually: true,
+            exclude: ["!**/node_modules/aws-sdk/**", "!**/node_modules/@aws-sdk/**", "!package.json"],
         },
         useDotenv: true,
         provider: {
@@ -30,7 +31,7 @@ const composeServerlessDefinition = (AppDefinition) => {
             ],
         },
         plugins: [
-            // 'serverless-webpack',
+            'serverless-jetpack',
             'serverless-dotenv-plugin',
             'serverless-offline-sqs',
             'serverless-offline',
@@ -51,13 +52,8 @@ const composeServerlessDefinition = (AppDefinition) => {
                 secretAccessKey: 'root',
                 skipCacheInvalidation: false,
             },
-            webpack: {
-                webpackConfig: 'webpack.config.js',
-                includeModules: {
-                    forceExclude: ['aws-sdk'],
-                },
-                packager: 'npm',
-                excludeFiles: ['src/**/*.test.js', 'test/'],
+            jetpack: {
+                base: '..',
             },
         },
         functions: {

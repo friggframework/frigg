@@ -22,6 +22,7 @@ program
     .command('build')
     .description('Build the serverless application')
     .option('-s, --stage <stage>', 'deployment stage', 'dev')
+    .option('-v, --verbose', 'enable verbose output')
     .action(buildCommand);
 
 program

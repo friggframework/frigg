@@ -1,5 +1,6 @@
 // This line should be at the top of the webpacked output, so be sure to require createHandler first in any handlers.  "Soon" sourcemaps will be built into Node... after that, this package won't be needed.
-require('source-map-support').install();
+// REMOVING FOR NOW UNTIL WE ADD WEBPACK BACK IN
+// require('source-map-support').install();
 
 const { connectToDatabase } = require('../database/mongo');
 const { initDebugLog, flushDebugLog } = require('../logs');

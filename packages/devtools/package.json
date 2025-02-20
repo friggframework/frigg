@@ -31,9 +31,10 @@
     "@friggframework/prettier-config": "^2.0.0-next.0",
     "serverless": "3.39.0",
     "serverless-dotenv-plugin": "^6.0.0",
+    "serverless-jetpack": "^0.11.2",
     "serverless-offline": "^13.8.0",
     "serverless-offline-sqs": "^8.0.0",
-    "serverless-webpack": "^5.14.1"
+    "serverless-plugin-monorepo": "^0.11.0"
   },
   "scripts": {
     "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
