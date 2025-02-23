@@ -14,7 +14,6 @@ const createApp = (applyMiddleware) => {
     app.use(
         cors({
             origin: '*',
-            credentials: true,
         })
     );
 
