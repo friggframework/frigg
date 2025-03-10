@@ -1,6 +1,107 @@
 const path = require('path');
 const fs = require('fs');
 
+// Function to find the actual path to node_modules
+const findNodeModulesPath = () => {
+    try {
+        // Method 1: Try to find node_modules by traversing up from current directory
+        let currentDir = process.cwd();
+        let nodeModulesPath = null;
+        
+        // Traverse up to 5 levels to find node_modules
+        for (let i = 0; i < 5; i++) {
+            const potentialPath = path.join(currentDir, 'node_modules');
+            if (fs.existsSync(potentialPath)) {
+                nodeModulesPath = potentialPath;
+                console.log(`Found node_modules at: ${nodeModulesPath} (method 1)`);
+                break;
+            }
+            // Move up one directory
+            const parentDir = path.dirname(currentDir);
+            if (parentDir === currentDir) {
+                // We've reached the root
+                break;
+            }
+            currentDir = parentDir;
+        }
+        
+        // Method 2: If method 1 fails, try using npm root command
+        if (!nodeModulesPath) {
+            try {
+                // This requires child_process, so let's require it here
+                const { execSync } = require('node:child_process');
+                const npmRoot = execSync('npm root', { encoding: 'utf8' }).trim();
+                if (fs.existsSync(npmRoot)) {
+                    nodeModulesPath = npmRoot;
+                    console.log(`Found node_modules at: ${nodeModulesPath} (method 2)`);
+                }
+            } catch (npmError) {
+                console.error('Error executing npm root:', npmError);
+            }
+        }
+        
+        // Method 3: If all else fails, check for a package.json and assume node_modules is adjacent
+        if (!nodeModulesPath) {
+            currentDir = process.cwd();
+            for (let i = 0; i < 5; i++) {
+                const packageJsonPath = path.join(currentDir, 'package.json');
+                if (fs.existsSync(packageJsonPath)) {
+                    const potentialNodeModules = path.join(currentDir, 'node_modules');
+                    if (fs.existsSync(potentialNodeModules)) {
+                        nodeModulesPath = potentialNodeModules;
+                        console.log(`Found node_modules at: ${nodeModulesPath} (method 3)`);
+                        break;
+                    }
+                }
+                // Move up one directory
+                const parentDir = path.dirname(currentDir);
+                if (parentDir === currentDir) {
+                    // We've reached the root
+                    break;
+                }
+                currentDir = parentDir;
+            }
+        }
+        
+        if (nodeModulesPath) {
+            return nodeModulesPath;
+        }
+        
+        console.warn('Could not find node_modules path, falling back to default');
+        return path.resolve(process.cwd(), '../node_modules');
+    } catch (error) {
+        console.error('Error finding node_modules path:', error);
+        return path.resolve(process.cwd(), '../node_modules');
+    }
+};
+
+// Function to modify handler paths to point to the correct node_modules
+const modifyHandlerPaths = (functions) => {
+    // Check if we're running in offline mode
+    const isOffline = process.argv.includes('offline');
+    console.log('isOffline', isOffline);
+    
+    if (!isOffline) {
+        console.log('Not in offline mode, skipping handler path modification');
+        return functions;
+    }
+
+    const nodeModulesPath = findNodeModulesPath();
+    const modifiedFunctions = { ...functions };
+    
+    for (const functionName of Object.keys(modifiedFunctions)) {
+        console.log('functionName', functionName);
+        const functionDef = modifiedFunctions[functionName];
+        if (functionDef?.handler?.includes('node_modules/')) {
+            // Replace node_modules/ with the actual path to node_modules/
+            functionDef.handler = functionDef.handler.replace('node_modules/', '../node_modules/');
+            console.log(`Updated handler for ${functionName}: ${functionDef.handler}`);
+        }
+    }
+    
+    return modifiedFunctions;
+};
+
 const composeServerlessDefinition = (AppDefinition) => {
     const definition = {
         frameworkVersion: '>=3.17.0',
@@ -273,6 +374,9 @@ const composeServerlessDefinition = (AppDefinition) => {
         definition.custom[queueReference] = queueName;
     }
 
+    // Modify handler paths to point to the correct node_modules location
+    definition.functions = modifyHandlerPaths(definition.functions);
+    
     return definition;
 };
 

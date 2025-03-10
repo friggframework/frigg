@@ -16,6 +16,7 @@ program
     .command('start')
     .description('Run the backend and optional frontend')
     .option('-s, --stage <stage>', 'deployment stage', 'dev')
+    .option('-v, --verbose', 'enable verbose output')
     .action(startCommand);
 
 program
@@ -29,6 +30,7 @@ program
     .command('deploy')
     .description('Deploy the serverless application')
     .option('-s, --stage <stage>', 'deployment stage', 'dev')
+    .option('-v, --verbose', 'enable verbose output')
     .action(deployCommand);
 
 program.parse(process.argv);

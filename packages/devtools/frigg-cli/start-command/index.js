@@ -1,7 +1,11 @@
-const { spawn } = require('child_process');
-const path = require('path');
+const { spawn } = require('node:child_process');
+const path = require('node:path');
 
 function startCommand(options) {
+    if (options.verbose) {
+        console.log('Verbose mode enabled');
+        console.log('Options:', options);
+    }
     console.log('Starting backend and optional frontend...');
     // Suppress AWS SDK warning message about maintenance mode
     process.env.AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE = 1;
@@ -16,6 +20,16 @@ function startCommand(options) {
         '--stage',
         options.stage
     ];
+
+    // Add verbose flag to serverless if verbose option is enabled
+    if (options.verbose) {
+        args.push('--verbose');
+    }
+
+    if (options.verbose) {
+        console.log(`Executing command: ${command} ${args.join(' ')}`);
+        console.log(`Working directory: ${backendPath}`);
+    }
 
     const childProcess = spawn(command, args, {
         cwd: backendPath,
