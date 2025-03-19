@@ -3,7 +3,7 @@ const { integrationFactory, createQueueWorker } = require('../backend-utils');
 
 const handlers = {};
 integrationFactory.integrationClasses.forEach((IntegrationClass) => {
-    const defaultQueueWorker = createQueueWorker(IntegrationClass);
+    const defaultQueueWorker = createQueueWorker(IntegrationClass, integrationFactory);
 
     handlers[`${IntegrationClass.Definition.name}`] = {
         queueWorker: createHandler({

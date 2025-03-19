@@ -39,7 +39,7 @@ const loadRouterFromObject = (IntegrationClass, routerObject) => {
 
     return router;
 };
-const createQueueWorker = (integrationClass) => {
+const createQueueWorker = (integrationClass, integrationFactory) => {
     class QueueWorker extends Worker {
         async _run(params, context) {
             try {
@@ -54,11 +54,11 @@ const createQueueWorker = (integrationClass) => {
                     );
                 } else {
                     instance =
-                        await integrationClass.getInstanceFromIntegrationId({
+                        await integrationFactory.getInstanceFromIntegrationId({
                             integrationId: params.integrationId,
                         });
                     console.log(
-                        `${params.event} for ${instance.integration.config.type} of integrationId: ${params.integrationId}`
+                        `${params.event} for ${instance.record.config.type} of integrationId: ${params.integrationId}`
                     );
                 }
                 const res = await instance.send(params.event, {
