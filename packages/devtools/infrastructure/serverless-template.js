@@ -129,6 +129,28 @@ const composeServerlessDefinition = (AppDefinition) => {
                         Ref: 'InternalErrorBridgeTopic',
                     },
                 },
+                {
+                    Effect: 'Allow',
+                    Action: [
+                        'sqs:SendMessage',
+                        'sqs:SendMessageBatch',
+                        'sqs:GetQueueUrl',
+                        'sqs:GetQueueAttributes'
+                    ],
+                    Resource: [
+                        {
+                            'Fn::GetAtt': ['InternalErrorQueue', 'Arn']
+                        },
+                        {
+                            'Fn::Join': [
+                                ':',
+                                [
+                                    'arn:aws:sqs:${self:provider.region}:*:${self:service}--${self:provider.stage}-*Queue'
+                                ]
+                            ]
+                        }
+                    ],
+                }
             ],
         },
         plugins: [
