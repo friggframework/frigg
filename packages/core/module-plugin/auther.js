@@ -1,29 +1,36 @@
-// Manages authorization and credential persistence
-// Instantiation of an API Class
-// Expects input object like this:
-// const authDef = {
-//     API: class anAPI{},
-//     moduleName: 'anAPI', //maybe not required
-//     requiredAuthMethods: {
-//         // oauth methods, how to handle these being required/not?
-//         getToken: async function(params, callbackParams, tokenResponse) {},
-//         // required for all Auth methods
-//         getEntityDetails: async function(params) {}, //probably calls api method
-//         getCredentialDetails: async function(params) {}, // might be same as above
-//         apiParamsFromCredential: function(params) {},
-//         testAuth: async function() {}, // basic request to testAuth
-//     },
-//     env: {
-//         client_id: process.env.HUBSPOT_CLIENT_ID,
-//         client_secret: process.env.HUBSPOT_CLIENT_SECRET,
-//         scope: process.env.HUBSPOT_SCOPE,
-//         redirect_uri: `${process.env.REDIRECT_URI}/an-api`,
-//     }
-// };
-
-//TODO:
-// 1. Add definition of expected params to API Class (or could just be credential?)
-// 2.
+/**
+ * Manages authorization and credential persistence for API modules.
+ *
+ * This module provides the `Auther` class, which is responsible for:
+ * - Validating authorization definitions for API integrations
+ * - Handling OAuth and other authentication flows
+ * - Persisting and updating credentials and entity details in the database
+ * - Providing methods to test, update, and deauthorize credentials
+ * - Supporting dynamic model creation for credentials and entities
+ *
+ * Usage:
+ *   const { Auther } = require('./auther');
+ *   // Instantiate with a definition object as described below
+ *
+ * Expected definition object structure:
+ *   {
+ *     API: class anAPI{},
+ *     moduleName: 'anAPI',
+ *     requiredAuthMethods: {
+ *       getToken: async function(params, callbackParams, tokenResponse) {},
+ *       getEntityDetails: async function(params) {},
+ *       getCredentialDetails: async function(params) {},
+ *       apiParamsFromCredential: function(params) {},
+ *       testAuth: async function() {},
+ *     },
+ *     env: {
+ *       client_id: process.env.CLIENT_ID,
+ *       client_secret: process.env.CLIENT_SECRET,
+ *       scope: process.env.SCOPE,
+ *       redirect_uri: `${process.env.REDIRECT_URI}/an-api`,
+ *     }
+ *   }
+ */
 
 const { Delegate } = require('../core');
 const { get } = require('../assertions');
@@ -45,12 +52,6 @@ class Auther extends Delegate {
         if (!definition.API) {
             throw new Error('Auther definition requires API class');
         }
-        // if (!definition.Credential) {
-        //     throw new Error('Auther definition requires Credential class');
-        // }
-        // if (!definition.Entity) {
-        //     throw new Error('Auther definition requires Entity class');
-        // }
         if (!definition.requiredAuthMethods) {
             throw new Error('Auther definition requires requiredAuthMethods');
         } else {
@@ -124,7 +125,7 @@ class Auther extends Delegate {
                 params.entityId
             );
             instance.credential = await instance.CredentialModel.findById(
-                instance.entity.credential
+                instance.entity.credential._id
             );
         } else if (params.credentialId) {
             instance.credential = await instance.CredentialModel.findById(
