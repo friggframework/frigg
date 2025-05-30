@@ -353,6 +353,59 @@ const composeServerlessDefinition = (AppDefinition) => {
         };
     }
 
+    // VPC Configuration based on App Definition
+    if (AppDefinition.vpc?.enable === true) {
+        const stage = definition.provider.stage.replace('${opt:stage}', process.env.STAGE || 'dev');
+
+        // Stage-specific warning for production
+        if (stage === 'prod') {
+            console.warn('VPC is enabled for production. Consider if this is necessary for your use case.');
+        }
+
+        // Use stage-specific VPC pattern like existing Frigg applications
+        definition.provider.vpc = '${self:custom.vpc.${self:provider.stage}}';
+
+        // Initialize custom.vpc if it doesn't exist
+        if (!definition.custom.vpc) {
+            definition.custom.vpc = {};
+        }
+
+        // Create base VPC config for the current stage
+        const currentStageKey = '${self:provider.stage}';
+        if (!definition.custom.vpc[currentStageKey]) {
+            definition.custom.vpc[currentStageKey] = {};
+        }
+
+        // Override with App Definition values if provided
+        const vpcConfig = {};
+        if (AppDefinition.vpc.securityGroupIds) {
+            vpcConfig.securityGroupIds = AppDefinition.vpc.securityGroupIds;
+        }
+        if (AppDefinition.vpc.subnetIds) {
+            vpcConfig.subnetIds = AppDefinition.vpc.subnetIds;
+        }
+
+        // Set the VPC config for the dynamic stage reference
+        definition.custom.vpc = {
+            ...definition.custom.vpc,
+            // Add a placeholder that will be resolved at deployment time
+            '${self:provider.stage}': vpcConfig
+        };
+
+        // Add VPC-related IAM permissions
+        definition.provider.iamRoleStatements.push({
+            Effect: 'Allow',
+            Action: [
+                'ec2:CreateNetworkInterface',
+                'ec2:DescribeNetworkInterfaces',
+                'ec2:DeleteNetworkInterface',
+                'ec2:AttachNetworkInterface',
+                'ec2:DetachNetworkInterface'
+            ],
+            Resource: '*'
+        });
+    }
+
     // Add integration-specific functions and resources
     for (const integration of AppDefinition.integrations) {
         const integrationName = integration.Definition.name;
