@@ -33,6 +33,7 @@
     "serverless": "3.39.0",
     "serverless-dotenv-plugin": "^6.0.0",
     "serverless-jetpack": "^0.11.2",
+    "serverless-kms-grants": "^1.0.0",
     "serverless-offline": "^13.8.0",
     "serverless-offline-sqs": "^8.0.0",
     "serverless-plugin-monorepo": "^0.11.0"

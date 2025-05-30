@@ -7,7 +7,7 @@ const findNodeModulesPath = () => {
         // Method 1: Try to find node_modules by traversing up from current directory
         let currentDir = process.cwd();
         let nodeModulesPath = null;
-        
+
         // Traverse up to 5 levels to find node_modules
         for (let i = 0; i < 5; i++) {
             const potentialPath = path.join(currentDir, 'node_modules');
@@ -24,7 +24,7 @@ const findNodeModulesPath = () => {
             }
             currentDir = parentDir;
         }
-        
+
         // Method 2: If method 1 fails, try using npm root command
         if (!nodeModulesPath) {
             try {
@@ -39,7 +39,7 @@ const findNodeModulesPath = () => {
                 console.error('Error executing npm root:', npmError);
             }
         }
-        
+
         // Method 3: If all else fails, check for a package.json and assume node_modules is adjacent
         if (!nodeModulesPath) {
             currentDir = process.cwd();
@@ -62,11 +62,11 @@ const findNodeModulesPath = () => {
                 currentDir = parentDir;
             }
         }
-        
+
         if (nodeModulesPath) {
             return nodeModulesPath;
         }
-        
+
         console.warn('Could not find node_modules path, falling back to default');
         return path.resolve(process.cwd(), '../node_modules');
     } catch (error) {
@@ -80,7 +80,7 @@ const modifyHandlerPaths = (functions) => {
     // Check if we're running in offline mode
     const isOffline = process.argv.includes('offline');
     console.log('isOffline', isOffline);
-    
+
     if (!isOffline) {
         console.log('Not in offline mode, skipping handler path modification');
         return functions;
@@ -88,7 +88,7 @@ const modifyHandlerPaths = (functions) => {
 
     const nodeModulesPath = findNodeModulesPath();
     const modifiedFunctions = { ...functions };
-    
+
     for (const functionName of Object.keys(modifiedFunctions)) {
         console.log('functionName', functionName);
         const functionDef = modifiedFunctions[functionName];
@@ -98,7 +98,7 @@ const modifyHandlerPaths = (functions) => {
             console.log(`Updated handler for ${functionName}: ${functionDef.handler}`);
         }
     }
-    
+
     return modifiedFunctions;
 };
 
@@ -329,6 +329,30 @@ const composeServerlessDefinition = (AppDefinition) => {
         },
     };
 
+    // KMS Configuration based on App Definition
+    if (AppDefinition.encryption?.useDefaultKMSForFieldLevelEncryption === true) {
+        // Add KMS IAM permissions
+        definition.provider.iamRoleStatements.push({
+            Effect: 'Allow',
+            Action: [
+                'kms:GenerateDataKey',
+                'kms:Decrypt'
+            ],
+            Resource: ['${self:custom.kmsGrants.kmsKeyId}']
+        });
+
+        // Add KMS_KEY_ARN environment variable for Frigg Encrypt module
+        definition.provider.environment.KMS_KEY_ARN = '${self:custom.kmsGrants.kmsKeyId}';
+
+        // Add serverless-kms-grants plugin
+        definition.plugins.push('serverless-kms-grants');
+
+        // Configure KMS grants with default key
+        definition.custom.kmsGrants = {
+            kmsKeyId: '*'
+        };
+    }
+
     // Add integration-specific functions and resources
     for (const integration of AppDefinition.integrations) {
         const integrationName = integration.Definition.name;
@@ -348,9 +372,8 @@ const composeServerlessDefinition = (AppDefinition) => {
         };
 
         // Add SQS Queue for the integration
-        const queueReference = `${
-            integrationName.charAt(0).toUpperCase() + integrationName.slice(1)
-        }Queue`;
+        const queueReference = `${integrationName.charAt(0).toUpperCase() + integrationName.slice(1)
+            }Queue`;
         const queueName = `\${self:service}--\${self:provider.stage}-${queueReference}`;
         definition.resources.Resources[queueReference] = {
             Type: 'AWS::SQS::Queue',
@@ -398,7 +421,7 @@ const composeServerlessDefinition = (AppDefinition) => {
 
     // Modify handler paths to point to the correct node_modules location
     definition.functions = modifyHandlerPaths(definition.functions);
-    
+
     return definition;
 };
 
