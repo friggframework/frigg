@@ -111,16 +111,6 @@ provider:
       - !Ref FriggPrivateSubnet2
 ```
 
-## Cost Considerations
-
-### Typical Monthly Costs
-- **NAT Gateway**: ~$32/month (required for internet access)
-- **Elastic IP**: ~$3.65/month (when NAT not in use)
-- **KMS VPC Endpoint**: ~$22/month (only if KMS enabled)
-- **Secrets Manager VPC Endpoint**: ~$22/month 
-- **S3/DynamoDB Endpoints**: Free
-- **Data Transfer**: Reduced costs with VPC endpoints
-
 ### Cost Optimization
 ```javascript
 // Minimal cost setup
@@ -133,20 +123,6 @@ vpc: {
 vpc: {
     enable: true  // Default: includes free S3/DynamoDB endpoints
 }
-```
-
-## Advanced Configuration
-
-### Integration with KMS
-```javascript
-const appDefinition = {
-    encryption: {
-        useDefaultKMSForFieldLevelEncryption: true  // Enables KMS
-    },
-    vpc: {
-        enable: true  // Automatically includes KMS VPC endpoint
-    }
-};
 ```
 
 ### Environment-Specific VPC
@@ -168,12 +144,6 @@ const appDefinition = {
 - **Enhanced security posture**
 - **Cost optimization** via VPC endpoints
 
-### ⚠️ Consider Alternatives For:
-- **Development/testing** environments (adds complexity)
-- **Simple applications** with minimal security requirements
-- **Cost-sensitive applications** (adds ~$55+/month)
-- **High-performance applications** (VPC adds cold start latency)
-
 ## Migration and Compatibility
 
 ### Existing Applications
@@ -191,60 +161,6 @@ vpc: {
 }
 ```
 
-## Troubleshooting
-
-### Common Issues
-
-**NAT Gateway Costs**
-```
-Issue: High AWS bills after enabling VPC
-Solution: NAT Gateway costs ~$32/month - use enableVPCEndpoints: true for cost optimization
-```
-
-**Lambda Timeout in VPC**
-```
-Issue: Lambda functions timing out after VPC enablement
-Solution: Check that private subnets have route to NAT Gateway (auto-configured by Frigg)
-```
-
-**ENI Limit Reached**
-```
-Issue: "ENILimitReachedException" errors
-Solution: Request ENI limit increase or reduce Lambda concurrency
-```
-
-### Validation Commands
-```bash
-# Verify VPC creation
-aws ec2 describe-vpcs --filters "Name=tag:Name,Values=*your-service-name*"
-
-# Check NAT Gateway
-aws ec2 describe-nat-gateways --filter "Name=tag:Name,Values=*your-service-name*"
-
-# Verify VPC endpoints
-aws ec2 describe-vpc-endpoints --filters "Name=vpc-id,Values=vpc-xxxxx"
-```
-
-## Best Practices
-
-1. **Start Simple**: Use basic `enable: true` first
-2. **Test Thoroughly**: VPC changes affect all Lambda functions
-3. **Monitor Costs**: Track NAT Gateway and VPC endpoint charges
-4. **Plan for Scale**: Consider ENI limits for high-concurrency applications
-5. **Use VPC Endpoints**: Enable for cost optimization with AWS services
-6. **Environment Strategy**: Consider VPC only for production/staging
-
-## Examples
-
-### Zero-Configuration Setup
-```javascript
-const appDefinition = {
-    integrations: [SalesforceIntegration, HubspotIntegration],
-    vpc: {
-        enable: true  // Complete infrastructure auto-created
-    }
-};
-```
 
 ### Production-Optimized Setup
 ```javascript
