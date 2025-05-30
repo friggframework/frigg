@@ -355,28 +355,7 @@ const composeServerlessDefinition = (AppDefinition) => {
 
     // VPC Configuration based on App Definition
     if (AppDefinition.vpc?.enable === true) {
-        const stage = definition.provider.stage.replace('${opt:stage}', process.env.STAGE || 'dev');
-
-        // Stage-specific warning for production
-        if (stage === 'prod') {
-            console.warn('VPC is enabled for production. Consider if this is necessary for your use case.');
-        }
-
-        // Use stage-specific VPC pattern like existing Frigg applications
-        definition.provider.vpc = '${self:custom.vpc.${self:provider.stage}}';
-
-        // Initialize custom.vpc if it doesn't exist
-        if (!definition.custom.vpc) {
-            definition.custom.vpc = {};
-        }
-
-        // Create base VPC config for the current stage
-        const currentStageKey = '${self:provider.stage}';
-        if (!definition.custom.vpc[currentStageKey]) {
-            definition.custom.vpc[currentStageKey] = {};
-        }
-
-        // Override with App Definition values if provided
+        // Create VPC config from App Definition
         const vpcConfig = {};
         if (AppDefinition.vpc.securityGroupIds) {
             vpcConfig.securityGroupIds = AppDefinition.vpc.securityGroupIds;
@@ -385,12 +364,8 @@ const composeServerlessDefinition = (AppDefinition) => {
             vpcConfig.subnetIds = AppDefinition.vpc.subnetIds;
         }
 
-        // Set the VPC config for the dynamic stage reference
-        definition.custom.vpc = {
-            ...definition.custom.vpc,
-            // Add a placeholder that will be resolved at deployment time
-            '${self:provider.stage}': vpcConfig
-        };
+        // Set VPC config directly (can be overridden by serverless.yml)
+        definition.provider.vpc = vpcConfig;
 
         // Add VPC-related IAM permissions
         definition.provider.iamRoleStatements.push({
