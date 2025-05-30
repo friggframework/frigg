@@ -159,7 +159,7 @@ KMS configurations are environment-specific:
 const appDefinition = {
     name: 'secure-integration-app',
     integrations: [
-        SalesforceIntegration
+        SalesforceIntegration,
         HubspotIntegration
     ],
     encryption: {
