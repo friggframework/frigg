@@ -4,6 +4,23 @@
 
 Frigg provides built-in support for data encryption to help you secure sensitive information in your integrations. The framework automatically configures AWS KMS (Key Management Service) for field-level encryption when enabled in your application definition.
 
+## Default Encryption: AES Keys
+
+### Out-of-the-Box Encryption
+
+By default, Frigg uses a simple AES key-based encryption system that works without any additional configuration. This system uses environment variables to manage encryption keys:
+
+```javascript
+// Current encryption key
+process.env.AES_KEY_ID       // Key identifier
+process.env.AES_KEY          // Actual encryption key
+
+// For key rotation support
+process.env.DEPRECATED_AES_KEY_ID    // Previous key identifier  
+process.env.DEPRECATED_AES_KEY       // Previous encryption key
+```
+
+
 ## Automatic KMS Configuration
 
 ### Enable KMS in Your App Definition
@@ -142,8 +159,8 @@ KMS configurations are environment-specific:
 const appDefinition = {
     name: 'secure-integration-app',
     integrations: [
-        require('@friggframework/salesforce'),
-        require('@friggframework/hubspot')
+        SalesforceIntegration
+        HubspotIntegration
     ],
     encryption: {
         useDefaultKMSForFieldLevelEncryption: true
