@@ -2,114 +2,149 @@
 
 ## Overview
 
-Frigg can automatically configure VPC (Virtual Private Cloud) for your Lambda functions to provide network isolation and security. This feature enables zero-touch VPC configuration for developers who need enhanced security controls.
+Frigg provides **complete VPC infrastructure automation** for your Lambda functions. When enabled, it creates a production-ready VPC with all necessary components: VPC, subnets, NAT Gateway, Internet Gateway, route tables, security groups, and VPC endpoints.
 
-## Enable VPC for Lambda Functions
+## Quick Start - Zero Configuration
 
-Add the `vpc` property to your App Definition:
+Enable VPC with a single flag - Frigg handles everything:
 
 ```javascript
 const appDefinition = {
     name: 'my-frigg-app',
     integrations: [
-        HubspotIntegration,
-        SalesforceIntegration
+        // your integrations...
     ],
     vpc: {
-        enable: true
+        enable: true  // That's it! Complete VPC infrastructure is created automatically
     }
 }
 
 module.exports = appDefinition;
 ```
 
-## VPC Configuration Options
+## What Gets Created Automatically
 
-### Basic VPC Enable
+When `vpc.enable` is `true`, Frigg creates a complete, production-ready VPC infrastructure:
+
+### Core VPC Infrastructure
+- **VPC** with DNS resolution enabled (`10.0.0.0/16` CIDR)
+- **Internet Gateway** for internet connectivity
+- **Public Subnet** for NAT Gateway (`10.0.1.0/24`)
+- **2 Private Subnets** in different AZs for Lambda functions (`10.0.2.0/24`, `10.0.3.0/24`)
+- **NAT Gateway** with Elastic IP for private subnet internet access
+- **Route Tables** properly configured for internet routing
+
+### Security Groups
+- **Lambda Security Group** with outbound rules for:
+  - HTTPS (443) - API calls
+  - HTTP (80) - HTTP requests  
+  - DNS (53 TCP/UDP) - Domain resolution
+
+### VPC Endpoints (Cost Optimization)
+- **S3 Gateway Endpoint** (free) - Direct S3 access without NAT costs
+- **DynamoDB Gateway Endpoint** (free) - Direct DynamoDB access
+- **KMS Interface Endpoint** (paid, ~$22/month) - Only if KMS encryption enabled
+- **Secrets Manager Interface Endpoint** (paid, ~$22/month) - For secure secret access
+
+### IAM Permissions
+- **ENI Management** permissions for Lambda VPC operations
+
+## Configuration Options
+
+### Basic VPC (Zero Configuration)
 ```javascript
 vpc: {
-    enable: true  // Uses existing serverless config or requires manual setup
+    enable: true  // Creates complete VPC infrastructure with defaults
 }
 ```
 
-### VPC with Custom Security Groups
+### Custom CIDR Block
 ```javascript
 vpc: {
     enable: true,
-    securityGroupIds: ['sg-custom123']  // Custom security groups
-    // subnetIds will use serverless config values
+    cidrBlock: '10.1.0.0/16'  // Custom VPC CIDR (default: 10.0.0.0/16)
 }
 ```
 
-### VPC with Full Custom Configuration
+### Disable VPC Endpoints
 ```javascript
 vpc: {
     enable: true,
-    securityGroupIds: ['sg-custom123'],
-    subnetIds: ['subnet-abc123', 'subnet-def456']
+    enableVPCEndpoints: false  // Disable VPC endpoints (use NAT for all traffic)
 }
 ```
 
-## What Happens Automatically
-
-When `vpc.enable` is set to `true`, Frigg automatically:
-
-1. **Configures VPC Settings**: Adds VPC configuration to all Lambda functions
-2. **Override Support**: App Definition values override any existing serverless VPC configuration  
-3. **Grants VPC Permissions**: Adds necessary IAM permissions for VPC operations
-
-## When to Use VPC
-
-**Enable VPC for:**
-- Applications requiring network isolation
-- Compliance requirements (SOC 2, HIPAA, PCI DSS)
-- Integration with private AWS resources
-- Enhanced security controls
-- Custom networking requirements
-
-**Consider Alternatives for:**
-- Simple applications with minimal security requirements
-- Cost-sensitive applications (VPC can increase costs)
-- Applications that need maximum cold start performance
-
-## Stage-Specific Considerations
-
-The framework provides warnings and flexibility for different environments:
-
+### Use Existing Infrastructure
 ```javascript
-// Environment-specific VPC configuration
+vpc: {
+    enable: true,
+    securityGroupIds: ['sg-existing123'],  // Use existing security groups
+    subnetIds: ['subnet-existing456']      // Use existing subnets
+    // Skips infrastructure creation, only enables VPC for Lambda
+}
+```
+
+## Generated Infrastructure
+
+### Complete CloudFormation Resources
+```yaml
+# VPC and Networking
+- AWS::EC2::VPC (10.0.0.0/16)
+- AWS::EC2::InternetGateway
+- AWS::EC2::NatGateway + Elastic IP
+- AWS::EC2::Subnet (1 public, 2 private)
+- AWS::EC2::RouteTable (public + private routing)
+
+# Security
+- AWS::EC2::SecurityGroup (Lambda + VPC Endpoints)
+
+# VPC Endpoints (optional)
+- AWS::EC2::VPCEndpoint (S3, DynamoDB - free)
+- AWS::EC2::VPCEndpoint (KMS, Secrets Manager - paid)
+
+# Lambda Configuration
+provider:
+  vpc:
+    securityGroupIds: [!Ref FriggLambdaSecurityGroup]
+    subnetIds: 
+      - !Ref FriggPrivateSubnet1
+      - !Ref FriggPrivateSubnet2
+```
+
+## Cost Considerations
+
+### Typical Monthly Costs
+- **NAT Gateway**: ~$32/month (required for internet access)
+- **Elastic IP**: ~$3.65/month (when NAT not in use)
+- **KMS VPC Endpoint**: ~$22/month (only if KMS enabled)
+- **Secrets Manager VPC Endpoint**: ~$22/month 
+- **S3/DynamoDB Endpoints**: Free
+- **Data Transfer**: Reduced costs with VPC endpoints
+
+### Cost Optimization
+```javascript
+// Minimal cost setup
+vpc: {
+    enable: true,
+    enableVPCEndpoints: false  // Use NAT only, skip interface endpoints
+}
+
+// Optimized setup (recommended)
+vpc: {
+    enable: true  // Default: includes free S3/DynamoDB endpoints
+}
+```
+
+## Advanced Configuration
+
+### Integration with KMS
+```javascript
 const appDefinition = {
-    integrations: [...],
+    encryption: {
+        useDefaultKMSForFieldLevelEncryption: true  // Enables KMS
+    },
     vpc: {
-        enable: process.env.STAGE !== 'prod'  // Disable VPC in production
-    }
-};
-```
-
-**Development/Staging**: VPC useful for testing network isolation  
-**Production**: Consider if VPC complexity is necessary for your use case
-
-## VPC Override Pattern
-
-App Definition generates basic VPC config, which can be overridden by stage-specific patterns in your serverless.yml:
-
-```javascript
-// App Definition provides base VPC config
-vpc: {
-    enable: true,
-    securityGroupIds: ['sg-default123'],  // Default config
-    subnetIds: ['subnet-default456']      // Default config
-}
-```
-
-### Custom VPC Configuration
-```javascript
-const appDefinition = {
-    integrations: [SalesforceIntegration],
-    vpc: {
-        enable: true,
-        securityGroupIds: ['sg-12345678'],
-        subnetIds: ['subnet-12345678', 'subnet-87654321']
+        enable: true  // Automatically includes KMS VPC endpoint
     }
 };
 ```
@@ -117,9 +152,119 @@ const appDefinition = {
 ### Environment-Specific VPC
 ```javascript
 const appDefinition = {
-    integrations: [SalesforceIntegration],
     vpc: {
-        enable: ['dev', 'staging'].includes(process.env.STAGE)
+        enable: process.env.STAGE === 'prod',  // Only enable VPC in production
+        cidrBlock: process.env.STAGE === 'prod' ? '10.0.0.0/16' : '10.1.0.0/16'
+    }
+};
+```
+
+## When to Use VPC
+
+### ✅ Enable VPC For:
+- **Production applications** requiring network isolation
+- **Compliance requirements** (SOC 2, HIPAA, PCI DSS)
+- **Integration with existing VPC resources**
+- **Enhanced security posture**
+- **Cost optimization** via VPC endpoints
+
+### ⚠️ Consider Alternatives For:
+- **Development/testing** environments (adds complexity)
+- **Simple applications** with minimal security requirements
+- **Cost-sensitive applications** (adds ~$55+/month)
+- **High-performance applications** (VPC adds cold start latency)
+
+## Migration and Compatibility
+
+### Existing Applications
+- **Zero breaking changes** - add `vpc: { enable: true }` when ready
+- **Gradual rollout** - enable per environment
+- **Rollback friendly** - disable flag to revert
+
+### Override Existing Infrastructure
+```javascript
+// Use your existing VPC resources instead of auto-created ones
+vpc: {
+    enable: true,
+    securityGroupIds: ['sg-your-existing'],
+    subnetIds: ['subnet-your-existing-1', 'subnet-your-existing-2']
+}
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**NAT Gateway Costs**
+```
+Issue: High AWS bills after enabling VPC
+Solution: NAT Gateway costs ~$32/month - use enableVPCEndpoints: true for cost optimization
+```
+
+**Lambda Timeout in VPC**
+```
+Issue: Lambda functions timing out after VPC enablement
+Solution: Check that private subnets have route to NAT Gateway (auto-configured by Frigg)
+```
+
+**ENI Limit Reached**
+```
+Issue: "ENILimitReachedException" errors
+Solution: Request ENI limit increase or reduce Lambda concurrency
+```
+
+### Validation Commands
+```bash
+# Verify VPC creation
+aws ec2 describe-vpcs --filters "Name=tag:Name,Values=*your-service-name*"
+
+# Check NAT Gateway
+aws ec2 describe-nat-gateways --filter "Name=tag:Name,Values=*your-service-name*"
+
+# Verify VPC endpoints
+aws ec2 describe-vpc-endpoints --filters "Name=vpc-id,Values=vpc-xxxxx"
+```
+
+## Best Practices
+
+1. **Start Simple**: Use basic `enable: true` first
+2. **Test Thoroughly**: VPC changes affect all Lambda functions
+3. **Monitor Costs**: Track NAT Gateway and VPC endpoint charges
+4. **Plan for Scale**: Consider ENI limits for high-concurrency applications
+5. **Use VPC Endpoints**: Enable for cost optimization with AWS services
+6. **Environment Strategy**: Consider VPC only for production/staging
+
+## Examples
+
+### Zero-Configuration Setup
+```javascript
+const appDefinition = {
+    integrations: [SalesforceIntegration, HubspotIntegration],
+    vpc: {
+        enable: true  // Complete infrastructure auto-created
+    }
+};
+```
+
+### Production-Optimized Setup
+```javascript
+const appDefinition = {
+    encryption: { useDefaultKMSForFieldLevelEncryption: true },
+    vpc: {
+        enable: true,
+        cidrBlock: '10.0.0.0/16',
+        enableVPCEndpoints: true  // Include KMS endpoint for encryption
+    }
+};
+```
+
+### Existing Infrastructure Integration
+```javascript
+const appDefinition = {
+    vpc: {
+        enable: true,
+        securityGroupIds: ['sg-prod-lambda-12345'],
+        subnetIds: ['subnet-prod-private-1', 'subnet-prod-private-2']
     }
 };
 ``` 
