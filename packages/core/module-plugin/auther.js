@@ -56,7 +56,7 @@ class Auther extends Delegate {
         } else {
             if (
                 definition.API.requesterType ===
-                    ModuleConstants.authType.oauth2 &&
+                ModuleConstants.authType.oauth2 &&
                 !definition.requiredAuthMethods.getToken
             ) {
                 throw new Error(
@@ -241,6 +241,7 @@ class Auther extends Delegate {
         //     type: one of the types defined in modules/Constants.js
         //     data: ["required", "fields", "we", "may", "need"]
         // }
+        console.log(this.api);
         return this.api.getAuthorizationRequirements();
     }
 
@@ -326,7 +327,7 @@ class Auther extends Delegate {
         if (search.length > 1) {
             throw new Error(
                 'Multiple entities found with the same identifiers: ' +
-                    JSON.stringify(identifiers)
+                JSON.stringify(identifiers)
             );
         } else if (search.length === 0) {
             this.entity = await this.EntityModel.create({

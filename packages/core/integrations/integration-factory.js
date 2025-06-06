@@ -89,14 +89,13 @@ class IntegrationFactory {
         return moduleTypesAndKeys;
     }
 
-    async getInstanceFromIntegrationId(params) {
+    async getInstanceFromIntegrationId({ integrationId, userId }) {
         const integrationRecord = await IntegrationHelper.getIntegrationById(
-            params.integrationId
+            integrationId
         );
-        let { userId } = params;
         if (!integrationRecord) {
             throw new Error(
-                `No integration found by the ID of ${params.integrationId}`
+                `No integration found by the ID of ${integrationId}`
             );
         }
 
@@ -104,8 +103,7 @@ class IntegrationFactory {
             userId = integrationRecord.user._id.toString();
         } else if (userId.toString() !== integrationRecord.user.toString()) {
             throw new Error(
-                `Integration ${
-                    params.integrationId
+                `Integration ${params.integrationId
                 } does not belong to User ${userId}, ${integrationRecord.user.toString()}`
             );
         }
@@ -189,6 +187,7 @@ class IntegrationFactory {
     }
 }
 
+// todo: this should be split into use case classes
 const IntegrationHelper = {
     getFormattedIntegration: async function (integrationRecord) {
         const integrationObj = {

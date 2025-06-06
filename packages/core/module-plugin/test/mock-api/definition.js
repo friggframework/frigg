@@ -1,19 +1,23 @@
 require('dotenv').config();
-const {Api} = require('./api');
-const {get} = require('../../assertions');
-const config = {name: 'anapi'}
+const { Api } = require('./api');
+const { get } = require('../../../assertions');
+const config = { name: 'anapi' }
 
 const Definition = {
     API: Api,
-    getName: function() {return config.name},
+    getAuthorizationRequirements: () => ({
+        url: 'http://localhost:3000/redirect/anapi',
+        type: 'oauth2',
+    }),
+    getName: function () { return config.name },
     moduleName: config.name,
     modelName: 'AnApi',
     requiredAuthMethods: {
-        getToken: async function(api, params){
+        getToken: async function (api, params) {
             const code = get(params.data, 'code');
             return api.getTokenFromCode(code);
         },
-        getEntityDetails: async function(api, callbackParams, tokenResponse, userId) {
+        getEntityDetails: async function (api, callbackParams, tokenResponse, userId) {
             const userDetails = await api.getUserDetails();
             return {
                 identifiers: { externalId: userDetails.portalId, user: userId },
@@ -26,14 +30,14 @@ const Definition = {
             ],
             entity: [],
         },
-        getCredentialDetails: async function(api, userId) {
+        getCredentialDetails: async function (api, userId) {
             const userDetails = await api.getUserDetails();
             return {
                 identifiers: { externalId: userDetails.portalId, user: userId },
                 details: {}
             };
         },
-        testAuthRequest: async function(api){
+        testAuthRequest: async function (api) {
             return api.getUserDetails()
         },
     },

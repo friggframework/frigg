@@ -3,22 +3,29 @@ const { get } = require('../assertions');
 const Boom = require('@hapi/boom');
 const catchAsyncError = require('express-async-handler');
 const { debug } = require('../logs');
+
+
+// todo: dont send moduleFactory, integrationFactory, and IntegrationHelper as a factory object, instead send them as separate
+// params and import IntegrationHelper where needed.
+// todo: this could be a use case class
+/**
+ * Creates an Express router with integration and entity routes configured
+ * @param {Object} params - Configuration parameters for the router
+ * @param {express.Router} [params.router] - Optional Express router instance, creates new one if not provided
+ * @param {Object} params.factory - Factory object containing moduleFactory, integrationFactory, and IntegrationHelper
+ * @param {Object} params.factory.moduleFactory - Factory for creating and managing API modules
+ * @param {Object} params.factory.integrationFactory - Factory for creating and managing integrations
+ * @param {Object} params.factory.IntegrationHelper - Helper utilities for integration operations
+ * @param {import('../user/use-cases/get-user-from-bearer-token').GetUserFromBearerToken} params.getUserFromBearerToken - Use case for retrieving a user from a bearer token
+ * @returns {express.Router} Configured Express router with integration and entity routes
+ */
 function createIntegrationRouter(params) {
     const router = get(params, 'router', express());
     const factory = get(params, 'factory');
-    const getUserId = get(params, 'getUserId', (req) => null);
-    const requireLoggedInUser = get(
-        params,
-        'requireLoggedInUser',
-        (req, res, next) => next()
-    );
+    const getUserFromBearerToken = get(params, 'getUserFromBearerToken');
 
-    router.all('/api/entities*', requireLoggedInUser);
-    router.all('/api/authorize', requireLoggedInUser);
-    router.all('/api/integrations*', requireLoggedInUser);
-
-    setIntegrationRoutes(router, factory, getUserId);
-    setEntityRoutes(router, factory, getUserId);
+    setIntegrationRoutes(router, factory, getUserFromBearerToken);
+    setEntityRoutes(router, factory, getUserFromBearerToken);
     return router;
 }
 
@@ -36,33 +43,42 @@ function checkRequiredParams(params, requiredKeys) {
 
     if (missingKeys.length > 0) {
         throw Boom.badRequest(
-            `Missing Parameter${
-                missingKeys.length === 1 ? '' : 's'
-            }: ${missingKeys.join(', ')} ${
-                missingKeys.length === 1 ? 'is' : 'are'
+            `Missing Parameter${missingKeys.length === 1 ? '' : 's'
+            }: ${missingKeys.join(', ')} ${missingKeys.length === 1 ? 'is' : 'are'
             } required.`
         );
     }
     return returnDict;
 }
 
-function setIntegrationRoutes(router, factory, getUserId) {
+/**
+ * Sets up integration-related routes on the provided Express router
+ * @param {express.Router} router - Express router instance to add routes to
+ * @param {Object} factory - Factory object containing moduleFactory, integrationFactory, and IntegrationHelper
+ * @param {Object} factory.moduleFactory - Factory for creating and managing API modules
+ * @param {Object} factory.integrationFactory - Factory for creating and managing integrations
+ * @param {Object} factory.IntegrationHelper - Helper utilities for integration operations
+ * @param {import('../user/use-cases/get-user-from-bearer-token').GetUserFromBearerToken} getUserFromBearerToken - Use case for retrieving a user from a bearer token
+ */
+function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
     const { moduleFactory, integrationFactory, IntegrationHelper } = factory;
     router.route('/api/integrations').get(
         catchAsyncError(async (req, res) => {
+            const user = await getUserFromBearerToken.execute(
+                req.headers.authorization
+            );
+            const userId = user.getId();
             const results = await integrationFactory.getIntegrationOptions();
             results.entities.authorized =
-                await moduleFactory.getEntitiesForUser(getUserId(req));
+                await moduleFactory.getEntitiesForUser(userId);
             results.integrations =
-                await IntegrationHelper.getIntegrationsForUserId(
-                    getUserId(req)
-                );
+                await IntegrationHelper.getIntegrationsForUserId(userId);
 
             for (const integrationRecord of results.integrations) {
                 const integration =
                     await integrationFactory.getInstanceFromIntegrationId({
                         integrationId: integrationRecord.id,
-                        userId: getUserId(req),
+                        userId,
                     });
                 integrationRecord.userActions = integration.userActions;
             }
@@ -72,6 +88,10 @@ function setIntegrationRoutes(router, factory, getUserId) {
 
     router.route('/api/integrations').post(
         catchAsyncError(async (req, res) => {
+            const user = await getUserFromBearerToken.execute(
+                req.headers.authorization
+            );
+            const userId = user.getId();
             const params = checkRequiredParams(req.body, [
                 'entities',
                 'config',
@@ -82,7 +102,7 @@ function setIntegrationRoutes(router, factory, getUserId) {
             // create integration
             const integration = await integrationFactory.createIntegration(
                 params.entities,
-                getUserId(req),
+                userId,
                 params.config
             );
 
@@ -102,12 +122,16 @@ function setIntegrationRoutes(router, factory, getUserId) {
 
     router.route('/api/integrations/:integrationId').patch(
         catchAsyncError(async (req, res) => {
+            const user = await getUserFromBearerToken.execute(
+                req.headers.authorization
+            );
+            const userId = user.getId();
             const params = checkRequiredParams(req.body, ['config']);
 
             const integration =
                 await integrationFactory.getInstanceFromIntegrationId({
                     integrationId: req.params.integrationId,
-                    userId: getUserId(req),
+                    userId,
                 });
 
             debug(
@@ -126,10 +150,14 @@ function setIntegrationRoutes(router, factory, getUserId) {
 
     router.route('/api/integrations/:integrationId').delete(
         catchAsyncError(async (req, res) => {
+            const user = await getUserFromBearerToken.execute(
+                req.headers.authorization
+            );
+            const userId = user.getId();
             const params = checkRequiredParams(req.params, ['integrationId']);
             const integration =
                 await integrationFactory.getInstanceFromIntegrationId({
-                    userId: getUserId(req),
+                    userId,
                     integrationId: params.integrationId,
                 });
 
@@ -138,7 +166,7 @@ function setIntegrationRoutes(router, factory, getUserId) {
             );
             await integration.send('ON_DELETE');
             await IntegrationHelper.deleteIntegrationForUserById(
-                getUserId(req),
+                userId,
                 params.integrationId
             );
 
@@ -148,6 +176,9 @@ function setIntegrationRoutes(router, factory, getUserId) {
 
     router.route('/api/integrations/:integrationId/config/options').get(
         catchAsyncError(async (req, res) => {
+            await getUserFromBearerToken.execute(
+                req.headers.authorization
+            );
             const params = checkRequiredParams(req.params, ['integrationId']);
             const integration =
                 await integrationFactory.getInstanceFromIntegrationId(params);
@@ -159,6 +190,9 @@ function setIntegrationRoutes(router, factory, getUserId) {
         .route('/api/integrations/:integrationId/config/options/refresh')
         .post(
             catchAsyncError(async (req, res) => {
+                await getUserFromBearerToken.execute(
+                    req.headers.authorization
+                );
                 const params = checkRequiredParams(req.params, [
                     'integrationId',
                 ]);
@@ -174,6 +208,9 @@ function setIntegrationRoutes(router, factory, getUserId) {
         );
     router.route('/api/integrations/:integrationId/actions').all(
         catchAsyncError(async (req, res) => {
+            await getUserFromBearerToken.execute(
+                req.headers.authorization
+            );
             const params = checkRequiredParams(req.params, ['integrationId']);
             const integration =
                 await integrationFactory.getInstanceFromIntegrationId(params);
@@ -185,6 +222,9 @@ function setIntegrationRoutes(router, factory, getUserId) {
         .route('/api/integrations/:integrationId/actions/:actionId/options')
         .all(
             catchAsyncError(async (req, res) => {
+                await getUserFromBearerToken.execute(
+                    req.headers.authorization
+                );
                 const params = checkRequiredParams(req.params, [
                     'integrationId',
                     'actionId',
@@ -209,6 +249,9 @@ function setIntegrationRoutes(router, factory, getUserId) {
         )
         .post(
             catchAsyncError(async (req, res) => {
+                await getUserFromBearerToken.execute(
+                    req.headers.authorization
+                );
                 const params = checkRequiredParams(req.params, [
                     'integrationId',
                     'actionId',
@@ -229,6 +272,9 @@ function setIntegrationRoutes(router, factory, getUserId) {
 
     router.route('/api/integrations/:integrationId/actions/:actionId').post(
         catchAsyncError(async (req, res) => {
+            await getUserFromBearerToken.execute(
+                req.headers.authorization
+            );
             const params = checkRequiredParams(req.params, [
                 'integrationId',
                 'actionId',
@@ -242,6 +288,9 @@ function setIntegrationRoutes(router, factory, getUserId) {
 
     router.route('/api/integrations/:integrationId').get(
         catchAsyncError(async (req, res) => {
+            await getUserFromBearerToken.execute(
+                req.headers.authorization
+            );
             const params = checkRequiredParams(req.params, ['integrationId']);
             const integration = await IntegrationHelper.getIntegrationById(
                 params.integrationId
@@ -259,10 +308,14 @@ function setIntegrationRoutes(router, factory, getUserId) {
 
     router.route('/api/integrations/:integrationId/test-auth').get(
         catchAsyncError(async (req, res) => {
+            const user = await getUserFromBearerToken.execute(
+                req.headers.authorization
+            );
+            const userId = user.getId();
             const params = checkRequiredParams(req.params, ['integrationId']);
             const instance =
                 await integrationFactory.getInstanceFromIntegrationId({
-                    userId: getUserId(req),
+                    userId,
                     integrationId: params.integrationId,
                 });
 
@@ -286,9 +339,16 @@ function setIntegrationRoutes(router, factory, getUserId) {
     );
 }
 
-function setEntityRoutes(router, factory, getUserId) {
+
+/**
+ * Sets up entity-related routes for the integration router
+ * @param {Object} router - Express router instance
+ * @param {Object} factory - Factory object containing moduleFactory and IntegrationHelper
+ * @param {import('../user/use-cases/get-user-from-bearer-token').GetUserFromBearerToken} getUserFromBearerToken - Use case for retrieving a user from a bearer token
+ */
+function setEntityRoutes(router, factory, getUserFromBearerToken) {
     const { moduleFactory, IntegrationHelper } = factory;
-    const getModuleInstance = async (req, entityType) => {
+    const getModuleInstance = async (userId, entityType) => {
         if (!moduleFactory.checkIsValidType(entityType)) {
             throw Boom.badRequest(
                 `Error: Invalid entity type of ${entityType}, options are ${moduleFactory.moduleTypes.join(
@@ -298,14 +358,18 @@ function setEntityRoutes(router, factory, getUserId) {
         }
         return await moduleFactory.getInstanceFromTypeName(
             entityType,
-            getUserId(req)
+            userId
         );
     };
 
     router.route('/api/authorize').get(
         catchAsyncError(async (req, res) => {
+            const user = await getUserFromBearerToken.execute(
+                req.headers.authorization
+            );
+            const userId = user.getId();
             const params = checkRequiredParams(req.query, ['entityType']);
-            const module = await getModuleInstance(req, params.entityType);
+            const module = await getModuleInstance(userId, params.entityType);
             const areRequirementsValid =
                 module.validateAuthorizationRequirements();
             if (!areRequirementsValid) {
@@ -320,15 +384,19 @@ function setEntityRoutes(router, factory, getUserId) {
 
     router.route('/api/authorize').post(
         catchAsyncError(async (req, res) => {
+            const user = await getUserFromBearerToken.execute(
+                req.headers.authorization
+            );
+            const userId = user.getId();
             const params = checkRequiredParams(req.body, [
                 'entityType',
                 'data',
             ]);
-            const module = await getModuleInstance(req, params.entityType);
+            const module = await getModuleInstance(userId, params.entityType);
 
             res.json(
                 await module.processAuthorizationCallback({
-                    userId: getUserId(req),
+                    userId,
                     data: params.data,
                 })
             );
@@ -337,6 +405,10 @@ function setEntityRoutes(router, factory, getUserId) {
 
     router.route('/api/entity').post(
         catchAsyncError(async (req, res) => {
+            const user = await getUserFromBearerToken.execute(
+                req.headers.authorization
+            );
+            const userId = user.getId();
             const params = checkRequiredParams(req.body, [
                 'entityType',
                 'data',
@@ -352,12 +424,12 @@ function setEntityRoutes(router, factory, getUserId) {
                 throw Boom.badRequest('Invalid credential ID');
             }
 
-            const module = await getModuleInstance(req, params.entityType);
+            const module = await getModuleInstance(userId, params.entityType);
             const entityDetails = await module.getEntityDetails(
                 module.api,
                 null,
                 null,
-                getUserId(req)
+                userId
             );
 
             res.json(await module.findOrCreateEntity(entityDetails));
@@ -366,17 +438,21 @@ function setEntityRoutes(router, factory, getUserId) {
 
     router.route('/api/entity/options/:credentialId').get(
         catchAsyncError(async (req, res) => {
+            const user = await getUserFromBearerToken.execute(
+                req.headers.authorization
+            );
+            const userId = user.getId();
             // TODO May want to pass along the user ID as well so credential ID's can't be fished???
             // TODO **flagging this for review** -MW
             const credential = await IntegrationHelper.getCredentialById(
                 req.params.credentialId
             );
-            if (credential.user._id.toString() !== getUserId(req)) {
+            if (credential.user._id.toString() !== userId) {
                 throw Boom.forbidden('Credential does not belong to user');
             }
 
             const params = checkRequiredParams(req.query, ['entityType']);
-            const module = await getModuleInstance(req, params.entityType);
+            const module = await getModuleInstance(userId, params.entityType);
 
             res.json(await module.getEntityOptions());
         })
@@ -384,10 +460,14 @@ function setEntityRoutes(router, factory, getUserId) {
 
     router.route('/api/entities/:entityId/test-auth').get(
         catchAsyncError(async (req, res) => {
+            const user = await getUserFromBearerToken.execute(
+                req.headers.authorization
+            );
+            const userId = user.getId();
             const params = checkRequiredParams(req.params, ['entityId']);
             const module = await moduleFactory.getModuleInstanceFromEntityId(
                 params.entityId,
-                getUserId(req)
+                userId
             );
 
             if (!module) {
@@ -415,10 +495,14 @@ function setEntityRoutes(router, factory, getUserId) {
 
     router.route('/api/entities/:entityId').get(
         catchAsyncError(async (req, res) => {
+            const user = await getUserFromBearerToken.execute(
+                req.headers.authorization
+            );
+            const userId = user.getId();
             const params = checkRequiredParams(req.params, ['entityId']);
             const module = await moduleFactory.getModuleInstanceFromEntityId(
                 params.entityId,
-                getUserId(req)
+                userId
             );
 
             if (!module) {
@@ -431,13 +515,16 @@ function setEntityRoutes(router, factory, getUserId) {
 
     router.route('/api/entities/:entityId/options').post(
         catchAsyncError(async (req, res) => {
+            const user = await getUserFromBearerToken.execute(
+                req.headers.authorization
+            );
+            const userId = user.getId();
             const params = checkRequiredParams(req.params, [
                 'entityId',
-                getUserId(req),
             ]);
             const module = await moduleFactory.getModuleInstanceFromEntityId(
                 params.entityId,
-                getUserId(req)
+                userId
             );
 
             if (!module) {
@@ -450,13 +537,16 @@ function setEntityRoutes(router, factory, getUserId) {
 
     router.route('/api/entities/:entityId/options/refresh').post(
         catchAsyncError(async (req, res) => {
+            const user = await getUserFromBearerToken.execute(
+                req.headers.authorization
+            );
+            const userId = user.getId();
             const params = checkRequiredParams(req.params, [
                 'entityId',
-                getUserId(req),
             ]);
             const module = await moduleFactory.getModuleInstanceFromEntityId(
                 params.entityId,
-                getUserId(req)
+                userId
             );
 
             if (!module) {

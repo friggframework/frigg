@@ -1,15 +1,20 @@
 const { createAppHandler } = require('./../app-handler-helpers');
 const {
-    integrationFactory,
+    loadAppDefinition,
     loadRouterFromObject,
 } = require('./../backend-utils');
 const { Router } = require('express');
+const { IntegrationFactory } = require('../../integrations/integration-factory');
 
 const handlers = {};
+const { integrations } = loadAppDefinition();
+const integrationFactory = new IntegrationFactory(integrations);
+
+//todo: this should be in a use case class
 for (const IntegrationClass of integrationFactory.integrationClasses) {
     const router = Router();
     const basePath = `/api/${IntegrationClass.Definition.name}-integration`;
-    
+
     console.log(`\n│ Configuring routes for ${IntegrationClass.Definition.name} Integration:`);
 
     for (const routeDef of IntegrationClass.Definition.routes) {

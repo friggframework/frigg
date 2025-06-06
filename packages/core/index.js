@@ -42,7 +42,6 @@ const {
     IntegrationHelper,
     createIntegrationRouter,
     checkRequiredParams,
-    createFriggBackend,
 } = require('./integrations/index');
 const { TimeoutCatcher } = require('./lambda/index');
 const { debug, initDebugLog, flushDebugLog } = require('./logs/index');
@@ -113,7 +112,6 @@ module.exports = {
     IntegrationHelper,
     checkRequiredParams,
     createIntegrationRouter,
-    createFriggBackend,
 
     // lambda
     TimeoutCatcher,
