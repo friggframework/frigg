@@ -1,6 +1,5 @@
 const bcrypt = require('bcryptjs');
 const Boom = require('@hapi/boom');
-const { get } = require('../../assertions');
 const {
     RequiredPropertyError,
 } = require('../../errors');
