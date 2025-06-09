@@ -32,7 +32,7 @@ class GetUserFromBearerToken {
         }
 
         const user = await this.userRepository.getUserFromToken(token);
-        if (!user || !user.isLoggedIn()) {
+        if (!user) {
             throw Boom.unauthorized('Invalid Token');
         }
         return user;

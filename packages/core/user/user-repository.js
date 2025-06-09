@@ -25,13 +25,15 @@ class UserRepository {
                 this.Token.getJSONTokenFromBase64BufferToken(token);
             const sessionToken =
                 await this.Token.validateAndGetTokenFromJSONToken(jsonToken);
+
             if (sessionToken) {
+                // todo: create a getConfig method on the user class
                 if (user.config.primary === 'organization') {
-                    user.organizationUser =
-                        await this.OrganizationUser.findById(sessionToken.user);
+                    user.setOrganizationUser(
+                        await this.OrganizationUser.findById(sessionToken.user));
                 } else {
-                    user.individualUser = await this.IndividualUser.findById(
-                        sessionToken.user
+                    user.setIndividualUser(
+                        await this.IndividualUser.findById(sessionToken.user)
                     );
                 }
             }

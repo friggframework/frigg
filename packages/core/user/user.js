@@ -1,4 +1,13 @@
+/**
+ * Represents a user in the system. The User class is a domain entity,
+ * @class User
+ */
 class User {
+    /**
+     * Creates a new User instance.
+     * @param {Object} options - The options for the user.
+     * @param {boolean} [options.usePassword=false] - Whether the user has a password.
+     */
     constructor(options = {}) {
         this.individualUser = null;
         this.organizationUser = null;
@@ -20,10 +29,6 @@ class User {
 
     getId() {
         return this.getPrimaryUser()?.id;
-    }
-
-    isLoggedIn() {
-        return Boolean(this.getId());
     }
 
     isPasswordRequired() {

@@ -17,10 +17,6 @@ class MockUser {
     getId() {
         return this.getPrimaryUser()?.id;
     }
-
-    isLoggedIn() {
-        return Boolean(this.getId());
-    }
 }
 
 module.exports = { MockUser }; 
