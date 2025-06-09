@@ -1,4 +1,3 @@
-const bcrypt = require('bcryptjs');
 const Boom = require('@hapi/boom');
 const {
     RequiredPropertyError,

@@ -2,6 +2,7 @@ const { Token } = require('../database/models/Token');
 const { IndividualUser } = require('../database/models/IndividualUser');
 const { OrganizationUser } = require('../database/models/OrganizationUser');
 const { User } = require('./user');
+const Boom = require('@hapi/boom');
 
 
 //todo: the user class instantiation needs to happen in each use case and not here.
