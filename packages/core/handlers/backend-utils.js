@@ -2,6 +2,7 @@ const { findNearestBackendPackageJson } = require('@friggframework/core/utils');
 const path = require('node:path');
 const fs = require('fs-extra');
 const { Router } = require('express');
+const { Worker } = require('@friggframework/core');
 
 
 /**
