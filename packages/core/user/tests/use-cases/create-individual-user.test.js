@@ -5,11 +5,11 @@ const { TestUserRepository } = require('../doubles/test-user-repository');
 
 describe('CreateIndividualUser Use Case', () => {
     it('should create and return an individual user via the repository', async () => {
-        const userDefinition = { usePassword: true };
-        const userRepository = new TestUserRepository({ userDefinition });
+        const userConfig = { usePassword: true };
+        const userRepository = new TestUserRepository({ userConfig });
         const createIndividualUser = new CreateIndividualUser({
             userRepository,
-            userConfig: userDefinition,
+            userConfig,
         });
 
         const params = {

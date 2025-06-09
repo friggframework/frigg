@@ -2,45 +2,36 @@ const Boom = require('@hapi/boom');
 const { User } = require('../../user');
 
 class TestUserRepository {
-    constructor({ userDefinition }) {
+    constructor({ userConfig }) {
         this.individualUsers = new Map();
         this.organizationUsers = new Map();
         this.tokens = new Map();
-        this.userDefinition = userDefinition;
+        this.userConfig = userConfig;
     }
 
-    async getUserFromToken(token) {
-        const userId = this.tokens.get(token);
-        // This is a simplified lookup for testing purposes
-        const individualUserDoc = this.individualUsers.get(userId);
-        if (individualUserDoc) {
-            return new User(
-                individualUserDoc,
-                null,
-                this.userDefinition.usePassword,
-                this.userDefinition.primary,
-                this.userDefinition.individualUserRequired,
-                this.userDefinition.organizationUserRequired
-            );
-        }
+    async getSessionToken(token) {
+        return this.tokens.get(token);
+    }
+
+    async findOrganizationUserById(userId) {
         const orgUserDoc = this.organizationUsers.get(userId);
-        if (orgUserDoc) {
-            return new User(
-                null,
-                orgUserDoc,
-                this.userDefinition.usePassword,
-                this.userDefinition.primary,
-                this.userDefinition.individualUserRequired,
-                this.userDefinition.organizationUserRequired
-            );
+        if (!orgUserDoc) {
+            throw Boom.unauthorized('Organization User Not Found');
         }
-        return null;
+        return new User(null, orgUserDoc, this.userConfig.usePassword, this.userConfig.primary, this.userConfig.individualUserRequired, this.userConfig.organizationUserRequired);
     }
 
-    async createToken(userId, minutes = 120) {
-        // In a real scenario, the token would be more complex and unique
+    async findIndividualUserById(userId) {
+        const individualUserDoc = this.individualUsers.get(userId);
+        if (!individualUserDoc) {
+            throw Boom.unauthorized('Individual User Not Found');
+        }
+        return new User(individualUserDoc, null, this.userConfig.usePassword, this.userConfig.primary, this.userConfig.individualUserRequired, this.userConfig.organizationUserRequired);
+    }
+
+    async createToken(userId, rawToken, minutes = 120) {
         const token = `token-for-${userId}-for-${minutes}-mins`;
-        this.tokens.set(token, userId);
+        this.tokens.set(token, { user: userId, rawToken });
         return token;
     }
 
@@ -50,10 +41,10 @@ class TestUserRepository {
         return new User(
             individualUserData,
             null,
-            this.userDefinition.usePassword,
-            this.userDefinition.primary,
-            this.userDefinition.individualUserRequired,
-            this.userDefinition.organizationUserRequired
+            this.userConfig.usePassword,
+            this.userConfig.primary,
+            this.userConfig.individualUserRequired,
+            this.userConfig.organizationUserRequired
         );
     }
 
@@ -63,10 +54,10 @@ class TestUserRepository {
         return new User(
             null,
             orgUserData,
-            this.userDefinition.usePassword,
-            this.userDefinition.primary,
-            this.userDefinition.individualUserRequired,
-            this.userDefinition.organizationUserRequired
+            this.userConfig.usePassword,
+            this.userConfig.primary,
+            this.userConfig.individualUserRequired,
+            this.userConfig.organizationUserRequired
         );
     }
 
@@ -76,10 +67,10 @@ class TestUserRepository {
                 return new User(
                     userDoc,
                     null,
-                    this.userDefinition.usePassword,
-                    this.userDefinition.primary,
-                    this.userDefinition.individualUserRequired,
-                    this.userDefinition.organizationUserRequired
+                    this.userConfig.usePassword,
+                    this.userConfig.primary,
+                    this.userConfig.individualUserRequired,
+                    this.userConfig.organizationUserRequired
                 );
             }
         }
@@ -93,10 +84,10 @@ class TestUserRepository {
                 return new User(
                     userDoc,
                     null,
-                    this.userDefinition.usePassword,
-                    this.userDefinition.primary,
-                    this.userDefinition.individualUserRequired,
-                    this.userDefinition.organizationUserRequired
+                    this.userConfig.usePassword,
+                    this.userConfig.primary,
+                    this.userConfig.individualUserRequired,
+                    this.userConfig.organizationUserRequired
                 );
             }
         }
@@ -110,10 +101,10 @@ class TestUserRepository {
                 return new User(
                     null,
                     userDoc,
-                    this.userDefinition.usePassword,
-                    this.userDefinition.primary,
-                    this.userDefinition.individualUserRequired,
-                    this.userDefinition.organizationUserRequired
+                    this.userConfig.usePassword,
+                    this.userConfig.primary,
+                    this.userConfig.individualUserRequired,
+                    this.userConfig.organizationUserRequired
                 );
             }
         }

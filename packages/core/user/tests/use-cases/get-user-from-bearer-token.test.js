@@ -6,17 +6,19 @@ const { TestUserRepository } = require('../doubles/test-user-repository');
 describe('GetUserFromBearerToken Use Case', () => {
     let userRepository;
     let getUserFromBearerToken;
-    let userDefinition;
+    let userConfig;
 
     beforeEach(() => {
-        userDefinition = {
+        userConfig = {
+            usePassword: true,
             primary: 'individual',
             individualUserRequired: true,
             organizationUserRequired: false,
         };
-        userRepository = new TestUserRepository({ userDefinition });
+        userRepository = new TestUserRepository({ userConfig });
         getUserFromBearerToken = new GetUserFromBearerToken({
-            userRepository
+            userRepository,
+            userConfig
         });
     });
 
@@ -45,18 +47,18 @@ describe('GetUserFromBearerToken Use Case', () => {
         ).rejects.toThrow('Invalid Token Format');
     });
 
-    it('should throw an unauthorized error if the token is not found', async () => {
-        userRepository.getUserFromToken = jest.fn().mockResolvedValue(null);
+    it('should throw an unauthorized error if the Session Token is not found', async () => {
+        userRepository.getSessionToken = jest.fn().mockResolvedValue(null);
         await expect(
             getUserFromBearerToken.execute('Bearer invalid-token')
-        ).rejects.toThrow('Invalid Token');
+        ).rejects.toThrow('Session Token Not Found');
     });
 
     it('should throw an unauthorized error if the token is valid but finds no user', async () => {
-        userRepository.getUserFromToken = jest.fn().mockResolvedValue(null);
+        userRepository.getSessionToken = jest.fn().mockResolvedValue(null);
         const token = await userRepository.createToken('user-dne');
         await expect(
             getUserFromBearerToken.execute(`Bearer ${token}`)
-        ).rejects.toThrow('Invalid Token');
+        ).rejects.toThrow('Session Token Not Found');
     });
 }); 

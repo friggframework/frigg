@@ -1,8 +1,10 @@
-const crypto = require('crypto');
 const { Token } = require('../database/models/Token');
 const { IndividualUser } = require('../database/models/IndividualUser');
 const { OrganizationUser } = require('../database/models/OrganizationUser');
 const { User } = require('./user');
+
+
+//todo: the user class instantiation needs to happen in each use case and not here.
 class UserRepository {
     /**
      * @param {Object} userConfig - The user config in the app definition.
@@ -14,37 +16,35 @@ class UserRepository {
         this.userConfig = userConfig;
     }
 
-    // todo: move this to the GetUserFromBearerToken use case.
-    async getUserFromToken(token) {
-
-        if (token) {
-            const jsonToken =
-                this.Token.getJSONTokenFromBase64BufferToken(token);
-            const sessionToken =
-                await this.Token.validateAndGetTokenFromJSONToken(jsonToken);
-
-            if (sessionToken) {
-                if (this.userConfig.primary === 'organization') {
-                    const organizationUser =
-                        await this.OrganizationUser.findById(sessionToken.user);
-
-                    const user = new User(null, organizationUser, this.userConfig.usePassword, this.userConfig.primary, this.userConfig.individualUserRequired, this.userConfig.organizationUserRequired);
-                    return user;
-                }
-
-                const individualUser =
-                    await this.IndividualUser.findById(sessionToken.user);
-
-                const user = new User(individualUser, null, this.userConfig.usePassword, this.userConfig.primary, this.userConfig.individualUserRequired, this.userConfig.organizationUserRequired);
-                return user;
-            }
-        }
-
-        return null;
+    async getSessionToken(token) {
+        const jsonToken =
+            this.Token.getJSONTokenFromBase64BufferToken(token);
+        const sessionToken =
+            await this.Token.validateAndGetTokenFromJSONToken(jsonToken);
+        return sessionToken;
     }
 
-    async createToken(userId, minutes = 120) {
-        const rawToken = crypto.randomBytes(20).toString('hex');
+    async findOrganizationUserById(userId) {
+        const organizationUser = await this.OrganizationUser.findById(userId);
+
+        if (!organizationUser) {
+            throw Boom.unauthorized('Organization User Not Found');
+        }
+
+        return new User(null, organizationUser, this.userConfig.usePassword, this.userConfig.primary, this.userConfig.individualUserRequired, this.userConfig.organizationUserRequired);
+    }
+
+    async findIndividualUserById(userId) {
+        const individualUser = await this.IndividualUser.findById(userId);
+
+        if (!individualUser) {
+            throw Boom.unauthorized('Individual User Not Found');
+        }
+
+        return new User(individualUser, null, this.userConfig.usePassword, this.userConfig.primary, this.userConfig.individualUserRequired, this.userConfig.organizationUserRequired);
+    }
+
+    async createToken(userId, rawToken, minutes = 120) {
         const createdToken = await this.Token.createTokenWithExpire(
             userId,
             rawToken,

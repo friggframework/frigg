@@ -9,9 +9,11 @@ class GetUserFromBearerToken {
      * Creates a new GetUserFromBearerToken instance.
      * @param {Object} params - Configuration parameters.
      * @param {import('../user-repository').UserRepository} params.userRepository - Repository for user data operations.
+     * @param {Object} params.userConfig - The user config in the app definition.
      */
-    constructor({ userRepository }) {
+    constructor({ userRepository, userConfig }) {
         this.userRepository = userRepository;
+        this.userConfig = userConfig;
     }
 
     /**
@@ -31,11 +33,17 @@ class GetUserFromBearerToken {
             throw Boom.unauthorized('Invalid Token Format');
         }
 
-        const user = await this.userRepository.getUserFromToken(token);
-        if (!user) {
-            throw Boom.unauthorized('Invalid Token');
+        const sessionToken = await this.userRepository.getSessionToken(token);
+
+        if (!sessionToken) {
+            throw Boom.unauthorized('Session Token Not Found');
         }
-        return user;
+
+        if (this.userConfig.primary === 'organization') {
+            return this.userRepository.findOrganizationUserById(sessionToken.user);
+        }
+
+        return this.userRepository.findIndividualUserById(sessionToken.user);
     }
 }
 

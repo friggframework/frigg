@@ -9,12 +9,12 @@ jest.mock('bcryptjs', () => ({
 describe('LoginUser Use Case', () => {
     let userRepository;
     let loginUser;
-    let userDefinition;
+    let userConfig;
 
     beforeEach(() => {
-        userDefinition = { usePassword: true, individualUserRequired: true, organizationUserRequired: false };
-        userRepository = new TestUserRepository({ userDefinition });
-        loginUser = new LoginUser({ userRepository, userConfig: userDefinition });
+        userConfig = { usePassword: true, individualUserRequired: true, organizationUserRequired: false };
+        userRepository = new TestUserRepository({ userConfig });
+        loginUser = new LoginUser({ userRepository, userConfig });
 
         bcrypt.compareSync.mockClear();
     });
@@ -70,11 +70,11 @@ describe('LoginUser Use Case', () => {
 
     describe('Without Password (appUserId)', () => {
         beforeEach(() => {
-            userDefinition = { usePassword: false, individualUserRequired: true, organizationUserRequired: false };
-            userRepository = new TestUserRepository({ userDefinition });
+            userConfig = { usePassword: false, individualUserRequired: true, organizationUserRequired: false };
+            userRepository = new TestUserRepository({ userConfig });
             loginUser = new LoginUser({
                 userRepository,
-                userConfig: userDefinition,
+                userConfig,
             });
         });
 
@@ -91,14 +91,14 @@ describe('LoginUser Use Case', () => {
 
     describe('With Organization User', () => {
         beforeEach(() => {
-            userDefinition = {
+            userConfig = {
                 individualUserRequired: false,
                 organizationUserRequired: true,
             };
-            userRepository = new TestUserRepository({ userDefinition });
+            userRepository = new TestUserRepository({ userConfig });
             loginUser = new LoginUser({
                 userRepository,
-                userConfig: userDefinition,
+                userConfig,
             });
         });
 
@@ -127,17 +127,17 @@ describe('LoginUser Use Case', () => {
 
     describe('Required User Checks', () => {
         it('should throw an error if a required individual user is not found', async () => {
-            userDefinition = {
+            userConfig = {
                 individualUserRequired: true,
                 usePassword: false,
             };
-            userRepository = new TestUserRepository({ userDefinition });
+            userRepository = new TestUserRepository({ userConfig });
             userRepository.findIndividualUserByAppUserId = jest
                 .fn()
                 .mockRejectedValue(new Error('user not found'));
             loginUser = new LoginUser({
                 userRepository,
-                userConfig: userDefinition,
+                userConfig,
             });
 
             await expect(

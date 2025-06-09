@@ -1,3 +1,5 @@
+const crypto = require('crypto');
+
 /**
  * Use case for creating a token for a user ID.
  * @class CreateTokenForUserId
@@ -20,7 +22,8 @@ class CreateTokenForUserId {
      * @returns {Promise<string>} The user token.
      */
     async execute(userId, minutes) {
-        return this.userRepository.createToken(userId, minutes);
+        const rawToken = crypto.randomBytes(20).toString('hex');
+        return this.userRepository.createToken(userId, rawToken, minutes);
     }
 }
 

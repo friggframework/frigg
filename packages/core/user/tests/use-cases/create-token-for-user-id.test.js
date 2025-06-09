@@ -5,9 +5,9 @@ const { TestUserRepository } = require('../doubles/test-user-repository');
 
 describe('CreateTokenForUserId Use Case', () => {
     it('should create and return a token via the repository', async () => {
-        const userDefinition = {}; // Not used by this use case, but required by the test repo
-        const userRepository = new TestUserRepository({ userDefinition });
-        const createTokenForUserId = new CreateTokenForUserId({ userRepository });
+        const userConfig = {}; // Not used by this use case, but required by the test repo
+        const userRepository = new TestUserRepository({ userConfig });
+        const createTokenForUserId = new CreateTokenForUserId({ userRepository, userConfig });
 
         const userId = 'user-123';
         const token = await createTokenForUserId.execute(userId);

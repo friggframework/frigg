@@ -5,15 +5,15 @@ const { TestUserRepository } = require('../doubles/test-user-repository');
 
 describe('CreateOrganizationUser Use Case', () => {
     it('should create and return an organization user via the repository', async () => {
-        const userDefinition = {
+        const userConfig = {
             primary: 'organization',
             organizationUserRequired: true,
             individualUserRequired: false,
         };
-        const userRepository = new TestUserRepository({ userDefinition });
+        const userRepository = new TestUserRepository({ userConfig });
         const createOrganizationUser = new CreateOrganizationUser({
             userRepository,
-            userConfig: userDefinition,
+            userConfig,
         });
 
         const params = {
