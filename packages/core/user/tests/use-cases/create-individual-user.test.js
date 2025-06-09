@@ -14,9 +14,9 @@ describe('CreateIndividualUser Use Case', () => {
             username: 'test-user',
             password: 'password123',
         };
-        const result = await createIndividualUser.execute(params);
+        const user = await createIndividualUser.execute(params);
 
-        expect(result).toBeDefined();
-        expect(result.individualUser.username).toBe(params.username);
+        expect(user).toBeDefined();
+        expect(user.individualUser.username).toBe(params.username);
     });
-}); 
+});

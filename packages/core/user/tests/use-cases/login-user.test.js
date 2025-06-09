@@ -1,9 +1,8 @@
 const bcrypt = require('bcryptjs');
 const { LoginUser } = require('../../use-cases/login-user');
 const { TestUserRepository } = require('../doubles/test-user-repository');
-const { UserFactory } = require('../../user-factory'); // Using the real factory, it's simple enough
+const { UserFactory } = require('../../user-factory');
 
-// Mocking the bcrypt library
 jest.mock('bcryptjs', () => ({
     compareSync: jest.fn(),
 }));
@@ -15,10 +14,9 @@ describe('LoginUser Use Case', () => {
 
     beforeEach(() => {
         userRepository = new TestUserRepository();
-        userFactory = new UserFactory();
+        userFactory = new UserFactory({ usePassword: true });
         loginUser = new LoginUser({ userRepository, userFactory });
 
-        // Reset mocks before each test
         bcrypt.compareSync.mockClear();
     });
 
@@ -34,11 +32,11 @@ describe('LoginUser Use Case', () => {
 
             bcrypt.compareSync.mockReturnValue(true);
 
-            const result = await loginUser.execute({ username, password });
+            const user = await loginUser.execute({ username, password });
 
             expect(bcrypt.compareSync).toHaveBeenCalledWith(password, hashword);
-            expect(result).toBeDefined();
-            expect(result.individualUser.username).toBe(username);
+            expect(user).toBeDefined();
+            expect(user.individualUser.username).toBe(username);
         });
 
         it('should throw an unauthorized error for an incorrect password', async () => {
@@ -65,10 +63,7 @@ describe('LoginUser Use Case', () => {
 
     describe('Without Password (appUserId)', () => {
         beforeEach(() => {
-            // Reconfigure the use case to not use passwords
-            const userFactoryNoPassword = {
-                create: () => new userFactory.userModel({ usePassword: false }),
-            };
+            const userFactoryNoPassword = new UserFactory({ usePassword: false });
             loginUser = new LoginUser({
                 userRepository,
                 userFactory: userFactoryNoPassword,
@@ -77,7 +72,7 @@ describe('LoginUser Use Case', () => {
 
         it('should successfully retrieve a user by appUserId', async () => {
             const appUserId = 'app-user-123';
-            const createdUser = await userRepository.createIndividualUser({
+            await userRepository.createIndividualUser({
                 appUserId,
             });
 
@@ -86,15 +81,44 @@ describe('LoginUser Use Case', () => {
         });
     });
 
-    describe('Required User Checks', () => {
-        it('should throw an error if a required individual user is not found', async () => {
-            const userFactoryRequired = {
-                create: () =>
-                    new userFactory.userModel({ individualUserRequired: true }),
-            };
+    describe('With Organization User', () => {
+        beforeEach(() => {
+            userFactory = new UserFactory({
+                individualUserRequired: false,
+                organizationUserRequired: true,
+            });
             loginUser = new LoginUser({
                 userRepository,
-                userFactory: userFactoryRequired,
+                userFactory,
+            });
+        });
+
+        it('should successfully retrieve an organization user by appOrgId', async () => {
+            const appOrgId = 'app-org-123';
+            await userRepository.createOrganizationUser({
+                name: 'Test Org',
+                appOrgId,
+            });
+
+            const result = await loginUser.execute({ appOrgId });
+            expect(result.organizationUser.appOrgId).toBe(appOrgId);
+        });
+
+        it('should throw an unauthorized error for a non-existent organization user', async () => {
+            const appOrgId = 'non-existent-org';
+
+            await expect(loginUser.execute({ appOrgId })).rejects.toThrow(
+                `org user ${appOrgId} not found`
+            );
+        });
+    });
+
+    describe('Required User Checks', () => {
+        it('should throw an error if a required individual user is not found', async () => {
+            userFactory = new UserFactory({ individualUserRequired: true });
+            loginUser = new LoginUser({
+                userRepository,
+                userFactory,
             });
 
             await expect(loginUser.execute({ username: 'dne' })).rejects.toThrow('user not found');

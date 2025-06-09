@@ -1,6 +1,9 @@
 const bcrypt = require('bcryptjs');
 const Boom = require('@hapi/boom');
 const { get } = require('../../assertions');
+const {
+    RequiredPropertyError,
+} = require('../../errors');
 
 /**
  * Use case for logging in a user.
@@ -21,56 +24,78 @@ class LoginUser {
     /**
      * Executes the use case.
      * @async
-     * @param {Object} params - The parameters for logging in the user.
+     * @param {Object} userCredentials - The user's credentials for authentication.
+     * @param {string} [userCredentials.username] - The username for authentication.
+     * @param {string} [userCredentials.password] - The password for authentication.
+     * @param {string} [userCredentials.appUserId] - The app user id for authentication.
+     * @param {string} [userCredentials.appOrgId] - The app organization id for authentication.
      * @returns {Promise<import('../user').User>} The authenticated user object.
      */
-    async execute(params) {
+    async execute(userCredentials) {
+        const { username, password, appUserId, appOrgId } = userCredentials;
         const user = this.userFactory.create();
 
-        if (user.config.usePassword) {
-            const username = get(params, 'username');
-            const password = get(params, 'password');
+        if (user.isIndividualUserRequired()) {
+            if (user.isPasswordRequired()) {
+                if (!username) {
+                    throw new RequiredPropertyError({
+                        parent: this,
+                        key: 'username',
+                    });
+                }
+                if (!password) {
+                    throw new RequiredPropertyError({
+                        parent: this,
+                        key: 'password',
+                    });
+                }
 
-            const individualUser =
-                await this.userRepository.findIndividualUserByUsername(
-                    username
+                const individualUser =
+                    await this.userRepository.findIndividualUserByUsername(
+                        username
+                    );
+
+                if (!individualUser) {
+                    throw Boom.unauthorized('incorrect username or password');
+                }
+
+                const isValid = bcrypt.compareSync(
+                    password,
+                    individualUser.hashword
                 );
 
-            if (!individualUser) {
-                throw Boom.unauthorized('incorrect username or password');
+                if (!isValid) {
+                    throw Boom.unauthorized('incorrect username or password');
+                }
+
+                user.setIndividualUser(individualUser);
+            } else {
+                const individualUser =
+                    await this.userRepository.findIndividualUserByAppUserId(
+                        appUserId
+                    );
+
+                user.setIndividualUser(individualUser);
             }
 
-            const isValid = bcrypt.compareSync(
-                password,
-                individualUser.hashword
-            );
-            if (!isValid) {
-                throw Boom.unauthorized('incorrect username or password');
-            }
-            user.individualUser = individualUser;
-        } else {
-            const appUserId = get(params, 'appUserId', null);
-            user.individualUser =
-                await this.userRepository.findIndividualUserByAppUserId(
-                    appUserId
-                );
-        }
-
-        const appOrgId = get(params, 'appOrgId', null);
-        user.organizationUser =
-            await this.userRepository.findOrganizationUserByAppOrgId(appOrgId);
-
-        if (user.config.individualUserRequired) {
-            if (!user.individualUser) {
+            if (!user.getIndividualUser()) {
                 throw Boom.unauthorized('user not found');
             }
         }
 
-        if (user.config.organizationUserRequired) {
-            if (!user.organizationUser) {
+
+        if (user.isOrganizationUserRequired()) {
+
+            const organizationUser =
+                await this.userRepository.findOrganizationUserByAppOrgId(appOrgId);
+
+            if (!organizationUser) {
                 throw Boom.unauthorized(`org user ${appOrgId} not found`);
             }
+
+            user.setOrganizationUser(organizationUser);
         }
+
         return user;
     }
 }

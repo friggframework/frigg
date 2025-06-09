@@ -16,13 +16,13 @@ describe('GetUserFromBearerToken Use Case', () => {
         const createdUser = await userRepository.createIndividualUser({
             username: 'test-user',
         });
-        const token = await userRepository.createToken(createdUser.getId());
+        const token = await userRepository.createToken(createdUser.id);
 
         // The real use case expects a "Bearer <token>" string
         const result = await getUserFromBearerToken.execute(`Bearer ${token}`);
 
         // We check for the ID because they are different object instances
-        expect(result.getId()).toBe(createdUser.getId());
+        expect(result.getId()).toBe(createdUser.id);
     });
 
     it('should throw an unauthorized error if the bearer token is missing', async () => {

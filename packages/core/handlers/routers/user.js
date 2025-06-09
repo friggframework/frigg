@@ -12,11 +12,12 @@ const {
     CreateTokenForUserId,
 } = require('../../user/use-cases/create-token-for-user-id');
 const catchAsyncError = require('express-async-handler');
+const { loadAppDefinition } = require('../backend-utils');
 
 const router = express();
 
-// A poor-man's dependency injection container
-const userFactory = new UserFactory();
+const appDefinition = loadAppDefinition();
+const userFactory = new UserFactory(appDefinition.userConfig);
 const userRepository = new UserRepository({ userFactory });
 const createIndividualUser = new CreateIndividualUser({
     userRepository,
