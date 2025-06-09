@@ -10,7 +10,10 @@ const { GetUserFromBearerToken } = require('../../user/use-cases/get-user-from-b
 const { integrations, userConfig } = loadAppDefinition();
 const integrationFactory = new IntegrationFactory(integrations);
 const userRepository = new UserRepository({ userConfig });
-const getUserFromBearerToken = new GetUserFromBearerToken({ userRepository });
+const getUserFromBearerToken = new GetUserFromBearerToken({
+    userRepository,
+    userConfig,
+});
 
 const router = createIntegrationRouter({
     factory: {
