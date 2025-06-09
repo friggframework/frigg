@@ -1,9 +1,7 @@
 const express = require('express');
 const { createAppHandler } = require('../app-handler-helpers');
 const { checkRequiredParams } = require('@friggframework/core');
-const { User } = require('../../user/user');
 const { UserRepository } = require('../../user/user-repository');
-const { UserFactory } = require('../../user/user-factory');
 const {
     CreateIndividualUser,
 } = require('../../user/use-cases/create-individual-user');
@@ -15,16 +13,15 @@ const catchAsyncError = require('express-async-handler');
 const { loadAppDefinition } = require('../backend-utils');
 
 const router = express();
-
-const appDefinition = loadAppDefinition();
-const userRepository = new UserRepository({ userDefinition: appDefinition.userConfig });
+const { userConfig } = loadAppDefinition();
+const userRepository = new UserRepository({ userConfig });
 const createIndividualUser = new CreateIndividualUser({
     userRepository,
-    userConfig: appDefinition.userConfig,
+    userConfig,
 });
 const loginUser = new LoginUser({
     userRepository,
-    userConfig: appDefinition.userConfig,
+    userConfig,
 });
 const createTokenForUserId = new CreateTokenForUserId({ userRepository });
 

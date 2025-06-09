@@ -5,13 +5,13 @@ const { OrganizationUser } = require('../database/models/OrganizationUser');
 const { User } = require('./user');
 class UserRepository {
     /**
-     * @param {Object} userDefinition - The user options in the app definition.
+     * @param {Object} userConfig - The user config in the app definition.
      */
-    constructor({ userDefinition }) {
+    constructor({ userConfig }) {
         this.IndividualUser = IndividualUser;
         this.OrganizationUser = OrganizationUser;
         this.Token = Token;
-        this.userDefinition = userDefinition;
+        this.userConfig = userConfig;
     }
 
     // todo: move this to the GetUserFromBearerToken use case.
@@ -24,18 +24,18 @@ class UserRepository {
                 await this.Token.validateAndGetTokenFromJSONToken(jsonToken);
 
             if (sessionToken) {
-                if (this.userDefinition.primary === 'organization') {
+                if (this.userConfig.primary === 'organization') {
                     const organizationUser =
                         await this.OrganizationUser.findById(sessionToken.user);
 
-                    const user = new User(null, organizationUser, this.userDefinition.usePassword, this.userDefinition.primary, this.userDefinition.individualUserRequired, this.userDefinition.organizationUserRequired);
+                    const user = new User(null, organizationUser, this.userConfig.usePassword, this.userConfig.primary, this.userConfig.individualUserRequired, this.userConfig.organizationUserRequired);
                     return user;
                 }
 
                 const individualUser =
                     await this.IndividualUser.findById(sessionToken.user);
 
-                const user = new User(individualUser, null, this.userDefinition.usePassword, this.userDefinition.primary, this.userDefinition.individualUserRequired, this.userDefinition.organizationUserRequired);
+                const user = new User(individualUser, null, this.userConfig.usePassword, this.userConfig.primary, this.userConfig.individualUserRequired, this.userConfig.organizationUserRequired);
                 return user;
             }
         }
@@ -55,12 +55,12 @@ class UserRepository {
 
     async createIndividualUser(params) {
         const individualUser = await this.IndividualUser.create(params);
-        return new User(individualUser, null, this.userDefinition.usePassword, this.userDefinition.primary, this.userDefinition.individualUserRequired, this.userDefinition.organizationUserRequired);
+        return new User(individualUser, null, this.userConfig.usePassword, this.userConfig.primary, this.userConfig.individualUserRequired, this.userConfig.organizationUserRequired);
     }
 
     async createOrganizationUser(params) {
         const organizationUser = await this.OrganizationUser.create(params);
-        return new User(null, organizationUser, this.userDefinition.usePassword, this.userDefinition.primary, this.userDefinition.individualUserRequired, this.userDefinition.organizationUserRequired);
+        return new User(null, organizationUser, this.userConfig.usePassword, this.userConfig.primary, this.userConfig.individualUserRequired, this.userConfig.organizationUserRequired);
     }
 
     async findIndividualUserByUsername(username) {
@@ -70,7 +70,7 @@ class UserRepository {
             throw Boom.unauthorized('user not found');
         }
 
-        return new User(individualUser, null, this.userDefinition.usePassword, this.userDefinition.primary, this.userDefinition.individualUserRequired, this.userDefinition.organizationUserRequired);
+        return new User(individualUser, null, this.userConfig.usePassword, this.userConfig.primary, this.userConfig.individualUserRequired, this.userConfig.organizationUserRequired);
     }
 
     async findIndividualUserByAppUserId(appUserId) {
@@ -80,7 +80,7 @@ class UserRepository {
             throw Boom.unauthorized('user not found');
         }
 
-        return new User(individualUser, null, this.userDefinition.usePassword, this.userDefinition.primary, this.userDefinition.individualUserRequired, this.userDefinition.organizationUserRequired);
+        return new User(individualUser, null, this.userConfig.usePassword, this.userConfig.primary, this.userConfig.individualUserRequired, this.userConfig.organizationUserRequired);
     }
 
     async findOrganizationUserByAppOrgId(appOrgId) {
@@ -90,7 +90,7 @@ class UserRepository {
             throw Boom.unauthorized('user not found');
         }
 
-        return new User(null, organizationUser, this.userDefinition.usePassword, this.userDefinition.primary, this.userDefinition.individualUserRequired, this.userDefinition.organizationUserRequired);
+        return new User(null, organizationUser, this.userConfig.usePassword, this.userConfig.primary, this.userConfig.individualUserRequired, this.userConfig.organizationUserRequired);
     }
 }
 
