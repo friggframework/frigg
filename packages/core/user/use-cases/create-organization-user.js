@@ -10,11 +10,11 @@ class CreateOrganizationUser {
      * Creates a new CreateOrganizationUser instance.
      * @param {Object} params - Configuration parameters.
      * @param {import('../user-repository').UserRepository} params.userRepository - Repository for user data operations.
-     * @param {import('../user-factory').UserFactory} params.userFactory - Factory for creating User instances
+     * @param {Object} params.userConfig - The user properties inside of the app definition.
      */
-    constructor({ userRepository, userFactory }) {
+    constructor({ userRepository, userConfig }) {
         this.userRepository = userRepository;
-        this.userFactory = userFactory;
+        this.userConfig = userConfig;
     }
 
     /**
@@ -26,13 +26,13 @@ class CreateOrganizationUser {
     async execute(params) {
         const name = get(params, 'name');
         const appOrgId = get(params, 'appOrgId');
-        const user = this.userFactory.create();
-        user.organizationUser =
+
+        const organizationUser =
             await this.userRepository.createOrganizationUser({
                 name,
                 appOrgId,
             });
-        return user;
+        return organizationUser;
     }
 }
 

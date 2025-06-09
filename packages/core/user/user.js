@@ -5,18 +5,22 @@
 class User {
     /**
      * Creates a new User instance.
-     * @param {Object} options - The options for the user.
-     * @param {boolean} [options.usePassword=false] - Whether the user has a password.
+     * @param {import('../database/models/IndividualUser').IndividualUser} [individualUser=null] - The individual user for the user.
+     * @param {import('../database/models/OrganizationUser').OrganizationUser} [organizationUser=null] - The organization user for the user.
+     * @param {boolean} [usePassword=false] - Whether the user has a password.
+     * @param {string} [primary='individual'] - The primary user type.
+     * @param {boolean} [individualUserRequired=true] - Whether the user is required to have an individual user.
+     * @param {boolean} [organizationUserRequired=false] - Whether the user is required to have an organization user.
      */
-    constructor(options = {}) {
-        this.individualUser = null;
-        this.organizationUser = null;
-        this.usePassword = options.usePassword || false;
+    constructor(individualUser = null, organizationUser = null, usePassword = false, primary = 'individual', individualUserRequired = true, organizationUserRequired = false) {
+        this.individualUser = individualUser;
+        this.organizationUser = organizationUser;
+        this.usePassword = usePassword;
 
         this.config = {
-            primary: options.primary || 'individual',
-            individualUserRequired: options.individualUserRequired ?? true,
-            organizationUserRequired: options.organizationUserRequired ?? false,
+            primary,
+            individualUserRequired,
+            organizationUserRequired,
         };
     }
 
@@ -33,6 +37,14 @@ class User {
 
     isPasswordRequired() {
         return this.usePassword;
+    }
+
+    isPasswordValid(password) {
+        if (!this.isPasswordRequired()) {
+            return true;
+        }
+
+        return bcrypt.compareSync(password, this.getPrimaryUser().hashword);
     }
 
     setIndividualUser(individualUser) {

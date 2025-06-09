@@ -1,24 +1,21 @@
 const crypto = require('crypto');
-const { get } = require('../assertions');
 const { Token } = require('../database/models/Token');
 const { IndividualUser } = require('../database/models/IndividualUser');
 const { OrganizationUser } = require('../database/models/OrganizationUser');
-const Boom = require('@hapi/boom');
-
+const { User } = require('./user');
 class UserRepository {
     /**
-     * @param {Object} options - Configuration options
-     * @param {import('./user-factory').UserFactory} options.userFactory - Factory for creating User instances
+     * @param {Object} userDefinition - The user options in the app definition.
      */
-    constructor({ userFactory }) {
+    constructor({ userDefinition }) {
         this.IndividualUser = IndividualUser;
         this.OrganizationUser = OrganizationUser;
         this.Token = Token;
-        this.userFactory = userFactory;
+        this.userDefinition = userDefinition;
     }
 
+    // todo: move this to the GetUserFromBearerToken use case.
     async getUserFromToken(token) {
-        const user = this.userFactory.create();
 
         if (token) {
             const jsonToken =
@@ -27,18 +24,23 @@ class UserRepository {
                 await this.Token.validateAndGetTokenFromJSONToken(jsonToken);
 
             if (sessionToken) {
-                // todo: create a getConfig method on the user class
-                if (user.config.primary === 'organization') {
-                    user.setOrganizationUser(
-                        await this.OrganizationUser.findById(sessionToken.user));
-                } else {
-                    user.setIndividualUser(
-                        await this.IndividualUser.findById(sessionToken.user)
-                    );
+                if (this.userDefinition.primary === 'organization') {
+                    const organizationUser =
+                        await this.OrganizationUser.findById(sessionToken.user);
+
+                    const user = new User(null, organizationUser, this.userDefinition.usePassword, this.userDefinition.primary, this.userDefinition.individualUserRequired, this.userDefinition.organizationUserRequired);
+                    return user;
                 }
+
+                const individualUser =
+                    await this.IndividualUser.findById(sessionToken.user);
+
+                const user = new User(individualUser, null, this.userDefinition.usePassword, this.userDefinition.primary, this.userDefinition.individualUserRequired, this.userDefinition.organizationUserRequired);
+                return user;
             }
         }
-        return user;
+
+        return null;
     }
 
     async createToken(userId, minutes = 120) {
@@ -52,23 +54,43 @@ class UserRepository {
     }
 
     async createIndividualUser(params) {
-        return this.IndividualUser.create(params);
+        const individualUser = await this.IndividualUser.create(params);
+        return new User(individualUser, null, this.userDefinition.usePassword, this.userDefinition.primary, this.userDefinition.individualUserRequired, this.userDefinition.organizationUserRequired);
     }
 
     async createOrganizationUser(params) {
-        return this.OrganizationUser.create(params);
+        const organizationUser = await this.OrganizationUser.create(params);
+        return new User(null, organizationUser, this.userDefinition.usePassword, this.userDefinition.primary, this.userDefinition.individualUserRequired, this.userDefinition.organizationUserRequired);
     }
 
     async findIndividualUserByUsername(username) {
-        return this.IndividualUser.findOne({ username });
+        const individualUser = await this.IndividualUser.findOne({ username });
+
+        if (!individualUser) {
+            throw Boom.unauthorized('user not found');
+        }
+
+        return new User(individualUser, null, this.userDefinition.usePassword, this.userDefinition.primary, this.userDefinition.individualUserRequired, this.userDefinition.organizationUserRequired);
     }
 
     async findIndividualUserByAppUserId(appUserId) {
-        return this.IndividualUser.getUserByAppUserId(appUserId);
+        const individualUser = await this.IndividualUser.getUserByAppUserId(appUserId);
+
+        if (!individualUser) {
+            throw Boom.unauthorized('user not found');
+        }
+
+        return new User(individualUser, null, this.userDefinition.usePassword, this.userDefinition.primary, this.userDefinition.individualUserRequired, this.userDefinition.organizationUserRequired);
     }
 
     async findOrganizationUserByAppOrgId(appOrgId) {
-        return this.OrganizationUser.getUserByAppOrgId(appOrgId);
+        const organizationUser = await this.OrganizationUser.getUserByAppOrgId(appOrgId);
+
+        if (!organizationUser) {
+            throw Boom.unauthorized('user not found');
+        }
+
+        return new User(null, organizationUser, this.userDefinition.usePassword, this.userDefinition.primary, this.userDefinition.individualUserRequired, this.userDefinition.organizationUserRequired);
     }
 }
 

@@ -13,11 +13,11 @@ class LoginUser {
      * Creates a new LoginUser instance.
      * @param {Object} params - Configuration parameters.
      * @param {import('../user-repository').UserRepository} params.userRepository - Repository for user data operations.
-     * @param {import('../user-factory').UserFactory} params.userFactory - Factory for creating User instances.
+     * @param {Object} params.userConfig - The user properties inside of the app definition.
      */
-    constructor({ userRepository, userFactory }) {
+    constructor({ userRepository, userConfig }) {
         this.userRepository = userRepository;
-        this.userFactory = userFactory;
+        this.userConfig = userConfig;
     }
 
     /**
@@ -32,10 +32,8 @@ class LoginUser {
      */
     async execute(userCredentials) {
         const { username, password, appUserId, appOrgId } = userCredentials;
-        const user = this.userFactory.create();
-
-        if (user.isIndividualUserRequired()) {
-            if (user.isPasswordRequired()) {
+        if (this.userConfig.individualUserRequired) {
+            if (this.userConfig.usePassword) {
                 if (!username) {
                     throw new RequiredPropertyError({
                         parent: this,
@@ -54,36 +52,23 @@ class LoginUser {
                         username
                     );
 
-                if (!individualUser) {
+                if (!individualUser.isPasswordValid(password)) {
                     throw Boom.unauthorized('incorrect username or password');
                 }
 
-                const isValid = bcrypt.compareSync(
-                    password,
-                    individualUser.hashword
-                );
-
-                if (!isValid) {
-                    throw Boom.unauthorized('incorrect username or password');
-                }
-
-                user.setIndividualUser(individualUser);
+                return individualUser;
             } else {
                 const individualUser =
                     await this.userRepository.findIndividualUserByAppUserId(
                         appUserId
                     );
 
-                user.setIndividualUser(individualUser);
-            }
-
-            if (!user.getIndividualUser()) {
-                throw Boom.unauthorized('user not found');
+                return individualUser;
             }
         }
 
 
-        if (user.isOrganizationUserRequired()) {
+        if (this.userConfig.organizationUserRequired) {
 
             const organizationUser =
                 await this.userRepository.findOrganizationUserByAppOrgId(appOrgId);
@@ -92,10 +77,11 @@ class LoginUser {
                 throw Boom.unauthorized(`org user ${appOrgId} not found`);
             }
 
-            user.setOrganizationUser(organizationUser);
+            return organizationUser;
         }
 
-        return user;
+        // todo: check if organizationUserRequired and individualUserRequired can be used at the same time.
+        return null;
     }
 }
 

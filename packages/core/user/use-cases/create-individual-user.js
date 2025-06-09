@@ -10,11 +10,11 @@ class CreateIndividualUser {
      * Creates a new CreateIndividualUser instance.
      * @param {Object} params - Configuration parameters.
      * @param {import('../user-repository').UserRepository} params.userRepository - Repository for user data operations.
-     * @param {import('../user-factory').UserFactory} params.userFactory - Factory for creating User instances
+     * @param {Object} params.userConfig - The user properties inside of the app definition.
      */
-    constructor({ userRepository, userFactory }) {
+    constructor({ userRepository, userConfig }) {
         this.userRepository = userRepository;
-        this.userFactory = userFactory;
+        this.userConfig = userConfig;
     }
 
     /**
@@ -24,10 +24,8 @@ class CreateIndividualUser {
      * @returns {Promise<import('../user').User>} The newly created user object.
      */
     async execute(params) {
-        const user = this.userFactory.create();
-
         let hashword;
-        if (user.config.usePassword) {
+        if (this.userConfig.usePassword) {
             hashword = get(params, 'password');
         }
 
@@ -40,14 +38,14 @@ class CreateIndividualUser {
         const appUserId = get(params, 'appUserId', null);
         const organizationUserId = get(params, 'organizationUserId', null);
 
-        user.individualUser = await this.userRepository.createIndividualUser({
+        const individualUser = await this.userRepository.createIndividualUser({
             email,
             username,
             hashword,
             appUserId,
             organizationUser: organizationUserId,
         });
-        return user;
+        return individualUser;
     }
 }
 

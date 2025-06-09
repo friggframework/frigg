@@ -17,13 +17,15 @@ const { loadAppDefinition } = require('../backend-utils');
 const router = express();
 
 const appDefinition = loadAppDefinition();
-const userFactory = new UserFactory(appDefinition.userConfig);
-const userRepository = new UserRepository({ userFactory });
+const userRepository = new UserRepository({ userDefinition: appDefinition.userConfig });
 const createIndividualUser = new CreateIndividualUser({
     userRepository,
-    userFactory,
+    userConfig: appDefinition.userConfig,
 });
-const loginUser = new LoginUser({ userRepository, userFactory });
+const loginUser = new LoginUser({
+    userRepository,
+    userConfig: appDefinition.userConfig,
+});
 const createTokenForUserId = new CreateTokenForUserId({ userRepository });
 
 // define the login endpoint
