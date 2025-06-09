@@ -26,8 +26,8 @@ class LoginUser {
      * @param {Object} userCredentials - The user's credentials for authentication.
      * @param {string} [userCredentials.username] - The username for authentication.
      * @param {string} [userCredentials.password] - The password for authentication.
-     * @param {string} [userCredentials.appUserId] - The app user id for authentication.
-     * @param {string} [userCredentials.appOrgId] - The app organization id for authentication.
+     * @param {string} [userCredentials.appUserId] - The app user id for authentication if no username and password are provided.
+     * @param {string} [userCredentials.appOrgId] - The app organization id for authentication if no username and password are provided.
      * @returns {Promise<import('../user').User>} The authenticated user object.
      */
     async execute(userCredentials) {
@@ -53,7 +53,7 @@ class LoginUser {
                     );
 
                 if (!individualUser.isPasswordValid(password)) {
-                    throw Boom.unauthorized('incorrect username or password');
+                    throw Boom.unauthorized('Incorrect username or password');
                 }
 
                 return individualUser;

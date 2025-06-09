@@ -1,17 +1,40 @@
-const { MockUser } = require('./mock-user');
+const Boom = require('@hapi/boom');
+const { User } = require('../../user');
 
 class TestUserRepository {
-    constructor() {
-        this.usersByToken = new Map();
+    constructor({ userDefinition }) {
         this.individualUsers = new Map();
         this.organizationUsers = new Map();
         this.tokens = new Map();
+        this.userDefinition = userDefinition;
     }
 
     async getUserFromToken(token) {
         const userId = this.tokens.get(token);
         // This is a simplified lookup for testing purposes
-        return this.individualUsers.get(userId) || this.organizationUsers.get(userId) || null;
+        const individualUserDoc = this.individualUsers.get(userId);
+        if (individualUserDoc) {
+            return new User(
+                individualUserDoc,
+                null,
+                this.userDefinition.usePassword,
+                this.userDefinition.primary,
+                this.userDefinition.individualUserRequired,
+                this.userDefinition.organizationUserRequired
+            );
+        }
+        const orgUserDoc = this.organizationUsers.get(userId);
+        if (orgUserDoc) {
+            return new User(
+                null,
+                orgUserDoc,
+                this.userDefinition.usePassword,
+                this.userDefinition.primary,
+                this.userDefinition.individualUserRequired,
+                this.userDefinition.organizationUserRequired
+            );
+        }
+        return null;
     }
 
     async createToken(userId, minutes = 120) {
@@ -22,47 +45,79 @@ class TestUserRepository {
     }
 
     async createIndividualUser(params) {
-        const user = new MockUser();
-        user.individualUser = { ...params, id: `individual-${Date.now()}` };
-        this.individualUsers.set(user.getId(), user);
-        return user.individualUser;
+        const individualUserData = { id: `individual-${Date.now()}`, ...params };
+        this.individualUsers.set(individualUserData.id, individualUserData);
+        return new User(
+            individualUserData,
+            null,
+            this.userDefinition.usePassword,
+            this.userDefinition.primary,
+            this.userDefinition.individualUserRequired,
+            this.userDefinition.organizationUserRequired
+        );
     }
 
     async createOrganizationUser(params) {
-        const user = new MockUser();
-        user.organizationUser = { ...params, id: `org-${Date.now()}` };
-        this.organizationUsers.set(user.getId(), user);
-        return user.organizationUser;
+        const orgUserData = { ...params, id: `org-${Date.now()}` };
+        this.organizationUsers.set(orgUserData.id, orgUserData);
+        return new User(
+            null,
+            orgUserData,
+            this.userDefinition.usePassword,
+            this.userDefinition.primary,
+            this.userDefinition.individualUserRequired,
+            this.userDefinition.organizationUserRequired
+        );
     }
 
     async findIndividualUserByUsername(username) {
-        for (const user of this.individualUsers.values()) {
-            if (user.individualUser.username === username) {
-                // Return the sub-document to mimic Mongoose behavior
-                return user.individualUser;
+        for (const userDoc of this.individualUsers.values()) {
+            if (userDoc.username === username) {
+                return new User(
+                    userDoc,
+                    null,
+                    this.userDefinition.usePassword,
+                    this.userDefinition.primary,
+                    this.userDefinition.individualUserRequired,
+                    this.userDefinition.organizationUserRequired
+                );
             }
         }
-        return null;
+        throw Boom.unauthorized('user not found');
     }
 
     async findIndividualUserByAppUserId(appUserId) {
-        if (!appUserId) return null;
-        for (const user of this.individualUsers.values()) {
-            if (user.individualUser.appUserId === appUserId) {
-                return user.individualUser;
+        if (!appUserId) throw Boom.unauthorized('user not found');
+        for (const userDoc of this.individualUsers.values()) {
+            if (userDoc.appUserId === appUserId) {
+                return new User(
+                    userDoc,
+                    null,
+                    this.userDefinition.usePassword,
+                    this.userDefinition.primary,
+                    this.userDefinition.individualUserRequired,
+                    this.userDefinition.organizationUserRequired
+                );
             }
         }
-        return null;
+        throw Boom.unauthorized('user not found');
     }
 
     async findOrganizationUserByAppOrgId(appOrgId) {
-        if (!appOrgId) return null;
-        for (const user of this.organizationUsers.values()) {
-            if (user.organizationUser.appOrgId === appOrgId) {
-                return user.organizationUser;
+        if (!appOrgId) throw Boom.unauthorized('user not found');
+        for (const userDoc of this.organizationUsers.values()) {
+            if (userDoc.appOrgId === appOrgId) {
+                return new User(
+                    null,
+                    userDoc,
+                    this.userDefinition.usePassword,
+                    this.userDefinition.primary,
+                    this.userDefinition.individualUserRequired,
+                    this.userDefinition.organizationUserRequired
+                );
             }
         }
-        return null;
+        throw Boom.unauthorized('user not found');
     }
 }
 

@@ -1,3 +1,5 @@
+const bcrypt = require('bcryptjs');
+
 /**
  * Represents a user in the system. The User class is a domain entity,
  * @class User

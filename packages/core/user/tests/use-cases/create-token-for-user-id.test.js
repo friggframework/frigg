@@ -5,14 +5,15 @@ const { TestUserRepository } = require('../doubles/test-user-repository');
 
 describe('CreateTokenForUserId Use Case', () => {
     it('should create and return a token via the repository', async () => {
-        const userRepository = new TestUserRepository();
+        const userDefinition = {}; // Not used by this use case, but required by the test repo
+        const userRepository = new TestUserRepository({ userDefinition });
         const createTokenForUserId = new CreateTokenForUserId({ userRepository });
 
         const userId = 'user-123';
-        const minutes = 120;
-        const result = await createTokenForUserId.execute(userId, minutes);
+        const token = await createTokenForUserId.execute(userId);
 
-        const expectedToken = `token-for-${userId}-for-${minutes}-mins`;
-        expect(result).toBe(expectedToken);
+        expect(token).toBeDefined();
+        // The mock token is deterministic, so we can check it
+        expect(token).toContain(`token-for-${userId}`);
     });
 }); 

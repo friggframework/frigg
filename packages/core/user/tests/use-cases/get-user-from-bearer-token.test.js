@@ -6,23 +6,31 @@ const { TestUserRepository } = require('../doubles/test-user-repository');
 describe('GetUserFromBearerToken Use Case', () => {
     let userRepository;
     let getUserFromBearerToken;
+    let userDefinition;
 
     beforeEach(() => {
-        userRepository = new TestUserRepository();
-        getUserFromBearerToken = new GetUserFromBearerToken({ userRepository });
+        userDefinition = {
+            primary: 'individual',
+            individualUserRequired: true,
+            organizationUserRequired: false,
+        };
+        userRepository = new TestUserRepository({ userDefinition });
+        getUserFromBearerToken = new GetUserFromBearerToken({
+            userRepository
+        });
     });
 
     it('should retrieve a user for a valid bearer token', async () => {
+        const userId = 'user-123';
+        const token = await userRepository.createToken(userId);
         const createdUser = await userRepository.createIndividualUser({
-            username: 'test-user',
+            id: userId,
         });
-        const token = await userRepository.createToken(createdUser.id);
 
-        // The real use case expects a "Bearer <token>" string
-        const result = await getUserFromBearerToken.execute(`Bearer ${token}`);
+        const user = await getUserFromBearerToken.execute(`Bearer ${token}`);
 
-        // We check for the ID because they are different object instances
-        expect(result.getId()).toBe(createdUser.id);
+        expect(user).toBeDefined();
+        expect(user.getId()).toBe(createdUser.getId());
     });
 
     it('should throw an unauthorized error if the bearer token is missing', async () => {
@@ -33,21 +41,20 @@ describe('GetUserFromBearerToken Use Case', () => {
 
     it('should throw an unauthorized error for an invalid token format', async () => {
         await expect(
-            getUserFromBearerToken.execute('invalid-token-format')
+            getUserFromBearerToken.execute('InvalidToken')
         ).rejects.toThrow('Invalid Token Format');
     });
 
     it('should throw an unauthorized error if the token is not found', async () => {
+        userRepository.getUserFromToken = jest.fn().mockResolvedValue(null);
         await expect(
-            getUserFromBearerToken.execute('Bearer non-existent-token')
+            getUserFromBearerToken.execute('Bearer invalid-token')
         ).rejects.toThrow('Invalid Token');
     });
 
     it('should throw an unauthorized error if the token is valid but finds no user', async () => {
-        // This simulates a token that exists but points to a deleted user
-        const userId = 'a-real-user-id';
-        const token = await userRepository.createToken(userId);
-
+        userRepository.getUserFromToken = jest.fn().mockResolvedValue(null);
+        const token = await userRepository.createToken('user-dne');
         await expect(
             getUserFromBearerToken.execute(`Bearer ${token}`)
         ).rejects.toThrow('Invalid Token');
