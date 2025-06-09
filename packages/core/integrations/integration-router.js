@@ -176,12 +176,15 @@ function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
 
     router.route('/api/integrations/:integrationId/config/options').get(
         catchAsyncError(async (req, res) => {
-            await getUserFromBearerToken.execute(
+            const user = await getUserFromBearerToken.execute(
                 req.headers.authorization
             );
             const params = checkRequiredParams(req.params, ['integrationId']);
             const integration =
-                await integrationFactory.getInstanceFromIntegrationId(params);
+                await integrationFactory.getInstanceFromIntegrationId({
+                    integrationId: params.integrationId,
+                    userId: user.getId(),
+                });
             res.json(await integration.send('GET_CONFIG_OPTIONS'));
         })
     );
@@ -190,7 +193,7 @@ function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
         .route('/api/integrations/:integrationId/config/options/refresh')
         .post(
             catchAsyncError(async (req, res) => {
-                await getUserFromBearerToken.execute(
+                const user = await getUserFromBearerToken.execute(
                     req.headers.authorization
                 );
                 const params = checkRequiredParams(req.params, [
@@ -198,7 +201,10 @@ function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
                 ]);
                 const integration =
                     await integrationFactory.getInstanceFromIntegrationId(
-                        params
+                        {
+                            integrationId: params.integrationId,
+                            userId: user.getId(),
+                        }
                     );
 
                 res.json(
@@ -208,12 +214,15 @@ function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
         );
     router.route('/api/integrations/:integrationId/actions').all(
         catchAsyncError(async (req, res) => {
-            await getUserFromBearerToken.execute(
+            const user = await getUserFromBearerToken.execute(
                 req.headers.authorization
             );
             const params = checkRequiredParams(req.params, ['integrationId']);
             const integration =
-                await integrationFactory.getInstanceFromIntegrationId(params);
+                await integrationFactory.getInstanceFromIntegrationId({
+                    integrationId: params.integrationId,
+                    userId: user.getId(),
+                });
             res.json(await integration.send('GET_USER_ACTIONS', req.body));
         })
     );
@@ -222,7 +231,7 @@ function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
         .route('/api/integrations/:integrationId/actions/:actionId/options')
         .all(
             catchAsyncError(async (req, res) => {
-                await getUserFromBearerToken.execute(
+                const user = await getUserFromBearerToken.execute(
                     req.headers.authorization
                 );
                 const params = checkRequiredParams(req.params, [
@@ -231,7 +240,10 @@ function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
                 ]);
                 const integration =
                     await integrationFactory.getInstanceFromIntegrationId(
-                        params
+                        {
+                            integrationId: params.integrationId,
+                            userId: user.getId(),
+                        }
                     );
 
                 res.json(
@@ -249,7 +261,7 @@ function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
         )
         .post(
             catchAsyncError(async (req, res) => {
-                await getUserFromBearerToken.execute(
+                const user = await getUserFromBearerToken.execute(
                     req.headers.authorization
                 );
                 const params = checkRequiredParams(req.params, [
@@ -258,7 +270,10 @@ function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
                 ]);
                 const integration =
                     await integrationFactory.getInstanceFromIntegrationId(
-                        params
+                        {
+                            integrationId: params.integrationId,
+                            userId: user.getId(),
+                        }
                     );
 
                 res.json(
@@ -272,7 +287,7 @@ function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
 
     router.route('/api/integrations/:integrationId/actions/:actionId').post(
         catchAsyncError(async (req, res) => {
-            await getUserFromBearerToken.execute(
+            const user = await getUserFromBearerToken.execute(
                 req.headers.authorization
             );
             const params = checkRequiredParams(req.params, [
@@ -280,7 +295,10 @@ function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
                 'actionId',
             ]);
             const integration =
-                await integrationFactory.getInstanceFromIntegrationId(params);
+                await integrationFactory.getInstanceFromIntegrationId({
+                    integrationId: params.integrationId,
+                    userId: user.getId(),
+                });
 
             res.json(await integration.send(params.actionId, req.body));
         })
@@ -288,12 +306,15 @@ function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
 
     router.route('/api/integrations/:integrationId').get(
         catchAsyncError(async (req, res) => {
-            await getUserFromBearerToken.execute(
+            const user = await getUserFromBearerToken.execute(
                 req.headers.authorization
             );
             const params = checkRequiredParams(req.params, ['integrationId']);
             const integration = await IntegrationHelper.getIntegrationById(
-                params.integrationId
+                {
+                    integrationId: params.integrationId,
+                    userId: user.getId(),
+                }
             );
             // We could perhaps augment router with dynamic options? Haven't decided yet, but here may be the place
 
