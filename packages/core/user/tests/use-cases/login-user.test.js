@@ -141,7 +141,7 @@ describe('LoginUser Use Case', () => {
             });
 
             await expect(
-                loginUser.execute({ appUserId: 'dne' })
+                loginUser.execute({ appUserId: 'a-non-existent-user-id' })
             ).rejects.toThrow('user not found');
         });
     });
