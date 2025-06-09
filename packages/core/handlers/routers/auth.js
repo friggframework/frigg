@@ -24,7 +24,6 @@ const router = createIntegrationRouter({
     getUserFromBearerToken,
 });
 
-//todo: what is this route doing here?
 router.route('/redirect/:appId').get((req, res) => {
     res.redirect(
         `${process.env.FRONTEND_URI}/redirect/${req.params.appId
@@ -34,5 +33,4 @@ router.route('/redirect/:appId').get((req, res) => {
 
 const handler = createAppHandler('HTTP Event: Auth', router);
 
-// todo: I can not find where router is used, do we need to export it?
-module.exports = { handler, router };
+module.exports = { handler };
