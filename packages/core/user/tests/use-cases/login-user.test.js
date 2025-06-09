@@ -58,9 +58,6 @@ describe('LoginUser Use Case', () => {
         it('should throw an unauthorized error for a non-existent user', async () => {
             const username = 'non-existent-user';
             const password = 'password123';
-            userRepository.findIndividualUserByUsername = jest
-                .fn()
-                .mockRejectedValue(new Error('user not found'));
 
             await expect(
                 loginUser.execute({ username, password })
@@ -80,18 +77,19 @@ describe('LoginUser Use Case', () => {
 
         it('should successfully retrieve a user by appUserId', async () => {
             const appUserId = 'app-user-123';
-            const createdUser = await userRepository.createIndividualUser({
+            const createdUserData = await userRepository.createIndividualUser({
                 appUserId,
             });
 
             const result = await loginUser.execute({ appUserId });
-            expect(result.getId()).toBe(createdUser.getId());
+            expect(result.getId()).toBe(createdUserData.id);
         });
     });
 
     describe('With Organization User', () => {
         beforeEach(() => {
             userConfig = {
+                primary: 'organization',
                 individualUserRequired: false,
                 organizationUserRequired: true,
             };
@@ -104,23 +102,20 @@ describe('LoginUser Use Case', () => {
 
         it('should successfully retrieve an organization user by appOrgId', async () => {
             const appOrgId = 'app-org-123';
-            const createdUser = await userRepository.createOrganizationUser({
+            const createdUserData = await userRepository.createOrganizationUser({
                 name: 'Test Org',
                 appOrgId,
             });
 
             const result = await loginUser.execute({ appOrgId });
-            expect(result.getId()).toBe(createdUser.getId());
+            expect(result.getId()).toBe(createdUserData.id);
         });
 
         it('should throw an unauthorized error for a non-existent organization user', async () => {
             const appOrgId = 'non-existent-org';
-            userRepository.findOrganizationUserByAppOrgId = jest
-                .fn()
-                .mockRejectedValue(new Error('user not found'));
 
             await expect(loginUser.execute({ appOrgId })).rejects.toThrow(
-                'user not found'
+                'org user non-existent-org not found'
             );
         });
     });
@@ -132,9 +127,6 @@ describe('LoginUser Use Case', () => {
                 usePassword: false,
             };
             userRepository = new TestUserRepository({ userConfig });
-            userRepository.findIndividualUserByAppUserId = jest
-                .fn()
-                .mockRejectedValue(new Error('user not found'));
             loginUser = new LoginUser({
                 userRepository,
                 userConfig,

@@ -1,6 +1,6 @@
 const { get } = require('../../assertions');
+const { User } = require('../user');
 
-// todo: this is not used anywhere, check if needed
 /**
  * Use case for creating an organization user.
  * @class CreateOrganizationUser
@@ -27,12 +27,20 @@ class CreateOrganizationUser {
         const name = get(params, 'name');
         const appOrgId = get(params, 'appOrgId');
 
-        const organizationUser =
+        const organizationUserData =
             await this.userRepository.createOrganizationUser({
                 name,
                 appOrgId,
             });
-        return organizationUser;
+
+        return new User(
+            null,
+            organizationUserData,
+            this.userConfig.usePassword,
+            this.userConfig.primary,
+            this.userConfig.individualUserRequired,
+            this.userConfig.organizationUserRequired
+        );
     }
 }
 

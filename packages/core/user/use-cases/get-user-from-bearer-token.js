@@ -1,4 +1,5 @@
 const Boom = require('@hapi/boom');
+const { User } = require('../user');
 
 /**
  * Use case for retrieving a user from a bearer token.
@@ -40,10 +41,36 @@ class GetUserFromBearerToken {
         }
 
         if (this.userConfig.primary === 'organization') {
-            return this.userRepository.findOrganizationUserById(sessionToken.user);
+            const organizationUserData = await this.userRepository.findOrganizationUserById(sessionToken.user);
+
+            if (!organizationUserData) {
+                throw Boom.unauthorized('Organization User Not Found');
+            }
+
+            return new User(
+                null,
+                organizationUserData,
+                this.userConfig.usePassword,
+                this.userConfig.primary,
+                this.userConfig.individualUserRequired,
+                this.userConfig.organizationUserRequired
+            );
         }
 
-        return this.userRepository.findIndividualUserById(sessionToken.user);
+        const individualUserData = await this.userRepository.findIndividualUserById(sessionToken.user);
+
+        if (!individualUserData) {
+            throw Boom.unauthorized('Individual User Not Found');
+        }
+
+        return new User(
+            individualUserData,
+            null,
+            this.userConfig.usePassword,
+            this.userConfig.primary,
+            this.userConfig.individualUserRequired,
+            this.userConfig.organizationUserRequired
+        );
     }
 }
 

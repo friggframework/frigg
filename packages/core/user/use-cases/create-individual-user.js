@@ -1,5 +1,6 @@
 const { get } = require('../../assertions');
 const Boom = require('@hapi/boom');
+const { User } = require('../user');
 
 /**
  * Use case for creating an individual user.
@@ -38,14 +39,22 @@ class CreateIndividualUser {
         const appUserId = get(params, 'appUserId', null);
         const organizationUserId = get(params, 'organizationUserId', null);
 
-        const individualUser = await this.userRepository.createIndividualUser({
+        const individualUserData = await this.userRepository.createIndividualUser({
             email,
             username,
             hashword,
             appUserId,
             organizationUser: organizationUserId,
         });
-        return individualUser;
+
+        return new User(
+            individualUserData,
+            null,
+            this.userConfig.usePassword,
+            this.userConfig.primary,
+            this.userConfig.individualUserRequired,
+            this.userConfig.organizationUserRequired
+        );
     }
 }
 

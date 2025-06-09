@@ -2,6 +2,7 @@ const Boom = require('@hapi/boom');
 const {
     RequiredPropertyError,
 } = require('../../errors');
+const { User } = require('../user');
 
 /**
  * Use case for logging in a user.
@@ -46,10 +47,23 @@ class LoginUser {
                     });
                 }
 
-                const individualUser =
+                const individualUserData =
                     await this.userRepository.findIndividualUserByUsername(
                         username
                     );
+
+                if (!individualUserData) {
+                    throw Boom.unauthorized('user not found');
+                }
+
+                const individualUser = new User(
+                    individualUserData,
+                    null,
+                    this.userConfig.usePassword,
+                    this.userConfig.primary,
+                    this.userConfig.individualUserRequired,
+                    this.userConfig.organizationUserRequired
+                );
 
                 if (!individualUser.isPasswordValid(password)) {
                     throw Boom.unauthorized('Incorrect username or password');
@@ -57,10 +71,23 @@ class LoginUser {
 
                 return individualUser;
             } else {
-                const individualUser =
+                const individualUserData =
                     await this.userRepository.findIndividualUserByAppUserId(
                         appUserId
                     );
+
+                if (!individualUserData) {
+                    throw Boom.unauthorized('user not found');
+                }
+
+                const individualUser = new User(
+                    individualUserData,
+                    null,
+                    this.userConfig.usePassword,
+                    this.userConfig.primary,
+                    this.userConfig.individualUserRequired,
+                    this.userConfig.organizationUserRequired
+                );
 
                 return individualUser;
             }
@@ -69,12 +96,21 @@ class LoginUser {
 
         if (this.userConfig.organizationUserRequired) {
 
-            const organizationUser =
+            const organizationUserData =
                 await this.userRepository.findOrganizationUserByAppOrgId(appOrgId);
 
-            if (!organizationUser) {
+            if (!organizationUserData) {
                 throw Boom.unauthorized(`org user ${appOrgId} not found`);
             }
+
+            const organizationUser = new User(
+                null,
+                organizationUserData,
+                this.userConfig.usePassword,
+                this.userConfig.primary,
+                this.userConfig.individualUserRequired,
+                this.userConfig.organizationUserRequired
+            );
 
             return organizationUser;
         }

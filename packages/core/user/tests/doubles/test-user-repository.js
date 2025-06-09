@@ -14,19 +14,11 @@ class TestUserRepository {
     }
 
     async findOrganizationUserById(userId) {
-        const orgUserDoc = this.organizationUsers.get(userId);
-        if (!orgUserDoc) {
-            throw Boom.unauthorized('Organization User Not Found');
-        }
-        return new User(null, orgUserDoc, this.userConfig.usePassword, this.userConfig.primary, this.userConfig.individualUserRequired, this.userConfig.organizationUserRequired);
+        return this.organizationUsers.get(userId);
     }
 
     async findIndividualUserById(userId) {
-        const individualUserDoc = this.individualUsers.get(userId);
-        if (!individualUserDoc) {
-            throw Boom.unauthorized('Individual User Not Found');
-        }
-        return new User(individualUserDoc, null, this.userConfig.usePassword, this.userConfig.primary, this.userConfig.individualUserRequired, this.userConfig.organizationUserRequired);
+        return this.individualUsers.get(userId);
     }
 
     async createToken(userId, rawToken, minutes = 120) {
@@ -38,77 +30,42 @@ class TestUserRepository {
     async createIndividualUser(params) {
         const individualUserData = { id: `individual-${Date.now()}`, ...params };
         this.individualUsers.set(individualUserData.id, individualUserData);
-        return new User(
-            individualUserData,
-            null,
-            this.userConfig.usePassword,
-            this.userConfig.primary,
-            this.userConfig.individualUserRequired,
-            this.userConfig.organizationUserRequired
-        );
+        return individualUserData;
     }
 
     async createOrganizationUser(params) {
         const orgUserData = { ...params, id: `org-${Date.now()}` };
         this.organizationUsers.set(orgUserData.id, orgUserData);
-        return new User(
-            null,
-            orgUserData,
-            this.userConfig.usePassword,
-            this.userConfig.primary,
-            this.userConfig.individualUserRequired,
-            this.userConfig.organizationUserRequired
-        );
+        return orgUserData;
     }
 
     async findIndividualUserByUsername(username) {
         for (const userDoc of this.individualUsers.values()) {
             if (userDoc.username === username) {
-                return new User(
-                    userDoc,
-                    null,
-                    this.userConfig.usePassword,
-                    this.userConfig.primary,
-                    this.userConfig.individualUserRequired,
-                    this.userConfig.organizationUserRequired
-                );
+                return userDoc;
             }
         }
-        throw Boom.unauthorized('user not found');
+        return null;
     }
 
     async findIndividualUserByAppUserId(appUserId) {
-        if (!appUserId) throw Boom.unauthorized('user not found');
+        if (!appUserId) return null;
         for (const userDoc of this.individualUsers.values()) {
             if (userDoc.appUserId === appUserId) {
-                return new User(
-                    userDoc,
-                    null,
-                    this.userConfig.usePassword,
-                    this.userConfig.primary,
-                    this.userConfig.individualUserRequired,
-                    this.userConfig.organizationUserRequired
-                );
+                return userDoc;
             }
         }
-        throw Boom.unauthorized('user not found');
+        return null;
     }
 
     async findOrganizationUserByAppOrgId(appOrgId) {
-        if (!appOrgId) throw Boom.unauthorized('user not found');
+        if (!appOrgId) return null;
         for (const userDoc of this.organizationUsers.values()) {
             if (userDoc.appOrgId === appOrgId) {
-                return new User(
-                    null,
-                    userDoc,
-                    this.userConfig.usePassword,
-                    this.userConfig.primary,
-                    this.userConfig.individualUserRequired,
-                    this.userConfig.organizationUserRequired
-                );
+                return userDoc;
             }
         }
-        throw Boom.unauthorized('user not found');
+        return null;
     }
 }
 
