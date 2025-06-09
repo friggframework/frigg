@@ -103,7 +103,7 @@ class IntegrationFactory {
             userId = integrationRecord.user._id.toString();
         } else if (userId.toString() !== integrationRecord.user.toString()) {
             throw new Error(
-                `Integration ${params.integrationId
+                `Integration ${integrationId
                 } does not belong to User ${userId}, ${integrationRecord.user.toString()}`
             );
         }
@@ -114,7 +114,7 @@ class IntegrationFactory {
 
         const instance = new integrationClass({
             userId,
-            integrationId: params.integrationId,
+            integrationId,
         });
 
         if (
