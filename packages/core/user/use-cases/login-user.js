@@ -115,7 +115,6 @@ class LoginUser {
             return organizationUser;
         }
 
-        // todo: check if organizationUserRequired and individualUserRequired can be used at the same time.
         return null;
     }
 }
