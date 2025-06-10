@@ -1,40 +1,9 @@
-const { findNearestBackendPackageJson } = require('@friggframework/core/utils');
-const path = require('node:path');
-const fs = require('fs-extra');
 const { Router } = require('express');
 const { Worker } = require('@friggframework/core');
-
-
-/**
- * Loads the App definition from the nearest backend package
- * @function loadAppDefinition
- * @description Searches for the nearest backend package.json, loads the corresponding index.js file,
- * and extracts the application definition containing integrations and user configuration.
- * @returns {{integrations: Array<object>, userConfig: object | null}} An object containing the application definition.
- * @throws {Error} Throws error if backend package.json cannot be found.
- * @throws {Error} Throws error if index.js file cannot be found in the backend directory.
- * @example
- * const { integrations, userConfig } = loadAppDefinition();
- * console.log(`Found ${integrations.length} integrations`);
- */
-function loadAppDefinition() {
-    const backendPath = findNearestBackendPackageJson();
-    if (!backendPath) {
-        throw new Error('Could not find backend package.json');
-    }
-
-    const backendDir = path.dirname(backendPath);
-    const backendFilePath = path.join(backendDir, 'index.js');
-    if (!fs.existsSync(backendFilePath)) {
-        throw new Error('Could not find index.js');
-    }
-
-    const backendJsFile = require(backendFilePath);
-    const appDefinition = backendJsFile.Definition;
-
-    const { integrations = [], user: userConfig = null } = appDefinition;
-    return { integrations, userConfig };
-}
+const { loadAppDefinition } = require('./app-definition-loader');
+const { IntegrationRepository } = require('../integrations/integration-repository');
+const { ModuleService } = require('../module-plugin/module-service');
+const { GetIntegrationInstance } = require('../integrations/use-cases/get-integration-instance');
 
 const loadRouterFromObject = (IntegrationClass, routerObject) => {
     const router = Router();
@@ -44,7 +13,7 @@ const loadRouterFromObject = (IntegrationClass, routerObject) => {
     );
     router[method.toLowerCase()](path, async (req, res, next) => {
         try {
-            const integration = new IntegrationClass({});
+            const integration = new IntegrationClass();
             await integration.loadModules();
             await integration.registerEventHandlers();
             const result = await integration.send(event, { req, res, next });
@@ -58,29 +27,37 @@ const loadRouterFromObject = (IntegrationClass, routerObject) => {
 };
 
 //todo: this should be in a use case class
-const createQueueWorker = (integrationClass, integrationFactory) => {
+const createQueueWorker = (integrationClass) => {
     class QueueWorker extends Worker {
         async _run(params, context) {
             try {
-                let instance;
+                let integrationInstance;
                 if (!params.integrationId) {
-                    instance = new integrationClass({});
-                    await instance.loadModules();
-                    // await instance.loadUserActions();
-                    await instance.registerEventHandlers();
+                    integrationInstance = new integrationClass();
+                    await integrationInstance.loadModules();
+                    await integrationInstance.registerEventHandlers();
                     console.log(
                         `${params.event} for ${integrationClass.Definition.name} integration with no integrationId`
                     );
                 } else {
-                    instance =
-                        await integrationFactory.getInstanceFromIntegrationId({
-                            integrationId: params.integrationId,
-                        });
+                    const { integrations: integrationClasses } = loadAppDefinition();
+                    const integrationRepository = new IntegrationRepository();
+                    const moduleService = new ModuleService();
+
+                    const getIntegrationInstance = new GetIntegrationInstance({
+                        integrationRepository,
+                        integrationClasses,
+                        moduleService,
+                    });
+
+                    // todo: are we going to have the userId available here?
+                    integrationInstance = await getIntegrationInstance.execute(params.integrationId, params.userId);
                     console.log(
-                        `${params.event} for ${instance.record.config.type} of integrationId: ${params.integrationId}`
+                        `${params.event} for ${integrationInstance.record.config.type} of integrationId: ${params.integrationId}`
                     );
                 }
-                const res = await instance.send(params.event, {
+
+                const res = await integrationInstance.send(params.event, {
                     data: params.data,
                     context,
                 });
@@ -100,5 +77,4 @@ const createQueueWorker = (integrationClass, integrationFactory) => {
 module.exports = {
     loadRouterFromObject,
     createQueueWorker,
-    loadAppDefinition,
 };

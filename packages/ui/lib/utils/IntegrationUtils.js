@@ -24,7 +24,7 @@ const getActiveIntegrations = (integrationsData) => {
   const activeIntegrations = [];
   integrationsData.integrations.forEach((integration) => {
     const clone = { ...integration };
-    const secondaryId = clone.entities[1].id; // get 2nd element
+    const secondaryId = clone.entities[0].id;
     const type = getTypeForId(secondaryId, integrationsData);
     clone.type = type;
     clone.display = getDisplayDataForType(type, integrationsData);

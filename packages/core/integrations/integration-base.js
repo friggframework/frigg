@@ -1,5 +1,6 @@
 const { IntegrationMapping } = require('./integration-mapping');
 const { Options } = require('./options');
+
 const constantsToBeMigrated = {
     defaultEvents: {
         ON_CREATE: 'ON_CREATE',
@@ -19,6 +20,7 @@ const constantsToBeMigrated = {
 };
 
 class IntegrationBase {
+
     static getOptionDetails() {
         const options = new Options({
             module: Object.values(this.Definition.modules)[0], // This is a placeholder until we revamp the frontend
@@ -26,6 +28,7 @@ class IntegrationBase {
         });
         return options.get();
     }
+
     /**
      * CHILDREN SHOULD SPECIFY A DEFINITION FOR THE INTEGRATION
      */
@@ -57,7 +60,7 @@ class IntegrationBase {
             const { definition } =
                 this.constructor.Definition.modules[moduleName];
             if (typeof definition.API === 'function') {
-                this[moduleName] = { api: new definition.API() };
+                this[moduleName] = { api: new definition.API({}) };
             } else {
                 throw new Error(
                     `Module ${moduleName} must be a function that extends IntegrationModule`
@@ -197,9 +200,9 @@ class IntegrationBase {
         return this.record;
     }
 
-    async onUpdate(params) {}
+    async onUpdate(params) { }
 
-    async onDelete(params) {}
+    async onDelete(params) { }
 
     async getConfigOptions() {
         const options = {
@@ -236,10 +239,10 @@ class IntegrationBase {
         const dynamicUserActions = await this.loadDynamicUserActions();
         const filteredDynamicActions = actionType
             ? Object.fromEntries(
-                  Object.entries(dynamicUserActions).filter(
-                      ([_, event]) => event.userActionType === actionType
-                  )
-              )
+                Object.entries(dynamicUserActions).filter(
+                    ([_, event]) => event.userActionType === actionType
+                )
+            )
             : dynamicUserActions;
         return { ...userActions, ...filteredDynamicActions };
     }
