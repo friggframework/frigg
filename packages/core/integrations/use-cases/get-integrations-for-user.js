@@ -1,21 +1,35 @@
-const { Integration } = require('../integration');
+// Removed Integration wrapper - using IntegrationBase directly
 const { mapIntegrationClassToIntegrationDTO } = require('../utils/map-integration-dto');
 
+/**
+ * Use case for retrieving all integrations for a specific user.
+ * @class GetIntegrationsForUser
+ */
 class GetIntegrationsForUser {
-    constructor({ integrationRepository, integrationClasses, moduleService, moduleRepository }) {
+    /**
+     * Creates a new GetIntegrationsForUser instance.
+     * @param {Object} params - Configuration parameters.
+     * @param {import('../integration-repository').IntegrationRepository} params.integrationRepository - Repository for integration data operations.
+     * @param {Array<import('../integration').Integration>} params.integrationClasses - Array of available integration classes.
+     * @param {import('../../modules/module-factory').ModuleFactory} params.moduleFactory - Service for module instantiation and management.
+     * @param {import('../../modules/module-repository').ModuleRepository} params.moduleRepository - Repository for module and entity data operations.
+     */
+    constructor({ integrationRepository, integrationClasses, moduleFactory, moduleRepository }) {
 
         /**
          * @type {import('../integration-repository').IntegrationRepository}
          */
         this.integrationRepository = integrationRepository;
         this.integrationClasses = integrationClasses;
-        this.moduleService = moduleService;
+        this.moduleFactory = moduleFactory;
         this.moduleRepository = moduleRepository;
     }
 
     /**
-     * @param {string} userId
-     * @returns {Promise<Integration[]>}
+     * Executes the retrieval of all integrations for a user.
+     * @async
+     * @param {string} userId - ID of the user whose integrations to retrieve.
+     * @returns {Promise<Object[]>} Array of integration DTOs for the specified user.
      */
     async execute(userId) {
         const integrationRecords = await this.integrationRepository.findIntegrationsByUserId(userId);
@@ -31,23 +45,21 @@ class GetIntegrationsForUser {
 
             const modules = [];
             for (const entity of entities) {
-                const moduleInstance = await this.moduleService.getModuleInstance(
+                const moduleInstance = await this.moduleFactory.getModuleInstance(
                     entity.id,
                     integrationRecord.userId
                 );
                 modules.push(moduleInstance);
             }
 
-            const integrationInstance = new Integration({
+            const integrationInstance = new integrationClass({
                 id: integrationRecord.id,
-                userId: integrationRecord.user,
+                userId: integrationRecord.userId,
                 entities: entities,
                 config: integrationRecord.config,
                 status: integrationRecord.status,
                 version: integrationRecord.version,
                 messages: integrationRecord.messages,
-                entityReference: integrationRecord.entityReference,
-                integrationClass: integrationClass,
                 modules
             });
 

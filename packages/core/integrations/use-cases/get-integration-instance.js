@@ -1,25 +1,36 @@
-const { Integration } = require('../integration');
+// Removed Integration wrapper - using IntegrationBase directly
 
+/**
+ * Use case for retrieving a single integration instance by ID and user.
+ * @class GetIntegrationInstance
+ */
 class GetIntegrationInstance {
 
     /**
-     * @class GetIntegrationInstance
-     * @description Use case for retrieving a single integration instance by ID and user.
-     * @param {Object} params
+     * Creates a new GetIntegrationInstance instance.
+     * @param {Object} params - Configuration parameters.
      * @param {import('../integration-repository').IntegrationRepository} params.integrationRepository - Repository for integration data access
      * @param {Array<import('../integration').Integration>} params.integrationClasses - Array of available integration classes
-     * @param {import('../module-plugin/module-service').ModuleService} params.moduleService - Service for module instantiation and management
+     * @param {import('../../modules/module-factory').ModuleFactory} params.moduleFactory - Service for module instantiation and management
      */
     constructor({
         integrationRepository,
         integrationClasses,
-        moduleService,
+        moduleFactory,
     }) {
         this.integrationRepository = integrationRepository;
         this.integrationClasses = integrationClasses;
-        this.moduleService = moduleService;
+        this.moduleFactory = moduleFactory;
     }
 
+    /**
+     * Executes the retrieval of a single integration instance.
+     * @async
+     * @param {string} integrationId - ID of the integration to retrieve.
+     * @param {string} userId - ID of the user requesting the integration.
+     * @returns {Promise<Integration>} The fully initialized integration instance.
+     * @throws {Error} When integration is not found, doesn't belong to user, or integration class is not found.
+     */
     async execute(integrationId, userId) {
         const integrationRecord = await this.integrationRepository.findIntegrationById(integrationId);
 
@@ -44,14 +55,14 @@ class GetIntegrationInstance {
 
         const modules = [];
         for (const entityId of integrationRecord.entitiesIds) {
-            const moduleInstance = await this.moduleService.getModuleInstance(
+            const moduleInstance = await this.moduleFactory.getModuleInstance(
                 entityId,
                 integrationRecord.userId
             );
             modules.push(moduleInstance);
         }
 
-        const integrationInstance = new Integration({
+        const integrationInstance = new integrationClass({
             id: integrationRecord.id,
             userId: integrationRecord.userId,
             entities: integrationRecord.entitiesIds,
@@ -59,10 +70,8 @@ class GetIntegrationInstance {
             status: integrationRecord.status,
             version: integrationRecord.version,
             messages: integrationRecord.messages,
-            integrationClass: integrationClass,
             modules
         });
-
 
         await integrationInstance.initialize();
 

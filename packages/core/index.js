@@ -46,14 +46,12 @@ const { debug, initDebugLog, flushDebugLog } = require('./logs/index');
 const {
     Credential,
     Entity,
-    ModuleManager,
     ApiKeyRequester,
     BasicAuthRequester,
     OAuth2Requester,
     Requester,
     ModuleConstants,
-    ModuleFactory,
-} = require('./module-plugin/index');
+} = require('./modules/index');
 const utils = require('./utils');
 
 // const {Sync } = require('./syncs/model');
@@ -118,13 +116,11 @@ module.exports = {
     // module plugin
     Credential,
     Entity,
-    ModuleManager,
     ApiKeyRequester,
     BasicAuthRequester,
     OAuth2Requester,
     Requester,
     ModuleConstants,
-    ModuleFactory,
     // queues
     QueuerUtil,
 

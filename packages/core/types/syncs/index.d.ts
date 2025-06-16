@@ -28,7 +28,6 @@ declare module "@friggframework/syncs/manager" {
     confirmCreate(
       syncObj: Sync,
       createdId: string,
-      moduleManager: any
     ): Promise<any>;
     confirmUpdate(syncObj: Sync): Promise<any>;
     createSyncDBObject(objArr: any[], entities: any[]): Promise<any>;
@@ -50,7 +49,6 @@ declare module "@friggframework/syncs/manager" {
     confirmCreate(
       syncObj: Sync,
       createdId: string,
-      moduleManager: any
     ): Promise<any>;
     confirmUpdate(syncObj: Sync): Promise<any>;
   }

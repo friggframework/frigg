@@ -13,7 +13,6 @@ function mapIntegrationClassToIntegrationDTO(integration) {
         status: integration.status,
         version: integration.version,
         messages: integration.messages,
-        entityReference: integration.entityReference,
         userActions: integration.userActions,
         options: integration.getOptionDetails(),
     };

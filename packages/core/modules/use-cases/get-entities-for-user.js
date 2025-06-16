@@ -7,7 +7,7 @@ class GetEntitiesForUser {
 
         this.definitionMap = new Map();
         for (const definition of moduleDefinitions) {
-            this.definitionMap.set(definition.modelName, definition);
+            this.definitionMap.set(definition.moduleName, definition);
         }
     }
 

@@ -13,6 +13,7 @@ const schema = new mongoose.Schema(
             required: false,
         },
         name: { type: String },
+        moduleName: { type: String },
         externalId: { type: String },
     },
     { timestamps: true }

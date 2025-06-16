@@ -1,6 +1,17 @@
 const Boom = require('@hapi/boom');
+// Removed Integration wrapper - using IntegrationBase directly
 
+/**
+ * Use case for deleting an integration for a specific user.
+ * @class DeleteIntegrationForUser
+ */
 class DeleteIntegrationForUser {
+    /**
+     * Creates a new DeleteIntegrationForUser instance.
+     * @param {Object} params - Configuration parameters.
+     * @param {import('../integration-repository').IntegrationRepository} params.integrationRepository - Repository for integration data operations.
+     * @param {Array<import('../integration').Integration>} params.integrationClasses - Array of available integration classes.
+     */
     constructor({ integrationRepository, integrationClasses }) {
 
         /**
@@ -10,6 +21,15 @@ class DeleteIntegrationForUser {
         this.integrationClasses = integrationClasses;
     }
 
+    /**
+     * Executes the deletion of an integration for a user.
+     * @async
+     * @param {string} integrationId - ID of the integration to delete.
+     * @param {string} userId - ID of the user requesting the deletion.
+     * @returns {Promise<void>} Resolves when the integration is successfully deleted.
+     * @throws {Boom.notFound} When integration with the specified ID does not exist.
+     * @throws {Error} When the integration doesn't belong to the specified user.
+     */
     async execute(integrationId, userId) {
         const integrationRecord = await this.integrationRepository.findIntegrationById(integrationId);
 
@@ -29,7 +49,7 @@ class DeleteIntegrationForUser {
             );
         }
 
-        const integrationInstance = new Integration({
+        const integrationInstance = new integrationClass({
             id: integrationRecord.id,
             userId: integrationRecord.userId,
             entities: integrationRecord.entitiesIds,
@@ -37,7 +57,6 @@ class DeleteIntegrationForUser {
             status: integrationRecord.status,
             version: integrationRecord.version,
             messages: integrationRecord.messages,
-            integrationClass: integrationClass,
             modules: [],
         });
 
