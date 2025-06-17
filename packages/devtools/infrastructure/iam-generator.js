@@ -46,7 +46,6 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
     const template = {
         AWSTemplateFormatVersion: '2010-09-09',
         Description: `IAM roles and policies for ${appDefinition.name || 'Frigg'} application deployment pipeline`,
-
         Parameters: {
             DeploymentUserName: {
                 Type: 'String',
@@ -166,7 +165,6 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
         'cloudformation:DeleteChangeSet',
         'cloudformation:ExecuteChangeSet',
         'cloudformation:ValidateTemplate',
-
         // Lambda permissions
         'lambda:CreateFunction',
         'lambda:UpdateFunctionCode',
@@ -189,7 +187,6 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
         'lambda:TagResource',
         'lambda:UntagResource',
         'lambda:ListVersionsByFunction',
-
         // IAM permissions
         'iam:CreateRole',
         'iam:DeleteRole',
@@ -238,7 +235,6 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
         'sqs:GetQueueUrl',
         'sqs:TagQueue',
         'sqs:UntagQueue',
-
         // SNS permissions
         'sns:CreateTopic',
         'sns:DeleteTopic',
@@ -249,7 +245,6 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
         'sns:ListSubscriptionsByTopic',
         'sns:TagResource',
         'sns:UntagResource',
-
         // CloudWatch and Logs permissions
         'cloudwatch:PutMetricAlarm',
         'cloudwatch:DeleteAlarms',
@@ -262,7 +257,6 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
         'logs:FilterLogEvents',
         'logs:PutLogEvents',
         'logs:PutRetentionPolicy',
-
         // API Gateway permissions
         'apigateway:POST',
         'apigateway:PUT',

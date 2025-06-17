@@ -72,7 +72,6 @@ program
     .action(deployCommand);
 
 program
-<<<<<<< HEAD
     .command('generate')
     .description('Generate deployment credentials for cloud providers')
     .option('-p, --provider <provider>', 'cloud provider (aws, azure, gcp)')
@@ -87,15 +86,10 @@ program
 program
     .command('generate-iam')
     .description('[DEPRECATED] Use "generate" command instead')
-=======
-    .command('generate-iam')
-    .description('Generate IAM CloudFormation template based on app definition')
->>>>>>> e51e2065 (feat: add AWS discovery and SSM support to serverless template)
     .option('-o, --output <path>', 'output directory', 'backend/infrastructure')
     .option('-u, --user <name>', 'deployment user name', 'frigg-deployment-user')
     .option('-s, --stack-name <name>', 'CloudFormation stack name', 'frigg-deployment-iam')
     .option('-v, --verbose', 'enable verbose output')
-<<<<<<< HEAD
     .action((options) => {
         console.log('⚠️  The generate-iam command is deprecated. Using "generate" with AWS CloudFormation...');
         generateCommand({ ...options, provider: 'aws', format: 'cloudformation' });
@@ -116,10 +110,3 @@ program
 program.parse(process.argv);
 
 module.exports = { installCommand, startCommand, buildCommand, deployCommand, generateCommand, uiCommand };
-=======
-    .action(generateIamCommand);
-
-program.parse(process.argv);
-
-module.exports = { installCommand, startCommand, buildCommand, deployCommand, generateIamCommand };
->>>>>>> e51e2065 (feat: add AWS discovery and SSM support to serverless template)

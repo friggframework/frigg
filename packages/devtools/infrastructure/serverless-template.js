@@ -453,14 +453,12 @@ const createVPCInfrastructure = (AppDefinition) => {
 const composeServerlessDefinition = async (AppDefinition) => {
     // Store discovered resources
     let discoveredResources = {};
-
     // Run AWS discovery if needed
     if (shouldRunDiscovery(AppDefinition)) {
         console.log('🔍 Running AWS resource discovery for serverless template...');
         try {
             const region = process.env.AWS_REGION || 'us-east-1';
             const discovery = new AWSDiscovery(region);
-
             const config = {
                 vpc: AppDefinition.vpc || {},
                 encryption: AppDefinition.encryption || {},
@@ -487,7 +485,6 @@ const composeServerlessDefinition = async (AppDefinition) => {
             throw new Error(`AWS discovery failed: ${error.message}`);
         }
     }
-
     const definition = {
         frameworkVersion: '>=3.17.0',
         service: AppDefinition.name || 'create-frigg-app',
@@ -993,6 +990,33 @@ const composeServerlessDefinition = async (AppDefinition) => {
 
             definition.custom[queueReference] = queueName;
         }
+    }
+
+    // Discovery has already run successfully at this point if needed
+    // The discoveredResources object contains all the necessary AWS resources
+
+    // Add websocket function if enabled
+    if (AppDefinition.websockets?.enable === true) {
+        definition.functions.defaultWebsocket = {
+            handler: 'node_modules/@friggframework/core/handlers/routers/websocket.handler',
+            events: [
+                {
+                    websocket: {
+                        route: '$connect',
+                    },
+                },
+                {
+                    websocket: {
+                        route: '$default',
+                    },
+                },
+                {
+                    websocket: {
+                        route: '$disconnect',
+                    },
+                },
+            ],
+        };
     }
 
     // Discovery has already run successfully at this point if needed
