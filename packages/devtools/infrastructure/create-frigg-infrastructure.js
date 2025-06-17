@@ -4,7 +4,7 @@ const { composeServerlessDefinition } = require('./serverless-template');
 
 const { findNearestBackendPackageJson } = require('@friggframework/core');
 
-function createFriggInfrastructure() {
+async function createFriggInfrastructure() {
     const backendPath = findNearestBackendPackageJson();
     if (!backendPath) {
         throw new Error('Could not find backend package.json');
@@ -23,7 +23,7 @@ function createFriggInfrastructure() {
     //     __dirname,
     //     './serverless-template.js'
     // ));
-    const definition = composeServerlessDefinition(
+    const definition = await composeServerlessDefinition(
         appDefinition,
         backend.IntegrationFactory
     );

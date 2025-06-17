@@ -31,6 +31,7 @@
 * [Data Model](reference/data-model.md)
 * [Encryption and Security](reference/encryption-and-security.md)
 * [VPC Configuration](reference/vpc-configuration.md)
+* [SSM Configuration](reference/ssm-configuration.md)
 * [API Reference](reference/api-reference.md)
 
 ## 🔌 API Modules
