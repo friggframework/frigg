@@ -1,16 +1,30 @@
 const { spawn } = require("child_process");
 
+/**
+ * Frigg Serverless Plugin - Handles AWS discovery and local development setup
+ */
 class FriggServerlessPlugin {
+  /**
+   * Creates an instance of FriggServerlessPlugin
+   * @param {Object} serverless - Serverless framework instance
+   * @param {Object} options - Plugin options
+   */
   constructor(serverless, options) {
     this.serverless = serverless;
     this.options = options;
     this.provider = serverless.getProvider("aws");
     this.hooks = {
       initialize: () => this.init(),
+      "before:package:initialize": () => this.beforePackageInitialize(),
       "after:package:package": () => this.afterPackage(),
       "before:deploy:deploy": () => this.beforeDeploy(),
     };
   }
+  /**
+   * Asynchronous initialization for offline mode
+   * Creates SQS queues in localstack for local development
+   * @returns {Promise<void>}
+   */
   async asyncInit() {
     this.serverless.cli.log("Initializing Frigg Serverless Plugin...");
     console.log("Hello from Frigg Serverless Plugin!");
@@ -38,7 +52,7 @@ class FriggServerlessPlugin {
       });
 
       const sqs = new AWS.SQS();
-// Find the environment variables that we need to override and create an easy map
+      // Find the environment variables that we need to override and create an easy map
       const environmentMap = {};
       const environment = this.serverless.service.provider.environment;
 
@@ -83,7 +97,26 @@ class FriggServerlessPlugin {
       console.log("Running in online mode, doing nothing");
     }
   }
-  init() {}
+
+  /**
+   * Hook that runs before serverless package initialization
+   * AWS discovery is now handled in serverless-template.js
+   * @returns {Promise<void>}
+   */
+  async beforePackageInitialize() {
+    // AWS discovery is now handled directly in serverless-template.js
+    // This hook remains for potential future use or other pre-package tasks
+    this.serverless.cli.log("Frigg Serverless Plugin: Pre-package hook");
+  }
+
+
+  /**
+   * Initialization hook (currently empty)
+   */
+  init() { }
+  /**
+   * Hook that runs after serverless package
+   */
   afterPackage() {
     console.log("After package hook called");
     // // const queues = Object.keys(infrastructure.custom)
@@ -123,6 +156,9 @@ class FriggServerlessPlugin {
     // //     });
     // });
   }
+  /**
+   * Hook that runs before serverless deploy
+   */
   beforeDeploy() {
     console.log("Before deploy hook called");
   }

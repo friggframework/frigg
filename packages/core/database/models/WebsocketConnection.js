@@ -8,6 +8,11 @@ const schema = new mongoose.Schema({
 // Add a static method to get active connections
 schema.statics.getActiveConnections = async function () {
     try {
+        // Return empty array if websockets are not configured
+        if (!process.env.WEBSOCKET_API_ENDPOINT) {
+            return [];
+        }
+
         const connections = await this.find({}, 'connectionId');
         return connections.map((conn) => ({
             connectionId: conn.connectionId,
