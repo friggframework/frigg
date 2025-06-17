@@ -24,11 +24,33 @@ For a given API Module, the credential generally stores the tokens or data neces
 
 ## Data Handling
 
-Frigg manages data securely and efficiently, ensuring it can scale as needed without compromising performance.
+Frigg manages data securely and efficiently, ensuring it can scale as needed without compromising performance. The framework includes built-in support for:
+
+- **Encryption**: Automatic KMS integration for field-level encryption
+- **Configuration Management**: SSM Parameter Store for secure config and secrets
+- **Network Security**: VPC support for network isolation and compliance
+
+## Infrastructure Automation
+
+Frigg provides automatic AWS infrastructure configuration:
+
+- **VPC Configuration**: Automatic VPC setup with AWS Discovery or infrastructure creation
+- **Security**: KMS encryption and SSM Parameter Store integration
+- **Cost Optimization**: VPC endpoints and intelligent resource discovery
+- **Compliance**: Network isolation and encryption for regulated environments
 
 ## Customization
 
-Frigg is highly customizable, letting you tailor modules and integrations to fit your specific needs.
+Frigg is highly customizable, letting you tailor modules and integrations to fit your specific needs. Infrastructure features can be enabled independently:
+
+```javascript
+const appDefinition = {
+    integrations: [/* your integrations */],
+    vpc: { enable: true },              // Network isolation
+    encryption: { useDefaultKMSForFieldLevelEncryption: true }, // Data encryption  
+    ssm: { enable: true }               // Configuration management
+};
+```
 
 ## Testing
 

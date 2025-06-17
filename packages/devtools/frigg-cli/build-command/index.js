@@ -1,9 +1,11 @@
 const { spawnSync } = require('child_process');
 const path = require('path');
 
-function buildCommand(options) {
+async function buildCommand(options) {
     console.log('Building the serverless application...');
-    console.log('Hello from npm link world')
+    
+    // AWS discovery is now handled directly in serverless-template.js
+    console.log('📦 Packaging serverless application...');
     const backendPath = path.resolve(process.cwd());
     const infrastructurePath = 'infrastructure.js';
     const command = 'serverless';
