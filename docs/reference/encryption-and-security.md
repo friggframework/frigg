@@ -45,10 +45,11 @@ module.exports = appDefinition;
 
 When `useDefaultKMSForFieldLevelEncryption` is set to `true`, Frigg automatically:
 
-1. **Grants KMS Permissions**: Adds `kms:GenerateDataKey` and `kms:Decrypt` permissions to all Lambda function IAM roles
-2. **Sets Environment Variable**: Configures `KMS_KEY_ARN` environment variable for runtime access
-3. **Includes KMS Plugin**: Adds the `serverless-kms-grants` plugin to your serverless configuration
-4. **Configures Default Keys**: Uses AWS default KMS keys (`kmsKeyId: '*'`) for encryption operations
+1. **Discovers KMS Key**: Uses AWS Discovery to find your account's default KMS key
+2. **Grants KMS Permissions**: Adds `kms:GenerateDataKey` and `kms:Decrypt` permissions to all Lambda function IAM roles
+3. **Sets Environment Variable**: Configures `KMS_KEY_ARN` environment variable with discovered key for runtime access
+4. **Includes KMS Plugin**: Adds the `serverless-kms-grants` plugin to your serverless configuration
+5. **VPC Integration**: Creates KMS VPC Endpoint when VPC is enabled for secure, cost-effective access
 
 ### Generated Infrastructure
 
@@ -74,10 +75,10 @@ provider:
 plugins:
   - serverless-kms-grants
 
-# Custom Configuration
+# Custom Configuration  
 custom:
   kmsGrants:
-    kmsKeyId: '*'
+    kmsKeyId: '${env:AWS_DISCOVERY_KMS_KEY_ID}'  # Discovered via AWS Discovery
 ```
 
 ## Using KMS in Your Code
@@ -108,6 +109,36 @@ const encryptedData = await encrypt(sensitiveString);
 // Decrypt when needed
 const decryptedData = await decrypt(encryptedData);
 ```
+
+## VPC Integration
+
+### KMS with VPC Enabled
+
+When both KMS and VPC are enabled, Frigg automatically optimizes for security and cost:
+
+```javascript
+const appDefinition = {
+    encryption: { useDefaultKMSForFieldLevelEncryption: true },
+    vpc: { enable: true },
+    integrations: [/* your integrations */]
+};
+```
+
+This configuration automatically:
+- **Creates KMS VPC Endpoint** (~$22/month) for secure, direct KMS access
+- **Avoids NAT Gateway costs** for KMS operations
+- **Reduces latency** by keeping KMS traffic within your VPC
+- **Improves security** by avoiding internet routing for encryption operations
+
+### Cost Considerations
+
+| Configuration | Monthly Cost | Security | Performance |
+|---------------|--------------|----------|-------------|
+| KMS only (no VPC) | $0 | Medium | Good |
+| KMS + VPC (no endpoints) | ~$45 | High | Good |
+| KMS + VPC + Endpoints | ~$67 | Very High | Excellent |
+
+The VPC endpoint cost is often offset by reduced NAT Gateway data charges for encryption operations.
 
 ## Security Best Practices
 
