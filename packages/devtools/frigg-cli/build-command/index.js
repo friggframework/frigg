@@ -4,14 +4,14 @@ const { AppResolver } = require('../utils/app-resolver');
 
 async function buildCommand(options) {
     console.log('Building the serverless application...');
-    
+
     // AWS discovery is now handled directly in serverless-template.js
     console.log('📦 Packaging serverless application...');
-    
+
     // Resolve app path using AppResolver
     const appResolver = new AppResolver();
     let backendPath;
-    
+
     try {
         backendPath = await appResolver.resolveAppPath(options);
         if (options.verbose) {
