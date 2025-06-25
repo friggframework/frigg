@@ -1003,6 +1003,33 @@ const composeServerlessDefinition = async (AppDefinition) => {
         };
     }
 
+    // Discovery has already run successfully at this point if needed
+    // The discoveredResources object contains all the necessary AWS resources
+
+    // Add websocket function if enabled
+    if (AppDefinition.websockets?.enable === true) {
+        definition.functions.defaultWebsocket = {
+            handler: 'node_modules/@friggframework/core/handlers/routers/websocket.handler',
+            events: [
+                {
+                    websocket: {
+                        route: '$connect',
+                    },
+                },
+                {
+                    websocket: {
+                        route: '$default',
+                    },
+                },
+                {
+                    websocket: {
+                        route: '$disconnect',
+                    },
+                },
+            ],
+        };
+    }
+
     // Modify handler paths to point to the correct node_modules location
     definition.functions = modifyHandlerPaths(definition.functions);
 
