@@ -1,0 +1,27 @@
+{
+  "total": 1,
+  "results": [
+    {
+      "id": "512",
+      "properties": {
+        "amount": "1500.00",
+        "closedate": "2019-12-07T16:50:06.678Z",
+        "createdate": "2019-10-30T03:30:17.883Z",
+        "dealname": "Custom data integrations",
+        "dealstage": "presentationscheduled",
+        "hs_lastmodifieddate": "2019-12-07T16:50:06.678Z",
+        "hubspot_owner_id": "910901",
+        "pipeline": "default"
+      },
+      "createdAt": "2019-10-30T03:30:17.883Z",
+      "updatedAt": "2019-12-07T16:50:06.678Z",
+      "archived": false
+    }
+  ],
+  "paging": {
+    "next": {
+      "after": "NTI1Cg%3D%3D",
+      "link": "?after=NTI1Cg%3D%3D"
+    }
+  }
+}

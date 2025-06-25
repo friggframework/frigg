@@ -1,0 +1,24 @@
+version: '3.7'
+services:
+  mongodb_container:
+    image: mongo:latest
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: rootpassword
+    ports:
+      - ${MONGO_PORT:-27017}:27017
+    volumes:
+      - mongodb_data_container:/data/db
+  localstack:
+    image: localstack/localstack:3.3.0
+    environment:
+      - SERVICES=sqs,sns
+      - AWS_DEFAULT_REGION=us-east-1
+      - EDGE_PORT=4566
+    ports:
+      - '4566-4597:4566-4597'
+    volumes:
+      - "${TMPDIR:-/tmp/localstack}:/tmp/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+volumes:
+  mongodb_data_container:

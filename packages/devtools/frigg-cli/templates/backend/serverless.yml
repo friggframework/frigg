@@ -1,0 +1,156 @@
+frameworkVersion: '>=3.17.0'
+service: create-frigg-app
+package:
+    individually: true
+useDotenv: true
+provider:
+    name: aws
+    runtime: nodejs20.x
+    timeout: 30
+    region: us-east-1
+    stage: ${opt:stage}
+    # Change for your desired environment
+    # https://docs.aws.amazon.com/systems-manager/latest/userguide/ps-integration-lambda-extensions.html#ps-integration-lambda-extensions-add
+    # vv Uncomment for leveraging AWS Secrets Manager
+    # layers:
+    #   - arn:aws:lambda:<AWS_REGION>:<AWS_ACCOUNT_ID>:layer:AWS-Parameters-and-Secrets-Lambda-Extension:<VERSION>
+    environment:
+        STAGE: ${opt:stage}
+        AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
+    # vv Uncomment for leveraging AWS Secrets Manager
+        # SECRET_ARN: { Ref: FriggEnvSecret }
+    iamRoleStatements:
+        - Effect: Allow
+          Action:
+            - sns:Publish
+          Resource:
+            Ref: InternalErrorBridgeTopic
+#            vv Uncomment for leveraging AWS Secrets Manager
+#        - Effect: Allow
+#          Action:
+#            - secretsmanager:GetSecretValue
+#          Resource:
+#            - ${self:provider.environment.SECRET_ARN}
+
+plugins:
+    - serverless-webpack
+    - serverless-offline
+custom:
+    serverless-offline:
+        httpPort: 3001
+    webpack:
+        webpackConfig: 'webpack.config.js' # Name of webpack configuration file
+        includeModules:
+            forceExclude:
+                - aws-sdk # Automatically included in AWS Lambda context
+        packager: 'npm' # Packager that will be used to package your external modules
+        excludeFiles:
+            - src/**/*.test.js # Provide a glob for files to ignore
+            - test/
+
+functions:
+    auth:
+        handler: ./src/routers/auth.handler
+        #    The following are a few example events you can configure
+        #    NOTE: Please make sure to change your handler code to work with those events
+        #    Check the event documentation for details
+        events:
+            - http:
+                  path: /api/integrations
+                  method: ANY
+                  cors: true
+            - http:
+                  path: /api/integrations/{proxy+}
+                  method: ANY
+                  cors: true
+            - http:
+                  path: /api/authorize
+                  method: ANY
+                  cors: true
+
+    user:
+        handler: ./src/routers/user.handler
+        events:
+            - http:
+                  path: /user/{proxy+}
+                  method: ANY
+                  cors: true
+
+    demo:
+        handler: ./src/routers/demo.handler
+        events:
+            - http:
+                  path: /api/demo/sample/{proxy+}
+                  method: ANY
+                  cors: true
+
+resources:
+    Resources:
+        InternalErrorQueue:
+            Type: 'AWS::SQS::Queue'
+            Properties:
+                QueueName: internal-error-queue-${self:provider.stage}
+                MessageRetentionPeriod: 300
+
+        InternalErrorBridgeTopic:
+            Type: 'AWS::SNS::Topic'
+            Properties:
+                # Subscribe the SQS queue to the SNS topic
+                Subscription:
+                    - Protocol: sqs
+                      Endpoint:
+                          'Fn::GetAtt':
+                              - InternalErrorQueue
+                              - Arn
+
+        # Policy allows SNS to publish to the dead letter queue
+        InternalErrorBridgePolicy:
+            Type: AWS::SQS::QueuePolicy
+            Properties:
+                Queues:
+                    - Ref: InternalErrorQueue
+                PolicyDocument:
+                    Version: '2012-10-17'
+                    Statement:
+                        - Sid: 'Allow Dead Letter SNS to publish to SQS'
+                          Effect: Allow
+                          Principal:
+                              Service: 'sns.amazonaws.com'
+                          Resource:
+                              'Fn::GetAtt':
+                                  - InternalErrorQueue
+                                  - Arn
+                          Action:
+                              - SQS:SendMessage
+                              - SQS:SendMessageBatch
+                          Condition:
+                              ArnEquals:
+                                  aws:SourceArn:
+                                      Ref: InternalErrorBridgeTopic
+#        vv Uncomment for leveraging AWS Secrets Manager
+#        FriggEnvSecret:
+#            Type: AWS::SecretsManager::Secret
+#            Properties:
+#                Description: 'Secrets for ENV loading in the Frigg application'
+#                Name: frigg-secrets-${self:provider.stage}
+
+        ApiGatewayAlarm5xx:
+            Type: AWS::CloudWatch::Alarm
+            Properties:
+                AlarmDescription: API Gateway 5xx Errors
+                Namespace: AWS/ApiGateway
+                MetricName: 5XXError
+                Statistic: Sum
+                Threshold: 0
+                ComparisonOperator: GreaterThanThreshold
+                EvaluationPeriods: 1
+                Period: 60
+                AlarmActions:
+                    - Ref: InternalErrorBridgeTopic
+                Dimensions:
+                    - Name: ApiName
+                      Value:
+                          Fn::Join:
+                              - '-'
+                              - - ${self:provider.stage}
+                                - ${self:service}
