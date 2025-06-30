@@ -1,0 +1,599 @@
+{
+  "timestamp": "2025-06-25T18:03:16.286Z",
+  "packages": {
+    "ui-core": {
+      "exists": true,
+      "version": "1.0.0",
+      "name": "@friggframework/ui-core",
+      "dependencies": [
+        "query-string",
+        "node-fetch"
+      ],
+      "devDependencies": [
+        "@types/node",
+        "typescript",
+        "vite",
+        "vitest",
+        "@vitest/ui",
+        "@vitest/coverage-v8",
+        "eslint",
+        "rollup-plugin-visualizer",
+        "terser"
+      ],
+      "peerDependencies": [],
+      "scripts": [
+        "dev",
+        "build",
+        "build:analyze",
+        "lint",
+        "test",
+        "test:ui",
+        "coverage",
+        "prepublishOnly"
+      ],
+      "exports": {
+        ".": {
+          "import": "./dist/index.es.js",
+          "require": "./dist/index.umd.js",
+          "types": "./dist/index.d.ts"
+        },
+        "./api": {
+          "import": "./dist/api/index.js",
+          "types": "./dist/api/index.d.ts"
+        },
+        "./state": {
+          "import": "./dist/state/index.js",
+          "types": "./dist/state/index.d.ts"
+        },
+        "./utils": {
+          "import": "./dist/utils/index.js",
+          "types": "./dist/utils/index.d.ts"
+        },
+        "./models": {
+          "import": "./dist/models/index.js",
+          "types": "./dist/models/index.d.ts"
+        },
+        "./services": {
+          "import": "./dist/services/index.js",
+          "types": "./dist/services/index.d.ts"
+        },
+        "./plugins": {
+          "import": "./dist/plugins/index.js",
+          "types": "./dist/plugins/index.d.ts"
+        }
+      },
+      "type": "module"
+    },
+    "ui-vue": {
+      "exists": true,
+      "version": "1.0.0",
+      "name": "@friggframework/ui-vue",
+      "dependencies": [
+        "@friggframework/ui-core",
+        "vue"
+      ],
+      "devDependencies": [
+        "@types/node",
+        "@vitejs/plugin-vue",
+        "@vue/test-utils",
+        "typescript",
+        "vite",
+        "vitest",
+        "@vitest/ui",
+        "@vitest/coverage-v8",
+        "vue-tsc",
+        "eslint",
+        "jsdom",
+        "happy-dom",
+        "@testing-library/vue",
+        "@testing-library/user-event",
+        "rollup-plugin-visualizer",
+        "terser"
+      ],
+      "peerDependencies": [
+        "vue"
+      ],
+      "scripts": [
+        "dev",
+        "build",
+        "build:analyze",
+        "lint",
+        "test",
+        "test:ui",
+        "coverage",
+        "prepublishOnly"
+      ],
+      "exports": {
+        ".": {
+          "import": "./dist/index.es.js",
+          "require": "./dist/index.umd.js",
+          "types": "./dist/index.d.ts"
+        },
+        "./composables": {
+          "import": "./dist/composables/index.js",
+          "types": "./dist/composables/index.d.ts"
+        },
+        "./components": {
+          "import": "./dist/components/index.js",
+          "types": "./dist/components/index.d.ts"
+        },
+        "./plugins": {
+          "import": "./dist/plugins/index.js",
+          "types": "./dist/plugins/index.d.ts"
+        }
+      },
+      "type": "module"
+    },
+    "ui-svelte": {
+      "exists": true,
+      "version": "0.1.0",
+      "name": "@friggframework/ui-svelte",
+      "dependencies": [],
+      "devDependencies": [
+        "@playwright/test",
+        "@sveltejs/adapter-auto",
+        "@sveltejs/kit",
+        "@sveltejs/package",
+        "@sveltejs/vite-plugin-svelte",
+        "@testing-library/svelte",
+        "@types/eslint",
+        "eslint",
+        "eslint-config-prettier",
+        "eslint-plugin-svelte",
+        "jsdom",
+        "prettier",
+        "prettier-plugin-svelte",
+        "publint",
+        "svelte",
+        "svelte-check",
+        "tslib",
+        "typescript",
+        "vite",
+        "vitest",
+        "rollup-plugin-visualizer",
+        "terser"
+      ],
+      "peerDependencies": [
+        "@friggframework/ui-core",
+        "svelte"
+      ],
+      "scripts": [
+        "dev",
+        "build",
+        "build:analyze",
+        "preview",
+        "package",
+        "prepublishOnly",
+        "test",
+        "test:unit",
+        "test:integration",
+        "check",
+        "check:watch",
+        "lint",
+        "format"
+      ],
+      "exports": {
+        ".": {
+          "types": "./dist/index.d.ts",
+          "svelte": "./src/index.js",
+          "default": "./dist/index.js"
+        },
+        "./stores": {
+          "types": "./dist/stores/index.d.ts",
+          "svelte": "./src/stores/index.js",
+          "default": "./dist/stores/index.js"
+        },
+        "./components": {
+          "types": "./dist/components/index.d.ts",
+          "svelte": "./src/components/index.js",
+          "default": "./dist/components/index.js"
+        },
+        "./actions": {
+          "types": "./dist/actions/index.d.ts",
+          "svelte": "./src/actions/index.js",
+          "default": "./dist/actions/index.js"
+        }
+      },
+      "type": "module"
+    },
+    "ui-angular": {
+      "exists": true,
+      "version": "1.0.0",
+      "name": "@friggframework/ui-angular",
+      "dependencies": [
+        "@angular/animations",
+        "@angular/common",
+        "@angular/compiler",
+        "@angular/core",
+        "@angular/forms",
+        "@angular/platform-browser",
+        "@angular/platform-browser-dynamic",
+        "@friggframework/ui-core",
+        "rxjs",
+        "tslib",
+        "zone.js"
+      ],
+      "devDependencies": [
+        "@angular-devkit/build-angular",
+        "@angular/cli",
+        "@angular/compiler-cli",
+        "@types/jasmine",
+        "jasmine-core",
+        "karma",
+        "karma-chrome-launcher",
+        "karma-coverage",
+        "karma-jasmine",
+        "karma-jasmine-html-reporter",
+        "ng-packagr",
+        "typescript",
+        "@angular-eslint/builder",
+        "@angular-eslint/eslint-plugin",
+        "@angular-eslint/eslint-plugin-template",
+        "@angular-eslint/schematics",
+        "@angular-eslint/template-parser",
+        "@typescript-eslint/eslint-plugin",
+        "@typescript-eslint/parser",
+        "eslint",
+        "webpack-bundle-analyzer"
+      ],
+      "peerDependencies": [
+        "@angular/common",
+        "@angular/core",
+        "@friggframework/ui-core"
+      ],
+      "scripts": [
+        "ng",
+        "build",
+        "build:analyze",
+        "watch",
+        "test",
+        "test:headless",
+        "lint",
+        "prepublishOnly"
+      ],
+      "exports": {
+        "./package.json": {
+          "default": "./package.json"
+        },
+        ".": {
+          "types": "./dist/index.d.ts",
+          "esm2022": "./dist/esm2022/friggframework-ui-angular.mjs",
+          "es2022": "./dist/fesm2022/friggframework-ui-angular.mjs",
+          "node": "./dist/fesm2022/friggframework-ui-angular.mjs",
+          "default": "./dist/fesm2022/friggframework-ui-angular.mjs"
+        }
+      },
+      "type": "module"
+    },
+    "ui": {
+      "exists": true,
+      "version": "2.0.0-next.0",
+      "name": "@friggframework/ui",
+      "dependencies": [
+        "@friggframework/ui-core",
+        "@jsonforms/material-renderers",
+        "@jsonforms/react",
+        "@mui/material",
+        "@radix-ui/react-dialog",
+        "@radix-ui/react-dropdown-menu",
+        "@radix-ui/react-switch",
+        "@radix-ui/react-toast",
+        "class-variance-authority",
+        "clsx",
+        "lucide-react",
+        "react",
+        "react-dom",
+        "tailwind-merge",
+        "tailwindcss-animate"
+      ],
+      "devDependencies": [
+        "@types/react",
+        "@types/react-dom",
+        "@vitejs/plugin-react",
+        "autoprefixer",
+        "eslint",
+        "eslint-plugin-react",
+        "eslint-plugin-react-hooks",
+        "eslint-plugin-react-refresh",
+        "postcss",
+        "tailwindcss",
+        "vite"
+      ],
+      "peerDependencies": [],
+      "scripts": [
+        "dev",
+        "dev:build",
+        "build",
+        "lint",
+        "preview",
+        "prepublishOnly"
+      ],
+      "exports": {
+        ".": {
+          "import": "./dist/index.es.js",
+          "require": "./dist/index.umd.js",
+          "types": "./dist/index.d.ts"
+        },
+        "./dist/style.css": "./dist/style.css"
+      },
+      "type": "module"
+    }
+  },
+  "consistency": {
+    "coreAPI": {
+      "exports": [
+        "export class FriggUICore",
+        "export const friggUICore",
+        "export function createFriggUICore"
+      ],
+      "classes": [
+        "that",
+        "FriggUICore"
+      ],
+      "functions": [
+        "for",
+        "createFriggUICore"
+      ],
+      "hasTypeDefinitions": true,
+      "hasPlugin": true
+    },
+    "frameworks": {
+      "vue": {
+        "api": {
+          "exports": [
+            "export { install }"
+          ],
+          "classes": [],
+          "functions": [],
+          "hasTypeDefinitions": true,
+          "hasPlugin": true
+        },
+        "consistency": {
+          "coreExports": 3,
+          "frameworkExports": 1,
+          "commonExports": 0,
+          "missingInFramework": [
+            "export class FriggUICore",
+            "export const friggUICore",
+            "export function createFriggUICore"
+          ],
+          "extraInFramework": [
+            "export { install }"
+          ],
+          "pluginSystemConsistent": true,
+          "typeDefinitionsConsistent": true
+        },
+        "score": 0.6
+      },
+      "svelte": {
+        "api": {
+          "exports": [],
+          "classes": [],
+          "functions": [],
+          "hasTypeDefinitions": true,
+          "hasPlugin": true
+        },
+        "consistency": {
+          "coreExports": 3,
+          "frameworkExports": 0,
+          "commonExports": 0,
+          "missingInFramework": [
+            "export class FriggUICore",
+            "export const friggUICore",
+            "export function createFriggUICore"
+          ],
+          "extraInFramework": [],
+          "pluginSystemConsistent": true,
+          "typeDefinitionsConsistent": true
+        },
+        "score": 0.6
+      },
+      "angular": {
+        "api": {
+          "exports": [],
+          "classes": [],
+          "functions": [],
+          "hasTypeDefinitions": false,
+          "hasPlugin": true
+        },
+        "consistency": {
+          "coreExports": 3,
+          "frameworkExports": 0,
+          "commonExports": 0,
+          "missingInFramework": [
+            "export class FriggUICore",
+            "export const friggUICore",
+            "export function createFriggUICore"
+          ],
+          "extraInFramework": [],
+          "pluginSystemConsistent": true,
+          "typeDefinitionsConsistent": false
+        },
+        "score": 0.3
+      }
+    }
+  },
+  "buildTests": {
+    "ui-core": {
+      "configExists": true,
+      "configFile": "vite.config.js"
+    },
+    "ui-vue": {
+      "configExists": true,
+      "configFile": "vite.config.js"
+    },
+    "ui-svelte": {
+      "configExists": true,
+      "configFile": "vite.config.js"
+    },
+    "ui-angular": {
+      "configExists": true,
+      "configFile": "angular.json"
+    }
+  },
+  "typeValidation": {
+    "ui-core": {
+      "exists": true,
+      "target": "ES2020",
+      "module": "ESNext",
+      "strict": true,
+      "declaration": true,
+      "lib": [
+        "ES2020",
+        "DOM",
+        "DOM.Iterable"
+      ],
+      "moduleResolution": "bundler"
+    },
+    "ui-vue": {
+      "exists": false,
+      "error": "Expected double-quoted property name in JSON at position 187 (line 9 column 5)"
+    },
+    "ui-svelte": {
+      "exists": true,
+      "target": "es2020",
+      "module": "esnext",
+      "strict": true,
+      "declaration": true,
+      "lib": [
+        "es2020",
+        "dom"
+      ],
+      "moduleResolution": "bundler"
+    },
+    "ui-angular": {
+      "exists": true,
+      "target": "ES2022",
+      "module": "ES2022",
+      "strict": true,
+      "declaration": false,
+      "lib": [
+        "ES2022",
+        "dom"
+      ],
+      "moduleResolution": "node"
+    }
+  },
+  "templateTests": {
+    "react": {
+      "exists": true,
+      "name": "frigg-react-app",
+      "version": "0.1.0",
+      "dependencies": [
+        "@friggframework/ui",
+        "@friggframework/core",
+        "react",
+        "react-dom",
+        "react-router-dom",
+        "axios"
+      ],
+      "scripts": [
+        "dev",
+        "build",
+        "preview",
+        "test",
+        "test:ui",
+        "lint",
+        "format"
+      ],
+      "hasViteConfig": true,
+      "hasTSConfig": false,
+      "hasReadme": true
+    },
+    "vue": {
+      "exists": true,
+      "name": "frigg-vue-app",
+      "version": "0.1.0",
+      "dependencies": [
+        "@friggframework/ui-vue",
+        "@friggframework/ui-core",
+        "vue",
+        "vue-router",
+        "pinia",
+        "axios"
+      ],
+      "scripts": [
+        "dev",
+        "build",
+        "preview",
+        "test",
+        "test:ui",
+        "lint",
+        "format"
+      ],
+      "hasViteConfig": true,
+      "hasTSConfig": false,
+      "hasReadme": true
+    },
+    "svelte": {
+      "exists": true,
+      "name": "frigg-svelte-app",
+      "version": "0.1.0",
+      "dependencies": [
+        "@friggframework/ui-svelte",
+        "@friggframework/ui-core",
+        "axios"
+      ],
+      "scripts": [
+        "dev",
+        "build",
+        "preview",
+        "check",
+        "check:watch",
+        "test",
+        "lint",
+        "format"
+      ],
+      "hasViteConfig": true,
+      "hasTSConfig": false,
+      "hasReadme": false
+    },
+    "angular": {
+      "exists": true,
+      "name": "frigg-angular-app",
+      "version": "0.1.0",
+      "dependencies": [
+        "@angular/animations",
+        "@angular/common",
+        "@angular/compiler",
+        "@angular/core",
+        "@angular/forms",
+        "@angular/platform-browser",
+        "@angular/platform-browser-dynamic",
+        "@angular/router",
+        "@friggframework/ui-angular",
+        "@friggframework/ui-core",
+        "rxjs",
+        "tslib",
+        "zone.js"
+      ],
+      "scripts": [
+        "ng",
+        "start",
+        "build",
+        "watch",
+        "test",
+        "lint",
+        "format"
+      ],
+      "hasViteConfig": false,
+      "hasTSConfig": false,
+      "hasReadme": false
+    }
+  },
+  "performance": {},
+  "summary": {
+    "total": 20,
+    "passed": 16,
+    "failed": 4,
+    "warnings": 0
+  },
+  "healthScore": {
+    "overall": 0.8,
+    "grade": "B",
+    "warnings": 0,
+    "recommendations": [
+      "Standardize package versions across all framework bindings"
+    ]
+  }
+}

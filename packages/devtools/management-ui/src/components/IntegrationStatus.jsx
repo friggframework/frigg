@@ -3,7 +3,7 @@ import { CheckCircle, AlertCircle, Clock, Activity, RefreshCw, Zap, Shield, Aler
 import { Card, CardContent, CardHeader, CardTitle } from './Card'
 import { Button } from './Button'
 import LoadingSpinner from './LoadingSpinner'
-import { cn } from '../utils/cn'
+import { cn } from '../lib/utils'
 import api from '../services/api'
 import { useSocket } from '../hooks/useSocket'
 

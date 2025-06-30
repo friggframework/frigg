@@ -1,9 +1,9 @@
 import React, { useState } from 'react'
 import { Download, CheckCircle, ExternalLink, Settings, AlertCircle } from 'lucide-react'
-import { Card, CardContent } from './Card'
-import { Button } from './Button'
+import { Card, CardContent } from './ui/card'
+import { Button } from './ui/button'
 import LoadingSpinner from './LoadingSpinner'
-import { cn } from '../utils/cn'
+import { cn } from '../lib/utils'
 
 const IntegrationCard = ({ 
   integration, 
@@ -38,22 +38,25 @@ const IntegrationCard = ({
     }
   }
 
+  // Filter out invalid DOM props
+  const { onUpdate, onTest, uninstalling, updating, error, ...cardProps } = props
+  
   return (
-    <Card className={cn('hover:shadow-md transition-shadow', className)} {...props}>
+    <Card className={cn('hover:shadow-lg industrial-transition', className)} {...cardProps}>
       <CardContent className="p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
             <div className="flex items-center mb-2">
-              <h4 className="font-semibold text-gray-900 text-lg">
+              <h4 className="font-semibold text-foreground text-lg">
                 {integration.displayName || integration.name}
               </h4>
               {integration.version && (
-                <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                <span className="ml-2 text-xs bg-muted text-muted-foreground px-2 py-1 sharp-badge">
                   v{integration.version}
                 </span>
               )}
             </div>
-            <p className="text-sm text-gray-600 mb-3">
+            <p className="text-sm text-muted-foreground mb-3">
               {integration.description || 'No description available'}
             </p>
             
@@ -62,7 +65,7 @@ const IntegrationCard = ({
                 {integration.tags.map((tag, index) => (
                   <span
                     key={index}
-                    className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full"
+                    className="text-xs bg-primary/10 text-primary px-2 py-1 sharp-badge"
                   >
                     {tag}
                   </span>
@@ -157,26 +160,26 @@ const IntegrationCard = ({
         </div>
 
         {showDetails && isInstalled && (
-          <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="mt-4 pt-4 border-t border-border">
             <div className="space-y-2 text-sm">
               {integration.endpoints && (
                 <div>
-                  <span className="font-medium text-gray-700">Endpoints:</span>
-                  <span className="ml-2 text-gray-600">{integration.endpoints.length}</span>
+                  <span className="font-medium text-foreground">Endpoints:</span>
+                  <span className="ml-2 text-muted-foreground">{integration.endpoints.length}</span>
                 </div>
               )}
               {integration.lastUpdated && (
                 <div>
-                  <span className="font-medium text-gray-700">Last Updated:</span>
-                  <span className="ml-2 text-gray-600">
+                  <span className="font-medium text-foreground">Last Updated:</span>
+                  <span className="ml-2 text-muted-foreground">
                     {new Date(integration.lastUpdated).toLocaleDateString()}
                   </span>
                 </div>
               )}
               {integration.connections && (
                 <div>
-                  <span className="font-medium text-gray-700">Active Connections:</span>
-                  <span className="ml-2 text-gray-600">{integration.connections}</span>
+                  <span className="font-medium text-foreground">Active Connections:</span>
+                  <span className="ml-2 text-muted-foreground">{integration.connections}</span>
                 </div>
               )}
             </div>

@@ -5,7 +5,7 @@ import { Button } from '../components/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/Card'
 import LoadingSpinner from '../components/LoadingSpinner'
 import api from '../services/api'
-import { cn } from '../utils/cn'
+import { cn } from '../lib/utils'
 
 const IntegrationTest = () => {
   const { integrationName } = useParams()

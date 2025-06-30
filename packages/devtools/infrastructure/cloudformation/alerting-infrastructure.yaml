@@ -1,0 +1,643 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Frigg Phase 3 Advanced Alerting Infrastructure - Comprehensive alerting and incident response for production monitoring'
+
+Parameters:
+  ServiceName:
+    Type: String
+    Default: frigg
+    Description: Name of the Frigg service
+  
+  Stage:
+    Type: String
+    Default: production
+    AllowedValues:
+      - development
+      - staging
+      - production
+    Description: Deployment stage
+  
+  PagerDutyIntegrationKey:
+    Type: String
+    Description: PagerDuty integration key for critical alerts
+    Default: ''
+    NoEcho: true
+  
+  SlackWebhookUrl:
+    Type: String
+    Description: Slack webhook URL for team notifications
+    Default: ''
+    NoEcho: true
+  
+  CriticalAlertEmail:
+    Type: String
+    Description: Email address for critical alerts (on-call engineer)
+    Default: ''
+  
+  TeamNotificationEmail:
+    Type: String
+    Description: Email address for team notifications
+    Default: ''
+  
+  EnableAdvancedMetrics:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Enable advanced custom metrics collection
+
+Conditions:
+  HasPagerDuty: !Not [!Equals [!Ref PagerDutyIntegrationKey, '']]
+  HasSlack: !Not [!Equals [!Ref SlackWebhookUrl, '']]
+  HasCriticalEmail: !Not [!Equals [!Ref CriticalAlertEmail, '']]
+  HasTeamEmail: !Not [!Equals [!Ref TeamNotificationEmail, '']]
+  EnableAdvanced: !Equals [!Ref EnableAdvancedMetrics, 'true']
+
+Resources:
+  # SNS Topics for Different Alert Severities
+
+  CriticalAlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub '${ServiceName}-${Stage}-critical-alerts'
+      DisplayName: !Sub 'Frigg ${Stage} Critical Alerts'
+      KmsMasterKeyId: alias/aws/sns
+
+  WarningAlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub '${ServiceName}-${Stage}-warning-alerts'
+      DisplayName: !Sub 'Frigg ${Stage} Warning Alerts'
+      KmsMasterKeyId: alias/aws/sns
+
+  InfoAlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub '${ServiceName}-${Stage}-info-alerts'
+      DisplayName: !Sub 'Frigg ${Stage} Info Alerts'
+      KmsMasterKeyId: alias/aws/sns
+
+  # Email Subscriptions
+  CriticalEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasCriticalEmail
+    Properties:
+      Protocol: email
+      TopicArn: !Ref CriticalAlertsTopic
+      Endpoint: !Ref CriticalAlertEmail
+
+  TeamEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasTeamEmail
+    Properties:
+      Protocol: email
+      TopicArn: !Ref WarningAlertsTopic
+      Endpoint: !Ref TeamNotificationEmail
+
+  # Lambda Function for Advanced Alert Processing
+  AlertProcessorFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${ServiceName}-${Stage}-alert-processor'
+      Runtime: nodejs20.x
+      Handler: index.handler
+      Timeout: 300
+      MemorySize: 512
+      Role: !GetAtt AlertProcessorRole.Arn
+      Environment:
+        Variables:
+          PAGERDUTY_INTEGRATION_KEY: !Ref PagerDutyIntegrationKey
+          SLACK_WEBHOOK_URL: !Ref SlackWebhookUrl
+          STAGE: !Ref Stage
+          SERVICE_NAME: !Ref ServiceName
+      Code:
+        ZipFile: |
+          const https = require('https');
+          const AWS = require('aws-sdk');
+          
+          const cloudwatch = new AWS.CloudWatch();
+          
+          exports.handler = async (event) => {
+              console.log('Alert Processor Event:', JSON.stringify(event, null, 2));
+              
+              try {
+                  const records = event.Records || [];
+                  
+                  for (const record of records) {
+                      if (record.EventSource === 'aws:sns') {
+                          await processAlert(JSON.parse(record.Sns.Message));
+                      }
+                  }
+                  
+                  return { success: true };
+              } catch (error) {
+                  console.error('Alert processing error:', error);
+                  throw error;
+              }
+          };
+          
+          async function processAlert(snsMessage) {
+              const { AlarmName, AlarmDescription, NewStateValue, StateChangeTime, MetricName, Namespace } = snsMessage;
+              
+              const alertData = {
+                  alarmName: AlarmName,
+                  description: AlarmDescription,
+                  state: NewStateValue,
+                  timestamp: StateChangeTime,
+                  metric: MetricName,
+                  namespace: Namespace,
+                  service: process.env.SERVICE_NAME,
+                  stage: process.env.STAGE
+              };
+              
+              console.log('Processing alert:', alertData);
+              
+              // Determine alert severity
+              const severity = determineSeverity(alertData);
+              
+              // Send to appropriate channels based on severity
+              if (severity === 'critical') {
+                  await sendToPagerDuty(alertData);
+                  await sendToSlack(alertData, severity);
+              } else if (severity === 'warning') {
+                  await sendToSlack(alertData, severity);
+              }
+              
+              // Log custom metric for alert tracking
+              await logAlertMetric(alertData, severity);
+          }
+          
+          function determineSeverity(alertData) {
+              const { alarmName, namespace, metric } = alertData;
+              
+              // Critical conditions
+              if (alarmName.includes('5xx') || alarmName.includes('error') || alarmName.includes('throttle')) {
+                  return 'critical';
+              }
+              
+              if (namespace.includes('Lambda') && metric === 'Errors') {
+                  return 'critical';
+              }
+              
+              if (namespace.includes('CodeGeneration') && metric === 'GenerationErrors') {
+                  return 'critical';
+              }
+              
+              // Warning conditions
+              if (alarmName.includes('4xx') || alarmName.includes('latency') || alarmName.includes('duration')) {
+                  return 'warning';
+              }
+              
+              return 'info';
+          }
+          
+          async function sendToPagerDuty(alertData) {
+              if (!process.env.PAGERDUTY_INTEGRATION_KEY) return;
+              
+              const payload = {
+                  routing_key: process.env.PAGERDUTY_INTEGRATION_KEY,
+                  event_action: 'trigger',
+                  payload: {
+                      summary: `${alertData.service} ${alertData.stage}: ${alertData.alarmName}`,
+                      source: `${alertData.service}-${alertData.stage}`,
+                      severity: 'critical',
+                      custom_details: alertData
+                  }
+              };
+              
+              await httpPost('events.pagerduty.com', '/v2/enqueue', payload);
+          }
+          
+          async function sendToSlack(alertData, severity) {
+              if (!process.env.SLACK_WEBHOOK_URL) return;
+              
+              const color = severity === 'critical' ? 'danger' : severity === 'warning' ? 'warning' : 'good';
+              const emoji = severity === 'critical' ? ':rotating_light:' : severity === 'warning' ? ':warning:' : ':information_source:';
+              
+              const payload = {
+                  text: `${emoji} Frigg Alert - ${severity.toUpperCase()}`,
+                  attachments: [{
+                      color: color,
+                      fields: [
+                          { title: 'Service', value: alertData.service, short: true },
+                          { title: 'Stage', value: alertData.stage, short: true },
+                          { title: 'Alarm', value: alertData.alarmName, short: false },
+                          { title: 'Description', value: alertData.description, short: false },
+                          { title: 'State', value: alertData.state, short: true },
+                          { title: 'Time', value: alertData.timestamp, short: true }
+                      ],
+                      footer: 'Frigg Monitoring',
+                      ts: Math.floor(new Date(alertData.timestamp).getTime() / 1000)
+                  }]
+              };
+              
+              const url = new URL(process.env.SLACK_WEBHOOK_URL);
+              await httpPost(url.hostname, url.pathname, payload);
+          }
+          
+          async function logAlertMetric(alertData, severity) {
+              const params = {
+                  Namespace: `Frigg/${alertData.service}/Alerts`,
+                  MetricData: [{
+                      MetricName: 'AlertCount',
+                      Dimensions: [
+                          { Name: 'Severity', Value: severity },
+                          { Name: 'Stage', Value: alertData.stage },
+                          { Name: 'AlarmName', Value: alertData.alarmName }
+                      ],
+                      Value: 1,
+                      Unit: 'Count',
+                      Timestamp: new Date()
+                  }]
+              };
+              
+              await cloudwatch.putMetricData(params).promise();
+          }
+          
+          function httpPost(hostname, path, data) {
+              return new Promise((resolve, reject) => {
+                  const postData = JSON.stringify(data);
+                  
+                  const options = {
+                      hostname: hostname,
+                      port: 443,
+                      path: path,
+                      method: 'POST',
+                      headers: {
+                          'Content-Type': 'application/json',
+                          'Content-Length': Buffer.byteLength(postData)
+                      }
+                  };
+                  
+                  const req = https.request(options, (res) => {
+                      let responseData = '';
+                      res.on('data', (chunk) => { responseData += chunk; });
+                      res.on('end', () => {
+                          if (res.statusCode >= 200 && res.statusCode < 300) {
+                              resolve(responseData);
+                          } else {
+                              reject(new Error(`HTTP ${res.statusCode}: ${responseData}`));
+                          }
+                      });
+                  });
+                  
+                  req.on('error', reject);
+                  req.write(postData);
+                  req.end();
+              });
+          }
+
+  # SNS Subscriptions for Alert Processor
+  CriticalAlertsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: lambda
+      TopicArn: !Ref CriticalAlertsTopic
+      Endpoint: !GetAtt AlertProcessorFunction.Arn
+
+  WarningAlertsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: lambda
+      TopicArn: !Ref WarningAlertsTopic
+      Endpoint: !GetAtt AlertProcessorFunction.Arn
+
+  # Lambda Permissions for SNS
+  CriticalAlertsLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref AlertProcessorFunction
+      Action: lambda:InvokeFunction
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref CriticalAlertsTopic
+
+  WarningAlertsLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref AlertProcessorFunction
+      Action: lambda:InvokeFunction
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref WarningAlertsTopic
+
+  # Advanced CloudWatch Alarms
+
+  # System Health Composite Alarm
+  SystemHealthCompositeAlarm:
+    Type: AWS::CloudWatch::CompositeAlarm
+    Properties:
+      AlarmName: !Sub '${ServiceName}-${Stage}-system-health'
+      AlarmDescription: 'Composite alarm for overall system health'
+      AlarmRule: !Sub |
+        ALARM("${ServiceName}-${Stage}-lambda-errors") OR
+        ALARM("${ServiceName}-${Stage}-api-5xx-errors") OR
+        ALARM("${ServiceName}-${Stage}-sqs-backlog")
+      ActionsEnabled: true
+      AlarmActions:
+        - !Ref CriticalAlertsTopic
+
+  # Code Generation Health Alarm
+  CodeGenerationHealthAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ServiceName}-${Stage}-codegen-health'
+      AlarmDescription: 'Code generation service health'
+      MetricName: GenerationErrors
+      Namespace: !Sub 'Frigg/${ServiceName}/CodeGeneration'
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref CriticalAlertsTopic
+
+  # UI Distribution Health Alarm
+  UIDistributionHealthAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ServiceName}-${Stage}-ui-distribution-health'
+      AlarmDescription: 'UI distribution service health'
+      MetricName: 5xxErrorRate
+      Namespace: AWS/CloudFront
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref WarningAlertsTopic
+
+  # Performance Degradation Alarm
+  PerformanceDegradationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ServiceName}-${Stage}-performance-degradation'
+      AlarmDescription: 'Overall system performance degradation'
+      MetricName: Duration
+      Namespace: AWS/Lambda
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 5
+      Threshold: 15000  # 15 seconds
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref WarningAlertsTopic
+
+  # Advanced Metrics Collection (Custom CloudWatch Metrics)
+  AdvancedMetricsFunction:
+    Type: AWS::Lambda::Function
+    Condition: EnableAdvanced
+    Properties:
+      FunctionName: !Sub '${ServiceName}-${Stage}-advanced-metrics'
+      Runtime: nodejs20.x
+      Handler: index.handler
+      Timeout: 300
+      MemorySize: 256
+      Role: !GetAtt AdvancedMetricsRole.Arn
+      Environment:
+        Variables:
+          STAGE: !Ref Stage
+          SERVICE_NAME: !Ref ServiceName
+      Code:
+        ZipFile: |
+          const AWS = require('aws-sdk');
+          
+          const cloudwatch = new AWS.CloudWatch();
+          const lambda = new AWS.Lambda();
+          const apigateway = new AWS.APIGateway();
+          const sqs = new AWS.SQS();
+          
+          exports.handler = async (event) => {
+              console.log('Advanced Metrics Collection started');
+              
+              try {
+                  const metrics = [];
+                  
+                  // Collect custom business metrics
+                  metrics.push(...await collectBusinessMetrics());
+                  
+                  // Collect performance metrics
+                  metrics.push(...await collectPerformanceMetrics());
+                  
+                  // Collect capacity metrics
+                  metrics.push(...await collectCapacityMetrics());
+                  
+                  // Send all metrics to CloudWatch
+                  if (metrics.length > 0) {
+                      await sendMetrics(metrics);
+                  }
+                  
+                  console.log(`Sent ${metrics.length} custom metrics to CloudWatch`);
+                  return { success: true, metricsCount: metrics.length };
+              } catch (error) {
+                  console.error('Advanced metrics collection error:', error);
+                  throw error;
+              }
+          };
+          
+          async function collectBusinessMetrics() {
+              const metrics = [];
+              const timestamp = new Date();
+              
+              // Example: Code generation success rate
+              // This would typically query your tracking table
+              metrics.push({
+                  MetricName: 'CodeGenerationSuccessRate',
+                  Value: 95.5, // Would be calculated from actual data
+                  Unit: 'Percent',
+                  Timestamp: timestamp,
+                  Dimensions: [
+                      { Name: 'Service', Value: process.env.SERVICE_NAME },
+                      { Name: 'Stage', Value: process.env.STAGE }
+                  ]
+              });
+              
+              // Example: UI package download rate
+              metrics.push({
+                  MetricName: 'UIPackageDownloads',
+                  Value: 1234, // Would be from CloudFront logs or API calls
+                  Unit: 'Count',
+                  Timestamp: timestamp,
+                  Dimensions: [
+                      { Name: 'Service', Value: process.env.SERVICE_NAME },
+                      { Name: 'Stage', Value: process.env.STAGE }
+                  ]
+              });
+              
+              return metrics;
+          }
+          
+          async function collectPerformanceMetrics() {
+              const metrics = [];
+              const timestamp = new Date();
+              
+              // Example: End-to-end request time
+              metrics.push({
+                  MetricName: 'EndToEndLatency',
+                  Value: 2500, // milliseconds - would be measured
+                  Unit: 'Milliseconds',
+                  Timestamp: timestamp,
+                  Dimensions: [
+                      { Name: 'Service', Value: process.env.SERVICE_NAME },
+                      { Name: 'Stage', Value: process.env.STAGE }
+                  ]
+              });
+              
+              return metrics;
+          }
+          
+          async function collectCapacityMetrics() {
+              const metrics = [];
+              const timestamp = new Date();
+              
+              // Example: System load metrics
+              metrics.push({
+                  MetricName: 'SystemLoad',
+                  Value: 75, // percentage
+                  Unit: 'Percent',
+                  Timestamp: timestamp,
+                  Dimensions: [
+                      { Name: 'Service', Value: process.env.SERVICE_NAME },
+                      { Name: 'Stage', Value: process.env.STAGE }
+                  ]
+              });
+              
+              return metrics;
+          }
+          
+          async function sendMetrics(metrics) {
+              const batches = [];
+              const batchSize = 20; // CloudWatch limit
+              
+              for (let i = 0; i < metrics.length; i += batchSize) {
+                  batches.push(metrics.slice(i, i + batchSize));
+              }
+              
+              for (const batch of batches) {
+                  const params = {
+                      Namespace: `Frigg/${process.env.SERVICE_NAME}/Advanced`,
+                      MetricData: batch
+                  };
+                  
+                  await cloudwatch.putMetricData(params).promise();
+              }
+          }
+
+  # EventBridge Rule for Scheduled Metrics Collection
+  AdvancedMetricsSchedule:
+    Type: AWS::Events::Rule
+    Condition: EnableAdvanced
+    Properties:
+      Name: !Sub '${ServiceName}-${Stage}-advanced-metrics-schedule'
+      Description: 'Schedule for advanced metrics collection'
+      ScheduleExpression: 'rate(5 minutes)'
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt AdvancedMetricsFunction.Arn
+          Id: 'AdvancedMetricsTarget'
+
+  # Permission for EventBridge to invoke Lambda
+  AdvancedMetricsSchedulePermission:
+    Type: AWS::Lambda::Permission
+    Condition: EnableAdvanced
+    Properties:
+      FunctionName: !Ref AdvancedMetricsFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt AdvancedMetricsSchedule.Arn
+
+  # IAM Roles
+
+  AlertProcessorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ServiceName}-${Stage}-alert-processor-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: AlertProcessorAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+
+  AdvancedMetricsRole:
+    Type: AWS::IAM::Role
+    Condition: EnableAdvanced
+    Properties:
+      RoleName: !Sub '${ServiceName}-${Stage}-advanced-metrics-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: AdvancedMetricsAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                  - cloudwatch:GetMetricStatistics
+                  - lambda:ListFunctions
+                  - lambda:GetFunction
+                  - apigateway:GET
+                  - sqs:GetQueueAttributes
+                  - sqs:ListQueues
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                Resource: '*'
+
+Outputs:
+  CriticalAlertsTopic:
+    Description: SNS Topic ARN for critical alerts
+    Value: !Ref CriticalAlertsTopic
+    Export:
+      Name: !Sub '${ServiceName}-${Stage}-critical-alerts-topic'
+
+  WarningAlertsTopic:
+    Description: SNS Topic ARN for warning alerts
+    Value: !Ref WarningAlertsTopic
+    Export:
+      Name: !Sub '${ServiceName}-${Stage}-warning-alerts-topic'
+
+  InfoAlertsTopic:
+    Description: SNS Topic ARN for info alerts
+    Value: !Ref InfoAlertsTopic
+    Export:
+      Name: !Sub '${ServiceName}-${Stage}-info-alerts-topic'
+
+  AlertProcessorFunctionArn:
+    Description: Lambda function ARN for alert processing
+    Value: !GetAtt AlertProcessorFunction.Arn
+    Export:
+      Name: !Sub '${ServiceName}-${Stage}-alert-processor-arn'
+
+  SystemHealthAlarmArn:
+    Description: Composite alarm ARN for system health
+    Value: !GetAtt SystemHealthCompositeAlarm.Arn
+    Export:
+      Name: !Sub '${ServiceName}-${Stage}-system-health-alarm'

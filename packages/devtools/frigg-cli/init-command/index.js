@@ -15,6 +15,8 @@ const spawn = require('cross-spawn');
 const execSync = require('child_process').execSync;
 const validateProjectName = require('validate-npm-package-name');
 const semver = require('semver');
+const FrameworkTemplateHandler = require('./framework-template-handler');
+const BackendFirstHandler = require('./backend-first-handler');
 
 function isUsingYarn() {
     return (process.env.npm_config_user_agent || '').indexOf('yarn') === 0;
@@ -379,7 +381,8 @@ async function applyTemplate(root, appName, templateName, verbose, useYarn) {
 
 async function initCommand(projectName, options) {
     const verbose = options.verbose || false;
-    const template = options.template;
+    const framework = options.framework;
+    const force = options.force || false;
     
     checkNodeVersion();
     
@@ -387,6 +390,52 @@ async function initCommand(projectName, options) {
     const appName = path.basename(root);
 
     checkAppName(appName);
+    
+    // Use backend-first handler by default
+    if (!options.template && !options.legacyFrontend) {
+        try {
+            const handler = new BackendFirstHandler(root, {
+                force,
+                verbose,
+                mode: options.mode,
+                frontend: options.frontend
+            });
+            
+            await handler.initialize();
+            return;
+        } catch (error) {
+            console.log();
+            console.log(chalk.red('Aborting installation.'));
+            console.log(chalk.red('Error:'), error.message);
+            console.log();
+            process.exit(1);
+        }
+    }
+    
+    // Legacy framework-first handler (for backwards compatibility)
+    if (framework || options.legacyFrontend) {
+        try {
+            const templateHandler = new FrameworkTemplateHandler(root, {
+                framework,
+                force,
+                verbose,
+                includeBackend: options.backend !== false
+            });
+            
+            await templateHandler.initialize();
+            return;
+        } catch (error) {
+            console.log();
+            console.log(chalk.red('Aborting installation.'));
+            console.log(chalk.red('Error:'), error.message);
+            console.log();
+            process.exit(1);
+        }
+    }
+
+    // Fallback to legacy template system for backward compatibility
+    console.log(chalk.yellow('⚠️  Using legacy template system. Consider using the new framework-specific templates.'));
+    
     fs.ensureDirSync(projectName);
     
     if (!isSafeToCreateProjectIn(root, projectName)) {
@@ -423,7 +472,7 @@ async function initCommand(projectName, options) {
     process.chdir(root);
     
     const useYarn = isUsingYarn();
-    const templateToInstall = getTemplateInstallPackage(template, originalDirectory);
+    const templateToInstall = getTemplateInstallPackage(options.template, originalDirectory);
     
     try {
         await installTemplate(root, templateToInstall, verbose, useYarn);

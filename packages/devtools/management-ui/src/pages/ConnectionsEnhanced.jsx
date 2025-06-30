@@ -13,7 +13,7 @@ import api from '../services/api'
 
 const ConnectionsEnhanced = () => {
   const { connections, users, integrations, refreshConnections } = useFrigg()
-  const socket = useSocket()
+  const { socket, emit, on } = useSocket()
   const [selectedConnection, setSelectedConnection] = useState(null)
   const [activeView, setActiveView] = useState('overview') // overview, test, health, entities, config
   const [showOAuthFlow, setShowOAuthFlow] = useState(false)
@@ -25,18 +25,14 @@ const ConnectionsEnhanced = () => {
     fetchConnectionStats()
     
     // Subscribe to real-time updates
-    if (socket) {
-      socket.on('connection-update', handleConnectionUpdate)
-      socket.on('connection-test', handleTestUpdate)
-      socket.emit('subscribe', { topics: ['connections'] })
-    }
+    const unsubscribeUpdate = on('connection-update', handleConnectionUpdate)
+    const unsubscribeTest = on('connection-test', handleTestUpdate)
+    emit('subscribe', { topics: ['connections'] })
 
     return () => {
-      if (socket) {
-        socket.off('connection-update', handleConnectionUpdate)
-        socket.off('connection-test', handleTestUpdate)
-        socket.emit('unsubscribe', { topics: ['connections'] })
-      }
+      if (unsubscribeUpdate) unsubscribeUpdate()
+      if (unsubscribeTest) unsubscribeTest()
+      emit('unsubscribe', { topics: ['connections'] })
     }
   }, [socket])
 

@@ -1,0 +1,19 @@
+{
+  "name": "@friggframework/cli-utils",
+  "version": "1.0.0",
+  "description": "Lightweight utilities for Frigg CLI operations",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "frigg",
+    "cli",
+    "utils"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "fs-extra": "^11.1.1"
+  }
+}

@@ -4,7 +4,7 @@ import { useFrigg } from '../hooks/useFrigg'
 import { useSocket } from '../hooks/useSocket'
 import IntegrationCard from '../components/IntegrationCard'
 import { Button } from '../components/Button'
-import { cn } from '../utils/cn'
+import { cn } from '../lib/utils'
 import api from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 
@@ -279,9 +279,9 @@ const IntegrationDiscovery = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-gray-900">Integration Marketplace</h2>
+          <h2 className="text-3xl font-bold text-gray-900">Integration Library</h2>
           <p className="mt-2 text-gray-600">
-            Discover and install Frigg integrations to extend your capabilities
+            Discover and add integrations to your Frigg app
           </p>
         </div>
         <Button

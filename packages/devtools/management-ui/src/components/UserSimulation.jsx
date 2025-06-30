@@ -3,7 +3,7 @@ import { Play, Square, AlertCircle, CheckCircle, Clock, Zap } from 'lucide-react
 import { useFrigg } from '../hooks/useFrigg'
 import { useSocket } from '../hooks/useSocket'
 import api from '../services/api'
-import { cn } from '../utils/cn'
+import { cn } from '../lib/utils'
 
 const UserSimulation = ({ user, integration }) => {
   const { currentUser } = useFrigg()

@@ -1,0 +1,679 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Frigg Phase 3 Code Generation Infrastructure - Serverless infrastructure for AI-powered code generation services'
+
+Parameters:
+  ServiceName:
+    Type: String
+    Default: frigg
+    Description: Name of the Frigg service
+  
+  Stage:
+    Type: String
+    Default: production
+    AllowedValues:
+      - development
+      - staging
+      - production
+    Description: Deployment stage
+  
+  ModelEndpoint:
+    Type: String
+    Description: AI/ML model endpoint for code generation (e.g., OpenAI API, Claude API)
+    Default: ''
+  
+  MaxConcurrentGenerations:
+    Type: Number
+    Default: 10
+    MinValue: 1
+    MaxValue: 100
+    Description: Maximum concurrent code generation requests
+  
+  GenerationTimeout:
+    Type: Number
+    Default: 300
+    MinValue: 30
+    MaxValue: 900
+    Description: Code generation timeout in seconds
+  
+  EnableTemplateCache:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Enable template caching for faster generation
+
+Conditions:
+  HasModelEndpoint: !Not [!Equals [!Ref ModelEndpoint, '']]
+  EnableCaching: !Equals [!Ref EnableTemplateCache, 'true']
+
+Resources:
+  # S3 Bucket for Generated Code Storage
+  CodeGenerationBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ServiceName}-${Stage}-codegen-${AWS::AccountId}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldGenerations
+            Status: Enabled
+            ExpirationInDays: 30
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 7
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicReadWrite: true
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Function: !GetAtt CodeGenerationNotificationFunction.Arn
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: generated/
+      Tags:
+        - Key: Environment
+          Value: !Ref Stage
+        - Key: Service
+          Value: !Ref ServiceName
+        - Key: Purpose
+          Value: Code-Generation
+
+  # S3 Bucket for Template Storage
+  TemplateStorageBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ServiceName}-${Stage}-templates-${AWS::AccountId}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicReadWrite: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Stage
+        - Key: Service
+          Value: !Ref ServiceName
+        - Key: Purpose
+          Value: Template-Storage
+
+  # DynamoDB Table for Generation Tracking
+  GenerationTrackingTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ServiceName}-${Stage}-code-generations'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: generationId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: N
+        - AttributeName: status
+          AttributeType: S
+      KeySchema:
+        - AttributeName: generationId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: UserIdIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: StatusIndex
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Stage
+        - Key: Service
+          Value: !Ref ServiceName
+        - Key: Purpose
+          Value: Generation-Tracking
+
+  # SQS Queue for Code Generation Requests
+  CodeGenerationQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${ServiceName}-${Stage}-code-generation-queue'
+      VisibilityTimeout: !Ref GenerationTimeout
+      MessageRetentionPeriod: 1209600  # 14 days
+      ReceiveMessageWaitTimeSeconds: 20  # Long polling
+      RedrivePolicy:
+        maxReceiveCount: 3
+        deadLetterTargetArn: !GetAtt CodeGenerationDLQ.Arn
+      Tags:
+        - Key: Environment
+          Value: !Ref Stage
+        - Key: Service
+          Value: !Ref ServiceName
+
+  # Dead Letter Queue for Failed Generations
+  CodeGenerationDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${ServiceName}-${Stage}-code-generation-dlq'
+      MessageRetentionPeriod: 1209600  # 14 days
+      Tags:
+        - Key: Environment
+          Value: !Ref Stage
+        - Key: Service
+          Value: !Ref ServiceName
+
+  # ElastiCache for Template Caching
+  TemplateCacheSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Condition: EnableCaching
+    Properties:
+      Description: Subnet group for template cache
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+  TemplateCacheSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Condition: EnableCaching
+    Properties:
+      GroupDescription: Security group for template cache
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId: !Ref CodeGenerationSecurityGroup
+          Description: Redis access from code generation functions
+      Tags:
+        - Key: Name
+          Value: !Sub '${ServiceName}-${Stage}-template-cache-sg'
+
+  TemplateCache:
+    Type: AWS::ElastiCache::ReplicationGroup
+    Condition: EnableCaching
+    Properties:
+      ReplicationGroupId: !Sub '${ServiceName}-${Stage}-template-cache'
+      Description: 'Redis cache for code generation templates'
+      CacheNodeType: cache.t3.micro
+      NumCacheClusters: 1
+      Engine: redis
+      EngineVersion: '7.0'
+      CacheSubnetGroupName: !Ref TemplateCacheSubnetGroup
+      SecurityGroupIds:
+        - !Ref TemplateCacheSecurityGroup
+      AtRestEncryptionEnabled: true
+      TransitEncryptionEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Stage
+        - Key: Service
+          Value: !Ref ServiceName
+
+  # VPC Configuration for Code Generation Functions
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${ServiceName}-${Stage}-codegen-vpc'
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub '${ServiceName}-${Stage}-codegen-private-1'
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub '${ServiceName}-${Stage}-codegen-private-2'
+
+  CodeGenerationSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for code generation functions
+      VpcId: !Ref VPC
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS outbound
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP outbound
+      Tags:
+        - Key: Name
+          Value: !Sub '${ServiceName}-${Stage}-codegen-sg'
+
+  # Lambda Functions
+
+  # Main Code Generation Function
+  CodeGenerationFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${ServiceName}-${Stage}-code-generator'
+      Runtime: nodejs20.x
+      Handler: index.handler
+      Timeout: !Ref GenerationTimeout
+      MemorySize: 2048
+      ReservedConcurrencyLimit: !Ref MaxConcurrentGenerations
+      Role: !GetAtt CodeGenerationRole.Arn
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref CodeGenerationSecurityGroup
+        SubnetIds:
+          - !Ref PrivateSubnet1
+          - !Ref PrivateSubnet2
+      Environment:
+        Variables:
+          GENERATION_BUCKET: !Ref CodeGenerationBucket
+          TEMPLATE_BUCKET: !Ref TemplateStorageBucket
+          TRACKING_TABLE: !Ref GenerationTrackingTable
+          MODEL_ENDPOINT: !Ref ModelEndpoint
+          REDIS_ENDPOINT: !If
+            - EnableCaching
+            - !GetAtt TemplateCache.RedisEndpoint.Address
+            - ''
+          STAGE: !Ref Stage
+          SERVICE_NAME: !Ref ServiceName
+      Code:
+        ZipFile: |
+          const AWS = require('aws-sdk');
+          const { v4: uuidv4 } = require('uuid');
+          
+          const s3 = new AWS.S3();
+          const dynamodb = new AWS.DynamoDB.DocumentClient();
+          
+          exports.handler = async (event) => {
+              console.log('Code Generation Event:', JSON.stringify(event, null, 2));
+              
+              try {
+                  // Parse SQS message
+                  const records = event.Records || [];
+                  const results = [];
+                  
+                  for (const record of records) {
+                      const messageBody = JSON.parse(record.body);
+                      const result = await processGenerationRequest(messageBody);
+                      results.push(result);
+                  }
+                  
+                  return { success: true, results };
+              } catch (error) {
+                  console.error('Generation error:', error);
+                  throw error;
+              }
+          };
+          
+          async function processGenerationRequest(request) {
+              const { 
+                  generationId = uuidv4(),
+                  userId,
+                  type,
+                  templateName,
+                  parameters,
+                  outputPath
+              } = request;
+              
+              console.log(`Processing generation: ${generationId}, type: ${type}`);
+              
+              // Update status to processing
+              await updateGenerationStatus(generationId, 'processing', { userId, type, templateName });
+              
+              try {
+                  // Load template
+                  const template = await loadTemplate(templateName);
+                  
+                  // Generate code using AI/ML model
+                  const generatedCode = await generateCode(template, parameters, type);
+                  
+                  // Store generated code
+                  const s3Key = outputPath || `generated/${generationId}/${type}/`;
+                  await storeGeneratedCode(s3Key, generatedCode);
+                  
+                  // Update status to completed
+                  await updateGenerationStatus(generationId, 'completed', {
+                      outputLocation: `s3://${process.env.GENERATION_BUCKET}/${s3Key}`,
+                      filesGenerated: Object.keys(generatedCode).length
+                  });
+                  
+                  return { generationId, status: 'completed', outputLocation: s3Key };
+                  
+              } catch (error) {
+                  console.error(`Generation failed for ${generationId}:`, error);
+                  
+                  await updateGenerationStatus(generationId, 'failed', {
+                      error: error.message,
+                      stack: error.stack
+                  });
+                  
+                  throw error;
+              }
+          }
+          
+          async function loadTemplate(templateName) {
+              const params = {
+                  Bucket: process.env.TEMPLATE_BUCKET,
+                  Key: `templates/${templateName}.json`
+              };
+              
+              try {
+                  const result = await s3.getObject(params).promise();
+                  return JSON.parse(result.Body.toString());
+              } catch (error) {
+                  if (error.code === 'NoSuchKey') {
+                      throw new Error(`Template not found: ${templateName}`);
+                  }
+                  throw error;
+              }
+          }
+          
+          async function generateCode(template, parameters, type) {
+              // This is where you'd integrate with your AI/ML service
+              // For now, return a simple template-based generation
+              
+              const { files, structure } = template;
+              const generatedFiles = {};
+              
+              for (const file of files) {
+                  let content = file.content;
+                  
+                  // Simple template variable replacement
+                  for (const [key, value] of Object.entries(parameters)) {
+                      const regex = new RegExp(`{{${key}}}`, 'g');
+                      content = content.replace(regex, value);
+                  }
+                  
+                  generatedFiles[file.path] = {
+                      content,
+                      contentType: file.contentType || 'text/plain'
+                  };
+              }
+              
+              return generatedFiles;
+          }
+          
+          async function storeGeneratedCode(basePath, generatedCode) {
+              const uploads = [];
+              
+              for (const [filePath, fileData] of Object.entries(generatedCode)) {
+                  const key = `${basePath}${filePath}`;
+                  
+                  const uploadParams = {
+                      Bucket: process.env.GENERATION_BUCKET,
+                      Key: key,
+                      Body: fileData.content,
+                      ContentType: fileData.contentType,
+                      Metadata: {
+                          generatedAt: new Date().toISOString(),
+                          service: process.env.SERVICE_NAME,
+                          stage: process.env.STAGE
+                      }
+                  };
+                  
+                  uploads.push(s3.upload(uploadParams).promise());
+              }
+              
+              await Promise.all(uploads);
+          }
+          
+          async function updateGenerationStatus(generationId, status, additionalData = {}) {
+              const params = {
+                  TableName: process.env.TRACKING_TABLE,
+                  Key: { generationId },
+                  UpdateExpression: 'SET #status = :status, updatedAt = :updatedAt',
+                  ExpressionAttributeNames: {
+                      '#status': 'status'
+                  },
+                  ExpressionAttributeValues: {
+                      ':status': status,
+                      ':updatedAt': Date.now()
+                  }
+              };
+              
+              // Add additional data to update expression
+              for (const [key, value] of Object.entries(additionalData)) {
+                  params.UpdateExpression += `, ${key} = :${key}`;
+                  params.ExpressionAttributeValues[`:${key}`] = value;
+              }
+              
+              await dynamodb.update(params).promise();
+          }
+
+  # Function to handle generation notifications
+  CodeGenerationNotificationFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${ServiceName}-${Stage}-codegen-notification'
+      Runtime: nodejs20.x
+      Handler: index.handler
+      Timeout: 60
+      MemorySize: 256
+      Role: !GetAtt CodeGenerationNotificationRole.Arn
+      Environment:
+        Variables:
+          TRACKING_TABLE: !Ref GenerationTrackingTable
+          STAGE: !Ref Stage
+          SERVICE_NAME: !Ref ServiceName
+      Code:
+        ZipFile: |
+          const AWS = require('aws-sdk');
+          const dynamodb = new AWS.DynamoDB.DocumentClient();
+          
+          exports.handler = async (event) => {
+              console.log('S3 Notification Event:', JSON.stringify(event, null, 2));
+              
+              try {
+                  const records = event.Records || [];
+                  
+                  for (const record of records) {
+                      if (record.eventSource === 's3') {
+                          await handleS3Event(record);
+                      }
+                  }
+                  
+                  return { success: true };
+              } catch (error) {
+                  console.error('Notification error:', error);
+                  throw error;
+              }
+          };
+          
+          async function handleS3Event(record) {
+              const bucketName = record.s3.bucket.name;
+              const objectKey = record.s3.object.key;
+              
+              console.log(`S3 object created: ${bucketName}/${objectKey}`);
+              
+              // Extract generation ID from path
+              const pathParts = objectKey.split('/');
+              if (pathParts.length >= 2 && pathParts[0] === 'generated') {
+                  const generationId = pathParts[1];
+                  
+                  // Publish notification event (could integrate with SNS, EventBridge, etc.)
+                  console.log(`Code generation completed: ${generationId}`);
+                  
+                  // Update generation record with notification sent flag
+                  await dynamodb.update({
+                      TableName: process.env.TRACKING_TABLE,
+                      Key: { generationId },
+                      UpdateExpression: 'SET notificationSent = :sent, notifiedAt = :at',
+                      ExpressionAttributeValues: {
+                          ':sent': true,
+                          ':at': Date.now()
+                      }
+                  }).promise();
+              }
+          }
+
+  # Event Source Mapping for SQS Queue
+  CodeGenerationEventSourceMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt CodeGenerationQueue.Arn
+      FunctionName: !Ref CodeGenerationFunction
+      BatchSize: 1
+      MaximumBatchingWindowInSeconds: 5
+
+  # S3 Bucket Notification Permission
+  S3InvokeLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref CodeGenerationNotificationFunction
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub 'arn:aws:s3:::${CodeGenerationBucket}'
+
+  # IAM Roles
+
+  CodeGenerationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ServiceName}-${Stage}-codegen-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCExecutionRole
+      Policies:
+        - PolicyName: CodeGenerationAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource:
+                  - !Sub '${CodeGenerationBucket}/*'
+                  - !Sub '${TemplateStorageBucket}/*'
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource:
+                  - !Ref CodeGenerationBucket
+                  - !Ref TemplateStorageBucket
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource:
+                  - !GetAtt GenerationTrackingTable.Arn
+                  - !Sub '${GenerationTrackingTable.Arn}/index/*'
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt CodeGenerationQueue.Arn
+
+  CodeGenerationNotificationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ServiceName}-${Stage}-codegen-notification-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: NotificationAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:UpdateItem
+                Resource: !GetAtt GenerationTrackingTable.Arn
+
+Outputs:
+  CodeGenerationBucket:
+    Description: S3 bucket for generated code storage
+    Value: !Ref CodeGenerationBucket
+    Export:
+      Name: !Sub '${ServiceName}-${Stage}-codegen-bucket'
+
+  TemplateStorageBucket:
+    Description: S3 bucket for template storage
+    Value: !Ref TemplateStorageBucket
+    Export:
+      Name: !Sub '${ServiceName}-${Stage}-template-bucket'
+
+  CodeGenerationQueueUrl:
+    Description: SQS queue URL for code generation requests
+    Value: !Ref CodeGenerationQueue
+    Export:
+      Name: !Sub '${ServiceName}-${Stage}-codegen-queue-url'
+
+  GenerationTrackingTable:
+    Description: DynamoDB table for tracking code generations
+    Value: !Ref GenerationTrackingTable
+    Export:
+      Name: !Sub '${ServiceName}-${Stage}-generation-tracking-table'
+
+  CodeGenerationFunctionArn:
+    Description: Lambda function ARN for code generation
+    Value: !GetAtt CodeGenerationFunction.Arn
+    Export:
+      Name: !Sub '${ServiceName}-${Stage}-codegen-function-arn'
+
+  TemplateCacheEndpoint:
+    Description: Redis cache endpoint for templates (if enabled)
+    Value: !If
+      - EnableCaching
+      - !GetAtt TemplateCache.RedisEndpoint.Address
+      - 'N/A'
+    Export:
+      Name: !Sub '${ServiceName}-${Stage}-template-cache-endpoint'

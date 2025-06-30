@@ -1,0 +1,85 @@
+{
+  "name": "@friggframework/ui-vue",
+  "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./dist/index.umd.js",
+  "module": "./dist/index.es.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist/**",
+    "src/**"
+  ],
+  "exports": {
+    ".": {
+      "import": "./dist/index.es.js",
+      "require": "./dist/index.umd.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./composables": {
+      "import": "./dist/composables/index.js",
+      "types": "./dist/composables/index.d.ts"
+    },
+    "./components": {
+      "import": "./dist/components/index.js",
+      "types": "./dist/components/index.d.ts"
+    },
+    "./plugins": {
+      "import": "./dist/plugins/index.js",
+      "types": "./dist/plugins/index.d.ts"
+    }
+  },
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build && vue-tsc --emitDeclarationOnly",
+    "build:analyze": "ANALYZE=true vite build && vue-tsc --emitDeclarationOnly",
+    "lint": "eslint . --ext js,ts,vue --report-unused-disable-directives --max-warnings 0",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "coverage": "vitest --coverage",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@friggframework/ui-core": "^1.0.0",
+    "vue": "^3.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@vitejs/plugin-vue": "^5.0.0",
+    "@vue/test-utils": "^2.4.0",
+    "typescript": "^5.0.0",
+    "vite": "^5.3.4",
+    "vitest": "^1.0.0",
+    "@vitest/ui": "^1.0.0",
+    "@vitest/coverage-v8": "^1.0.0",
+    "vue-tsc": "^2.0.0",
+    "eslint": "^8.57.0",
+    "jsdom": "^24.0.0",
+    "happy-dom": "^14.0.0",
+    "@testing-library/vue": "^8.0.0",
+    "@testing-library/user-event": "^14.0.0",
+    "rollup-plugin-visualizer": "^5.12.0",
+    "terser": "^5.31.0"
+  },
+  "peerDependencies": {
+    "vue": "^3.4.0"
+  },
+  "description": "Vue.js bindings for @friggframework/ui-core integration platform",
+  "keywords": [
+    "frigg",
+    "ui-vue",
+    "vue",
+    "integration",
+    "framework-bindings"
+  ],
+  "author": "Frigg Framework",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/friggframework/frigg.git",
+    "directory": "packages/ui-vue"
+  }
+}

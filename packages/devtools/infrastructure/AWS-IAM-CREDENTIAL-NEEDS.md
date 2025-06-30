@@ -93,7 +93,9 @@ Required for basic Frigg application deployment:
         "s3:PutBucketVersioning",
         "s3:PutBucketPublicAccessBlock",
         "s3:GetBucketLocation",
-        "s3:ListBucket"
+        "s3:ListBucket",
+        "s3:PutBucketTagging",
+        "s3:GetBucketTagging"
       ],
       "Resource": [
         "arn:aws:s3:::*serverless*",

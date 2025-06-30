@@ -1,9 +1,14 @@
 import express from 'express'
-import { spawn } from 'child_process'
+import { spawn, exec } from 'child_process'
+import { promisify } from 'util'
 import path from 'path'
 import fs from 'fs/promises'
+import { fileURLToPath } from 'url'
 import { createStandardResponse, createErrorResponse, ERROR_CODES, asyncHandler } from '../utils/response.js'
 
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const execAsync = promisify(exec)
 const router = express.Router()
 
 // Track project process state
@@ -329,5 +334,181 @@ router.delete('/logs', asyncHandler(async (req, res) => {
     projectLogs = []
     res.json(createStandardResponse({ message: 'Logs cleared' }))
 }))
+
+/**
+ * Get project metrics
+ */
+router.get('/metrics', asyncHandler(async (req, res) => {
+    const metrics = {
+        status: projectStatus,
+        uptime: projectStartTime ? Math.floor((Date.now() - projectStartTime) / 1000) : 0,
+        memory: process.memoryUsage(),
+        cpu: process.cpuUsage(),
+        logs: {
+            total: projectLogs.length,
+            errors: projectLogs.filter(log => log.type === 'stderr').length,
+            warnings: projectLogs.filter(log => log.message.toLowerCase().includes('warning')).length
+        }
+    }
+    
+    res.json(createStandardResponse(metrics))
+}))
+
+/**
+ * Get available Frigg repositories
+ */
+router.get('/repositories', asyncHandler(async (req, res) => {
+    try {
+        // Execute the frigg CLI command directly
+        const friggPath = path.join(__dirname, '../../../frigg-cli/index.js')
+        const command = `node "${friggPath}" repos list --json`
+        console.log('Executing command:', command)
+        console.log('From directory:', process.cwd())
+        
+        const { stdout, stderr } = await execAsync(command, {
+            cwd: process.cwd(),
+            env: process.env,
+            maxBuffer: 1024 * 1024 * 10 // 10MB buffer for large repo lists
+        })
+        
+        console.log('Command stdout length:', stdout.length)
+        console.log('Command stderr:', stderr)
+        
+        if (stderr && !stderr.includes('DeprecationWarning') && !stderr.includes('NOTE: The AWS SDK')) {
+            console.error('Repository discovery stderr:', stderr)
+        }
+        
+        // Parse the JSON output
+        let repositories = []
+        try {
+            // With the --json flag, we should get clean JSON output
+            repositories = JSON.parse(stdout)
+            console.log(`Found ${repositories.length} repositories`)
+        } catch (parseError) {
+            console.error('Failed to parse repository JSON:', parseError)
+            console.log('Raw output (first 500 chars):', stdout.substring(0, 500))
+        }
+        
+        // Get current repository info
+        const currentRepo = process.env.REPOSITORY_INFO ? 
+            JSON.parse(process.env.REPOSITORY_INFO) : 
+            await getCurrentRepositoryInfo()
+        
+        res.json(createStandardResponse({
+            repositories,
+            currentRepository: currentRepo
+        }))
+    } catch (error) {
+        console.error('Failed to get repositories:', error)
+        res.json(createStandardResponse({
+            repositories: [],
+            currentRepository: null,
+            error: 'Failed to discover repositories: ' + error.message
+        }))
+    }
+}))
+
+/**
+ * Switch to a different repository
+ */
+router.post('/switch-repository', asyncHandler(async (req, res) => {
+    const { repositoryPath } = req.body
+    
+    if (!repositoryPath) {
+        return res.status(400).json(
+            createErrorResponse(ERROR_CODES.VALIDATION_ERROR, 'Repository path is required')
+        )
+    }
+    
+    try {
+        // Verify the repository exists and is valid
+        const stats = await fs.stat(repositoryPath)
+        if (!stats.isDirectory()) {
+            throw new Error('Invalid repository path')
+        }
+        
+        // Check if it's a valid Frigg repository
+        const packageJsonPath = path.join(repositoryPath, 'package.json')
+        const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf8'))
+        
+        // Update environment variable
+        process.env.PROJECT_ROOT = repositoryPath
+        process.env.REPOSITORY_INFO = JSON.stringify({
+            name: packageJson.name || path.basename(repositoryPath),
+            path: repositoryPath,
+            version: packageJson.version
+        })
+        
+        // Stop any running processes
+        if (projectProcess && projectStatus === 'running') {
+            projectProcess.kill('SIGTERM')
+            projectStatus = 'stopped'
+            projectProcess = null
+        }
+        
+        // Notify via WebSocket
+        const io = req.app.get('io')
+        if (io) {
+            io.emit('repository:switched', {
+                repository: {
+                    name: packageJson.name,
+                    path: repositoryPath,
+                    version: packageJson.version
+                }
+            })
+        }
+        
+        res.json(createStandardResponse({
+            message: 'Repository switched successfully',
+            repository: {
+                name: packageJson.name,
+                path: repositoryPath,
+                version: packageJson.version
+            }
+        }))
+    } catch (error) {
+        return res.status(500).json(
+            createErrorResponse(ERROR_CODES.INTERNAL_ERROR, 'Failed to switch repository: ' + error.message)
+        )
+    }
+}))
+
+/**
+ * Get current repository information
+ */
+async function getCurrentRepositoryInfo() {
+    try {
+        const cwd = process.env.PROJECT_ROOT || process.cwd()
+        const packageJsonPath = path.join(cwd, 'package.json')
+        const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf8'))
+        
+        return {
+            name: packageJson.name || path.basename(cwd),
+            path: cwd,
+            version: packageJson.version,
+            framework: detectFramework(packageJson),
+            hasBackend: await fs.access(path.join(cwd, 'backend')).then(() => true).catch(() => false)
+        }
+    } catch (error) {
+        return null
+    }
+}
+
+/**
+ * Detect framework from package.json
+ */
+function detectFramework(packageJson) {
+    const deps = { 
+        ...packageJson.dependencies, 
+        ...packageJson.devDependencies 
+    }
+    
+    if (deps.react) return 'React'
+    if (deps.vue) return 'Vue'
+    if (deps.svelte) return 'Svelte'
+    if (deps['@angular/core']) return 'Angular'
+    
+    return 'Unknown'
+}
 
 export default router

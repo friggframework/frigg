@@ -3,6 +3,7 @@
   "prettier": "@friggframework/prettier-config",
   "version": "2.0.0-next.0",
   "dependencies": {
+    "@friggframework/cli-utils": "^1.0.0",
     "@hapi/boom": "^10.0.1",
     "aws-sdk": "^2.1200.0",
     "bcryptjs": "^2.4.3",

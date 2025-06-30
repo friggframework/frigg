@@ -1,0 +1,93 @@
+{
+  "name": "@friggframework/ui-angular",
+  "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./dist/fesm2022/friggframework-ui-angular.mjs",
+  "module": "./dist/fesm2022/friggframework-ui-angular.mjs",
+  "es2022": "./dist/fesm2022/friggframework-ui-angular.mjs",
+  "esm2022": "./dist/esm2022/friggframework-ui-angular.mjs",
+  "fesm2022": "./dist/fesm2022/friggframework-ui-angular.mjs",
+  "typings": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": {
+      "default": "./package.json"
+    },
+    ".": {
+      "types": "./dist/index.d.ts",
+      "esm2022": "./dist/esm2022/friggframework-ui-angular.mjs",
+      "es2022": "./dist/fesm2022/friggframework-ui-angular.mjs",
+      "node": "./dist/fesm2022/friggframework-ui-angular.mjs",
+      "default": "./dist/fesm2022/friggframework-ui-angular.mjs"
+    }
+  },
+  "scripts": {
+    "ng": "ng",
+    "build": "ng build",
+    "build:analyze": "ng build --stats-json && npx webpack-bundle-analyzer dist/stats.json",
+    "watch": "ng build --watch --configuration development",
+    "test": "ng test",
+    "test:headless": "ng test --no-watch --no-progress --browsers=ChromeHeadless",
+    "lint": "ng lint",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@angular/animations": "^17.0.0",
+    "@angular/common": "^17.0.0",
+    "@angular/compiler": "^17.0.0",
+    "@angular/core": "^17.0.0",
+    "@angular/forms": "^17.0.0",
+    "@angular/platform-browser": "^17.0.0",
+    "@angular/platform-browser-dynamic": "^17.0.0",
+    "@friggframework/ui-core": "^1.0.0",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "zone.js": "~0.14.2"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "^17.0.0",
+    "@angular/cli": "^17.0.0",
+    "@angular/compiler-cli": "^17.0.0",
+    "@types/jasmine": "~5.1.0",
+    "jasmine-core": "~5.1.0",
+    "karma": "~6.4.0",
+    "karma-chrome-launcher": "~3.2.0",
+    "karma-coverage": "~2.2.0",
+    "karma-jasmine": "~5.1.0",
+    "karma-jasmine-html-reporter": "~2.1.0",
+    "ng-packagr": "^17.0.0",
+    "typescript": "~5.2.2",
+    "@angular-eslint/builder": "17.0.0",
+    "@angular-eslint/eslint-plugin": "17.0.0",
+    "@angular-eslint/eslint-plugin-template": "17.0.0",
+    "@angular-eslint/schematics": "17.0.0",
+    "@angular-eslint/template-parser": "17.0.0",
+    "@typescript-eslint/eslint-plugin": "6.10.0",
+    "@typescript-eslint/parser": "6.10.0",
+    "eslint": "^8.53.0",
+    "webpack-bundle-analyzer": "^4.10.2"
+  },
+  "peerDependencies": {
+    "@angular/common": "^17.0.0",
+    "@angular/core": "^17.0.0",
+    "@friggframework/ui-core": "^1.0.0"
+  },
+  "description": "Angular bindings for @friggframework/ui-core integration platform",
+  "keywords": [
+    "frigg",
+    "ui-angular",
+    "angular",
+    "integration",
+    "framework-bindings"
+  ],
+  "author": "Frigg Framework",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/friggframework/frigg.git",
+    "directory": "packages/ui-angular"
+  }
+}

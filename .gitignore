@@ -38,3 +38,14 @@ CLAUDE.md
 .npmrc
 .autorc
 /.nx/
+
+# Claude Code / Claude-Flow / SAFLA
+.safla/
+.aider*
+.cascade/
+.continue/
+claude_chats/
+.claude-code/
+.vscode/claude-*
+*.claude.json
+*.claude-backup

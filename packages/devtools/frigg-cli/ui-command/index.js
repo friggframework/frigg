@@ -1,26 +1,131 @@
-const { FriggManagementServer } = require('../../management-ui/server');
 const open = require('open');
 const chalk = require('chalk');
+const path = require('path');
+const ProcessManager = require('../utils/process-manager');
+const { 
+    getCurrentRepositoryInfo, 
+    discoverFriggRepositories, 
+    promptRepositorySelection,
+    formatRepositoryInfo 
+} = require('../utils/repo-detection');
 
 async function uiCommand(options) {
-    const { port = 3001, open: shouldOpen = true } = options;
+    const { port = 3001, open: shouldOpen = true, repo: specifiedRepo } = options;
     
-    console.log(chalk.blue('Starting Frigg Management UI...'));
+    let targetRepo = null;
+    let workingDirectory = process.cwd();
+
+    // If a specific repo path is provided, use it
+    if (specifiedRepo) {
+        const repoPath = path.resolve(specifiedRepo);
+        console.log(chalk.blue(`Using specified repository: ${repoPath}`));
+        workingDirectory = repoPath;
+        targetRepo = { path: repoPath, name: path.basename(repoPath) };
+    } else {
+        // Check if we're already in a Frigg repository
+        console.log(chalk.blue('Detecting Frigg repository...'));
+        const currentRepo = await getCurrentRepositoryInfo();
+        
+        if (currentRepo) {
+            console.log(chalk.green(`✓ Found Frigg repository: ${formatRepositoryInfo(currentRepo)}`));
+            if (currentRepo.currentSubPath) {
+                console.log(chalk.gray(`  Currently in subdirectory: ${currentRepo.currentSubPath}`));
+            }
+            targetRepo = currentRepo;
+            workingDirectory = currentRepo.path;
+        } else {
+            // Discover Frigg repositories
+            console.log(chalk.yellow('Current directory is not a Frigg repository.'));
+            console.log(chalk.blue('Searching for Frigg repositories...'));
+            
+            const discoveredRepos = await discoverFriggRepositories();
+            targetRepo = await promptRepositorySelection(discoveredRepos);
+            
+            if (!targetRepo) {
+                console.log(chalk.red('No Frigg repository selected. Exiting.'));
+                process.exit(1);
+            }
+            
+            workingDirectory = targetRepo.path;
+        }
+    }
+
+    console.log(chalk.blue('🚀 Starting Frigg Management UI...'));
+    
+    const processManager = new ProcessManager();
     
     try {
-        // Create and start the server
-        const server = new FriggManagementServer({ port });
-        await server.start();
+        const managementUiPath = path.join(__dirname, '../../management-ui');
         
-        console.log(chalk.green(`✓ Management UI server running on http://localhost:${port}`));
-        console.log(chalk.gray('Press Ctrl+C to stop the server'));
+        // Check if we're in development mode (no dist folder)
+        const distPath = path.join(managementUiPath, 'dist');
+        const fs = require('fs');
+        const isDevelopment = !fs.existsSync(distPath);
         
-        // Open browser if requested
-        if (shouldOpen) {
-            console.log(chalk.blue('Opening browser...'));
-            setTimeout(() => {
-                open(`http://localhost:${port}`);
-            }, 1000);
+        if (isDevelopment) {
+            const env = {
+                ...process.env,
+                VITE_API_URL: `http://localhost:${port}`,
+                PORT: port,
+                PROJECT_ROOT: workingDirectory,
+                REPOSITORY_INFO: JSON.stringify(targetRepo)
+            };
+            
+            // Start backend server
+            processManager.spawnProcess(
+                'backend',
+                'npm',
+                ['run', 'server'],
+                { cwd: managementUiPath, env }
+            );
+            
+            // Start frontend dev server
+            processManager.spawnProcess(
+                'frontend',
+                'npm',
+                ['run', 'dev'],
+                { cwd: managementUiPath, env }
+            );
+            
+            // Wait for servers to start
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Display clean status
+            processManager.printStatus(
+                'http://localhost:5173',
+                `http://localhost:${port}`,
+                targetRepo.name
+            );
+            
+            // Open browser if requested
+            if (shouldOpen) {
+                setTimeout(() => {
+                    open('http://localhost:5173');
+                }, 1000);
+            }
+            
+        } else {
+            // Production mode - just start the backend server
+            const { FriggManagementServer } = await import('../../management-ui/server/index.js');
+            
+            const server = new FriggManagementServer({ 
+                port, 
+                projectRoot: workingDirectory,
+                repositoryInfo: targetRepo 
+            });
+            await server.start();
+            
+            processManager.printStatus(
+                `http://localhost:${port}`,
+                `http://localhost:${port}/api`,
+                targetRepo.name
+            );
+            
+            if (shouldOpen) {
+                setTimeout(() => {
+                    open(`http://localhost:${port}`);
+                }, 1000);
+            }
         }
         
         // Keep the process running
@@ -28,6 +133,9 @@ async function uiCommand(options) {
         
     } catch (error) {
         console.error(chalk.red('Failed to start Management UI:'), error.message);
+        if (error.code === 'EADDRINUSE') {
+            console.log(chalk.yellow(`Port ${port} is already in use. Try using a different port with --port <number>`));
+        }
         process.exit(1);
     }
 }
