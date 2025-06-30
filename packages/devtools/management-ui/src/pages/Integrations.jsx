@@ -3,7 +3,7 @@ import { Search, Filter, Grid3X3, List, Package } from 'lucide-react'
 import { useFrigg } from '../hooks/useFrigg'
 import IntegrationCard from '../components/IntegrationCard'
 import { Button } from '../components/Button'
-import { cn } from '../utils/cn'
+import { cn } from '../lib/utils'
 
 const Integrations = () => {
   const { integrations, installIntegration, uninstallIntegration } = useFrigg()

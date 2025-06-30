@@ -12,53 +12,94 @@ import cliIntegration from './utils/cliIntegration.js'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const app = express()
-const httpServer = createServer(app)
-const io = new Server(httpServer, {
-  cors: {
-    origin: "http://localhost:5173",
-    methods: ["GET", "POST"]
+class FriggManagementServer {
+  constructor(options = {}) {
+    this.port = options.port || process.env.PORT || 3001
+    this.projectRoot = options.projectRoot || process.cwd()
+    this.repositoryInfo = options.repositoryInfo || null
+    this.app = null
+    this.httpServer = null
+    this.io = null
+    this.mockIntegrations = []
+    this.mockUsers = []
+    this.mockConnections = []
+    this.envVariables = {}
   }
-})
 
-app.use(cors())
-app.use(express.json())
+  async start() {
+    this.app = express()
+    this.httpServer = createServer(this.app)
+    this.io = new Server(this.httpServer, {
+      cors: {
+        origin: ["http://localhost:5173", "http://localhost:3000"],
+        methods: ["GET", "POST"]
+      }
+    })
 
-// In-memory state (for development)
-const mockIntegrations = []
-const mockUsers = []
-const mockConnections = []
-const envVariables = {}
+    this.setupMiddleware()
+    this.setupSocketIO()
+    this.setupRoutes()
+    this.setupStaticFiles()
 
-// Set up process manager listeners
-processManager.addStatusListener((data) => {
-  io.emit('frigg:status', data)
-  
-  // Also emit logs if present
-  if (data.log) {
-    io.emit('frigg:log', data.log)
+    return new Promise((resolve, reject) => {
+      this.httpServer.listen(this.port, (err) => {
+        if (err) {
+          reject(err)
+        } else {
+          console.log(`Management UI server running on port ${this.port}`)
+          if (this.repositoryInfo) {
+            console.log(`Connected to repository: ${this.repositoryInfo.name}`)
+          }
+          resolve()
+        }
+      })
+    })
   }
-})
 
-// Socket.IO connection handling
-io.on('connection', (socket) => {
-  console.log('Client connected:', socket.id)
-  
-  // Send initial status
-  socket.emit('frigg:status', processManager.getStatus())
-  
-  // Send recent logs
-  const recentLogs = processManager.getLogs(50)
-  if (recentLogs.length > 0) {
-    socket.emit('frigg:logs', recentLogs)
+  setupMiddleware() {
+    this.app.use(cors())
+    this.app.use(express.json())
   }
-  
-  socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id)
-  })
-})
 
-// API Routes
+  setupSocketIO() {
+    // Set up process manager listeners
+    processManager.addStatusListener((data) => {
+      this.io.emit('frigg:status', data)
+      
+      // Also emit logs if present
+      if (data.log) {
+        this.io.emit('frigg:log', data.log)
+      }
+    })
+
+    // Socket.IO connection handling
+    this.io.on('connection', (socket) => {
+      console.log('Client connected:', socket.id)
+      
+      // Send initial status
+      socket.emit('frigg:status', processManager.getStatus())
+      
+      // Send recent logs
+      const recentLogs = processManager.getLogs(50)
+      if (recentLogs.length > 0) {
+        socket.emit('frigg:logs', recentLogs)
+      }
+      
+      socket.on('disconnect', () => {
+        console.log('Client disconnected:', socket.id)
+      })
+    })
+  }
+
+  setupRoutes() {
+    const app = this.app
+    const io = this.io
+    const mockIntegrations = this.mockIntegrations
+    const mockUsers = this.mockUsers
+    const mockConnections = this.mockConnections
+    const envVariables = this.envVariables
+
+    // API Routes
 
 // Frigg server control
 app.get('/api/frigg/status', (req, res) => {
@@ -283,16 +324,105 @@ app.post('/api/cli/generate-iam', async (req, res) => {
   }
 })
 
-// Serve static files in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../dist')))
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../dist/index.html'))
-  })
+  }
+
+  setupStaticFiles() {
+    // Serve static files in production
+    if (process.env.NODE_ENV === 'production') {
+      this.app.use(express.static(path.join(__dirname, '../dist')))
+      this.app.get('*', (req, res) => {
+        res.sendFile(path.join(__dirname, '../dist/index.html'))
+      })
+    } else {
+      // In development, provide helpful message
+      this.app.get('/', (req, res) => {
+        res.send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Frigg Management UI - Development Mode</title>
+            <style>
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+                background: #f5f5f5;
+              }
+              .container {
+                text-align: center;
+                padding: 2rem;
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                max-width: 600px;
+              }
+              h1 { color: #333; }
+              p { color: #666; line-height: 1.6; }
+              code {
+                background: #f0f0f0;
+                padding: 0.2rem 0.4rem;
+                border-radius: 3px;
+                font-family: 'Consolas', 'Monaco', monospace;
+              }
+              .status { 
+                margin: 1rem 0;
+                padding: 1rem;
+                background: #e3f2fd;
+                border-radius: 4px;
+                color: #1976d2;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>Frigg Management UI</h1>
+              <div class="status">
+                <strong>Backend API Server is running on port ${this.port}</strong>
+              </div>
+              <p>
+                The Management UI requires both the backend server (running now) and the frontend development server.
+              </p>
+              <p>
+                To start the complete Management UI, run the following commands in the management-ui directory:
+              </p>
+              <p>
+                <code>cd ${path.join(__dirname, '..')}</code><br>
+                <code>npm run dev:server</code>
+              </p>
+              <p>
+                This will start both the backend API server and the Vite frontend dev server.
+                The UI will be available at <strong>http://localhost:5173</strong>
+              </p>
+            </div>
+          </body>
+          </html>
+        `)
+      })
+    }
+  }
+
+  stop() {
+    return new Promise((resolve) => {
+      if (this.httpServer) {
+        this.httpServer.close(() => {
+          console.log('Management UI server stopped')
+          resolve()
+        })
+      } else {
+        resolve()
+      }
+    })
+  }
 }
 
-// Start server
-const PORT = process.env.PORT || 3001
-httpServer.listen(PORT, () => {
-  console.log(`Management UI server running on port ${PORT}`)
-})
+// Export the class for use as a module
+export { FriggManagementServer }
+
+// If run directly, start the server
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const server = new FriggManagementServer()
+  server.start().catch(console.error)
+}

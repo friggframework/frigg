@@ -7,7 +7,7 @@ import {
 import { Card, CardContent } from './Card'
 import { Button } from './Button'
 import LoadingSpinner from './LoadingSpinner'
-import { cn } from '../utils/cn'
+import { cn } from '../lib/utils'
 
 const IntegrationCardEnhanced = ({ 
   integration, 

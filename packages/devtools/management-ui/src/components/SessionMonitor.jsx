@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Clock, User, Activity, RefreshCw, XCircle } from 'lucide-react'
 import { useFrigg } from '../hooks/useFrigg'
 import { useSocket } from '../hooks/useSocket'
-import { cn } from '../utils/cn'
+import { cn } from '../lib/utils'
 
 const SessionMonitor = ({ userId = null }) => {
   const { users, getAllSessions, getUserSessions, refreshSession, endSession } = useFrigg()

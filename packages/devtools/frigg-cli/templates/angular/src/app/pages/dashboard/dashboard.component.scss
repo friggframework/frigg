@@ -1,0 +1,19 @@
+.card {
+  background-color: var(--frigg-background);
+  border: 1px solid var(--frigg-border);
+  border-radius: 0.5rem;
+}
+
+.loading-spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 2px solid var(--frigg-border);
+  border-top: 2px solid var(--frigg-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

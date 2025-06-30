@@ -21,6 +21,8 @@ export const FriggProvider = ({ children }) => {
   const [users, setUsers] = useState([])
   const [connections, setConnections] = useState([])
   const [currentUser, setCurrentUser] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     // Listen for status updates
@@ -44,28 +46,34 @@ export const FriggProvider = ({ children }) => {
 
   const fetchInitialData = async () => {
     try {
+      setLoading(true)
+      setError(null)
+      
       const [statusRes, integrationsRes, envRes, usersRes, connectionsRes] = await Promise.all([
-        api.get('/api/frigg/status'),
+        api.get('/api/project/status'),
         api.get('/api/integrations'),
         api.get('/api/environment'),
         api.get('/api/users'),
         api.get('/api/connections'),
       ])
 
-      setStatus(statusRes.data.status)
-      setIntegrations(integrationsRes.data.integrations || [])
-      setEnvVariables(envRes.data.variables || {})
-      setUsers(usersRes.data.users || [])
-      setConnections(connectionsRes.data.connections || [])
+      setStatus(statusRes.data.data?.status || statusRes.data.status || 'stopped')
+      setIntegrations(integrationsRes.data.data?.integrations || integrationsRes.data.integrations || [])
+      setEnvVariables(envRes.data.data?.variables || envRes.data.variables || {})
+      setUsers(usersRes.data.data?.users || usersRes.data.users || [])
+      setConnections(connectionsRes.data.data?.connections || connectionsRes.data.connections || [])
     } catch (error) {
       console.error('Error fetching initial data:', error)
+      setError(error.message || 'Failed to fetch data')
+    } finally {
+      setLoading(false)
     }
   }
 
   const startFrigg = async (options = {}) => {
     try {
       setStatus('starting')
-      await api.post('/api/frigg/start', options)
+      await api.post('/api/project/start', options)
     } catch (error) {
       console.error('Error starting Frigg:', error)
       setStatus('stopped')
@@ -74,7 +82,7 @@ export const FriggProvider = ({ children }) => {
 
   const stopFrigg = async (force = false) => {
     try {
-      await api.post('/api/frigg/stop', { force })
+      await api.post('/api/project/stop', { force })
       setStatus('stopped')
     } catch (error) {
       console.error('Error stopping Frigg:', error)
@@ -83,7 +91,7 @@ export const FriggProvider = ({ children }) => {
 
   const restartFrigg = async (options = {}) => {
     try {
-      await api.post('/api/frigg/restart', options)
+      await api.post('/api/project/restart', options)
     } catch (error) {
       console.error('Error restarting Frigg:', error)
     }
@@ -91,8 +99,8 @@ export const FriggProvider = ({ children }) => {
 
   const getLogs = async (limit = 100) => {
     try {
-      const response = await api.get(`/api/frigg/logs?limit=${limit}`)
-      return response.data.logs || []
+      const response = await api.get(`/api/project/logs?limit=${limit}`)
+      return response.data.data?.logs || response.data.logs || []
     } catch (error) {
       console.error('Error fetching logs:', error)
       return []
@@ -101,13 +109,14 @@ export const FriggProvider = ({ children }) => {
 
   const getMetrics = async () => {
     try {
-      const response = await api.get('/api/frigg/metrics')
-      return response.data
+      const response = await api.get('/api/project/metrics')
+      return response.data.data || response.data
     } catch (error) {
       console.error('Error fetching metrics:', error)
       return null
     }
   }
+
 
   const installIntegration = async (integrationName) => {
     try {
@@ -288,6 +297,8 @@ export const FriggProvider = ({ children }) => {
     users,
     connections,
     currentUser,
+    loading,
+    error,
     startFrigg,
     stopFrigg,
     restartFrigg,

@@ -1,0 +1,679 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Frigg Phase 3 Deployment Pipeline Infrastructure - CI/CD pipeline for Frigg applications and UI packages'
+
+Parameters:
+  ServiceName:
+    Type: String
+    Default: frigg
+    Description: Name of the Frigg service
+  
+  GitHubRepoOwner:
+    Type: String
+    Description: GitHub repository owner/organization
+    Default: ''
+  
+  GitHubRepoName:
+    Type: String
+    Description: GitHub repository name
+    Default: ''
+  
+  GitHubToken:
+    Type: String
+    Description: GitHub personal access token for CodePipeline
+    Default: ''
+    NoEcho: true
+  
+  BranchName:
+    Type: String
+    Default: main
+    Description: Git branch to trigger deployments
+  
+  NotificationEmail:
+    Type: String
+    Description: Email for deployment notifications
+    Default: ''
+  
+  EnableMultiStageDeployment:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Enable deployment across multiple stages (dev -> staging -> prod)
+
+Conditions:
+  HasGitHub: !And 
+    - !Not [!Equals [!Ref GitHubRepoOwner, '']]
+    - !Not [!Equals [!Ref GitHubRepoName, '']]
+    - !Not [!Equals [!Ref GitHubToken, '']]
+  HasNotificationEmail: !Not [!Equals [!Ref NotificationEmail, '']]
+  EnableMultiStage: !Equals [!Ref EnableMultiStageDeployment, 'true']
+
+Resources:
+  # S3 Bucket for Pipeline Artifacts
+  PipelineArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ServiceName}-pipeline-artifacts-${AWS::AccountId}-${AWS::Region}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldArtifacts
+            Status: Enabled
+            ExpirationInDays: 30
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicReadWrite: true
+      Tags:
+        - Key: Service
+          Value: !Ref ServiceName
+        - Key: Purpose
+          Value: Pipeline-Artifacts
+
+  # CodeBuild Projects
+
+  # Build Project for Backend/Infrastructure
+  BackendBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub '${ServiceName}-backend-build'
+      Description: 'Build project for Frigg backend and infrastructure'
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_MEDIUM
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: AWS_DEFAULT_REGION
+            Value: !Ref AWS::Region
+          - Name: SERVICE_NAME
+            Value: !Ref ServiceName
+          - Name: ARTIFACT_BUCKET
+            Value: !Ref PipelineArtifactsBucket
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            install:
+              runtime-versions:
+                nodejs: 20
+              commands:
+                - echo "Installing dependencies..."
+                - npm install -g serverless@3
+                - npm install
+            pre_build:
+              commands:
+                - echo "Running pre-build tasks..."
+                - npm run lint
+                - npm run test
+                - npm run typecheck
+            build:
+              commands:
+                - echo "Building application..."
+                - npm run build
+                - echo "Packaging serverless application..."
+                - serverless package --stage production
+            post_build:
+              commands:
+                - echo "Running post-build tasks..."
+                - echo "Build completed on `date`"
+          artifacts:
+            files:
+              - '**/*'
+            base-directory: .
+          cache:
+            paths:
+              - node_modules/**/*
+              - packages/*/node_modules/**/*
+
+  # Build Project for UI Packages
+  UIBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub '${ServiceName}-ui-build'
+      Description: 'Build project for Frigg UI packages'
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_MEDIUM
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
+        EnvironmentVariables:
+          - Name: AWS_DEFAULT_REGION
+            Value: !Ref AWS::Region
+          - Name: SERVICE_NAME
+            Value: !Ref ServiceName
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            install:
+              runtime-versions:
+                nodejs: 20
+              commands:
+                - echo "Installing dependencies..."
+                - npm install
+            pre_build:
+              commands:
+                - echo "Running UI package tests..."
+                - npm run test:ui
+                - npm run lint:ui
+            build:
+              commands:
+                - echo "Building UI packages..."
+                - npm run build:ui-core
+                - npm run build:ui-react
+                - npm run build:ui-vue
+                - npm run build:ui-svelte
+                - echo "Creating distribution packages..."
+                - npm run package:ui-distributions
+            post_build:
+              commands:
+                - echo "UI build completed on `date`"
+          artifacts:
+            files:
+              - 'packages/ui-*/dist/**/*'
+              - 'packages/ui-*/package.json'
+              - 'ui-distributions/**/*'
+            base-directory: .
+
+  # Test Project for Integration Tests
+  IntegrationTestProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub '${ServiceName}-integration-tests'
+      Description: 'Integration test project for deployed Frigg services'
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_MEDIUM
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
+        EnvironmentVariables:
+          - Name: AWS_DEFAULT_REGION
+            Value: !Ref AWS::Region
+          - Name: SERVICE_NAME
+            Value: !Ref ServiceName
+          - Name: STAGE
+            Value: staging
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            install:
+              runtime-versions:
+                nodejs: 20
+              commands:
+                - npm install
+            build:
+              commands:
+                - echo "Running integration tests..."
+                - npm run test:integration
+                - echo "Running performance tests..."
+                - npm run test:performance
+                - echo "Running security tests..."
+                - npm run test:security
+            post_build:
+              commands:
+                - echo "Integration tests completed on `date`"
+          reports:
+            integration-test-report:
+              files:
+                - 'test-results/**/*.xml'
+              file-format: 'JUNITXML'
+
+  # SNS Topic for Pipeline Notifications
+  PipelineNotificationsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub '${ServiceName}-pipeline-notifications'
+      DisplayName: !Sub 'Frigg Pipeline Notifications'
+
+  PipelineNotificationsSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasNotificationEmail
+    Properties:
+      Protocol: email
+      TopicArn: !Ref PipelineNotificationsTopic
+      Endpoint: !Ref NotificationEmail
+
+  # CodePipeline
+  DeploymentPipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Condition: HasGitHub
+    Properties:
+      Name: !Sub '${ServiceName}-deployment-pipeline'
+      RoleArn: !GetAtt CodePipelineRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref PipelineArtifactsBucket
+        EncryptionKey:
+          Id: alias/aws/s3
+          Type: KMS
+      Stages:
+        # Source Stage
+        - Name: Source
+          Actions:
+            - Name: SourceAction
+              ActionTypeId:
+                Category: Source
+                Owner: ThirdParty
+                Provider: GitHub
+                Version: '1'
+              Configuration:
+                Owner: !Ref GitHubRepoOwner
+                Repo: !Ref GitHubRepoName
+                Branch: !Ref BranchName
+                OAuthToken: !Ref GitHubToken
+                PollForSourceChanges: false
+              OutputArtifacts:
+                - Name: SourceOutput
+
+        # Build Stage
+        - Name: Build
+          Actions:
+            - Name: BackendBuild
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref BackendBuildProject
+              InputArtifacts:
+                - Name: SourceOutput
+              OutputArtifacts:
+                - Name: BackendBuildOutput
+              RunOrder: 1
+            - Name: UIBuild
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref UIBuildProject
+              InputArtifacts:
+                - Name: SourceOutput
+              OutputArtifacts:
+                - Name: UIBuildOutput
+              RunOrder: 1
+
+        # Deploy to Development Stage
+        - Name: DeployDev
+          Actions:
+            - Name: DeployBackendDev
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: '1'
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                StackName: !Sub '${ServiceName}-dev-backend'
+                TemplatePath: 'BackendBuildOutput::infrastructure/serverless-template.json'
+                Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
+                RoleArn: !GetAtt CloudFormationRole.Arn
+                ParameterOverrides: !Sub |
+                  {
+                    "Stage": "development",
+                    "ServiceName": "${ServiceName}"
+                  }
+              InputArtifacts:
+                - Name: BackendBuildOutput
+              RunOrder: 1
+            - Name: DeployUIDev
+              ActionTypeId:
+                Category: Invoke
+                Owner: AWS
+                Provider: Lambda
+                Version: '1'
+              Configuration:
+                FunctionName: !Sub '${ServiceName}-development-ui-package-deploy'
+                UserParameters: !Sub |
+                  {
+                    "stage": "development",
+                    "artifacts": "UIBuildOutput"
+                  }
+              InputArtifacts:
+                - Name: UIBuildOutput
+              RunOrder: 2
+
+        # Integration Tests Stage
+        - Name: IntegrationTests
+          Actions:
+            - Name: RunIntegrationTests
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref IntegrationTestProject
+              InputArtifacts:
+                - Name: SourceOutput
+              RunOrder: 1
+
+        # Deploy to Staging Stage (if multi-stage enabled)
+        - !If
+          - EnableMultiStage
+          - Name: DeployStaging
+            Actions:
+              - Name: ApprovalForStaging
+                ActionTypeId:
+                  Category: Approval
+                  Owner: AWS
+                  Provider: Manual
+                  Version: '1'
+                Configuration:
+                  NotificationArn: !Ref PipelineNotificationsTopic
+                  CustomData: 'Please review the development deployment and approve for staging'
+                RunOrder: 1
+              - Name: DeployBackendStaging
+                ActionTypeId:
+                  Category: Deploy
+                  Owner: AWS
+                  Provider: CloudFormation
+                  Version: '1'
+                Configuration:
+                  ActionMode: CREATE_UPDATE
+                  StackName: !Sub '${ServiceName}-staging-backend'
+                  TemplatePath: 'BackendBuildOutput::infrastructure/serverless-template.json'
+                  Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
+                  RoleArn: !GetAtt CloudFormationRole.Arn
+                  ParameterOverrides: !Sub |
+                    {
+                      "Stage": "staging",
+                      "ServiceName": "${ServiceName}"
+                    }
+                InputArtifacts:
+                  - Name: BackendBuildOutput
+                RunOrder: 2
+              - Name: DeployUIStaging
+                ActionTypeId:
+                  Category: Invoke
+                  Owner: AWS
+                  Provider: Lambda
+                  Version: '1'
+                Configuration:
+                  FunctionName: !Sub '${ServiceName}-staging-ui-package-deploy'
+                  UserParameters: !Sub |
+                    {
+                      "stage": "staging",
+                      "artifacts": "UIBuildOutput"
+                    }
+                InputArtifacts:
+                  - Name: UIBuildOutput
+                RunOrder: 3
+          - !Ref AWS::NoValue
+
+        # Deploy to Production Stage
+        - Name: DeployProduction
+          Actions:
+            - Name: ApprovalForProduction
+              ActionTypeId:
+                Category: Approval
+                Owner: AWS
+                Provider: Manual
+                Version: '1'
+              Configuration:
+                NotificationArn: !Ref PipelineNotificationsTopic
+                CustomData: !If
+                  - EnableMultiStage
+                  - 'Please review the staging deployment and approve for production'
+                  - 'Please review the development deployment and approve for production'
+              RunOrder: 1
+            - Name: DeployBackendProduction
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: '1'
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                StackName: !Sub '${ServiceName}-production-backend'
+                TemplatePath: 'BackendBuildOutput::infrastructure/serverless-template.json'
+                Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
+                RoleArn: !GetAtt CloudFormationRole.Arn
+                ParameterOverrides: !Sub |
+                  {
+                    "Stage": "production",
+                    "ServiceName": "${ServiceName}"
+                  }
+              InputArtifacts:
+                - Name: BackendBuildOutput
+              RunOrder: 2
+            - Name: DeployUIProduction
+              ActionTypeId:
+                Category: Invoke
+                Owner: AWS
+                Provider: Lambda
+                Version: '1'
+              Configuration:
+                FunctionName: !Sub '${ServiceName}-production-ui-package-deploy'
+                UserParameters: !Sub |
+                  {
+                    "stage": "production",
+                    "artifacts": "UIBuildOutput"
+                  }
+              InputArtifacts:
+                - Name: UIBuildOutput
+              RunOrder: 3
+
+  # GitHub Webhook for automatic pipeline triggers
+  GitHubWebhook:
+    Type: AWS::CodePipeline::Webhook
+    Condition: HasGitHub
+    Properties:
+      Authentication: GITHUB_HMAC
+      AuthenticationConfiguration:
+        SecretToken: !Ref GitHubToken
+      Filters:
+        - JsonPath: $.ref
+          MatchEquals: !Sub 'refs/heads/${BranchName}'
+      TargetPipeline: !Ref DeploymentPipeline
+      TargetAction: SourceAction
+      TargetPipelineVersion: !GetAtt DeploymentPipeline.Version
+      RegisterWithThirdParty: true
+
+  # EventBridge Rule for Pipeline State Changes
+  PipelineStateChangeRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub '${ServiceName}-pipeline-state-change'
+      Description: 'Capture pipeline state changes for notifications'
+      EventPattern:
+        source:
+          - aws.codepipeline
+        detail-type:
+          - CodePipeline Pipeline Execution State Change
+          - CodePipeline Stage Execution State Change
+        detail:
+          pipeline:
+            - !Ref DeploymentPipeline
+          state:
+            - FAILED
+            - SUCCEEDED
+      State: ENABLED
+      Targets:
+        - Arn: !Ref PipelineNotificationsTopic
+          Id: 'PipelineNotificationTarget'
+          InputTransformer:
+            InputPathsMap:
+              pipeline: '$.detail.pipeline'
+              state: '$.detail.state'
+              stage: '$.detail.stage'
+            InputTemplate: !Sub |
+              {
+                "pipeline": "<pipeline>",
+                "state": "<state>",
+                "stage": "<stage>",
+                "service": "${ServiceName}",
+                "timestamp": "$.time"
+              }
+
+  # IAM Roles
+
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ServiceName}-codebuild-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CodeBuildAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/*'
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:PutObject
+                Resource: !Sub '${PipelineArtifactsBucket}/*'
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource: !Ref PipelineArtifactsBucket
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:GetParametersByPath
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ServiceName}/*'
+
+  CodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ServiceName}-codepipeline-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CodePipelineAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:PutObject
+                  - s3:GetBucketVersioning
+                Resource:
+                  - !Sub '${PipelineArtifactsBucket}/*'
+                  - !Ref PipelineArtifactsBucket
+              - Effect: Allow
+                Action:
+                  - codebuild:BatchGetBuilds
+                  - codebuild:StartBuild
+                Resource:
+                  - !GetAtt BackendBuildProject.Arn
+                  - !GetAtt UIBuildProject.Arn
+                  - !GetAtt IntegrationTestProject.Arn
+              - Effect: Allow
+                Action:
+                  - cloudformation:CreateStack
+                  - cloudformation:UpdateStack
+                  - cloudformation:DescribeStacks
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:DescribeStackResources
+                  - cloudformation:GetTemplate
+                Resource: !Sub 'arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${ServiceName}-*/*'
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource: !GetAtt CloudFormationRole.Arn
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ServiceName}-*-ui-package-deploy'
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Ref PipelineNotificationsTopic
+
+  CloudFormationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ServiceName}-cloudformation-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/PowerUserAccess
+      Policies:
+        - PolicyName: CloudFormationIAMAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - iam:*
+                Resource: '*'
+
+Outputs:
+  PipelineArtifactsBucket:
+    Description: S3 bucket for pipeline artifacts
+    Value: !Ref PipelineArtifactsBucket
+    Export:
+      Name: !Sub '${ServiceName}-pipeline-artifacts-bucket'
+
+  DeploymentPipelineArn:
+    Description: CodePipeline ARN for deployment pipeline
+    Value: !Sub 'arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:pipeline/${DeploymentPipeline}'
+    Export:
+      Name: !Sub '${ServiceName}-deployment-pipeline-arn'
+    Condition: HasGitHub
+
+  PipelineNotificationsTopic:
+    Description: SNS Topic ARN for pipeline notifications
+    Value: !Ref PipelineNotificationsTopic
+    Export:
+      Name: !Sub '${ServiceName}-pipeline-notifications-topic'
+
+  BackendBuildProjectArn:
+    Description: CodeBuild project ARN for backend builds
+    Value: !GetAtt BackendBuildProject.Arn
+    Export:
+      Name: !Sub '${ServiceName}-backend-build-project-arn'
+
+  UIBuildProjectArn:
+    Description: CodeBuild project ARN for UI builds
+    Value: !GetAtt UIBuildProject.Arn
+    Export:
+      Name: !Sub '${ServiceName}-ui-build-project-arn'

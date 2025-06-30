@@ -1,0 +1,511 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Frigg Phase 3 Production Monitoring Infrastructure - Enhanced CloudWatch monitoring for Frigg applications with code generation and multi-framework UI support'
+
+Parameters:
+  ServiceName:
+    Type: String
+    Default: frigg
+    Description: Name of the Frigg service
+  
+  Stage:
+    Type: String
+    Default: production
+    AllowedValues:
+      - development
+      - staging
+      - production
+    Description: Deployment stage
+  
+  NotificationEmail:
+    Type: String
+    Description: Email address for alarm notifications
+    Default: ''
+  
+  EnableDetailedMonitoring:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Enable detailed CloudWatch monitoring
+  
+  CodeGenerationEnabled:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Enable code generation service monitoring
+  
+  UIDistributionEnabled:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Enable UI package distribution monitoring
+
+Conditions:
+  HasNotificationEmail: !Not [!Equals [!Ref NotificationEmail, '']]
+  EnableDetailed: !Equals [!Ref EnableDetailedMonitoring, 'true']
+  EnableCodeGen: !Equals [!Ref CodeGenerationEnabled, 'true']
+  EnableUIDistribution: !Equals [!Ref UIDistributionEnabled, 'true']
+
+Resources:
+  # SNS Topic for monitoring alerts
+  MonitoringAlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub '${ServiceName}-${Stage}-monitoring-alerts'
+      DisplayName: !Sub 'Frigg ${Stage} Monitoring Alerts'
+      
+  MonitoringAlertsSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasNotificationEmail
+    Properties:
+      Protocol: email
+      TopicArn: !Ref MonitoringAlertsTopic
+      Endpoint: !Ref NotificationEmail
+
+  # CloudWatch Dashboard for comprehensive monitoring
+  FriggMonitoringDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub '${ServiceName}-${Stage}-monitoring'
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/Lambda", "Invocations", "FunctionName", "${ServiceName}-${Stage}-auth" ],
+                  [ "...", "${ServiceName}-${Stage}-user" ],
+                  [ ".", "Errors", ".", "." ],
+                  [ "...", "${ServiceName}-${Stage}-auth" ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Lambda Function Metrics",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/ApiGateway", "Count", "ApiName", "${Stage}-${ServiceName}" ],
+                  [ ".", "4XXError", ".", "." ],
+                  [ ".", "5XXError", ".", "." ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "API Gateway Metrics",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 6,
+              "width": 24,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/Lambda", "Duration", "FunctionName", "${ServiceName}-${Stage}-auth" ],
+                  [ "...", "${ServiceName}-${Stage}-user" ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Lambda Duration",
+                "period": 300
+              }
+            }
+          ]
+        }
+
+  # Lambda Function Alarms
+  LambdaErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ServiceName}-${Stage}-lambda-errors'
+      AlarmDescription: 'Lambda function errors detected'
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref MonitoringAlertsTopic
+      Dimensions:
+        - Name: FunctionName
+          Value: !Sub '${ServiceName}-${Stage}-auth'
+
+  LambdaDurationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ServiceName}-${Stage}-lambda-duration'
+      AlarmDescription: 'Lambda function duration is high'
+      MetricName: Duration
+      Namespace: AWS/Lambda
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 10000
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref MonitoringAlertsTopic
+      Dimensions:
+        - Name: FunctionName
+          Value: !Sub '${ServiceName}-${Stage}-auth'
+
+  LambdaThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ServiceName}-${Stage}-lambda-throttles'
+      AlarmDescription: 'Lambda function throttles detected'
+      MetricName: Throttles
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref MonitoringAlertsTopic
+      Dimensions:
+        - Name: FunctionName
+          Value: !Sub '${ServiceName}-${Stage}-auth'
+
+  # API Gateway Alarms
+  APIGateway5XXAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ServiceName}-${Stage}-api-5xx-errors'
+      AlarmDescription: 'API Gateway 5XX errors detected'
+      MetricName: 5XXError
+      Namespace: AWS/ApiGateway
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref MonitoringAlertsTopic
+      Dimensions:
+        - Name: ApiName
+          Value: !Sub '${Stage}-${ServiceName}'
+
+  APIGateway4XXAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ServiceName}-${Stage}-api-4xx-errors'
+      AlarmDescription: 'High rate of API Gateway 4XX errors'
+      MetricName: 4XXError
+      Namespace: AWS/ApiGateway
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 50
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref MonitoringAlertsTopic
+      Dimensions:
+        - Name: ApiName
+          Value: !Sub '${Stage}-${ServiceName}'
+
+  APIGatewayLatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ServiceName}-${Stage}-api-latency'
+      AlarmDescription: 'API Gateway latency is high'
+      MetricName: Latency
+      Namespace: AWS/ApiGateway
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 5000
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref MonitoringAlertsTopic
+      Dimensions:
+        - Name: ApiName
+          Value: !Sub '${Stage}-${ServiceName}'
+
+  # SQS Queue Alarms
+  SQSMessageBacklogAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ServiceName}-${Stage}-sqs-backlog'
+      AlarmDescription: 'SQS queue has message backlog'
+      MetricName: ApproximateNumberOfMessages
+      Namespace: AWS/SQS
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 100
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref MonitoringAlertsTopic
+      Dimensions:
+        - Name: QueueName
+          Value: !Sub '${ServiceName}-internal-error-queue-${Stage}'
+
+  # Custom Metrics for Application Health
+  ApplicationHealthMetric:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      FilterName: !Sub '${ServiceName}-${Stage}-error-count'
+      FilterPattern: '[timestamp, requestId, level="ERROR", ...]'
+      LogGroupName: !Sub '/aws/lambda/${ServiceName}-${Stage}-auth'
+      MetricTransformations:
+        - MetricNamespace: !Sub 'Frigg/${ServiceName}'
+          MetricName: ApplicationErrors
+          MetricValue: '1'
+          DefaultValue: 0
+
+  ApplicationHealthAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ServiceName}-${Stage}-application-errors'
+      AlarmDescription: 'Application errors detected in logs'
+      MetricName: ApplicationErrors
+      Namespace: !Sub 'Frigg/${ServiceName}'
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref MonitoringAlertsTopic
+
+  # Code Generation Monitoring (Phase 3)
+  CodeGenerationMetrics:
+    Type: AWS::Logs::MetricFilter
+    Condition: EnableCodeGen
+    Properties:
+      FilterName: !Sub '${ServiceName}-${Stage}-codegen-metrics'
+      FilterPattern: '[timestamp, requestId, level, message="CODEGEN_*", ...]'
+      LogGroupName: !Sub '/aws/lambda/${ServiceName}-${Stage}-codegen'
+      MetricTransformations:
+        - MetricNamespace: !Sub 'Frigg/${ServiceName}/CodeGeneration'
+          MetricName: GenerationRequests
+          MetricValue: '1'
+          DefaultValue: 0
+
+  CodeGenerationErrorMetrics:
+    Type: AWS::Logs::MetricFilter
+    Condition: EnableCodeGen
+    Properties:
+      FilterName: !Sub '${ServiceName}-${Stage}-codegen-errors'
+      FilterPattern: '[timestamp, requestId, level="ERROR", message="CODEGEN_ERROR*", ...]'
+      LogGroupName: !Sub '/aws/lambda/${ServiceName}-${Stage}-codegen'
+      MetricTransformations:
+        - MetricNamespace: !Sub 'Frigg/${ServiceName}/CodeGeneration'
+          MetricName: GenerationErrors
+          MetricValue: '1'
+          DefaultValue: 0
+
+  CodeGenerationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: EnableCodeGen
+    Properties:
+      AlarmName: !Sub '${ServiceName}-${Stage}-codegen-errors'
+      AlarmDescription: 'Code generation service errors detected'
+      MetricName: GenerationErrors
+      Namespace: !Sub 'Frigg/${ServiceName}/CodeGeneration'
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 3
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref MonitoringAlertsTopic
+
+  # UI Distribution Monitoring (Phase 3)
+  UIDistributionMetrics:
+    Type: AWS::Logs::MetricFilter
+    Condition: EnableUIDistribution
+    Properties:
+      FilterName: !Sub '${ServiceName}-${Stage}-ui-distribution-metrics'
+      FilterPattern: '[timestamp, requestId, level, message="UI_DISTRIBUTION_*", ...]'
+      LogGroupName: !Sub '/aws/lambda/${ServiceName}-${Stage}-ui-distribution'
+      MetricTransformations:
+        - MetricNamespace: !Sub 'Frigg/${ServiceName}/UIDistribution'
+          MetricName: DistributionRequests
+          MetricValue: '1'
+          DefaultValue: 0
+
+  UIDistributionErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: EnableUIDistribution
+    Properties:
+      AlarmName: !Sub '${ServiceName}-${Stage}-ui-distribution-errors'
+      AlarmDescription: 'UI distribution service errors detected'
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 2
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref MonitoringAlertsTopic
+      Dimensions:
+        - Name: FunctionName
+          Value: !Sub '${ServiceName}-${Stage}-ui-distribution'
+
+  # CloudWatch Dashboard for Phase 3 Features
+  Phase3MonitoringDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub '${ServiceName}-${Stage}-phase3-monitoring'
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "Frigg/${ServiceName}/CodeGeneration", "GenerationRequests" ],
+                  [ ".", "GenerationErrors" ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Code Generation Metrics",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "Frigg/${ServiceName}/UIDistribution", "DistributionRequests" ],
+                  [ "AWS/Lambda", "Invocations", "FunctionName", "${ServiceName}-${Stage}-ui-distribution" ],
+                  [ ".", "Errors", ".", "." ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "UI Distribution Metrics",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 6,
+              "width": 24,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/CloudFront", "Requests", "DistributionId", "${UIDistribution}" ],
+                  [ ".", "BytesDownloaded", ".", "." ],
+                  [ ".", "4xxErrorRate", ".", "." ],
+                  [ ".", "5xxErrorRate", ".", "." ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "CDN Performance Metrics",
+                "period": 300
+              }
+            }
+          ]
+        }
+
+  # IAM Role for CloudWatch Monitoring
+  MonitoringRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ServiceName}-${Stage}-monitoring-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CloudWatchAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudwatch:GetMetricStatistics
+                  - cloudwatch:ListMetrics
+                  - cloudwatch:PutMetricData
+                  - cloudwatch:GetMetricData
+                  - lambda:ListFunctions
+                  - lambda:GetFunction
+                  - apigateway:GET
+                  - sqs:GetQueueAttributes
+                  - sqs:ListQueues
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - cloudfront:GetDistribution
+                  - cloudfront:ListDistributions
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                Resource: '*'
+
+Outputs:
+  MonitoringDashboardURL:
+    Description: URL to the CloudWatch monitoring dashboard
+    Value: !Sub 'https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=${ServiceName}-${Stage}-monitoring'
+    Export:
+      Name: !Sub '${ServiceName}-${Stage}-monitoring-dashboard-url'
+
+  Phase3DashboardURL:
+    Description: URL to the Phase 3 CloudWatch monitoring dashboard
+    Value: !Sub 'https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=${ServiceName}-${Stage}-phase3-monitoring'
+    Export:
+      Name: !Sub '${ServiceName}-${Stage}-phase3-dashboard-url'
+
+  MonitoringAlertsTopic:
+    Description: SNS Topic ARN for monitoring alerts
+    Value: !Ref MonitoringAlertsTopic
+    Export:
+      Name: !Sub '${ServiceName}-${Stage}-monitoring-alerts-topic'
+
+  MonitoringRoleArn:
+    Description: IAM Role ARN for monitoring functions
+    Value: !GetAtt MonitoringRole.Arn
+    Export:
+      Name: !Sub '${ServiceName}-${Stage}-monitoring-role-arn'

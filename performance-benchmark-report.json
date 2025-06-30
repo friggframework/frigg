@@ -1,0 +1,124 @@
+{
+  "timestamp": "2025-06-25T18:03:21.765Z",
+  "system": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "nodeVersion": "v23.5.0",
+    "memory": {
+      "rss": 43040768,
+      "heapTotal": 6078464,
+      "heapUsed": 4554616,
+      "external": 1699072,
+      "arrayBuffers": 29044
+    }
+  },
+  "benchmarks": {
+    "bundleSizes": {
+      "packages": {
+        "ui-core": {
+          "totalBytes": 0,
+          "totalKB": 0,
+          "files": {}
+        },
+        "ui-vue": {
+          "error": "Build artifacts not found"
+        },
+        "ui-svelte": {
+          "error": "Build artifacts not found"
+        },
+        "ui-angular": {
+          "error": "Build artifacts not found"
+        }
+      },
+      "analysis": {
+        "error": "No valid bundle sizes"
+      }
+    },
+    "loadTimes": {
+      "ui-core": {
+        "time": 1.4187909999999988,
+        "status": "simulated"
+      },
+      "ui-vue": {
+        "time": 1.4117080000000009,
+        "status": "simulated"
+      },
+      "ui-svelte": {
+        "time": 1.634291000000001,
+        "status": "simulated"
+      }
+    },
+    "stateOperations": {
+      "object-mutation": {
+        "totalTime": 1.1119579999999978,
+        "averageTime": 0.00011119579999999978,
+        "operationsPerSecond": 8993145
+      },
+      "immutable-update": {
+        "totalTime": 1.0187080000000002,
+        "averageTime": 0.00010187080000000001,
+        "operationsPerSecond": 9816356
+      },
+      "array-operations": {
+        "totalTime": 43.661417,
+        "averageTime": 0.0043661417,
+        "operationsPerSecond": 229035
+      }
+    },
+    "componentRendering": {
+      "simple-component": {
+        "iterations": 1000,
+        "totalTime": 0.24212500000000148,
+        "averageTime": 0.00024212500000000148
+      },
+      "complex-component": {
+        "iterations": 100,
+        "totalTime": 0.40012500000000273,
+        "averageTime": 0.004001250000000027
+      },
+      "list-rendering": {
+        "iterations": 100,
+        "listSize": 1000,
+        "totalTime": 20.382042,
+        "averageTime": 0.20382041999999997
+      },
+      "conditional-rendering": {
+        "iterations": 1000,
+        "totalTime": 0.20045799999999758,
+        "averageTime": 0.00020045799999999757
+      }
+    },
+    "pluginSystem": {
+      "plugin-registration": {
+        "iterations": 1000,
+        "totalTime": 0.21083300000000804,
+        "averageTime": 0.00021083300000000803,
+        "pluginsRegistered": 1000
+      },
+      "hook-execution": {
+        "iterations": 10000,
+        "totalTime": 0.7248749999999973,
+        "averageTime": 0.00007248749999999972,
+        "hooksPerSecond": 13795482
+      },
+      "adapter-lookup": {
+        "iterations": 10000,
+        "totalTime": 0.5167500000000018,
+        "averageTime": 0.00005167500000000018,
+        "lookupsPerSecond": 19351717
+      }
+    }
+  },
+  "summary": {
+    "totalTests": 5,
+    "scores": {
+      "stateOperations": 100,
+      "componentRendering": 99.4793393675,
+      "pluginSystem": 100
+    },
+    "averageScore": 99.82644645583333,
+    "recommendations": [
+      "All performance metrics are within acceptable ranges"
+    ]
+  }
+}

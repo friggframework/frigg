@@ -10,7 +10,14 @@
     "use:engine": "sudo n install $npm_package_engines_node && npm run use:npm",
     "use:npm": "npm install -g npm@$npm_package_engines_npm",
     "contributors:add": "all-contributors add",
-    "contributors:generate": "all-contributors generate"
+    "contributors:generate": "all-contributors generate",
+    "perf:benchmark": "node performance-benchmark-framework.js",
+    "perf:analyze": "npm run perf:analyze:packages && npm run perf:analyze:templates",
+    "perf:analyze:packages": "cd packages/ui-core && npm run build:analyze && cd ../ui-vue && npm run build:analyze && cd ../ui-svelte && npm run build:analyze",
+    "perf:analyze:templates": "echo 'Building templates with bundle analysis...' && cd packages/devtools/frigg-cli/templates/react && npm install && ANALYZE=true npm run build",
+    "perf:report": "echo 'Performance Report:' && cat performance-summary.txt 2>/dev/null || echo 'No performance data available. Run npm run perf:benchmark first.'",
+    "build:all": "npm run build --workspaces --if-present",
+    "build:packages": "cd packages/ui-core && npm run build && cd ../ui-vue && npm run build && cd ../ui-svelte && npm run build && cd ../ui-angular && npm run build"
   },
   "engines": {
     "node": ">=18",

@@ -19,6 +19,9 @@ import usersRouter from './api/users.js'
 import connectionsRouter from './api/connections.js'
 import cliRouter from './api/cli.js'
 import logsRouter from './api/logs.js'
+import monitoringRouter from './api/monitoring.js'
+import codegenRouter from './api/codegen.js'
+import discoveryRouter from './api/discovery.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -73,6 +76,14 @@ app.get('/health', (req, res) => {
   }))
 })
 
+// Get initial repository info
+app.get('/api/repository/current', (req, res) => {
+  const repoInfo = process.env.REPOSITORY_INFO ? 
+    JSON.parse(process.env.REPOSITORY_INFO) : 
+    null
+  res.json(createStandardResponse({ repository: repoInfo }))
+})
+
 // API endpoints
 app.use('/api/project', projectRouter)
 app.use('/api/integrations', integrationsRouter)
@@ -81,6 +92,9 @@ app.use('/api/users', usersRouter)
 app.use('/api/connections', connectionsRouter)
 app.use('/api/cli', cliRouter)
 app.use('/api/logs', logsRouter)
+app.use('/api/monitoring', monitoringRouter)
+app.use('/api/codegen', codegenRouter)
+app.use('/api/discovery', discoveryRouter)
 
 // API documentation endpoint
 app.get('/api', (req, res) => {
@@ -95,7 +109,9 @@ app.get('/api', (req, res) => {
       users: '/api/users',
       connections: '/api/connections',
       cli: '/api/cli',
-      logs: '/api/logs'
+      logs: '/api/logs',
+      monitoring: '/api/monitoring',
+      codegen: '/api/codegen'
     },
     websocket: {
       url: 'ws://localhost:3001',
@@ -106,7 +122,9 @@ app.get('/api', (req, res) => {
         'environment:update',
         'cli:output',
         'cli:complete',
-        'logs:new'
+        'logs:new',
+        'monitoring:metrics',
+        'monitoring:error'
       ]
     },
     documentation: '/api-contract.md'

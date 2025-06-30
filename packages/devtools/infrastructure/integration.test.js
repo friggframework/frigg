@@ -3,9 +3,11 @@ const { composeServerlessDefinition } = require('./serverless-template');
 const { AWSDiscovery } = require('./aws-discovery');
 const { BuildTimeDiscovery } = require('./build-time-discovery');
 const FriggServerlessPlugin = require('../../serverless-plugin/index');
+const yaml = require('js-yaml');
+const path = require('path');
 
 // Integration tests for end-to-end AWS discovery and serverless config generation
-describe('VPC/KMS/SSM Integration Tests', () => {
+describe('Infrastructure Integration Tests - Phase 3', () => {
     let mockAWSDiscovery;
     let buildTimeDiscovery;
     
@@ -378,6 +380,370 @@ describe('VPC/KMS/SSM Integration Tests', () => {
 
             // Verify that AWSDiscovery was instantiated with correct region
             expect(mockAWSDiscovery.discoverResources).toHaveBeenCalled();
+        });
+    });
+
+    describe('Phase 3 Infrastructure Components', () => {
+        describe('CDN Infrastructure', () => {
+            it('should validate CDN CloudFormation template', () => {
+                const cdnTemplatePath = path.join(__dirname, 'cloudformation', 'cdn-infrastructure.yaml');
+                expect(fs.existsSync(cdnTemplatePath)).toBe(true);
+                
+                const templateContent = fs.readFileSync(cdnTemplatePath, 'utf8');
+                const template = yaml.load(templateContent);
+                
+                // Validate template structure
+                expect(template.AWSTemplateFormatVersion).toBe('2010-09-09');
+                expect(template.Description).toContain('Phase 3 CDN Infrastructure');
+                
+                // Validate key resources
+                expect(template.Resources.UIDistributionBucket).toBeDefined();
+                expect(template.Resources.UIDistribution).toBeDefined();
+                expect(template.Resources.UIPackageDeployFunction).toBeDefined();
+                expect(template.Resources.UIPackageAPI).toBeDefined();
+                
+                // Validate outputs
+                expect(template.Outputs.UIDistributionURL).toBeDefined();
+                expect(template.Outputs.UIPackageAPIEndpoint).toBeDefined();
+            });
+            
+            it('should validate CDN security configuration', () => {
+                const templatePath = path.join(__dirname, 'cloudformation', 'cdn-infrastructure.yaml');
+                const template = yaml.load(fs.readFileSync(templatePath, 'utf8'));
+                
+                const s3Bucket = template.Resources.UIDistributionBucket;
+                expect(s3Bucket.Properties.BucketEncryption).toBeDefined();
+                expect(s3Bucket.Properties.PublicAccessBlockConfiguration).toBeDefined();
+                
+                const distribution = template.Resources.UIDistribution;
+                expect(distribution.Properties.DistributionConfig.ViewerProtocolPolicy).toBe('redirect-to-https');
+            });
+        });
+        
+        describe('Code Generation Infrastructure', () => {
+            it('should validate code generation CloudFormation template', () => {
+                const templatePath = path.join(__dirname, 'cloudformation', 'codegen-infrastructure.yaml');
+                expect(fs.existsSync(templatePath)).toBe(true);
+                
+                const template = yaml.load(fs.readFileSync(templatePath, 'utf8'));
+                
+                // Validate template structure
+                expect(template.Description).toContain('Code Generation Infrastructure');
+                
+                // Validate key resources
+                expect(template.Resources.CodeGenerationBucket).toBeDefined();
+                expect(template.Resources.GenerationTrackingTable).toBeDefined();
+                expect(template.Resources.CodeGenerationQueue).toBeDefined();
+                expect(template.Resources.CodeGenerationFunction).toBeDefined();
+                
+                // Validate DynamoDB table structure
+                const trackingTable = template.Resources.GenerationTrackingTable;
+                expect(trackingTable.Properties.AttributeDefinitions).toContainEqual({
+                    AttributeName: 'generationId',
+                    AttributeType: 'S'
+                });
+                expect(trackingTable.Properties.GlobalSecondaryIndexes).toBeDefined();
+            });
+            
+            it('should validate code generation function environment variables', () => {
+                const templatePath = path.join(__dirname, 'cloudformation', 'codegen-infrastructure.yaml');
+                const template = yaml.load(fs.readFileSync(templatePath, 'utf8'));
+                
+                const codegenFunction = template.Resources.CodeGenerationFunction;
+                const envVars = codegenFunction.Properties.Environment.Variables;
+                
+                expect(envVars.GENERATION_BUCKET).toBeDefined();
+                expect(envVars.TEMPLATE_BUCKET).toBeDefined();
+                expect(envVars.TRACKING_TABLE).toBeDefined();
+                expect(envVars.SERVICE_NAME).toBeDefined();
+            });
+        });
+        
+        describe('Advanced Alerting Infrastructure', () => {
+            it('should validate alerting CloudFormation template', () => {
+                const templatePath = path.join(__dirname, 'cloudformation', 'alerting-infrastructure.yaml');
+                expect(fs.existsSync(templatePath)).toBe(true);
+                
+                const template = yaml.load(fs.readFileSync(templatePath, 'utf8'));
+                
+                // Validate template structure
+                expect(template.Description).toContain('Advanced Alerting Infrastructure');
+                
+                // Validate key resources
+                expect(template.Resources.CriticalAlertsTopic).toBeDefined();
+                expect(template.Resources.WarningAlertsTopic).toBeDefined();
+                expect(template.Resources.AlertProcessorFunction).toBeDefined();
+                expect(template.Resources.SystemHealthCompositeAlarm).toBeDefined();
+                
+                // Validate alert processor function has correct permissions
+                const alertProcessor = template.Resources.AlertProcessorFunction;
+                expect(alertProcessor.Properties.Environment.Variables.SERVICE_NAME).toBeDefined();
+            });
+            
+            it('should validate composite alarm configuration', () => {
+                const templatePath = path.join(__dirname, 'cloudformation', 'alerting-infrastructure.yaml');
+                const template = yaml.load(fs.readFileSync(templatePath, 'utf8'));
+                
+                const compositeAlarm = template.Resources.SystemHealthCompositeAlarm;
+                expect(compositeAlarm.Properties.AlarmRule).toContain('ALARM');
+                expect(compositeAlarm.Properties.AlarmActions).toBeDefined();
+            });
+        });
+        
+        describe('Deployment Pipeline Infrastructure', () => {
+            it('should validate deployment pipeline CloudFormation template', () => {
+                const templatePath = path.join(__dirname, 'cloudformation', 'deployment-pipeline.yaml');
+                expect(fs.existsSync(templatePath)).toBe(true);
+                
+                const template = yaml.load(fs.readFileSync(templatePath, 'utf8'));
+                
+                // Validate template structure
+                expect(template.Description).toContain('Deployment Pipeline Infrastructure');
+                
+                // Validate key resources
+                expect(template.Resources.PipelineArtifactsBucket).toBeDefined();
+                expect(template.Resources.BackendBuildProject).toBeDefined();
+                expect(template.Resources.UIBuildProject).toBeDefined();
+                expect(template.Resources.DeploymentPipeline).toBeDefined();
+                
+                // Validate CodeBuild projects
+                const backendBuild = template.Resources.BackendBuildProject;
+                expect(backendBuild.Properties.Environment.Image).toContain('amazonlinux');
+                expect(backendBuild.Properties.Source.BuildSpec).toContain('serverless package');
+            });
+            
+            it('should validate pipeline stages configuration', () => {
+                const templatePath = path.join(__dirname, 'cloudformation', 'deployment-pipeline.yaml');
+                const template = yaml.load(fs.readFileSync(templatePath, 'utf8'));
+                
+                const pipeline = template.Resources.DeploymentPipeline;
+                const stages = pipeline.Properties.Stages;
+                
+                // Validate required stages
+                const stageNames = stages.map(stage => stage.Name);
+                expect(stageNames).toContain('Source');
+                expect(stageNames).toContain('Build');
+                expect(stageNames).toContain('DeployDev');
+                expect(stageNames).toContain('DeployProduction');
+                
+                // Validate approval actions
+                const prodStage = stages.find(stage => stage.Name === 'DeployProduction');
+                const approvalAction = prodStage.Actions.find(action => action.ActionTypeId.Provider === 'Manual');
+                expect(approvalAction).toBeDefined();
+            });
+        });
+        
+        describe('Enhanced Monitoring Infrastructure', () => {
+            it('should validate enhanced monitoring template with Phase 3 features', () => {
+                const templatePath = path.join(__dirname, 'cloudformation', 'monitoring-infrastructure.yaml');
+                const template = yaml.load(fs.readFileSync(templatePath, 'utf8'));
+                
+                // Validate Phase 3 specific parameters
+                expect(template.Parameters.CodeGenerationEnabled).toBeDefined();
+                expect(template.Parameters.UIDistributionEnabled).toBeDefined();
+                
+                // Validate Phase 3 specific resources
+                expect(template.Resources.CodeGenerationMetrics).toBeDefined();
+                expect(template.Resources.UIDistributionMetrics).toBeDefined();
+                expect(template.Resources.Phase3MonitoringDashboard).toBeDefined();
+                
+                // Validate Phase 3 dashboard output
+                expect(template.Outputs.Phase3DashboardURL).toBeDefined();
+            });
+            
+            it('should validate Phase 3 metric filters and alarms', () => {
+                const templatePath = path.join(__dirname, 'cloudformation', 'monitoring-infrastructure.yaml');
+                const template = yaml.load(fs.readFileSync(templatePath, 'utf8'));
+                
+                // Validate code generation metrics
+                const codegenMetrics = template.Resources.CodeGenerationMetrics;
+                expect(codegenMetrics.Properties.FilterPattern).toContain('CODEGEN_');
+                expect(codegenMetrics.Properties.MetricTransformations[0].MetricNamespace).toContain('CodeGeneration');
+                
+                // Validate code generation alarm
+                const codegenAlarm = template.Resources.CodeGenerationAlarm;
+                expect(codegenAlarm.Properties.MetricName).toBe('GenerationErrors');
+                expect(codegenAlarm.Properties.Threshold).toBe(3);
+            });
+        });
+        
+        describe('End-to-End Phase 3 Integration', () => {
+            it('should generate serverless config with Phase 3 websocket support', async () => {
+                const appDefinition = {
+                    name: 'phase3-test-app',
+                    websockets: { enable: true },
+                    integrations: []
+                };
+                
+                const serverlessConfig = await composeServerlessDefinition(appDefinition);
+                
+                // Validate websocket function
+                expect(serverlessConfig.functions.defaultWebsocket).toBeDefined();
+                expect(serverlessConfig.functions.defaultWebsocket.events).toContainEqual({
+                    websocket: { route: '$connect' }
+                });
+                expect(serverlessConfig.functions.defaultWebsocket.events).toContainEqual({
+                    websocket: { route: '$disconnect' }
+                });
+            });
+            
+            it('should validate Phase 3 infrastructure cross-stack dependencies', () => {
+                // Load all Phase 3 templates
+                const templates = {
+                    cdn: yaml.load(fs.readFileSync(path.join(__dirname, 'cloudformation', 'cdn-infrastructure.yaml'), 'utf8')),
+                    codegen: yaml.load(fs.readFileSync(path.join(__dirname, 'cloudformation', 'codegen-infrastructure.yaml'), 'utf8')),
+                    alerting: yaml.load(fs.readFileSync(path.join(__dirname, 'cloudformation', 'alerting-infrastructure.yaml'), 'utf8')),
+                    pipeline: yaml.load(fs.readFileSync(path.join(__dirname, 'cloudformation', 'deployment-pipeline.yaml'), 'utf8'))
+                };
+                
+                // Validate exports that other stacks can import
+                expect(templates.cdn.Outputs.UIDistributionBucket.Export).toBeDefined();
+                expect(templates.codegen.Outputs.CodeGenerationBucket.Export).toBeDefined();
+                expect(templates.alerting.Outputs.CriticalAlertsTopic.Export).toBeDefined();
+                expect(templates.pipeline.Outputs.PipelineArtifactsBucket.Export).toBeDefined();
+                
+                // Validate consistent naming conventions
+                const serviceName = '${ServiceName}';
+                const stage = '${Stage}';
+                
+                Object.values(templates).forEach(template => {
+                    expect(template.Parameters.ServiceName.Default).toBe('frigg');
+                    if (template.Parameters.Stage) {
+                        expect(template.Parameters.Stage.AllowedValues).toContain('production');
+                    }
+                });
+            });
+            
+            it('should validate Phase 3 security configurations across all components', () => {
+                const templates = {
+                    cdn: yaml.load(fs.readFileSync(path.join(__dirname, 'cloudformation', 'cdn-infrastructure.yaml'), 'utf8')),
+                    codegen: yaml.load(fs.readFileSync(path.join(__dirname, 'cloudformation', 'codegen-infrastructure.yaml'), 'utf8')),
+                    alerting: yaml.load(fs.readFileSync(path.join(__dirname, 'cloudformation', 'alerting-infrastructure.yaml'), 'utf8'))
+                };
+                
+                // Validate S3 bucket encryption across all templates
+                const s3Resources = [];
+                Object.values(templates).forEach(template => {
+                    Object.entries(template.Resources).forEach(([name, resource]) => {
+                        if (resource.Type === 'AWS::S3::Bucket') {
+                            s3Resources.push({ name, resource });
+                        }
+                    });
+                });
+                
+                s3Resources.forEach(({ name, resource }) => {
+                    expect(resource.Properties.BucketEncryption).toBeDefined();
+                    expect(resource.Properties.PublicAccessBlockConfiguration).toBeDefined();
+                });
+                
+                // Validate SNS topic encryption
+                const snsTopics = [];
+                Object.values(templates).forEach(template => {
+                    Object.entries(template.Resources).forEach(([name, resource]) => {
+                        if (resource.Type === 'AWS::SNS::Topic') {
+                            snsTopics.push({ name, resource });
+                        }
+                    });
+                });
+                
+                snsTopics.forEach(({ name, resource }) => {
+                    expect(resource.Properties.KmsMasterKeyId).toBeDefined();
+                });
+            });
+        });
+        
+        describe('Infrastructure Performance Tests', () => {
+            it('should validate CloudFormation template sizes are within limits', () => {
+                const templateFiles = [
+                    'monitoring-infrastructure.yaml',
+                    'cdn-infrastructure.yaml',
+                    'codegen-infrastructure.yaml',
+                    'alerting-infrastructure.yaml',
+                    'deployment-pipeline.yaml'
+                ];
+                
+                templateFiles.forEach(fileName => {
+                    const templatePath = path.join(__dirname, 'cloudformation', fileName);
+                    const stats = fs.statSync(templatePath);
+                    
+                    // CloudFormation template limit is 51,200 bytes for direct upload
+                    // Keep under 45KB to allow for future growth
+                    expect(stats.size).toBeLessThan(45 * 1024);
+                });
+            });
+            
+            it('should validate resource counts are within CloudFormation limits', () => {
+                const templateFiles = [
+                    'monitoring-infrastructure.yaml',
+                    'cdn-infrastructure.yaml',
+                    'codegen-infrastructure.yaml',
+                    'alerting-infrastructure.yaml',
+                    'deployment-pipeline.yaml'
+                ];
+                
+                templateFiles.forEach(fileName => {
+                    const templatePath = path.join(__dirname, 'cloudformation', fileName);
+                    const template = yaml.load(fs.readFileSync(templatePath, 'utf8'));
+                    
+                    const resourceCount = Object.keys(template.Resources || {}).length;
+                    
+                    // CloudFormation limit is 500 resources per template
+                    // Keep under 200 for maintainability
+                    expect(resourceCount).toBeLessThan(200);
+                    expect(resourceCount).toBeGreaterThan(0);
+                });
+            });
+        });
+    });
+    
+    describe('Phase 3 Deployment Validation', () => {
+        it('should validate all Phase 3 templates can be deployed together', () => {
+            const templateDir = path.join(__dirname, 'cloudformation');
+            const templateFiles = fs.readdirSync(templateDir).filter(file => file.endsWith('.yaml'));
+            
+            expect(templateFiles.length).toBeGreaterThanOrEqual(5);
+            
+            // Validate each template is valid YAML
+            templateFiles.forEach(fileName => {
+                const templatePath = path.join(templateDir, fileName);
+                const templateContent = fs.readFileSync(templatePath, 'utf8');
+                
+                expect(() => {
+                    yaml.load(templateContent);
+                }).not.toThrow();
+            });
+        });
+        
+        it('should validate template parameter consistency', () => {
+            const templateFiles = [
+                'monitoring-infrastructure.yaml',
+                'cdn-infrastructure.yaml', 
+                'codegen-infrastructure.yaml',
+                'alerting-infrastructure.yaml',
+                'deployment-pipeline.yaml'
+            ];
+            
+            const commonParameters = ['ServiceName', 'Stage'];
+            
+            templateFiles.forEach(fileName => {
+                const templatePath = path.join(__dirname, 'cloudformation', fileName);
+                const template = yaml.load(fs.readFileSync(templatePath, 'utf8'));
+                
+                commonParameters.forEach(paramName => {
+                    if (template.Parameters && template.Parameters[paramName]) {
+                        // Validate ServiceName default
+                        if (paramName === 'ServiceName') {
+                            expect(template.Parameters[paramName].Default).toBe('frigg');
+                        }
+                        
+                        // Validate Stage allowed values
+                        if (paramName === 'Stage' && template.Parameters[paramName].AllowedValues) {
+                            expect(template.Parameters[paramName].AllowedValues).toContain('production');
+                            expect(template.Parameters[paramName].AllowedValues).toContain('development');
+                        }
+                    }
+                });
+            });
         });
     });
 });
