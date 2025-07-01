@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { ChevronDown, Check, Search, Folder, GitBranch } from 'lucide-react'
+import { ChevronDown, Check, Search, Folder, GitBranch, Code, ExternalLink } from 'lucide-react'
 import { cn } from '../lib/utils'
 import api from '../services/api'
 
@@ -52,6 +52,22 @@ const RepositoryPicker = ({ currentRepo, onRepoChange }) => {
     }
   }
 
+  const openInIDE = async (repoPath, e) => {
+    e.stopPropagation() // Prevent repository selection
+    try {
+      const response = await fetch('/api/open-in-ide', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: repoPath })
+      })
+      if (!response.ok) {
+        throw new Error('Failed to open in IDE')
+      }
+    } catch (error) {
+      console.error('Failed to open in IDE:', error)
+    }
+  }
+
   const filteredRepos = repositories.filter(repo => 
     repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     repo.path.toLowerCase().includes(searchQuery.toLowerCase())
@@ -69,41 +85,57 @@ const RepositoryPicker = ({ currentRepo, onRepoChange }) => {
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={cn(
-          "flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md",
-          "bg-white border border-gray-300 hover:bg-gray-50",
-          "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
-          "transition-colors duration-150"
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className={cn(
+            "flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md",
+            "bg-background border border-border hover:bg-accent",
+            "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+            "transition-colors duration-150"
+          )}
+        >
+          <Folder className="h-4 w-4 text-muted-foreground" />
+          <span className="max-w-[200px] truncate text-foreground">
+            {currentRepo?.name || 'Select Repository'}
+          </span>
+          <ChevronDown className={cn(
+            "h-4 w-4 text-muted-foreground transition-transform duration-200",
+            isOpen && "transform rotate-180"
+          )} />
+        </button>
+        
+        {currentRepo && (
+          <button
+            onClick={(e) => openInIDE(currentRepo.path, e)}
+            title="Open in IDE"
+            className={cn(
+              "p-2 text-muted-foreground hover:text-foreground hover:bg-accent",
+              "rounded-md transition-colors duration-150",
+              "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            )}
+          >
+            <Code className="h-4 w-4" />
+          </button>
         )}
-      >
-        <Folder className="h-4 w-4 text-gray-500" />
-        <span className="max-w-[200px] truncate">
-          {currentRepo?.name || 'Select Repository'}
-        </span>
-        <ChevronDown className={cn(
-          "h-4 w-4 text-gray-400 transition-transform duration-200",
-          isOpen && "transform rotate-180"
-        )} />
-      </button>
+      </div>
 
       {isOpen && (
         <div className={cn(
           "absolute z-50 mt-2 w-96 rounded-md shadow-lg",
-          "bg-white border border-gray-200",
+          "bg-popover border border-border",
           "max-h-96 overflow-hidden flex flex-col"
         )}>
           {/* Search bar */}
-          <div className="p-3 border-b border-gray-200">
+          <div className="p-3 border-b border-border">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Search repositories..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-9 pr-3 py-2 text-sm border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
               />
             </div>
           </div>
@@ -111,61 +143,76 @@ const RepositoryPicker = ({ currentRepo, onRepoChange }) => {
           {/* Repository list */}
           <div className="overflow-y-auto max-h-80">
             {loading ? (
-              <div className="p-4 text-center text-gray-500">
+              <div className="p-4 text-center text-muted-foreground">
                 Loading repositories...
               </div>
             ) : filteredRepos.length === 0 ? (
-              <div className="p-4 text-center text-gray-500">
+              <div className="p-4 text-center text-muted-foreground">
                 No repositories found
               </div>
             ) : (
               <div className="py-1">
                 {filteredRepos.map((repo) => (
-                  <button
+                  <div
                     key={repo.path}
-                    onClick={() => handleRepoSelect(repo)}
                     className={cn(
-                      "w-full px-4 py-3 text-left hover:bg-gray-50",
+                      "w-full px-4 py-3 text-left hover:bg-accent/50",
                       "flex items-start gap-3 group",
-                      currentRepo?.path === repo.path && "bg-blue-50"
+                      currentRepo?.path === repo.path && "bg-accent"
                     )}
                   >
-                    <div className="flex-shrink-0 mt-0.5">
-                      {currentRepo?.path === repo.path ? (
-                        <Check className="h-4 w-4 text-blue-600" />
-                      ) : (
-                        <GitBranch className="h-4 w-4 text-gray-400 group-hover:text-gray-600" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                          {repo.name}
-                        </p>
-                        {repo.framework && (
-                          <span className={cn(
-                            "text-xs font-medium",
-                            getFrameworkColor(repo.framework)
-                          )}>
-                            {repo.framework}
-                          </span>
-                        )}
-                        {repo.hasBackend && (
-                          <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
-                            Backend
-                          </span>
+                    <button
+                      onClick={() => handleRepoSelect(repo)}
+                      className="flex items-start gap-3 flex-1 min-w-0 text-left"
+                    >
+                      <div className="flex-shrink-0 mt-0.5">
+                        {currentRepo?.path === repo.path ? (
+                          <Check className="h-4 w-4 text-primary" />
+                        ) : (
+                          <GitBranch className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
                         )}
                       </div>
-                      <p className="text-xs text-gray-500 truncate mt-0.5">
-                        {repo.path}
-                      </p>
-                      {repo.version && (
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          v{repo.version}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {repo.name}
+                          </p>
+                          {repo.framework && (
+                            <span className={cn(
+                              "text-xs font-medium",
+                              getFrameworkColor(repo.framework)
+                            )}>
+                              {repo.framework}
+                            </span>
+                          )}
+                          {repo.hasBackend && (
+                            <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                              Backend
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">
+                          {repo.path}
                         </p>
+                        {repo.version && (
+                          <p className="text-xs text-muted-foreground/80 mt-0.5">
+                            v{repo.version}
+                          </p>
+                        )}
+                      </div>
+                    </button>
+                    <button
+                      onClick={(e) => openInIDE(repo.path, e)}
+                      title="Open in IDE"
+                      className={cn(
+                        "flex-shrink-0 p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent",
+                        "rounded transition-colors duration-150",
+                        "opacity-0 group-hover:opacity-100"
                       )}
-                    </div>
-                  </button>
+                    >
+                      <Code className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -173,10 +220,22 @@ const RepositoryPicker = ({ currentRepo, onRepoChange }) => {
 
           {/* Current repository info */}
           {currentRepo && (
-            <div className="p-3 bg-gray-50 border-t border-gray-200">
-              <p className="text-xs text-gray-600">
-                Current: <span className="font-medium">{currentRepo.name}</span>
-              </p>
+            <div className="p-3 bg-muted/50 border-t border-border">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  Current: <span className="font-medium text-foreground">{currentRepo.name}</span>
+                </p>
+                <button
+                  onClick={(e) => openInIDE(currentRepo.path, e)}
+                  title="Open current repo in IDE"
+                  className={cn(
+                    "p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent",
+                    "rounded transition-colors duration-150"
+                  )}
+                >
+                  <ExternalLink className="h-3 w-3" />
+                </button>
+              </div>
             </div>
           )}
         </div>

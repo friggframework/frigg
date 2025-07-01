@@ -1,8 +1,8 @@
-const express = require('express');
-const { spawn } = require('child_process');
-const path = require('path');
-const fs = require('fs-extra');
-const { wsHandler } = require('../websocket/handler');
+import express from 'express';
+import { spawn } from 'child_process';
+import path from 'path';
+import fs from 'fs-extra';
+import { wsHandler } from '../websocket/handler.js';
 
 const router = express.Router();
 
@@ -253,4 +253,4 @@ router.delete('/logs', (req, res) => {
     });
 });
 
-module.exports = router;
+export default router;

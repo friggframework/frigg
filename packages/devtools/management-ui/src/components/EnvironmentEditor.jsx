@@ -232,7 +232,7 @@ API_TIMEOUT=30000`
   return (
     <div className="environment-editor">
       {/* Toolbar */}
-      <div className="bg-gray-100 border-b border-gray-300 p-2 flex items-center justify-between">
+      <div className="bg-muted border-b border-border p-2 flex items-center justify-between">
         <div className="flex items-center space-x-2">
           {/* Save Button */}
           <button
@@ -241,7 +241,7 @@ API_TIMEOUT=30000`
             className={`px-3 py-1 rounded text-sm font-medium ${
               isDirty && !readOnly
                 ? 'bg-green-600 text-white hover:bg-green-700'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-muted text-muted-foreground cursor-not-allowed'
             }`}
           >
             {isDirty ? 'Save Changes' : 'Saved'}
@@ -255,7 +255,7 @@ API_TIMEOUT=30000`
                 setIsDirty(false)
                 setErrors([])
               }}
-              className="px-3 py-1 rounded text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300"
+              className="px-3 py-1 rounded text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80"
             >
               Revert
             </button>
@@ -281,11 +281,11 @@ API_TIMEOUT=30000`
             <button className="px-3 py-1 rounded text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300">
               Insert Template ▼
             </button>
-            <div className="absolute left-0 mt-1 w-48 bg-white border border-gray-300 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
-              <button onClick={() => insertTemplate('database')} className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-100">Database Config</button>
-              <button onClick={() => insertTemplate('redis')} className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-100">Redis Config</button>
-              <button onClick={() => insertTemplate('aws')} className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-100">AWS Config</button>
-              <button onClick={() => insertTemplate('api')} className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-100">API Config</button>
+            <div className="absolute left-0 mt-1 w-48 bg-popover border border-border rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
+              <button onClick={() => insertTemplate('database')} className="block w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground">Database Config</button>
+              <button onClick={() => insertTemplate('redis')} className="block w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground">Redis Config</button>
+              <button onClick={() => insertTemplate('aws')} className="block w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground">AWS Config</button>
+              <button onClick={() => insertTemplate('api')} className="block w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground">API Config</button>
             </div>
           </div>
           
@@ -307,7 +307,7 @@ API_TIMEOUT=30000`
             placeholder="Search variables..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="px-3 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:border-blue-500"
+            className="px-3 py-1 border border-input bg-background text-foreground rounded text-sm focus:outline-none focus:border-ring focus:ring-1 focus:ring-ring"
           />
         </div>
       </div>
@@ -315,13 +315,13 @@ API_TIMEOUT=30000`
       {/* Editor */}
       <div className="relative">
         {/* Line Numbers */}
-        <div className="absolute left-0 top-0 bottom-0 w-12 bg-gray-50 border-r border-gray-300 select-none">
+        <div className="absolute left-0 top-0 bottom-0 w-12 bg-muted/50 border-r border-border select-none">
           {editorContent.split('\n').map((_, index) => (
             <div
               key={index}
               onClick={(e) => handleLineClick(index + 1, e)}
-              className={`px-2 text-right text-xs text-gray-500 leading-6 cursor-pointer hover:bg-gray-100 ${
-                selectedLines.has(index + 1) ? 'bg-blue-100' : ''
+              className={`px-2 text-right text-xs text-muted-foreground leading-6 cursor-pointer hover:bg-accent hover:text-accent-foreground ${
+                selectedLines.has(index + 1) ? 'bg-primary/20 text-primary' : ''
               }`}
             >
               {index + 1}
@@ -335,16 +335,16 @@ API_TIMEOUT=30000`
           value={searchTerm ? getFilteredContent() : editorContent}
           onChange={handleContentChange}
           readOnly={readOnly || searchTerm}
-          className="w-full h-96 pl-14 pr-4 py-2 font-mono text-sm leading-6 resize-none focus:outline-none"
+          className="w-full h-96 pl-14 pr-4 py-2 font-mono text-sm leading-6 resize-none focus:outline-none bg-background text-foreground"
           spellCheck={false}
           style={{ tabSize: 2 }}
         />
         
         {/* Error Indicators */}
         {errors.length > 0 && (
-          <div className="absolute right-2 top-2 bg-red-50 border border-red-200 rounded p-2 max-w-xs">
-            <h4 className="text-sm font-medium text-red-800 mb-1">Validation Errors:</h4>
-            <ul className="text-xs text-red-600 space-y-1">
+          <div className="absolute right-2 top-2 bg-destructive/10 border border-destructive/20 rounded p-2 max-w-xs">
+            <h4 className="text-sm font-medium text-destructive mb-1">Validation Errors:</h4>
+            <ul className="text-xs text-destructive/80 space-y-1">
               {errors.map((error, index) => (
                 <li key={index}>
                   {error.line && `Line ${error.line}: `}{error.message}

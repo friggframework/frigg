@@ -22,6 +22,7 @@ import logsRouter from './api/logs.js'
 import monitoringRouter from './api/monitoring.js'
 import codegenRouter from './api/codegen.js'
 import discoveryRouter from './api/discovery.js'
+import openIdeHandler from './api/open-ide.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -95,6 +96,7 @@ app.use('/api/logs', logsRouter)
 app.use('/api/monitoring', monitoringRouter)
 app.use('/api/codegen', codegenRouter)
 app.use('/api/discovery', discoveryRouter)
+app.post('/api/open-in-ide', openIdeHandler)
 
 // API documentation endpoint
 app.get('/api', (req, res) => {

@@ -10,7 +10,7 @@ const {
 } = require('../utils/repo-detection');
 
 async function uiCommand(options) {
-    const { port = 3001, open: shouldOpen = true, repo: specifiedRepo } = options;
+    const { port = 3001, open: shouldOpen = true, repo: specifiedRepo, dev = false } = options;
     
     let targetRepo = null;
     let workingDirectory = process.cwd();
@@ -57,10 +57,10 @@ async function uiCommand(options) {
     try {
         const managementUiPath = path.join(__dirname, '../../management-ui');
         
-        // Check if we're in development mode (no dist folder)
-        const distPath = path.join(managementUiPath, 'dist');
+        // Check if we're in development mode
+        // For CLI usage, we prefer development mode unless explicitly set to production
         const fs = require('fs');
-        const isDevelopment = !fs.existsSync(distPath);
+        const isDevelopment = dev || process.env.NODE_ENV !== 'production';
         
         if (isDevelopment) {
             const env = {

@@ -101,17 +101,17 @@ const Dashboard = () => {
   return (
     <div>
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-900">Dashboard</h2>
-        <p className="mt-2 text-gray-600">Manage your Frigg development environment</p>
+        <h2 className="text-3xl font-bold text-foreground">Dashboard</h2>
+        <p className="mt-2 text-muted-foreground">Manage your Frigg development environment</p>
       </div>
 
       {/* Control Panel */}
-      <div className="bg-white shadow rounded-lg p-6 mb-8">
+      <div className="bg-card shadow rounded-lg p-6 mb-8 border border-border">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-medium text-gray-900">Frigg Server Control</h3>
+          <h3 className="text-lg font-medium text-card-foreground">Frigg Server Control</h3>
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="text-sm text-blue-600 hover:text-blue-800"
+            className="text-sm text-primary hover:text-primary/80"
           >
             {showAdvanced ? 'Hide' : 'Show'} Advanced Options
           </button>
@@ -119,16 +119,16 @@ const Dashboard = () => {
         
         {/* Advanced Options */}
         {showAdvanced && (
-          <div className="mb-6 p-4 bg-gray-50 rounded-md">
+          <div className="mb-6 p-4 bg-muted/50 rounded-md">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-foreground mb-1">
                   Stage
                 </label>
                 <select
                   value={startOptions.stage}
                   onChange={(e) => setStartOptions(prev => ({ ...prev, stage: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                   <option value="dev">Development</option>
                   <option value="staging">Staging</option>
@@ -143,7 +143,7 @@ const Dashboard = () => {
                   onChange={(e) => setStartOptions(prev => ({ ...prev, verbose: e.target.checked }))}
                   className="mr-2"
                 />
-                <label htmlFor="verbose" className="text-sm font-medium text-gray-700">
+                <label htmlFor="verbose" className="text-sm font-medium text-foreground">
                   Verbose logging
                 </label>
               </div>
@@ -152,10 +152,10 @@ const Dashboard = () => {
         )}
 
         {/* Status Display */}
-        <div className="mb-4 p-4 bg-gray-50 rounded-md">
+        <div className="mb-4 p-4 bg-muted/50 rounded-md">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
-              <span className="text-gray-500">Status:</span>
+              <span className="text-muted-foreground">Status:</span>
               <span className={`ml-2 font-medium ${
                 status === 'running' ? 'text-green-600' : 
                 status === 'stopped' ? 'text-red-600' : 
@@ -167,15 +167,15 @@ const Dashboard = () => {
             {metrics && (
               <>
                 <div>
-                  <span className="text-gray-500">PID:</span>
+                  <span className="text-muted-foreground">PID:</span>
                   <span className="ml-2 font-medium">{metrics.pid || 'N/A'}</span>
                 </div>
                 <div>
-                  <span className="text-gray-500">Uptime:</span>
+                  <span className="text-muted-foreground">Uptime:</span>
                   <span className="ml-2 font-medium">{formatUptime(metrics.uptime)}</span>
                 </div>
                 <div>
-                  <span className="text-gray-500">Stage:</span>
+                  <span className="text-muted-foreground">Stage:</span>
                   <span className="ml-2 font-medium">{startOptions.stage}</span>
                 </div>
               </>
@@ -190,7 +190,7 @@ const Dashboard = () => {
             disabled={status === 'running' || status === 'starting'}
             className={`px-6 py-3 rounded-md font-medium transition-colors ${
               status === 'running' || status === 'starting'
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                ? 'bg-muted text-muted-foreground cursor-not-allowed'
                 : 'bg-green-600 text-white hover:bg-green-700'
             }`}
           >
@@ -202,7 +202,7 @@ const Dashboard = () => {
             disabled={status === 'stopped' || status === 'stopping'}
             className={`px-6 py-3 rounded-md font-medium transition-colors ${
               status === 'stopped' || status === 'stopping'
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                ? 'bg-muted text-muted-foreground cursor-not-allowed'
                 : 'bg-red-600 text-white hover:bg-red-700'
             }`}
           >
@@ -214,7 +214,7 @@ const Dashboard = () => {
             disabled={status === 'starting' || status === 'stopping'}
             className={`px-6 py-3 rounded-md font-medium transition-colors ${
               status === 'starting' || status === 'stopping'
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                ? 'bg-muted text-muted-foreground cursor-not-allowed'
                 : 'bg-blue-600 text-white hover:bg-blue-700'
             }`}
           >
@@ -235,12 +235,12 @@ const Dashboard = () => {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {stats.map((stat) => (
-          <div key={stat.name} className="bg-white shadow rounded-lg p-6">
+          <div key={stat.name} className="bg-card shadow rounded-lg p-6 border border-border">
             <div className="flex items-center">
               <span className="text-3xl mr-3">{stat.icon}</span>
               <div>
-                <p className="text-sm font-medium text-gray-600">{stat.name}</p>
-                <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                <p className="text-sm font-medium text-muted-foreground">{stat.name}</p>
+                <p className="text-2xl font-bold text-card-foreground">{stat.value}</p>
               </div>
             </div>
           </div>
@@ -248,9 +248,9 @@ const Dashboard = () => {
       </div>
 
       {/* Real-time Logs */}
-      <div className="bg-white shadow rounded-lg p-6 mb-8">
+      <div className="bg-card shadow rounded-lg p-6 mb-8 border border-border">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-medium text-gray-900">Real-time Logs</h3>
+          <h3 className="text-lg font-medium text-card-foreground">Real-time Logs</h3>
           <button
             onClick={() => setLogs([])}
             className="text-sm text-red-600 hover:text-red-800"
@@ -258,15 +258,15 @@ const Dashboard = () => {
             Clear Logs
           </button>
         </div>
-        <div className="bg-gray-900 text-gray-100 p-4 rounded-md h-64 overflow-y-auto font-mono text-sm">
+        <div className="bg-muted/30 dark:bg-gray-900 text-foreground dark:text-gray-100 p-4 rounded-md h-64 overflow-y-auto font-mono text-sm border border-border">
           {logs.length === 0 ? (
-            <div className="text-gray-400 text-center py-8">
+            <div className="text-muted-foreground text-center py-8">
               No logs available. Start Frigg to see real-time logs.
             </div>
           ) : (
             logs.map((log, index) => (
               <div key={index} className="mb-1 flex">
-                <span className="text-gray-400 mr-2 w-20 flex-shrink-0">
+                <span className="text-muted-foreground mr-2 w-20 flex-shrink-0">
                   {new Date(log.timestamp).toLocaleTimeString()}
                 </span>
                 <span className={`mr-2 w-12 flex-shrink-0 ${
@@ -284,23 +284,23 @@ const Dashboard = () => {
       </div>
 
       {/* Recent Activity */}
-      <div className="bg-white shadow rounded-lg p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Activity</h3>
+      <div className="bg-card shadow rounded-lg p-6 border border-border">
+        <h3 className="text-lg font-medium text-card-foreground mb-4">Recent Activity</h3>
         <div className="space-y-3">
           <div className="flex items-center text-sm">
             <span className="w-2 h-2 bg-green-400 rounded-full mr-3"></span>
-            <span className="text-gray-600">Frigg server started</span>
-            <span className="ml-auto text-gray-400">2 minutes ago</span>
+            <span className="text-foreground">Frigg server started</span>
+            <span className="ml-auto text-muted-foreground">2 minutes ago</span>
           </div>
           <div className="flex items-center text-sm">
             <span className="w-2 h-2 bg-blue-400 rounded-full mr-3"></span>
-            <span className="text-gray-600">Integration 'Slack' installed</span>
-            <span className="ml-auto text-gray-400">15 minutes ago</span>
+            <span className="text-foreground">Integration 'Slack' installed</span>
+            <span className="ml-auto text-muted-foreground">15 minutes ago</span>
           </div>
           <div className="flex items-center text-sm">
             <span className="w-2 h-2 bg-purple-400 rounded-full mr-3"></span>
-            <span className="text-gray-600">Test user 'john.doe' created</span>
-            <span className="ml-auto text-gray-400">1 hour ago</span>
+            <span className="text-foreground">Test user 'john.doe' created</span>
+            <span className="ml-auto text-muted-foreground">1 hour ago</span>
           </div>
         </div>
       </div>

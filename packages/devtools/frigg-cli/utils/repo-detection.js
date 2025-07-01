@@ -51,6 +51,42 @@ async function isFriggRepository(directory) {
             }
         }
 
+        // Check for Frigg-specific files
+        const friggConfigFiles = [
+            'frigg.config.js',
+            'frigg.config.json',
+            '.friggrc',
+            '.friggrc.json',
+            '.friggrc.js'
+        ];
+        
+        indicators.hasFriggConfig = friggConfigFiles.some(file => 
+            fs.existsSync(path.join(directory, file))
+        );
+
+        // Check for Frigg-specific directories
+        const friggDirs = [
+            '.frigg',
+            'frigg-modules',
+            'api-modules'
+        ];
+        
+        indicators.hasFriggDirectories = friggDirs.some(dir => 
+            fs.existsSync(path.join(directory, dir))
+        );
+
+        // Check for Frigg-specific scripts in package.json
+        indicators.hasFriggScripts = false;
+        if (packageJson.scripts) {
+            const friggScriptPatterns = ['frigg', 'frigg-dev', 'frigg-build', 'frigg-deploy'];
+            indicators.hasFriggScripts = Object.keys(packageJson.scripts).some(script =>
+                friggScriptPatterns.some(pattern => script.includes(pattern)) ||
+                Object.values(packageJson.scripts).some(cmd => 
+                    typeof cmd === 'string' && cmd.includes('frigg ')
+                )
+            );
+        }
+
         // Check for workspace structure
         if (packageJson.workspaces) {
             const workspaces = Array.isArray(packageJson.workspaces) 
@@ -80,13 +116,55 @@ async function isFriggRepository(directory) {
             return { isFriggRepo: false, repoInfo: null };
         }
 
+        // Additional check for Zapier apps that shouldn't be detected as Frigg repos
+        const isZapierApp = packageJson.name && (
+            packageJson.name.includes('zapier-public') ||
+            packageJson.name.includes('zapier-app') ||
+            (packageJson.scripts && packageJson.scripts.zapier)
+        );
+
+        // Check for specific Frigg indicators in serverless.yml
+        let hasFriggServerlessIndicators = false;
+        if (indicators.hasServerlessConfig) {
+            try {
+                const serverlessContent = fs.readFileSync(serverlessPath, 'utf8');
+                hasFriggServerlessIndicators = serverlessContent.includes('frigg') || 
+                                               serverlessContent.includes('FriggHandler') ||
+                                               serverlessContent.includes('@friggframework');
+            } catch (error) {
+                // Ignore read errors
+            }
+        }
+
         // A directory is considered a Frigg repo if it has:
-        // 1. Frigg dependencies OR
-        // 2. Both backend and frontend structure OR
-        // 3. Serverless config with Frigg-like structure
-        const isFriggRepo = indicators.hasFriggDependencies || 
-                           (indicators.hasBackendWorkspace && indicators.hasFrontendWorkspace) ||
-                           (indicators.hasServerlessConfig && existingFrontendDirs.length > 0);
+        // 1. Frigg dependencies (MANDATORY - most reliable indicator) OR
+        // 2. Frigg-specific configuration files OR
+        // 3. Frigg-specific directories OR
+        // 4. Frigg-specific scripts in package.json OR
+        // 5. Serverless config with explicit Frigg references AND proper structure
+        // 
+        // For Zapier apps, we require explicit Frigg indicators
+        const hasFriggIndicators = indicators.hasFriggDependencies || 
+                                  indicators.hasFriggConfig || 
+                                  indicators.hasFriggDirectories ||
+                                  indicators.hasFriggScripts ||
+                                  hasFriggServerlessIndicators;
+
+        // Determine if it's a Frigg repository
+        let isFriggRepo = false;
+        
+        if (isZapierApp) {
+            // For Zapier apps, require explicit Frigg dependencies or config
+            isFriggRepo = indicators.hasFriggDependencies || indicators.hasFriggConfig;
+        } else {
+            // For non-Zapier apps, any Frigg indicator is sufficient
+            isFriggRepo = hasFriggIndicators;
+        }
+
+        // Additional validation for edge cases
+        if (isZapierApp && !indicators.hasFriggDependencies && !indicators.hasFriggConfig) {
+            return { isFriggRepo: false, repoInfo: null };
+        }
 
         if (isFriggRepo) {
             return {
@@ -99,6 +177,9 @@ async function isFriggRepository(directory) {
                     hasBackend: fs.existsSync(path.join(directory, 'backend')),
                     friggDependencies: indicators.friggDependencies,
                     workspaces: packageJson.workspaces,
+                    hasFriggConfig: indicators.hasFriggConfig,
+                    hasFriggDirectories: indicators.hasFriggDirectories,
+                    isZapierApp: isZapierApp,
                     ...indicators
                 }
             };

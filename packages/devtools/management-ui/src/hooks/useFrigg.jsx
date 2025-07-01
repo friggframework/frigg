@@ -21,6 +21,9 @@ export const FriggProvider = ({ children }) => {
   const [users, setUsers] = useState([])
   const [connections, setConnections] = useState([])
   const [currentUser, setCurrentUser] = useState(null)
+  const [repositories, setRepositories] = useState([])
+  const [currentRepository, setCurrentRepository] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -36,7 +39,7 @@ export const FriggProvider = ({ children }) => {
     })
 
     // Initial data fetch
-    fetchInitialData()
+    initializeApp()
 
     return () => {
       unsubscribeStatus && unsubscribeStatus()
@@ -44,17 +47,78 @@ export const FriggProvider = ({ children }) => {
     }
   }, [on])
 
+  const initializeApp = async () => {
+    try {
+      setIsLoading(true)
+      // First fetch repositories to see what's available
+      const repos = await fetchRepositories()
+      // Then check if we have a current repository
+      const currentRepo = await fetchCurrentRepository()
+      
+      if (currentRepo && repos.length > 0) {
+        // If we have a current repository, fetch the full data
+        await fetchInitialData()
+      }
+    } catch (error) {
+      console.error('Error initializing app:', error)
+      setError(error.message || 'Failed to initialize app')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const fetchRepositories = async () => {
+    try {
+      const response = await api.get('/api/project/repositories')
+      const repos = response.data.data?.repositories || response.data.repositories || []
+      setRepositories(repos)
+      return repos
+    } catch (error) {
+      console.error('Error fetching repositories:', error)
+      setRepositories([])
+      return []
+    }
+  }
+
+  const fetchCurrentRepository = async () => {
+    try {
+      const response = await api.get('/api/repository/current')
+      const repo = response.data.data?.repository || response.data.repository
+      setCurrentRepository(repo)
+      return repo
+    } catch (error) {
+      console.error('Error fetching current repository:', error)
+      setCurrentRepository(null)
+      return null
+    }
+  }
+
+  const switchRepository = async (repoPath) => {
+    try {
+      const response = await api.post('/api/project/switch-repository', { path: repoPath })
+      const repo = response.data.data?.repository || response.data.repository
+      setCurrentRepository(repo)
+      // Refresh other data after switching repository
+      await fetchInitialData()
+      return repo
+    } catch (error) {
+      console.error('Error switching repository:', error)
+      throw error
+    }
+  }
+
   const fetchInitialData = async () => {
     try {
       setLoading(true)
       setError(null)
       
-      const [statusRes, integrationsRes, envRes, usersRes, connectionsRes] = await Promise.all([
+      const [statusRes, integrationsRes, envRes, usersRes, connectionsRes, repoRes] = await Promise.all([
         api.get('/api/project/status'),
         api.get('/api/integrations'),
         api.get('/api/environment'),
         api.get('/api/users'),
         api.get('/api/connections'),
+        fetchCurrentRepository(),
       ])
 
       setStatus(statusRes.data.data?.status || statusRes.data.status || 'stopped')
@@ -297,6 +361,9 @@ export const FriggProvider = ({ children }) => {
     users,
     connections,
     currentUser,
+    repositories,
+    currentRepository,
+    isLoading,
     loading,
     error,
     startFrigg,
@@ -319,6 +386,8 @@ export const FriggProvider = ({ children }) => {
     refreshSession,
     endSession,
     getAllSessions,
+    fetchRepositories,
+    switchRepository,
     refreshData: fetchInitialData,
   }
 

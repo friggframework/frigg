@@ -49,8 +49,26 @@ async function listRepositories(options = {}) {
         console.log(`${marker} ${formatRepositoryInfo(repo)}`);
         console.log(`   ${chalk.gray(repo.path)}`);
         
+        // Show detection reasons
+        const detectionReasons = [];
         if (repo.friggDependencies && repo.friggDependencies.length > 0) {
-            console.log(`   ${chalk.gray('Dependencies:')} ${repo.friggDependencies.join(', ')}`);
+            detectionReasons.push(`Dependencies: ${repo.friggDependencies.join(', ')}`);
+        }
+        if (repo.hasFriggConfig) {
+            detectionReasons.push('Has Frigg config file');
+        }
+        if (repo.hasFriggDirectories) {
+            detectionReasons.push('Has Frigg directories');
+        }
+        if (repo.hasFriggScripts) {
+            detectionReasons.push('Has Frigg scripts');
+        }
+        if (repo.isZapierApp) {
+            detectionReasons.push(chalk.yellow('[Zapier App]'));
+        }
+        
+        if (detectionReasons.length > 0) {
+            console.log(`   ${chalk.gray('Detected by:')} ${detectionReasons.join(', ')}`);
         }
         
         console.log();

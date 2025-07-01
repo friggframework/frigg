@@ -5,6 +5,8 @@ import path from 'path'
 import fs from 'fs-extra'
 import fetch from 'node-fetch'
 import { createStandardResponse, createErrorResponse, ERROR_CODES, asyncHandler } from '../utils/response.js'
+import { importCommonJS } from '../utils/import-commonjs.js'
+import { wsHandler } from '../websocket/handler.js'
 
 const router = express.Router();
 const execAsync = promisify(exec);
@@ -106,7 +108,8 @@ async function getInstalledIntegrations() {
                 
                 try {
                     // Dynamically import the backend file to get the actual appDefinition
-                    const backendModule = require(targetFile);
+                    // Use importCommonJS helper to handle both ESM and CommonJS modules
+                    const backendModule = await importCommonJS(targetFile);
                     
                     // Extract appDefinition - could be default export, named export, or variable
                     const appDefinition = backendModule.default?.appDefinition || 
@@ -207,10 +210,12 @@ async function parseBackendFile(filePath) {
         const backendContent = await fs.readFile(filePath, 'utf8');
         const integrations = [];
         
-        // Extract integration imports
-        const importMatches = backendContent.match(/(?:const|let|var)\s+(\w+Integration)\s*=\s*require\(['"]([^'"]+)['"]\)/g) || [];
+        // Extract integration imports - handle both require and import statements
+        const requireMatches = backendContent.match(/(?:const|let|var)\s+(\w+Integration)\s*=\s*require\(['"]([^'"]+)['"]\)/g) || [];
+        const importMatches = backendContent.match(/import\s+(?:\*\s+as\s+)?(\w+Integration)\s+from\s+['"]([^'"]+)['"]/g) || [];
+        const allMatches = [...requireMatches, ...importMatches];
         
-        for (const match of importMatches) {
+        for (const match of allMatches) {
             const nameMatch = match.match(/(\w+Integration)/);
             if (nameMatch) {
                 const integrationName = nameMatch[1];

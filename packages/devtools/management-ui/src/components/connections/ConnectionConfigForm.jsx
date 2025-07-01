@@ -118,18 +118,18 @@ const ConnectionConfigForm = ({ connection, integration, onSave, onCancel }) => 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-sm text-red-800">{error}</p>
+        <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+          <p className="text-sm text-destructive">{error}</p>
         </div>
       )}
 
       {/* Basic Configuration */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Basic Configuration</h3>
+      <div className="bg-card rounded-lg shadow p-6 border border-border">
+        <h3 className="text-lg font-semibold text-card-foreground mb-4">Basic Configuration</h3>
         
         <div className="space-y-4">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="name" className="block text-sm font-medium text-foreground">
               Connection Name
             </label>
             <input
@@ -137,13 +137,13 @@ const ConnectionConfigForm = ({ connection, integration, onSave, onCancel }) => 
               id="name"
               value={config.name}
               onChange={(e) => setConfig(prev => ({ ...prev, name: e.target.value }))}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              className="mt-1 block w-full rounded-md border-input bg-background text-foreground shadow-sm focus:border-ring focus:ring-ring sm:text-sm"
               placeholder={`My ${integration.displayName} Connection`}
             />
           </div>
 
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="description" className="block text-sm font-medium text-foreground">
               Description
             </label>
             <textarea
@@ -151,7 +151,7 @@ const ConnectionConfigForm = ({ connection, integration, onSave, onCancel }) => 
               value={config.description}
               onChange={(e) => setConfig(prev => ({ ...prev, description: e.target.value }))}
               rows={3}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              className="mt-1 block w-full rounded-md border-input bg-background text-foreground shadow-sm focus:border-ring focus:ring-ring sm:text-sm"
               placeholder="Optional description for this connection"
             />
           </div>
@@ -159,8 +159,8 @@ const ConnectionConfigForm = ({ connection, integration, onSave, onCancel }) => 
       </div>
 
       {/* Sync Configuration */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Sync Configuration</h3>
+      <div className="bg-card rounded-lg shadow p-6 border border-border">
+        <h3 className="text-lg font-semibold text-card-foreground mb-4">Sync Configuration</h3>
         
         <div className="space-y-4">
           <div>
@@ -169,22 +169,22 @@ const ConnectionConfigForm = ({ connection, integration, onSave, onCancel }) => 
                 type="checkbox"
                 checked={config.autoSync}
                 onChange={(e) => setConfig(prev => ({ ...prev, autoSync: e.target.checked }))}
-                className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="rounded border-input text-primary shadow-sm focus:border-ring focus:ring-ring"
               />
-              <span className="ml-2 text-sm text-gray-700">Enable automatic synchronization</span>
+              <span className="ml-2 text-sm text-foreground">Enable automatic synchronization</span>
             </label>
           </div>
 
           {config.autoSync && (
             <div>
-              <label htmlFor="syncInterval" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="syncInterval" className="block text-sm font-medium text-foreground">
                 Sync Interval
               </label>
               <select
                 id="syncInterval"
                 value={config.syncInterval}
                 onChange={(e) => setConfig(prev => ({ ...prev, syncInterval: e.target.value }))}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                className="mt-1 block w-full rounded-md border-input bg-background text-foreground shadow-sm focus:border-ring focus:ring-ring sm:text-sm"
               >
                 <option value="realtime">Real-time</option>
                 <option value="5min">Every 5 minutes</option>
@@ -199,8 +199,8 @@ const ConnectionConfigForm = ({ connection, integration, onSave, onCancel }) => 
       </div>
 
       {/* Webhook Configuration */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Webhook Configuration</h3>
+      <div className="bg-card rounded-lg shadow p-6 border border-border">
+        <h3 className="text-lg font-semibold text-card-foreground mb-4">Webhook Configuration</h3>
         
         <div className="space-y-4">
           <div>
@@ -209,19 +209,19 @@ const ConnectionConfigForm = ({ connection, integration, onSave, onCancel }) => 
                 type="checkbox"
                 checked={config.webhookEnabled}
                 onChange={(e) => setConfig(prev => ({ ...prev, webhookEnabled: e.target.checked }))}
-                className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="rounded border-input text-primary shadow-sm focus:border-ring focus:ring-ring"
               />
-              <span className="ml-2 text-sm text-gray-700">Enable webhooks for real-time updates</span>
+              <span className="ml-2 text-sm text-foreground">Enable webhooks for real-time updates</span>
             </label>
           </div>
 
           {config.webhookEnabled && (
             <div>
-              <label htmlFor="webhookUrl" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="webhookUrl" className="block text-sm font-medium text-foreground">
                 Webhook URL
               </label>
               <div className="mt-1 flex rounded-md shadow-sm">
-                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground text-sm">
                   {window.location.origin}/api/webhooks/
                 </span>
                 <input
@@ -229,12 +229,12 @@ const ConnectionConfigForm = ({ connection, integration, onSave, onCancel }) => 
                   id="webhookUrl"
                   value={config.webhookUrl}
                   onChange={(e) => setConfig(prev => ({ ...prev, webhookUrl: e.target.value }))}
-                  className="flex-1 block w-full rounded-none rounded-r-md border-gray-300 focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  className="flex-1 block w-full rounded-none rounded-r-md border-input bg-background text-foreground focus:border-ring focus:ring-ring sm:text-sm"
                   placeholder="connection-id"
                   disabled
                 />
               </div>
-              <p className="mt-2 text-sm text-gray-500">
+              <p className="mt-2 text-sm text-muted-foreground">
                 This URL will be automatically generated when the connection is created.
               </p>
             </div>
@@ -243,12 +243,12 @@ const ConnectionConfigForm = ({ connection, integration, onSave, onCancel }) => 
       </div>
 
       {/* Advanced Configuration */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Advanced Configuration</h3>
+      <div className="bg-card rounded-lg shadow p-6 border border-border">
+        <h3 className="text-lg font-semibold text-card-foreground mb-4">Advanced Configuration</h3>
         
         <div className="space-y-4">
           <div>
-            <label htmlFor="rateLimitOverride" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="rateLimitOverride" className="block text-sm font-medium text-foreground">
               Rate Limit Override (requests per minute)
             </label>
             <input
@@ -256,14 +256,14 @@ const ConnectionConfigForm = ({ connection, integration, onSave, onCancel }) => 
               id="rateLimitOverride"
               value={config.rateLimitOverride}
               onChange={(e) => setConfig(prev => ({ ...prev, rateLimitOverride: e.target.value }))}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              className="mt-1 block w-full rounded-md border-input bg-background text-foreground shadow-sm focus:border-ring focus:ring-ring sm:text-sm"
               placeholder="Leave empty to use default"
             />
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-foreground">
                 Custom Headers
               </label>
               <Button type="button" onClick={addCustomHeader} size="sm" variant="secondary">
@@ -273,12 +273,12 @@ const ConnectionConfigForm = ({ connection, integration, onSave, onCancel }) => 
             {Object.keys(config.customHeaders).length > 0 ? (
               <div className="space-y-2">
                 {Object.entries(config.customHeaders).map(([key, value]) => (
-                  <div key={key} className="flex items-center space-x-2 p-2 bg-gray-50 rounded">
+                  <div key={key} className="flex items-center space-x-2 p-2 bg-muted/50 rounded">
                     <code className="text-sm font-mono flex-1">{key}: {value}</code>
                     <button
                       type="button"
                       onClick={() => removeCustomHeader(key)}
-                      className="text-red-600 hover:text-red-800"
+                      className="text-destructive hover:text-destructive/80"
                     >
                       Remove
                     </button>
@@ -286,14 +286,14 @@ const ConnectionConfigForm = ({ connection, integration, onSave, onCancel }) => 
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-gray-500">No custom headers configured</p>
+              <p className="text-sm text-muted-foreground">No custom headers configured</p>
             )}
           </div>
         </div>
       </div>
 
       {/* Entity Mappings */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-card rounded-lg shadow p-6 border border-border">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900">Entity Mappings</h3>
           <Button type="button" onClick={addEntityMapping} size="sm" variant="secondary">
@@ -307,26 +307,26 @@ const ConnectionConfigForm = ({ connection, integration, onSave, onCancel }) => 
               <div key={mapping.id} className="border border-gray-200 rounded-lg p-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label className="block text-sm font-medium text-foreground">
                       Source Type
                     </label>
                     <input
                       type="text"
                       value={mapping.sourceType}
                       onChange={(e) => updateEntityMapping(mapping.id, { sourceType: e.target.value })}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      className="mt-1 block w-full rounded-md border-input bg-background text-foreground shadow-sm focus:border-ring focus:ring-ring sm:text-sm"
                       placeholder="e.g., Contact"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label className="block text-sm font-medium text-foreground">
                       Target Type
                     </label>
                     <input
                       type="text"
                       value={mapping.targetType}
                       onChange={(e) => updateEntityMapping(mapping.id, { targetType: e.target.value })}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      className="mt-1 block w-full rounded-md border-input bg-background text-foreground shadow-sm focus:border-ring focus:ring-ring sm:text-sm"
                       placeholder="e.g., User"
                     />
                   </div>

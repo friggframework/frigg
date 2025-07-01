@@ -110,12 +110,14 @@ program
     .option('-p, --port <port>', 'port to run the UI server on', '3001')
     .option('--no-open', 'don\'t automatically open browser')
     .option('-r, --repo <path>', 'specify repository path (skips auto-detection)')
+    .option('--dev', 'force development mode (both frontend and backend servers)')
     .addHelpText('after', `
 Examples:
   $ frigg ui                   # Launch UI on default port 3001
   $ frigg ui --port 3000       # Use custom port
   $ frigg ui --no-open         # Don't open browser automatically
-  $ frigg ui --repo ../myapp   # Specify repository path`)
+  $ frigg ui --repo ../myapp   # Specify repository path
+  $ frigg ui --dev             # Force development mode with both servers`)
     .action((...args) => {
         const { uiCommand } = require('./ui-command');
         return uiCommand(...args);
