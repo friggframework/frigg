@@ -25,6 +25,7 @@
     "@aws-sdk/client-lambda": "^3.478.0",
     "@aws-sdk/client-sqs": "^3.478.0",
     "@friggframework/ui": "^2.0.0-next.0",
+    "@friggframework/ui-react": "file:../../ui/react",
     "@radix-ui/react-dropdown-menu": "^2.1.15",
     "@radix-ui/react-select": "^2.2.5",
     "@radix-ui/react-slot": "^1.2.3",
