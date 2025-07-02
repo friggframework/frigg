@@ -1,45 +1,73 @@
-# Frigg UI Package
+# Frigg Framework UI Libraries
 
-## Overview
+This is a monorepo containing all UI libraries for the Frigg integration framework.
 
-The Frigg UI package provides a set of reusable and self-contained components for managing integrations in any React application. This package is designed to ensure flexibility and reusability across different projects, allowing seamless integration management with minimal effort.
+## Structure
 
-## Features
+- `core/` - Framework-agnostic core utilities and business logic
+- `react/` - React components and hooks
+- `vue/` - Vue components and composables
+- `angular/` - Angular components and services
+- `svelte/` - Svelte components and stores
 
-1. IntegrationList component to automatically find and list all integrations configured in your Frigg Application
-2. QuickActions for menu options corresponding to UserAction model inside Frigg's integration model
+## Packages
 
-### Self-Contained Components
-Each exported component is self-contained, meaning that by passing the correct properties, users can manage their integrations effortlessly from any app.
+- `@friggframework/ui-core` - Core utilities shared by all frameworks
+- `@friggframework/ui-react` - React implementation
+- `@friggframework/ui-vue` - Vue implementation
+- `@friggframework/ui-angular` - Angular implementation
+- `@friggframework/ui-svelte` - Svelte implementation
+- `@friggframework/ui` - Umbrella package (includes all frameworks)
 
-### Base Components
-This initial iteration includes a set of base components built with ShadCn, ensuring a consistent and modern UI.
+## Development
 
-## Benefits
-- **Reusability**: The package can be reused across different projects, reducing duplicative code and ensuring consistency in UI and integration management.
-- **Flexibility**: The self-contained nature of the components allows for easy customization and integration into existing applications.
+This workspace uses npm workspaces for managing dependencies and builds.
 
-## Installation
-
-To install the Frigg UI package, use the following command:
-
+### Install dependencies
 ```bash
-npm install @friggframework/ui
+npm install
+```
+
+### Build all packages
+```bash
+npm run build
+```
+
+### Build specific package
+```bash
+npm run build:react
+npm run build:vue
+npm run build:angular
+npm run build:svelte
+```
+
+### Run tests
+```bash
+npm test
 ```
 
 ## Usage
 
-To use these components in your React application, you can import them as follows:
+### Install specific framework package
+```bash
+# React
+npm install @friggframework/ui-react
 
-### Example
-```javascript
-import { Button, IntegrationList } from '@friggframework/ui';
+# Vue
+npm install @friggframework/ui-vue
+
+# Angular
+npm install @friggframework/ui-angular
+
+# Svelte
+npm install @friggframework/ui-svelte
 ```
 
-## Contribution
+### Install all frameworks (umbrella package)
+```bash
+npm install @friggframework/ui
+```
 
-We welcome contributions to the Frigg UI package. Please feel free to submit issues or pull requests.
+## Publishing
 
-## License
-
-This project is licensed under the MIT License. See the LICENSE file for details.
+Each package is published independently to npm. The umbrella package references the workspace versions.

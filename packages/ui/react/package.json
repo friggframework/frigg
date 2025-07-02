@@ -1,0 +1,76 @@
+{
+  "name": "@friggframework/ui-react",
+  "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "version": "2.0.0-next.0",
+  "type": "module",
+  "main": "./dist/index.umd.js",
+  "module": "./dist/index.es.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist/**"
+  ],
+  "exports": {
+    ".": {
+      "import": "./dist/index.es.js",
+      "require": "./dist/index.umd.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./dist/style.css": "./dist/style.css"
+  },
+  "scripts": {
+    "dev": "vite",
+    "dev:build": "vite build --watch",
+    "build": "vite build",
+    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@friggframework/ui-core": "^1.0.0",
+    "@jsonforms/material-renderers": "^3.5.1",
+    "@jsonforms/react": "^3.5.1",
+    "@mui/material": "^6.4.1",
+    "@radix-ui/react-dialog": "^1.1.4",
+    "@radix-ui/react-dropdown-menu": "^2.1.4",
+    "@radix-ui/react-switch":"^1.1.2",
+    "@radix-ui/react-toast": "^1.2.4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.473.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^2.4.0",
+    "tailwindcss-animate": "^1.0.7"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react": "^7.34.3",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "eslint-plugin-react-refresh": "^0.4.7",
+    "postcss": "^8.4.41",
+    "tailwindcss": "^3.4.10",
+    "vite": "^5.3.4"
+  },
+  "description": "React components for Frigg integration framework",
+  "keywords": [
+    "frigg",
+    "ui-react",
+    "react",
+    "components",
+    "integration"
+  ],
+  "author": "Frigg Framework",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/friggframework/frigg.git",
+    "directory": "packages/ui/react"
+  }
+}

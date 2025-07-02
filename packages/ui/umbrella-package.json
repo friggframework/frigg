@@ -1,0 +1,57 @@
+{
+  "name": "@friggframework/ui",
+  "version": "2.0.0",
+  "description": "Umbrella package for Frigg Framework UI libraries - includes React, Vue, Angular, and Svelte implementations",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./core": {
+      "import": "@friggframework/ui-core",
+      "require": "@friggframework/ui-core"
+    },
+    "./react": {
+      "import": "@friggframework/ui-react",
+      "require": "@friggframework/ui-react"
+    },
+    "./vue": {
+      "import": "@friggframework/ui-vue",
+      "require": "@friggframework/ui-vue"
+    },
+    "./angular": {
+      "import": "@friggframework/ui-angular",
+      "require": "@friggframework/ui-angular"
+    },
+    "./svelte": {
+      "import": "@friggframework/ui-svelte",
+      "require": "@friggframework/ui-svelte"
+    }
+  },
+  "dependencies": {
+    "@friggframework/ui-core": "^1.0.0",
+    "@friggframework/ui-react": "^2.0.0",
+    "@friggframework/ui-vue": "^1.0.0",
+    "@friggframework/ui-angular": "^1.0.0",
+    "@friggframework/ui-svelte": "^0.1.0"
+  },
+  "keywords": [
+    "frigg",
+    "ui",
+    "react",
+    "vue",
+    "angular",
+    "svelte",
+    "integration",
+    "framework"
+  ],
+  "author": "Frigg Framework",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/friggframework/frigg.git",
+    "directory": "packages/ui"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
