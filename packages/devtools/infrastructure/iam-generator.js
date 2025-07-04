@@ -137,6 +137,8 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                             'ec2:DescribeSubnets',
                             'ec2:DescribeSecurityGroups',
                             'ec2:DescribeRouteTables',
+                            'ec2:DescribeNatGateways',
+                            'ec2:DescribeAddresses',
                             'kms:ListKeys',
                             'kms:DescribeKey'
                         ],
@@ -486,18 +488,7 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                                 'ec2:RevokeSecurityGroupEgress',
                                 'ec2:RevokeSecurityGroupIngress'
                             ],
-                            Resource: '*',
-                            Condition: {
-                                StringLike: {
-                                    'ec2:CreateAction': [
-                                        'CreateVpcEndpoint',
-                                        'CreateNatGateway',
-                                        'CreateRouteTable',
-                                        'CreateRoute',
-                                        'CreateSecurityGroup'
-                                    ]
-                                }
-                            }
+                            Resource: '*'
                         }
                     ]
                 }

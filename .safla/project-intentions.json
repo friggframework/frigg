@@ -1,0 +1,33 @@
+{
+  "project_type": "frigg",
+  "description": "Open source integration framework",
+  "intentions": {
+    "focus": "API integration framework development",
+    "language_preference": "JavaScript",
+    "architecture": "Modular integration system",
+    "patterns_to_follow": [
+      "API module structure consistency",
+      "Integration authentication patterns", 
+      "CLI command organization",
+      "React component patterns",
+      "Documentation standards",
+      "Security-first integration design"
+    ],
+    "patterns_to_avoid": [
+      "Proprietary SeanStack code",
+      "Database-dependent patterns",
+      "Complex state management",
+      "Overly coupled integrations"
+    ],
+    "key_directories": [
+      "packages/devtools/frigg-cli/",
+      "packages/devtools/management-ui/",
+      "api-module-library/",
+      "docs/"
+    ],
+    "testing_approach": "Integration-focused TDD",
+    "documentation_style": "API-first, developer-friendly"
+  },
+  "created": "2025-07-01T00:00:00.000Z",
+  "version": "1.0"
+}
