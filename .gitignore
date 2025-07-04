@@ -3,9 +3,18 @@
 
 # testing
 /coverage
+**/coverage/
+**/test-results/
+**/.nyc_output/
 
 # production
 /build
+**/build/
+**/dist/
+**/.angular/
+**/.nx/cache/
+**/node_modules/.cache/
+**/out/
 
 # misc
 .DS_Store
