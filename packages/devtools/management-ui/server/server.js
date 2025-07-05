@@ -19,22 +19,10 @@ import usersRouter from './api/users.js'
 import connectionsRouter from './api/connections.js'
 import cliRouter from './api/cli.js'
 import logsRouter from './api/logs.js'
-<<<<<<< HEAD
-<<<<<<< HEAD
-import monitoringRouter from './api/monitoring.js'
 import codegenRouter from './api/codegen.js'
 import discoveryRouter from './api/discovery.js'
-<<<<<<< HEAD
-=======
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
 import monitoringRouter from './api/monitoring.js'
-import codegenRouter from './api/codegen.js'
-import discoveryRouter from './api/discovery.js'
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
-=======
 import openIdeHandler from './api/open-ide.js'
->>>>>>> d6114470 (feat: add comprehensive DDD/Hexagonal architecture RFC series)
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -64,11 +52,7 @@ app.use(express.urlencoded({ extended: true }))
 app.use((req, res, next) => {
   const timestamp = new Date().toISOString()
   console.log(`${timestamp} - ${req.method} ${req.path}`)
-<<<<<<< HEAD
-
-=======
   
->>>>>>> 652520a5 (Claude Flow RFC related development)
   // Log API requests
   addLogEntry(LOG_LEVELS.INFO, `${req.method} ${req.path}`, 'api', {
     method: req.method,
@@ -76,11 +60,7 @@ app.use((req, res, next) => {
     query: req.query,
     userAgent: req.get('User-Agent')
   })
-<<<<<<< HEAD
-
-=======
   
->>>>>>> 652520a5 (Claude Flow RFC related development)
   next()
 })
 
@@ -97,27 +77,13 @@ app.get('/health', (req, res) => {
   }))
 })
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 // Get initial repository info
 app.get('/api/repository/current', (req, res) => {
   const repoInfo = process.env.REPOSITORY_INFO ?
     JSON.parse(process.env.REPOSITORY_INFO) :
-=======
-// Get initial repository info
-app.get('/api/repository/current', (req, res) => {
-  const repoInfo = process.env.REPOSITORY_INFO ? 
-    JSON.parse(process.env.REPOSITORY_INFO) : 
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
     null
   res.json(createStandardResponse({ repository: repoInfo }))
 })
-
-<<<<<<< HEAD
-=======
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 // API endpoints
 app.use('/api/project', projectRouter)
 app.use('/api/integrations', integrationsRouter)
@@ -126,22 +92,10 @@ app.use('/api/users', usersRouter)
 app.use('/api/connections', connectionsRouter)
 app.use('/api/cli', cliRouter)
 app.use('/api/logs', logsRouter)
-<<<<<<< HEAD
-<<<<<<< HEAD
 app.use('/api/monitoring', monitoringRouter)
 app.use('/api/codegen', codegenRouter)
 app.use('/api/discovery', discoveryRouter)
-<<<<<<< HEAD
-=======
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-app.use('/api/monitoring', monitoringRouter)
-app.use('/api/codegen', codegenRouter)
-app.use('/api/discovery', discoveryRouter)
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
-=======
 app.post('/api/open-in-ide', openIdeHandler)
->>>>>>> d6114470 (feat: add comprehensive DDD/Hexagonal architecture RFC series)
 
 // API documentation endpoint
 app.get('/api', (req, res) => {
@@ -156,19 +110,9 @@ app.get('/api', (req, res) => {
       users: '/api/users',
       connections: '/api/connections',
       cli: '/api/cli',
-<<<<<<< HEAD
-<<<<<<< HEAD
       logs: '/api/logs',
       monitoring: '/api/monitoring',
       codegen: '/api/codegen'
-=======
-      logs: '/api/logs'
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-      logs: '/api/logs',
-      monitoring: '/api/monitoring',
-      codegen: '/api/codegen'
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
     },
     websocket: {
       url: 'ws://localhost:3001',
@@ -179,19 +123,9 @@ app.get('/api', (req, res) => {
         'environment:update',
         'cli:output',
         'cli:complete',
-<<<<<<< HEAD
-<<<<<<< HEAD
         'logs:new',
         'monitoring:metrics',
         'monitoring:error'
-=======
-        'logs:new'
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-        'logs:new',
-        'monitoring:metrics',
-        'monitoring:error'
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
       ]
     },
     documentation: '/api-contract.md'
@@ -221,11 +155,7 @@ httpServer.listen(PORT, () => {
   console.log(`📡 WebSocket server ready for connections`)
   console.log(`📚 API documentation: http://localhost:${PORT}/api`)
   console.log(`🏥 Health check: http://localhost:${PORT}/health`)
-<<<<<<< HEAD
-
-=======
   
->>>>>>> 652520a5 (Claude Flow RFC related development)
   // Log server startup
   addLogEntry(LOG_LEVELS.INFO, `Server started on port ${PORT}`, 'server', {
     port: PORT,
@@ -238,11 +168,7 @@ httpServer.listen(PORT, () => {
 process.on('SIGTERM', () => {
   console.log('SIGTERM received, shutting down gracefully...')
   addLogEntry(LOG_LEVELS.INFO, 'Server shutting down gracefully', 'server')
-<<<<<<< HEAD
-
-=======
   
->>>>>>> 652520a5 (Claude Flow RFC related development)
   httpServer.close(() => {
     console.log('Server closed')
     process.exit(0)
@@ -252,11 +178,7 @@ process.on('SIGTERM', () => {
 process.on('SIGINT', () => {
   console.log('SIGINT received, shutting down gracefully...')
   addLogEntry(LOG_LEVELS.INFO, 'Server interrupted, shutting down', 'server')
-<<<<<<< HEAD
-
-=======
   
->>>>>>> 652520a5 (Claude Flow RFC related development)
   httpServer.close(() => {
     console.log('Server closed')
     process.exit(0)
