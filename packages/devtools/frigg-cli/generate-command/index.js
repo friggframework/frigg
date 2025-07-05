@@ -41,7 +41,7 @@ async function generateCommand(options = {}) {
             // Determine format choices based on provider
             let formatChoices;
             let defaultFormat;
-            
+
             if (options.provider === 'aws') {
                 formatChoices = [
                     { name: 'CloudFormation', value: 'cloudformation' },
@@ -88,7 +88,7 @@ async function generateCommand(options = {}) {
         const backendDir = path.dirname(nearestBackendPackageJson);
         const backendPackageJsonFile = JSON.parse(fs.readFileSync(nearestBackendPackageJson, 'utf8'));
         const appName = backendPackageJsonFile.name || 'frigg-app';
-        
+
         if (options.verbose) {
             console.log('Current directory:', process.cwd());
             console.log('Backend package.json found at:', nearestBackendPackageJson);
@@ -189,11 +189,11 @@ async function generateCommand(options = {}) {
             // Smart default: put infrastructure in the backend directory we found
             outputDir = path.join(backendDir, 'infrastructure');
         }
-        
+
         if (options.verbose) {
             console.log('Output directory will be:', outputDir);
         }
-        
+
         if (!fs.existsSync(outputDir)) {
             fs.mkdirSync(outputDir, { recursive: true });
         }
@@ -209,7 +209,7 @@ async function generateCommand(options = {}) {
 
         console.log(`\n✅ Generated ${options.format} template for ${options.provider}`);
         console.log(`📄 Template saved to: ${outputPath}`);
-        
+
         // Update deployment instructions with actual paths
         if (deploymentInstructions) {
             deploymentInstructions = deploymentInstructions
