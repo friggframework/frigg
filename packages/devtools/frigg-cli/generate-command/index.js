@@ -1,6 +1,6 @@
 const path = require('path');
 const fs = require('fs');
-const { findNearestBackendPackageJson } = require('../utils');
+const { findNearestBackendPackageJson } = require('@friggframework/core');
 const inquirer = require('inquirer');
 
 // Import generators for different formats
