@@ -1,15 +1,30 @@
 const { spawn } = require('node:child_process');
 const path = require('node:path');
+const { AppResolver } = require('../utils/app-resolver');
 
-function startCommand(options) {
+async function startCommand(options) {
     if (options.verbose) {
         console.log('Verbose mode enabled');
         console.log('Options:', options);
     }
     console.log('Starting backend and optional frontend...');
+    
     // Suppress AWS SDK warning message about maintenance mode
     process.env.AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE = 1;
-    const backendPath = path.resolve(process.cwd());
+    
+    // Resolve app path using AppResolver
+    const appResolver = new AppResolver();
+    let backendPath;
+    
+    try {
+        backendPath = await appResolver.resolveAppPath(options);
+        if (options.verbose) {
+            console.log('Resolved app path:', backendPath);
+        }
+    } catch (error) {
+        console.error('Error:', error.message);
+        process.exit(1);
+    }
     console.log(`Starting backend in ${backendPath}...`);
     const infrastructurePath = 'infrastructure.js';
     const command = 'serverless';
