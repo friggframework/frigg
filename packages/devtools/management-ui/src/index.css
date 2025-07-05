@@ -1,0 +1,194 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Frigg Industrial Design System - Light Mode */
+    --background: 0 0% 97%;
+    --foreground: 0 0% 20%;
+
+    /* Card with subtle gray undertone */
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 20%;
+
+    /* Popover with clean white */
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 20%;
+
+    /* Primary color - Frigg Blue with industrial tint */
+    --primary: 213 84% 45%;
+    --primary-foreground: 0 0% 98%;
+
+    /* Secondary - Industrial gray */
+    --secondary: 0 0% 30%;
+    --secondary-foreground: 0 0% 98%;
+
+    /* Muted colors for subtle elements */
+    --muted: 0 0% 93%;
+    --muted-foreground: 0 0% 45%;
+
+    /* Accent for hover states */
+    --accent: 213 20% 93%;
+    --accent-foreground: 213 84% 45%;
+
+    /* Destructive actions */
+    --destructive: 0 84% 50%;
+    --destructive-foreground: 0 0% 98%;
+
+    /* Industrial borders */
+    --border: 0 0% 85%;
+    --input: 0 0% 85%;
+    --ring: 213 84% 45%;
+
+    /* Chart colors with industrial feel */
+    --chart-1: 213 84% 45%;
+    --chart-2: 0 0% 35%;
+    --chart-3: 200 18% 46%;
+    --chart-4: 24 10% 40%;
+    --chart-5: 0 0% 60%;
+    
+    /* Sharp industrial edges */
+    --radius: 0.125rem;
+  }
+
+  .dark {
+    /* Frigg Industrial Design System - Dark Mode */
+    --background: 0 0% 8%;
+    --foreground: 0 0% 90%;
+    
+    /* Dark cards with depth */
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 90%;
+    
+    /* Dark popover */
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 90%;
+    
+    /* Primary - Brighter blue for dark mode */
+    --primary: 213 84% 55%;
+    --primary-foreground: 0 0% 10%;
+    
+    /* Secondary - Lighter gray for contrast */
+    --secondary: 0 0% 70%;
+    --secondary-foreground: 0 0% 10%;
+    
+    /* Muted for dark mode */
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 60%;
+    
+    /* Accent for dark mode */
+    --accent: 213 20% 20%;
+    --accent-foreground: 213 84% 60%;
+    
+    /* Destructive remains vibrant */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 10%;
+    
+    /* Dark borders */
+    --border: 0 0% 25%;
+    --input: 0 0% 25%;
+    --ring: 213 84% 55%;
+    
+    /* Chart colors adjusted for dark mode */
+    --chart-1: 213 84% 55%;
+    --chart-2: 0 0% 70%;
+    --chart-3: 200 18% 60%;
+    --chart-4: 24 10% 60%;
+    --chart-5: 0 0% 80%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Industrial design patterns */
+@layer utilities {
+  /* Sharp shadows for industrial look */
+  .industrial-shadow {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  }
+  
+  .industrial-shadow-md {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+  
+  .industrial-shadow-lg {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+  
+  /* Industrial borders */
+  .industrial-border {
+    border-color: hsl(var(--border));
+    border-width: 1px;
+  }
+  
+  /* Sharp corners for buttons and cards */
+  .sharp-corners {
+    border-radius: var(--radius);
+  }
+  
+  /* Industrial transition */
+  .industrial-transition {
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+  }
+  
+  /* Grid pattern background */
+  .industrial-grid {
+    background-image: linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px),
+                      linear-gradient(to bottom, hsl(var(--border)) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  
+  /* Mechanical-style badges */
+  .sharp-badge {
+    border-radius: var(--radius);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+  }
+  
+  /* Industrial button styles */
+  .sharp-button {
+    border-radius: var(--radius);
+    transition: all 150ms;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .sharp-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+  }
+  
+  .sharp-button:hover::before {
+    left: 100%;
+  }
+  
+  /* Industrial input */
+  .industrial-input {
+    border-radius: var(--radius);
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--background));
+    transition: all 150ms;
+  }
+  
+  .industrial-input:focus {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1);
+  }
+}
