@@ -1,0 +1,1 @@
+export { default as environmentRouter } from './router.js';
