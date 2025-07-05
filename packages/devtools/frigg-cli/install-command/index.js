@@ -11,12 +11,25 @@ const {
 } = require('./validate-package');
 const { findNearestBackendPackageJson, validateBackendPath } = require('@friggframework/core');
 
-const installCommand = async (apiModuleName) => {
+const installCommand = async (apiModuleName, options = {}) => {
     try {
         const packageNames = await searchAndSelectPackage(apiModuleName);
         if (!packageNames || packageNames.length === 0) return;
 
-        const backendPath = findNearestBackendPackageJson();
+        // If app path options are provided, use AppResolver, otherwise fall back to existing logic
+        let backendPath;
+        if (options.appPath || options.config || options.app || process.env.FRIGG_APP_PATH) {
+            const { AppResolver } = require('../utils/app-resolver');
+            const appResolver = new AppResolver();
+            try {
+                backendPath = await appResolver.resolveAppPath(options);
+            } catch (error) {
+                logError(`Error resolving app path: ${error.message}`);
+                process.exit(1);
+            }
+        } else {
+            backendPath = findNearestBackendPackageJson();
+        }
         validateBackendPath(backendPath);
 
         for (const packageName of packageNames) {
