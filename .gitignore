@@ -47,3 +47,5 @@ CLAUDE.md
 .npmrc
 .autorc
 /.nx/
+test-app/
+test-init/

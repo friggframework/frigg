@@ -3,15 +3,7 @@ import { Play, Square, AlertCircle, CheckCircle, Clock, Zap } from 'lucide-react
 import { useFrigg } from '../hooks/useFrigg'
 import { useSocket } from '../hooks/useSocket'
 import api from '../services/api'
-<<<<<<< HEAD
-<<<<<<< HEAD
 import { cn } from '../lib/utils'
-=======
-import { cn } from '../utils/cn'
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-import { cn } from '../lib/utils'
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 
 const UserSimulation = ({ user, integration }) => {
   const { currentUser } = useFrigg()
@@ -66,11 +58,7 @@ const UserSimulation = ({ user, integration }) => {
         userId: simulationUser.id,
         integrationId: integration.id
       })
-<<<<<<< HEAD
-
-=======
       
->>>>>>> 652520a5 (Claude Flow RFC related development)
       setSession(response.data.session)
       addLog('Session Started', response.data.session)
     } catch (error) {

@@ -111,12 +111,16 @@ resource "aws_iam_policy" "frigg_core_deployment" {
           "cloudformation:DescribeStacks",
           "cloudformation:DescribeStackEvents",
           "cloudformation:DescribeStackResources",
+          "cloudformation:DescribeStackResource",
+          "cloudformation:ListStackResources",
           "cloudformation:GetTemplate",
           "cloudformation:ValidateTemplate",
           "cloudformation:CreateChangeSet",
           "cloudformation:DeleteChangeSet",
           "cloudformation:DescribeChangeSet",
-          "cloudformation:ExecuteChangeSet"
+          "cloudformation:ExecuteChangeSet",
+          "cloudformation:TagResource",
+          "cloudformation:UntagResource"
         ]
         Resource = [
           "arn:aws:cloudformation:*:*:stack/*frigg*/*",
@@ -129,17 +133,28 @@ resource "aws_iam_policy" "frigg_core_deployment" {
         Action = [
           "s3:CreateBucket",
           "s3:DeleteBucket",
-          "s3:PutBucketPolicy",
-          "s3:GetBucketPolicy",
-          "s3:PutBucketPublicAccessBlock",
-          "s3:PutBucketVersioning",
-          "s3:PutBucketEncryption",
-          "s3:PutBucketTagging",
-          "s3:GetBucketTagging",
           "s3:PutObject",
           "s3:GetObject",
           "s3:DeleteObject",
-          "s3:ListBucket"
+          "s3:PutBucketPolicy",
+          "s3:GetBucketPolicy",
+          "s3:DeleteBucketPolicy",
+          "s3:PutBucketVersioning",
+          "s3:GetBucketVersioning",
+          "s3:PutBucketPublicAccessBlock",
+          "s3:GetBucketPublicAccessBlock",
+          "s3:PutBucketTagging",
+          "s3:GetBucketTagging",
+          "s3:DeleteBucketTagging",
+          "s3:PutBucketEncryption",
+          "s3:GetBucketEncryption",
+          "s3:PutEncryptionConfiguration",
+          "s3:PutBucketNotification",
+          "s3:GetBucketNotification",
+          "s3:GetBucketLocation",
+          "s3:ListBucket",
+          "s3:GetBucketAcl",
+          "s3:PutBucketAcl"
         ]
         Resource = [
           "arn:aws:s3:::*frigg*",

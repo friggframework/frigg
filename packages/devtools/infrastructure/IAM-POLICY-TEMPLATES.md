@@ -137,7 +137,7 @@ Consider separate policies for different environments:
 4. **Lambda VPC errors** → Ensure VPC permissions are enabled
 5. **"lambda:DeleteEventSourceMapping" error** → Update to latest policy (includes EventSourceMapping permissions)
 6. **"ec2:DeleteVpcEndpoints" error** → Update IAM policy to use `ec2:DeleteVpcEndpoints` (plural) instead of `ec2:DeleteVpcEndpoint`
-7. **"s3:PutBucketTagging" error** → Update to latest policy (includes S3 bucket tagging permissions)
+7. **S3 permission errors** (e.g., "s3:PutBucketTagging", "s3:DeleteBucket", "s3:GetBucketPolicy", "s3:PutBucketEncryption") → Update to latest policy (includes comprehensive S3 bucket management permissions)
 
 ### Validation
 Test your policy by deploying a simple Frigg app:

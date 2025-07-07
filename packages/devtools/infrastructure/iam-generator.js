@@ -206,14 +206,29 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
         
         // S3 permissions
         's3:CreateBucket',
+        's3:DeleteBucket',
         's3:PutObject',
         's3:GetObject',
         's3:DeleteObject',
         's3:PutBucketPolicy',
+        's3:GetBucketPolicy',
+        's3:DeleteBucketPolicy',
         's3:PutBucketVersioning',
+        's3:GetBucketVersioning',
         's3:PutBucketPublicAccessBlock',
+        's3:GetBucketPublicAccessBlock',
+        's3:PutBucketTagging',
+        's3:GetBucketTagging',
+        's3:DeleteBucketTagging',
+        's3:PutBucketEncryption',
+        's3:GetBucketEncryption',
+        's3:PutEncryptionConfiguration',
+        's3:PutBucketNotification',
+        's3:GetBucketNotification',
         's3:GetBucketLocation',
         's3:ListBucket',
+        's3:GetBucketAcl',
+        's3:PutBucketAcl',
         
         // SQS permissions
         'sqs:CreateQueue',
@@ -273,7 +288,10 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                 'cloudformation:DescribeChangeSet',
                 'cloudformation:CreateChangeSet',
                 'cloudformation:DeleteChangeSet',
-                'cloudformation:ExecuteChangeSet'
+                'cloudformation:ExecuteChangeSet',
+                'cloudformation:TagResource',
+                'cloudformation:UntagResource',
+                'cloudformation:ListStackResources'
             ],
             Resource: [
                 { 'Fn::Sub': 'arn:aws:cloudformation:*:${AWS::AccountId}:stack/*frigg*/*' }
@@ -290,14 +308,29 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
             Effect: 'Allow',
             Action: [
                 's3:CreateBucket',
+                's3:DeleteBucket',
                 's3:PutObject',
                 's3:GetObject',
                 's3:DeleteObject',
                 's3:PutBucketPolicy',
+                's3:GetBucketPolicy',
+                's3:DeleteBucketPolicy',
                 's3:PutBucketVersioning',
+                's3:GetBucketVersioning',
                 's3:PutBucketPublicAccessBlock',
+                's3:GetBucketPublicAccessBlock',
+                's3:PutBucketTagging',
+                's3:GetBucketTagging',
+                's3:DeleteBucketTagging',
+                's3:PutBucketEncryption',
+                's3:GetBucketEncryption',
+                's3:PutEncryptionConfiguration',
+                's3:PutBucketNotification',
+                's3:GetBucketNotification',
                 's3:GetBucketLocation',
-                's3:ListBucket'
+                's3:ListBucket',
+                's3:GetBucketAcl',
+                's3:PutBucketAcl'
             ],
             Resource: [
                 'arn:aws:s3:::*serverless*',
@@ -432,7 +465,8 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                 'arn:aws:apigateway:*::/restapis',
                 'arn:aws:apigateway:*::/restapis/*',
                 'arn:aws:apigateway:*::/domainnames',
-                'arn:aws:apigateway:*::/domainnames/*'
+                'arn:aws:apigateway:*::/domainnames/*',
+                'arn:aws:apigateway:*::/tags/*'
             ]
         }
     ];
@@ -678,10 +712,39 @@ function generateIAMPolicy(mode = 'basic') {
     return generateBasicIAMPolicy();
 }
 
+/**
+ * Wrapper function for generate command compatibility
+ * @param {Object} options - Generation options
+ * @param {string} options.appName - Application name
+ * @param {Object} options.features - Feature flags
+ * @param {string} options.userPrefix - IAM user name prefix
+ * @param {string} options.stackName - CloudFormation stack name
+ * @returns {Promise<string>} CloudFormation YAML template
+ */
+async function generateCloudFormationTemplate(options) {
+    const { appName, features, userPrefix, stackName } = options;
+    
+    // Create appDefinition from features
+    const appDefinition = {
+        name: appName,
+        vpc: { enable: features.vpc },
+        encryption: { useDefaultKMSForFieldLevelEncryption: features.kms },
+        ssm: { enable: features.ssm },
+        websockets: { enable: features.websockets }
+    };
+    
+    return generateIAMCloudFormation(appDefinition, {
+        deploymentUserName: userPrefix,
+        stackName: stackName,
+        mode: 'auto'
+    });
+}
+
 module.exports = {
     generateIAMCloudFormation,
     getFeatureSummary,
     generateBasicIAMPolicy,
     generateFullIAMPolicy,
-    generateIAMPolicy
+    generateIAMPolicy,
+    generateCloudFormationTemplate
 };
