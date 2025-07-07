@@ -88,7 +88,7 @@ async function generateCommand(options = {}) {
         const backendDir = path.dirname(nearestBackendPackageJson);
         const backendPackageJsonFile = JSON.parse(fs.readFileSync(nearestBackendPackageJson, 'utf8'));
         const appName = backendPackageJsonFile.name || 'frigg-app';
-
+        
         if (options.verbose) {
             console.log('Current directory:', process.cwd());
             console.log('Backend package.json found at:', nearestBackendPackageJson);
