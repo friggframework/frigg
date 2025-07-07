@@ -4,26 +4,14 @@ import { useFrigg } from '../hooks/useFrigg'
 import { useSocket } from '../hooks/useSocket'
 import IntegrationCard from '../components/IntegrationCard'
 import { Button } from '../components/Button'
-<<<<<<< HEAD
-<<<<<<< HEAD
 import { cn } from '../lib/utils'
-=======
-import { cn } from '../utils/cn'
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-import { cn } from '../lib/utils'
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 import api from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 const IntegrationDiscovery = () => {
   const { refreshData } = useFrigg()
   const { on, emit } = useSocket()
-<<<<<<< HEAD
-
-=======
   
->>>>>>> 652520a5 (Claude Flow RFC related development)
   // State management
   const [loading, setLoading] = useState(true)
   const [availableIntegrations, setAvailableIntegrations] = useState([])
@@ -102,19 +90,11 @@ const IntegrationDiscovery = () => {
   const fetchIntegrations = async () => {
     setLoading(true)
     setError(null)
-<<<<<<< HEAD
-
-    try {
-      // Fetch both available and installed integrations in parallel
-      const [availableRes, installedRes] = await Promise.all([
-        searchQuery
-=======
     
     try {
       // Fetch both available and installed integrations in parallel
       const [availableRes, installedRes] = await Promise.all([
         searchQuery 
->>>>>>> 652520a5 (Claude Flow RFC related development)
           ? api.get(`/api/discovery/search?query=${encodeURIComponent(searchQuery)}&limit=100`)
           : api.get('/api/discovery/integrations'),
         api.get('/api/discovery/installed')
@@ -122,17 +102,10 @@ const IntegrationDiscovery = () => {
 
       // Process available integrations
       let available = availableRes.data.data.integrations || availableRes.data.data.all || []
-<<<<<<< HEAD
-
-      // Filter by category if needed
-      if (selectedCategory && selectedCategory !== 'all') {
-        available = available.filter(int =>
-=======
       
       // Filter by category if needed
       if (selectedCategory && selectedCategory !== 'all') {
         available = available.filter(int => 
->>>>>>> 652520a5 (Claude Flow RFC related development)
           int.category?.toLowerCase() === selectedCategory.toLowerCase()
         )
       }
@@ -142,22 +115,13 @@ const IntegrationDiscovery = () => {
       available = available.map(integration => ({
         ...integration,
         installed: installedNames.includes(integration.name),
-<<<<<<< HEAD
-        status: installProgress[integration.name]?.status ||
-          (installedNames.includes(integration.name) ? 'installed' : 'available')
-=======
         status: installProgress[integration.name]?.status || 
                 (installedNames.includes(integration.name) ? 'installed' : 'available')
->>>>>>> 652520a5 (Claude Flow RFC related development)
       }))
 
       setAvailableIntegrations(available)
       setInstalledIntegrations(installedRes.data.data)
-<<<<<<< HEAD
-
-=======
       
->>>>>>> 652520a5 (Claude Flow RFC related development)
     } catch (err) {
       console.error('Failed to fetch integrations:', err)
       setError('Failed to load integrations. Please try again.')
@@ -178,11 +142,7 @@ const IntegrationDiscovery = () => {
       }))
 
       await api.post('/api/discovery/install', { packageName })
-<<<<<<< HEAD
-
-=======
       
->>>>>>> 652520a5 (Claude Flow RFC related development)
     } catch (err) {
       console.error('Installation failed:', err)
       setInstallProgress(prev => ({
@@ -200,11 +160,7 @@ const IntegrationDiscovery = () => {
       const confirmed = window.confirm(
         `Are you sure you want to uninstall ${packageName}? This action cannot be undone.`
       )
-<<<<<<< HEAD
-
-=======
       
->>>>>>> 652520a5 (Claude Flow RFC related development)
       if (!confirmed) return
 
       setInstallProgress(prev => ({
@@ -216,29 +172,17 @@ const IntegrationDiscovery = () => {
       }))
 
       await api.delete(`/api/discovery/uninstall/${packageName}`)
-<<<<<<< HEAD
-
-=======
       
->>>>>>> 652520a5 (Claude Flow RFC related development)
       setInstallProgress(prev => {
         const newProgress = { ...prev }
         delete newProgress[packageName]
         return newProgress
       })
-<<<<<<< HEAD
-
-      // Refresh lists
-      await fetchIntegrations()
-      refreshData()
-
-=======
       
       // Refresh lists
       await fetchIntegrations()
       refreshData()
       
->>>>>>> 652520a5 (Claude Flow RFC related development)
     } catch (err) {
       console.error('Uninstall failed:', err)
       setInstallProgress(prev => ({
@@ -262,19 +206,11 @@ const IntegrationDiscovery = () => {
       }))
 
       await api.post('/api/discovery/update', { packageName })
-<<<<<<< HEAD
-
-      // Refresh after update
-      await fetchIntegrations()
-      refreshData()
-
-=======
       
       // Refresh after update
       await fetchIntegrations()
       refreshData()
       
->>>>>>> 652520a5 (Claude Flow RFC related development)
     } catch (err) {
       console.error('Update failed:', err)
       setInstallProgress(prev => ({
@@ -343,21 +279,9 @@ const IntegrationDiscovery = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-<<<<<<< HEAD
-<<<<<<< HEAD
           <h2 className="text-3xl font-bold text-gray-900">Integration Library</h2>
           <p className="mt-2 text-gray-600">
             Discover and add integrations to your Frigg app
-=======
-          <h2 className="text-3xl font-bold text-gray-900">Integration Marketplace</h2>
-          <p className="mt-2 text-gray-600">
-            Discover and install Frigg integrations to extend your capabilities
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-          <h2 className="text-3xl font-bold text-gray-900">Integration Library</h2>
-          <p className="mt-2 text-gray-600">
-            Discover and add integrations to your Frigg app
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
           </p>
         </div>
         <Button
@@ -394,11 +318,7 @@ const IntegrationDiscovery = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-<<<<<<< HEAD
-
-=======
         
->>>>>>> 652520a5 (Claude Flow RFC related development)
         <div className="flex items-center gap-2">
           <select
             value={selectedCategory}
@@ -411,11 +331,7 @@ const IntegrationDiscovery = () => {
               </option>
             ))}
           </select>
-<<<<<<< HEAD
-
-=======
           
->>>>>>> 652520a5 (Claude Flow RFC related development)
           <div className="flex border border-gray-300 rounded-lg">
             <Button
               variant={viewMode === 'grid' ? 'default' : 'ghost'}
@@ -478,11 +394,7 @@ const IntegrationDiscovery = () => {
             </h3>
           </div>
           <div className={cn(
-<<<<<<< HEAD
-            viewMode === 'grid'
-=======
             viewMode === 'grid' 
->>>>>>> 652520a5 (Claude Flow RFC related development)
               ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
               : 'space-y-4'
           )}>
@@ -515,20 +427,12 @@ const IntegrationDiscovery = () => {
         <h3 className="text-lg font-medium text-gray-900 mb-4">
           Available Integrations ({availableCount})
         </h3>
-<<<<<<< HEAD
-
-=======
         
->>>>>>> 652520a5 (Claude Flow RFC related development)
         {availableCount === 0 ? (
           <div className="text-center py-12">
             <Package size={48} className="mx-auto text-gray-300 mb-4" />
             <p className="text-gray-500">
-<<<<<<< HEAD
-              {searchQuery || selectedCategory !== 'all'
-=======
               {searchQuery || selectedCategory !== 'all' 
->>>>>>> 652520a5 (Claude Flow RFC related development)
                 ? 'No integrations found matching your criteria'
                 : 'All available integrations are already installed'}
             </p>
@@ -547,11 +451,7 @@ const IntegrationDiscovery = () => {
           </div>
         ) : (
           <div className={cn(
-<<<<<<< HEAD
-            viewMode === 'grid'
-=======
             viewMode === 'grid' 
->>>>>>> 652520a5 (Claude Flow RFC related development)
               ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
               : 'space-y-4'
           )}>

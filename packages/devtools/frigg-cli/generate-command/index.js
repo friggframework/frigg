@@ -1,7 +1,7 @@
 const path = require('path');
 const fs = require('fs');
-const { findNearestBackendPackageJson } = require('@friggframework/core');
-const inquirer = require('inquirer');
+const { findNearestBackendPackageJson } = require('../utils/backend-path');
+const { select } = require('@inquirer/prompts');
 
 // Import generators for different formats
 const { generateCloudFormationTemplate } = require('../../infrastructure/iam-generator');
@@ -10,44 +10,73 @@ const { generateAzureARMTemplate, generateAzureTerraformTemplate } = require('./
 const { generateGCPDeploymentManagerTemplate, generateGCPTerraformTemplate } = require('./gcp-generator');
 
 async function generateCommand(options = {}) {
+    // Set up graceful exit handler
+    process.on('SIGINT', () => {
+        console.log('\n✖ Command cancelled by user');
+        process.exit(0);
+    });
+
     try {
         // Interactive mode: ask for cloud provider and format if not provided
-        if (!options.provider || !options.format) {
-            const answers = await inquirer.prompt([
-                {
-                    type: 'list',
-                    name: 'provider',
+        if (!options.provider) {
+            try {
+                options.provider = await select({
                     message: 'Select cloud provider:',
-                    choices: ['aws', 'azure', 'gcp'],
-                    default: 'aws',
-                    when: !options.provider
-                },
-                {
-                    type: 'list',
-                    name: 'format',
-                    message: 'Select output format:',
-                    choices: (answers) => {
-                        const provider = options.provider || answers.provider;
-                        if (provider === 'aws') {
-                            return ['cloudformation', 'terraform', 'pulumi'];
-                        } else if (provider === 'azure') {
-                            return ['arm', 'terraform', 'pulumi'];
-                        } else if (provider === 'gcp') {
-                            return ['deployment-manager', 'terraform', 'pulumi'];
-                        }
-                    },
-                    default: (answers) => {
-                        const provider = options.provider || answers.provider;
-                        if (provider === 'aws') return 'cloudformation';
-                        if (provider === 'azure') return 'arm';
-                        if (provider === 'gcp') return 'deployment-manager';
-                    },
-                    when: !options.format
+                    choices: [
+                        { name: 'AWS', value: 'aws' },
+                        { name: 'Azure', value: 'azure' },
+                        { name: 'Google Cloud Platform', value: 'gcp' }
+                    ]
+                });
+            } catch (error) {
+                if (error.name === 'ExitPromptError') {
+                    console.log('\n✖ Command cancelled by user');
+                    process.exit(0);
                 }
-            ]);
+                throw error;
+            }
+        }
 
-            // Merge answers with options
-            options = { ...options, ...answers };
+        if (!options.format) {
+            // Determine format choices based on provider
+            let formatChoices;
+            let defaultFormat;
+            
+            if (options.provider === 'aws') {
+                formatChoices = [
+                    { name: 'CloudFormation', value: 'cloudformation' },
+                    { name: 'Terraform', value: 'terraform' },
+                    { name: 'Pulumi', value: 'pulumi' }
+                ];
+                defaultFormat = 'cloudformation';
+            } else if (options.provider === 'azure') {
+                formatChoices = [
+                    { name: 'ARM Template', value: 'arm' },
+                    { name: 'Terraform', value: 'terraform' },
+                    { name: 'Pulumi', value: 'pulumi' }
+                ];
+                defaultFormat = 'arm';
+            } else if (options.provider === 'gcp') {
+                formatChoices = [
+                    { name: 'Deployment Manager', value: 'deployment-manager' },
+                    { name: 'Terraform', value: 'terraform' },
+                    { name: 'Pulumi', value: 'pulumi' }
+                ];
+                defaultFormat = 'deployment-manager';
+            }
+
+            try {
+                options.format = await select({
+                    message: 'Select output format:',
+                    choices: formatChoices
+                });
+            } catch (error) {
+                if (error.name === 'ExitPromptError') {
+                    console.log('\n✖ Command cancelled by user');
+                    process.exit(0);
+                }
+                throw error;
+            }
         }
 
         // Find the Frigg application
@@ -59,6 +88,12 @@ async function generateCommand(options = {}) {
         const backendDir = path.dirname(nearestBackendPackageJson);
         const backendPackageJsonFile = JSON.parse(fs.readFileSync(nearestBackendPackageJson, 'utf8'));
         const appName = backendPackageJsonFile.name || 'frigg-app';
+        
+        if (options.verbose) {
+            console.log('Current directory:', process.cwd());
+            console.log('Backend package.json found at:', nearestBackendPackageJson);
+            console.log('Backend directory:', backendDir);
+        }
 
         // Load app definition
         const appDefinitionPath = path.join(backendDir, 'index.js');
@@ -67,7 +102,8 @@ async function generateCommand(options = {}) {
         }
 
         // Analyze the app definition
-        const appDefinition = require(appDefinitionPath);
+        const appModule = require(appDefinitionPath);
+        const appDefinition = appModule.Definition || appModule;
         const features = analyzeAppFeatures(appDefinition);
 
         if (options.verbose) {
@@ -144,8 +180,20 @@ async function generateCommand(options = {}) {
             throw new Error(`Provider ${options.provider} is not yet implemented`);
         }
 
-        // Ensure output directory exists
-        const outputDir = path.resolve(options.output || 'backend/infrastructure');
+        // Ensure output directory exists - smart path detection
+        let outputDir;
+        if (options.output) {
+            // If user specified output, use it as-is
+            outputDir = path.resolve(options.output);
+        } else {
+            // Smart default: put infrastructure in the backend directory we found
+            outputDir = path.join(backendDir, 'infrastructure');
+        }
+        
+        if (options.verbose) {
+            console.log('Output directory will be:', outputDir);
+        }
+        
         if (!fs.existsSync(outputDir)) {
             fs.mkdirSync(outputDir, { recursive: true });
         }
@@ -155,8 +203,19 @@ async function generateCommand(options = {}) {
         const outputPath = path.join(outputDir, outputFileName);
         fs.writeFileSync(outputPath, template);
 
+        // Generate relative path for instructions
+        const relativeOutputDir = path.relative(process.cwd(), outputDir);
+        const relativeOutputPath = path.join(relativeOutputDir, outputFileName);
+
         console.log(`\n✅ Generated ${options.format} template for ${options.provider}`);
         console.log(`📄 Template saved to: ${outputPath}`);
+        
+        // Update deployment instructions with actual paths
+        if (deploymentInstructions) {
+            deploymentInstructions = deploymentInstructions
+                .replace(/backend\/infrastructure/g, relativeOutputDir)
+                .replace(/file:\/\/backend\/infrastructure/g, `file://${relativeOutputDir}`);
+        }
         console.log('\n' + deploymentInstructions);
 
     } catch (error) {

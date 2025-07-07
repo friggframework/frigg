@@ -1,32 +1,13 @@
 import React, { useState } from 'react'
-<<<<<<< HEAD
-import {
-  Download, CheckCircle, ExternalLink, Settings, AlertCircle,
-=======
 import { 
   Download, CheckCircle, ExternalLink, Settings, AlertCircle, 
->>>>>>> 652520a5 (Claude Flow RFC related development)
   RefreshCw, TestTube, Info, Clock, TrendingUp, Shield,
   ChevronDown, ChevronUp
 } from 'lucide-react'
 import { Card, CardContent } from './Card'
 import { Button } from './Button'
 import LoadingSpinner from './LoadingSpinner'
-<<<<<<< HEAD
-<<<<<<< HEAD
 import { cn } from '../lib/utils'
-
-const IntegrationCardEnhanced = ({
-  integration,
-  onInstall,
-  onUninstall,
-  onUpdate,
-  onConfigure,
-=======
-import { cn } from '../utils/cn'
-=======
-import { cn } from '../lib/utils'
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 
 const IntegrationCardEnhanced = ({ 
   integration, 
@@ -34,7 +15,6 @@ const IntegrationCardEnhanced = ({
   onUninstall,
   onUpdate,
   onConfigure, 
->>>>>>> 652520a5 (Claude Flow RFC related development)
   onTest,
   onViewDetails,
   installing = false,
@@ -45,19 +25,11 @@ const IntegrationCardEnhanced = ({
   progress = 0,
   className,
   viewMode = 'grid',
-<<<<<<< HEAD
-  ...props
-}) => {
-  const [expanded, setExpanded] = useState(false)
-  const [showDetails, setShowDetails] = useState(false)
-
-=======
   ...props 
 }) => {
   const [expanded, setExpanded] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
   
->>>>>>> 652520a5 (Claude Flow RFC related development)
   const isInstalled = integration.installed || integration.status === 'installed'
   const isProcessing = installing || uninstalling || updating
   const hasUpdate = integration.updateAvailable
@@ -98,50 +70,38 @@ const IntegrationCardEnhanced = ({
               <div className="flex-shrink-0 mr-4">
                 {getStatusIcon()}
               </div>
-<<<<<<< HEAD
-
-=======
               
->>>>>>> 652520a5 (Claude Flow RFC related development)
               <div className="flex-1">
                 <div className="flex items-center mb-1">
-                  <h4 className="font-semibold text-foreground">
+                  <h4 className="font-semibold text-gray-900">
                     {integration.displayName || integration.name}
                   </h4>
                   {integration.version && (
-                    <span className="ml-2 text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">
+                    <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
                       v{integration.version}
                     </span>
                   )}
                   {hasUpdate && (
-                    <span className="ml-2 text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded flex items-center">
+                    <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded flex items-center">
                       <TrendingUp size={10} className="mr-1" />
                       Update available
                     </span>
                   )}
                   {isOfficial && (
-                    <span className="ml-2 text-xs bg-green-500/10 text-green-600 dark:text-green-400 px-2 py-0.5 rounded flex items-center">
+                    <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded flex items-center">
                       <Shield size={10} className="mr-1" />
                       Official
                     </span>
                   )}
                 </div>
-<<<<<<< HEAD
-
+                
                 <p className="text-sm text-gray-600 mb-2">
                   {integration.description || 'No description available'}
                 </p>
-
-=======
                 
-                <p className="text-sm text-muted-foreground mb-2">
-                  {integration.description || 'No description available'}
-                </p>
-                
->>>>>>> 652520a5 (Claude Flow RFC related development)
                 {/* Tags and category */}
                 <div className="flex items-center gap-2">
-                  <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">
+                  <span className="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded">
                     {formatCategory(integration.category)}
                   </span>
                   {integration.tags?.slice(0, 3).map((tag, index) => (
@@ -173,11 +133,7 @@ const IntegrationCardEnhanced = ({
                   Install
                 </Button>
               )}
-<<<<<<< HEAD
-
-=======
               
->>>>>>> 652520a5 (Claude Flow RFC related development)
               {isInstalled && !isProcessing && (
                 <>
                   <Button
@@ -194,7 +150,7 @@ const IntegrationCardEnhanced = ({
                       size="sm"
                       variant="outline"
                       onClick={() => handleAction('update', onUpdate)}
-                      className="inline-flex items-center text-primary hover:text-primary/80"
+                      className="inline-flex items-center text-blue-600 hover:text-blue-700"
                     >
                       <RefreshCw size={16} className="mr-1" />
                       Update
@@ -202,11 +158,7 @@ const IntegrationCardEnhanced = ({
                   )}
                 </>
               )}
-<<<<<<< HEAD
-
-=======
               
->>>>>>> 652520a5 (Claude Flow RFC related development)
               {isProcessing && (
                 <Button size="sm" disabled className="inline-flex items-center min-w-[100px]">
                   <LoadingSpinner size="sm" className="mr-1" />
@@ -230,29 +182,21 @@ const IntegrationCardEnhanced = ({
           {/* Progress bar */}
           {isProcessing && progress > 0 && (
             <div className="mt-3">
-<<<<<<< HEAD
               <div className="w-full bg-gray-200 rounded-full h-2">
-<<<<<<< HEAD
-                <div
-=======
-=======
-              <div className="w-full bg-muted rounded-full h-2">
->>>>>>> d6114470 (feat: add comprehensive DDD/Hexagonal architecture RFC series)
                 <div 
->>>>>>> 652520a5 (Claude Flow RFC related development)
                   className={cn("h-2 rounded-full transition-all", getProgressBarColor())}
                   style={{ width: `${progress}%` }}
                 />
               </div>
               {message && (
-                <p className="text-xs text-muted-foreground mt-1">{message}</p>
+                <p className="text-xs text-gray-600 mt-1">{message}</p>
               )}
             </div>
           )}
 
           {/* Error message */}
           {error && message && (
-            <div className="mt-3 text-sm text-destructive flex items-start">
+            <div className="mt-3 text-sm text-red-600 flex items-start">
               <AlertCircle size={16} className="mr-1 flex-shrink-0 mt-0.5" />
               {message}
             </div>
@@ -260,38 +204,34 @@ const IntegrationCardEnhanced = ({
 
           {/* Expanded details */}
           {expanded && (
-            <div className="mt-4 pt-4 border-t border-border">
+            <div className="mt-4 pt-4 border-t border-gray-200">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="font-medium text-foreground">Package:</span>
-                  <span className="ml-2 text-muted-foreground font-mono text-xs">{integration.name}</span>
+                  <span className="font-medium text-gray-700">Package:</span>
+                  <span className="ml-2 text-gray-600 font-mono text-xs">{integration.name}</span>
                 </div>
                 {integration.author && (
                   <div>
-                    <span className="font-medium text-foreground">Author:</span>
-                    <span className="ml-2 text-muted-foreground">{integration.author}</span>
+                    <span className="font-medium text-gray-700">Author:</span>
+                    <span className="ml-2 text-gray-600">{integration.author}</span>
                   </div>
                 )}
                 {integration.lastUpdated && (
                   <div>
-                    <span className="font-medium text-foreground">Last Updated:</span>
-                    <span className="ml-2 text-muted-foreground">
+                    <span className="font-medium text-gray-700">Last Updated:</span>
+                    <span className="ml-2 text-gray-600">
                       {new Date(integration.lastUpdated).toLocaleDateString()}
                     </span>
                   </div>
                 )}
                 {integration.connections !== undefined && (
                   <div>
-                    <span className="font-medium text-foreground">Active Connections:</span>
-                    <span className="ml-2 text-muted-foreground">{integration.connections}</span>
+                    <span className="font-medium text-gray-700">Active Connections:</span>
+                    <span className="ml-2 text-gray-600">{integration.connections}</span>
                   </div>
                 )}
               </div>
-<<<<<<< HEAD
-
-=======
               
->>>>>>> 652520a5 (Claude Flow RFC related development)
               {isInstalled && (
                 <div className="mt-4 flex justify-end gap-2">
                   {onTest && (
@@ -329,51 +269,39 @@ const IntegrationCardEnhanced = ({
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
             <div className="flex items-center mb-2">
-              <h4 className="font-semibold text-foreground text-lg">
+              <h4 className="font-semibold text-gray-900 text-lg">
                 {integration.displayName || integration.name}
               </h4>
               {integration.version && (
-                <span className="ml-2 text-xs bg-muted text-muted-foreground px-2 py-1 rounded">
+                <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
                   v{integration.version}
                 </span>
               )}
             </div>
-<<<<<<< HEAD
-
-=======
             
->>>>>>> 652520a5 (Claude Flow RFC related development)
             {/* Badges */}
             <div className="flex items-center gap-2 mb-3">
               {hasUpdate && (
-                <span className="text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded flex items-center">
+                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded flex items-center">
                   <TrendingUp size={10} className="mr-1" />
                   Update available
                 </span>
               )}
               {isOfficial && (
-                <span className="text-xs bg-green-500/10 text-green-600 dark:text-green-400 px-2 py-0.5 rounded flex items-center">
+                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded flex items-center">
                   <Shield size={10} className="mr-1" />
                   Official
                 </span>
               )}
-              <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">
+              <span className="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded">
                 {formatCategory(integration.category)}
               </span>
             </div>
-<<<<<<< HEAD
-
+            
             <p className="text-sm text-gray-600 mb-3">
               {integration.description || 'No description available'}
             </p>
-
-=======
             
-            <p className="text-sm text-muted-foreground mb-3">
-              {integration.description || 'No description available'}
-            </p>
-            
->>>>>>> 652520a5 (Claude Flow RFC related development)
             {integration.tags && integration.tags.length > 0 && (
               <div className="flex flex-wrap gap-1 mb-3">
                 {integration.tags.map((tag, index) => (
@@ -387,11 +315,7 @@ const IntegrationCardEnhanced = ({
               </div>
             )}
           </div>
-<<<<<<< HEAD
-
-=======
           
->>>>>>> 652520a5 (Claude Flow RFC related development)
           <div className="flex items-center ml-4">
             {getStatusIcon()}
           </div>
@@ -401,11 +325,7 @@ const IntegrationCardEnhanced = ({
         {isProcessing && progress > 0 && (
           <div className="mb-4">
             <div className="w-full bg-gray-200 rounded-full h-2">
-<<<<<<< HEAD
-              <div
-=======
               <div 
->>>>>>> 652520a5 (Claude Flow RFC related development)
                 className={cn("h-2 rounded-full transition-all", getProgressBarColor())}
                 style={{ width: `${progress}%` }}
               />
@@ -436,11 +356,7 @@ const IntegrationCardEnhanced = ({
                 Install
               </Button>
             )}
-<<<<<<< HEAD
-
-=======
             
->>>>>>> 652520a5 (Claude Flow RFC related development)
             {isInstalled && !isProcessing && (
               <>
                 <Button
@@ -465,11 +381,7 @@ const IntegrationCardEnhanced = ({
                 )}
               </>
             )}
-<<<<<<< HEAD
-
-=======
             
->>>>>>> 652520a5 (Claude Flow RFC related development)
             {isProcessing && (
               <Button size="sm" disabled className="inline-flex items-center">
                 <LoadingSpinner size="sm" className="mr-1" />
@@ -479,11 +391,7 @@ const IntegrationCardEnhanced = ({
               </Button>
             )}
           </div>
-<<<<<<< HEAD
-
-=======
           
->>>>>>> 652520a5 (Claude Flow RFC related development)
           <div className="flex items-center space-x-2">
             {integration.docsUrl && (
               <Button
@@ -496,11 +404,7 @@ const IntegrationCardEnhanced = ({
                 Docs
               </Button>
             )}
-<<<<<<< HEAD
-
-=======
             
->>>>>>> 652520a5 (Claude Flow RFC related development)
             {onViewDetails && (
               <Button
                 size="sm"
@@ -512,11 +416,7 @@ const IntegrationCardEnhanced = ({
                 Details
               </Button>
             )}
-<<<<<<< HEAD
-
-=======
             
->>>>>>> 652520a5 (Claude Flow RFC related development)
             {isInstalled && (
               <Button
                 size="sm"
@@ -558,11 +458,7 @@ const IntegrationCardEnhanced = ({
                 </div>
               )}
             </div>
-<<<<<<< HEAD
-
-=======
             
->>>>>>> 652520a5 (Claude Flow RFC related development)
             <div className="mt-3 flex justify-between">
               {onTest && (
                 <Button
