@@ -1,5 +1,29 @@
 #!/usr/bin/env node
 
+// Check if we're running the generate command without all options
+// If so, we need to restart with proper NODE_OPTIONS to suppress warnings
+const args = process.argv.slice(2);
+if (args[0] === 'generate' && (!args.includes('--provider') || !args.includes('--format'))) {
+    // If NODE_OPTIONS isn't set, restart the process with it
+    if (!process.env.NODE_OPTIONS || !process.env.NODE_OPTIONS.includes('--no-warnings')) {
+        const { spawn } = require('child_process');
+        const nodeOptions = process.env.NODE_OPTIONS ? 
+            `${process.env.NODE_OPTIONS} --no-deprecation --no-warnings` : 
+            '--no-deprecation --no-warnings';
+        
+        const child = spawn(process.execPath, process.argv.slice(1), {
+            stdio: 'inherit',
+            env: { ...process.env, NODE_OPTIONS: nodeOptions }
+        });
+        
+        child.on('exit', (code) => {
+            process.exit(code || 0);
+        });
+        
+        return;
+    }
+}
+
 const { Command } = require('commander');
 const { installCommand } = require('./install-command');
 const { startCommand } = require('./start-command'); // Assuming you have a startCommand module
@@ -85,4 +109,4 @@ program
 
 program.parse(process.argv);
 
-module.exports = { installCommand, startCommand, buildCommand, deployCommand, generateIamCommand, uiCommand };
+module.exports = { installCommand, startCommand, buildCommand, deployCommand, generateCommand, uiCommand };

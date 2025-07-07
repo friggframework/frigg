@@ -1,0 +1,75 @@
+{
+  "name": "@friggframework/cli",
+  "version": "1.0.0",
+  "description": "Frigg Framework CLI for serverless application development",
+  "main": "index.js",
+  "bin": {
+    "frigg": "./index.js"
+  },
+  "scripts": {
+    "test": "jest --config __tests__/jest.config.js",
+    "test:watch": "jest --config __tests__/jest.config.js --watch",
+    "test:coverage": "jest --config __tests__/jest.config.js --coverage",
+    "test:unit": "jest --config __tests__/jest.config.js --testPathPattern=unit",
+    "test:integration": "jest --config __tests__/jest.config.js --testPathPattern=integration",
+    "test:e2e": "jest --config __tests__/jest.config.js --testPathPattern=e2e",
+    "test:ci": "jest --config __tests__/jest.config.js --coverage --ci --watchAll=false",
+    "lint": "eslint *.js **/*.js --ignore-pattern node_modules --ignore-pattern __tests__",
+    "lint:fix": "eslint *.js **/*.js --ignore-pattern node_modules --ignore-pattern __tests__ --fix",
+    "typecheck": "echo 'No TypeScript files to check'",
+    "pretest": "npm run lint",
+    "posttest": "npm run test:coverage"
+  },
+  "keywords": [
+    "frigg",
+    "framework",
+    "cli",
+    "serverless",
+    "aws",
+    "lambda",
+    "api",
+    "integration"
+  ],
+  "author": "Frigg Framework Team",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^11.0.0",
+    "@friggframework/core": "workspace:*"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "jest-junit": "^16.0.0",
+    "jest-sonar-reporter": "^2.0.0",
+    "eslint": "^8.57.0",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.29.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^6.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/friggframework/frigg.git",
+    "directory": "packages/devtools/frigg-cli"
+  },
+  "bugs": {
+    "url": "https://github.com/friggframework/frigg/issues"
+  },
+  "homepage": "https://github.com/friggframework/frigg#readme",
+  "files": [
+    "*.js",
+    "install-command/",
+    "build-command/",
+    "deploy-command/",
+    "generate-command/",
+    "ui-command/",
+    "utils/",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

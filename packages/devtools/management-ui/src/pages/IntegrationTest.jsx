@@ -5,24 +5,12 @@ import { Button } from '../components/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/Card'
 import LoadingSpinner from '../components/LoadingSpinner'
 import api from '../services/api'
-<<<<<<< HEAD
-<<<<<<< HEAD
 import { cn } from '../lib/utils'
-=======
-import { cn } from '../utils/cn'
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-import { cn } from '../lib/utils'
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 
 const IntegrationTest = () => {
   const { integrationName } = useParams()
   const navigate = useNavigate()
-<<<<<<< HEAD
-
-=======
   
->>>>>>> 652520a5 (Claude Flow RFC related development)
   const [loading, setLoading] = useState(true)
   const [integration, setIntegration] = useState(null)
   const [endpoints, setEndpoints] = useState([])
@@ -41,40 +29,24 @@ const IntegrationTest = () => {
   const fetchIntegrationData = async () => {
     try {
       setLoading(true)
-<<<<<<< HEAD
-
-=======
       
->>>>>>> 652520a5 (Claude Flow RFC related development)
       // Fetch integration details and available endpoints
       const [detailsRes, endpointsRes, historyRes] = await Promise.all([
         api.get(`/api/discovery/integrations/${integrationName}`),
         api.get(`/api/integrations/${integrationName}/endpoints`),
         api.get(`/api/integrations/${integrationName}/test-history`)
       ])
-<<<<<<< HEAD
-
-      setIntegration(detailsRes.data.data)
-      setEndpoints(endpointsRes.data.endpoints || [])
-      setTestHistory(historyRes.data.history || [])
-
-=======
       
       setIntegration(detailsRes.data.data)
       setEndpoints(endpointsRes.data.endpoints || [])
       setTestHistory(historyRes.data.history || [])
       
->>>>>>> 652520a5 (Claude Flow RFC related development)
       // Select first endpoint by default
       if (endpointsRes.data.endpoints?.length > 0) {
         setSelectedEndpoint(endpointsRes.data.endpoints[0])
         initializeParams(endpointsRes.data.endpoints[0])
       }
-<<<<<<< HEAD
-
-=======
       
->>>>>>> 652520a5 (Claude Flow RFC related development)
     } catch (err) {
       console.error('Failed to fetch integration data:', err)
     } finally {
@@ -84,22 +56,14 @@ const IntegrationTest = () => {
 
   const initializeParams = (endpoint) => {
     const params = {}
-<<<<<<< HEAD
-
-=======
     
->>>>>>> 652520a5 (Claude Flow RFC related development)
     // Initialize required parameters
     endpoint.parameters?.forEach(param => {
       if (param.required) {
         params[param.name] = param.default || ''
       }
     })
-<<<<<<< HEAD
-
-=======
     
->>>>>>> 652520a5 (Claude Flow RFC related development)
     setTestParams(params)
   }
 
@@ -122,32 +86,20 @@ const IntegrationTest = () => {
     try {
       setTesting(true)
       setTestResult(null)
-<<<<<<< HEAD
-
-=======
       
->>>>>>> 652520a5 (Claude Flow RFC related development)
       const response = await api.post(`/api/integrations/${integrationName}/test-endpoint`, {
         endpoint: selectedEndpoint.id,
         parameters: testParams,
         useMockData
       })
-<<<<<<< HEAD
-
-=======
       
->>>>>>> 652520a5 (Claude Flow RFC related development)
       setTestResult({
         success: true,
         data: response.data.result,
         timing: response.data.timing,
         timestamp: new Date().toISOString()
       })
-<<<<<<< HEAD
-
-=======
       
->>>>>>> 652520a5 (Claude Flow RFC related development)
       // Add to history
       setTestHistory(prev => [{
         endpoint: selectedEndpoint.name,
@@ -155,11 +107,7 @@ const IntegrationTest = () => {
         success: true,
         timing: response.data.timing
       }, ...prev.slice(0, 9)])
-<<<<<<< HEAD
-
-=======
       
->>>>>>> 652520a5 (Claude Flow RFC related development)
     } catch (err) {
       console.error('Test failed:', err)
       setTestResult({
@@ -168,11 +116,7 @@ const IntegrationTest = () => {
         details: err.response?.data?.details,
         timestamp: new Date().toISOString()
       })
-<<<<<<< HEAD
-
-=======
       
->>>>>>> 652520a5 (Claude Flow RFC related development)
       // Add failure to history
       setTestHistory(prev => [{
         endpoint: selectedEndpoint.name,
@@ -193,19 +137,11 @@ const IntegrationTest = () => {
 
   const generateCodeSnippet = () => {
     if (!selectedEndpoint) return ''
-<<<<<<< HEAD
-
-    const params = Object.entries(testParams)
-      .map(([key, value]) => `  ${key}: '${value}'`)
-      .join(',\n')
-
-=======
     
     const params = Object.entries(testParams)
       .map(([key, value]) => `  ${key}: '${value}'`)
       .join(',\n')
     
->>>>>>> 652520a5 (Claude Flow RFC related development)
     return `// ${selectedEndpoint.name}
 const result = await frigg.integration('${integrationName}')
   .${selectedEndpoint.method}('${selectedEndpoint.path}', {
@@ -217,11 +153,7 @@ console.log(result);`
 
   const renderParameterInput = (param) => {
     const value = testParams[param.name] || ''
-<<<<<<< HEAD
-
-=======
     
->>>>>>> 652520a5 (Claude Flow RFC related development)
     switch (param.type) {
       case 'boolean':
         return (
@@ -234,11 +166,7 @@ console.log(result);`
             <option value="true">true</option>
           </select>
         )
-<<<<<<< HEAD
-
-=======
       
->>>>>>> 652520a5 (Claude Flow RFC related development)
       case 'number':
         return (
           <input
@@ -249,11 +177,7 @@ console.log(result);`
             placeholder={param.placeholder || `Enter ${param.name}`}
           />
         )
-<<<<<<< HEAD
-
-=======
       
->>>>>>> 652520a5 (Claude Flow RFC related development)
       case 'select':
         return (
           <select
@@ -269,11 +193,7 @@ console.log(result);`
             ))}
           </select>
         )
-<<<<<<< HEAD
-
-=======
       
->>>>>>> 652520a5 (Claude Flow RFC related development)
       default:
         return (
           <input
@@ -357,11 +277,7 @@ console.log(result);`
                   </option>
                 ))}
               </select>
-<<<<<<< HEAD
-
-=======
               
->>>>>>> 652520a5 (Claude Flow RFC related development)
               {selectedEndpoint && (
                 <div className="mt-4 p-3 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-600">{selectedEndpoint.description}</p>
@@ -505,11 +421,7 @@ console.log(result);`
                     )}
                   </div>
                 )}
-<<<<<<< HEAD
-
-=======
                 
->>>>>>> 652520a5 (Claude Flow RFC related development)
                 {testResult.data && (
                   <div>
                     <div className="flex items-center justify-between mb-2">
