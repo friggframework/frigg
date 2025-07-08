@@ -93,6 +93,7 @@
         "lambda:PutProvisionedConcurrencyConfig",
         "lambda:DeleteProvisionedConcurrencyConfig",
         "lambda:PutConcurrency",
+        "lambda:PutFunctionConcurrency",
         "lambda:DeleteConcurrency",
         "lambda:TagResource",
         "lambda:UntagResource",
@@ -110,7 +111,10 @@
         "lambda:DeleteEventSourceMapping",
         "lambda:GetEventSourceMapping",
         "lambda:UpdateEventSourceMapping",
-        "lambda:ListEventSourceMappings"
+        "lambda:ListEventSourceMappings",
+        "lambda:TagResource",
+        "lambda:UntagResource",
+        "lambda:ListTags"
       ],
       "Resource": [
         "arn:aws:lambda:*:*:event-source-mapping:*"
@@ -196,7 +200,9 @@
         "logs:DescribeLogStreams",
         "logs:FilterLogEvents",
         "logs:PutLogEvents",
-        "logs:PutRetentionPolicy"
+        "logs:PutRetentionPolicy",
+        "logs:TagResource",
+        "logs:UntagResource"
       ],
       "Resource": [
         "arn:aws:logs:*:*:log-group:/aws/lambda/*frigg*",
@@ -228,6 +234,7 @@
       "Action": [
         "ec2:CreateVpcEndpoint",
         "ec2:DeleteVpcEndpoint",
+        "ec2:DeleteVpcEndpoints",
         "ec2:DescribeVpcEndpoints",
         "ec2:ModifyVpcEndpoint",
         "ec2:CreateNatGateway",
@@ -236,6 +243,8 @@
         "ec2:AllocateAddress",
         "ec2:ReleaseAddress",
         "ec2:DescribeAddresses",
+        "ec2:AssociateAddress",
+        "ec2:DisassociateAddress",
         "ec2:CreateRouteTable",
         "ec2:DeleteRouteTable",
         "ec2:DescribeRouteTables",
