@@ -358,6 +358,7 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                 'lambda:PutProvisionedConcurrencyConfig',
                 'lambda:DeleteProvisionedConcurrencyConfig',
                 'lambda:PutConcurrency',
+                'lambda:PutFunctionConcurrency',
                 'lambda:DeleteConcurrency',
                 'lambda:TagResource',
                 'lambda:UntagResource',
@@ -365,6 +366,23 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
             ],
             Resource: [
                 { 'Fn::Sub': 'arn:aws:lambda:*:${AWS::AccountId}:function:*frigg*' }
+            ]
+        },
+        {
+            Sid: 'FriggLambdaEventSourceMapping',
+            Effect: 'Allow',
+            Action: [
+                'lambda:CreateEventSourceMapping',
+                'lambda:DeleteEventSourceMapping',
+                'lambda:GetEventSourceMapping',
+                'lambda:UpdateEventSourceMapping',
+                'lambda:ListEventSourceMappings',
+                'lambda:TagResource',
+                'lambda:UntagResource',
+                'lambda:ListTags'
+            ],
+            Resource: [
+                { 'Fn::Sub': 'arn:aws:lambda:*:${AWS::AccountId}:event-source-mapping:*' }
             ]
         },
         {
@@ -443,7 +461,9 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                 'logs:DescribeLogStreams',
                 'logs:FilterLogEvents',
                 'logs:PutLogEvents',
-                'logs:PutRetentionPolicy'
+                'logs:PutRetentionPolicy',
+                'logs:TagResource',
+                'logs:UntagResource'
             ],
             Resource: [
                 { 'Fn::Sub': 'arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/*frigg*' },
@@ -500,6 +520,7 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                             Action: [
                                 'ec2:CreateVpcEndpoint',
                                 'ec2:DeleteVpcEndpoint',
+                                'ec2:DeleteVpcEndpoints',
                                 'ec2:DescribeVpcEndpoints',
                                 'ec2:ModifyVpcEndpoint',
                                 'ec2:CreateNatGateway',
@@ -508,6 +529,8 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                                 'ec2:AllocateAddress',
                                 'ec2:ReleaseAddress',
                                 'ec2:DescribeAddresses',
+                                'ec2:AssociateAddress',
+                                'ec2:DisassociateAddress',
                                 'ec2:CreateRouteTable',
                                 'ec2:DeleteRouteTable',
                                 'ec2:DescribeRouteTables',
@@ -520,7 +543,10 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                                 'ec2:AuthorizeSecurityGroupEgress',
                                 'ec2:AuthorizeSecurityGroupIngress',
                                 'ec2:RevokeSecurityGroupEgress',
-                                'ec2:RevokeSecurityGroupIngress'
+                                'ec2:RevokeSecurityGroupIngress',
+                                'ec2:CreateTags',
+                                'ec2:DeleteTags',
+                                'ec2:DescribeTags'
                             ],
                             Resource: '*'
                         }
