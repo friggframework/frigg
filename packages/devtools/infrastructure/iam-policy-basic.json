@@ -93,6 +93,7 @@
         "lambda:PutProvisionedConcurrencyConfig",
         "lambda:DeleteProvisionedConcurrencyConfig",
         "lambda:PutConcurrency",
+        "lambda:PutFunctionConcurrency",
         "lambda:DeleteConcurrency",
         "lambda:TagResource",
         "lambda:UntagResource",
@@ -110,7 +111,10 @@
         "lambda:DeleteEventSourceMapping",
         "lambda:GetEventSourceMapping",
         "lambda:UpdateEventSourceMapping",
-        "lambda:ListEventSourceMappings"
+        "lambda:ListEventSourceMappings",
+        "lambda:TagResource",
+        "lambda:UntagResource",
+        "lambda:ListTags"
       ],
       "Resource": [
         "arn:aws:lambda:*:*:event-source-mapping:*"
@@ -196,7 +200,9 @@
         "logs:DescribeLogStreams",
         "logs:FilterLogEvents",
         "logs:PutLogEvents",
-        "logs:PutRetentionPolicy"
+        "logs:PutRetentionPolicy",
+        "logs:TagResource",
+        "logs:UntagResource"
       ],
       "Resource": [
         "arn:aws:logs:*:*:log-group:/aws/lambda/*frigg*",

@@ -4,10 +4,14 @@ This document outlines the minimum AWS IAM permissions required to build and dep
 
 ## Overview
 
-Frigg applications require two distinct sets of permissions:
+Frigg provides two IAM policy templates:
 
-1. **Discovery-Time Permissions** - Used during the build process to discover default AWS resources
-2. **Deployment-Time Permissions** - Used during actual deployment to create CloudFormation resources
+1. **Basic Policy** (`iam-policy-basic.json`) - Core Lambda/API Gateway functionality only (no VPC/KMS/SSM)
+2. **Full Policy** (`iam-policy-full.json`) - Includes VPC, KMS, and SSM support for advanced deployments
+
+Choose the policy that matches your deployment needs:
+- Use **Basic** for simple serverless functions with public internet access
+- Use **Full** for VPC-enabled functions with encryption and parameter store support
 
 The AWS discovery process runs during the `before:package:initialize` serverless hook to automatically find your default VPC, subnets, security groups, and KMS keys, eliminating the need for manual resource ID lookup.
 
@@ -277,6 +281,7 @@ Required for basic Frigg application deployment:
   - Managing event-driven architectures
   - Handling queue-based processing (e.g., HubSpot integration queues)
   - Cleaning up event source mappings during stack deletion
+  - Tagging event source mappings for resource management and cost allocation
 
 ## Feature-Specific Permissions
 
@@ -289,7 +294,7 @@ Additional permissions needed when your app definition includes `vpc: { enable: 
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "FriggVPCEndpointManagement",
+      "Sid": "FriggVPCDeploymentPermissions",
       "Effect": "Allow",
       "Action": [
         "ec2:CreateVpcEndpoint",
@@ -302,6 +307,8 @@ Additional permissions needed when your app definition includes `vpc: { enable: 
         "ec2:AllocateAddress",
         "ec2:ReleaseAddress",
         "ec2:DescribeAddresses",
+        "ec2:AssociateAddress",
+        "ec2:DisassociateAddress",
         "ec2:CreateRouteTable",
         "ec2:DeleteRouteTable",
         "ec2:DescribeRouteTables",
@@ -314,23 +321,21 @@ Additional permissions needed when your app definition includes `vpc: { enable: 
         "ec2:AuthorizeSecurityGroupEgress",
         "ec2:AuthorizeSecurityGroupIngress",
         "ec2:RevokeSecurityGroupEgress",
-        "ec2:RevokeSecurityGroupIngress"
+        "ec2:RevokeSecurityGroupIngress",
+        "ec2:CreateTags",
+        "ec2:DeleteTags",
+        "ec2:DescribeTags"
       ],
-      "Resource": "*",
-      "Condition": {
-        "StringLike": {
-          "ec2:CreateAction": [
-            "CreateVpcEndpoint",
-            "CreateNatGateway", 
-            "CreateRouteTable",
-            "CreateRoute",
-            "CreateSecurityGroup"
-          ]
-        }
-      }
+      "Resource": "*"
     }
   ]
 }
+```
+
+**⚠️ Critical Note:** The `ec2:CreateTags`, `ec2:DeleteTags`, and `ec2:DescribeTags` permissions are **REQUIRED** for VPC deployments. Without these permissions, CloudFormation will fail with errors like:
+
+```
+"User is not authorized to perform: ec2:CreateTags on resource: arn:aws:ec2:*:*:elastic-ip/*"
 ```
 
 **What this enables:**
@@ -566,6 +571,12 @@ The discovery process sets these environment variables during build:
 7. **CloudFormation ListStackResources Error** - If you see "User is not authorized to perform: cloudformation:ListStackResources", update your IAM stack with the latest template that includes this permission
 8. **Elastic IP Already Associated Error** - If you see "Elastic IP address is already associated", the discovery process will now find and reuse existing NAT Gateways and EIPs to prevent conflicts
 9. **Lambda EventSourceMapping Error** - If you see "User is not authorized to perform: lambda:DeleteEventSourceMapping", update your IAM stack with the latest template that includes EventSourceMapping permissions
+10. **EC2 CreateTags Error** - If you see "User is not authorized to perform: ec2:CreateTags on resource: arn:aws:ec2:*:*:elastic-ip/*", you need the VPC deployment permissions that include `ec2:CreateTags`, `ec2:DeleteTags`, and `ec2:DescribeTags`. Use the **full policy** template or add the VPC permissions section to your existing policy.
+11. **CloudWatch Logs TagResource Error** - If you see "User is not authorized to perform CreateLogGroup with Tags. An additional permission 'logs:TagResource' is required", ensure your IAM policy includes `logs:TagResource` and `logs:UntagResource` permissions. This is now included in both basic and full policy templates.
+12. **Lambda PutFunctionConcurrency Error** - If you see "User is not authorized to perform: lambda:PutFunctionConcurrency", ensure your IAM policy includes the `lambda:PutFunctionConcurrency` permission. This is required when Lambda functions specify concurrency settings.
+13. **EC2 DeleteVpcEndpoints Error** - If you see "User is not authorized to perform: ec2:DeleteVpcEndpoints", ensure your VPC policy includes both `ec2:DeleteVpcEndpoint` (singular) and `ec2:DeleteVpcEndpoints` (plural) permissions. AWS uses different permissions for single vs bulk operations.
+14. **Lambda CreateEventSourceMapping Error** - If you see "User is not authorized to perform: lambda:CreateEventSourceMapping", this permission should already be included in both basic and full policy templates under the "FriggLambdaEventSourceMapping" section with the correct resource ARN `arn:aws:lambda:*:*:event-source-mapping:*`.
+15. **Lambda TagResource Error on EventSourceMapping** - If you see "User is not authorized to perform: lambda:TagResource on resource: arn:aws:lambda:*:*:event-source-mapping:*", ensure your IAM policy includes `lambda:TagResource`, `lambda:UntagResource`, and `lambda:ListTags` permissions in the FriggLambdaEventSourceMapping section. These permissions are required when CloudFormation tags event source mappings during creation.
 
 ### Fallback Behavior
 
