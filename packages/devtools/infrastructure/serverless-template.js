@@ -541,6 +541,25 @@ const composeServerlessDefinition = (AppDefinition) => {
                     },
                 ],
             },
+            health: {
+                handler: 'node_modules/@friggframework/core/handlers/routers/health.handler',
+                events: [
+                    {
+                        http: {
+                            path: '/health',
+                            method: 'GET',
+                            cors: true,
+                        },
+                    },
+                    {
+                        http: {
+                            path: '/health/{proxy+}',
+                            method: 'GET',
+                            cors: true,
+                        },
+                    },
+                ],
+            },
         },
         resources: {
             Resources: {
