@@ -46,6 +46,10 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
     const template = {
         AWSTemplateFormatVersion: '2010-09-09',
         Description: `IAM roles and policies for ${appDefinition.name || 'Frigg'} application deployment pipeline`,
+<<<<<<< HEAD
+=======
+        
+>>>>>>> 37c4892ee8a686eb7acfcd17c333b0ed73e1f120
         Parameters: {
             DeploymentUserName: {
                 Type: 'String',
@@ -165,6 +169,10 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
         'cloudformation:DeleteChangeSet',
         'cloudformation:ExecuteChangeSet',
         'cloudformation:ValidateTemplate',
+<<<<<<< HEAD
+=======
+        
+>>>>>>> 37c4892ee8a686eb7acfcd17c333b0ed73e1f120
         // Lambda permissions
         'lambda:CreateFunction',
         'lambda:UpdateFunctionCode',
@@ -187,6 +195,10 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
         'lambda:TagResource',
         'lambda:UntagResource',
         'lambda:ListVersionsByFunction',
+<<<<<<< HEAD
+=======
+        
+>>>>>>> 37c4892ee8a686eb7acfcd17c333b0ed73e1f120
         // IAM permissions
         'iam:CreateRole',
         'iam:DeleteRole',
@@ -200,7 +212,11 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
         'iam:TagRole',
         'iam:UntagRole',
         'iam:ListPolicyVersions',
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> 37c4892ee8a686eb7acfcd17c333b0ed73e1f120
         // S3 permissions
         's3:CreateBucket',
         's3:DeleteBucket',
@@ -226,7 +242,11 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
         's3:ListBucket',
         's3:GetBucketAcl',
         's3:PutBucketAcl',
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> 37c4892ee8a686eb7acfcd17c333b0ed73e1f120
         // SQS permissions
         'sqs:CreateQueue',
         'sqs:DeleteQueue',
@@ -235,6 +255,10 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
         'sqs:GetQueueUrl',
         'sqs:TagQueue',
         'sqs:UntagQueue',
+<<<<<<< HEAD
+=======
+        
+>>>>>>> 37c4892ee8a686eb7acfcd17c333b0ed73e1f120
         // SNS permissions
         'sns:CreateTopic',
         'sns:DeleteTopic',
@@ -245,6 +269,10 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
         'sns:ListSubscriptionsByTopic',
         'sns:TagResource',
         'sns:UntagResource',
+<<<<<<< HEAD
+=======
+        
+>>>>>>> 37c4892ee8a686eb7acfcd17c333b0ed73e1f120
         // CloudWatch and Logs permissions
         'cloudwatch:PutMetricAlarm',
         'cloudwatch:DeleteAlarms',
@@ -257,6 +285,10 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
         'logs:FilterLogEvents',
         'logs:PutLogEvents',
         'logs:PutRetentionPolicy',
+<<<<<<< HEAD
+=======
+        
+>>>>>>> 37c4892ee8a686eb7acfcd17c333b0ed73e1f120
         // API Gateway permissions
         'apigateway:POST',
         'apigateway:PUT',
@@ -743,7 +775,11 @@ function generateIAMPolicy(mode = 'basic') {
  */
 async function generateCloudFormationTemplate(options) {
     const { appName, features, userPrefix, stackName } = options;
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> 37c4892ee8a686eb7acfcd17c333b0ed73e1f120
     // Create appDefinition from features
     const appDefinition = {
         name: appName,
@@ -752,7 +788,11 @@ async function generateCloudFormationTemplate(options) {
         ssm: { enable: features.ssm },
         websockets: { enable: features.websockets }
     };
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> 37c4892ee8a686eb7acfcd17c333b0ed73e1f120
     return generateIAMCloudFormation(appDefinition, {
         deploymentUserName: userPrefix,
         stackName: stackName,

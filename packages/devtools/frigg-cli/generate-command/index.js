@@ -41,7 +41,11 @@ async function generateCommand(options = {}) {
             // Determine format choices based on provider
             let formatChoices;
             let defaultFormat;
+<<<<<<< HEAD
 
+=======
+            
+>>>>>>> 37c4892ee8a686eb7acfcd17c333b0ed73e1f120
             if (options.provider === 'aws') {
                 formatChoices = [
                     { name: 'CloudFormation', value: 'cloudformation' },
@@ -189,11 +193,19 @@ async function generateCommand(options = {}) {
             // Smart default: put infrastructure in the backend directory we found
             outputDir = path.join(backendDir, 'infrastructure');
         }
+<<<<<<< HEAD
 
         if (options.verbose) {
             console.log('Output directory will be:', outputDir);
         }
 
+=======
+        
+        if (options.verbose) {
+            console.log('Output directory will be:', outputDir);
+        }
+        
+>>>>>>> 37c4892ee8a686eb7acfcd17c333b0ed73e1f120
         if (!fs.existsSync(outputDir)) {
             fs.mkdirSync(outputDir, { recursive: true });
         }
@@ -209,7 +221,11 @@ async function generateCommand(options = {}) {
 
         console.log(`\n✅ Generated ${options.format} template for ${options.provider}`);
         console.log(`📄 Template saved to: ${outputPath}`);
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> 37c4892ee8a686eb7acfcd17c333b0ed73e1f120
         // Update deployment instructions with actual paths
         if (deploymentInstructions) {
             deploymentInstructions = deploymentInstructions

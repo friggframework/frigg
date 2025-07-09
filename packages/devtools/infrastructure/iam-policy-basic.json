@@ -224,7 +224,11 @@
         "arn:aws:apigateway:*::/restapis",
         "arn:aws:apigateway:*::/restapis/*",
         "arn:aws:apigateway:*::/domainnames",
+<<<<<<< HEAD
           "arn:aws:apigateway:*::/domainnames/*",
+=======
+        "arn:aws:apigateway:*::/domainnames/*",
+>>>>>>> 37c4892ee8a686eb7acfcd17c333b0ed73e1f120
         "arn:aws:apigateway:*::/tags/*"
       ]
     }

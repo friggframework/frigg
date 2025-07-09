@@ -31,6 +31,10 @@ describe('composeServerlessDefinition', () => {
 
         // Mock process.argv to avoid offline mode during tests
         process.argv = ['node', 'test'];
+<<<<<<< HEAD
+=======
+
+>>>>>>> 37c4892ee8a686eb7acfcd17c333b0ed73e1f120
         // Clear AWS_REGION for tests
         delete process.env.AWS_REGION;
     });
@@ -81,6 +85,10 @@ describe('composeServerlessDefinition', () => {
 
         it('should use AWS_REGION environment variable when set', async () => {
             process.env.AWS_REGION = 'eu-west-1';
+<<<<<<< HEAD
+=======
+
+>>>>>>> 37c4892ee8a686eb7acfcd17c333b0ed73e1f120
             const appDefinition = {
                 name: 'test-app',
                 integrations: []
@@ -94,6 +102,10 @@ describe('composeServerlessDefinition', () => {
 
         it('should default to us-east-1 when AWS_REGION is not set', async () => {
             delete process.env.AWS_REGION;
+<<<<<<< HEAD
+=======
+
+>>>>>>> 37c4892ee8a686eb7acfcd17c333b0ed73e1f120
             const appDefinition = {
                 name: 'test-app',
                 integrations: []
@@ -280,6 +292,10 @@ describe('composeServerlessDefinition', () => {
             const result = await composeServerlessDefinition(appDefinition);
 
             expect(result.provider.layers).toBeUndefined();
+<<<<<<< HEAD
+=======
+
+>>>>>>> 37c4892ee8a686eb7acfcd17c333b0ed73e1f120
             const ssmPermission = result.provider.iamRoleStatements.find(
                 statement => statement.Action && statement.Action.includes('ssm:GetParameter')
             );

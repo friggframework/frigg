@@ -10,7 +10,6 @@ if (args[0] === 'generate' && (!args.includes('--provider') || !args.includes('-
         const nodeOptions = process.env.NODE_OPTIONS ?
             `${process.env.NODE_OPTIONS} --no-deprecation --no-warnings` :
             '--no-deprecation --no-warnings';
-
         const child = spawn(process.execPath, process.argv.slice(1), {
             stdio: 'inherit',
             env: { ...process.env, NODE_OPTIONS: nodeOptions }
@@ -19,7 +18,6 @@ if (args[0] === 'generate' && (!args.includes('--provider') || !args.includes('-
         child.on('exit', (code) => {
             process.exit(code || 0);
         });
-
         return;
     }
 }

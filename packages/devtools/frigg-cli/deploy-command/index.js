@@ -11,7 +11,6 @@ async function deployCommand(options) {
     // Resolve app path using AppResolver
     const appResolver = new AppResolver();
     let backendPath;
-
     try {
         backendPath = await appResolver.resolveAppPath(options);
         if (options.verbose) {
