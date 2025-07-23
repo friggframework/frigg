@@ -1,0 +1,203 @@
+name: CLI Test Suite
+
+on:
+  push:
+    branches: [ main, develop, create-frigg-app ]
+    paths:
+      - 'packages/devtools/frigg-cli/**'
+      - '.github/workflows/test-cli.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'packages/devtools/frigg-cli/**'
+      - '.github/workflows/test-cli.yml'
+
+jobs:
+  test-cli:
+    name: Test CLI (${{ matrix.os }} - Node ${{ matrix.node-version }})
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: [18.x, 20.x, 21.x]
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          cd packages/devtools/frigg-cli
+          npm ci
+
+      - name: Run linting
+        run: |
+          cd packages/devtools/frigg-cli
+          npm run lint
+
+      - name: Run unit tests
+        run: |
+          cd packages/devtools/frigg-cli
+          npm run test:unit
+
+      - name: Run integration tests
+        run: |
+          cd packages/devtools/frigg-cli
+          npm run test:integration
+
+      - name: Run coverage analysis
+        run: |
+          cd packages/devtools/frigg-cli
+          npm run test:coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./packages/devtools/frigg-cli/coverage/lcov.info
+          flags: cli
+          name: cli-coverage
+          fail_ci_if_error: true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.os }}-${{ matrix.node-version }}
+          path: |
+            packages/devtools/frigg-cli/coverage/
+            packages/devtools/frigg-cli/coverage/junit.xml
+
+  e2e-tests:
+    name: End-to-End CLI Tests
+    runs-on: ubuntu-latest
+    needs: test-cli
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          cd packages/devtools/frigg-cli
+          npm ci
+
+      - name: Build CLI package
+        run: |
+          cd packages/devtools/frigg-cli
+          npm pack
+
+      - name: Test CLI installation
+        run: |
+          cd packages/devtools/frigg-cli
+          npm install -g friggframework-cli-*.tgz
+
+      - name: Test CLI commands
+        run: |
+          frigg --help
+          frigg install --help
+          frigg build --help
+          frigg deploy --help
+          frigg generate --help
+          frigg ui --help
+
+      - name: Run E2E tests
+        run: |
+          cd packages/devtools/frigg-cli
+          npm run test:e2e
+
+  quality-gates:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+    needs: [test-cli, e2e-tests]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          cd packages/devtools/frigg-cli
+          npm ci
+
+      - name: Generate coverage report
+        run: |
+          cd packages/devtools/frigg-cli
+          npm run test:coverage
+
+      - name: Check coverage thresholds
+        run: |
+          cd packages/devtools/frigg-cli
+          npx jest --config __tests__/jest.config.js --coverage --passWithNoTests --coverageThreshold='{"global":{"branches":85,"functions":85,"lines":85,"statements":85}}'
+
+      - name: Security audit
+        run: |
+          cd packages/devtools/frigg-cli
+          npm audit --audit-level=moderate
+
+      - name: Check for outdated dependencies
+        run: |
+          cd packages/devtools/frigg-cli
+          npm outdated || true
+
+  performance-benchmarks:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    needs: test-cli
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          cd packages/devtools/frigg-cli
+          npm ci
+
+      - name: Run performance tests
+        run: |
+          cd packages/devtools/frigg-cli
+          time node index.js --help
+          time node index.js install --help
+          time node index.js build --help
+          time node index.js deploy --help
+          time node index.js generate --help
+          time node index.js ui --help
+
+      - name: Memory usage benchmark
+        run: |
+          cd packages/devtools/frigg-cli
+          node -e "
+            const { performance } = require('perf_hooks');
+            const used = process.memoryUsage();
+            console.log('Memory usage:');
+            for (let key in used) {
+              console.log(\`\${key}: \${Math.round(used[key] / 1024 / 1024 * 100) / 100} MB\`);
+            }
+          "
