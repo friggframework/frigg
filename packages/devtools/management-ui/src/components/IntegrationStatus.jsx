@@ -3,7 +3,19 @@ import { CheckCircle, AlertCircle, Clock, Activity, RefreshCw, Zap, Shield, Aler
 import { Card, CardContent, CardHeader, CardTitle } from './Card'
 import { Button } from './Button'
 import LoadingSpinner from './LoadingSpinner'
+<<<<<<< HEAD
 import { cn } from '../lib/utils'
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+import { cn } from '../lib/utils'
+=======
+import { cn } from '../utils/cn'
+>>>>>>> 652520a5 (Claude Flow RFC related development)
+=======
+import { cn } from '../lib/utils'
+>>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
 import api from '../services/api'
 import { useSocket } from '../hooks/useSocket'
 
@@ -16,7 +28,15 @@ const IntegrationStatus = ({ integrationName, className }) => {
 
   useEffect(() => {
     fetchStatus()
+<<<<<<< HEAD
     
+=======
+<<<<<<< HEAD
+
+=======
+    
+>>>>>>> 652520a5 (Claude Flow RFC related development)
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
     // Subscribe to real-time updates
     const unsubscribeHealth = on('integration:health:update', (data) => {
       if (data.packageName === integrationName) {
@@ -47,15 +67,36 @@ const IntegrationStatus = ({ integrationName, className }) => {
   const fetchStatus = async () => {
     try {
       setLoading(true)
+<<<<<<< HEAD
       
+=======
+<<<<<<< HEAD
+
+=======
+      
+>>>>>>> 652520a5 (Claude Flow RFC related development)
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
       const [healthRes, metricsRes] = await Promise.all([
         api.get(`/api/discovery/health/${integrationName}`),
         api.get(`/api/integrations/${integrationName}/metrics`)
       ])
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+
+      setStatus(healthRes.data.data)
+      setMetrics(metricsRes.data.metrics)
+
+=======
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
       
       setStatus(healthRes.data.data)
       setMetrics(metricsRes.data.metrics)
       
+<<<<<<< HEAD
+=======
+>>>>>>> 652520a5 (Claude Flow RFC related development)
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
     } catch (err) {
       console.error('Failed to fetch integration status:', err)
       setStatus({
@@ -165,7 +206,15 @@ const IntegrationStatus = ({ integrationName, className }) => {
               </div>
               <p className="text-xs text-blue-600 mt-1">Active Connections</p>
             </div>
+<<<<<<< HEAD
             
+=======
+<<<<<<< HEAD
+
+=======
+            
+>>>>>>> 652520a5 (Claude Flow RFC related development)
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
             <div className="p-3 bg-green-50 rounded-lg">
               <div className="flex items-center justify-between">
                 <Activity size={16} className="text-green-500" />
@@ -175,7 +224,15 @@ const IntegrationStatus = ({ integrationName, className }) => {
               </div>
               <p className="text-xs text-green-600 mt-1">Requests Today</p>
             </div>
+<<<<<<< HEAD
             
+=======
+<<<<<<< HEAD
+
+=======
+            
+>>>>>>> 652520a5 (Claude Flow RFC related development)
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
             <div className="p-3 bg-purple-50 rounded-lg">
               <div className="flex items-center justify-between">
                 <Clock size={16} className="text-purple-500" />
@@ -185,7 +242,15 @@ const IntegrationStatus = ({ integrationName, className }) => {
               </div>
               <p className="text-xs text-purple-600 mt-1">Avg Response Time</p>
             </div>
+<<<<<<< HEAD
             
+=======
+<<<<<<< HEAD
+
+=======
+            
+>>>>>>> 652520a5 (Claude Flow RFC related development)
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
             <div className="p-3 bg-orange-50 rounded-lg">
               <div className="flex items-center justify-between">
                 <Shield size={16} className="text-orange-500" />

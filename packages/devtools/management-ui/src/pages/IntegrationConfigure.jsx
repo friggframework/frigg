@@ -5,12 +5,32 @@ import { Button } from '../components/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/Card'
 import LoadingSpinner from '../components/LoadingSpinner'
 import api from '../services/api'
+<<<<<<< HEAD
 import { cn } from '../lib/utils'
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+import { cn } from '../lib/utils'
+=======
+import { cn } from '../utils/cn'
+>>>>>>> 652520a5 (Claude Flow RFC related development)
+=======
+import { cn } from '../lib/utils'
+>>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
 
 const IntegrationConfigure = () => {
   const { integrationName } = useParams()
   const navigate = useNavigate()
+<<<<<<< HEAD
   
+=======
+<<<<<<< HEAD
+
+=======
+  
+>>>>>>> 652520a5 (Claude Flow RFC related development)
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -27,16 +47,37 @@ const IntegrationConfigure = () => {
   const fetchIntegrationDetails = async () => {
     try {
       setLoading(true)
+<<<<<<< HEAD
       
+=======
+<<<<<<< HEAD
+
+=======
+      
+>>>>>>> 652520a5 (Claude Flow RFC related development)
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
       // Fetch integration details and current configuration
       const [detailsRes, configRes] = await Promise.all([
         api.get(`/api/discovery/integrations/${integrationName}`),
         api.get(`/api/integrations/${integrationName}/config`)
       ])
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+
+      setIntegration(detailsRes.data.data)
+      setConfig(configRes.data.config || {})
+
+=======
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
       
       setIntegration(detailsRes.data.data)
       setConfig(configRes.data.config || {})
       
+<<<<<<< HEAD
+=======
+>>>>>>> 652520a5 (Claude Flow RFC related development)
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
     } catch (err) {
       console.error('Failed to fetch integration details:', err)
       setErrors({ general: 'Failed to load integration configuration' })
@@ -82,6 +123,18 @@ const IntegrationConfigure = () => {
     try {
       setSaving(true)
       setSuccessMessage('')
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+
+      await api.post(`/api/integrations/${integrationName}/config`, {
+        config
+      })
+
+      setSuccessMessage('Configuration saved successfully!')
+
+=======
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
       
       await api.post(`/api/integrations/${integrationName}/config`, {
         config
@@ -89,11 +142,23 @@ const IntegrationConfigure = () => {
       
       setSuccessMessage('Configuration saved successfully!')
       
+<<<<<<< HEAD
+=======
+>>>>>>> 652520a5 (Claude Flow RFC related development)
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
       // Redirect after a delay
       setTimeout(() => {
         navigate('/integrations')
       }, 2000)
+<<<<<<< HEAD
       
+=======
+<<<<<<< HEAD
+
+=======
+      
+>>>>>>> 652520a5 (Claude Flow RFC related development)
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
     } catch (err) {
       console.error('Failed to save configuration:', err)
       setErrors({ general: err.response?.data?.message || 'Failed to save configuration' })
@@ -108,17 +173,39 @@ const IntegrationConfigure = () => {
     try {
       setTesting(true)
       setTestResult(null)
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+
+      const response = await api.post(`/api/integrations/${integrationName}/test`, {
+        config
+      })
+
+=======
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
       
       const response = await api.post(`/api/integrations/${integrationName}/test`, {
         config
       })
       
+<<<<<<< HEAD
+=======
+>>>>>>> 652520a5 (Claude Flow RFC related development)
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
       setTestResult({
         success: response.data.success,
         message: response.data.message,
         details: response.data.details
       })
+<<<<<<< HEAD
       
+=======
+<<<<<<< HEAD
+
+=======
+      
+>>>>>>> 652520a5 (Claude Flow RFC related development)
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
     } catch (err) {
       console.error('Test failed:', err)
       setTestResult({

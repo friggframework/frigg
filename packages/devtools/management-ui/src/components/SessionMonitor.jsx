@@ -2,7 +2,19 @@ import React, { useState, useEffect } from 'react'
 import { Clock, User, Activity, RefreshCw, XCircle } from 'lucide-react'
 import { useFrigg } from '../hooks/useFrigg'
 import { useSocket } from '../hooks/useSocket'
+<<<<<<< HEAD
 import { cn } from '../lib/utils'
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+import { cn } from '../lib/utils'
+=======
+import { cn } from '../utils/cn'
+>>>>>>> 652520a5 (Claude Flow RFC related development)
+=======
+import { cn } from '../lib/utils'
+>>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
 
 const SessionMonitor = ({ userId = null }) => {
   const { users, getAllSessions, getUserSessions, refreshSession, endSession } = useFrigg()
@@ -42,8 +54,18 @@ const SessionMonitor = ({ userId = null }) => {
     })
 
     const unsubscribeActivity = on('session:activity', (data) => {
+<<<<<<< HEAD
       setSessions(prev => prev.map(session => 
         session.id === data.sessionId 
+=======
+<<<<<<< HEAD
+      setSessions(prev => prev.map(session =>
+        session.id === data.sessionId
+=======
+      setSessions(prev => prev.map(session => 
+        session.id === data.sessionId 
+>>>>>>> 652520a5 (Claude Flow RFC related development)
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
           ? { ...session, lastActivity: data.timestamp }
           : session
       ))
@@ -93,12 +115,27 @@ const SessionMonitor = ({ userId = null }) => {
     const now = new Date()
     const expiry = new Date(expiresAt)
     const diff = expiry - now
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+
+    if (diff < 0) return 'Expired'
+
+    const minutes = Math.floor(diff / 60000)
+    const hours = Math.floor(minutes / 60)
+
+=======
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
     
     if (diff < 0) return 'Expired'
     
     const minutes = Math.floor(diff / 60000)
     const hours = Math.floor(minutes / 60)
     
+<<<<<<< HEAD
+=======
+>>>>>>> 652520a5 (Claude Flow RFC related development)
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
     if (hours > 0) return `${hours}h ${minutes % 60}m`
     return `${minutes}m`
   }
@@ -107,10 +144,23 @@ const SessionMonitor = ({ userId = null }) => {
     const now = new Date()
     const time = new Date(timestamp)
     const diff = now - time
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+
+    const minutes = Math.floor(diff / 60000)
+    const hours = Math.floor(minutes / 60)
+
+=======
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
     
     const minutes = Math.floor(diff / 60000)
     const hours = Math.floor(minutes / 60)
     
+<<<<<<< HEAD
+=======
+>>>>>>> 652520a5 (Claude Flow RFC related development)
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
     if (hours > 0) return `${hours}h ago`
     if (minutes > 0) return `${minutes}m ago`
     return 'Just now'
@@ -140,7 +190,15 @@ const SessionMonitor = ({ userId = null }) => {
           disabled={refreshing}
           className={cn(
             "flex items-center space-x-2 px-3 py-1.5 rounded-md text-sm transition-colors",
+<<<<<<< HEAD
             refreshing 
+=======
+<<<<<<< HEAD
+            refreshing
+=======
+            refreshing 
+>>>>>>> 652520a5 (Claude Flow RFC related development)
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
               ? "bg-gray-100 text-gray-400 cursor-not-allowed"
               : "bg-gray-100 text-gray-700 hover:bg-gray-200"
           )}
@@ -232,7 +290,15 @@ const SessionMonitor = ({ userId = null }) => {
                   </code>
                   <span className={cn(
                     "px-2 py-0.5 rounded-full font-medium",
+<<<<<<< HEAD
                     session.active 
+=======
+<<<<<<< HEAD
+                    session.active
+=======
+                    session.active 
+>>>>>>> 652520a5 (Claude Flow RFC related development)
+>>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
                       ? "bg-green-100 text-green-700"
                       : "bg-gray-100 text-gray-600"
                   )}>
