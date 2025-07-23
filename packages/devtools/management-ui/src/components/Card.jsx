@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -74,6 +75,8 @@ export { Card, CardHeader, CardContent, CardTitle, CardDescription }
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 =======
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 // Re-export shadcn Card components with filtered props
 export { 
   Card, 
@@ -83,8 +86,12 @@ export {
   CardDescription,
   CardFooter 
 <<<<<<< HEAD
+<<<<<<< HEAD
 } from './ui/card'
 =======
 } from './ui/card'
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+} from './ui/card'
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)

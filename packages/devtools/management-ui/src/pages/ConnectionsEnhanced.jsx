@@ -14,6 +14,7 @@ import api from '../services/api'
 const ConnectionsEnhanced = () => {
   const { connections, users, integrations, refreshConnections } = useFrigg()
 <<<<<<< HEAD
+<<<<<<< HEAD
   const { socket, emit, on } = useSocket()
 =======
 <<<<<<< HEAD
@@ -26,6 +27,9 @@ const ConnectionsEnhanced = () => {
   const { socket, emit, on } = useSocket()
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+  const { socket, emit, on } = useSocket()
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
   const [selectedConnection, setSelectedConnection] = useState(null)
   const [activeView, setActiveView] = useState('overview') // overview, test, health, entities, config
   const [showOAuthFlow, setShowOAuthFlow] = useState(false)
@@ -36,6 +40,7 @@ const ConnectionsEnhanced = () => {
   useEffect(() => {
     fetchConnectionStats()
 <<<<<<< HEAD
+<<<<<<< HEAD
     
 =======
 <<<<<<< HEAD
@@ -53,6 +58,8 @@ const ConnectionsEnhanced = () => {
 <<<<<<< HEAD
 =======
 =======
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     
     // Subscribe to real-time updates
     const unsubscribeUpdate = on('connection-update', handleConnectionUpdate)
@@ -60,19 +67,14 @@ const ConnectionsEnhanced = () => {
     emit('subscribe', { topics: ['connections'] })
 
     return () => {
-<<<<<<< HEAD
-      if (socket) {
-        socket.off('connection-update', handleConnectionUpdate)
-        socket.off('connection-test', handleTestUpdate)
-        socket.emit('unsubscribe', { topics: ['connections'] })
-      }
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
       if (unsubscribeUpdate) unsubscribeUpdate()
       if (unsubscribeTest) unsubscribeTest()
       emit('unsubscribe', { topics: ['connections'] })
+<<<<<<< HEAD
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     }
   }, [socket])
 
@@ -214,6 +216,7 @@ const ConnectionsEnhanced = () => {
                         setActiveView('overview')
                       }}
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
                       className={`w-full text-left p-3 rounded-lg transition-colors ${selectedConnection?.id === connection.id
@@ -222,15 +225,20 @@ const ConnectionsEnhanced = () => {
                         }`}
 =======
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                       className={`w-full text-left p-3 rounded-lg transition-colors ${
                         selectedConnection?.id === connection.id
                           ? 'bg-blue-50 border-blue-500 border'
                           : 'hover:bg-gray-50 border border-gray-200'
                       }`}
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
@@ -241,6 +249,7 @@ const ConnectionsEnhanced = () => {
                             {getUserDetails(connection.userId)}
                           </p>
                         </div>
+<<<<<<< HEAD
 <<<<<<< HEAD
                         <ConnectionHealthMonitor 
                           connectionId={connection.id} 
@@ -253,6 +262,10 @@ const ConnectionsEnhanced = () => {
                           connectionId={connection.id} 
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+                        <ConnectionHealthMonitor 
+                          connectionId={connection.id} 
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                           compact={true}
                         />
                       </div>
@@ -260,6 +273,7 @@ const ConnectionsEnhanced = () => {
                   )
                 })}
               </div>
+<<<<<<< HEAD
 <<<<<<< HEAD
               
 =======
@@ -269,6 +283,9 @@ const ConnectionsEnhanced = () => {
               
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+              
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
               {connections.length === 0 && (
                 <p className="text-center text-gray-500 py-8">
                   No connections yet. Create your first connection above.
@@ -289,6 +306,7 @@ const ConnectionsEnhanced = () => {
                     <div>
                       <h3 className="text-xl font-semibold text-gray-900">
 <<<<<<< HEAD
+<<<<<<< HEAD
                         {selectedConnection.name || 
                          getIntegrationDetails(selectedConnection.integration).displayName}
 =======
@@ -300,12 +318,17 @@ const ConnectionsEnhanced = () => {
                          getIntegrationDetails(selectedConnection.integration).displayName}
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+                        {selectedConnection.name || 
+                         getIntegrationDetails(selectedConnection.integration).displayName}
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                       </h3>
                       <p className="text-sm text-gray-500">
                         Connected by {getUserDetails(selectedConnection.userId)}
                       </p>
                     </div>
                     <div className="flex items-center space-x-2">
+<<<<<<< HEAD
 <<<<<<< HEAD
                       <StatusBadge 
 =======
@@ -315,6 +338,9 @@ const ConnectionsEnhanced = () => {
                       <StatusBadge 
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+                      <StatusBadge 
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                         status={selectedConnection.status === 'active' ? 'success' : 'error'}
                         text={selectedConnection.status}
                       />
@@ -341,6 +367,7 @@ const ConnectionsEnhanced = () => {
                         key={tab.id}
                         onClick={() => setActiveView(tab.id)}
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeView === tab.id
@@ -349,15 +376,20 @@ const ConnectionsEnhanced = () => {
                           }`}
 =======
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                           activeView === tab.id
                             ? 'text-blue-600 border-blue-600'
                             : 'text-gray-500 border-transparent hover:text-gray-700'
                         }`}
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                       >
                         {tab.label}
                       </button>
@@ -396,6 +428,7 @@ const ConnectionsEnhanced = () => {
                         <dt className="text-sm font-medium text-gray-500">Last Used</dt>
                         <dd className="mt-1 text-sm text-gray-900">
 <<<<<<< HEAD
+<<<<<<< HEAD
                           {selectedConnection.lastUsed 
 =======
 <<<<<<< HEAD
@@ -404,11 +437,15 @@ const ConnectionsEnhanced = () => {
                           {selectedConnection.lastUsed 
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+                          {selectedConnection.lastUsed 
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                             ? new Date(selectedConnection.lastUsed).toLocaleString()
                             : 'Never'}
                         </dd>
                       </div>
                     </dl>
+<<<<<<< HEAD
 <<<<<<< HEAD
                     
 =======
@@ -418,6 +455,9 @@ const ConnectionsEnhanced = () => {
                     
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+                    
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                     {selectedConnection.description && (
                       <div className="mt-4">
                         <h5 className="text-sm font-medium text-gray-500">Description</h5>
@@ -432,6 +472,7 @@ const ConnectionsEnhanced = () => {
 
               {activeView === 'test' && (
 <<<<<<< HEAD
+<<<<<<< HEAD
                 <ConnectionTester 
 =======
 <<<<<<< HEAD
@@ -440,6 +481,9 @@ const ConnectionsEnhanced = () => {
                 <ConnectionTester 
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+                <ConnectionTester 
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                   connection={selectedConnection}
                   onTestComplete={(result) => {
                     // Handle test completion
@@ -450,6 +494,7 @@ const ConnectionsEnhanced = () => {
 
               {activeView === 'health' && (
 <<<<<<< HEAD
+<<<<<<< HEAD
                 <ConnectionHealthMonitor 
 =======
 <<<<<<< HEAD
@@ -458,12 +503,16 @@ const ConnectionsEnhanced = () => {
                 <ConnectionHealthMonitor 
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+                <ConnectionHealthMonitor 
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                   connectionId={selectedConnection.id}
                   compact={false}
                 />
               )}
 
               {activeView === 'entities' && (
+<<<<<<< HEAD
 <<<<<<< HEAD
                 <EntityRelationshipMapper 
 =======
@@ -473,6 +522,9 @@ const ConnectionsEnhanced = () => {
                 <EntityRelationshipMapper 
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+                <EntityRelationshipMapper 
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                   connectionId={selectedConnection.id}
                 />
               )}
@@ -493,6 +545,7 @@ const ConnectionsEnhanced = () => {
                           Configuration
                         </h4>
 <<<<<<< HEAD
+<<<<<<< HEAD
                         <Button 
 =======
 <<<<<<< HEAD
@@ -501,6 +554,9 @@ const ConnectionsEnhanced = () => {
                         <Button 
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+                        <Button 
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                           onClick={() => setShowConfigForm(true)}
                           variant="primary"
                         >

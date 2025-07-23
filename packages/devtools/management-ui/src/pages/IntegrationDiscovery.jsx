@@ -94,7 +94,11 @@ const IntegrationDiscovery = () => {
     try {
       // Fetch both available and installed integrations in parallel
       const [availableRes, installedRes] = await Promise.all([
+<<<<<<< HEAD
         searchQuery
+=======
+        searchQuery 
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
           ? api.get(`/api/discovery/search?query=${encodeURIComponent(searchQuery)}&limit=100`)
           : api.get('/api/discovery/integrations'),
         api.get('/api/discovery/installed')
@@ -105,7 +109,11 @@ const IntegrationDiscovery = () => {
       
       // Filter by category if needed
       if (selectedCategory && selectedCategory !== 'all') {
+<<<<<<< HEAD
         available = available.filter(int =>
+=======
+        available = available.filter(int => 
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
           int.category?.toLowerCase() === selectedCategory.toLowerCase()
         )
       }
@@ -280,6 +288,7 @@ const IntegrationDiscovery = () => {
       <div className="flex items-center justify-between">
         <div>
 <<<<<<< HEAD
+<<<<<<< HEAD
           <h2 className="text-3xl font-bold text-gray-900">Integration Library</h2>
           <p className="mt-2 text-gray-600">
             Discover and add integrations to your Frigg app
@@ -300,6 +309,11 @@ const IntegrationDiscovery = () => {
             Discover and add integrations to your Frigg app
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+          <h2 className="text-3xl font-bold text-gray-900">Integration Library</h2>
+          <p className="mt-2 text-gray-600">
+            Discover and add integrations to your Frigg app
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
           </p>
         </div>
         <Button
@@ -337,6 +351,7 @@ const IntegrationDiscovery = () => {
           />
         </div>
 <<<<<<< HEAD
+<<<<<<< HEAD
         
 =======
 <<<<<<< HEAD
@@ -345,6 +360,9 @@ const IntegrationDiscovery = () => {
         
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+        
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         <div className="flex items-center gap-2">
           <select
             value={selectedCategory}
@@ -358,6 +376,7 @@ const IntegrationDiscovery = () => {
             ))}
           </select>
 <<<<<<< HEAD
+<<<<<<< HEAD
           
 =======
 <<<<<<< HEAD
@@ -366,6 +385,9 @@ const IntegrationDiscovery = () => {
           
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+          
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
           <div className="flex border border-gray-300 rounded-lg">
             <Button
               variant={viewMode === 'grid' ? 'default' : 'ghost'}
@@ -428,7 +450,11 @@ const IntegrationDiscovery = () => {
             </h3>
           </div>
           <div className={cn(
+<<<<<<< HEAD
             viewMode === 'grid'
+=======
+            viewMode === 'grid' 
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
               ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
               : 'space-y-4'
           )}>
@@ -462,6 +488,7 @@ const IntegrationDiscovery = () => {
           Available Integrations ({availableCount})
         </h3>
 <<<<<<< HEAD
+<<<<<<< HEAD
         
 =======
 <<<<<<< HEAD
@@ -470,10 +497,14 @@ const IntegrationDiscovery = () => {
         
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+        
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         {availableCount === 0 ? (
           <div className="text-center py-12">
             <Package size={48} className="mx-auto text-gray-300 mb-4" />
             <p className="text-gray-500">
+<<<<<<< HEAD
 <<<<<<< HEAD
               {searchQuery || selectedCategory !== 'all' 
 =======
@@ -483,6 +514,9 @@ const IntegrationDiscovery = () => {
               {searchQuery || selectedCategory !== 'all' 
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+              {searchQuery || selectedCategory !== 'all' 
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                 ? 'No integrations found matching your criteria'
                 : 'All available integrations are already installed'}
             </p>
@@ -501,7 +535,11 @@ const IntegrationDiscovery = () => {
           </div>
         ) : (
           <div className={cn(
+<<<<<<< HEAD
             viewMode === 'grid'
+=======
+            viewMode === 'grid' 
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
               ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
               : 'space-y-4'
           )}>

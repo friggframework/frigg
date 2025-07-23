@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { 
   Download, CheckCircle, ExternalLink, Settings, AlertCircle, 
 =======
@@ -11,12 +12,17 @@ import {
   Download, CheckCircle, ExternalLink, Settings, AlertCircle, 
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+import { 
+  Download, CheckCircle, ExternalLink, Settings, AlertCircle, 
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
   RefreshCw, TestTube, Info, Clock, TrendingUp, Shield,
   ChevronDown, ChevronUp
 } from 'lucide-react'
 import { Card, CardContent } from './Card'
 import { Button } from './Button'
 import LoadingSpinner from './LoadingSpinner'
+<<<<<<< HEAD
 <<<<<<< HEAD
 import { cn } from '../lib/utils'
 
@@ -38,6 +44,10 @@ import { cn } from '../lib/utils'
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+import { cn } from '../lib/utils'
+
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 const IntegrationCardEnhanced = ({ 
   integration, 
   onInstall, 
@@ -45,9 +55,12 @@ const IntegrationCardEnhanced = ({
   onUpdate,
   onConfigure, 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
   onTest,
   onViewDetails,
   installing = false,
@@ -59,6 +72,7 @@ const IntegrationCardEnhanced = ({
   className,
   viewMode = 'grid',
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
   ...props
@@ -68,15 +82,20 @@ const IntegrationCardEnhanced = ({
 
 =======
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
   ...props 
 }) => {
   const [expanded, setExpanded] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
   
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
   const isInstalled = integration.installed || integration.status === 'installed'
   const isProcessing = installing || uninstalling || updating
   const hasUpdate = integration.updateAvailable
@@ -118,6 +137,7 @@ const IntegrationCardEnhanced = ({
                 {getStatusIcon()}
               </div>
 <<<<<<< HEAD
+<<<<<<< HEAD
               
 =======
 <<<<<<< HEAD
@@ -126,6 +146,9 @@ const IntegrationCardEnhanced = ({
               
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+              
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
               <div className="flex-1">
                 <div className="flex items-center mb-1">
                   <h4 className="font-semibold text-foreground">
@@ -150,6 +173,7 @@ const IntegrationCardEnhanced = ({
                   )}
                 </div>
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 
@@ -159,15 +183,20 @@ const IntegrationCardEnhanced = ({
 
 =======
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                 
                 <p className="text-sm text-muted-foreground mb-2">
                   {integration.description || 'No description available'}
                 </p>
                 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                 {/* Tags and category */}
                 <div className="flex items-center gap-2">
                   <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">
@@ -203,6 +232,7 @@ const IntegrationCardEnhanced = ({
                 </Button>
               )}
 <<<<<<< HEAD
+<<<<<<< HEAD
               
 =======
 <<<<<<< HEAD
@@ -211,6 +241,9 @@ const IntegrationCardEnhanced = ({
               
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+              
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
               {isInstalled && !isProcessing && (
                 <>
                   <Button
@@ -236,6 +269,7 @@ const IntegrationCardEnhanced = ({
                 </>
               )}
 <<<<<<< HEAD
+<<<<<<< HEAD
               
 =======
 <<<<<<< HEAD
@@ -244,6 +278,9 @@ const IntegrationCardEnhanced = ({
               
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+              
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
               {isProcessing && (
                 <Button size="sm" disabled className="inline-flex items-center min-w-[100px]">
                   <LoadingSpinner size="sm" className="mr-1" />
@@ -268,6 +305,7 @@ const IntegrationCardEnhanced = ({
           {isProcessing && progress > 0 && (
             <div className="mt-3">
 <<<<<<< HEAD
+<<<<<<< HEAD
               <div className="w-full bg-muted rounded-full h-2">
                 <div 
 =======
@@ -277,11 +315,15 @@ const IntegrationCardEnhanced = ({
                 <div
 =======
 =======
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
               <div className="w-full bg-muted rounded-full h-2">
->>>>>>> d6114470 (feat: add comprehensive DDD/Hexagonal architecture RFC series)
                 <div 
+<<<<<<< HEAD
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                   className={cn("h-2 rounded-full transition-all", getProgressBarColor())}
                   style={{ width: `${progress}%` }}
                 />
@@ -330,6 +372,7 @@ const IntegrationCardEnhanced = ({
                 )}
               </div>
 <<<<<<< HEAD
+<<<<<<< HEAD
               
 =======
 <<<<<<< HEAD
@@ -338,6 +381,9 @@ const IntegrationCardEnhanced = ({
               
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+              
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
               {isInstalled && (
                 <div className="mt-4 flex justify-end gap-2">
                   {onTest && (
@@ -385,6 +431,7 @@ const IntegrationCardEnhanced = ({
               )}
             </div>
 <<<<<<< HEAD
+<<<<<<< HEAD
             
 =======
 <<<<<<< HEAD
@@ -393,6 +440,9 @@ const IntegrationCardEnhanced = ({
             
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+            
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             {/* Badges */}
             <div className="flex items-center gap-2 mb-3">
               {hasUpdate && (
@@ -412,6 +462,7 @@ const IntegrationCardEnhanced = ({
               </span>
             </div>
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 
@@ -421,15 +472,20 @@ const IntegrationCardEnhanced = ({
 
 =======
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             
             <p className="text-sm text-muted-foreground mb-3">
               {integration.description || 'No description available'}
             </p>
             
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             {integration.tags && integration.tags.length > 0 && (
               <div className="flex flex-wrap gap-1 mb-3">
                 {integration.tags.map((tag, index) => (
@@ -444,6 +500,7 @@ const IntegrationCardEnhanced = ({
             )}
           </div>
 <<<<<<< HEAD
+<<<<<<< HEAD
           
 =======
 <<<<<<< HEAD
@@ -452,6 +509,9 @@ const IntegrationCardEnhanced = ({
           
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+          
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
           <div className="flex items-center ml-4">
             {getStatusIcon()}
           </div>
@@ -462,6 +522,7 @@ const IntegrationCardEnhanced = ({
           <div className="mb-4">
             <div className="w-full bg-gray-200 rounded-full h-2">
 <<<<<<< HEAD
+<<<<<<< HEAD
               <div 
 =======
 <<<<<<< HEAD
@@ -470,6 +531,9 @@ const IntegrationCardEnhanced = ({
               <div 
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+              <div 
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                 className={cn("h-2 rounded-full transition-all", getProgressBarColor())}
                 style={{ width: `${progress}%` }}
               />
@@ -501,6 +565,7 @@ const IntegrationCardEnhanced = ({
               </Button>
             )}
 <<<<<<< HEAD
+<<<<<<< HEAD
             
 =======
 <<<<<<< HEAD
@@ -509,6 +574,9 @@ const IntegrationCardEnhanced = ({
             
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+            
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             {isInstalled && !isProcessing && (
               <>
                 <Button
@@ -534,6 +602,7 @@ const IntegrationCardEnhanced = ({
               </>
             )}
 <<<<<<< HEAD
+<<<<<<< HEAD
             
 =======
 <<<<<<< HEAD
@@ -542,6 +611,9 @@ const IntegrationCardEnhanced = ({
             
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+            
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             {isProcessing && (
               <Button size="sm" disabled className="inline-flex items-center">
                 <LoadingSpinner size="sm" className="mr-1" />
@@ -552,6 +624,7 @@ const IntegrationCardEnhanced = ({
             )}
           </div>
 <<<<<<< HEAD
+<<<<<<< HEAD
           
 =======
 <<<<<<< HEAD
@@ -560,6 +633,9 @@ const IntegrationCardEnhanced = ({
           
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+          
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
           <div className="flex items-center space-x-2">
             {integration.docsUrl && (
               <Button
@@ -573,6 +649,7 @@ const IntegrationCardEnhanced = ({
               </Button>
             )}
 <<<<<<< HEAD
+<<<<<<< HEAD
             
 =======
 <<<<<<< HEAD
@@ -581,6 +658,9 @@ const IntegrationCardEnhanced = ({
             
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+            
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             {onViewDetails && (
               <Button
                 size="sm"
@@ -593,6 +673,7 @@ const IntegrationCardEnhanced = ({
               </Button>
             )}
 <<<<<<< HEAD
+<<<<<<< HEAD
             
 =======
 <<<<<<< HEAD
@@ -601,6 +682,9 @@ const IntegrationCardEnhanced = ({
             
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+            
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             {isInstalled && (
               <Button
                 size="sm"
@@ -643,6 +727,7 @@ const IntegrationCardEnhanced = ({
               )}
             </div>
 <<<<<<< HEAD
+<<<<<<< HEAD
             
 =======
 <<<<<<< HEAD
@@ -651,6 +736,9 @@ const IntegrationCardEnhanced = ({
             
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+            
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             <div className="mt-3 flex justify-between">
               {onTest && (
                 <Button

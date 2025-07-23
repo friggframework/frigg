@@ -1,9 +1,12 @@
 import React from 'react'
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 <<<<<<< HEAD
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 import { cn } from '../lib/utils'
 import { Loader2 } from 'lucide-react'
 
@@ -27,6 +30,7 @@ const LoadingSpinner = ({ size = 'md', className, variant = 'default', ...props 
       className={cn(
         'animate-spin',
         variantClasses[variant],
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 =======
@@ -63,6 +67,8 @@ const LoadingSpinner = ({ size = 'md', className, variant = 'default', ...props 
         variantClasses[variant],
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         className
       )}
       {...props}
@@ -71,12 +77,15 @@ const LoadingSpinner = ({ size = 'md', className, variant = 'default', ...props 
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 // Full page loading spinner with industrial design
 export const LoadingPage = ({ message = 'Loading...' }) => {
   return (
@@ -90,6 +99,7 @@ export const LoadingPage = ({ message = 'Loading...' }) => {
   )
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 
 <<<<<<< HEAD
@@ -98,4 +108,6 @@ export const LoadingPage = ({ message = 'Loading...' }) => {
 =======
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 export default LoadingSpinner

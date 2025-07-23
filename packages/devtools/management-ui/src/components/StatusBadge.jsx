@@ -1,5 +1,6 @@
 import React from 'react'
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { Badge } from './ui/badge'
 import { cn } from '../lib/utils'
 import { Loader2, CheckCircle2, XCircle, AlertCircle, Circle } from 'lucide-react'
@@ -18,6 +19,11 @@ import { cn } from '../lib/utils'
 import { Loader2, CheckCircle2, XCircle, AlertCircle, Circle } from 'lucide-react'
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+import { Badge } from './ui/badge'
+import { cn } from '../lib/utils'
+import { Loader2, CheckCircle2, XCircle, AlertCircle, Circle } from 'lucide-react'
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 
 const StatusBadge = ({ status, className, showIcon = true, ...props }) => {
   const getStatusConfig = (status) => {
@@ -25,10 +31,13 @@ const StatusBadge = ({ status, className, showIcon = true, ...props }) => {
       case 'running':
         return {
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 <<<<<<< HEAD
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
           icon: CheckCircle2,
           text: 'Running',
           variant: 'default',
@@ -62,6 +71,7 @@ const StatusBadge = ({ status, className, showIcon = true, ...props }) => {
           text: 'Unknown',
           variant: 'outline',
           className: ''
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 =======
@@ -107,16 +117,21 @@ const StatusBadge = ({ status, className, showIcon = true, ...props }) => {
           className: ''
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         }
     }
   }
 
   const config = getStatusConfig(status)
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 <<<<<<< HEAD
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
   const Icon = config.icon
 
   return (
@@ -124,6 +139,7 @@ const StatusBadge = ({ status, className, showIcon = true, ...props }) => {
       variant={config.variant}
       className={cn(
         'gap-1.5 px-3 py-1 font-medium industrial-transition sharp-badge',
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 =======
@@ -142,16 +158,21 @@ const StatusBadge = ({ status, className, showIcon = true, ...props }) => {
         'gap-1.5 px-3 py-1 font-medium industrial-transition sharp-badge',
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         config.className,
         className
       )}
       {...props}
     >
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 <<<<<<< HEAD
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
       {showIcon && (
         <Icon size={14} className={cn('', config.iconClassName)} />
       )}
@@ -161,6 +182,7 @@ const StatusBadge = ({ status, className, showIcon = true, ...props }) => {
 }
 
 export { StatusBadge }
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 =======
@@ -181,4 +203,6 @@ export { StatusBadge }
 export { StatusBadge }
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 export default StatusBadge

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { User, ChevronDown, UserCircle } from 'lucide-react'
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { cn } from '../lib/utils'
 =======
 <<<<<<< HEAD
@@ -13,6 +14,9 @@ import { cn } from '../utils/cn'
 import { cn } from '../lib/utils'
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+import { cn } from '../lib/utils'
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 
 const UserContextSwitcher = ({ users, currentUser, onUserSwitch }) => {
   const [isOpen, setIsOpen] = useState(false)
@@ -47,6 +51,7 @@ const UserContextSwitcher = ({ users, currentUser, onUserSwitch }) => {
         className={cn(
           "flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors",
 <<<<<<< HEAD
+<<<<<<< HEAD
           currentUser 
             ? "bg-blue-100 text-blue-700 hover:bg-blue-200" 
 =======
@@ -58,6 +63,10 @@ const UserContextSwitcher = ({ users, currentUser, onUserSwitch }) => {
             ? "bg-blue-100 text-blue-700 hover:bg-blue-200" 
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+          currentUser 
+            ? "bg-blue-100 text-blue-700 hover:bg-blue-200" 
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             : "bg-gray-100 text-gray-700 hover:bg-gray-200"
         )}
       >
@@ -114,6 +123,7 @@ const UserContextSwitcher = ({ users, currentUser, onUserSwitch }) => {
                   </button>
                 )}
 <<<<<<< HEAD
+<<<<<<< HEAD
                 
 =======
 <<<<<<< HEAD
@@ -122,6 +132,9 @@ const UserContextSwitcher = ({ users, currentUser, onUserSwitch }) => {
                 
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+                
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                 {users.map((user) => (
                   <button
                     key={user.id}
@@ -134,6 +147,7 @@ const UserContextSwitcher = ({ users, currentUser, onUserSwitch }) => {
                     <div className={cn(
                       "w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium",
 <<<<<<< HEAD
+<<<<<<< HEAD
                       currentUser?.id === user.id 
                         ? "bg-blue-600 text-white" 
 =======
@@ -145,6 +159,10 @@ const UserContextSwitcher = ({ users, currentUser, onUserSwitch }) => {
                         ? "bg-blue-600 text-white" 
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+                      currentUser?.id === user.id 
+                        ? "bg-blue-600 text-white" 
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                         : "bg-gray-300 text-gray-700"
                     )}>
                       {user.firstName?.[0]}{user.lastName?.[0]}

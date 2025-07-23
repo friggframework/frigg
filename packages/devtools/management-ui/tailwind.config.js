@@ -1,10 +1,13 @@
 /** @type {import('tailwindcss').Config} */
 export default {
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 <<<<<<< HEAD
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 	darkMode: ["class"],
 	content: [
 		"./index.html",
@@ -65,6 +68,7 @@ export default {
 		}
 	},
 	plugins: [require("tailwindcss-animate")],
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 =======
@@ -137,4 +141,6 @@ export default {
   plugins: [require("tailwindcss-animate")],
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 }

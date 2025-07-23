@@ -3,6 +3,7 @@ import { Clock, User, Activity, RefreshCw, XCircle } from 'lucide-react'
 import { useFrigg } from '../hooks/useFrigg'
 import { useSocket } from '../hooks/useSocket'
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { cn } from '../lib/utils'
 =======
 <<<<<<< HEAD
@@ -15,6 +16,9 @@ import { cn } from '../utils/cn'
 import { cn } from '../lib/utils'
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+import { cn } from '../lib/utils'
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 
 const SessionMonitor = ({ userId = null }) => {
   const { users, getAllSessions, getUserSessions, refreshSession, endSession } = useFrigg()
@@ -55,6 +59,7 @@ const SessionMonitor = ({ userId = null }) => {
 
     const unsubscribeActivity = on('session:activity', (data) => {
 <<<<<<< HEAD
+<<<<<<< HEAD
       setSessions(prev => prev.map(session => 
         session.id === data.sessionId 
 =======
@@ -66,6 +71,10 @@ const SessionMonitor = ({ userId = null }) => {
         session.id === data.sessionId 
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+      setSessions(prev => prev.map(session => 
+        session.id === data.sessionId 
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
           ? { ...session, lastActivity: data.timestamp }
           : session
       ))
@@ -116,6 +125,7 @@ const SessionMonitor = ({ userId = null }) => {
     const expiry = new Date(expiresAt)
     const diff = expiry - now
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 
@@ -126,16 +136,21 @@ const SessionMonitor = ({ userId = null }) => {
 
 =======
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     
     if (diff < 0) return 'Expired'
     
     const minutes = Math.floor(diff / 60000)
     const hours = Math.floor(minutes / 60)
     
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     if (hours > 0) return `${hours}h ${minutes % 60}m`
     return `${minutes}m`
   }
@@ -145,6 +160,7 @@ const SessionMonitor = ({ userId = null }) => {
     const time = new Date(timestamp)
     const diff = now - time
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 
@@ -153,14 +169,19 @@ const SessionMonitor = ({ userId = null }) => {
 
 =======
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     
     const minutes = Math.floor(diff / 60000)
     const hours = Math.floor(minutes / 60)
     
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     if (hours > 0) return `${hours}h ago`
     if (minutes > 0) return `${minutes}m ago`
     return 'Just now'
@@ -191,6 +212,7 @@ const SessionMonitor = ({ userId = null }) => {
           className={cn(
             "flex items-center space-x-2 px-3 py-1.5 rounded-md text-sm transition-colors",
 <<<<<<< HEAD
+<<<<<<< HEAD
             refreshing 
 =======
 <<<<<<< HEAD
@@ -199,6 +221,9 @@ const SessionMonitor = ({ userId = null }) => {
             refreshing 
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+            refreshing 
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
               ? "bg-gray-100 text-gray-400 cursor-not-allowed"
               : "bg-gray-100 text-gray-700 hover:bg-gray-200"
           )}
@@ -291,6 +316,7 @@ const SessionMonitor = ({ userId = null }) => {
                   <span className={cn(
                     "px-2 py-0.5 rounded-full font-medium",
 <<<<<<< HEAD
+<<<<<<< HEAD
                     session.active 
 =======
 <<<<<<< HEAD
@@ -299,6 +325,9 @@ const SessionMonitor = ({ userId = null }) => {
                     session.active 
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+                    session.active 
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                       ? "bg-green-100 text-green-700"
                       : "bg-gray-100 text-gray-600"
                   )}>

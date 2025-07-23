@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './Card'
 import { Button } from './Button'
 import LoadingSpinner from './LoadingSpinner'
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { cn } from '../lib/utils'
 =======
 <<<<<<< HEAD
@@ -16,6 +17,9 @@ import { cn } from '../utils/cn'
 import { cn } from '../lib/utils'
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+import { cn } from '../lib/utils'
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 import api from '../services/api'
 import { useSocket } from '../hooks/useSocket'
 
@@ -29,6 +33,7 @@ const IntegrationStatus = ({ integrationName, className }) => {
   useEffect(() => {
     fetchStatus()
 <<<<<<< HEAD
+<<<<<<< HEAD
     
 =======
 <<<<<<< HEAD
@@ -37,6 +42,9 @@ const IntegrationStatus = ({ integrationName, className }) => {
     
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+    
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     // Subscribe to real-time updates
     const unsubscribeHealth = on('integration:health:update', (data) => {
       if (data.packageName === integrationName) {
@@ -68,6 +76,7 @@ const IntegrationStatus = ({ integrationName, className }) => {
     try {
       setLoading(true)
 <<<<<<< HEAD
+<<<<<<< HEAD
       
 =======
 <<<<<<< HEAD
@@ -76,11 +85,15 @@ const IntegrationStatus = ({ integrationName, className }) => {
       
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+      
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
       const [healthRes, metricsRes] = await Promise.all([
         api.get(`/api/discovery/health/${integrationName}`),
         api.get(`/api/integrations/${integrationName}/metrics`)
       ])
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 
@@ -89,14 +102,19 @@ const IntegrationStatus = ({ integrationName, className }) => {
 
 =======
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
       
       setStatus(healthRes.data.data)
       setMetrics(metricsRes.data.metrics)
       
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     } catch (err) {
       console.error('Failed to fetch integration status:', err)
       setStatus({
@@ -207,6 +225,7 @@ const IntegrationStatus = ({ integrationName, className }) => {
               <p className="text-xs text-blue-600 mt-1">Active Connections</p>
             </div>
 <<<<<<< HEAD
+<<<<<<< HEAD
             
 =======
 <<<<<<< HEAD
@@ -215,6 +234,9 @@ const IntegrationStatus = ({ integrationName, className }) => {
             
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+            
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             <div className="p-3 bg-green-50 rounded-lg">
               <div className="flex items-center justify-between">
                 <Activity size={16} className="text-green-500" />
@@ -225,6 +247,7 @@ const IntegrationStatus = ({ integrationName, className }) => {
               <p className="text-xs text-green-600 mt-1">Requests Today</p>
             </div>
 <<<<<<< HEAD
+<<<<<<< HEAD
             
 =======
 <<<<<<< HEAD
@@ -233,6 +256,9 @@ const IntegrationStatus = ({ integrationName, className }) => {
             
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+            
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             <div className="p-3 bg-purple-50 rounded-lg">
               <div className="flex items-center justify-between">
                 <Clock size={16} className="text-purple-500" />
@@ -243,6 +269,7 @@ const IntegrationStatus = ({ integrationName, className }) => {
               <p className="text-xs text-purple-600 mt-1">Avg Response Time</p>
             </div>
 <<<<<<< HEAD
+<<<<<<< HEAD
             
 =======
 <<<<<<< HEAD
@@ -251,6 +278,9 @@ const IntegrationStatus = ({ integrationName, className }) => {
             
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+            
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             <div className="p-3 bg-orange-50 rounded-lg">
               <div className="flex items-center justify-between">
                 <Shield size={16} className="text-orange-500" />

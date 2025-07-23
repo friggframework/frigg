@@ -59,12 +59,15 @@ const errorHandler = (err, req, res, next) => {
 };
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 /**
  * Async handler wrapper to catch errors in async route handlers
  * @param {Function} fn - Async route handler function
@@ -74,8 +77,8 @@ const asyncHandler = (fn) => (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch(next);
 };
 
-<<<<<<< HEAD
 export { errorHandler, asyncHandler };
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 export { errorHandler, asyncHandler };
@@ -86,3 +89,5 @@ export { errorHandler };
 export { errorHandler, asyncHandler };
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)

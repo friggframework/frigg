@@ -1,9 +1,12 @@
 import express from 'express'
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 <<<<<<< HEAD
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 import { spawn, exec } from 'child_process'
 import { promisify } from 'util'
 import path from 'path'
@@ -15,6 +18,7 @@ import { analyzeIntegrations } from '../../../frigg-cli/utils/integration-analyz
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const execAsync = promisify(exec)
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 =======
@@ -36,6 +40,8 @@ const __dirname = path.dirname(__filename)
 const execAsync = promisify(exec)
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 const router = express.Router()
 
 // Track project process state
@@ -61,16 +67,21 @@ router.get('/status', asyncHandler(async (req, res) => {
         const packageJsonPath = path.join(cwd, 'package.json')
         const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf8'))
 <<<<<<< HEAD
+<<<<<<< HEAD
         
 =======
 <<<<<<< HEAD
 
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+        
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         projectInfo = {
             name: packageJson.name || 'frigg-project',
             version: packageJson.version || '0.0.0',
             friggVersion: packageJson.dependencies?.['@friggframework/core'] ||
                 packageJson.devDependencies?.['@friggframework/core'] || 'unknown'
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 =======
@@ -82,6 +93,8 @@ router.get('/status', asyncHandler(async (req, res) => {
                          packageJson.devDependencies?.['@friggframework/core'] || 'unknown'
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         }
     } catch (error) {
         console.warn('Could not read package.json:', error.message)
@@ -116,6 +129,7 @@ router.post('/start', asyncHandler(async (req, res) => {
         projectStatus = 'starting'
         projectLogs = []
 <<<<<<< HEAD
+<<<<<<< HEAD
         
 =======
 <<<<<<< HEAD
@@ -128,13 +142,19 @@ router.post('/start', asyncHandler(async (req, res) => {
 <<<<<<< HEAD
 =======
 =======
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         
         // Broadcast status update via WebSocket
         const io = req.app.get('io')
         if (io) {
+<<<<<<< HEAD
             io.emit('project:status', { 
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+            io.emit('project:status', {
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                 status: 'starting',
                 message: 'Starting Frigg project...'
             })
@@ -143,6 +163,7 @@ router.post('/start', asyncHandler(async (req, res) => {
         // Find the project directory (current working directory)
         const projectPath = process.cwd()
 <<<<<<< HEAD
+<<<<<<< HEAD
         
 =======
 <<<<<<< HEAD
@@ -151,6 +172,9 @@ router.post('/start', asyncHandler(async (req, res) => {
         
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+        
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         // Build command arguments
         const args = ['run', 'start']
         if (stage !== 'dev') {
@@ -189,6 +213,7 @@ router.post('/start', asyncHandler(async (req, res) => {
                 projectLogs.shift()
             }
 <<<<<<< HEAD
+<<<<<<< HEAD
             
 =======
 <<<<<<< HEAD
@@ -197,6 +222,9 @@ router.post('/start', asyncHandler(async (req, res) => {
             
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+            
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             // Broadcast log via WebSocket
             if (io) {
                 io.emit('project:logs', log)
@@ -215,6 +243,7 @@ router.post('/start', asyncHandler(async (req, res) => {
                 projectLogs.shift()
             }
 <<<<<<< HEAD
+<<<<<<< HEAD
             
 =======
 <<<<<<< HEAD
@@ -223,6 +252,9 @@ router.post('/start', asyncHandler(async (req, res) => {
             
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+            
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             // Broadcast log via WebSocket
             if (io) {
                 io.emit('project:logs', log)
@@ -236,6 +268,7 @@ router.post('/start', asyncHandler(async (req, res) => {
             projectProcess = null
             projectStartTime = null
 <<<<<<< HEAD
+<<<<<<< HEAD
             
 =======
 <<<<<<< HEAD
@@ -244,6 +277,9 @@ router.post('/start', asyncHandler(async (req, res) => {
             
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+            
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             const statusUpdate = {
                 status: 'stopped',
                 code,
@@ -251,6 +287,7 @@ router.post('/start', asyncHandler(async (req, res) => {
                 message: `Project process exited with code ${code}`
             }
 <<<<<<< HEAD
+<<<<<<< HEAD
             
 =======
 <<<<<<< HEAD
@@ -259,6 +296,9 @@ router.post('/start', asyncHandler(async (req, res) => {
             
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+            
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             if (io) {
                 io.emit('project:status', statusUpdate)
                 if (wasRunning) {
@@ -277,6 +317,7 @@ router.post('/start', asyncHandler(async (req, res) => {
             projectProcess = null
             projectStartTime = null
 <<<<<<< HEAD
+<<<<<<< HEAD
             
 =======
 <<<<<<< HEAD
@@ -285,6 +326,9 @@ router.post('/start', asyncHandler(async (req, res) => {
             
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+            
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             if (io) {
                 io.emit('project:error', {
                     message: 'Failed to start project',
@@ -299,6 +343,7 @@ router.post('/start', asyncHandler(async (req, res) => {
         if (projectProcess && !projectProcess.killed) {
             projectStatus = 'running'
 <<<<<<< HEAD
+<<<<<<< HEAD
             
 =======
 <<<<<<< HEAD
@@ -307,6 +352,9 @@ router.post('/start', asyncHandler(async (req, res) => {
             
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+            
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             if (io) {
                 io.emit('project:status', {
                     status: 'running',
@@ -329,6 +377,7 @@ router.post('/start', asyncHandler(async (req, res) => {
         projectProcess = null
         projectStartTime = null
 <<<<<<< HEAD
+<<<<<<< HEAD
         
 =======
 <<<<<<< HEAD
@@ -337,12 +386,16 @@ router.post('/start', asyncHandler(async (req, res) => {
         
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+        
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         const io = req.app.get('io')
         if (io) {
             io.emit('project:status', { status: 'stopped' })
             io.emit('project:error', { message: error.message })
         }
 <<<<<<< HEAD
+<<<<<<< HEAD
         
 =======
 <<<<<<< HEAD
@@ -351,6 +404,9 @@ router.post('/start', asyncHandler(async (req, res) => {
         
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+        
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         return res.status(500).json(
             createErrorResponse(ERROR_CODES.PROJECT_START_FAILED, error.message)
         )
@@ -370,6 +426,7 @@ router.post('/stop', asyncHandler(async (req, res) => {
     try {
         projectStatus = 'stopping'
 <<<<<<< HEAD
+<<<<<<< HEAD
         
 =======
 <<<<<<< HEAD
@@ -378,6 +435,9 @@ router.post('/stop', asyncHandler(async (req, res) => {
         
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+        
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         const io = req.app.get('io')
         if (io) {
             io.emit('project:status', {
@@ -417,6 +477,7 @@ router.post('/restart', asyncHandler(async (req, res) => {
         if (projectProcess && projectStatus === 'running') {
             projectProcess.kill('SIGTERM')
 <<<<<<< HEAD
+<<<<<<< HEAD
             
 =======
 <<<<<<< HEAD
@@ -425,6 +486,9 @@ router.post('/restart', asyncHandler(async (req, res) => {
             
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+            
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             // Wait for process to exit
             await new Promise((resolve) => {
                 if (projectProcess) {
@@ -461,6 +525,7 @@ router.post('/restart', asyncHandler(async (req, res) => {
 router.get('/logs', asyncHandler(async (req, res) => {
     const { limit = 100, type } = req.query
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 
@@ -472,6 +537,8 @@ router.get('/logs', asyncHandler(async (req, res) => {
 
 =======
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     
     let logs = projectLogs
     
@@ -479,10 +546,13 @@ router.get('/logs', asyncHandler(async (req, res) => {
         logs = logs.filter(log => log.type === type)
     }
     
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     res.json(createStandardResponse({
         logs: logs.slice(-parseInt(limit)),
         total: logs.length
@@ -498,12 +568,15 @@ router.delete('/logs', asyncHandler(async (req, res) => {
 }))
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 /**
  * Get project metrics
  */
@@ -520,6 +593,7 @@ router.get('/metrics', asyncHandler(async (req, res) => {
         }
     }
 <<<<<<< HEAD
+<<<<<<< HEAD
     
 =======
 <<<<<<< HEAD
@@ -528,6 +602,9 @@ router.get('/metrics', asyncHandler(async (req, res) => {
     
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+    
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     res.json(createStandardResponse(metrics))
 }))
 
@@ -536,6 +613,7 @@ router.get('/metrics', asyncHandler(async (req, res) => {
  */
 router.get('/repositories', asyncHandler(async (req, res) => {
     try {
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 <<<<<<< HEAD
@@ -584,6 +662,8 @@ router.get('/repositories', asyncHandler(async (req, res) => {
             console.log('Raw output (first 500 chars):', stdout.substring(0, 500))
 =======
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         let repositories = []
         
         // First, check if we have available repositories from the CLI
@@ -628,6 +708,7 @@ router.get('/repositories', asyncHandler(async (req, res) => {
                 console.log('Raw output (first 500 chars):', stdout.substring(0, 500))
             }
 <<<<<<< HEAD
+<<<<<<< HEAD
         }
         
 =======
@@ -636,10 +717,15 @@ router.get('/repositories', asyncHandler(async (req, res) => {
 <<<<<<< HEAD
 
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+        }
+        
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         // Get current repository info
         const currentRepo = process.env.REPOSITORY_INFO ?
             JSON.parse(process.env.REPOSITORY_INFO) :
             await getCurrentRepositoryInfo()
+<<<<<<< HEAD
 <<<<<<< HEAD
         
 =======
@@ -653,6 +739,9 @@ router.get('/repositories', asyncHandler(async (req, res) => {
         
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+        
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         res.json(createStandardResponse({
             repositories,
             currentRepository: currentRepo,
@@ -675,6 +764,7 @@ router.get('/repositories', asyncHandler(async (req, res) => {
 router.post('/switch-repository', asyncHandler(async (req, res) => {
     const { repositoryPath } = req.body
 <<<<<<< HEAD
+<<<<<<< HEAD
     
 =======
 <<<<<<< HEAD
@@ -683,12 +773,16 @@ router.post('/switch-repository', asyncHandler(async (req, res) => {
     
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+    
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     if (!repositoryPath) {
         return res.status(400).json(
             createErrorResponse(ERROR_CODES.VALIDATION_ERROR, 'Repository path is required')
         )
     }
 <<<<<<< HEAD
+<<<<<<< HEAD
     
 =======
 <<<<<<< HEAD
@@ -697,6 +791,9 @@ router.post('/switch-repository', asyncHandler(async (req, res) => {
     
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+    
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     try {
         // Verify the repository exists and is valid
         const stats = await fs.stat(repositoryPath)
@@ -704,6 +801,7 @@ router.post('/switch-repository', asyncHandler(async (req, res) => {
             throw new Error('Invalid repository path')
         }
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 
@@ -713,15 +811,20 @@ router.post('/switch-repository', asyncHandler(async (req, res) => {
 
 =======
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         
         // Check if it's a valid Frigg repository
         const packageJsonPath = path.join(repositoryPath, 'package.json')
         const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf8'))
         
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         // Update environment variable
         process.env.PROJECT_ROOT = repositoryPath
         process.env.REPOSITORY_INFO = JSON.stringify({
@@ -730,6 +833,7 @@ router.post('/switch-repository', asyncHandler(async (req, res) => {
             version: packageJson.version
         })
 <<<<<<< HEAD
+<<<<<<< HEAD
         
 =======
 <<<<<<< HEAD
@@ -738,6 +842,9 @@ router.post('/switch-repository', asyncHandler(async (req, res) => {
         
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+        
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         // Stop any running processes
         if (projectProcess && projectStatus === 'running') {
             projectProcess.kill('SIGTERM')
@@ -745,6 +852,7 @@ router.post('/switch-repository', asyncHandler(async (req, res) => {
             projectProcess = null
         }
 <<<<<<< HEAD
+<<<<<<< HEAD
         
 =======
 <<<<<<< HEAD
@@ -753,6 +861,9 @@ router.post('/switch-repository', asyncHandler(async (req, res) => {
         
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+        
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         // Notify via WebSocket
         const io = req.app.get('io')
         if (io) {
@@ -765,6 +876,7 @@ router.post('/switch-repository', asyncHandler(async (req, res) => {
             })
         }
 <<<<<<< HEAD
+<<<<<<< HEAD
         
 =======
 <<<<<<< HEAD
@@ -773,6 +885,9 @@ router.post('/switch-repository', asyncHandler(async (req, res) => {
         
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+        
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         res.json(createStandardResponse({
             message: 'Repository switched successfully',
             repository: {
@@ -797,6 +912,7 @@ async function getCurrentRepositoryInfo() {
         const packageJsonPath = path.join(cwd, 'package.json')
         const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf8'))
 <<<<<<< HEAD
+<<<<<<< HEAD
         
 =======
 <<<<<<< HEAD
@@ -805,6 +921,9 @@ async function getCurrentRepositoryInfo() {
         
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+        
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         return {
             name: packageJson.name || path.basename(cwd),
             path: cwd,
@@ -822,13 +941,17 @@ async function getCurrentRepositoryInfo() {
  */
 function detectFramework(packageJson) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     const deps = {
         ...packageJson.dependencies,
         ...packageJson.devDependencies
     }
+<<<<<<< HEAD
 <<<<<<< HEAD
     
 =======
@@ -841,10 +964,14 @@ function detectFramework(packageJson) {
     
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+    
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     if (deps.react) return 'React'
     if (deps.vue) return 'Vue'
     if (deps.svelte) return 'Svelte'
     if (deps['@angular/core']) return 'Angular'
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 <<<<<<< HEAD
@@ -856,16 +983,21 @@ function detectFramework(packageJson) {
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 =======
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     
     return 'Unknown'
 }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 <<<<<<< HEAD
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 =======
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 /**
  * Analyze project integrations
  */
@@ -888,7 +1020,10 @@ router.get('/analyze-integrations', asyncHandler(async (req, res) => {
 }))
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 82b75ea9 (feat: major UI package reorganization and cleanup)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 export default router

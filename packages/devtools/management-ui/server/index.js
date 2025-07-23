@@ -13,12 +13,15 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 class FriggManagementServer {
   constructor(options = {}) {
     this.port = options.port || process.env.PORT || 3001
@@ -32,9 +35,12 @@ class FriggManagementServer {
     this.mockConnections = []
     this.envVariables = {}
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
   }
 
   async start() {
@@ -436,6 +442,7 @@ export { FriggManagementServer }
 if (import.meta.url === `file://${process.argv[1]}`) {
   const server = new FriggManagementServer()
   server.start().catch(console.error)
+<<<<<<< HEAD
 <<<<<<< HEAD
 }
 =======
@@ -861,3 +868,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 }
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+}
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)

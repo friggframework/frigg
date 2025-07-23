@@ -22,6 +22,7 @@ export const FriggProvider = ({ children }) => {
   const [connections, setConnections] = useState([])
   const [currentUser, setCurrentUser] = useState(null)
 <<<<<<< HEAD
+<<<<<<< HEAD
   const [repositories, setRepositories] = useState([])
   const [currentRepository, setCurrentRepository] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -32,12 +33,14 @@ export const FriggProvider = ({ children }) => {
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
   const [repositories, setRepositories] = useState([])
   const [currentRepository, setCurrentRepository] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
->>>>>>> d6114470 (feat: add comprehensive DDD/Hexagonal architecture RFC series)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+<<<<<<< HEAD
 =======
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 =======
@@ -45,6 +48,8 @@ export const FriggProvider = ({ children }) => {
   const [error, setError] = useState(null)
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 
   useEffect(() => {
     // Listen for status updates
@@ -119,15 +124,19 @@ export const FriggProvider = ({ children }) => {
   const fetchInitialData = async () => {
     try {
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 <<<<<<< HEAD
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
       setLoading(true)
       setError(null)
 
       const [statusRes, integrationsRes, envRes, usersRes, connectionsRes] = await Promise.all([
         api.get('/api/project/status'),
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 =======
@@ -142,6 +151,8 @@ export const FriggProvider = ({ children }) => {
         api.get('/api/project/status'),
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         api.get('/api/integrations'),
         api.get('/api/environment'),
         api.get('/api/users'),
@@ -149,26 +160,33 @@ export const FriggProvider = ({ children }) => {
       ])
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
       setStatus(statusRes.data.data?.status || statusRes.data.status || 'stopped')
       setIntegrations(integrationsRes.data.data?.integrations || integrationsRes.data.integrations || [])
       setEnvVariables(envRes.data.data?.variables || envRes.data.variables || {})
       setUsers(usersRes.data.data?.users || usersRes.data.users || [])
       setConnections(connectionsRes.data.data?.connections || connectionsRes.data.connections || [])
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     } catch (error) {
       console.error('Error fetching initial data:', error)
       setError(error.message || 'Failed to fetch data')
     } finally {
       setLoading(false)
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 =======
@@ -188,12 +206,15 @@ export const FriggProvider = ({ children }) => {
       setLoading(false)
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     }
   }
 
   const startFrigg = async (options = {}) => {
     try {
       setStatus('starting')
+<<<<<<< HEAD
 <<<<<<< HEAD
       await api.post('/api/project/start', options)
 =======
@@ -207,6 +228,9 @@ export const FriggProvider = ({ children }) => {
       await api.post('/api/project/start', options)
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+      await api.post('/api/project/start', options)
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     } catch (error) {
       console.error('Error starting Frigg:', error)
       setStatus('stopped')
@@ -215,6 +239,7 @@ export const FriggProvider = ({ children }) => {
 
   const stopFrigg = async (force = false) => {
     try {
+<<<<<<< HEAD
 <<<<<<< HEAD
       await api.post('/api/project/stop', { force })
 =======
@@ -228,6 +253,9 @@ export const FriggProvider = ({ children }) => {
       await api.post('/api/project/stop', { force })
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+      await api.post('/api/project/stop', { force })
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
       setStatus('stopped')
     } catch (error) {
       console.error('Error stopping Frigg:', error)
@@ -236,6 +264,7 @@ export const FriggProvider = ({ children }) => {
 
   const restartFrigg = async (options = {}) => {
     try {
+<<<<<<< HEAD
 <<<<<<< HEAD
       await api.post('/api/project/restart', options)
 =======
@@ -249,6 +278,9 @@ export const FriggProvider = ({ children }) => {
       await api.post('/api/project/restart', options)
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+      await api.post('/api/project/restart', options)
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     } catch (error) {
       console.error('Error restarting Frigg:', error)
     }
@@ -256,6 +288,7 @@ export const FriggProvider = ({ children }) => {
 
   const getLogs = async (limit = 100) => {
     try {
+<<<<<<< HEAD
 <<<<<<< HEAD
       const response = await api.get(`/api/project/logs?limit=${limit}`)
       return response.data.data?.logs || response.data.logs || []
@@ -273,6 +306,10 @@ export const FriggProvider = ({ children }) => {
       return response.data.data?.logs || response.data.logs || []
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+      const response = await api.get(`/api/project/logs?limit=${limit}`)
+      return response.data.data?.logs || response.data.logs || []
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     } catch (error) {
       console.error('Error fetching logs:', error)
       return []
@@ -281,6 +318,7 @@ export const FriggProvider = ({ children }) => {
 
   const getMetrics = async () => {
     try {
+<<<<<<< HEAD
 <<<<<<< HEAD
       const response = await api.get('/api/project/metrics')
       return response.data.data || response.data
@@ -298,12 +336,17 @@ export const FriggProvider = ({ children }) => {
       return response.data.data || response.data
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+      const response = await api.get('/api/project/metrics')
+      return response.data.data || response.data
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     } catch (error) {
       console.error('Error fetching metrics:', error)
       return null
     }
   }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 <<<<<<< HEAD
@@ -315,6 +358,8 @@ export const FriggProvider = ({ children }) => {
 
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
   const installIntegration = async (integrationName) => {
     try {
       const response = await api.post('/api/integrations/install', { name: integrationName })
@@ -495,6 +540,7 @@ export const FriggProvider = ({ children }) => {
     connections,
     currentUser,
 <<<<<<< HEAD
+<<<<<<< HEAD
     repositories,
     currentRepository,
     isLoading,
@@ -505,12 +551,14 @@ export const FriggProvider = ({ children }) => {
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     repositories,
     currentRepository,
     isLoading,
->>>>>>> d6114470 (feat: add comprehensive DDD/Hexagonal architecture RFC series)
     loading,
     error,
+<<<<<<< HEAD
 =======
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 =======
@@ -518,6 +566,8 @@ export const FriggProvider = ({ children }) => {
     error,
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     startFrigg,
     stopFrigg,
     restartFrigg,

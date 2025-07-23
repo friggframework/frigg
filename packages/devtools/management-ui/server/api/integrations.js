@@ -4,6 +4,7 @@ import { promisify } from 'util'
 import path from 'path'
 import fs from 'fs-extra'
 <<<<<<< HEAD
+<<<<<<< HEAD
 import fetch from 'node-fetch'
 =======
 <<<<<<< HEAD
@@ -15,6 +16,9 @@ import fetch from 'node-fetch'
 import fetch from 'node-fetch'
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+import fetch from 'node-fetch'
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 import { createStandardResponse, createErrorResponse, ERROR_CODES, asyncHandler } from '../utils/response.js'
 import { importCommonJS } from '../utils/import-commonjs.js'
 import { wsHandler } from '../websocket/handler.js'
@@ -23,15 +27,19 @@ const router = express.Router();
 const execAsync = promisify(exec);
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 <<<<<<< HEAD
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 // Helper to get available integrations from NPM
 async function getAvailableIntegrations() {
     try {
         // Search NPM registry for @friggframework/api-module-* packages
         const searchUrl = 'https://registry.npmjs.org/-/v1/search?text=@friggframework%20api-module&size=100';
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 
@@ -224,6 +232,8 @@ async function getAvailableIntegrations() {
         // Search NPM registry for @friggframework/api-module-* packages
         const searchUrl = 'https://registry.npmjs.org/-/v1/search?text=@friggframework%20api-module&size=100';
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         
         const response = await fetch(searchUrl);
         if (!response.ok) {
@@ -405,6 +415,7 @@ async function getInstalledIntegrations() {
         }
         
 <<<<<<< HEAD
+<<<<<<< HEAD
         console.log('No backend file found in any expected location');
 =======
 <<<<<<< HEAD
@@ -413,6 +424,9 @@ async function getInstalledIntegrations() {
         console.log('No backend file found in any expected location');
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+        console.log('No backend file found in any expected location');
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         return [];
     } catch (error) {
         console.error('Error reading installed integrations:', error);
@@ -421,17 +435,21 @@ async function getInstalledIntegrations() {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 // Fallback function to parse backend file if dynamic import fails
 async function parseBackendFile(filePath) {
     try {
         const backendContent = await fs.readFile(filePath, 'utf8');
         const integrations = [];
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 <<<<<<< HEAD
@@ -441,12 +459,15 @@ async function parseBackendFile(filePath) {
 
 =======
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         
         // Extract integration imports - handle both require and import statements
         const requireMatches = backendContent.match(/(?:const|let|var)\s+(\w+Integration)\s*=\s*require\(['"]([^'"]+)['"]\)/g) || [];
         const importMatches = backendContent.match(/import\s+(?:\*\s+as\s+)?(\w+Integration)\s+from\s+['"]([^'"]+)['"]/g) || [];
         const allMatches = [...requireMatches, ...importMatches];
         
+<<<<<<< HEAD
 <<<<<<< HEAD
         for (const match of allMatches) {
 =======
@@ -457,10 +478,14 @@ async function parseBackendFile(filePath) {
         for (const match of allMatches) {
 >>>>>>> d6114470 (feat: add comprehensive DDD/Hexagonal architecture RFC series)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+        for (const match of allMatches) {
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             const nameMatch = match.match(/(\w+Integration)/);
             if (nameMatch) {
                 const integrationName = nameMatch[1];
                 const serviceName = integrationName.replace('Integration', '');
+<<<<<<< HEAD
 <<<<<<< HEAD
                 
 =======
@@ -470,6 +495,9 @@ async function parseBackendFile(filePath) {
                 
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+                
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                 // Check if this integration is in the integrations array
                 if (backendContent.includes(integrationName)) {
                     integrations.push({
@@ -493,6 +521,7 @@ async function parseBackendFile(filePath) {
             }
         }
 <<<<<<< HEAD
+<<<<<<< HEAD
         
 =======
 <<<<<<< HEAD
@@ -501,6 +530,9 @@ async function parseBackendFile(filePath) {
         
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+        
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         return integrations;
     } catch (error) {
         console.error('Error parsing backend file:', error);
@@ -509,13 +541,17 @@ async function parseBackendFile(filePath) {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 // List all integrations
 router.get('/', async (req, res) => {
     try {
         const [availableApiModules, installedIntegrations] = await Promise.all([
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 =======
@@ -531,10 +567,13 @@ router.get('/', async (req, res) => {
         const [availableApiModules, installedIntegrations] = await Promise.all([
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             getAvailableIntegrations(),
             getInstalledIntegrations()
         ]);
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 <<<<<<< HEAD
@@ -542,6 +581,8 @@ router.get('/', async (req, res) => {
 =======
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         // Format available API modules (not yet integrations)
         const formattedAvailable = availableApiModules.map(apiModule => ({
             ...apiModule,
@@ -557,6 +598,7 @@ router.get('/', async (req, res) => {
             installed: true,
             status: integration.status || 'active'
         }));
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 <<<<<<< HEAD
@@ -592,6 +634,8 @@ router.get('/', async (req, res) => {
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 =======
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 
         res.json({
             // Main integrations array contains actual integrations from appDefinition
@@ -611,9 +655,12 @@ router.get('/', async (req, res) => {
                 ? `Found ${formattedIntegrations.length} active integrations from backend appDefinition`
                 : 'No integrations found in backend appDefinition'
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         });
     } catch (error) {
         res.status(500).json({
@@ -766,6 +813,7 @@ router.delete('/:integrationName', async (req, res) => {
             `${integrationName}.json`
         );
 <<<<<<< HEAD
+<<<<<<< HEAD
         
 =======
 <<<<<<< HEAD
@@ -774,6 +822,9 @@ router.delete('/:integrationName', async (req, res) => {
         
 >>>>>>> 652520a5 (Claude Flow RFC related development)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+        
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         if (await fs.pathExists(configPath)) {
             await fs.remove(configPath);
         }
@@ -807,6 +858,7 @@ router.delete('/:integrationName', async (req, res) => {
 });
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 export { getInstalledIntegrations }
 =======
 <<<<<<< HEAD
@@ -818,4 +870,7 @@ export { getInstalledIntegrations }
 export { getInstalledIntegrations }
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+export { getInstalledIntegrations }
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 export default router

@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 // Re-export shadcn Button component
 export { Button } from './ui/button'
 =======
@@ -63,3 +64,7 @@ export { Button };
 export { Button } from './ui/button'
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+// Re-export shadcn Button component
+export { Button } from './ui/button'
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)

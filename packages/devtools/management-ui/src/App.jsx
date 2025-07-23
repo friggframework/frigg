@@ -1,5 +1,6 @@
 import React from 'react'
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { BrowserRouter as Router } from 'react-router-dom'
 import AppRouter from './components/AppRouter'
 =======
@@ -26,10 +27,15 @@ import { BrowserRouter as Router } from 'react-router-dom'
 import AppRouter from './components/AppRouter'
 >>>>>>> d6114470 (feat: add comprehensive DDD/Hexagonal architecture RFC series)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+import { BrowserRouter as Router } from 'react-router-dom'
+import AppRouter from './components/AppRouter'
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 import ErrorBoundary from './components/ErrorBoundary'
 import { SocketProvider } from './hooks/useSocket'
 import { FriggProvider } from './hooks/useFrigg'
 import { ThemeProvider } from './components/theme-provider'
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 <<<<<<< HEAD
@@ -41,10 +47,13 @@ import { FriggProvider } from './hooks/useFrigg'
 =======
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 
 function App() {
   return (
     <ErrorBoundary>
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 <<<<<<< HEAD
@@ -52,6 +61,8 @@ function App() {
 =======
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
       <ThemeProvider defaultTheme="system">
         <SocketProvider>
           <FriggProvider>
@@ -61,6 +72,7 @@ function App() {
           </FriggProvider>
         </SocketProvider>
       </ThemeProvider>
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 <<<<<<< HEAD
@@ -88,6 +100,8 @@ function App() {
 =======
 >>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 >>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
+=======
+>>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     </ErrorBoundary>
   )
 }
