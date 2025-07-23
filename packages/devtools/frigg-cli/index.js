@@ -7,6 +7,7 @@ const { startCommand } = require('./start-command'); // Assuming you have a star
 const { buildCommand } = require('./build-command');
 const { deployCommand } = require('./deploy-command');
 const { generateIamCommand } = require('./generate-iam-command');
+const { uiCommand } = require('./ui-command');
 
 const program = new Command();
 
@@ -53,6 +54,13 @@ program
     .option('-v, --verbose', 'enable verbose output')
     .action(generateIamCommand);
 
+program
+    .command('ui')
+    .description('Launch the Frigg Management UI')
+    .option('-p, --port <port>', 'port to run the UI on', '3210')
+    .option('--no-open', 'do not open browser automatically')
+    .action(uiCommand);
+
 program.parse(process.argv);
 
-module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, generateIamCommand };
+module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, generateIamCommand, uiCommand };
