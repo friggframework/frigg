@@ -13,15 +13,7 @@ import api from '../services/api'
 
 const ConnectionsEnhanced = () => {
   const { connections, users, integrations, refreshConnections } = useFrigg()
-<<<<<<< HEAD
-<<<<<<< HEAD
   const { socket, emit, on } = useSocket()
-=======
-  const socket = useSocket()
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-  const { socket, emit, on } = useSocket()
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
   const [selectedConnection, setSelectedConnection] = useState(null)
   const [activeView, setActiveView] = useState('overview') // overview, test, health, entities, config
   const [showOAuthFlow, setShowOAuthFlow] = useState(false)
@@ -31,18 +23,6 @@ const ConnectionsEnhanced = () => {
 
   useEffect(() => {
     fetchConnectionStats()
-<<<<<<< HEAD
-
-    // Subscribe to real-time updates
-    const unsubscribeUpdate = on('connection-update', handleConnectionUpdate)
-    const unsubscribeTest = on('connection-test', handleTestUpdate)
-    emit('subscribe', { topics: ['connections'] })
-
-    return () => {
-      if (unsubscribeUpdate) unsubscribeUpdate()
-      if (unsubscribeTest) unsubscribeTest()
-      emit('unsubscribe', { topics: ['connections'] })
-=======
     
     // Subscribe to real-time updates
     const unsubscribeUpdate = on('connection-update', handleConnectionUpdate)
@@ -50,18 +30,9 @@ const ConnectionsEnhanced = () => {
     emit('subscribe', { topics: ['connections'] })
 
     return () => {
-<<<<<<< HEAD
-      if (socket) {
-        socket.off('connection-update', handleConnectionUpdate)
-        socket.off('connection-test', handleTestUpdate)
-        socket.emit('unsubscribe', { topics: ['connections'] })
-      }
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
       if (unsubscribeUpdate) unsubscribeUpdate()
       if (unsubscribeTest) unsubscribeTest()
       emit('unsubscribe', { topics: ['connections'] })
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
     }
   }, [socket])
 
@@ -202,18 +173,11 @@ const ConnectionsEnhanced = () => {
                         setSelectedConnection(connection)
                         setActiveView('overview')
                       }}
-<<<<<<< HEAD
-                      className={`w-full text-left p-3 rounded-lg transition-colors ${selectedConnection?.id === connection.id
-                          ? 'bg-blue-50 border-blue-500 border'
-                          : 'hover:bg-gray-50 border border-gray-200'
-                        }`}
-=======
                       className={`w-full text-left p-3 rounded-lg transition-colors ${
                         selectedConnection?.id === connection.id
                           ? 'bg-blue-50 border-blue-500 border'
                           : 'hover:bg-gray-50 border border-gray-200'
                       }`}
->>>>>>> 652520a5 (Claude Flow RFC related development)
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
@@ -224,13 +188,8 @@ const ConnectionsEnhanced = () => {
                             {getUserDetails(connection.userId)}
                           </p>
                         </div>
-<<<<<<< HEAD
-                        <ConnectionHealthMonitor
-                          connectionId={connection.id}
-=======
                         <ConnectionHealthMonitor 
                           connectionId={connection.id} 
->>>>>>> 652520a5 (Claude Flow RFC related development)
                           compact={true}
                         />
                       </div>
@@ -238,11 +197,7 @@ const ConnectionsEnhanced = () => {
                   )
                 })}
               </div>
-<<<<<<< HEAD
-
-=======
               
->>>>>>> 652520a5 (Claude Flow RFC related development)
               {connections.length === 0 && (
                 <p className="text-center text-gray-500 py-8">
                   No connections yet. Create your first connection above.
@@ -262,24 +217,15 @@ const ConnectionsEnhanced = () => {
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h3 className="text-xl font-semibold text-gray-900">
-<<<<<<< HEAD
-                        {selectedConnection.name ||
-                          getIntegrationDetails(selectedConnection.integration).displayName}
-=======
                         {selectedConnection.name || 
                          getIntegrationDetails(selectedConnection.integration).displayName}
->>>>>>> 652520a5 (Claude Flow RFC related development)
                       </h3>
                       <p className="text-sm text-gray-500">
                         Connected by {getUserDetails(selectedConnection.userId)}
                       </p>
                     </div>
                     <div className="flex items-center space-x-2">
-<<<<<<< HEAD
-                      <StatusBadge
-=======
                       <StatusBadge 
->>>>>>> 652520a5 (Claude Flow RFC related development)
                         status={selectedConnection.status === 'active' ? 'success' : 'error'}
                         text={selectedConnection.status}
                       />
@@ -305,18 +251,11 @@ const ConnectionsEnhanced = () => {
                       <button
                         key={tab.id}
                         onClick={() => setActiveView(tab.id)}
-<<<<<<< HEAD
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeView === tab.id
-                            ? 'text-blue-600 border-blue-600'
-                            : 'text-gray-500 border-transparent hover:text-gray-700'
-                          }`}
-=======
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                           activeView === tab.id
                             ? 'text-blue-600 border-blue-600'
                             : 'text-gray-500 border-transparent hover:text-gray-700'
                         }`}
->>>>>>> 652520a5 (Claude Flow RFC related development)
                       >
                         {tab.label}
                       </button>
@@ -354,21 +293,13 @@ const ConnectionsEnhanced = () => {
                       <div>
                         <dt className="text-sm font-medium text-gray-500">Last Used</dt>
                         <dd className="mt-1 text-sm text-gray-900">
-<<<<<<< HEAD
-                          {selectedConnection.lastUsed
-=======
                           {selectedConnection.lastUsed 
->>>>>>> 652520a5 (Claude Flow RFC related development)
                             ? new Date(selectedConnection.lastUsed).toLocaleString()
                             : 'Never'}
                         </dd>
                       </div>
                     </dl>
-<<<<<<< HEAD
-
-=======
                     
->>>>>>> 652520a5 (Claude Flow RFC related development)
                     {selectedConnection.description && (
                       <div className="mt-4">
                         <h5 className="text-sm font-medium text-gray-500">Description</h5>
@@ -382,11 +313,7 @@ const ConnectionsEnhanced = () => {
               )}
 
               {activeView === 'test' && (
-<<<<<<< HEAD
-                <ConnectionTester
-=======
                 <ConnectionTester 
->>>>>>> 652520a5 (Claude Flow RFC related development)
                   connection={selectedConnection}
                   onTestComplete={(result) => {
                     // Handle test completion
@@ -396,22 +323,14 @@ const ConnectionsEnhanced = () => {
               )}
 
               {activeView === 'health' && (
-<<<<<<< HEAD
-                <ConnectionHealthMonitor
-=======
                 <ConnectionHealthMonitor 
->>>>>>> 652520a5 (Claude Flow RFC related development)
                   connectionId={selectedConnection.id}
                   compact={false}
                 />
               )}
 
               {activeView === 'entities' && (
-<<<<<<< HEAD
-                <EntityRelationshipMapper
-=======
                 <EntityRelationshipMapper 
->>>>>>> 652520a5 (Claude Flow RFC related development)
                   connectionId={selectedConnection.id}
                 />
               )}
@@ -431,11 +350,7 @@ const ConnectionsEnhanced = () => {
                         <h4 className="text-lg font-semibold text-gray-900 mb-4">
                           Configuration
                         </h4>
-<<<<<<< HEAD
-                        <Button
-=======
                         <Button 
->>>>>>> 652520a5 (Claude Flow RFC related development)
                           onClick={() => setShowConfigForm(true)}
                           variant="primary"
                         >

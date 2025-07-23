@@ -3,15 +3,7 @@ import { Search, Filter, Grid3X3, List, Package } from 'lucide-react'
 import { useFrigg } from '../hooks/useFrigg'
 import IntegrationCard from '../components/IntegrationCard'
 import { Button } from '../components/Button'
-<<<<<<< HEAD
-<<<<<<< HEAD
 import { cn } from '../lib/utils'
-=======
-import { cn } from '../utils/cn'
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-import { cn } from '../lib/utils'
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 
 const Integrations = () => {
   const { integrations, installIntegration, uninstallIntegration } = useFrigg()
@@ -23,90 +15,54 @@ const Integrations = () => {
 
   // Mock available integrations - in real app, this would come from API
   const availableIntegrations = [
-<<<<<<< HEAD
     {
       name: 'slack',
       displayName: 'Slack',
-=======
-    { 
-      name: 'slack', 
-      displayName: 'Slack', 
->>>>>>> 652520a5 (Claude Flow RFC related development)
       description: 'Team communication and collaboration platform',
       category: 'communication',
       tags: ['messaging', 'team', 'notifications'],
       version: '2.1.0',
       docsUrl: 'https://docs.frigg.dev/integrations/slack'
     },
-<<<<<<< HEAD
     {
       name: 'salesforce',
       displayName: 'Salesforce',
-=======
-    { 
-      name: 'salesforce', 
-      displayName: 'Salesforce', 
->>>>>>> 652520a5 (Claude Flow RFC related development)
       description: 'Customer relationship management and sales platform',
       category: 'crm',
       tags: ['sales', 'crm', 'leads'],
       version: '1.8.2',
       docsUrl: 'https://docs.frigg.dev/integrations/salesforce'
     },
-<<<<<<< HEAD
     {
       name: 'hubspot',
       displayName: 'HubSpot',
-=======
-    { 
-      name: 'hubspot', 
-      displayName: 'HubSpot', 
->>>>>>> 652520a5 (Claude Flow RFC related development)
       description: 'Inbound marketing, sales, and service software',
       category: 'marketing',
       tags: ['marketing', 'automation', 'analytics'],
       version: '3.0.1',
       docsUrl: 'https://docs.frigg.dev/integrations/hubspot'
     },
-<<<<<<< HEAD
     {
       name: 'google-sheets',
       displayName: 'Google Sheets',
-=======
-    { 
-      name: 'google-sheets', 
-      displayName: 'Google Sheets', 
->>>>>>> 652520a5 (Claude Flow RFC related development)
       description: 'Online spreadsheet collaboration and data management',
       category: 'productivity',
       tags: ['spreadsheet', 'data', 'collaboration'],
       version: '1.5.0',
       docsUrl: 'https://docs.frigg.dev/integrations/google-sheets'
     },
-<<<<<<< HEAD
     {
       name: 'stripe',
       displayName: 'Stripe',
-=======
-    { 
-      name: 'stripe', 
-      displayName: 'Stripe', 
->>>>>>> 652520a5 (Claude Flow RFC related development)
       description: 'Online payment processing and financial services',
       category: 'payments',
       tags: ['payments', 'ecommerce', 'billing'],
       version: '2.3.1',
       docsUrl: 'https://docs.frigg.dev/integrations/stripe'
     },
-<<<<<<< HEAD
     {
       name: 'mailchimp',
       displayName: 'Mailchimp',
-=======
-    { 
-      name: 'mailchimp', 
-      displayName: 'Mailchimp', 
->>>>>>> 652520a5 (Claude Flow RFC related development)
       description: 'Email marketing and automation platform',
       category: 'marketing',
       tags: ['email', 'marketing', 'campaigns'],
@@ -127,15 +83,8 @@ const Integrations = () => {
       const matchesSearch = integration.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         integration.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
         integration.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-<<<<<<< HEAD
-
-      const matchesCategory = selectedCategory === 'all' || integration.category === selectedCategory
-
-=======
       
       const matchesCategory = selectedCategory === 'all' || integration.category === selectedCategory
-      
->>>>>>> 652520a5 (Claude Flow RFC related development)
       return matchesSearch && matchesCategory
     })
   }, [availableIntegrations, searchQuery, selectedCategory])
@@ -196,11 +145,7 @@ const Integrations = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-<<<<<<< HEAD
-
-=======
         
->>>>>>> 652520a5 (Claude Flow RFC related development)
         <div className="flex items-center gap-2">
           <select
             value={selectedCategory}
@@ -213,11 +158,7 @@ const Integrations = () => {
               </option>
             ))}
           </select>
-<<<<<<< HEAD
-
-=======
           
->>>>>>> 652520a5 (Claude Flow RFC related development)
           <div className="flex border border-gray-300 rounded-lg">
             <Button
               variant={viewMode === 'grid' ? 'default' : 'ghost'}
@@ -249,11 +190,7 @@ const Integrations = () => {
             </h3>
           </div>
           <div className={cn(
-<<<<<<< HEAD
             viewMode === 'grid'
-=======
-            viewMode === 'grid' 
->>>>>>> 652520a5 (Claude Flow RFC related development)
               ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
               : 'space-y-4'
           )}>
@@ -275,11 +212,7 @@ const Integrations = () => {
         <h3 className="text-lg font-medium text-gray-900 mb-4">
           Available Integrations ({availableForInstall.length})
         </h3>
-<<<<<<< HEAD
-
-=======
         
->>>>>>> 652520a5 (Claude Flow RFC related development)
         {availableForInstall.length === 0 ? (
           <div className="text-center py-12">
             <Package size={48} className="mx-auto text-gray-300 mb-4" />
@@ -297,11 +230,7 @@ const Integrations = () => {
           </div>
         ) : (
           <div className={cn(
-<<<<<<< HEAD
             viewMode === 'grid'
-=======
-            viewMode === 'grid' 
->>>>>>> 652520a5 (Claude Flow RFC related development)
               ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
               : 'space-y-4'
           )}>

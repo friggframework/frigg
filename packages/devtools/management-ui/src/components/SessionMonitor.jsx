@@ -2,15 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Clock, User, Activity, RefreshCw, XCircle } from 'lucide-react'
 import { useFrigg } from '../hooks/useFrigg'
 import { useSocket } from '../hooks/useSocket'
-<<<<<<< HEAD
-<<<<<<< HEAD
 import { cn } from '../lib/utils'
-=======
-import { cn } from '../utils/cn'
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-import { cn } from '../lib/utils'
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
 
 const SessionMonitor = ({ userId = null }) => {
   const { users, getAllSessions, getUserSessions, refreshSession, endSession } = useFrigg()
@@ -50,13 +42,8 @@ const SessionMonitor = ({ userId = null }) => {
     })
 
     const unsubscribeActivity = on('session:activity', (data) => {
-<<<<<<< HEAD
-      setSessions(prev => prev.map(session =>
-        session.id === data.sessionId
-=======
       setSessions(prev => prev.map(session => 
         session.id === data.sessionId 
->>>>>>> 652520a5 (Claude Flow RFC related development)
           ? { ...session, lastActivity: data.timestamp }
           : session
       ))
@@ -106,21 +93,12 @@ const SessionMonitor = ({ userId = null }) => {
     const now = new Date()
     const expiry = new Date(expiresAt)
     const diff = expiry - now
-<<<<<<< HEAD
-
-    if (diff < 0) return 'Expired'
-
-    const minutes = Math.floor(diff / 60000)
-    const hours = Math.floor(minutes / 60)
-
-=======
     
     if (diff < 0) return 'Expired'
     
     const minutes = Math.floor(diff / 60000)
     const hours = Math.floor(minutes / 60)
     
->>>>>>> 652520a5 (Claude Flow RFC related development)
     if (hours > 0) return `${hours}h ${minutes % 60}m`
     return `${minutes}m`
   }
@@ -129,17 +107,10 @@ const SessionMonitor = ({ userId = null }) => {
     const now = new Date()
     const time = new Date(timestamp)
     const diff = now - time
-<<<<<<< HEAD
-
-    const minutes = Math.floor(diff / 60000)
-    const hours = Math.floor(minutes / 60)
-
-=======
     
     const minutes = Math.floor(diff / 60000)
     const hours = Math.floor(minutes / 60)
     
->>>>>>> 652520a5 (Claude Flow RFC related development)
     if (hours > 0) return `${hours}h ago`
     if (minutes > 0) return `${minutes}m ago`
     return 'Just now'
@@ -169,11 +140,7 @@ const SessionMonitor = ({ userId = null }) => {
           disabled={refreshing}
           className={cn(
             "flex items-center space-x-2 px-3 py-1.5 rounded-md text-sm transition-colors",
-<<<<<<< HEAD
-            refreshing
-=======
             refreshing 
->>>>>>> 652520a5 (Claude Flow RFC related development)
               ? "bg-gray-100 text-gray-400 cursor-not-allowed"
               : "bg-gray-100 text-gray-700 hover:bg-gray-200"
           )}
@@ -265,11 +232,7 @@ const SessionMonitor = ({ userId = null }) => {
                   </code>
                   <span className={cn(
                     "px-2 py-0.5 rounded-full font-medium",
-<<<<<<< HEAD
-                    session.active
-=======
                     session.active 
->>>>>>> 652520a5 (Claude Flow RFC related development)
                       ? "bg-green-100 text-green-700"
                       : "bg-gray-100 text-gray-600"
                   )}>
