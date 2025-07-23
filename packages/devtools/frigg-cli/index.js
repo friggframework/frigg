@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const { Command } = require('commander');
+const { initCommand } = require('./init-command');
 const { installCommand } = require('./install-command');
 const { startCommand } = require('./start-command'); // Assuming you have a startCommand module
 const { buildCommand } = require('./build-command');
@@ -8,6 +9,15 @@ const { deployCommand } = require('./deploy-command');
 const { generateIamCommand } = require('./generate-iam-command');
 
 const program = new Command();
+
+program
+    .command('init [templateName]')
+    .description('Initialize a new Frigg application')
+    .option('-t, --template <template>', 'template to use', 'backend-only')
+    .option('-n, --name <name>', 'project name')
+    .option('-d, --directory <directory>', 'target directory')
+    .action(initCommand);
+
 program
     .command('install [apiModuleName]')
     .description('Install an API module')
@@ -45,4 +55,4 @@ program
 
 program.parse(process.argv);
 
-module.exports = { installCommand, startCommand, buildCommand, deployCommand, generateIamCommand };
+module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, generateIamCommand };

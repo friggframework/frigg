@@ -1,0 +1,358 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.friggframework.org/api-module-definition.schema.json",
+  "title": "Frigg API Module Definition",
+  "description": "Schema for defining a Frigg API module including authentication, API configuration, and required methods.",
+  "type": "object",
+  "required": ["moduleName", "getName", "requiredAuthMethods"],
+  "properties": {
+    "API": {
+      "type": "object",
+      "description": "API class or configuration object for the module"
+    },
+    "getName": {
+      "type": "object",
+      "description": "Function that returns the module name",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["function"]
+        }
+      }
+    },
+    "moduleName": {
+      "type": "string",
+      "description": "Module name identifier",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "requiredAuthMethods": {
+      "type": "object",
+      "description": "Required authentication methods and configuration",
+      "properties": {
+        "getToken": {
+          "type": "object",
+          "description": "OAuth token retrieval method",
+          "properties": {
+            "type": {"type": "string", "enum": ["function"]},
+            "async": {"type": "boolean", "default": true}
+          }
+        },
+        "apiPropertiesToPersist": {
+          "type": "object",
+          "description": "Properties to persist for credentials and entities",
+          "required": ["credential", "entity"],
+          "properties": {
+            "credential": {
+              "type": "array",
+              "description": "Credential properties to persist",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+              },
+              "uniqueItems": true,
+              "examples": [["access_token", "refresh_token", "expires_at"]]
+            },
+            "entity": {
+              "type": "array",
+              "description": "Entity properties to persist",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+              },
+              "uniqueItems": true,
+              "examples": [["external_id", "name", "type"]]
+            }
+          },
+          "additionalProperties": false
+        },
+        "getCredentialDetails": {
+          "type": "object",
+          "description": "Method to retrieve credential details",
+          "properties": {
+            "type": {"type": "string", "enum": ["function"]},
+            "async": {"type": "boolean", "default": true}
+          }
+        },
+        "getEntityDetails": {
+          "type": "object",
+          "description": "Method to retrieve entity details",
+          "properties": {
+            "type": {"type": "string", "enum": ["function"]}, 
+            "async": {"type": "boolean", "default": true}
+          }
+        },
+        "testAuthRequest": {
+          "type": "object",
+          "description": "Method to test authentication",
+          "properties": {
+            "type": {"type": "string", "enum": ["function"]},
+            "async": {"type": "boolean", "default": true}
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "env": {
+      "type": "object",
+      "description": "Environment variable configuration",
+      "properties": {
+        "client_id": {
+          "type": "string",
+          "description": "OAuth client ID from environment variable"
+        },
+        "client_secret": {
+          "type": "string", 
+          "description": "OAuth client secret from environment variable"
+        },
+        "scope": {
+          "type": "string",
+          "description": "OAuth scope from environment variable"
+        },
+        "redirect_uri": {
+          "type": "string",
+          "description": "OAuth redirect URI from environment variable",
+          "format": "uri"
+        },
+        "api_key": {
+          "type": "string",
+          "description": "API key from environment variable"
+        },
+        "base_url": {
+          "type": "string",
+          "description": "Base API URL from environment variable",
+          "format": "uri"
+        }
+      },
+      "patternProperties": {
+        "^[A-Z][A-Z0-9_]*$": {
+          "type": "string",
+          "description": "Custom environment variable"
+        }
+      },
+      "additionalProperties": false
+    },
+    "config": {
+      "type": "object",
+      "description": "Module configuration",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Configuration name"
+        },
+        "version": {
+          "type": "string",
+          "description": "Module version",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.-]+)?$"
+        },
+        "authType": {
+          "type": "string",
+          "description": "Authentication type",
+          "enum": ["oauth2", "api-key", "basic", "bearer", "custom"]
+        },
+        "baseURL": {
+          "type": "string",
+          "description": "Base API URL",
+          "format": "uri"
+        },
+        "rateLimit": {
+          "type": "object",
+          "description": "Rate limiting configuration",
+          "properties": {
+            "requests": {
+              "type": "integer",
+              "description": "Maximum requests",
+              "minimum": 1
+            },
+            "period": {
+              "type": "string",
+              "description": "Time period for rate limit",
+              "enum": ["second", "minute", "hour", "day"]
+            }
+          },
+          "additionalProperties": false
+        },
+        "timeout": {
+          "type": "integer",
+          "description": "Request timeout in milliseconds",
+          "minimum": 1000,
+          "maximum": 300000,
+          "default": 30000
+        },
+        "retries": {
+          "type": "integer",
+          "description": "Number of retries for failed requests",
+          "minimum": 0,
+          "maximum": 10,
+          "default": 3
+        }
+      },
+      "additionalProperties": true
+    },
+    "manager": {
+      "type": "object",
+      "description": "Module manager configuration",
+      "properties": {
+        "Entity": {
+          "type": "object",
+          "description": "Entity model class"
+        },
+        "Credential": {
+          "type": "object",
+          "description": "Credential model class"
+        },
+        "methods": {
+          "type": "object",
+          "description": "Available manager methods",
+          "properties": {
+            "getInstance": {
+              "type": "object",
+              "description": "Get module instance method"
+            },
+            "getEntitiesForUserId": {
+              "type": "object", 
+              "description": "Get entities for user method"
+            },
+            "validateAuthorizationRequirements": {
+              "type": "object",
+              "description": "Validate auth requirements method"
+            },
+            "getAuthorizationRequirements": {
+              "type": "object",
+              "description": "Get auth requirements method"
+            },
+            "testAuth": {
+              "type": "object",
+              "description": "Test authentication method"
+            },
+            "processAuthorizationCallback": {
+              "type": "object",
+              "description": "Process auth callback method"
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "webhooks": {
+      "type": "object",
+      "description": "Webhook configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether webhooks are enabled",
+          "default": false
+        },
+        "endpoints": {
+          "type": "array",
+          "description": "Webhook endpoint configurations",
+          "items": {
+            "type": "object",
+            "required": ["path", "events"],
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Webhook endpoint path",
+                "pattern": "^/[a-zA-Z0-9/_-]*$"
+              },
+              "events": {
+                "type": "array",
+                "description": "Events handled by this endpoint",
+                "items": {"type": "string"},
+                "uniqueItems": true
+              },
+              "method": {
+                "type": "string",
+                "description": "HTTP method",
+                "enum": ["POST", "PUT", "PATCH"],
+                "default": "POST"
+              },
+              "authentication": {
+                "type": "object",
+                "description": "Webhook authentication requirements",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": ["signature", "token", "none"],
+                    "default": "signature"
+                  },
+                  "secret": {
+                    "type": "string",
+                    "description": "Webhook secret for signature verification"
+                  }
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "moduleName": "hubspot",
+      "getName": {
+        "type": "function"
+      },
+      "requiredAuthMethods": {
+        "getToken": {
+          "type": "function",
+          "async": true
+        },
+        "apiPropertiesToPersist": {
+          "credential": ["access_token", "refresh_token", "expires_at"],
+          "entity": ["external_id", "portal_id"]
+        },
+        "getCredentialDetails": {
+          "type": "function",
+          "async": true
+        },
+        "getEntityDetails": {
+          "type": "function",
+          "async": true
+        },
+        "testAuthRequest": {
+          "type": "function",
+          "async": true
+        }
+      },
+      "env": {
+        "client_id": "HUBSPOT_CLIENT_ID",
+        "client_secret": "HUBSPOT_CLIENT_SECRET", 
+        "scope": "HUBSPOT_SCOPE",
+        "redirect_uri": "https://api.myapp.com/auth/hubspot/callback"
+      },
+      "config": {
+        "name": "HubSpot",
+        "version": "2.0.0",
+        "authType": "oauth2",
+        "baseURL": "https://api.hubapi.com",
+        "rateLimit": {
+          "requests": 100,
+          "period": "minute"
+        },
+        "timeout": 30000,
+        "retries": 3
+      },
+      "webhooks": {
+        "enabled": true,
+        "endpoints": [
+          {
+            "path": "/webhooks/hubspot",
+            "events": ["contact.creation", "deal.propertyChange"],
+            "method": "POST",
+            "authentication": {
+              "type": "signature",
+              "secret": "HUBSPOT_WEBHOOK_SECRET"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
