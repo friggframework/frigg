@@ -76,7 +76,7 @@ Comprehensive health check that tests all service components and dependencies.
 
 **Status Codes:**
 - `200 OK` - Service is healthy (all components operational)
-- `503 Service Unavailable` - Service is unhealthy or degraded (any component failure)
+- `503 Service Unavailable` - Service is unhealthy (any component failure)
 - `401 Unauthorized` - Missing or invalid x-api-key header
 
 ### 3. Liveness Probe
