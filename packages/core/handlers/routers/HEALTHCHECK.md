@@ -9,15 +9,14 @@ The Frigg service includes comprehensive healthcheck endpoints to monitor servic
 ### 1. Basic Health Check
 **GET** `/health`
 
-Simple health check endpoint that returns basic service information. No authentication required.
+Simple health check endpoint that returns basic service information. No authentication required. This endpoint is rate-limited at the API Gateway level.
 
 **Response:**
 ```json
 {
   "status": "ok",
   "timestamp": "2024-01-10T12:00:00.000Z",
-  "service": "frigg-core-api",
-  "version": "1.0.0"
+  "service": "frigg-core-api"
 }
 ```
 
@@ -29,22 +28,23 @@ Simple health check endpoint that returns basic service information. No authenti
 
 Comprehensive health check that tests all service components and dependencies.
 
+**Authentication Required:**
+- Header: `x-api-key: YOUR_API_KEY`
+- The API key must match the `HEALTH_API_KEY` environment variable
+
 **Response:**
 ```json
 {
   "service": "frigg-core-api",
-  "status": "healthy",  // "healthy", "degraded", or "unhealthy"
+  "status": "healthy",  // "healthy" or "unhealthy"
   "timestamp": "2024-01-10T12:00:00.000Z",
-  "version": "1.0.0",
-  "uptime": 3600,  // seconds
   "checks": {
     "database": {
       "status": "healthy",
       "state": "connected",
-      "type": "mongodb",
       "responseTime": 5  // milliseconds
     },
-    "external_apis": {
+    "externalApis": {
       "github": {
         "status": "healthy",
         "statusCode": 200,
@@ -68,13 +68,6 @@ Comprehensive health check that tests all service components and dependencies.
         "count": 5,
         "available": ["integration1", "integration2", "..."]
       }
-    },
-    "memory": {
-      "status": "healthy",
-      "rss": "150 MB",
-      "heapTotal": "100 MB",
-      "heapUsed": "80 MB",
-      "external": "20 MB"
     }
   },
   "responseTime": 250  // total endpoint response time in milliseconds
@@ -82,13 +75,17 @@ Comprehensive health check that tests all service components and dependencies.
 ```
 
 **Status Codes:**
-- `200 OK` - Service is healthy or degraded (but operational)
-- `503 Service Unavailable` - Service is unhealthy
+- `200 OK` - Service is healthy (all components operational)
+- `503 Service Unavailable` - Service is unhealthy or degraded (any component failure)
+- `401 Unauthorized` - Missing or invalid x-api-key header
 
 ### 3. Liveness Probe
 **GET** `/health/live`
 
 Kubernetes-style liveness probe. Returns whether the service process is alive.
+
+**Authentication Required:**
+- Header: `x-api-key: YOUR_API_KEY`
 
 **Response:**
 ```json
@@ -105,6 +102,9 @@ Kubernetes-style liveness probe. Returns whether the service process is alive.
 **GET** `/health/ready`
 
 Kubernetes-style readiness probe. Returns whether the service is ready to receive traffic.
+
+**Authentication Required:**
+- Header: `x-api-key: YOUR_API_KEY`
 
 **Response:**
 ```json
@@ -125,35 +125,32 @@ Kubernetes-style readiness probe. Returns whether the service is ready to receiv
 ## Health Status Definitions
 
 - **healthy**: All components are functioning normally
-- **degraded**: Some non-critical components have issues, but core functionality is available
-- **unhealthy**: Critical components are failing, service cannot function properly
+- **unhealthy**: Any component is failing, service may not function properly
 
 ## Component Checks
 
 ### Database Connectivity
-- Checks MongoDB connection state
-- Performs ping test if connected
+- Checks database connection state
+- Performs ping test with 2-second timeout if connected
 - Reports connection state and response time
+- Database type is not exposed for security reasons
 
 ### External API Connectivity
 - Tests connectivity to external services (GitHub, npm registry)
 - Configurable timeout (default: 5 seconds)
 - Reports reachability and response times
+- Uses Promise.all for parallel checking
 
 ### Integration Status
 - Verifies available modules and integrations are loaded
 - Reports counts and lists of available components
-
-### Memory Usage
-- Reports current memory usage statistics
-- Includes RSS, heap, and external memory metrics
 
 ## Usage Examples
 
 ### Monitoring Systems
 Configure your monitoring system to poll `/health/detailed` every 30-60 seconds:
 ```bash
-curl https://your-frigg-instance.com/health/detailed
+curl -H "x-api-key: YOUR_API_KEY" https://your-frigg-instance.com/health/detailed
 ```
 
 ### Load Balancer Health Checks
@@ -168,6 +165,9 @@ livenessProbe:
   httpGet:
     path: /health/live
     port: 8080
+    httpHeaders:
+    - name: x-api-key
+      value: YOUR_API_KEY
   periodSeconds: 10
   timeoutSeconds: 5
 
@@ -175,6 +175,9 @@ readinessProbe:
   httpGet:
     path: /health/ready
     port: 8080
+    httpHeaders:
+    - name: x-api-key
+      value: YOUR_API_KEY
   initialDelaySeconds: 30
   periodSeconds: 10
 ```
@@ -192,20 +195,24 @@ const externalAPIs = [
 ```
 
 ### Adjusting Timeouts
-The default timeout for external API checks is 5 seconds. Adjust as needed:
+The default timeout for external API checks is 5 seconds. Database ping timeout is set to 2 seconds:
 ```javascript
 const checkExternalAPI = (url, timeout = 5000) => {
     // ...
 };
+
+await mongoose.connection.db.admin().ping({ maxTimeMS: 2000 });
 ```
 
 ## Best Practices
 
-1. **No Authentication**: Basic health endpoints should not require authentication to allow monitoring systems easy access
-2. **Fast Response**: Health checks should respond quickly (< 1 second)
-3. **Graceful Degradation**: Service can continue operating even if some non-critical components fail
-4. **Detailed Logging**: Failed health checks are logged for debugging
-5. **Version Information**: Always include version information for tracking deployments
+1. **Authentication**: Basic `/health` endpoint requires no authentication, but detailed endpoints require `x-api-key` header
+2. **Rate Limiting**: Configure rate limiting at the API Gateway level to prevent abuse
+3. **Fast Response**: Health checks should respond quickly (< 1 second)
+4. **Strict Status Codes**: Return 503 for any non-healthy state to ensure proper alerting
+5. **Detailed Logging**: Failed health checks are logged for debugging
+6. **Security**: No sensitive information (DB types, versions) exposed in responses
+7. **Lambda Considerations**: Uptime and memory metrics not included as they're not relevant in serverless
 
 ## Troubleshooting
 
@@ -216,15 +223,18 @@ const checkExternalAPI = (url, timeout = 5000) => {
 
 ### External API Failures
 - May indicate network issues or external service downtime
-- Service continues to operate but reports "degraded" status
-
-### Memory Issues
-- Monitor memory metrics over time
-- Consider increasing container/instance memory limits if consistently high
+- Service reports "unhealthy" status if any external API is unreachable
 
 ## Security Considerations
 
-- Health endpoints do not expose sensitive information
+- Basic health endpoint requires no authentication for monitoring compatibility
+- Detailed endpoints require `x-api-key` header authentication
+- Health endpoints do not expose sensitive information (DB types, versions, memory usage)
 - Database connection strings and credentials are never included in responses
 - External API checks use read-only endpoints
-- Consider IP whitelisting for detailed health endpoints in production
+- Rate limiting should be configured at the API Gateway level
+- Consider IP whitelisting for health endpoints in production
+
+## Environment Variables
+
+- `HEALTH_API_KEY`: Required API key for accessing detailed health endpoints
