@@ -229,7 +229,7 @@ await mongoose.connection.db.admin().ping({ maxTimeMS: 2000 });
 
 - Basic health endpoint requires no authentication for monitoring compatibility
 - Detailed endpoints require `x-api-key` header authentication
-- Health endpoints do not expose sensitive information (DB types, versions, memory usage)
+- Health endpoints do not expose sensitive information
 - Database connection strings and credentials are never included in responses
 - External API checks use read-only endpoints
 - Rate limiting should be configured at the API Gateway level
