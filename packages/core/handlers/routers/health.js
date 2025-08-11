@@ -123,8 +123,6 @@ const getEncryptionConfiguration = () => {
         hasAES,
         hasKMS,
         mode,
-        kmsKeyArn: KMS_KEY_ARN || '(not set)',
-        aesKeyId: AES_KEY_ID || '(not set)'
     };
 };
 
@@ -259,8 +257,6 @@ const checkEncryptionHealth = async () => {
             testResult,
             encryptionWorks: false,
             debug: {
-                KMS_KEY_ARN: config.kmsKeyArn,
-                AES_KEY_ID: config.aesKeyId,
                 hasKMS: config.hasKMS,
                 hasAES: config.hasAES
             }
@@ -276,8 +272,6 @@ const checkEncryptionHealth = async () => {
             bypassed: config.isBypassed,
             stage: config.stage,
             debug: {
-                KMS_KEY_ARN: config.kmsKeyArn,
-                AES_KEY_ID: config.aesKeyId,
                 hasKMS: config.hasKMS,
                 hasAES: config.hasAES
             }
@@ -291,8 +285,6 @@ const checkEncryptionHealth = async () => {
             testResult: `Encryption test failed: ${error.message}`,
             encryptionWorks: false,
             debug: {
-                KMS_KEY_ARN: config.kmsKeyArn,
-                AES_KEY_ID: config.aesKeyId,
                 hasKMS: config.hasKMS,
                 hasAES: config.hasAES
             }
