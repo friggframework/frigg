@@ -119,6 +119,41 @@ router.get('/health/detailed', async (_req, res) => {
         checks.status = 'unhealthy';
     }
 
+    try {
+        const { STAGE, BYPASS_ENCRYPTION_STAGE, KMS_KEY_ARN, AES_KEY_ID } =
+            process.env;
+        const defaultBypassStages = ['dev', 'test', 'local'];
+        const useEnv = !String(BYPASS_ENCRYPTION_STAGE) || !!BYPASS_ENCRYPTION_STAGE;
+        const bypassStages = useEnv
+            ? BYPASS_ENCRYPTION_STAGE.split(',').map((s) => s.trim())
+            : defaultBypassStages;
+        const bypassed = bypassStages.includes(STAGE);
+        const mode = KMS_KEY_ARN ? 'kms' : AES_KEY_ID ? 'aes' : 'none';
+
+        let status = 'disabled';
+        if (KMS_KEY_ARN && AES_KEY_ID) {
+            status = 'unhealthy';
+        } else if (!bypassed && mode !== 'none') {
+            status = 'enabled';
+        } else {
+            status = 'disabled';
+        }
+
+        checks.checks.encryption = {
+            status,
+            mode,
+            bypassed,
+            stage: STAGE || null,
+        };
+        if (status === 'unhealthy') checks.status = 'unhealthy';
+    } catch (error) {
+        checks.checks.encryption = {
+            status: 'unhealthy',
+            error: error.message,
+        };
+        checks.status = 'unhealthy';
+    }
+
     const externalAPIs = [
         { name: 'github', url: 'https://api.github.com/status' },
         { name: 'npm', url: 'https://registry.npmjs.org' }
