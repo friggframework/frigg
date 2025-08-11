@@ -651,6 +651,20 @@ const composeServerlessDefinition = (AppDefinition) => {
         },
     };
 
+    definition.provider.environment.BASE_URL = {
+        'Fn::Join': [
+            '',
+            [
+                'https://',
+                { Ref: 'ApiGatewayRestApi' },
+                '.execute-api.',
+                { Ref: 'AWS::Region' },
+                '.amazonaws.com/',
+                '${self:provider.stage}',
+            ],
+        ],
+    };
+
     // KMS Configuration based on App Definition
     if (AppDefinition.encryption?.useDefaultKMSForFieldLevelEncryption === true) {
         // Add KMS IAM permissions

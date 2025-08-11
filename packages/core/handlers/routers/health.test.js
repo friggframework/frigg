@@ -14,16 +14,10 @@ jest.mock('mongoose', () => ({
 
 jest.mock('./../backend-utils', () => ({
     moduleFactory: {
-        getAll: () => ({
-            'test-module': {},
-            'another-module': {}
-        })
+        moduleTypes: ['test-module', 'another-module']
     },
     integrationFactory: {
-        getAll: () => ({
-            'test-integration': {},
-            'another-integration': {}
-        })
+        integrationTypes: ['test-integration', 'another-integration']
     }
 }));
 

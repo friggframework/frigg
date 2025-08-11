@@ -141,19 +141,25 @@ router.get('/health/detailed', async (_req, res) => {
     });
 
     try {
-        const availableModules = moduleFactory.getAll();
-        const availableIntegrations = integrationFactory.getAll();
-        
+        const moduleTypes = Array.isArray(moduleFactory.moduleTypes)
+            ? moduleFactory.moduleTypes
+            : [];
+        const integrationTypes = Array.isArray(
+            integrationFactory.integrationTypes
+        )
+            ? integrationFactory.integrationTypes
+            : [];
+
         checks.checks.integrations = {
             status: 'healthy',
             modules: {
-                count: Object.keys(availableModules).length,
-                available: Object.keys(availableModules)
+                count: moduleTypes.length,
+                available: moduleTypes,
             },
             integrations: {
-                count: Object.keys(availableIntegrations).length,
-                available: Object.keys(availableIntegrations)
-            }
+                count: integrationTypes.length,
+                available: integrationTypes,
+            },
         };
     } catch (error) {
         checks.checks.integrations = {
@@ -188,8 +194,10 @@ router.get('/health/ready', async (_req, res) => {
     checks.checks.database = dbState === 1;
     
     try {
-        const modules = moduleFactory.getAll();
-        checks.checks.modules = Object.keys(modules).length > 0;
+        const moduleTypes = Array.isArray(moduleFactory.moduleTypes)
+            ? moduleFactory.moduleTypes
+            : [];
+        checks.checks.modules = moduleTypes.length > 0;
     } catch (error) {
         checks.checks.modules = false;
     }
