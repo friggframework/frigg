@@ -131,6 +131,9 @@ router.get('/health/detailed', async (_req, res) => {
         const mode = KMS_KEY_ARN ? 'kms' : AES_KEY_ID ? 'aes' : 'none';
 
         let status = 'disabled';
+        // Having both KMS_KEY_ARN and AES_KEY_ID present is considered unhealthy,
+        // as only one encryption method should be configured at a time to avoid ambiguity
+        // and potential security misconfiguration.
         if (KMS_KEY_ARN && AES_KEY_ID) {
             status = 'unhealthy';
         } else if (!bypassed && mode !== 'none') {
