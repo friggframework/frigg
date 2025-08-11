@@ -71,6 +71,292 @@ const checkExternalAPI = (url, timeout = 5000) => {
     });
 };
 
+const getDatabaseState = () => {
+    const stateMap = {
+        0: 'disconnected',
+        1: 'connected',
+        2: 'connecting',
+        3: 'disconnecting'
+    };
+    const readyState = mongoose.connection.readyState;
+    
+    return {
+        readyState,
+        stateName: stateMap[readyState],
+        isConnected: readyState === 1
+    };
+};
+
+const checkDatabaseHealth = async () => {
+    const { stateName, isConnected } = getDatabaseState();
+    const result = {
+        status: isConnected ? 'healthy' : 'unhealthy',
+        state: stateName
+    };
+
+    if (isConnected) {
+        const pingStart = Date.now();
+        await mongoose.connection.db.admin().ping({ maxTimeMS: 2000 });
+        result.responseTime = Date.now() - pingStart;
+    }
+
+    return result;
+};
+
+const getEncryptionConfiguration = () => {
+    const { STAGE, BYPASS_ENCRYPTION_STAGE, KMS_KEY_ARN, AES_KEY_ID } = process.env;
+    
+    const defaultBypassStages = ['dev', 'test', 'local'];
+    const useEnv = BYPASS_ENCRYPTION_STAGE !== undefined;
+    const bypassStages = useEnv
+        ? BYPASS_ENCRYPTION_STAGE.split(',').map((s) => s.trim())
+        : defaultBypassStages;
+    
+    const isBypassed = bypassStages.includes(STAGE);
+    const hasAES = AES_KEY_ID && AES_KEY_ID.trim() !== '';
+    const hasKMS = KMS_KEY_ARN && KMS_KEY_ARN.trim() !== '' && !hasAES;
+    const mode = hasAES ? 'aes' : hasKMS ? 'kms' : 'none';
+    
+    return {
+        stage: STAGE || null,
+        isBypassed,
+        hasAES,
+        hasKMS,
+        mode,
+        kmsKeyArn: KMS_KEY_ARN || '(not set)',
+        aesKeyId: AES_KEY_ID || '(not set)'
+    };
+};
+
+const createTestEncryptionModel = () => {
+    const { Encrypt } = require('./../../encrypt');
+    
+    const testSchema = new mongoose.Schema({
+        testSecret: { type: String, lhEncrypt: true },
+        normalField: { type: String },
+        nestedSecret: {
+            value: { type: String, lhEncrypt: true }
+        }
+    }, { timestamps: false });
+
+    testSchema.plugin(Encrypt);
+    
+    return mongoose.models.TestEncryption || 
+        mongoose.model('TestEncryption', testSchema);
+};
+
+const createTestDocument = async (TestModel) => {
+    const testData = {
+        testSecret: 'This is a secret value that should be encrypted',
+        normalField: 'This is a normal field that should not be encrypted',
+        nestedSecret: {
+            value: 'This is a nested secret that should be encrypted'
+        }
+    };
+
+    const testDoc = new TestModel(testData);
+    await testDoc.save();
+    
+    return { testDoc, testData };
+};
+
+const verifyDecryption = (retrievedDoc, originalData) => {
+    return retrievedDoc && 
+        retrievedDoc.testSecret === originalData.testSecret &&
+        retrievedDoc.normalField === originalData.normalField &&
+        retrievedDoc.nestedSecret?.value === originalData.nestedSecret.value;
+};
+
+const verifyEncryptionInDatabase = async (testDoc, originalData, TestModel) => {
+    const collectionName = TestModel.collection.name;
+    const rawDoc = await mongoose.connection.db
+        .collection(collectionName)
+        .findOne({ _id: testDoc._id });
+
+    const secretIsEncrypted = rawDoc && 
+        typeof rawDoc.testSecret === 'string' && 
+        rawDoc.testSecret.includes(':') && 
+        rawDoc.testSecret !== originalData.testSecret;
+    
+    const nestedIsEncrypted = rawDoc?.nestedSecret?.value && 
+        typeof rawDoc.nestedSecret.value === 'string' &&
+        rawDoc.nestedSecret.value.includes(':') && 
+        rawDoc.nestedSecret.value !== originalData.nestedSecret.value;
+    
+    const normalNotEncrypted = rawDoc && 
+        rawDoc.normalField === originalData.normalField;
+
+    return {
+        secretIsEncrypted,
+        nestedIsEncrypted,
+        normalNotEncrypted
+    };
+};
+
+const evaluateEncryptionTestResults = (decryptionWorks, encryptionResults) => {
+    const { secretIsEncrypted, nestedIsEncrypted, normalNotEncrypted } = encryptionResults;
+    
+    if (decryptionWorks && secretIsEncrypted && nestedIsEncrypted && normalNotEncrypted) {
+        return {
+            status: 'enabled',
+            testResult: 'Encryption and decryption verified successfully'
+        };
+    }
+    
+    if (decryptionWorks && (!secretIsEncrypted || !nestedIsEncrypted)) {
+        return {
+            status: 'unhealthy',
+            testResult: 'Fields are not being encrypted in database'
+        };
+    }
+    
+    if (decryptionWorks && !normalNotEncrypted) {
+        return {
+            status: 'unhealthy',
+            testResult: 'Normal fields are being incorrectly encrypted'
+        };
+    }
+    
+    return {
+        status: 'unhealthy',
+        testResult: 'Decryption failed or data mismatch'
+    };
+};
+
+const testEncryption = async () => {
+    const TestModel = createTestEncryptionModel();
+    const { testDoc, testData } = await createTestDocument(TestModel);
+    
+    try {
+        const retrievedDoc = await TestModel.findById(testDoc._id);
+        const decryptionWorks = verifyDecryption(retrievedDoc, testData);
+        const encryptionResults = await verifyEncryptionInDatabase(testDoc, testData, TestModel);
+        
+        const evaluation = evaluateEncryptionTestResults(decryptionWorks, encryptionResults);
+        
+        return {
+            ...evaluation,
+            encryptionWorks: decryptionWorks
+        };
+    } finally {
+        await TestModel.deleteOne({ _id: testDoc._id });
+    }
+};
+
+const checkEncryptionHealth = async () => {
+    const config = getEncryptionConfiguration();
+    
+    if (config.isBypassed || config.mode === 'none') {
+        const testResult = config.isBypassed 
+            ? 'Encryption bypassed for this stage' 
+            : 'No encryption keys configured';
+        
+        return {
+            status: 'disabled',
+            mode: config.mode,
+            bypassed: config.isBypassed,
+            stage: config.stage,
+            testResult,
+            encryptionWorks: false,
+            debug: {
+                KMS_KEY_ARN: config.kmsKeyArn,
+                AES_KEY_ID: config.aesKeyId,
+                hasKMS: config.hasKMS,
+                hasAES: config.hasAES
+            }
+        };
+    }
+
+    try {
+        const testResults = await testEncryption();
+        
+        return {
+            ...testResults,
+            mode: config.mode,
+            bypassed: config.isBypassed,
+            stage: config.stage,
+            debug: {
+                KMS_KEY_ARN: config.kmsKeyArn,
+                AES_KEY_ID: config.aesKeyId,
+                hasKMS: config.hasKMS,
+                hasAES: config.hasAES
+            }
+        };
+    } catch (error) {
+        return {
+            status: 'unhealthy',
+            mode: config.mode,
+            bypassed: config.isBypassed,
+            stage: config.stage,
+            testResult: `Encryption test failed: ${error.message}`,
+            encryptionWorks: false,
+            debug: {
+                KMS_KEY_ARN: config.kmsKeyArn,
+                AES_KEY_ID: config.aesKeyId,
+                hasKMS: config.hasKMS,
+                hasAES: config.hasAES
+            }
+        };
+    }
+};
+
+const checkExternalAPIs = async () => {
+    const apis = [
+        { name: 'github', url: 'https://api.github.com/status' },
+        { name: 'npm', url: 'https://registry.npmjs.org' }
+    ];
+
+    const results = await Promise.all(
+        apis.map(api => 
+            checkExternalAPI(api.url).then(result => ({ name: api.name, ...result }))
+        )
+    );
+    
+    const apiStatuses = {};
+    let allReachable = true;
+    
+    results.forEach(({ name, ...checkResult }) => {
+        apiStatuses[name] = checkResult;
+        if (!checkResult.reachable) {
+            allReachable = false;
+        }
+    });
+    
+    return { apiStatuses, allReachable };
+};
+
+const checkIntegrations = () => {
+    const moduleTypes = Array.isArray(moduleFactory.moduleTypes)
+        ? moduleFactory.moduleTypes
+        : [];
+    
+    const integrationTypes = Array.isArray(integrationFactory.integrationTypes)
+        ? integrationFactory.integrationTypes
+        : [];
+
+    return {
+        status: 'healthy',
+        modules: {
+            count: moduleTypes.length,
+            available: moduleTypes,
+        },
+        integrations: {
+            count: integrationTypes.length,
+            available: integrationTypes,
+        },
+    };
+};
+
+const buildHealthCheckResponse = (startTime) => {
+    return {
+        service: 'frigg-core-api',
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        checks: {},
+        calculateResponseTime: () => Date.now() - startTime
+    };
+};
+
 router.get('/health', async (_req, res) => {
     const status = {
         status: 'ok',
@@ -83,135 +369,56 @@ router.get('/health', async (_req, res) => {
 
 router.get('/health/detailed', async (_req, res) => {
     const startTime = Date.now();
-    const checks = {
-        service: 'frigg-core-api',
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        checks: {}
-    };
+    const response = buildHealthCheckResponse(startTime);
 
     try {
-        const dbState = mongoose.connection.readyState;
-        const dbStateMap = {
-            0: 'disconnected',
-            1: 'connected',
-            2: 'connecting',
-            3: 'disconnecting'
-        };
-        
-        checks.checks.database = {
-            status: dbState === 1 ? 'healthy' : 'unhealthy',
-            state: dbStateMap[dbState]
-        };
-
-        if (dbState === 1) {
-            const pingStart = Date.now();
-            await mongoose.connection.db.admin().ping({ maxTimeMS: 2000 });
-            checks.checks.database.responseTime = Date.now() - pingStart;
-        } else {
-            checks.status = 'unhealthy';
+        response.checks.database = await checkDatabaseHealth();
+        const dbState = getDatabaseState();
+        if (!dbState.isConnected) {
+            response.status = 'unhealthy';
         }
     } catch (error) {
-        checks.checks.database = {
+        response.checks.database = {
             status: 'unhealthy',
             error: error.message
         };
-        checks.status = 'unhealthy';
+        response.status = 'unhealthy';
     }
 
     try {
-        const { STAGE, BYPASS_ENCRYPTION_STAGE, KMS_KEY_ARN, AES_KEY_ID } =
-            process.env;
-        const defaultBypassStages = ['dev', 'test', 'local'];
-        const useEnv = BYPASS_ENCRYPTION_STAGE !== undefined;
-        const bypassStages = useEnv
-            ? BYPASS_ENCRYPTION_STAGE.split(',').map((s) => s.trim())
-            : defaultBypassStages;
-        const bypassed = bypassStages.includes(STAGE);
-        const mode = KMS_KEY_ARN ? 'kms' : AES_KEY_ID ? 'aes' : 'none';
-
-        let status = 'disabled';
-        // Having both KMS_KEY_ARN and AES_KEY_ID present is considered unhealthy,
-        // as only one encryption method should be configured at a time to avoid ambiguity
-        // and potential security misconfiguration.
-        if (KMS_KEY_ARN && AES_KEY_ID) {
-            status = 'unhealthy';
-        } else if (!bypassed && mode !== 'none') {
-            status = 'enabled';
-        } else {
-            status = 'disabled';
+        response.checks.encryption = await checkEncryptionHealth();
+        if (response.checks.encryption.status === 'unhealthy') {
+            response.status = 'unhealthy';
         }
-
-        checks.checks.encryption = {
-            status,
-            mode,
-            bypassed,
-            stage: STAGE || null,
-        };
-        if (status === 'unhealthy') checks.status = 'unhealthy';
     } catch (error) {
-        checks.checks.encryption = {
-            status: 'unhealthy',
-            error: error.message,
-        };
-        checks.status = 'unhealthy';
-    }
-
-    const externalAPIs = [
-        { name: 'github', url: 'https://api.github.com/status' },
-        { name: 'npm', url: 'https://registry.npmjs.org' }
-    ];
-
-    checks.checks.externalApis = {};
-    
-    const apiChecks = await Promise.all(
-        externalAPIs.map(api => 
-            checkExternalAPI(api.url).then(result => ({ name: api.name, ...result }))
-        )
-    );
-    
-    apiChecks.forEach(result => {
-        const { name, ...checkResult } = result;
-        checks.checks.externalApis[name] = checkResult;
-        if (!checkResult.reachable) {
-            checks.status = 'unhealthy';
-        }
-    });
-
-    try {
-        const moduleTypes = Array.isArray(moduleFactory.moduleTypes)
-            ? moduleFactory.moduleTypes
-            : [];
-        const integrationTypes = Array.isArray(
-            integrationFactory.integrationTypes
-        )
-            ? integrationFactory.integrationTypes
-            : [];
-
-        checks.checks.integrations = {
-            status: 'healthy',
-            modules: {
-                count: moduleTypes.length,
-                available: moduleTypes,
-            },
-            integrations: {
-                count: integrationTypes.length,
-                available: integrationTypes,
-            },
-        };
-    } catch (error) {
-        checks.checks.integrations = {
+        response.checks.encryption = {
             status: 'unhealthy',
             error: error.message
         };
-        checks.status = 'unhealthy';
+        response.status = 'unhealthy';
     }
 
-    checks.responseTime = Date.now() - startTime;
+    const { apiStatuses, allReachable } = await checkExternalAPIs();
+    response.checks.externalApis = apiStatuses;
+    if (!allReachable) {
+        response.status = 'unhealthy';
+    }
 
-    const statusCode = checks.status === 'healthy' ? 200 : 503;
+    try {
+        response.checks.integrations = checkIntegrations();
+    } catch (error) {
+        response.checks.integrations = {
+            status: 'unhealthy',
+            error: error.message
+        };
+        response.status = 'unhealthy';
+    }
 
-    res.status(statusCode).json(checks);
+    response.responseTime = response.calculateResponseTime();
+    delete response.calculateResponseTime;
+
+    const statusCode = response.status === 'healthy' ? 200 : 503;
+    res.status(statusCode).json(response);
 });
 
 router.get('/health/live', (_req, res) => {
@@ -222,28 +429,29 @@ router.get('/health/live', (_req, res) => {
 });
 
 router.get('/health/ready', async (_req, res) => {
-    const checks = {
-        ready: true,
-        timestamp: new Date().toISOString(),
-        checks: {}
-    };
-
-    const dbState = mongoose.connection.readyState;
-    checks.checks.database = dbState === 1;
+    const dbState = getDatabaseState();
+    const isDbReady = dbState.isConnected;
     
+    let areModulesReady = false;
     try {
         const moduleTypes = Array.isArray(moduleFactory.moduleTypes)
             ? moduleFactory.moduleTypes
             : [];
-        checks.checks.modules = moduleTypes.length > 0;
+        areModulesReady = moduleTypes.length > 0;
     } catch (error) {
-        checks.checks.modules = false;
+        areModulesReady = false;
     }
 
-    checks.ready = checks.checks.database && checks.checks.modules;
+    const isReady = isDbReady && areModulesReady;
 
-    const statusCode = checks.ready ? 200 : 503;
-    res.status(statusCode).json(checks);
+    res.status(isReady ? 200 : 503).json({
+        ready: isReady,
+        timestamp: new Date().toISOString(),
+        checks: {
+            database: isDbReady,
+            modules: areModulesReady
+        }
+    });
 });
 
 const handler = createAppHandler('HTTP Event: Health', router);

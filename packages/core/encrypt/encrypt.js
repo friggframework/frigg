@@ -17,7 +17,6 @@ const findOneEvents = [
 const shouldBypassEncryption = (STAGE) => {
     const defaultBypassStages = ['dev', 'test', 'local'];
     const bypassStageEnv = process.env.BYPASS_ENCRYPTION_STAGE;
-    // If the env is set to anything or an empty string, use the env. Otherwise, use the default array
     const useEnv = !String(bypassStageEnv) || !!bypassStageEnv;
     const bypassStages = useEnv
         ? bypassStageEnv.split(',').map((stage) => stage.trim())
@@ -25,19 +24,15 @@ const shouldBypassEncryption = (STAGE) => {
     return bypassStages.includes(STAGE);
 };
 
-// The Mongoose plug-in function
-function Encrypt(schema, options) {
+function Encrypt(schema) {
     const { STAGE, KMS_KEY_ARN, AES_KEY_ID } = process.env;
 
     if (shouldBypassEncryption(STAGE)) {
         return;
     }
 
-    if (KMS_KEY_ARN && AES_KEY_ID) {
-        throw new Error(
-            'Local and AWS encryption keys are both set in the environment.'
-        );
-    }
+    const hasAES = AES_KEY_ID && AES_KEY_ID.trim() !== '';
+    const hasKMS = KMS_KEY_ARN && KMS_KEY_ARN.trim() !== '' && !hasAES;
 
     const fields = Object.values(schema.paths)
         .map(({ path, options }) => (options.lhEncrypt === true ? path : ''))
@@ -48,25 +43,17 @@ function Encrypt(schema, options) {
     }
 
     const cryptor = new Cryptor({
-        // Use AWS if the CMK is present
-        shouldUseAws: !!KMS_KEY_ARN,
-        // Find all the fields in the schema with lhEncrypt === true
+        shouldUseAws: hasKMS,
         fields: fields,
     });
 
-    // ---------------------------------------------
-    // ### Encrypt fields before save/update/insert.
-    // ---------------------------------------------
-
     schema.pre('save', async function encryptionPreSave() {
-        // `this` will be a doc
         await cryptor.encryptFieldsInDocuments([this]);
     });
 
     schema.pre(
         'insertMany',
         async function encryptionPreInsertMany(_, docs, options) {
-            // `this` will be the model
             if (options?.rawResult) {
                 throw new Error(
                     'Raw result not supported for insertMany with Encrypt plugin'
@@ -78,17 +65,14 @@ function Encrypt(schema, options) {
     );
 
     schema.pre(updateOneEvents, async function encryptionPreUpdateOne() {
-        // `this` will be a query
         await cryptor.encryptFieldsInQuery(this);
     });
 
     schema.pre('updateMany', async function encryptionPreUpdateMany() {
-        // `this` will be a query
         cryptor.expectNotToUpdateManyEncrypted(this.getUpdate());
     });
 
     schema.pre('update', async function encryptionPreUpdate() {
-        // `this` will be a query
         const { multiple } = this.getOptions();
 
         if (multiple) {
@@ -99,16 +83,11 @@ function Encrypt(schema, options) {
         await cryptor.encryptFieldsInQuery(this);
     });
 
-    // --------------------------------------------
-    // ### Decrypt documents after they are loaded.
-    // --------------------------------------------
     schema.post('save', async function encryptionPreSave() {
-        // `this` will be a doc
         await cryptor.decryptFieldsInDocuments([this]);
     });
 
     schema.post(findOneEvents, async function encryptionPostFindOne(doc) {
-        // `this` will be a query
         const { rawResult } = this.getOptions();
 
         if (rawResult) {
@@ -119,12 +98,10 @@ function Encrypt(schema, options) {
     });
 
     schema.post('find', async function encryptionPostFind(docs) {
-        // `this` will be a query
         await cryptor.decryptFieldsInDocuments(docs);
     });
 
     schema.post('insertMany', async function encryptionPostInsertMany(docs) {
-        // `this` will be the model
         await cryptor.decryptFieldsInDocuments(docs);
     });
 }
