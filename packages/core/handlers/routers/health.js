@@ -123,7 +123,7 @@ router.get('/health/detailed', async (_req, res) => {
         const { STAGE, BYPASS_ENCRYPTION_STAGE, KMS_KEY_ARN, AES_KEY_ID } =
             process.env;
         const defaultBypassStages = ['dev', 'test', 'local'];
-        const useEnv = !String(BYPASS_ENCRYPTION_STAGE) || !!BYPASS_ENCRYPTION_STAGE;
+        const useEnv = BYPASS_ENCRYPTION_STAGE !== undefined;
         const bypassStages = useEnv
             ? BYPASS_ENCRYPTION_STAGE.split(',').map((s) => s.trim())
             : defaultBypassStages;
