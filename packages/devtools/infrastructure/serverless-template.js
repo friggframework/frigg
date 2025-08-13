@@ -292,6 +292,13 @@ const createVPCInfrastructure = (AppDefinition) => {
                         CidrIp: '0.0.0.0/0',
                         Description: 'HTTP outbound'
                     },
+                     {
+                         IpProtocol: 'tcp',
+                         FromPort: 27017,
+                         ToPort: 27017,
+                         CidrIp: '0.0.0.0/0',
+                         Description: 'MongoDB Atlas TLS outbound'
+                     },
                     {
                         IpProtocol: 'tcp',
                         FromPort: 53,
@@ -406,6 +413,14 @@ const createVPCInfrastructure = (AppDefinition) => {
 };
 
 const composeServerlessDefinition = (AppDefinition) => {
+    // Define CORS configuration to be used across all endpoints
+    const corsConfig = {
+        origin: '*',
+        headers: '*',
+        methods: ['ANY'],
+        allowCredentials: true,
+    };
+    
     const definition = {
         frameworkVersion: '>=3.17.0',
         service: AppDefinition.name || 'create-frigg-app',
@@ -510,21 +525,21 @@ const composeServerlessDefinition = (AppDefinition) => {
                         http: {
                             path: '/api/integrations',
                             method: 'ANY',
-                            cors: true,
+                            cors: corsConfig,
                         },
                     },
                     {
                         http: {
                             path: '/api/integrations/{proxy+}',
                             method: 'ANY',
-                            cors: true,
+                            cors: corsConfig,
                         },
                     },
                     {
                         http: {
                             path: '/api/authorize',
                             method: 'ANY',
-                            cors: true,
+                            cors: corsConfig,
                         },
                     },
                 ],
@@ -536,7 +551,7 @@ const composeServerlessDefinition = (AppDefinition) => {
                         http: {
                             path: '/user/{proxy+}',
                             method: 'ANY',
-                            cors: true,
+                            cors: corsConfig,
                         },
                     },
                 ],
@@ -548,14 +563,14 @@ const composeServerlessDefinition = (AppDefinition) => {
                         http: {
                             path: '/health',
                             method: 'GET',
-                            cors: true,
+                            cors: corsConfig,
                         },
                     },
                     {
                         http: {
                             path: '/health/{proxy+}',
                             method: 'GET',
-                            cors: true,
+                            cors: corsConfig,
                         },
                     },
                 ],
@@ -651,42 +666,109 @@ const composeServerlessDefinition = (AppDefinition) => {
         },
     };
 
-    definition.provider.environment.BASE_URL = {
-        'Fn::Join': [
-            '',
-            [
-                'https://',
-                { Ref: 'ApiGatewayRestApi' },
-                '.execute-api.',
-                { Ref: 'AWS::Region' },
-                '.amazonaws.com/',
-                '${self:provider.stage}',
+    // Configure BASE_URL based on custom domain or API Gateway
+    if (process.env.CUSTOM_DOMAIN) {
+        
+        // Configure custom domain
+        definition.custom.customDomain = {
+            domainName: process.env.CUSTOM_DOMAIN,
+            basePath: process.env.CUSTOM_BASE_PATH || '',
+            stage: '${self:provider.stage}',
+            createRoute53Record: process.env.CREATE_ROUTE53_RECORD !== 'false', // Default true
+            certificateName: process.env.CERTIFICATE_NAME || process.env.CUSTOM_DOMAIN,
+            endpointType: process.env.ENDPOINT_TYPE || 'edge', // edge, regional, or private
+            securityPolicy: process.env.SECURITY_POLICY || 'tls_1_2',
+            apiType: 'rest',
+            autoDomain: process.env.AUTO_DOMAIN === 'true', // Auto create domain if it doesn't exist
+        };
+        
+        // Set BASE_URL to custom domain
+        definition.provider.environment.BASE_URL = `https://${process.env.CUSTOM_DOMAIN}`;
+    } else {
+        // Default BASE_URL using API Gateway generated URL
+        definition.provider.environment.BASE_URL = {
+            'Fn::Join': [
+                '',
+                [
+                    'https://',
+                    { Ref: 'ApiGatewayRestApi' },
+                    '.execute-api.',
+                    { Ref: 'AWS::Region' },
+                    '.amazonaws.com/',
+                    '${self:provider.stage}',
+                ],
             ],
-        ],
+        };
+    }
+    
+    // REDIRECT_PATH is required for OAuth integrations
+    if (!process.env.REDIRECT_PATH) {
+        throw new Error(
+            'REDIRECT_PATH environment variable is required. ' +
+            'Please set REDIRECT_PATH in your .env file (e.g., REDIRECT_PATH=/oauth/callback)'
+        );
+    }
+    
+    // Set REDIRECT_URI based on domain configuration
+    if (process.env.CUSTOM_DOMAIN) {
+        definition.provider.environment.REDIRECT_URI = `https://${process.env.CUSTOM_DOMAIN}${process.env.REDIRECT_PATH}`;
+    } else {
+        definition.provider.environment.REDIRECT_URI = {
+            'Fn::Join': [
+                '',
+                [
+                    'https://',
+                    { Ref: 'ApiGatewayRestApi' },
+                    '.execute-api.',
+                    { Ref: 'AWS::Region' },
+                    '.amazonaws.com/',
+                    '${self:provider.stage}',
+                    process.env.REDIRECT_PATH,
+                ],
+            ],
+        };
+    }
+    
+    // Add REDIRECT_URI to CloudFormation outputs
+    definition.resources.Outputs = {
+        RedirectURI: {
+            Description: 'OAuth Redirect URI to register with providers',
+            Value: definition.provider.environment.REDIRECT_URI,
+        },
     };
 
     // KMS Configuration based on App Definition
     if (AppDefinition.encryption?.useDefaultKMSForFieldLevelEncryption === true) {
-        // Add KMS IAM permissions
+        // Provision a dedicated KMS key and wire it automatically
+        definition.resources.Resources.FriggKMSKey = {
+            Type: 'AWS::KMS::Key',
+            Properties: {
+                EnableKeyRotation: true,
+                KeyPolicy: {
+                    Version: '2012-10-17',
+                    Statement: [
+                        {
+                            Sid: 'AllowRootAccountAdmin',
+                            Effect: 'Allow',
+                            Principal: { AWS: { 'Fn::Sub': 'arn:aws:iam::${AWS::AccountId}:root' } },
+                            Action: 'kms:*',
+                            Resource: '*'
+                        }
+                    ]
+                }
+            }
+        };
+
         definition.provider.iamRoleStatements.push({
             Effect: 'Allow',
-            Action: [
-                'kms:GenerateDataKey',
-                'kms:Decrypt'
-            ],
-            Resource: ['${self:custom.kmsGrants.kmsKeyId}']
+            Action: ['kms:GenerateDataKey', 'kms:Decrypt'],
+            Resource: [{ 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] }]
         });
 
-        // Add KMS_KEY_ARN environment variable for Frigg Encrypt module
-        definition.provider.environment.KMS_KEY_ARN = '${self:custom.kmsGrants.kmsKeyId}';
+        definition.provider.environment.KMS_KEY_ARN = { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] };
 
-        // Add serverless-kms-grants plugin
         definition.plugins.push('serverless-kms-grants');
-
-        // Configure KMS grants with default key
-        definition.custom.kmsGrants = {
-            kmsKeyId: '*'
-        };
+        definition.custom.kmsGrants = { kmsKeyId: { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] } };
     }
 
     // VPC Configuration based on App Definition
@@ -746,7 +828,7 @@ const composeServerlessDefinition = (AppDefinition) => {
                     http: {
                         path: `/api/${integrationName}-integration/{proxy+}`,
                         method: 'ANY',
-                        cors: true,
+                        cors: corsConfig,
                     },
                 },
             ],
