@@ -1,21 +1,7 @@
 const { createIntegrationRouter } = require('@friggframework/core');
 const { createAppHandler } = require('./../app-handler-helpers');
-const {
-    loadAppDefinition,
-} = require('../app-definition-loader');
-const { UserRepository } = require('../../user/user-repository');
-const { GetUserFromBearerToken } = require('../../user/use-cases/get-user-from-bearer-token');
 
-const { userConfig } = loadAppDefinition();
-const userRepository = new UserRepository({ userConfig });
-const getUserFromBearerToken = new GetUserFromBearerToken({
-    userRepository,
-    userConfig,
-});
-
-const router = createIntegrationRouter({
-    getUserFromBearerToken,
-});
+const router = createIntegrationRouter();
 
 router.route('/redirect/:appId').get((req, res) => {
     res.redirect(

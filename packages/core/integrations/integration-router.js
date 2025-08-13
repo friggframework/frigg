@@ -8,28 +8,37 @@ const { GetIntegrationsForUser } = require('./use-cases/get-integrations-for-use
 const { CredentialRepository } = require('../credential/credential-repository');
 const { GetCredentialForUser } = require('../credential/use-cases/get-credential-for-user');
 const { CreateIntegration } = require('./use-cases/create-integration');
-const { ModuleService } = require('../module-plugin/module-service');
-const { ModuleRepository } = require('../module-plugin/module-repository');
-const { GetEntitiesForUser } = require('../module-plugin/use-cases/get-entities-for-user');
+const { ModuleFactory } = require('../modules/module-factory');
+const { ModuleRepository } = require('../modules/module-repository');
+const { GetEntitiesForUser } = require('../modules/use-cases/get-entities-for-user');
 const { loadAppDefinition } = require('../handlers/app-definition-loader');
 const { GetIntegrationInstance } = require('./use-cases/get-integration-instance');
 const { UpdateIntegration } = require('./use-cases/update-integration');
 const { getModulesDefinitionFromIntegrationClasses } = require('./utils/map-integration-dto');
+const { GetModuleInstanceFromType } = require('../modules/use-cases/get-module-instance-from-type');
+const { GetEntityOptionsByType } = require('../modules/use-cases/get-entity-options-by-type');
+const { TestModuleAuth } = require('../modules/use-cases/test-module-auth');
+const { GetModule } = require('../modules/use-cases/get-module');
+const { GetEntityOptionsById } = require('../modules/use-cases/get-entity-options-by-id');
+const { RefreshEntityOptions } = require('../modules/use-cases/refresh-entity-options');
+const { GetPossibleIntegrations } = require('./use-cases/get-possible-integrations');
+const { UserRepository } = require('../user/user-repository');
+const { GetUserFromBearerToken } = require('../user/use-cases/get-user-from-bearer-token');
+const { ProcessAuthorizationCallback } = require('../modules/use-cases/process-authorization-callback');
 
-/**
- * Creates an Express router with integration and entity routes configured
- * @param {Object} params - Configuration parameters for the router
- * @param {express.Router} [params.router] - Optional Express router instance, creates new one if not provided
- * @param {import('../user/use-cases/get-user-from-bearer-token').GetUserFromBearerToken} params.getUserFromBearerToken - Use case for retrieving a user from a bearer token
- * @returns {express.Router} Configured Express router with integration and entity routes
- */
-function createIntegrationRouter(params) {
-    const { integrations: integrationClasses } = loadAppDefinition();
+function createIntegrationRouter() {
+    const { integrations: integrationClasses, userConfig } = loadAppDefinition();
     const moduleRepository = new ModuleRepository();
     const integrationRepository = new IntegrationRepository();
     const credentialRepository = new CredentialRepository();
+    const userRepository = new UserRepository({ userConfig });
 
-    const moduleService = new ModuleService({
+    const getUserFromBearerToken = new GetUserFromBearerToken({
+        userRepository,
+        userConfig,
+    });
+
+    const moduleFactory = new ModuleFactory({
         moduleRepository,
         moduleDefinitions: getModulesDefinitionFromIntegrationClasses(integrationClasses),
     });
@@ -41,16 +50,18 @@ function createIntegrationRouter(params) {
     const getIntegrationsForUser = new GetIntegrationsForUser({
         integrationRepository,
         integrationClasses,
-        moduleService,
+        moduleFactory,
         moduleRepository,
     });
+
     const getCredentialForUser = new GetCredentialForUser({
         credentialRepository,
     });
+
     const createIntegration = new CreateIntegration({
         integrationRepository,
         integrationClasses,
-        moduleService,
+        moduleFactory,
     });
 
     const getEntitiesForUser = new GetEntitiesForUser({
@@ -61,18 +72,54 @@ function createIntegrationRouter(params) {
     const getIntegrationInstance = new GetIntegrationInstance({
         integrationRepository,
         integrationClasses,
-        moduleService,
+        moduleFactory,
     });
 
     const updateIntegration = new UpdateIntegration({
         integrationRepository,
         integrationClasses,
-        moduleService,
+        moduleFactory,
     });
 
-    const router = get(params, 'router', express());
-    const factory = get(params, 'factory');
-    const getUserFromBearerToken = get(params, 'getUserFromBearerToken');
+    const getModuleInstanceFromType = new GetModuleInstanceFromType({
+        moduleDefinitions: getModulesDefinitionFromIntegrationClasses(integrationClasses),
+    });
+
+    const getEntityOptionsByType = new GetEntityOptionsByType({
+        moduleDefinitions: getModulesDefinitionFromIntegrationClasses(integrationClasses),
+    });
+
+    const testModuleAuth = new TestModuleAuth({
+        moduleRepository,
+        moduleDefinitions: getModulesDefinitionFromIntegrationClasses(integrationClasses),
+    });
+
+    const getModule = new GetModule({
+        moduleRepository,
+        moduleDefinitions: getModulesDefinitionFromIntegrationClasses(integrationClasses),
+    });
+
+    const getEntityOptionsById = new GetEntityOptionsById({
+        moduleRepository,
+        moduleDefinitions: getModulesDefinitionFromIntegrationClasses(integrationClasses),
+    });
+
+    const refreshEntityOptions = new RefreshEntityOptions({
+        moduleRepository,
+        moduleDefinitions: getModulesDefinitionFromIntegrationClasses(integrationClasses),
+    });
+
+    const getPossibleIntegrations = new GetPossibleIntegrations({
+        integrationClasses,
+    });
+
+    const processAuthorizationCallback = new ProcessAuthorizationCallback({
+        moduleRepository,
+        credentialRepository,
+        moduleDefinitions: getModulesDefinitionFromIntegrationClasses(integrationClasses),
+    });
+
+    const router = express();
 
     setIntegrationRoutes(router, getUserFromBearerToken, {
         createIntegration,
@@ -81,9 +128,17 @@ function createIntegrationRouter(params) {
         getEntitiesForUser,
         getIntegrationInstance,
         updateIntegration,
+        getPossibleIntegrations,
     });
-    setEntityRoutes(router, factory, getUserFromBearerToken, {
+    setEntityRoutes(router, getUserFromBearerToken, {
         getCredentialForUser,
+        getModuleInstanceFromType,
+        getEntityOptionsByType,
+        testModuleAuth,
+        getModule,
+        getEntityOptionsById,
+        refreshEntityOptions,
+        processAuthorizationCallback,
     });
     return router;
 }
@@ -124,6 +179,7 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
         getEntitiesForUser,
         getIntegrationInstance,
         updateIntegration,
+        getPossibleIntegrations,
     } = useCases;
     router.route('/api/integrations').get(
         catchAsyncError(async (req, res) => {
@@ -134,9 +190,7 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
             const integrations = await getIntegrationsForUser.execute(userId);
             const results = {
                 entities: {
-                    options: integrations.map((integration) =>
-                        integration.options
-                    ),
+                    options: await getPossibleIntegrations.execute(),
                     authorized: await getEntitiesForUser.execute(userId),
                 },
                 integrations: integrations,
@@ -303,7 +357,7 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
             }
 
             const params = checkRequiredParams(req.params, ['integrationId']);
-            const integration = await getIntegrationForUser.execute(params.integrationId, user.getId());
+            const integration = await getIntegrationInstance.execute(params.integrationId, user.getId());
 
             // We could perhaps augment router with dynamic options? Haven't decided yet, but here may be the place
 
@@ -348,25 +402,19 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
 /**
  * Sets up entity-related routes for the integration router
  * @param {Object} router - Express router instance
- * @param {Object} factory - Factory object containing moduleFactory
  * @param {import('../user/use-cases/get-user-from-bearer-token').GetUserFromBearerToken} getUserFromBearerToken - Use case for retrieving a user from a bearer token
  */
-function setEntityRoutes(router, factory, getUserFromBearerToken, useCases) {
-    const { moduleFactory } = factory;
-    const { getCredentialForUser } = useCases;
-    const getModuleInstance = async (userId, entityType) => {
-        if (!moduleFactory.checkIsValidType(entityType)) {
-            throw Boom.badRequest(
-                `Error: Invalid entity type of ${entityType}, options are ${moduleFactory.moduleTypes.join(
-                    ', '
-                )}`
-            );
-        }
-        return await moduleFactory.getInstanceFromTypeName(
-            entityType,
-            userId
-        );
-    };
+function setEntityRoutes(router, getUserFromBearerToken, useCases) {
+    const {
+        getCredentialForUser,
+        getModuleInstanceFromType,
+        getEntityOptionsByType,
+        testModuleAuth,
+        getModule,
+        getEntityOptionsById,
+        refreshEntityOptions,
+        processAuthorizationCallback,
+    } = useCases;
 
     router.route('/api/authorize').get(
         catchAsyncError(async (req, res) => {
@@ -375,16 +423,15 @@ function setEntityRoutes(router, factory, getUserFromBearerToken, useCases) {
             );
             const userId = user.getId();
             const params = checkRequiredParams(req.query, ['entityType']);
-            const module = await getModuleInstance(userId, params.entityType);
-            const areRequirementsValid =
-                module.validateAuthorizationRequirements();
+            const module = await getModuleInstanceFromType.execute(userId, params.entityType);
+            const areRequirementsValid = module.validateAuthorizationRequirements();
             if (!areRequirementsValid) {
                 throw new Error(
                     `Error: Entity of type ${params.entityType} requires a valid url`
                 );
             }
 
-            res.json(await module.getAuthorizationRequirements());
+            res.json(module.getAuthorizationRequirements());
         })
     );
 
@@ -398,14 +445,10 @@ function setEntityRoutes(router, factory, getUserFromBearerToken, useCases) {
                 'entityType',
                 'data',
             ]);
-            const module = await getModuleInstance(userId, params.entityType);
 
-            res.json(
-                await module.processAuthorizationCallback({
-                    userId,
-                    data: params.data,
-                })
-            );
+            const entityDetails = await processAuthorizationCallback.execute(userId, params.entityType, params.data);
+
+            res.json(entityDetails);
         })
     );
 
@@ -431,7 +474,7 @@ function setEntityRoutes(router, factory, getUserFromBearerToken, useCases) {
                 throw Boom.badRequest('Invalid credential ID');
             }
 
-            const module = await getModuleInstance(userId, params.entityType);
+            const module = await getModuleInstanceFromType.execute(userId, params.entityType);
             const entityDetails = await module.getEntityDetails(
                 module.api,
                 null,
@@ -460,9 +503,9 @@ function setEntityRoutes(router, factory, getUserFromBearerToken, useCases) {
             }
 
             const params = checkRequiredParams(req.query, ['entityType']);
-            const module = await getModuleInstance(userId, params.entityType);
+            const entityOptions = await getEntityOptionsByType.execute(userId, params.entityType);
 
-            res.json(await module.getEntityOptions());
+            res.json(entityOptions);
         })
     );
 
@@ -473,16 +516,10 @@ function setEntityRoutes(router, factory, getUserFromBearerToken, useCases) {
             );
             const userId = user.getId();
             const params = checkRequiredParams(req.params, ['entityId']);
-            const module = await moduleFactory.getModuleInstanceFromEntityId(
+            const testAuthResponse = await testModuleAuth.execute(
                 params.entityId,
                 userId
             );
-
-            if (!module) {
-                throw Boom.notFound();
-            }
-
-            const testAuthResponse = await module.testAuth();
 
             if (!testAuthResponse) {
                 res.status(400);
@@ -508,16 +545,12 @@ function setEntityRoutes(router, factory, getUserFromBearerToken, useCases) {
             );
             const userId = user.getId();
             const params = checkRequiredParams(req.params, ['entityId']);
-            const module = await moduleFactory.getModuleInstanceFromEntityId(
+            const module = await getModule.execute(
                 params.entityId,
                 userId
             );
 
-            if (!module) {
-                throw Boom.notFound();
-            }
-
-            res.json(module.entity);
+            res.json(module);
         })
     );
 
@@ -530,16 +563,10 @@ function setEntityRoutes(router, factory, getUserFromBearerToken, useCases) {
             const params = checkRequiredParams(req.params, [
                 'entityId',
             ]);
-            const module = await moduleFactory.getModuleInstanceFromEntityId(
-                params.entityId,
-                userId
-            );
 
-            if (!module) {
-                throw Boom.notFound();
-            }
+            const entityOptions = await getEntityOptionsById.execute(params.entityId, userId);
 
-            res.json(await module.getEntityOptions());
+            res.json(entityOptions);
         })
     );
 
@@ -552,16 +579,13 @@ function setEntityRoutes(router, factory, getUserFromBearerToken, useCases) {
             const params = checkRequiredParams(req.params, [
                 'entityId',
             ]);
-            const module = await moduleFactory.getModuleInstanceFromEntityId(
+            const updatedOptions = await refreshEntityOptions.execute(
                 params.entityId,
-                userId
+                userId,
+                req.body
             );
 
-            if (!module) {
-                throw Boom.notFound();
-            }
-
-            res.json(await module.refreshEntityOptions(req.body));
+            res.json(updatedOptions);
         })
     );
 }

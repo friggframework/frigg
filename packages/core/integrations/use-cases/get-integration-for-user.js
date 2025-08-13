@@ -1,22 +1,39 @@
-const { Integration } = require('../integration');
+// Removed Integration wrapper - using IntegrationBase directly
 const { mapIntegrationClassToIntegrationDTO } = require('../utils/map-integration-dto');
+const Boom = require('@hapi/boom');
 
+/**
+ * Use case for retrieving a single integration for a specific user.
+ * @class GetIntegrationForUser
+ */
 class GetIntegrationForUser {
-    constructor({ integrationRepository, integrationClasses, moduleService, moduleRepository }) {
+    /**
+     * Creates a new GetIntegrationForUser instance.
+     * @param {Object} params - Configuration parameters.
+     * @param {import('../integration-repository').IntegrationRepository} params.integrationRepository - Repository for integration data operations.
+     * @param {Array<import('../integration').Integration>} params.integrationClasses - Array of available integration classes.
+     * @param {import('../../modules/module-factory').ModuleFactory} params.moduleFactory - Service for module instantiation and management.
+     * @param {import('../../modules/module-repository').ModuleRepository} params.moduleRepository - Repository for module and entity data operations.
+     */
+    constructor({ integrationRepository, integrationClasses, moduleFactory, moduleRepository }) {
 
         /**
          * @type {import('../integration-repository').IntegrationRepository}
          */
         this.integrationRepository = integrationRepository;
         this.integrationClasses = integrationClasses;
-        this.moduleService = moduleService;
+        this.moduleFactory = moduleFactory;
         this.moduleRepository = moduleRepository;
     }
 
     /**
-     * @param {string} integrationId
-     * @param {string} userId
-     * @returns {Promise<Integration>}
+     * Executes the retrieval of a single integration for a user.
+     * @async
+     * @param {string} integrationId - ID of the integration to retrieve.
+     * @param {string} userId - ID of the user requesting the integration.
+     * @returns {Promise<Object>} The integration DTO for the specified user.
+     * @throws {Boom.notFound} When integration with the specified ID does not exist.
+     * @throws {Boom.forbidden} When user does not have access to the integration.
      */
     async execute(integrationId, userId) {
         const integrationRecord = await this.integrationRepository.findIntegrationById(integrationId);
@@ -26,7 +43,7 @@ class GetIntegrationForUser {
             throw Boom.notFound(`Integration with id of ${integrationId} does not exist`);
         }
 
-        if (integrationRecord.user.toString() !== userId.toString()) {
+        if (integrationRecord.userId.toString() !== userId.toString()) {
             throw Boom.forbidden('User does not have access to this integration');
         }
 
@@ -36,23 +53,21 @@ class GetIntegrationForUser {
 
         const modules = [];
         for (const entity of entities) {
-            const moduleInstance = await this.moduleService.getModuleInstance(
+            const moduleInstance = await this.moduleFactory.getModuleInstance(
                 entity._id,
-                integrationRecord.user
+                integrationRecord.userId
             );
             modules.push(moduleInstance);
         }
 
-        const integrationInstance = new Integration({
+        const integrationInstance = new integrationClass({
             id: integrationRecord._id,
-            userId: integrationRecord.user,
+            userId: integrationRecord.userId,
             entities: entities,
             config: integrationRecord.config,
             status: integrationRecord.status,
             version: integrationRecord.version,
             messages: integrationRecord.messages,
-            entityReference: integrationRecord.entityReference,
-            integrationClass: integrationClass,
             modules
         });
 

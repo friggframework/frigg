@@ -1,21 +1,34 @@
 const { Router } = require('express');
 const { Worker } = require('@friggframework/core');
-const { loadAppDefinition } = require('./app-definition-loader');
 const { IntegrationRepository } = require('../integrations/integration-repository');
-const { ModuleService } = require('../module-plugin/module-service');
-const { GetIntegrationInstance } = require('../integrations/use-cases/get-integration-instance');
+const { ModuleFactory } = require('../modules/module-factory');
+const { getModulesDefinitionFromIntegrationClasses } = require('../integrations/utils/map-integration-dto');
+const { ModuleRepository } = require('../modules/module-repository');
+const { GetIntegrationInstanceByDefinition } = require('../integrations/use-cases/get-integration-instance-by-definition');
 
 const loadRouterFromObject = (IntegrationClass, routerObject) => {
+
+    const integrationRepository = new IntegrationRepository();
+    const moduleRepository = new ModuleRepository();
+    const moduleFactory = new ModuleFactory({
+        moduleRepository,
+        moduleDefinitions: getModulesDefinitionFromIntegrationClasses([IntegrationClass]),
+    });
     const router = Router();
     const { path, method, event } = routerObject;
+
     console.log(
         `Registering ${method} ${path} for ${IntegrationClass.Definition.name}`
     );
+
     router[method.toLowerCase()](path, async (req, res, next) => {
         try {
-            const integration = new IntegrationClass();
-            await integration.loadModules();
-            await integration.registerEventHandlers();
+            const getIntegrationInstanceByDefinition = new GetIntegrationInstanceByDefinition({
+                integrationRepository,
+                moduleFactory,
+                moduleRepository,
+            });
+            const integration = await getIntegrationInstanceByDefinition.execute(IntegrationClass);
             const result = await integration.send(event, { req, res, next });
             res.json(result);
         } catch (error) {
@@ -29,35 +42,25 @@ const loadRouterFromObject = (IntegrationClass, routerObject) => {
 //todo: this should be in a use case class
 const createQueueWorker = (integrationClass) => {
     class QueueWorker extends Worker {
+
+        integrationRepository = new IntegrationRepository();
+        moduleRepository = new ModuleRepository();
+        moduleFactory = new ModuleFactory({
+            moduleRepository: this.moduleRepository,
+            moduleDefinitions: getModulesDefinitionFromIntegrationClasses([integrationClass]),
+        });
+
         async _run(params, context) {
             try {
-                let integrationInstance;
-                if (!params.integrationId) {
-                    integrationInstance = new integrationClass();
-                    await integrationInstance.loadModules();
-                    await integrationInstance.registerEventHandlers();
-                    console.log(
-                        `${params.event} for ${integrationClass.Definition.name} integration with no integrationId`
-                    );
-                } else {
-                    const { integrations: integrationClasses } = loadAppDefinition();
-                    const integrationRepository = new IntegrationRepository();
-                    const moduleService = new ModuleService();
+                const getIntegrationInstanceByDefinition = new GetIntegrationInstanceByDefinition({
+                    integrationRepository: this.integrationRepository,
+                    moduleFactory: this.moduleFactory,
+                    moduleRepository: this.moduleRepository,
+                });
 
-                    const getIntegrationInstance = new GetIntegrationInstance({
-                        integrationRepository,
-                        integrationClasses,
-                        moduleService,
-                    });
+                const integration = await getIntegrationInstanceByDefinition.execute(integrationClass);
 
-                    // todo: are we going to have the userId available here?
-                    integrationInstance = await getIntegrationInstance.execute(params.integrationId, params.userId);
-                    console.log(
-                        `${params.event} for ${integrationInstance.record.config.type} of integrationId: ${params.integrationId}`
-                    );
-                }
-
-                const res = await integrationInstance.send(params.event, {
+                const res = await integration.send(params.event, {
                     data: params.data,
                     context,
                 });

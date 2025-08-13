@@ -20,42 +20,7 @@ declare module "@friggframework/module-plugin" {
   }
 
   export type MappedEntity = Entity & { id: string; type: any };
-  export class ModuleManager extends Delegate implements IFriggModuleManager {
-    static Entity: Entity;
-    static Credential: Credential;
 
-    constructor(params: { userId: string });
-
-    static getName(): any;
-    static getInstance(params: any): Promise<any>;
-    static getEntitiesForUserId(userId: string): Promise<MappedEntity[]>;
-
-    batchCreateSyncObjects(syncObjects: any, syncManager: any): Promise<any>;
-    batchUpdateSyncObjects(syncObjects: any, syncManager: any): Promise<any>;
-    findOrCreateEntity(params: any): Promise<any>;
-    getAllSyncObjects(SyncClass: any): Promise<any>;
-    getAuthorizationRequirements(params: any): Promise<any>;
-    getEntityId(): Promise<string>;
-    getEntityOptions(): Promise<any>;
-    markCredentialsInvalid(): Promise<Credential>;
-    processAuthorizationCallback(params: any): Promise<any>;
-    testAuth(params: any): Promise<any>;
-    validateAuthorizationRequirements(): Promise<boolean>;
-  }
-
-  interface IFriggModuleManager extends IFriggDelegate {
-    getEntityId(): Promise<string>;
-    validateAuthorizationRequirements(): Promise<boolean>;
-    getAuthorizationRequirements(params: any): Promise<any>;
-    testAuth(params: any): Promise<any>;
-    processAuthorizationCallback(params: any): Promise<any>;
-    getEntityOptions(): Promise<any>;
-    findOrCreateEntity(params: any): Promise<any>;
-    getAllSyncObjects(SyncClass: any): Promise<any>;
-    batchCreateSyncObjects(syncObjects: any, syncManager: any): Promise<any>;
-    batchUpdateSyncObjects(syncObjects: any, syncManager: any): Promise<any>;
-    markCredentialsInvalid(): Promise<Credential>;
-  }
 
   export class Requester implements IFriggRequester {
     DLGT_INVALID_AUTH: string;

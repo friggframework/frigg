@@ -6,7 +6,7 @@ function mapModuleClassToModuleDTO(moduleInstance) {
     if (!moduleInstance) return null;
 
     return {
-        id: moduleInstance.entity._id.toString(),
+        id: moduleInstance.entity.id,
         name: moduleInstance.name,
         userId: moduleInstance.userId,
         entity: moduleInstance.entity,

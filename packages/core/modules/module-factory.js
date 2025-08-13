@@ -1,6 +1,11 @@
 const { Module } = require('./module');
 
-class ModuleService {
+/**
+ * Acts as a factory for fully-hydrated domain Module instances.
+ * Provides methods to retrieve and construct Module objects with their associated
+ * entity and definition.
+ */
+class ModuleFactory {
     /**
      * @param {Object} params - Configuration parameters.
      * @param {import('./module-repository').ModuleRepository} params.moduleRepository - Repository for module data operations.
@@ -27,10 +32,9 @@ class ModuleService {
             );
         }
 
-        const entityType = entity.type;
+        const moduleName = entity.moduleName;
         const moduleDefinition = this.moduleDefinitions.find((def) => {
-            const modelName = Module.getEntityModelFromDefinition(def).modelName;
-            return entityType === modelName;
+            return moduleName === def.moduleName;
         });
 
         if (!moduleDefinition) {
@@ -47,4 +51,4 @@ class ModuleService {
     }
 }
 
-module.exports = { ModuleService }; 
+module.exports = { ModuleFactory };
