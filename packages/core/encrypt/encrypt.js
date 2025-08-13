@@ -16,12 +16,7 @@ const findOneEvents = [
 
 const shouldBypassEncryption = (STAGE) => {
     const defaultBypassStages = ['dev', 'test', 'local'];
-    const bypassStageEnv = process.env.BYPASS_ENCRYPTION_STAGE;
-    const useEnv = !String(bypassStageEnv) || !!bypassStageEnv;
-    const bypassStages = useEnv
-        ? bypassStageEnv.split(',').map((stage) => stage.trim())
-        : defaultBypassStages;
-    return bypassStages.includes(STAGE);
+    return defaultBypassStages.includes(STAGE);
 };
 
 function Encrypt(schema) {
