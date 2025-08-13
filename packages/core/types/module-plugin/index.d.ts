@@ -9,21 +9,7 @@ declare module "@friggframework/module-plugin" {
     externalId: string;
   }
 
-  export class EntityManager implements IFriggEntityManager {
-    static primaryEntityClass: any;
-    static entityManagerClasses: any[];
-    static entityTypes: string[];
-    static getEntitiesForUser(userId: string): Promise<any[]>;
-    static checkIsValidType(entityType: string): boolean;
-    static getEntityManagerClass(entityType?: string): any;
-
-    static getEntityManagerInstanceFromEntityId(
-      entityId: string,
-      userId: string
-    ): Promise<any>;
-  }
-
-  interface IFriggEntityManager {}
+  interface IFriggEntityManager { }
 
   export class Entity extends Model {
     credentialId: string;
@@ -138,8 +124,7 @@ declare module "@friggframework/module-plugin" {
 
   export class ApiKeyRequester
     extends Requester
-    implements IFriggApiKeyRequester
-  {
+    implements IFriggApiKeyRequester {
     API_KEY_NAME: string;
     API_KEY_VALUE: any;
 
@@ -160,8 +145,7 @@ declare module "@friggframework/module-plugin" {
 
   export class BasicAuthRequester
     extends Requester
-    implements IFriggBasicAuthRequester
-  {
+    implements IFriggBasicAuthRequester {
     password: string;
     username: string;
 
@@ -189,8 +173,7 @@ declare module "@friggframework/module-plugin" {
 
   export class OAuth2Requester
     extends Requester
-    implements IFriggOAuth2Requester
-  {
+    implements IFriggOAuth2Requester {
     DLGT_TOKEN_DEAUTHORIZED: string;
     DLGT_TOKEN_UPDATE: string;
     accessTokenExpire: any;

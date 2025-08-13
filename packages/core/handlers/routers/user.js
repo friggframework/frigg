@@ -10,7 +10,7 @@ const {
     CreateTokenForUserId,
 } = require('../../user/use-cases/create-token-for-user-id');
 const catchAsyncError = require('express-async-handler');
-const { loadAppDefinition } = require('../backend-utils');
+const { loadAppDefinition } = require('../app-definition-loader');
 
 const router = express();
 const { userConfig } = loadAppDefinition();

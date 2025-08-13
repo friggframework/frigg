@@ -1,23 +1,16 @@
-const { Entity } = require('./entity');
-const { Auther } = require('./auther');
+const { ModuleRepository } = require('./module-repository');
+const { ModuleService } = require('./module-service');
+const { Module } = require('./module');
 
 class ModuleFactory {
     constructor(...params) {
         this.moduleDefinitions = params;
         this.moduleTypes = this.moduleDefinitions.map((def) => def.moduleName);
-    }
-
-    async getEntitiesForUser(userId) {
-        let results = [];
-        for (const moduleDefinition of this.moduleDefinitions) {
-            const moduleInstance = await Auther.getInstance({
-                userId,
-                definition: moduleDefinition,
-            });
-            const list = await moduleInstance.getEntitiesForUserId(userId);
-            results.push(...list);
-        }
-        return results;
+        this.moduleRepository = new ModuleRepository();
+        this.moduleService = new ModuleService({
+            moduleRepository: this.moduleRepository,
+            moduleDefinitions: this.moduleDefinitions,
+        });
     }
 
     checkIsValidType(entityType) {
@@ -29,29 +22,17 @@ class ModuleFactory {
     }
 
     async getModuleInstanceFromEntityId(entityId, userId) {
-        const entity = await Entity.findById(entityId);
-        const moduleDefinition = this.moduleDefinitions.find(
-            (def) =>
-                entity.toJSON()['__t'] ===
-                Auther.getEntityModelFromDefinition(def).modelName
-        );
-        if (!moduleDefinition) {
-            throw new Error(
-                'Module definition not found for entity type: ' + entity['__t']
-            );
-        }
-        return await Auther.getInstance({
-            userId,
-            entityId,
-            definition: moduleDefinition,
-        });
+        return this.moduleService.getModuleInstance(entityId, userId);
     }
 
     async getInstanceFromTypeName(typeName, userId) {
         const moduleDefinition = this.moduleDefinitions.find(
             (def) => def.getName() === typeName
         );
-        return await Auther.getInstance({
+        if (!moduleDefinition) {
+            throw new Error(`Module definition not found for type: ${typeName}`);
+        }
+        return new Module({
             userId,
             definition: moduleDefinition,
         });

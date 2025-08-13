@@ -1,30 +1,3 @@
-// Manages authorization and credential persistence
-// Instantiation of an API Class
-// Expects input object like this:
-// const authDef = {
-//     API: class anAPI{},
-//     moduleName: 'anAPI', //maybe not required
-//     requiredAuthMethods: {
-//         // oauth methods, how to handle these being required/not?
-//         getToken: async function(params, callbackParams, tokenResponse) {},
-//         // required for all Auth methods
-//         getEntityDetails: async function(params) {}, //probably calls api method
-//         getCredentialDetails: async function(params) {}, // might be same as above
-//         apiParamsFromCredential: function(params) {},
-//         testAuth: async function() {}, // basic request to testAuth
-//     },
-//     env: {
-//         client_id: process.env.HUBSPOT_CLIENT_ID,
-//         client_secret: process.env.HUBSPOT_CLIENT_SECRET,
-//         scope: process.env.HUBSPOT_SCOPE,
-//         redirect_uri: `${process.env.REDIRECT_URI}/an-api`,
-//     }
-// };
-
-//TODO:
-// 1. Add definition of expected params to API Class (or could just be credential?)
-// 2.
-
 const { Delegate } = require('../core');
 const { get } = require('../assertions');
 const _ = require('lodash');
@@ -34,119 +7,44 @@ const { Entity } = require('./entity');
 const { mongoose } = require('../database/mongoose');
 const { ModuleConstants } = require('./ModuleConstants');
 
-class Auther extends Delegate {
-    static validateDefinition(definition) {
-        if (!definition) {
-            throw new Error('Auther definition is required');
-        }
-        if (!definition.moduleName) {
-            throw new Error('Auther definition requires moduleName');
-        }
-        if (!definition.API) {
-            throw new Error('Auther definition requires API class');
-        }
-        // if (!definition.Credential) {
-        //     throw new Error('Auther definition requires Credential class');
-        // }
-        // if (!definition.Entity) {
-        //     throw new Error('Auther definition requires Entity class');
-        // }
-        if (!definition.requiredAuthMethods) {
-            throw new Error('Auther definition requires requiredAuthMethods');
-        } else {
-            if (
-                definition.API.requesterType ===
-                ModuleConstants.authType.oauth2 &&
-                !definition.requiredAuthMethods.getToken
-            ) {
-                throw new Error(
-                    'Auther definition requires requiredAuthMethods.getToken'
-                );
-            }
-            if (!definition.requiredAuthMethods.getEntityDetails) {
-                throw new Error(
-                    'Auther definition requires requiredAuthMethods.getEntityDetails'
-                );
-            }
-            if (!definition.requiredAuthMethods.getCredentialDetails) {
-                throw new Error(
-                    'Auther definition requires requiredAuthMethods.getCredentialDetails'
-                );
-            }
-            if (!definition.requiredAuthMethods.apiPropertiesToPersist) {
-                throw new Error(
-                    'Auther definition requires requiredAuthMethods.apiPropertiesToPersist'
-                );
-            } else if (definition.Credential) {
-                for (const prop of definition.requiredAuthMethods
-                    .apiPropertiesToPersist?.credential) {
-                    if (
-                        !definition.Credential.schema.paths.hasOwnProperty(prop)
-                    ) {
-                        throw new Error(
-                            `Auther definition requires Credential schema to have property ${prop}`
-                        );
-                    }
-                }
-            }
-            if (!definition.requiredAuthMethods.testAuthRequest) {
-                throw new Error(
-                    'Auther definition requires requiredAuthMethods.testAuth'
-                );
-            }
-        }
-    }
+class Module extends Delegate {
 
-    constructor(params) {
-        super(params);
-        this.userId = get(params, 'userId', null); // Making this non-required
-        const definition = get(params, 'definition');
-        Auther.validateDefinition(definition);
-        Object.assign(this, definition.requiredAuthMethods);
-        if (definition.getEntityOptions) {
-            this.getEntityOptions = definition.getEntityOptions;
-        }
-        if (definition.refreshEntityOptions) {
-            this.refreshEntityOptions = definition.refreshEntityOptions;
-        }
-        this.name = definition.moduleName;
-        this.modelName = definition.modelName;
-        this.apiClass = definition.API;
-        this.CredentialModel =
-            definition.Credential || this.getCredentialModel();
-        this.EntityModel = definition.Entity || this.getEntityModel();
-    }
+    /**
+     * 
+     * @param {Object} params
+     * @param {Object} params.definition The definition of the Api Module
+     * @param {string} params.userId The user id
+     * @param {Object} params.entity The entity record from the database
+     */
+    constructor({ definition, userId = null, entity: entityObj = null }) {
+        super({ definition, userId, entity: entityObj });
 
-    static async getInstance(params) {
-        const instance = new this(params);
-        if (params.entityId) {
-            instance.entity = await instance.EntityModel.findById(
-                params.entityId
-            );
-            instance.credential = await instance.CredentialModel.findById(
-                instance.entity.credential
-            );
-        } else if (params.credentialId) {
-            instance.credential = await instance.CredentialModel.findById(
-                params.credentialId
-            );
-        }
-        let credential = {};
-        let entity = {};
-        if (instance.credential) {
-            credential = instance.credential.toObject();
-        }
-        if (instance.entity) {
-            entity = instance.entity.toObject();
-        }
+        this.validateDefinition(definition);
+
+        this.userId = userId;
+        this.entity = entityObj;
+        this.credential = entityObj?.credential;
+        this.definition = definition;
+        this.getEntityOptions = this.definition.getEntityOptions;
+        this.refreshEntityOptions = this.definition.refreshEntityOptions;
+        this.name = this.definition.moduleName;
+        this.modelName = this.definition.modelName;
+        this.apiClass = this.definition.API;
+
+
+        Object.assign(this, this.definition.requiredAuthMethods);
+
+        this.CredentialModel = this.getCredentialModel();
+        this.EntityModel = this.getEntityModel();
+
+
         const apiParams = {
-            ...params.definition.env,
-            delegate: instance,
-            ...instance.apiParamsFromCredential(credential),
-            ...instance.apiParamsFromEntity(entity),
+            ...this.definition.env,
+            delegate: this,
+            ...this.apiParamsFromCredential(this.credential),
+            ...this.apiParamsFromEntity(this.entity),
         };
-        instance.api = new instance.apiClass(apiParams);
-        return instance;
+        this.api = new this.apiClass(apiParams);
     }
 
     static getEntityModelFromDefinition(definition) {
@@ -205,20 +103,21 @@ class Auther extends Delegate {
         return this.CredentialModel;
     }
 
-    async getEntitiesForUserId(userId) {
-        // Only return non-internal fields. Leverages "select" and "options" to non-excepted fields and a pure object.
-        const list = await this.EntityModel.find(
-            { user: userId },
-            '-dateCreated -dateUpdated -user -credentials -credential -__t -__v',
-            { lean: true }
-        );
-        console.log('getEntitiesForUserId list', list, userId);
-        return list.map((entity) => ({
-            id: entity._id,
-            type: this.getName(),
-            ...entity,
-        }));
-    }
+    // todo: remove this method from all places
+    // async getEntitiesForUserId(userId) {
+    //     // Only return non-internal fields. Leverages "select" and "options" to non-excepted fields and a pure object.
+    //     const list = await this.EntityModel.find(
+    //         { user: userId },
+    //         '-dateCreated -dateUpdated -user -credentials -credential -__t -__v',
+    //         { lean: true }
+    //     );
+    //     console.log('getEntitiesForUserId list', list, userId);
+    //     return list.map((entity) => ({
+    //         id: entity._id,
+    //         type: this.getName(),
+    //         ...entity,
+    //     }));
+    // }
 
     async validateAuthorizationRequirements() {
         const requirements = await this.getAuthorizationRequirements();
@@ -233,19 +132,10 @@ class Auther extends Delegate {
     }
 
     async getAuthorizationRequirements(params) {
-        // TODO: How can this be more helpful both to implement and consume
-        // this function must return a dictionary with the following format
-        // node only url key is required. Data would be used for Base Authentication
-        // let returnData = {
-        //     url: "callback url for the data or teh redirect url for login",
-        //     type: one of the types defined in modules/Constants.js
-        //     data: ["required", "fields", "we", "may", "need"]
-        // }
-        console.log(this.api);
         return this.api.getAuthorizationRequirements();
     }
 
-    async testAuth(params) {
+    async testAuth() {
         let validAuth = false;
         try {
             if (await this.testAuthRequest(this.api)) validAuth = true;
@@ -306,18 +196,6 @@ class Auther extends Delegate {
         } else if (delegateString === this.api.DLGT_INVALID_AUTH) {
             await this.markCredentialsInvalid();
         }
-    }
-
-    async getEntityOptions() {
-        throw new Error(
-            'Method getEntityOptions() is not defined in the class'
-        );
-    }
-
-    async refreshEntityOptions() {
-        throw new Error(
-            'Method refreshEntityOptions() is not defined in the class'
-        );
     }
 
     async findOrCreateEntity(entityDetails) {
@@ -389,6 +267,63 @@ class Auther extends Delegate {
             await this.entity.save();
         }
     }
+
+    // todo: check if all these props are still up to date
+    validateDefinition(definition) {
+        if (!definition) {
+            throw new Error('Module definition is required');
+        }
+        if (!definition.moduleName) {
+            throw new Error('Module definition requires moduleName');
+        }
+        if (!definition.API) {
+            throw new Error('Module definition requires API class');
+        }
+        if (!definition.requiredAuthMethods) {
+            throw new Error('Module definition requires requiredAuthMethods');
+        } else {
+            if (
+                definition.API.requesterType ===
+                ModuleConstants.authType.oauth2 &&
+                !definition.requiredAuthMethods.getToken
+            ) {
+                throw new Error(
+                    'Module definition requires requiredAuthMethods.getToken'
+                );
+            }
+            if (!definition.requiredAuthMethods.getEntityDetails) {
+                throw new Error(
+                    'Module definition requires requiredAuthMethods.getEntityDetails'
+                );
+            }
+            if (!definition.requiredAuthMethods.getCredentialDetails) {
+                throw new Error(
+                    'Module definition requires requiredAuthMethods.getCredentialDetails'
+                );
+            }
+            if (!definition.requiredAuthMethods.apiPropertiesToPersist) {
+                throw new Error(
+                    'Module definition requires requiredAuthMethods.apiPropertiesToPersist'
+                );
+            } else if (definition.Credential) {
+                for (const prop of definition.requiredAuthMethods
+                    .apiPropertiesToPersist?.credential) {
+                    if (
+                        !definition.Credential.schema.paths.hasOwnProperty(prop)
+                    ) {
+                        throw new Error(
+                            `Module definition requires Credential schema to have property ${prop}`
+                        );
+                    }
+                }
+            }
+            if (!definition.requiredAuthMethods.testAuthRequest) {
+                throw new Error(
+                    'Module definition requires requiredAuthMethods.testAuth'
+                );
+            }
+        }
+    }
 }
 
-module.exports = { Auther };
+module.exports = { Module }; 

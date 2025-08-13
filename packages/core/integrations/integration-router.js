@@ -2,30 +2,89 @@ const express = require('express');
 const { get } = require('../assertions');
 const Boom = require('@hapi/boom');
 const catchAsyncError = require('express-async-handler');
-const { debug } = require('../logs');
+const { IntegrationRepository } = require('./integration-repository');
+const { DeleteIntegrationForUser } = require('./use-cases/delete-integration-for-user');
+const { GetIntegrationsForUser } = require('./use-cases/get-integrations-for-user');
+const { CredentialRepository } = require('../credential/credential-repository');
+const { GetCredentialForUser } = require('../credential/use-cases/get-credential-for-user');
+const { CreateIntegration } = require('./use-cases/create-integration');
+const { ModuleService } = require('../module-plugin/module-service');
+const { ModuleRepository } = require('../module-plugin/module-repository');
+const { GetEntitiesForUser } = require('../module-plugin/use-cases/get-entities-for-user');
+const { loadAppDefinition } = require('../handlers/app-definition-loader');
+const { GetIntegrationInstance } = require('./use-cases/get-integration-instance');
+const { UpdateIntegration } = require('./use-cases/update-integration');
+const { getModulesDefinitionFromIntegrationClasses } = require('./utils/map-integration-dto');
 
-
-// todo: dont send moduleFactory, integrationFactory, and IntegrationHelper as a factory object, instead send them as separate
-// params and import IntegrationHelper where needed.
-// todo: this could be a use case class
 /**
  * Creates an Express router with integration and entity routes configured
  * @param {Object} params - Configuration parameters for the router
  * @param {express.Router} [params.router] - Optional Express router instance, creates new one if not provided
- * @param {Object} params.factory - Factory object containing moduleFactory, integrationFactory, and IntegrationHelper
- * @param {Object} params.factory.moduleFactory - Factory for creating and managing API modules
- * @param {Object} params.factory.integrationFactory - Factory for creating and managing integrations
- * @param {Object} params.factory.IntegrationHelper - Helper utilities for integration operations
  * @param {import('../user/use-cases/get-user-from-bearer-token').GetUserFromBearerToken} params.getUserFromBearerToken - Use case for retrieving a user from a bearer token
  * @returns {express.Router} Configured Express router with integration and entity routes
  */
 function createIntegrationRouter(params) {
+    const { integrations: integrationClasses } = loadAppDefinition();
+    const moduleRepository = new ModuleRepository();
+    const integrationRepository = new IntegrationRepository();
+    const credentialRepository = new CredentialRepository();
+
+    const moduleService = new ModuleService({
+        moduleRepository,
+        moduleDefinitions: getModulesDefinitionFromIntegrationClasses(integrationClasses),
+    });
+    const deleteIntegrationForUser = new DeleteIntegrationForUser({
+        integrationRepository,
+        integrationClasses,
+    });
+
+    const getIntegrationsForUser = new GetIntegrationsForUser({
+        integrationRepository,
+        integrationClasses,
+        moduleService,
+        moduleRepository,
+    });
+    const getCredentialForUser = new GetCredentialForUser({
+        credentialRepository,
+    });
+    const createIntegration = new CreateIntegration({
+        integrationRepository,
+        integrationClasses,
+        moduleService,
+    });
+
+    const getEntitiesForUser = new GetEntitiesForUser({
+        moduleRepository,
+        moduleDefinitions: getModulesDefinitionFromIntegrationClasses(integrationClasses),
+    });
+
+    const getIntegrationInstance = new GetIntegrationInstance({
+        integrationRepository,
+        integrationClasses,
+        moduleService,
+    });
+
+    const updateIntegration = new UpdateIntegration({
+        integrationRepository,
+        integrationClasses,
+        moduleService,
+    });
+
     const router = get(params, 'router', express());
     const factory = get(params, 'factory');
     const getUserFromBearerToken = get(params, 'getUserFromBearerToken');
 
-    setIntegrationRoutes(router, factory, getUserFromBearerToken);
-    setEntityRoutes(router, factory, getUserFromBearerToken);
+    setIntegrationRoutes(router, getUserFromBearerToken, {
+        createIntegration,
+        deleteIntegrationForUser,
+        getIntegrationsForUser,
+        getEntitiesForUser,
+        getIntegrationInstance,
+        updateIntegration,
+    });
+    setEntityRoutes(router, factory, getUserFromBearerToken, {
+        getCredentialForUser,
+    });
     return router;
 }
 
@@ -54,34 +113,35 @@ function checkRequiredParams(params, requiredKeys) {
 /**
  * Sets up integration-related routes on the provided Express router
  * @param {express.Router} router - Express router instance to add routes to
- * @param {Object} factory - Factory object containing moduleFactory, integrationFactory, and IntegrationHelper
- * @param {Object} factory.moduleFactory - Factory for creating and managing API modules
- * @param {Object} factory.integrationFactory - Factory for creating and managing integrations
- * @param {Object} factory.IntegrationHelper - Helper utilities for integration operations
  * @param {import('../user/use-cases/get-user-from-bearer-token').GetUserFromBearerToken} getUserFromBearerToken - Use case for retrieving a user from a bearer token
+ * @param {Object} useCases - use cases for integration management
  */
-function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
-    const { moduleFactory, integrationFactory, IntegrationHelper } = factory;
+function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
+    const {
+        createIntegration,
+        deleteIntegrationForUser,
+        getIntegrationsForUser,
+        getEntitiesForUser,
+        getIntegrationInstance,
+        updateIntegration,
+    } = useCases;
     router.route('/api/integrations').get(
         catchAsyncError(async (req, res) => {
             const user = await getUserFromBearerToken.execute(
                 req.headers.authorization
             );
             const userId = user.getId();
-            const results = await integrationFactory.getIntegrationOptions();
-            results.entities.authorized =
-                await moduleFactory.getEntitiesForUser(userId);
-            results.integrations =
-                await IntegrationHelper.getIntegrationsForUserId(userId);
-
-            for (const integrationRecord of results.integrations) {
-                const integration =
-                    await integrationFactory.getInstanceFromIntegrationId({
-                        integrationId: integrationRecord.id,
-                        userId,
-                    });
-                integrationRecord.userActions = integration.userActions;
+            const integrations = await getIntegrationsForUser.execute(userId);
+            const results = {
+                entities: {
+                    options: integrations.map((integration) =>
+                        integration.options
+                    ),
+                    authorized: await getEntitiesForUser.execute(userId),
+                },
+                integrations: integrations,
             }
+
             res.json(results);
         })
     );
@@ -96,27 +156,16 @@ function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
                 'entities',
                 'config',
             ]);
-            // throw if not value
+
             get(params.config, 'type');
 
-            // create integration
-            const integration = await integrationFactory.createIntegration(
+            const integration = await createIntegration.execute(
                 params.entities,
                 userId,
                 params.config
             );
 
-            // post integration initialization
-            debug(
-                `Calling onCreate on the ${integration?.constructor?.Config?.name} Integration with no arguments`
-            );
-            await integration.send('ON_CREATE', {});
-
-            res.status(201).json(
-                await IntegrationHelper.getFormattedIntegration(
-                    integration.record
-                )
-            );
+            res.status(201).json(integration);
         })
     );
 
@@ -128,23 +177,8 @@ function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
             const userId = user.getId();
             const params = checkRequiredParams(req.body, ['config']);
 
-            const integration =
-                await integrationFactory.getInstanceFromIntegrationId({
-                    integrationId: req.params.integrationId,
-                    userId,
-                });
-
-            debug(
-                `Calling onUpdate on the ${integration?.constructor?.Config?.name} Integration arguments: `,
-                params
-            );
-            await integration.send('ON_UPDATE', params);
-
-            res.json(
-                await IntegrationHelper.getFormattedIntegration(
-                    integration.record
-                )
-            );
+            const integration = await updateIntegration.execute(req.params.integrationId, userId, params.config);
+            res.json(integration);
         })
     );
 
@@ -153,24 +187,9 @@ function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
             const user = await getUserFromBearerToken.execute(
                 req.headers.authorization
             );
-            const userId = user.getId();
             const params = checkRequiredParams(req.params, ['integrationId']);
-            const integration =
-                await integrationFactory.getInstanceFromIntegrationId({
-                    userId,
-                    integrationId: params.integrationId,
-                });
-
-            debug(
-                `Calling onUpdate on the ${integration?.constructor?.Definition?.name} Integration with no arguments`
-            );
-            await integration.send('ON_DELETE');
-            await IntegrationHelper.deleteIntegrationForUserById(
-                userId,
-                params.integrationId
-            );
-
-            res.status(201).json({});
+            await deleteIntegrationForUser.execute(params.integrationId, user.getId());
+            res.status(204).json({});
         })
     );
 
@@ -180,11 +199,7 @@ function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
                 req.headers.authorization
             );
             const params = checkRequiredParams(req.params, ['integrationId']);
-            const integration =
-                await integrationFactory.getInstanceFromIntegrationId({
-                    integrationId: params.integrationId,
-                    userId: user.getId(),
-                });
+            const integration = await getIntegrationInstance.execute(params.integrationId, user.getId());
             res.json(await integration.send('GET_CONFIG_OPTIONS'));
         })
     );
@@ -199,13 +214,7 @@ function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
                 const params = checkRequiredParams(req.params, [
                     'integrationId',
                 ]);
-                const integration =
-                    await integrationFactory.getInstanceFromIntegrationId(
-                        {
-                            integrationId: params.integrationId,
-                            userId: user.getId(),
-                        }
-                    );
+                const integration = await getIntegrationInstance.execute(params.integrationId, user.getId());
 
                 res.json(
                     await integration.send('REFRESH_CONFIG_OPTIONS', req.body)
@@ -218,11 +227,7 @@ function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
                 req.headers.authorization
             );
             const params = checkRequiredParams(req.params, ['integrationId']);
-            const integration =
-                await integrationFactory.getInstanceFromIntegrationId({
-                    integrationId: params.integrationId,
-                    userId: user.getId(),
-                });
+            const integration = await getIntegrationInstance.execute(params.integrationId, user.getId());
             res.json(await integration.send('GET_USER_ACTIONS', req.body));
         })
     );
@@ -238,13 +243,7 @@ function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
                     'integrationId',
                     'actionId',
                 ]);
-                const integration =
-                    await integrationFactory.getInstanceFromIntegrationId(
-                        {
-                            integrationId: params.integrationId,
-                            userId: user.getId(),
-                        }
-                    );
+                const integration = await getIntegrationInstance.execute(params.integrationId, user.getId());
 
                 res.json(
                     await integration.send('GET_USER_ACTION_OPTIONS', {
@@ -268,13 +267,7 @@ function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
                     'integrationId',
                     'actionId',
                 ]);
-                const integration =
-                    await integrationFactory.getInstanceFromIntegrationId(
-                        {
-                            integrationId: params.integrationId,
-                            userId: user.getId(),
-                        }
-                    );
+                const integration = await getIntegrationInstance.execute(params.integrationId, user.getId());
 
                 res.json(
                     await integration.send('REFRESH_USER_ACTION_OPTIONS', {
@@ -294,12 +287,7 @@ function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
                 'integrationId',
                 'actionId',
             ]);
-            const integration =
-                await integrationFactory.getInstanceFromIntegrationId({
-                    integrationId: params.integrationId,
-                    userId: user.getId(),
-                });
-
+            const integration = await getIntegrationInstance.execute(params.integrationId, user.getId());
             res.json(await integration.send(params.actionId, req.body));
         })
     );
@@ -309,13 +297,14 @@ function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
             const user = await getUserFromBearerToken.execute(
                 req.headers.authorization
             );
+
+            if (!user) {
+                throw Boom.forbidden('User not found');
+            }
+
             const params = checkRequiredParams(req.params, ['integrationId']);
-            const integration = await IntegrationHelper.getIntegrationById(
-                {
-                    integrationId: params.integrationId,
-                    userId: user.getId(),
-                }
-            );
+            const integration = await getIntegrationForUser.execute(params.integrationId, user.getId());
+
             // We could perhaps augment router with dynamic options? Haven't decided yet, but here may be the place
 
             res.json({
@@ -332,13 +321,8 @@ function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
             const user = await getUserFromBearerToken.execute(
                 req.headers.authorization
             );
-            const userId = user.getId();
             const params = checkRequiredParams(req.params, ['integrationId']);
-            const instance =
-                await integrationFactory.getInstanceFromIntegrationId({
-                    userId,
-                    integrationId: params.integrationId,
-                });
+            const instance = await getIntegrationInstance.execute(params.integrationId, user.getId());
 
             if (!instance) {
                 throw Boom.notFound();
@@ -364,11 +348,12 @@ function setIntegrationRoutes(router, factory, getUserFromBearerToken) {
 /**
  * Sets up entity-related routes for the integration router
  * @param {Object} router - Express router instance
- * @param {Object} factory - Factory object containing moduleFactory and IntegrationHelper
+ * @param {Object} factory - Factory object containing moduleFactory
  * @param {import('../user/use-cases/get-user-from-bearer-token').GetUserFromBearerToken} getUserFromBearerToken - Use case for retrieving a user from a bearer token
  */
-function setEntityRoutes(router, factory, getUserFromBearerToken) {
-    const { moduleFactory, IntegrationHelper } = factory;
+function setEntityRoutes(router, factory, getUserFromBearerToken, useCases) {
+    const { moduleFactory } = factory;
+    const { getCredentialForUser } = useCases;
     const getModuleInstance = async (userId, entityType) => {
         if (!moduleFactory.checkIsValidType(entityType)) {
             throw Boom.badRequest(
@@ -395,7 +380,7 @@ function setEntityRoutes(router, factory, getUserFromBearerToken) {
                 module.validateAuthorizationRequirements();
             if (!areRequirementsValid) {
                 throw new Error(
-                    `Error: EntityManager of type ${params.entityType} requires a valid url`
+                    `Error: Entity of type ${params.entityType} requires a valid url`
                 );
             }
 
@@ -437,8 +422,9 @@ function setEntityRoutes(router, factory, getUserFromBearerToken) {
             checkRequiredParams(req.body.data, ['credential_id']);
 
             // May want to pass along the user ID as well so credential ID's can't be fished???
-            const credential = await IntegrationHelper.getCredentialById(
-                params.data.credential_id
+            const credential = await getCredentialForUser.execute(
+                params.data.credential_id,
+                userId
             );
 
             if (!credential) {
@@ -465,8 +451,9 @@ function setEntityRoutes(router, factory, getUserFromBearerToken) {
             const userId = user.getId();
             // TODO May want to pass along the user ID as well so credential ID's can't be fished???
             // TODO **flagging this for review** -MW
-            const credential = await IntegrationHelper.getCredentialById(
-                req.params.credentialId
+            const credential = await getCredentialForUser.execute(
+                req.params.credentialId,
+                userId
             );
             if (credential.user._id.toString() !== userId) {
                 throw Boom.forbidden('Credential does not belong to user');

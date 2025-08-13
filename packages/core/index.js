@@ -38,8 +38,6 @@ const {
     IntegrationModel,
     Options,
     IntegrationMapping,
-    IntegrationFactory,
-    IntegrationHelper,
     createIntegrationRouter,
     checkRequiredParams,
 } = require('./integrations/index');
@@ -47,7 +45,6 @@ const { TimeoutCatcher } = require('./lambda/index');
 const { debug, initDebugLog, flushDebugLog } = require('./logs/index');
 const {
     Credential,
-    EntityManager,
     Entity,
     ModuleManager,
     ApiKeyRequester,
@@ -56,7 +53,6 @@ const {
     Requester,
     ModuleConstants,
     ModuleFactory,
-    Auther,
 } = require('./module-plugin/index');
 const utils = require('./utils');
 
@@ -108,8 +104,6 @@ module.exports = {
     IntegrationModel,
     Options,
     IntegrationMapping,
-    IntegrationFactory,
-    IntegrationHelper,
     checkRequiredParams,
     createIntegrationRouter,
 
@@ -123,7 +117,6 @@ module.exports = {
 
     // module plugin
     Credential,
-    EntityManager,
     Entity,
     ModuleManager,
     ApiKeyRequester,
@@ -132,8 +125,6 @@ module.exports = {
     Requester,
     ModuleConstants,
     ModuleFactory,
-    Auther,
-
     // queues
     QueuerUtil,
 
