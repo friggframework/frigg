@@ -418,7 +418,7 @@ const composeServerlessDefinition = (AppDefinition) => {
         origin: '*',
         headers: '*',
         methods: ['ANY'],
-        allowCredentials: true,
+        allowCredentials: false,
     };
     
     const definition = {
