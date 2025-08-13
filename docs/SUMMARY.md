@@ -30,6 +30,7 @@
 * [Architecture](reference/architecture.md)
 * [Data Model](reference/data-model.md)
 * [Encryption and Security](reference/encryption-and-security.md)
+* [VPC Configuration](reference/vpc-configuration.md)
 * [API Reference](reference/api-reference.md)
 
 ## 🔌 API Modules
