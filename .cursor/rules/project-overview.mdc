@@ -1,0 +1,852 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Frigg Integration Framework: Technical Architecture & Roadmap
+
+## Executive Summaryern, event-driven serverless Node.js, designed to accelerate enterprise-grade integration development between software systems. It employs a modular, package-based architecture with 40+ pre-built API connectors, standardized authentication patterns, WebSocket support for real-time communication, and infrastructure-as-code deployment. This comprehensive report documents the framework's architecture, API module system, and strategic roadmap for future enhancements.
+
+## Table of Contents
+
+1. [Frigg Framework Architecture](#frigg-framework-architecture)
+2. [API Module System](#api-module-system)
+3. [Future Implementation Roadmap](#future-implementation-roadmap)
+
+---
+
+## Frigg Framework Architecture
+
+### Core Architecture Overview
+
+Frigg utilizes a monorepo structure with event-driven architecture and real-time capabilities:
+
+```
+friggframework/frigg/
+├── packages/
+│   ├── core/                    # Core framework functionality
+│   ├── encrypt/                 # Encryption and security utilities
+│   ├── integrations/           # Integration management system
+│   ├── module-plugin/          # Plugin architecture for modules
+│   ├── database/               # Data persistence layer
+│   ├── errors/                 # Error handling system
+│   ├── logs/                   # Logging infrastructure
+│   ├── assertions/             # Testing utilities
+│   └── devtools/               # Development tools
+```
+
+### Authentication and Security
+
+#### OAuth2 Implementation
+Frigg implements a comprehensive OAuth2 authentication system with automatic token management:
+
+```javascript
+class OAuth2Requester {
+    constructor(config) {
+        this.baseUrl = config.baseUrl;
+        this.authorizationUri = config.authorizationUri;
+        this.tokenUri = config.tokenUri;
+        this.client_id = config.client_id;
+        this.client_secret = config.client_secret;
+    }
+    
+    async getAuthUri() {
+        return `${this.authorizationUri}?client_id=${this.client_id}&...`;
+    }
+    
+    async getTokenFromCode(code) {
+        // Exchange authorization code for tokens
+        const response = await this.post(this.tokenUri, {
+            grant_type: 'authorization_code',
+            code,
+            client_id: this.client_id,
+            client_secret: this.client_secret
+        });
+        return response.data;
+    }
+    
+    async refreshAccessToken(refreshToken) {
+        // Automatic token refresh with retry logic
+        const response = await this.post(this.tokenUri, {
+            grant_type: 'refresh_token',
+            refresh_token: refreshToken
+        });
+        return response.data;
+    }
+}
+```
+
+#### Credential Storage and Encryption
+All credentials are encrypted using AES-256-GCM before storage:
+
+```javascript
+class TokenEncryption {
+    constructor(encryptionKey) {
+        this.key = Buffer.from(encryptionKey, 'hex');
+        this.algorithm = 'aes-256-gcm';
+    }
+    
+    encrypt(plaintext) {
+        const iv = crypto.randomBytes(16);
+        const cipher = crypto.createCipheriv(this.algorithm, this.key, iv);
+        
+        let encrypted = cipher.update(plaintext, 'utf8', 'hex');
+        encrypted += cipher.final('hex');
+        
+        const authTag = cipher.getAuthTag();
+        return iv.toString('hex') + ':' + authTag.toString('hex') + ':' + encrypted;
+    }
+}
+```
+
+### Event-Driven Architecture
+
+Frigg implements a state machine-inspired event system for complex integration workflows:
+
+```javascript
+class IntegrationBase {
+    constructor() {
+        this.eventHandlers = new Map();
+        this.registerDefaultEventHandlers();
+    }
+    
+    async send(eventName, data) {
+        const handler = this.eventHandlers.get(eventName);
+        if (handler) {
+            await handler(data);
+        }
+        
+        // Emit to global event bus
+        this.eventBus.emit(eventName, {
+            integrationId: this.id,
+            timestamp: new Date(),
+            data
+        });
+    }
+    
+    on(eventName, handler) {
+        this.eventHandlers.set(eventName, handler);
+    }
+    
+    // Lifecycle events
+    registerDefaultEventHandlers() {
+        this.on('integration.created', this.handleCreated);
+        this.on('credential.expired', this.handleCredentialExpired);
+        this.on('webhook.received', this.handleWebhook);
+    }
+}
+```
+
+### Real-Time Communication
+
+WebSocket support enables live updates and streaming data:
+
+```javascript
+class WebsocketConnection {
+    static async getActiveConnections(userId) {
+        const connections = await this.find({ userId, active: true });
+        return connections.map(conn => new WebSocketClient(conn));
+    }
+    
+    async sendToUser(userId, event, data) {
+        const connections = await this.getActiveConnections(userId);
+        await Promise.all(
+            connections.map(conn => 
+                conn.send(JSON.stringify({ event, data }))
+            )
+        );
+    }
+}
+```
+
+### Integration Lifecycle Management
+
+The complete integration lifecycle is managed through coordinated components:
+
+```javascript
+class IntegrationService {
+    async createIntegration(userId, moduleType, authParams) {
+        // 1. Validate module availability
+        const moduleConfig = await this.validateModule(moduleType);
+        
+        // 2. Initialize authentication flow
+        const authResult = await this.initiateAuth(moduleConfig, authParams);
+        
+        // 3. Exchange tokens
+        const credentials = await this.processAuthResult(moduleConfig, authResult);
+        
+        // 4. Create entity with support for multiple instances
+        const entity = await this.createEntity({
+            userId,
+            moduleType,
+            entityReference: authParams.entityReference, // e.g., 'slack-admin'
+            externalId: credentials.externalId,
+            details: credentials.entityDetails
+        });
+        
+        // 5. Store encrypted credentials
+        const credential = await this.createCredential({
+            entityId: entity.id,
+            access_token: this.encrypt(credentials.access_token),
+            refresh_token: this.encrypt(credentials.refresh_token),
+            expires_at: credentials.expires_at
+        });
+        
+        // 6. Emit integration events
+        await this.eventBus.emit('integration.created', {
+            integrationId: integration.id,
+            userId,
+            moduleType
+        });
+        
+        return integration;
+    }
+}
+```
+
+### HTTP Request Architecture
+
+Frigg provides a robust HTTP client with automatic retry logic and token management:
+
+```javascript
+class FriggHttpClient {
+    async request(options) {
+        // Pre-request interceptors
+        await this.ensureValidToken();
+        options.headers = this.getAuthHeaders();
+        
+        try {
+            return await this.executeRequest(options);
+        } catch (error) {
+            if (error.response?.status === 401) {
+                await this.refreshToken();
+                return await this.executeRequest(options);
+            }
+            
+            if (this.shouldRetry(error)) {
+                const delay = this.calculateBackoff(attempt, error);
+                await this.sleep(delay);
+                return await this.request(options);
+            }
+            
+            throw error;
+        }
+    }
+}
+```
+
+### Data Storage Architecture
+
+MongoDB-based storage with comprehensive schema design:
+
+```javascript
+// Integration Schema
+const IntegrationSchema = new Schema({
+    userId: { type: String, required: true, index: true },
+    entityId: { type: Schema.Types.ObjectId, ref: 'Entity' },
+    credentialId: { type: Schema.Types.ObjectId, ref: 'Credential' },
+    moduleType: { type: String, required: true },
+    entityReference: String, // Support for multiple instances
+    status: {
+        type: String,
+        enum: ['active', 'paused', 'error', 'deleted'],
+        default: 'active'
+    },
+    config: { type: Map, of: Schema.Types.Mixed },
+    lastSyncAt: Date,
+    deletedAt: Date // Soft delete support
+});
+
+// WebSocket Connection Schema
+const WebsocketConnectionSchema = new Schema({
+    connectionId: { type: String, required: true, unique: true },
+    userId: { type: String, required: true, index: true },
+    active: { type: Boolean, default: true },
+    createdAt: { type: Date, default: Date.now, expires: 86400 } // Auto-cleanup
+});
+```
+
+### Error Queue Management
+
+SQS integration for robust error handling:
+
+```yaml
+# serverless.yml
+iamRoleStatements:
+  - Effect: Allow
+    Action:
+      - sqs:SendMessage
+      - sqs:SendMessageBatch
+      - sqs:GetQueueUrl
+    Resource:
+      - !GetAtt InternalErrorQueue.Arn
+      - "arn:aws:sqs:${self:provider.region}:*:${self:service}--${self:provider.stage}-*Queue"
+```
+
+### KMS Security Integration
+
+Enhanced security with AWS KMS for encryption key management:
+
+```javascript
+class KMSEncryption {
+    async encrypt(plaintext) {
+        const params = {
+            KeyId: process.env.KMS_KEY_ID,
+            Plaintext: Buffer.from(plaintext)
+        };
+        const { CiphertextBlob } = await this.kms.encrypt(params).promise();
+        return CiphertextBlob.toString('base64');
+    }
+}
+```
+
+---
+
+## API Module System
+
+### Module Architecture Pattern
+
+Each API module follows a standardized structure with three core components:
+
+```javascript
+// index.js - Module entry point
+module.exports = {
+    Api: require('./api'),
+    Config: require('./defaultConfig.json'),
+    Definition: require('./definition')
+};
+```
+
+### Core Module Components
+
+#### 1. API Class
+Extends OAuth2Requester for consistent authentication:
+
+```javascript
+class Api extends OAuth2Requester {
+    constructor(config) {
+        super(config);
+        this.baseUrl = 'https://api.service.com/v2';
+        this.client_id = process.env.SERVICE_CLIENT_ID;
+        this.client_secret = process.env.SERVICE_CLIENT_SECRET;
+        
+        // Service-specific endpoints
+        this.URLs = {
+            users: '/users',
+            resources: '/resources/{id}',
+            webhooks: '/webhooks'
+        };
+    }
+    
+    // API method implementation
+    async getUserDetails() {
+        return this._get({ url: this.URLs.users });
+    }
+    
+    async createWebhook(url, events) {
+        return this._authedPost({
+            url: this.URLs.webhooks,
+            data: { url, events }
+        });
+    }
+}
+```
+
+#### 2. Definition Object
+Provides authentication configuration and persistence rules:
+
+```javascript
+const Definition = {
+    API: Api,
+    getName: () => Config.name,
+    moduleName: Config.name,
+    entityReference: true, // Enables multiple instances
+    requiredAuthMethods: {
+        getToken: async (api, params) => {
+            return api.getTokenFromCode(params.code);
+        },
+        apiPropertiesToPersist: {
+            credential: ['access_token', 'refresh_token', 'expires_at'],
+            entity: ['externalId', 'workspace_id']
+        },
+        getEntityDetails: async (api, userId) => {
+            const details = await api.getUserDetails();
+            return {
+                identifiers: { 
+                    externalId: details.id,
+                    workspace: details.workspace_id
+                },
+                details: { 
+                    name: details.name,
+                    email: details.email
+                }
+            };
+        },
+        testAuthRequest: async (api) => {
+            return api.getUserDetails();
+        }
+    },
+    env: {
+        client_id: process.env.SERVICE_CLIENT_ID,
+        client_secret: process.env.SERVICE_CLIENT_SECRET,
+        scope: process.env.SERVICE_SCOPE,
+        redirect_uri: `${process.env.REDIRECT_URI}/service`
+    }
+};
+```
+
+#### 3. Configuration Metadata
+Service categorization and discovery:
+
+```json
+{
+    "name": "servicename",
+    "label": "Service Name",
+    "productUrl": "https://service.com",
+    "apiDocs": "https://developer.service.com",
+    "logoUrl": "https://cdn.service.com/logo.png",
+    "categories": ["CRM", "Communication", "Analytics"],
+    "description": "Enterprise service integration",
+    "features": ["webhooks", "real-time", "bulk-operations"]
+}
+```
+
+### Module Instantiation Process
+
+Dynamic module loading with event handler registration:
+
+```javascript
+class ModuleFactory {
+    static async create(moduleName, credentials, options = {}) {
+        // Dynamic import for code splitting
+        const module = await import(`@friggframework/api-module-${moduleName}`);
+        const { Api, Definition } = module;
+        
+        // Create instance with credentials
+        const api = new Api({
+            credentials,
+            entityReference: options.entityReference,
+            ...options
+        });
+        
+        // Attach authentication methods
+        this.attachAuthMethods(api, Definition.requiredAuthMethods);
+        
+        // Register module-specific event handlers
+        if (Definition.eventHandlers) {
+            Object.entries(Definition.eventHandlers).forEach(([event, handler]) => {
+                api.on(event, handler);
+            });
+        }
+        
+        // Initialize the module
+        await api.initialize();
+        
+        return api;
+    }
+}
+```
+
+### Available API Modules
+
+Current production-ready API modules include:
+
+| Module | Description | Key Features |
+|--------|-------------|--------------|
+| **HubSpot** | CRM and marketing automation | List management, contacts, companies, workflows |
+| **Salesforce** | Enterprise CRM | Custom objects, bulk operations, SOQL queries |
+| **Stripe** | Payment processing | Subscriptions, webhooks, Connect platform |
+| **Zoom** | Video conferencing | Meetings, webinars, recordings, chat |
+| **Slack** | Team messaging | Channels, DMs, workflows, slash commands |
+| **Microsoft Teams** | Enterprise collaboration | Teams, channels, apps, graph API |
+| **Asana** | Project management | Tasks, projects, portfolios, custom fields |
+| **Linear** | Issue tracking | Issues, cycles, projects, webhooks |
+| **Ironclad** | Contract management | Workflows, approvals, document management |
+| **Crossbeam** | Partner ecosystem | Account mapping, overlap detection |
+
+### Testing Infrastructure
+
+Standardized testing with Jest and comprehensive mocking:
+
+```javascript
+// jest.config.js
+module.exports = {
+    coverageThreshold: {
+        global: {
+            statements: 80,
+            branches: 75,
+            functions: 80,
+            lines: 80
+        }
+    },
+    globalSetup: './jest-setup.js',
+    globalTeardown: './jest-teardown.js'
+};
+
+// Example test pattern
+describe('API Module Tests', () => {
+    beforeEach(() => {
+        process.env.SERVICE_CLIENT_ID = 'test-client-id';
+        process.env.SERVICE_CLIENT_SECRET = 'test-secret';
+    });
+    
+    test('OAuth2 flow', async () => {
+        const api = new Api();
+        const authUrl = api.getAuthUri();
+        expect(authUrl).toContain('client_id=test-client-id');
+    });
+});
+```
+
+---
+
+## Future Implementation Roadmap
+
+### 1. Email Service Integration
+
+Implement a comprehensive email service layer for transactional and notification emails:
+
+```javascript
+// Proposed email service architecture
+class EmailService {
+    constructor(provider) {
+        this.provider = provider; // SendGrid, SES, Mailgun, etc.
+    }
+    
+    async sendIntegrationNotification(userId, event) {
+        const template = await this.getTemplate(`integration.${event}`);
+        return this.provider.send({
+            to: user.email,
+            template,
+            data: { event, timestamp: new Date() }
+        });
+    }
+    
+    // Email templates for integration lifecycle
+    templates = {
+        'integration.created': 'welcome',
+        'integration.error': 'error-notification',
+        'credential.expiring': 'credential-renewal'
+    };
+}
+```
+
+### 2. Multi-Database Support
+
+Extend beyond MongoDB to support multiple database engines:
+
+```javascript
+// Database abstraction layer
+class DatabaseAdapter {
+    constructor(config) {
+        switch(config.type) {
+            case 'mongodb':
+                return new MongoDBAdapter(config);
+            case 'postgresql':
+                return new PostgreSQLAdapter(config);
+            case 'mysql':
+                return new MySQLAdapter(config);
+            case 'dynamodb':
+                return new DynamoDBAdapter(config);
+        }
+    }
+}
+
+// Configuration
+database: {
+    type: process.env.DB_TYPE || 'mongodb',
+    connectionString: process.env.DB_CONNECTION,
+    options: {
+        poolSize: 10,
+        ssl: true
+    }
+}
+```
+
+### 3. Prisma ORM Integration
+
+Implement Prisma for type-safe database access:
+
+```prisma
+// schema.prisma
+model Integration {
+  id            String   @id @default(cuid())
+  userId        String
+  moduleType    String
+  entityRef     String?
+  status        Status   @default(ACTIVE)
+  credential    Credential?
+  entity        Entity?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([userId, moduleType])
+}
+
+model Credential {
+  id            String   @id @default(cuid())
+  integrationId String   @unique
+  accessToken   String   @db.Text
+  refreshToken  String?  @db.Text
+  expiresAt     DateTime?
+  integration   Integration @relation(fields: [integrationId], references: [id])
+}
+
+enum Status {
+  ACTIVE
+  PAUSED
+  ERROR
+  DELETED
+}
+```
+
+### 4. Repository Pattern Implementation
+
+Introduce repository pattern for better separation of concerns:
+
+```javascript
+// Base repository interface
+class BaseRepository {
+    constructor(model) {
+        this.model = model;
+    }
+    
+    async findById(id) {
+        return this.model.findUnique({ where: { id } });
+    }
+    
+    async findMany(criteria) {
+        return this.model.findMany({ where: criteria });
+    }
+    
+    async create(data) {
+        return this.model.create({ data });
+    }
+    
+    async update(id, data) {
+        return this.model.update({ where: { id }, data });
+    }
+}
+
+// Integration repository with business logic
+class IntegrationRepository extends BaseRepository {
+    constructor() {
+        super(prisma.integration);
+    }
+    
+    async findActiveByUser(userId) {
+        return this.findMany({ 
+            userId, 
+            status: 'ACTIVE',
+            deletedAt: null 
+        });
+    }
+    
+    async createWithCredentials(data) {
+        return prisma.$transaction(async (tx) => {
+            const integration = await tx.integration.create({ data });
+            const credential = await tx.credential.create({
+                data: {
+                    integrationId: integration.id,
+                    ...data.credentials
+                }
+            });
+            return { integration, credential };
+        });
+    }
+}
+```
+
+### 5. Multi-Cloud Provider Support
+
+Abstract cloud services for vendor independence:
+
+```javascript
+// Cloud provider abstraction
+class CloudProvider {
+    static create(provider) {
+        switch(provider) {
+            case 'aws':
+                return new AWSProvider();
+            case 'gcp':
+                return new GCPProvider();
+            case 'azure':
+                return new AzureProvider();
+            default:
+                throw new Error(`Unsupported provider: ${provider}`);
+        }
+    }
+}
+
+// Provider interface
+class AWSProvider {
+    async uploadFile(bucket, key, data) {
+        return this.s3.putObject({ Bucket: bucket, Key: key, Body: data }).promise();
+    }
+    
+    async getSecret(secretName) {
+        return this.secretsManager.getSecretValue({ SecretId: secretName }).promise();
+    }
+    
+    async sendMessage(queueUrl, message) {
+        return this.sqs.sendMessage({ QueueUrl: queueUrl, MessageBody: message }).promise();
+    }
+}
+
+// Usage
+const cloud = CloudProvider.create(process.env.CLOUD_PROVIDER);
+await cloud.uploadFile('integrations', 'config.json', configData);
+```
+
+### 6. Data Ingestion Layer
+
+Implement observability and monitoring integrations:
+
+```javascript
+// Observability adapter pattern
+class ObservabilityAdapter {
+    constructor(providers = []) {
+        this.providers = providers.map(p => this.createProvider(p));
+    }
+    
+    createProvider(config) {
+        switch(config.type) {
+            case 'datadog':
+                return new DatadogProvider(config);
+            case 'sentry':
+                return new SentryProvider(config);
+            case 'newrelic':
+                return new NewRelicProvider(config);
+            case 'prometheus':
+                return new PrometheusProvider(config);
+        }
+    }
+    
+    // Unified metrics interface
+    async trackIntegrationMetric(metric, value, tags = {}) {
+        await Promise.all(
+            this.providers.map(p => p.trackMetric(metric, value, tags))
+        );
+    }
+    
+    // Error tracking
+    async captureException(error, context = {}) {
+        await Promise.all(
+            this.providers.map(p => p.captureException(error, context))
+        );
+    }
+}
+
+// Integration with Frigg
+class IntegrationMetrics {
+    constructor(observability) {
+        this.observability = observability;
+    }
+    
+    async trackCreation(integration) {
+        await this.observability.trackIntegrationMetric('integration.created', 1, {
+            module: integration.moduleType,
+            userId: integration.userId
+        });
+    }
+    
+    async trackApiCall(module, method, duration) {
+        await this.observability.trackIntegrationMetric('api.call.duration', duration, {
+            module,
+            method,
+            status: 'success'
+        });
+    }
+}
+```
+
+### 7. Enhanced Documentation System
+
+Implement comprehensive documentation with JSDoc and automated generation:
+
+```javascript
+/**
+ * @module IntegrationService
+ * @description Core service for managing integration lifecycle
+ */
+class IntegrationService {
+    /**
+     * Creates a new integration
+     * @async
+     * @param {string} userId - The user ID creating the integration
+     * @param {string} moduleType - The type of module to integrate
+     * @param {Object} authParams - Authentication parameters
+     * @param {string} [authParams.entityReference] - Optional entity reference for multiple instances
+     * @param {Object} [authParams.config] - Additional configuration
+     * @returns {Promise<Integration>} The created integration
+     * @throws {ModuleNotFoundError} If the module type is not supported
+     * @throws {AuthenticationError} If authentication fails
+     * @example
+     * const integration = await integrationService.createIntegration(
+     *   'user123',
+     *   'slack',
+     *   { entityReference: 'slack-admin', config: { workspace: 'main' } }
+     * );
+     */
+    async createIntegration(userId, moduleType, authParams) {
+        // Implementation
+    }
+    
+    /**
+     * @typedef {Object} Integration
+     * @property {string} id - Unique integration identifier
+     * @property {string} userId - Owner user ID
+     * @property {string} moduleType - Type of integrated service
+     * @property {string} [entityReference] - Reference for multiple instances
+     * @property {IntegrationStatus} status - Current status
+     * @property {Date} createdAt - Creation timestamp
+     * @property {Date} updatedAt - Last update timestamp
+     */
+    
+    /**
+     * @enum {string} IntegrationStatus
+     * @readonly
+     * @property {string} ACTIVE - Integration is active and functional
+     * @property {string} PAUSED - Integration is temporarily disabled
+     * @property {string} ERROR - Integration has encountered an error
+     * @property {string} DELETED - Integration has been soft deleted
+     */
+}
+
+// Documentation generation config
+module.exports = {
+    source: './packages/*/src/**/*.js',
+    destination: './docs',
+    plugins: ['plugins/markdown'],
+    templates: {
+        cleverLinks: true,
+        monospaceLinks: true
+    },
+    opts: {
+        recurse: true,
+        template: './docs-template'
+    }
+};
+```
+
+### Implementation Priority Matrix
+
+| Feature | Priority | Complexity | Impact | Timeline |
+|---------|----------|------------|--------|----------|
+| Email Service | High | Medium | High | Q1 2025 |
+| Prisma ORM | High | High | High | Q1 2025 |
+| Multi-Database | Medium | High | High | Q2 2025 |
+| Repository Pattern | Medium | Medium | Medium | Q2 2025 |
+| Multi-Cloud | Medium | High | Medium | Q3 2025 |
+| Data Ingestion | Low | Medium | Medium | Q3 2025 |
+| Documentation | High | Low | High | Ongoing |
+
+## Conclusion
+
+The Frigg Framework represents a mature, production-ready integration platform with a clear evolution path. The event-driven architecture, combined with standardized API modules and comprehensive security features, provides a solid foundation for enterprise integration needs. The proposed enhancements will further strengthen the framework's position as a leading open-source integration solution, offering flexibility, scalability, and developer-friendly features for the modern cloud ecosystem.
+
+## Sources and Tools
+- Use Deepwiki MCP tools to understand [Frigg and](https://deepwiki.com/friggframework/frigg) [api-modules](https://deepwiki.com/friggframework/api-module-library)
+- Use Github MCP tools to understand specific code blocks and classes of Frigg https://github.com/friggframework/frigg
+- Use your Memory and Sequential Thinking tools (when available) to plan your work and think deeper on what needs to be done.
+

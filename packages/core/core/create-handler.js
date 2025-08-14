@@ -34,6 +34,7 @@ const createHandler = (optionByName = {}) => {
             // Helps mongoose reuse the connection.  Lowers response times.
             context.callbackWaitsForEmptyEventLoop = false;
 
+            // todo: this should not be necessary anymore
             if (shouldUseDatabase) {
                 await connectToDatabase();
             }

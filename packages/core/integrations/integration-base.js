@@ -1,5 +1,9 @@
 const { IntegrationMapping } = require('./integration-mapping');
 const { Options } = require('./options');
+const { UpdateIntegrationStatus } = require('./use-cases/update-integration-status');
+const { IntegrationRepository } = require('./integration-repository');
+const { UpdateIntegrationMessages } = require('./use-cases/update-integration-messages');
+
 const constantsToBeMigrated = {
     defaultEvents: {
         ON_CREATE: 'ON_CREATE',
@@ -19,6 +23,12 @@ const constantsToBeMigrated = {
 };
 
 class IntegrationBase {
+
+    // todo: maybe we can pass this as Dependency Injection in the sub-class constructor
+    integrationRepository = new IntegrationRepository();
+    updateIntegrationStatus = new UpdateIntegrationStatus({ integrationRepository: this.integrationRepository });
+    updateIntegrationMessages = new UpdateIntegrationMessages({ integrationRepository: this.integrationRepository });
+
     static getOptionDetails() {
         const options = new Options({
             module: Object.values(this.Definition.modules)[0], // This is a placeholder until we revamp the frontend
@@ -26,6 +36,7 @@ class IntegrationBase {
         });
         return options.get();
     }
+
     /**
      * CHILDREN SHOULD SPECIFY A DEFINITION FOR THE INTEGRATION
      */
@@ -50,21 +61,7 @@ class IntegrationBase {
     static getCurrentVersion() {
         return this.Definition.version;
     }
-    loadModules() {
-        // Load all the modules defined in Definition.modules
-        const moduleNames = Object.keys(this.constructor.Definition.modules);
-        for (const moduleName of moduleNames) {
-            const { definition } =
-                this.constructor.Definition.modules[moduleName];
-            if (typeof definition.API === 'function') {
-                this[moduleName] = { api: new definition.API() };
-            } else {
-                throw new Error(
-                    `Module ${moduleName} must be a function that extends IntegrationModule`
-                );
-            }
-        }
-    }
+
     registerEventHandlers() {
         this.on = {
             ...this.defaultEvents,
@@ -72,7 +69,31 @@ class IntegrationBase {
         };
     }
 
-    constructor(params) {
+    constructor(params = {}) {
+        // Data from database record (when instantiated by use cases)
+        this.id = params.id;
+        this.userId = params.userId || params.integrationId; // fallback for legacy
+        this.entities = params.entities;
+        this.config = params.config;
+        this.status = params.status;
+        this.version = params.version;
+        this.messages = params.messages || { errors: [], warnings: [] };
+        
+        // Module instances (injected by factory)
+        this.modules = {};
+        if (params.modules) {
+            for (const mod of params.modules) {
+                const key = typeof mod.getName === 'function' ? mod.getName() : mod.name;
+                if (key) {
+                    this.modules[key] = mod;
+                    this[key] = mod; // Direct access (e.g., this.hubspot)
+                }
+            }
+        }
+
+        // Initialize events object (will be populated by child classes)
+        this.events = this.events || {};
+
         this.defaultEvents = {
             [constantsToBeMigrated.defaultEvents.ON_CREATE]: {
                 type: constantsToBeMigrated.types.LIFE_CYCLE_EVENT,
@@ -107,7 +128,6 @@ class IntegrationBase {
                 handler: this.refreshActionOptions,
             },
         };
-        this.loadModules();
     }
 
     async send(event, object) {
@@ -121,7 +141,7 @@ class IntegrationBase {
 
     async validateConfig() {
         const configOptions = await this.getConfigOptions();
-        const currentConfig = this.record.config;
+        const currentConfig = this.getConfig();
         let needsConfig = false;
         for (const option of configOptions) {
             if (option.required) {
@@ -133,56 +153,59 @@ class IntegrationBase {
                     )
                 ) {
                     needsConfig = true;
-                    this.record.messages.warnings.push({
-                        title: 'Config Validation Error',
-                        message: `Missing required field of ${option.label}`,
-                        timestamp: Date.now(),
-                    });
+                    await this.updateIntegrationMessages.execute(
+                        this.id,
+                        'warnings',
+                        'Config Validation Error',
+                        `Missing required field of ${option.label}`,
+                        Date.now()
+                    );
                 }
             }
         }
         if (needsConfig) {
-            this.record.status = 'NEEDS_CONFIG';
-            await this.record.save();
+            await this.updateIntegrationStatus.execute(this.id, 'NEEDS_CONFIG');
         }
     }
 
     async testAuth() {
         let didAuthPass = true;
 
-        for (const module of Object.keys(IntegrationBase.Definition.modules)) {
+        for (const module of Object.keys(this.constructor.Definition.modules)) {
             try {
                 await this[module].testAuth();
             } catch {
                 didAuthPass = false;
-                this.record.messages.errors.push({
-                    title: 'Authentication Error',
-                    message: `There was an error with your ${this[
+                await this.updateIntegrationMessages.execute(
+                    this.id,
+                    'errors',
+                    'Authentication Error',
+                    `There was an error with your ${this[
                         module
                     ].constructor.getName()} Entity.
                 Please reconnect/re-authenticate, or reach out to Support for assistance.`,
-                    timestamp: Date.now(),
-                });
+                    Date.now()
+                );
             }
         }
 
         if (!didAuthPass) {
-            this.record.status = 'ERROR';
-            this.record.markModified('messages.error');
-            await this.record.save();
+            await this.updateIntegrationStatus.execute(this.id, 'ERROR');
         }
     }
 
     async getMapping(sourceId) {
-        return IntegrationMapping.findBy(this.record.id, sourceId);
+        // todo: this should be a use case
+        return IntegrationMapping.findBy(this.id, sourceId);
     }
 
     async upsertMapping(sourceId, mapping) {
         if (!sourceId) {
             throw new Error(`sourceId must be set`);
         }
+        // todo: this should be a use case
         return await IntegrationMapping.upsert(
-            this.record.id,
+            this.id,
             sourceId,
             mapping
         );
@@ -191,15 +214,13 @@ class IntegrationBase {
     /**
      * CHILDREN CAN OVERRIDE THESE CONFIGURATION METHODS
      */
-    async onCreate(params) {
-        this.record.status = 'ENABLED';
-        await this.record.save();
-        return this.record;
+    async onCreate({ integrationId }) {
+        await this.updateIntegrationStatus.execute(integrationId, 'ENABLED');
     }
 
-    async onUpdate(params) {}
+    async onUpdate(params) { }
 
-    async onDelete(params) {}
+    async onDelete(params) { }
 
     async getConfigOptions() {
         const options = {
@@ -236,10 +257,10 @@ class IntegrationBase {
         const dynamicUserActions = await this.loadDynamicUserActions();
         const filteredDynamicActions = actionType
             ? Object.fromEntries(
-                  Object.entries(dynamicUserActions).filter(
-                      ([_, event]) => event.userActionType === actionType
-                  )
-              )
+                Object.entries(dynamicUserActions).filter(
+                    ([_, event]) => event.userActionType === actionType
+                )
+            )
             : dynamicUserActions;
         return { ...userActions, ...filteredDynamicActions };
     }
@@ -258,6 +279,81 @@ class IntegrationBase {
             uiSchema: {},
         };
         return options;
+    }
+
+    // === Domain Methods (moved from Integration.js) ===
+    
+    getConfig() {
+        return this.config;
+    }
+
+    getModule(key) {
+        return this.modules[key];
+    }
+
+    setModule(key, module) {
+        this.modules[key] = module;
+        this[key] = module;
+    }
+
+    addError(error) {
+        if (!this.messages.errors) {
+            this.messages.errors = [];
+        }
+        this.messages.errors.push(error);
+        this.status = 'ERROR';
+    }
+
+    addWarning(warning) {
+        if (!this.messages.warnings) {
+            this.messages.warnings = [];
+        }
+        this.messages.warnings.push(warning);
+    }
+
+    isActive() {
+        return this.status === 'ENABLED' || this.status === 'ACTIVE';
+    }
+
+    needsConfiguration() {
+        return this.status === 'NEEDS_CONFIG';
+    }
+
+    hasErrors() {
+        return this.status === 'ERROR';
+    }
+
+    belongsToUser(userId) {
+        return this.userId.toString() === userId.toString();
+    }
+
+    async initialize() {
+        // Load dynamic user actions
+        try {
+            const additionalUserActions = await this.loadDynamicUserActions();
+            this.events = { ...this.events, ...additionalUserActions };
+        } catch (e) {
+            this.addError(e);
+        }
+
+        // Register event handlers
+        await this.registerEventHandlers();
+    }
+
+    getOptionDetails() {
+        const options = new Options({
+            module: Object.values(this.constructor.Definition.modules)[0],
+            ...this.constructor.Definition,
+        });
+        return options.get();
+    }
+
+    // Legacy method for backward compatibility
+    async loadModules() {
+        // This method was used in the old architecture for loading modules
+        // In the new architecture, modules are injected via constructor
+        // For backward compatibility, this is a no-op
+        return;
     }
 }
 
