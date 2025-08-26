@@ -724,37 +724,53 @@ const composeServerlessDefinition = async (AppDefinition) => {
 
     // KMS Configuration based on App Definition
     if (AppDefinition.encryption?.useDefaultKMSForFieldLevelEncryption === true) {
-        // Provision a dedicated KMS key and wire it automatically
-        definition.resources.Resources.FriggKMSKey = {
-            Type: 'AWS::KMS::Key',
-            Properties: {
-                EnableKeyRotation: true,
-                KeyPolicy: {
-                    Version: '2012-10-17',
-                    Statement: [
-                        {
-                            Sid: 'AllowRootAccountAdmin',
-                            Effect: 'Allow',
-                            Principal: { AWS: { 'Fn::Sub': 'arn:aws:iam::${AWS::AccountId}:root' } },
-                            Action: 'kms:*',
-                            Resource: '*'
-                        }
-                    ]
+        // Check if a KMS key was discovered
+        if (discoveredResources.defaultKmsKeyId) {
+            // Use the existing discovered KMS key
+            console.log(`Using existing KMS key: ${discoveredResources.defaultKmsKeyId}`);
+            
+            definition.provider.iamRoleStatements.push({
+                Effect: 'Allow',
+                Action: ['kms:GenerateDataKey', 'kms:Decrypt'],
+                Resource: [discoveredResources.defaultKmsKeyId]
+            });
+
+            definition.provider.environment.KMS_KEY_ARN = discoveredResources.defaultKmsKeyId;
+        } else {
+            // No existing key found, provision a dedicated KMS key
+            console.log('No existing KMS key found, creating a new one...');
+            
+            definition.resources.Resources.FriggKMSKey = {
+                Type: 'AWS::KMS::Key',
+                Properties: {
+                    EnableKeyRotation: true,
+                    KeyPolicy: {
+                        Version: '2012-10-17',
+                        Statement: [
+                            {
+                                Sid: 'AllowRootAccountAdmin',
+                                Effect: 'Allow',
+                                Principal: { AWS: { 'Fn::Sub': 'arn:aws:iam::${AWS::AccountId}:root' } },
+                                Action: 'kms:*',
+                                Resource: '*'
+                            }
+                        ]
+                    }
                 }
-            }
-        };
+            };
 
-        definition.provider.iamRoleStatements.push({
-            Effect: 'Allow',
-            Action: ['kms:GenerateDataKey', 'kms:Decrypt'],
-            Resource: [{ 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] }]
-        });
+            definition.provider.iamRoleStatements.push({
+                Effect: 'Allow',
+                Action: ['kms:GenerateDataKey', 'kms:Decrypt'],
+                Resource: [{ 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] }]
+            });
 
-        definition.provider.environment.KMS_KEY_ARN = { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] };
+            definition.provider.environment.KMS_KEY_ARN = { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] };
+        }
 
         definition.plugins.push('serverless-kms-grants');
 
-        // Configure KMS grants with discovered default key
+        // Configure KMS grants with discovered default key or environment variable
         definition.custom.kmsGrants = {
             kmsKeyId: discoveredResources.defaultKmsKeyId || '${env:AWS_DISCOVERY_KMS_KEY_ID}'
         };
