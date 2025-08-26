@@ -431,6 +431,8 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
             Resource: [
                 'arn:aws:apigateway:*::/restapis',
                 'arn:aws:apigateway:*::/restapis/*',
+                'arn:aws:apigateway:*::/apis',
+                'arn:aws:apigateway:*::/apis/*',
                 'arn:aws:apigateway:*::/domainnames',
                 'arn:aws:apigateway:*::/domainnames/*'
             ]
