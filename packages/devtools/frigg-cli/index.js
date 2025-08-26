@@ -5,6 +5,7 @@ const { installCommand } = require('./install-command');
 const { startCommand } = require('./start-command'); // Assuming you have a startCommand module
 const { buildCommand } = require('./build-command');
 const { deployCommand } = require('./deploy-command');
+const { generateIamCommand } = require('./generate-iam-command');
 
 const program = new Command();
 program
@@ -33,6 +34,15 @@ program
     .option('-v, --verbose', 'enable verbose output')
     .action(deployCommand);
 
+program
+    .command('generate-iam')
+    .description('Generate IAM CloudFormation template based on app definition')
+    .option('-o, --output <path>', 'output directory', 'backend/infrastructure')
+    .option('-u, --user <name>', 'deployment user name', 'frigg-deployment-user')
+    .option('-s, --stack-name <name>', 'CloudFormation stack name', 'frigg-deployment-iam')
+    .option('-v, --verbose', 'enable verbose output')
+    .action(generateIamCommand);
+
 program.parse(process.argv);
 
-module.exports = { installCommand, startCommand, buildCommand, deployCommand };
+module.exports = { installCommand, startCommand, buildCommand, deployCommand, generateIamCommand };

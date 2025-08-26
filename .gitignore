@@ -21,6 +21,19 @@ yarn-error.log*
 # webstorm local config
 .idea/
 
+# claude-flow sparc files
+.claude-flow/
+.sparc/
+sparc-memory/
+.sparc-cache/
+sparc-sessions/
+claude-flow.log
+
+# claude files
+.claude/
+CLAUDE.md
+.roomodes
+
 .env
 .npmrc
 .autorc
