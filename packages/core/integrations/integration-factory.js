@@ -1,22 +1,28 @@
 const { ModuleFactory, Credential, Entity } = require('../module-plugin');
-const {IntegrationModel} = require("./integration-model");
+const { IntegrationModel } = require('./integration-model');
 const _ = require('lodash');
-
 
 class IntegrationFactory {
     constructor(integrationClasses = []) {
         this.integrationClasses = integrationClasses;
         this.moduleFactory = new ModuleFactory(...this.getModules());
-        this.integrationTypes = this.integrationClasses.map(IntegrationClass => IntegrationClass.getName());
-        this.getIntegrationConfigs = this.integrationClasses.map(IntegrationClass => IntegrationClass.Config);
+        this.integrationTypes = this.integrationClasses.map(
+            (IntegrationClass) => IntegrationClass.getName()
+        );
+        this.getIntegrationDefinitions = this.integrationClasses.map(
+            (IntegrationClass) => IntegrationClass.Definition
+        );
     }
 
     async getIntegrationOptions() {
-        const options = this.integrationClasses.map(IntegrationClass => IntegrationClass.Options);
+        const options = this.integrationClasses.map(
+            (IntegrationClass) => IntegrationClass
+        );
         return {
             entities: {
-                primary: this.getPrimaryName(),
-                options: options.map(val => val.get()),
+                options: options.map((IntegrationClass) =>
+                    IntegrationClass.getOptionDetails()
+                ),
                 authorized: [],
             },
             integrations: [],
@@ -24,65 +30,148 @@ class IntegrationFactory {
     }
 
     getModules() {
-        return  [... new Set(this.integrationClasses.map(integration =>
-            Object.values(integration.modules)
-        ).flat())];
+        return [
+            ...new Set(
+                this.integrationClasses
+                    .map((integration) =>
+                        Object.values(integration.Definition.modules).map(
+                            (module) => module.definition
+                        )
+                    )
+                    .flat()
+            ),
+        ];
     }
 
-    getPrimaryName() {
-        function findMostFrequentElement(array) {
-            const frequencyMap = _.countBy(array);
-            return _.maxBy(_.keys(frequencyMap), (element) => frequencyMap[element]);
-        }
-        const allModulesNames = _.flatten(this.integrationClasses.map(integration =>
-            Object.values(integration.modules).map(module => module.getName())
-        ));
-        return findMostFrequentElement(allModulesNames);
-    }
-
-    getIntegrationClassDefByType(type) {
+    getIntegrationClassByType(type) {
         const integrationClassIndex = this.integrationTypes.indexOf(type);
         return this.integrationClasses[integrationClassIndex];
     }
+    getModuleTypesAndKeys(integrationClass) {
+        const moduleTypesAndKeys = {};
+        const moduleTypeCount = {};
+
+        if (integrationClass && integrationClass.Definition.modules) {
+            for (const [key, moduleClass] of Object.entries(
+                integrationClass.Definition.modules
+            )) {
+                if (
+                    moduleClass &&
+                    typeof moduleClass.definition.getName === 'function'
+                ) {
+                    const moduleType = moduleClass.definition.getName();
+
+                    // Check if this module type has already been seen
+                    if (moduleType in moduleTypesAndKeys) {
+                        throw new Error(
+                            `Duplicate module type "${moduleType}" found in integration class definition.`
+                        );
+                    }
+
+                    // Well how baout now
+
+                    moduleTypesAndKeys[moduleType] = key;
+                    moduleTypeCount[moduleType] =
+                        (moduleTypeCount[moduleType] || 0) + 1;
+                }
+            }
+        }
+
+        // Check for any module types with count > 1
+        for (const [moduleType, count] of Object.entries(moduleTypeCount)) {
+            if (count > 1) {
+                throw new Error(
+                    `Multiple instances of module type "${moduleType}" found in integration class definition.`
+                );
+            }
+        }
+
+        return moduleTypesAndKeys;
+    }
 
     async getInstanceFromIntegrationId(params) {
-        const integrationRecord = await IntegrationHelper.getIntegrationById(params.integrationId);
-        let {userId} = params;
+        const integrationRecord = await IntegrationHelper.getIntegrationById(
+            params.integrationId
+        );
+        let { userId } = params;
         if (!integrationRecord) {
-            throw new Error(`No integration found by the ID of ${params.integrationId}`);
+            throw new Error(
+                `No integration found by the ID of ${params.integrationId}`
+            );
         }
 
         if (!userId) {
             userId = integrationRecord.user._id.toString();
-        } else if (userId !== integrationRecord.user._id.toString()) {
-            throw new Error(`Integration ${params.integrationId} does not belong to User ${userId}, ${integrationRecord.user.id.toString()}`);
+        } else if (userId.toString() !== integrationRecord.user.toString()) {
+            throw new Error(
+                `Integration ${
+                    params.integrationId
+                } does not belong to User ${userId}, ${integrationRecord.user.toString()}`
+            );
         }
 
-        const integrationClassDef = this.getIntegrationClassDefByType(integrationRecord.config.type);
-        const instance = new integrationClassDef({
+        const integrationClass = this.getIntegrationClassByType(
+            integrationRecord.config.type
+        );
+
+        const instance = new integrationClass({
             userId,
             integrationId: params.integrationId,
         });
+
+        if (
+            integrationRecord.entityReference &&
+            Object.keys(integrationRecord.entityReference) > 0
+        ) {
+            // Use the specified entityReference to find the modules and load them according to their key
+            // entityReference will be a map of entityIds with their corresponding desired key
+            for (const [entityId, key] of Object.entries(
+                integrationRecord.entityReference
+            )) {
+                const moduleInstance =
+                    await this.moduleFactory.getModuleInstanceFromEntityId(
+                        entityId,
+                        integrationRecord.user
+                    );
+                instance[key] = moduleInstance;
+            }
+        } else {
+            // for each entity, get the moduleinstance and load them according to their keys
+            // If it's the first entity, load the moduleinstance into primary as well
+            // If it's the second entity, load the moduleinstance into target as well
+            const moduleTypesAndKeys =
+                this.getModuleTypesAndKeys(integrationClass);
+            for (let i = 0; i < integrationRecord.entities.length; i++) {
+                const entityId = integrationRecord.entities[i];
+                const moduleInstance =
+                    await this.moduleFactory.getModuleInstanceFromEntityId(
+                        entityId,
+                        integrationRecord.user
+                    );
+                const moduleType = moduleInstance.getName();
+                const key = moduleTypesAndKeys[moduleType];
+                instance[key] = moduleInstance;
+                if (i === 0) {
+                    instance.primary = moduleInstance;
+                } else if (i === 1) {
+                    instance.target = moduleInstance;
+                }
+            }
+        }
         instance.record = integrationRecord;
-        instance.delegateTypes.push(...integrationClassDef.Config.events);
-        instance.primary = await this.moduleFactory.getModuleInstanceFromEntityId(
-            instance.record.entities[0],
-            instance.record.user
-        );
-        instance.target = await this.moduleFactory.getModuleInstanceFromEntityId(
-            instance.record.entities[1],
-            instance.record.user
-        );
 
         try {
-            await instance.getAndSetUserActions();
-            instance.delegateTypes.push(...Object.keys(instance.userActions));
-        } catch(e) {
-            instance.userActions = {};
+            const additionalUserActions =
+                await instance.loadDynamicUserActions();
+            instance.events = { ...instance.events, ...additionalUserActions };
+        } catch (e) {
             instance.record.status = 'ERROR';
             instance.record.messages.errors.push(e);
             await instance.record.save();
         }
+        // Register all of the event handlers
+
+        await instance.registerEventHandlers();
         return instance;
     }
 
@@ -93,12 +182,15 @@ class IntegrationFactory {
             config,
             version: '0.0.0',
         });
-        return await this.getInstanceFromIntegrationId({integrationId: integrationRecord.id, userId});
+        return await this.getInstanceFromIntegrationId({
+            integrationId: integrationRecord.id,
+            userId,
+        });
     }
 }
 
 const IntegrationHelper = {
-     getFormattedIntegration: async function(integrationRecord) {
+    getFormattedIntegration: async function (integrationRecord) {
         const integrationObj = {
             id: integrationRecord.id,
             status: integrationRecord.status,
@@ -122,14 +214,19 @@ const IntegrationHelper = {
         return integrationObj;
     },
 
-     getIntegrationsForUserId: async function(userId) {
+    getIntegrationsForUserId: async function (userId) {
         const integrationList = await IntegrationModel.find({ user: userId });
-        return await Promise.all(integrationList.map(async (integrationRecord) =>
-            await IntegrationHelper.getFormattedIntegration(integrationRecord)
-        ));
+        return await Promise.all(
+            integrationList.map(
+                async (integrationRecord) =>
+                    await IntegrationHelper.getFormattedIntegration(
+                        integrationRecord
+                    )
+            )
+        );
     },
 
-     deleteIntegrationForUserById: async function(userId, integrationId) {
+    deleteIntegrationForUserById: async function (userId, integrationId) {
         const integrationList = await IntegrationModel.find({
             user: userId,
             _id: integrationId,
@@ -142,13 +239,13 @@ const IntegrationHelper = {
         await IntegrationModel.deleteOne({ _id: integrationId });
     },
 
-     getIntegrationById: async function(id) {
-        return IntegrationModel.findById(id);
+    getIntegrationById: async function (id) {
+        return IntegrationModel.findById(id).populate('entities');
     },
 
-     listCredentials: async function(options) {
+    listCredentials: async function (options) {
         return Credential.find(options);
-    }
-}
+    },
+};
 
 module.exports = { IntegrationFactory, IntegrationHelper };

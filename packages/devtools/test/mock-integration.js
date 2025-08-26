@@ -1,65 +1,65 @@
-const { Auther, Credential, Entity, IntegrationFactory, createObjectId } = require('@friggframework/core');
+const {
+    Auther,
+    Credential,
+    Entity,
+    IntegrationFactory,
+    createObjectId,
+} = require('@friggframework/core');
 
-
-async function createMockIntegration(IntegrationClassDef, userId = null, config = {},) {
-    const integrationFactory = new IntegrationFactory([IntegrationClassDef]);
+async function createMockIntegration(
+    IntegrationClass,
+    userId = null,
+    config = { type: IntegrationClass.Definition.name }
+) {
+    const integrationFactory = new IntegrationFactory([IntegrationClass]);
     userId = userId || createObjectId();
 
     const insertOptions = {
         new: true,
         upsert: true,
         setDefaultsOnInsert: true,
-    }
-    const user = {user: userId}
+    };
+    const user = { user: userId };
 
-    const credential = await Credential.findOneAndUpdate(
-        user,
-        { $set: user },
-        insertOptions
-    );
-    const entity1 = await Entity.findOneAndUpdate(
-        user,
-        {
-            $set: {
-                credential: credential.id,
-                user: userId,
-                name: 'Test user',
-                externalId: '1234567890123456',
-            },
-        },
-        insertOptions
-    );
-    const entity2 = await Entity.findOneAndUpdate(
-        user,
-        {
-            $set: {
-                credential: credential.id,
-                user: userId,
-            },
-        },
-        insertOptions
-    );
-
-    const entities = [entity1, entity2]
-
-    const integration =
-        await integrationFactory.createIntegration(
-            entities,
-            userId,
-            config,
+    const entities = [];
+    for (const moduleName in IntegrationClass.modules) {
+        const ModuleDef = IntegrationClass.Definition.modules[moduleName];
+        const module = await Auther.getInstance({
+            definition: ModuleDef,
+            userId: userId,
+        });
+        const credential = await module.CredentialModel.findOneAndUpdate(
+            user,
+            { $set: user },
+            insertOptions
         );
-
-    integration.id = integration.record._id
-
-    for (const i in entities){
-        if (Object.entries(IntegrationClassDef.modules).length <= i) break
-        const [moduleName, ModuleDef] = Object.entries(IntegrationClassDef.modules)[i];
-        const module = await Auther.getInstance({definition: ModuleDef, userId: userId})
-        module.entity = entities[i];
-        integration[moduleName] = module;
+        entities.push(
+            (
+                await module.EntityModel.findOneAndUpdate(
+                    user,
+                    {
+                        $set: {
+                            credential,
+                            user: userId,
+                            name: `Test ${moduleName}`,
+                            externalId: `1234567890123456_${moduleName}`,
+                        },
+                    },
+                    insertOptions
+                )
+            ).id
+        );
     }
 
-    return integration
+    const integration = await integrationFactory.createIntegration(
+        entities,
+        userId,
+        config
+    );
+
+    integration.id = integration.record._id;
+
+    return integration;
 }
 
 function createMockApiObject(jest, api = {}, mockMethodMap) {
@@ -67,17 +67,22 @@ function createMockApiObject(jest, api = {}, mockMethodMap) {
     // and values which are the mock response (or implementation)
     const clone = (data) => JSON.parse(JSON.stringify(data));
 
-    for (const [methodName, mockDataOrImplementation] of Object.entries(mockMethodMap)) {
+    for (const [methodName, mockDataOrImplementation] of Object.entries(
+        mockMethodMap
+    )) {
         if (mockDataOrImplementation instanceof Function) {
             api[methodName] = jest.fn(mockDataOrImplementation);
-        }
-        else if (api[methodName]?.constructor?.name === "AsyncFunction") {
-            api[methodName] = jest.fn().mockResolvedValue(clone(mockDataOrImplementation));
+        } else if (api[methodName]?.constructor?.name === 'AsyncFunction') {
+            api[methodName] = jest
+                .fn()
+                .mockResolvedValue(clone(mockDataOrImplementation));
         } else {
-            api[methodName] = jest.fn().mockReturnValue(clone(mockDataOrImplementation));
+            api[methodName] = jest
+                .fn()
+                .mockReturnValue(clone(mockDataOrImplementation));
         }
     }
     return api;
 }
 
-module.exports = {createMockIntegration, createMockApiObject};
+module.exports = { createMockIntegration, createMockApiObject };

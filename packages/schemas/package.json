@@ -1,0 +1,42 @@
+{
+  "name": "@friggframework/schemas",
+  "version": "2.0.0-next.0",
+  "description": "Canonical JSON Schema definitions for Frigg Framework",
+  "main": "index.js",
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/friggframework/frigg.git"
+  },
+  "bugs": {
+    "url": "https://github.com/friggframework/frigg/issues"
+  },
+  "homepage": "https://github.com/friggframework/frigg#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "jest",
+    "validate": "node scripts/validate-schemas.js",
+    "build": "node scripts/build-schemas.js"
+  },
+  "keywords": [
+    "frigg",
+    "schemas",
+    "validation",
+    "json-schema"
+  ],
+  "dependencies": {
+    "ajv": "^8.12.0",
+    "ajv-formats": "^2.1.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "files": [
+    "schemas/",
+    "validators/",
+    "index.js"
+  ]
+}

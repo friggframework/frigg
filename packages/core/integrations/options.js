@@ -1,6 +1,5 @@
 const { RequiredPropertyError } = require('../errors');
 const { get, getAndVerifyType } = require('../assertions');
-const { ModuleManager } = require('../module-plugin');
 
 class Options {
     constructor(params) {
@@ -18,7 +17,7 @@ class Options {
         }
 
         this.display = {};
-        this.display.name = get(params.display, 'name');
+        this.display.name = get(params.display, 'label');
         this.display.description = get(params.display, 'description');
         this.display.detailsUrl = get(params.display, 'detailsUrl');
         this.display.icon = get(params.display, 'icon');
@@ -26,7 +25,7 @@ class Options {
 
     get() {
         return {
-            type: this.module.getName(),
+            type: this.module.definition.getName(),
 
             // Flag for if the User can configure any settings
             hasUserConfig: this.hasUserConfig,

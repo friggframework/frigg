@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.0.1",
+  "version": "2.0.0-next.0",
   "type": "module",
   "main": "./dist/index.umd.js",
   "module": "./dist/index.es.js",
@@ -22,24 +22,25 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:build": "vite build --watch",
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@jsonforms/material-renderers": "^3.2.1",
-    "@jsonforms/react": "^3.2.1",
-    "@mui/material": "^5.16.6",
-    "@radix-ui/react-dialog": "^1.1.1",
-    "@radix-ui/react-dropdown-menu": "^2.1.1",
-    "@radix-ui/react-switch": "^1.1.0",
-    "@radix-ui/react-toast": "^1.2.1",
-    "class-variance-authority": "^0.7.0",
+    "@jsonforms/material-renderers": "^3.5.1",
+    "@jsonforms/react": "^3.5.1",
+    "@mui/material": "^6.4.1",
+    "@radix-ui/react-dialog": "^1.1.4",
+    "@radix-ui/react-dropdown-menu": "^2.1.4",
+    "@radix-ui/react-switch":"^1.1.2",
+    "@radix-ui/react-toast": "^1.2.4",
+    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "lucide-react": "^0.424.0",
+    "lucide-react": "^0.473.0",
     "node-fetch": "^3.3.2",
-    "query-string": "^9.1.0",
+    "query-string": "^9.1.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwind-merge": "^2.4.0",
@@ -55,7 +56,7 @@
     "eslint-plugin-react-hooks": "^4.6.2",
     "eslint-plugin-react-refresh": "^0.4.7",
     "postcss": "^8.4.41",
-    "tailwindcss": "^3.4.7",
+    "tailwindcss": "^3.4.10",
     "vite": "^5.3.4"
   }
 }

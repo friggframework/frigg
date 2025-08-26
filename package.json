@@ -22,13 +22,13 @@
     "packages/*"
   ],
   "devDependencies": {
-    "@auto-it/all-contributors": "^11.1.2",
-    "@auto-it/conventional-commits": "^11.2.0",
-    "@auto-it/first-time-contributor": "^11.1.2",
-    "@auto-it/slack": "^11.1.2",
-    "auto": "^11.1.2",
-    "lerna": "^8.1.2",
-    "nx": "^18.1.3"
+    "@auto-it/all-contributors": "11.3.0",
+    "@auto-it/conventional-commits": "11.3.0",
+    "@auto-it/first-time-contributor": "11.3.0",
+    "@auto-it/slack": "11.3.0",
+    "auto": "11.3.0",
+    "lerna": "8.1.9",
+    "nx": "20.3.2"
   },
   "repository": "friggframework/frigg",
   "auto": {
@@ -61,8 +61,5 @@
         }
       ]
     ]
-  },
-  "dependencies": {
-    "bot": "^0.0.3"
   }
 }

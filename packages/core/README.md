@@ -2,6 +2,7 @@
 
 The `frigg-core` package is the heart of the Frigg Framework. It contains the core functionality and essential modules required to build and maintain integrations at scale.
 
+
 ## Table of Contents
 
 - [Introduction](#introduction)
@@ -27,6 +28,7 @@ The Frigg Core package provides the foundational components and utilities for th
 - **Logging**: Structured logging utilities.
 - **Module Plugin**: Plugin system for extending core functionality.
 - **Syncs**: Synchronization utilities for data consistency.
+- **Infrastructure**: Frigg reads through your integration definitions and auto-generates the infrastructure your code needs to run smoothly.
 
 ## Installation
 
@@ -64,6 +66,7 @@ The frigg-core package is organized into several modules:
 - **Logs**: @friggframework/core/logs
 - **Module Plugin**: @friggframework/core/module-plugin
 - **Syncs**: @friggframework/core/syncs
+- **Infrastructure**: @friggframework/core/infrastructure
 
 
 Each module provides specific functionality and can be imported individually as needed.

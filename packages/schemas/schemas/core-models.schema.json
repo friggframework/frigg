@@ -1,0 +1,445 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.friggframework.org/core-models.schema.json",
+  "title": "Frigg Core Data Models",
+  "description": "Schema definitions for core Frigg data models including User, Entity, and Credential.",
+  "definitions": {
+    "objectId": {
+      "type": "string",
+      "description": "MongoDB ObjectId",
+      "pattern": "^[a-f0-9]{24}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "ISO 8601 timestamp",
+      "format": "date-time"
+    },
+    "userModel": {
+      "type": "object",
+      "description": "Frigg User model schema",
+      "required": ["_id"],
+      "properties": {
+        "_id": {
+          "$ref": "#/definitions/objectId",
+          "description": "Unique user identifier"
+        },
+        "email": {
+          "type": "string",
+          "description": "User email address",
+          "format": "email",
+          "maxLength": 255
+        },
+        "firstName": {
+          "type": "string",
+          "description": "User first name",
+          "maxLength": 100
+        },
+        "lastName": {
+          "type": "string",
+          "description": "User last name",
+          "maxLength": 100
+        },
+        "organization": {
+          "type": "string",
+          "description": "User organization",
+          "maxLength": 200
+        },
+        "role": {
+          "type": "string",
+          "description": "User role",
+          "enum": ["admin", "user", "developer", "viewer"],
+          "default": "user"
+        },
+        "permissions": {
+          "type": "array",
+          "description": "User permissions",
+          "items": {
+            "type": "string",
+            "enum": [
+              "integrations:read", "integrations:write", "integrations:delete",
+              "entities:read", "entities:write", "entities:delete",
+              "credentials:read", "credentials:write", "credentials:delete",
+              "users:read", "users:write", "users:delete",
+              "admin:all"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "preferences": {
+          "type": "object",
+          "description": "User preferences and settings",
+          "properties": {
+            "theme": {
+              "type": "string",
+              "enum": ["light", "dark", "auto"],
+              "default": "light"
+            },
+            "language": {
+              "type": "string",
+              "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
+              "default": "en"
+            },
+            "timezone": {
+              "type": "string",
+              "description": "User timezone",
+              "default": "UTC"
+            },
+            "notifications": {
+              "type": "object",
+              "properties": {
+                "email": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "push": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "integration_errors": {
+                  "type": "boolean",
+                  "default": true
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Whether user account is active",
+          "default": true
+        },
+        "lastLogin": {
+          "$ref": "#/definitions/timestamp",
+          "description": "Last login timestamp"
+        },
+        "createdAt": {
+          "$ref": "#/definitions/timestamp",
+          "description": "User creation timestamp"
+        },
+        "updatedAt": {
+          "$ref": "#/definitions/timestamp",
+          "description": "Last update timestamp"
+        }
+      },
+      "additionalProperties": false
+    },
+    "credentialModel": {
+      "type": "object",
+      "description": "Frigg Credential model schema",
+      "required": ["_id", "userId", "subType"],
+      "properties": {
+        "_id": {
+          "$ref": "#/definitions/objectId",
+          "description": "Unique credential identifier"
+        },
+        "userId": {
+          "$ref": "#/definitions/objectId",
+          "description": "Associated user ID"
+        },
+        "subType": {
+          "type": "string",
+          "description": "Integration type for this credential",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$",
+          "maxLength": 100
+        },
+        "externalId": {
+          "type": "string",
+          "description": "External system identifier",
+          "maxLength": 255
+        },
+        "auth_is_valid": {
+          "type": "boolean",
+          "description": "Whether authentication is currently valid",
+          "default": false
+        },
+        "authData": {
+          "type": "object",
+          "description": "Encrypted authentication data",
+          "properties": {
+            "access_token": {
+              "type": "string",
+              "description": "Encrypted access token"
+            },
+            "refresh_token": {
+              "type": "string",
+              "description": "Encrypted refresh token"
+            },
+            "token_type": {
+              "type": "string",
+              "description": "Token type",
+              "enum": ["Bearer", "Basic", "API-Key"],
+              "default": "Bearer"
+            },
+            "expires_at": {
+              "$ref": "#/definitions/timestamp",
+              "description": "Token expiration time"
+            },
+            "scope": {
+              "type": "string",
+              "description": "OAuth scope granted"
+            }
+          },
+          "additionalProperties": true
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Additional credential metadata",
+          "properties": {
+            "integration_version": {
+              "type": "string",
+              "description": "Version of integration used"
+            },
+            "last_validated": {
+              "$ref": "#/definitions/timestamp",
+              "description": "Last validation timestamp"
+            },
+            "validation_errors": {
+              "type": "array",
+              "description": "Recent validation errors",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "string",
+                    "description": "Error message"
+                  },
+                  "timestamp": {
+                    "$ref": "#/definitions/timestamp",
+                    "description": "Error timestamp"
+                  },
+                  "code": {
+                    "type": "string",
+                    "description": "Error code"
+                  }
+                },
+                "required": ["error", "timestamp"]
+              }
+            }
+          },
+          "additionalProperties": true
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Whether credential is active",
+          "default": true
+        },
+        "createdAt": {
+          "$ref": "#/definitions/timestamp",
+          "description": "Credential creation timestamp"
+        },
+        "updatedAt": {
+          "$ref": "#/definitions/timestamp",
+          "description": "Last update timestamp"
+        }
+      },
+      "additionalProperties": false
+    },
+    "entityModel": {
+      "type": "object",
+      "description": "Frigg Entity model schema",
+      "required": ["_id", "credentialId", "userId", "subType"],
+      "properties": {
+        "_id": {
+          "$ref": "#/definitions/objectId",
+          "description": "Unique entity identifier"
+        },
+        "credentialId": {
+          "$ref": "#/definitions/objectId",
+          "description": "Associated credential ID"
+        },
+        "userId": {
+          "$ref": "#/definitions/objectId",
+          "description": "Associated user ID"
+        },
+        "subType": {
+          "type": "string",
+          "description": "Entity subtype or category",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$",
+          "maxLength": 100
+        },
+        "name": {
+          "type": "string",
+          "description": "Entity display name",
+          "maxLength": 255
+        },
+        "externalId": {
+          "type": "string",
+          "description": "External system identifier",
+          "maxLength": 255
+        },
+        "data": {
+          "type": "object",
+          "description": "Entity-specific data",
+          "additionalProperties": true
+        },
+        "config": {
+          "type": "object",
+          "description": "Entity configuration settings",
+          "properties": {
+            "sync_enabled": {
+              "type": "boolean",
+              "description": "Whether synchronization is enabled",
+              "default": true
+            },
+            "sync_direction": {
+              "type": "string",
+              "description": "Synchronization direction",
+              "enum": ["incoming", "outgoing", "bidirectional"],
+              "default": "bidirectional"
+            },
+            "sync_frequency": {
+              "type": "string",
+              "description": "Synchronization frequency",
+              "enum": ["real-time", "hourly", "daily", "weekly", "manual"],
+              "default": "hourly"
+            },
+            "field_mappings": {
+              "type": "object",
+              "description": "Field mapping configuration",
+              "patternProperties": {
+                "^[a-zA-Z][a-zA-Z0-9_]*$": {
+                  "type": "string",
+                  "description": "Target field mapping"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "status": {
+          "type": "string",
+          "description": "Entity status",
+          "enum": ["active", "inactive", "error", "syncing", "pending"],
+          "default": "active"
+        },
+        "lastSync": {
+          "$ref": "#/definitions/timestamp",
+          "description": "Last synchronization timestamp"
+        },
+        "syncErrors": {
+          "type": "array",
+          "description": "Recent synchronization errors",
+          "items": {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string",
+                "description": "Error message"
+              },
+              "timestamp": {
+                "$ref": "#/definitions/timestamp",
+                "description": "Error timestamp"
+              },
+              "code": {
+                "type": "string",
+                "description": "Error code"
+              },
+              "retryable": {
+                "type": "boolean",
+                "description": "Whether error is retryable",
+                "default": true
+              }
+            },
+            "required": ["error", "timestamp"]
+          }
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Whether entity is active",
+          "default": true
+        },
+        "createdAt": {
+          "$ref": "#/definitions/timestamp",
+          "description": "Entity creation timestamp"
+        },
+        "updatedAt": {
+          "$ref": "#/definitions/timestamp",
+          "description": "Last update timestamp"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "properties": {
+    "user": {
+      "$ref": "#/definitions/userModel"
+    },
+    "credential": {
+      "$ref": "#/definitions/credentialModel"
+    },
+    "entity": {
+      "$ref": "#/definitions/entityModel"
+    }
+  },
+  "examples": [
+    {
+      "user": {
+        "_id": "507f1f77bcf86cd799439011",
+        "email": "user@example.com",
+        "firstName": "John",
+        "lastName": "Doe",
+        "organization": "Example Corp",
+        "role": "user",
+        "permissions": ["integrations:read", "integrations:write"],
+        "preferences": {
+          "theme": "dark",
+          "language": "en",
+          "notifications": {
+            "email": true,
+            "integration_errors": true
+          }
+        },
+        "isActive": true,
+        "createdAt": "2023-01-01T00:00:00Z",
+        "updatedAt": "2023-01-01T00:00:00Z"
+      },
+      "credential": {
+        "_id": "507f1f77bcf86cd799439012",
+        "userId": "507f1f77bcf86cd799439011",
+        "subType": "hubspot",
+        "externalId": "12345",
+        "auth_is_valid": true,
+        "authData": {
+          "access_token": "encrypted_access_token",
+          "refresh_token": "encrypted_refresh_token",
+          "token_type": "Bearer",
+          "expires_at": "2023-12-31T23:59:59Z",
+          "scope": "contacts companies deals"
+        },
+        "metadata": {
+          "integration_version": "2.0.0",
+          "last_validated": "2023-01-01T00:00:00Z"
+        },
+        "isActive": true,
+        "createdAt": "2023-01-01T00:00:00Z",
+        "updatedAt": "2023-01-01T00:00:00Z"
+      },
+      "entity": {
+        "_id": "507f1f77bcf86cd799439013",
+        "credentialId": "507f1f77bcf86cd799439012",
+        "userId": "507f1f77bcf86cd799439011",
+        "subType": "contact",
+        "name": "HubSpot Contacts",
+        "externalId": "hubspot_contacts_12345",
+        "config": {
+          "sync_enabled": true,
+          "sync_direction": "bidirectional",
+          "sync_frequency": "hourly",
+          "field_mappings": {
+            "email": "email",
+            "firstname": "first_name",
+            "lastname": "last_name"
+          }
+        },
+        "status": "active",
+        "lastSync": "2023-01-01T00:00:00Z",
+        "isActive": true,
+        "createdAt": "2023-01-01T00:00:00Z",
+        "updatedAt": "2023-01-01T00:00:00Z"
+      }
+    }
+  ]
+}

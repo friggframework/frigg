@@ -108,6 +108,7 @@ class Requester extends Delegate {
     }
 
     async _post(options, stringify = true) {
+        console.log('options', options);
         const fetchOptions = {
             method: 'POST',
             credentials: 'include',
