@@ -1,0 +1,276 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.friggframework.org/app-definition.schema.json",
+  "title": "Frigg Application Definition",
+  "description": "Schema for defining a Frigg application configuration including integrations, user management, security settings, and more.",
+  "type": "object",
+  "required": ["integrations"],
+  "properties": {
+    "integrations": {
+      "type": "array",
+      "description": "Array of integration classes to enable in the application",
+      "items": {
+        "type": "object",
+        "description": "Integration class or configuration object"
+      },
+      "default": []
+    },
+    "user": {
+      "type": "object",
+      "description": "User management configuration",
+      "properties": {
+        "password": {
+          "type": "boolean",
+          "description": "Enable password-based authentication",
+          "default": true
+        },
+        "fields": {
+          "type": "array",
+          "description": "Additional user fields",
+          "items": {
+            "type": "string"
+          },
+          "examples": [["email", "firstName", "lastName"]]
+        },
+        "model": {
+          "type": "object",
+          "description": "Custom user model class"
+        }
+      },
+      "additionalProperties": false
+    },
+    "auth": {
+      "type": "object",
+      "description": "Authentication configuration for integrations",
+      "properties": {
+        "jwtSecret": {
+          "type": "string",
+          "description": "JWT secret key (should be set via environment variable)"
+        },
+        "tokenExpiry": {
+          "type": "string",
+          "description": "Token expiration time",
+          "pattern": "^\\d+[smhd]$",
+          "default": "24h"
+        },
+        "refreshTokenExpiry": {
+          "type": "string",
+          "description": "Refresh token expiration time", 
+          "pattern": "^\\d+[smhd]$",
+          "default": "7d"
+        }
+      },
+      "additionalProperties": false
+    },
+    "database": {
+      "type": "object",
+      "description": "Database connection and model configuration",
+      "properties": {
+        "uri": {
+          "type": "string",
+          "description": "Database connection URI (should be set via environment variable)",
+          "format": "uri"
+        },
+        "mongodb": {
+          "type": "object",
+          "description": "MongoDB-specific options",
+          "properties": {
+            "useNewUrlParser": {
+              "type": "boolean",
+              "default": true
+            },
+            "useUnifiedTopology": {
+              "type": "boolean", 
+              "default": true
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "encryption": {
+      "type": "object",
+      "description": "Encryption settings for sensitive data",
+      "properties": {
+        "useDefaultKMSForFieldLevelEncryption": {
+          "type": "boolean",
+          "description": "Use default KMS for field-level encryption",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "vpc": {
+      "type": "object",
+      "description": "Virtual Private Cloud settings",
+      "properties": {
+        "enable": {
+          "type": "boolean",
+          "description": "Enable VPC for enhanced security",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "security": {
+      "type": "object",
+      "description": "Security settings for the application",
+      "properties": {
+        "cors": {
+          "type": "object",
+          "description": "CORS (Cross-Origin Resource Sharing) settings",
+          "properties": {
+            "origin": {
+              "oneOf": [
+                {"type": "string"},
+                {"type": "array", "items": {"type": "string"}},
+                {"type": "boolean"}
+              ],
+              "description": "Allowed origins for CORS requests",
+              "default": "http://localhost:3000"
+            },
+            "credentials": {
+              "type": "boolean",
+              "description": "Allow credentials in CORS requests",
+              "default": true
+            },
+            "methods": {
+              "type": "array",
+              "description": "Allowed HTTP methods",
+              "items": {
+                "type": "string",
+                "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"]
+              }
+            },
+            "allowedHeaders": {
+              "type": "array",
+              "description": "Allowed request headers",
+              "items": {"type": "string"}
+            }
+          },
+          "additionalProperties": false
+        },
+        "rateLimit": {
+          "type": "object",
+          "description": "Rate limiting configuration",
+          "properties": {
+            "windowMs": {
+              "type": "integer",
+              "description": "Time window in milliseconds",
+              "minimum": 1000,
+              "default": 900000
+            },
+            "max": {
+              "type": "integer", 
+              "description": "Maximum requests per window",
+              "minimum": 1,
+              "default": 100
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "webhooks": {
+      "type": "object",
+      "description": "Webhook handling configuration",
+      "properties": {
+        "secret": {
+          "type": "string",
+          "description": "Webhook secret for signature verification"
+        },
+        "prefix": {
+          "type": "string",
+          "description": "Webhook endpoint prefix",
+          "pattern": "^/[a-zA-Z0-9/_-]*$",
+          "default": "/webhooks"
+        }
+      },
+      "additionalProperties": false
+    },
+    "logging": {
+      "type": "object",
+      "description": "Logging configuration",
+      "properties": {
+        "level": {
+          "type": "string",
+          "description": "Log level",
+          "enum": ["error", "warn", "info", "debug", "trace"],
+          "default": "info"
+        },
+        "format": {
+          "type": "string",
+          "description": "Log format",
+          "enum": ["json", "text", "combined"],
+          "default": "json"
+        }
+      },
+      "additionalProperties": false
+    },
+    "custom": {
+      "type": "object",
+      "description": "Custom application-specific configuration",
+      "properties": {
+        "appName": {
+          "type": "string",
+          "description": "Application name",
+          "default": "My Frigg Application"
+        },
+        "version": {
+          "type": "string",
+          "description": "Application version",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.-]+)?$",
+          "default": "1.0.0"
+        },
+        "environment": {
+          "type": "string",
+          "description": "Runtime environment",
+          "enum": ["development", "staging", "production", "test"],
+          "default": "development"
+        },
+        "features": {
+          "type": "object",
+          "description": "Feature flags and toggles",
+          "patternProperties": {
+            "^[a-zA-Z][a-zA-Z0-9_]*$": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "integrations": [],
+      "user": {
+        "password": true
+      },
+      "encryption": {
+        "useDefaultKMSForFieldLevelEncryption": true
+      },
+      "vpc": {
+        "enable": true
+      },
+      "security": {
+        "cors": {
+          "origin": "http://localhost:3000",
+          "credentials": true
+        }
+      },
+      "logging": {
+        "level": "info"
+      },
+      "custom": {
+        "appName": "My Frigg Application",
+        "version": "1.0.0",
+        "environment": "development"
+      }
+    }
+  ]
+}

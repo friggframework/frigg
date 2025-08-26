@@ -1,0 +1,393 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.friggframework.org/serverless-config.schema.json",
+  "title": "Frigg Serverless Configuration",
+  "description": "Schema for Serverless Framework configuration used in Frigg applications for AWS deployment.",
+  "type": "object",
+  "required": ["service", "provider"],
+  "properties": {
+    "frameworkVersion": {
+      "type": "string",
+      "description": "Serverless Framework version constraint",
+      "pattern": "^[><=]*\\d+\\.\\d+\\.\\d+$",
+      "examples": [">=3.17.0", "3.38.0"]
+    },
+    "service": {
+      "type": "string",
+      "description": "Service name for the Serverless application",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9-]*$",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "provider": {
+      "type": "object",
+      "description": "Cloud provider configuration",
+      "required": ["name", "runtime"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Cloud provider name",
+          "enum": ["aws", "azure", "gcp"]
+        },
+        "runtime": {
+          "type": "string",
+          "description": "Runtime environment",
+          "enum": ["nodejs18.x", "nodejs20.x", "python3.9", "python3.10", "python3.11"]
+        },
+        "timeout": {
+          "type": "integer",
+          "description": "Function timeout in seconds",
+          "minimum": 1,
+          "maximum": 900,
+          "default": 30
+        },
+        "region": {
+          "type": "string",
+          "description": "AWS region for deployment",
+          "enum": [
+            "us-east-1", "us-east-2", "us-west-1", "us-west-2",
+            "eu-west-1", "eu-west-2", "eu-central-1", "ap-southeast-1",
+            "ap-southeast-2", "ap-northeast-1"
+          ],
+          "default": "us-east-1"
+        },
+        "stage": {
+          "type": "string",
+          "description": "Deployment stage",
+          "enum": ["dev", "staging", "prod", "test"],
+          "default": "dev"
+        },
+        "environment": {
+          "type": "object",
+          "description": "Environment variables for all functions",
+          "patternProperties": {
+            "^[A-Z][A-Z0-9_]*$": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "vpc": {
+          "type": "object",
+          "description": "VPC configuration",
+          "properties": {
+            "securityGroupIds": {
+              "type": "array",
+              "description": "Security group IDs",
+              "items": {
+                "type": "string",
+                "pattern": "^sg-[a-z0-9]+$"
+              }
+            },
+            "subnetIds": {
+              "type": "array",
+              "description": "Subnet IDs",
+              "items": {
+                "type": "string",
+                "pattern": "^subnet-[a-z0-9]+$"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "iam": {
+          "type": "object",
+          "description": "IAM role configuration",
+          "properties": {
+            "role": {
+              "type": "string",
+              "description": "IAM role ARN or role statements"
+            },
+            "roleStatements": {
+              "type": "array",
+              "description": "IAM policy statements",
+              "items": {
+                "type": "object",
+                "required": ["Effect", "Action"],
+                "properties": {
+                  "Effect": {
+                    "type": "string",
+                    "enum": ["Allow", "Deny"]
+                  },
+                  "Action": {
+                    "oneOf": [
+                      {"type": "string"},
+                      {"type": "array", "items": {"type": "string"}}
+                    ]
+                  },
+                  "Resource": {
+                    "oneOf": [
+                      {"type": "string"},
+                      {"type": "array", "items": {"type": "string"}}
+                    ]
+                  },
+                  "Condition": {
+                    "type": "object"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "functions": {
+      "type": "object",
+      "description": "Lambda function definitions",
+      "patternProperties": {
+        "^[a-zA-Z][a-zA-Z0-9_-]*$": {
+          "type": "object",
+          "required": ["handler"],
+          "properties": {
+            "handler": {
+              "type": "string",
+              "description": "Function handler path",
+              "pattern": "^[./a-zA-Z0-9_-]+\\.[a-zA-Z][a-zA-Z0-9_]*$"
+            },
+            "description": {
+              "type": "string",
+              "description": "Function description",
+              "maxLength": 256
+            },
+            "timeout": {
+              "type": "integer",
+              "description": "Function-specific timeout",
+              "minimum": 1,
+              "maximum": 900
+            },
+            "memorySize": {
+              "type": "integer",
+              "description": "Memory allocation in MB",
+              "minimum": 128,
+              "maximum": 10240,
+              "multipleOf": 64
+            },
+            "environment": {
+              "type": "object",
+              "description": "Function-specific environment variables",
+              "patternProperties": {
+                "^[A-Z][A-Z0-9_]*$": {
+                  "type": "string"
+                }
+              }
+            },
+            "events": {
+              "type": "array",
+              "description": "Function event triggers",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "http": {
+                    "type": "object",
+                    "description": "HTTP API Gateway event",
+                    "required": ["path", "method"],
+                    "properties": {
+                      "path": {
+                        "type": "string",
+                        "description": "API path",
+                        "pattern": "^/[a-zA-Z0-9/_{}+-]*$"
+                      },
+                      "method": {
+                        "type": "string",
+                        "description": "HTTP method",
+                        "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD", "ANY"]
+                      },
+                      "cors": {
+                        "type": "boolean",
+                        "description": "Enable CORS",
+                        "default": true
+                      },
+                      "authorizer": {
+                        "type": "string",
+                        "description": "Authorizer function name"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "sqs": {
+                    "type": "object",
+                    "description": "SQS queue event",
+                    "required": ["arn"],
+                    "properties": {
+                      "arn": {
+                        "type": "string",
+                        "description": "SQS queue ARN",
+                        "pattern": "^arn:aws:sqs:[a-z0-9-]+:\\d{12}:[a-zA-Z0-9_-]+$"
+                      },
+                      "batchSize": {
+                        "type": "integer",
+                        "description": "Batch size for SQS processing",
+                        "minimum": 1,
+                        "maximum": 10
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "schedule": {
+                    "type": "object",
+                    "description": "Scheduled event",
+                    "required": ["rate"],
+                    "properties": {
+                      "rate": {
+                        "type": "string",
+                        "description": "Schedule expression",
+                        "pattern": "^(rate|cron)\\(.+\\)$"
+                      },
+                      "enabled": {
+                        "type": "boolean",
+                        "description": "Whether schedule is enabled",
+                        "default": true
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "resources": {
+      "type": "object",
+      "description": "CloudFormation resources",
+      "properties": {
+        "Resources": {
+          "type": "object",
+          "description": "CloudFormation resource definitions",
+          "patternProperties": {
+            "^[a-zA-Z][a-zA-Z0-9]*$": {
+              "type": "object",
+              "required": ["Type"],
+              "properties": {
+                "Type": {
+                  "type": "string",
+                  "description": "AWS resource type",
+                  "pattern": "^AWS::[a-zA-Z0-9]+::[a-zA-Z0-9]+$"
+                },
+                "Properties": {
+                  "type": "object",
+                  "description": "Resource properties"
+                },
+                "DependsOn": {
+                  "oneOf": [
+                    {"type": "string"},
+                    {"type": "array", "items": {"type": "string"}}
+                  ],
+                  "description": "Resource dependencies"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "Outputs": {
+          "type": "object",
+          "description": "CloudFormation outputs",
+          "patternProperties": {
+            "^[a-zA-Z][a-zA-Z0-9]*$": {
+              "type": "object",
+              "required": ["Value"],
+              "properties": {
+                "Value": {
+                  "type": "string",
+                  "description": "Output value"
+                },
+                "Description": {
+                  "type": "string",
+                  "description": "Output description"
+                },
+                "Export": {
+                  "type": "object",
+                  "properties": {
+                    "Name": {
+                      "type": "string",
+                      "description": "Export name"
+                    }
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "plugins": {
+      "type": "array",
+      "description": "Serverless plugins",
+      "items": {
+        "type": "string",
+        "description": "Plugin name"
+      },
+      "uniqueItems": true
+    },
+    "custom": {
+      "type": "object",
+      "description": "Custom configuration for plugins and other settings",
+      "properties": {
+        "webpack": {
+          "type": "object",
+          "description": "Webpack configuration for serverless-webpack plugin"
+        },
+        "dotenv": {
+          "type": "object",
+          "description": "Environment file configuration"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "frameworkVersion": ">=3.17.0",
+      "service": "frigg-backend",
+      "provider": {
+        "name": "aws",
+        "runtime": "nodejs20.x",
+        "timeout": 30,
+        "region": "us-east-1",
+        "environment": {
+          "STAGE": "${opt:stage}",
+          "NODE_ENV": "production"
+        }
+      },
+      "functions": {
+        "api": {
+          "handler": "./src/api.handler",
+          "events": [
+            {
+              "http": {
+                "path": "/api/{proxy+}",
+                "method": "ANY",
+                "cors": true
+              }
+            }
+          ]
+        }
+      },
+      "resources": {
+        "Resources": {
+          "ErrorQueue": {
+            "Type": "AWS::SQS::Queue",
+            "Properties": {
+              "QueueName": "frigg-errors-${opt:stage}"
+            }
+          }
+        }
+      },
+      "plugins": [
+        "serverless-webpack",
+        "serverless-offline"
+      ]
+    }
+  ]
+}
