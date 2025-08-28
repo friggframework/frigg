@@ -14,7 +14,7 @@
     "eslint-plugin-import": "^2.27.5",
     "eslint-plugin-n": "^15.6.1",
     "eslint-plugin-promise": "^6.1.1",
-    "mongoose": "^6.10.4",
+    "mongoose": "^6.13.6",
     "prettier": "^2.8.5",
     "typescript": "^5.0.2"
   },
