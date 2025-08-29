@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-google-calendar",
-    "version": "0.3.2",
+    "version": "0.3.3",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -14,7 +14,7 @@
         "@friggframework/assertions": "^1.0.9",
         "@friggframework/eslint-config": "^1.0.8",
         "@friggframework/logs": "^1.0.9",
-        "@friggframework/module-plugin": "^1.1.4",
+        "@friggframework/module-plugin": "^1.1.5",
         "@friggframework/test-environment": "^1.1.6",
         "dotenv": "^16.3.1",
         "eslint": "^8.45.0",

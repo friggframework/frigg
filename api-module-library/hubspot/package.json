@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-hubspot",
-    "version": "0.13.0",
+    "version": "0.13.1",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -23,7 +23,7 @@
     },
     "dependencies": {
         "@friggframework/assertions": "^1.0.9",
-        "@friggframework/module-plugin": "^1.1.4"
+        "@friggframework/module-plugin": "^1.1.5"
     },
     "gitHead": "1ff6f32fa238512761a9c361f0e07f49b6bf5ed7"
 }

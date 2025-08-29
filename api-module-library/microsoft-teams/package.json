@@ -1,6 +1,6 @@
 {
     "name": "@friggframework/api-module-microsoft-teams",
-    "version": "0.4.6",
+    "version": "0.4.7",
     "prettier": "@friggframework/prettier-config",
     "description": "",
     "main": "index.js",
@@ -25,7 +25,7 @@
     },
     "dependencies": {
         "@friggframework/assertions": "^1.0.9",
-        "@friggframework/module-plugin": "^1.1.4",
+        "@friggframework/module-plugin": "^1.1.5",
         "botbuilder": "^4.19.2"
     }
 }
