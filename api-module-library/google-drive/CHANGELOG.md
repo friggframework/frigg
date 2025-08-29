@@ -1,3 +1,16 @@
+# v0.6.1 (Fri Aug 29 2025)
+
+#### 🐛 Bug Fix
+
+- Upgrade mongoose versions to patch vuln [#412](https://github.com/friggframework/frigg/pull/412) ([@brendanrmoore](https://github.com/brendanrmoore))
+- upgrade mongoose versions to patch vuln ([@brendanrmoore](https://github.com/brendanrmoore))
+
+#### Authors: 1
+
+- Brendan Moore ([@brendanrmoore](https://github.com/brendanrmoore))
+
+---
+
 # v0.6.0 (Fri May 03 2024)
 
 #### 🚀 Enhancement

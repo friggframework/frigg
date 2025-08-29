@@ -1,3 +1,16 @@
+# (Fri Aug 29 2025)
+
+#### 🐛 Bug Fix
+
+- `@friggframework/api-module-google-drive@0.6.1`, `@friggframework/api-module-hubspot@0.13.1`, `@friggframework/api-module-ironclad@0.3.3`, `@friggframework/integrations@1.2.6`, `@friggframework/module-plugin@1.1.5`, `@friggframework/types@0.2.6`
+  - Upgrade mongoose versions to patch vuln [#412](https://github.com/friggframework/frigg/pull/412) ([@brendanrmoore](https://github.com/brendanrmoore))
+
+#### Authors: 1
+
+- Brendan Moore ([@brendanrmoore](https://github.com/brendanrmoore))
+
+---
+
 # (Fri Aug 30 2024)
 
 #### 🐛 Bug Fix
