@@ -257,6 +257,26 @@ Resources:
               - 'arn:aws:apigateway:*::/restapis/*'
               - 'arn:aws:apigateway:*::/domainnames'
               - 'arn:aws:apigateway:*::/domainnames/*'
+          
+          # API Gateway v2 permissions
+          - Sid: 'FriggAPIGatewayV2'
+            Effect: Allow
+            Action:
+              - 'apigateway:GET'
+              - 'apigateway:DELETE'
+              - 'apigateway:PATCH'
+              - 'apigateway:POST'
+              - 'apigateway:PUT'
+            Resource:
+              - 'arn:aws:apigateway:*::/apis'
+              - 'arn:aws:apigateway:*::/apis/*'
+              - 'arn:aws:apigateway:*::/apis/*/stages'
+              - 'arn:aws:apigateway:*::/apis/*/stages/*'
+              - 'arn:aws:apigateway:*::/apis/*/mappings'
+              - 'arn:aws:apigateway:*::/apis/*/mappings/*'
+              - 'arn:aws:apigateway:*::/domainnames'
+              - 'arn:aws:apigateway:*::/domainnames/*'
+              - 'arn:aws:apigateway:*::/domainnames/*/apimappings'
 
   # VPC-specific permissions
   FriggVPCPolicy:
@@ -297,6 +317,8 @@ Resources:
               - 'ec2:CreateTags'
               - 'ec2:DeleteTags'
               - 'ec2:DescribeTags'
+              - 'ec2:DetachInternetGateway'
+              - 'ec2:DeleteSubnet'
             Resource: '*'
 
   # KMS permissions
