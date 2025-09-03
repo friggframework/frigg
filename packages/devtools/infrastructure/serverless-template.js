@@ -413,14 +413,6 @@ const createVPCInfrastructure = (AppDefinition) => {
 };
 
 const composeServerlessDefinition = (AppDefinition) => {
-    // Define CORS configuration to be used across all endpoints
-    const corsConfig = {
-        origin: '*',
-        headers: '*',
-        methods: ['ANY'],
-        allowCredentials: false,
-    };
-    
     const definition = {
         frameworkVersion: '>=3.17.0',
         service: AppDefinition.name || 'create-frigg-app',
@@ -434,9 +426,9 @@ const composeServerlessDefinition = (AppDefinition) => {
             runtime: 'nodejs20.x',
             timeout: 30,
             region: 'us-east-1',
-            stage: '${opt:stage}',
+            stage: '${opt:stage, "dev"}',
             environment: {
-                STAGE: '${opt:stage}',
+                STAGE: '${opt:stage, "dev"}',
                 AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1,
             },
             iamRoleStatements: [
@@ -470,6 +462,17 @@ const composeServerlessDefinition = (AppDefinition) => {
                     ],
                 }
             ],
+            httpApi: {
+                payload: '2.0',
+                cors: {
+                    allowedOrigins: ['*'],
+                    allowedHeaders: ['*'],
+                    allowedMethods: ['*'],
+                    allowCredentials: false,
+                },
+                name: '${opt:stage, "dev"}-${self:service}',
+                disableDefaultEndpoint: false,
+            }
         },
         plugins: [
             'serverless-jetpack',
@@ -522,24 +525,21 @@ const composeServerlessDefinition = (AppDefinition) => {
                 handler: 'node_modules/@friggframework/core/handlers/routers/auth.handler',
                 events: [
                     {
-                        http: {
+                        httpApi: {
                             path: '/api/integrations',
                             method: 'ANY',
-                            cors: corsConfig,
                         },
                     },
                     {
-                        http: {
+                        httpApi: {
                             path: '/api/integrations/{proxy+}',
                             method: 'ANY',
-                            cors: corsConfig,
                         },
                     },
                     {
-                        http: {
+                        httpApi: {
                             path: '/api/authorize',
                             method: 'ANY',
-                            cors: corsConfig,
                         },
                     },
                 ],
@@ -548,10 +548,9 @@ const composeServerlessDefinition = (AppDefinition) => {
                 handler: 'node_modules/@friggframework/core/handlers/routers/user.handler',
                 events: [
                     {
-                        http: {
+                        httpApi: {
                             path: '/user/{proxy+}',
                             method: 'ANY',
-                            cors: corsConfig,
                         },
                     },
                 ],
@@ -560,17 +559,15 @@ const composeServerlessDefinition = (AppDefinition) => {
                 handler: 'node_modules/@friggframework/core/handlers/routers/health.handler',
                 events: [
                     {
-                        http: {
+                        httpApi: {
                             path: '/health',
                             method: 'GET',
-                            cors: corsConfig,
                         },
                     },
                     {
-                        http: {
+                        httpApi: {
                             path: '/health/{proxy+}',
                             method: 'GET',
-                            cors: corsConfig,
                         },
                     },
                 ],
@@ -648,16 +645,12 @@ const composeServerlessDefinition = (AppDefinition) => {
                         AlarmActions: [{ Ref: 'InternalErrorBridgeTopic' }],
                         Dimensions: [
                             {
-                                Name: 'ApiName',
-                                Value: {
-                                    'Fn::Join': [
-                                        '-',
-                                        [
-                                            '${self:provider.stage}',
-                                            '${self:service}',
-                                        ],
-                                    ],
-                                },
+                                Name: 'ApiId',
+                                Value: { Ref: 'HttpApi' },
+                            },
+                            {
+                                Name: 'Stage',
+                                Value: '${self:provider.stage}',
                             },
                         ],
                     },
@@ -673,12 +666,12 @@ const composeServerlessDefinition = (AppDefinition) => {
         definition.custom.customDomain = {
             domainName: process.env.CUSTOM_DOMAIN,
             basePath: process.env.CUSTOM_BASE_PATH || '',
-            stage: '${self:provider.stage}',
+            stage: '${opt:stage, "dev"}',
             createRoute53Record: process.env.CREATE_ROUTE53_RECORD !== 'false', // Default true
             certificateName: process.env.CERTIFICATE_NAME || process.env.CUSTOM_DOMAIN,
             endpointType: process.env.ENDPOINT_TYPE || 'edge', // edge, regional, or private
             securityPolicy: process.env.SECURITY_POLICY || 'tls_1_2',
-            apiType: 'rest',
+            apiType: 'http',
             autoDomain: process.env.AUTO_DOMAIN === 'true', // Auto create domain if it doesn't exist
         };
         
@@ -686,18 +679,9 @@ const composeServerlessDefinition = (AppDefinition) => {
         definition.provider.environment.BASE_URL = `https://${process.env.CUSTOM_DOMAIN}`;
     } else {
         // Default BASE_URL using API Gateway generated URL
+        // For HTTP API, don't include stage as it uses $default behavior
         definition.provider.environment.BASE_URL = {
-            'Fn::Join': [
-                '',
-                [
-                    'https://',
-                    { Ref: 'ApiGatewayRestApi' },
-                    '.execute-api.',
-                    { Ref: 'AWS::Region' },
-                    '.amazonaws.com/',
-                    '${self:provider.stage}',
-                ],
-            ],
+            'Fn::GetAtt': ['HttpApi', 'ApiEndpoint']
         };
     }
     
@@ -717,12 +701,7 @@ const composeServerlessDefinition = (AppDefinition) => {
             'Fn::Join': [
                 '',
                 [
-                    'https://',
-                    { Ref: 'ApiGatewayRestApi' },
-                    '.execute-api.',
-                    { Ref: 'AWS::Region' },
-                    '.amazonaws.com/',
-                    '${self:provider.stage}',
+                    { 'Fn::GetAtt': ['HttpApi', 'ApiEndpoint'] },
                     process.env.REDIRECT_PATH,
                 ],
             ],
@@ -825,10 +804,9 @@ const composeServerlessDefinition = (AppDefinition) => {
             handler: `node_modules/@friggframework/core/handlers/routers/integration-defined-routers.handlers.${integrationName}.handler`,
             events: [
                 {
-                    http: {
+                    httpApi: {
                         path: `/api/${integrationName}-integration/{proxy+}`,
                         method: 'ANY',
-                        cors: corsConfig,
                     },
                 },
             ],
