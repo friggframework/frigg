@@ -2,11 +2,16 @@
 
 ## Overview
 
-Frigg provides **complete VPC infrastructure automation** for your Lambda functions. When enabled, it creates a production-ready VPC with all necessary components: VPC, subnets, NAT Gateway, Internet Gateway, route tables, security groups, and VPC endpoints.
+Frigg provides **VPC networking support** for your Lambda functions with two main approaches:
 
-## Quick Start - Zero Configuration
+1. **AWS Discovery** (Default): Automatically finds and uses your existing VPC infrastructure
+2. **Infrastructure Creation**: Creates new VPC infrastructure when explicitly requested with `createNew: true`
 
-Enable VPC with a single flag - Frigg handles everything:
+When VPC is enabled, Lambda functions gain enhanced security through network isolation. The AWS Discovery approach leverages your existing VPC setup, while infrastructure creation is available for cases where you need dedicated networking resources.
+
+## Quick Start - AWS Discovery (Default)
+
+The default approach automatically discovers and uses your existing VPC infrastructure:
 
 ```javascript
 const appDefinition = {
@@ -15,72 +20,103 @@ const appDefinition = {
         // your integrations...
     ],
     vpc: {
-        enable: true  // That's it! Complete VPC infrastructure is created automatically
+        enable: true  // Default: Uses AWS Discovery to find existing VPC resources
     }
 }
 
 module.exports = appDefinition;
 ```
 
-## What Gets Created Automatically
+**This is the recommended approach** because:
+- ✅ **Zero infrastructure costs** - uses existing resources
+- ✅ **Fast deployment** - no resource creation delays  
+- ✅ **Integrates seamlessly** with existing network setup
+- ✅ **Production ready** - leverages proven infrastructure
+- ✅ **No CIDR conflicts** - works with any existing VPC CIDR ranges
 
-When `vpc.enable` is `true`, Frigg creates a complete, production-ready VPC infrastructure:
+## AWS Discovery Mode (Default)
 
-### Core VPC Infrastructure
-- **VPC** with DNS resolution enabled (`10.0.0.0/16` CIDR)
-- **Internet Gateway** for internet connectivity
-- **Public Subnet** for NAT Gateway (`10.0.1.0/24`)
-- **2 Private Subnets** in different AZs for Lambda functions (`10.0.2.0/24`, `10.0.3.0/24`)
-- **NAT Gateway** with Elastic IP for private subnet internet access
-- **Route Tables** properly configured for internet routing
+When using AWS Discovery, Frigg automatically finds your existing VPC resources:
 
-### Security Groups
+### What Gets Discovered
+- **Default VPC** or first available VPC in your account
+- **Private Subnets** with proper routing for Lambda functions
+- **Security Groups** suitable for Lambda outbound traffic
+- **Route Tables** that support internet access
+- **Default KMS Key** for encryption operations
+
+### What Gets Created for Lambda Internet Access
+Even with existing VPC, Lambda functions need guaranteed internet access for external API calls:
+
+- **NAT Gateway** with Elastic IP (~$45/month) - required for outbound HTTPS to Salesforce, HubSpot, etc.
+- **Route Table** with NAT Gateway routing for Lambda subnets
+- **Subnet Route Associations** to ensure Lambda traffic uses NAT Gateway
 - **Lambda Security Group** with outbound rules for:
   - HTTPS (443) - API calls
   - HTTP (80) - HTTP requests  
   - DNS (53 TCP/UDP) - Domain resolution
-
-### VPC Endpoints (Cost Optimization)
-- **S3 Gateway Endpoint** (free) - Direct S3 access without NAT costs
-- **DynamoDB Gateway Endpoint** (free) - Direct DynamoDB access
-- **KMS Interface Endpoint** (paid, ~$22/month) - Only if KMS encryption enabled
-- **Secrets Manager Interface Endpoint** (paid, ~$22/month) - For secure secret access
+- **VPC Endpoints** (optional, cost optimization):
+  - S3 Gateway Endpoint (free)
+  - DynamoDB Gateway Endpoint (free)
+  - KMS Interface Endpoint (~$22/month, if KMS enabled)
 
 ### IAM Permissions
 - **ENI Management** permissions for Lambda VPC operations
 
+## Infrastructure Creation Mode
+
+For new VPC infrastructure, add `createNew: true`:
+
+### Complete VPC Infrastructure Created
+- **VPC** with DNS resolution enabled (configurable CIDR)
+- **Internet Gateway** for internet connectivity
+- **Public Subnet** for NAT Gateway
+- **2 Private Subnets** in different AZs for Lambda functions
+- **NAT Gateway** with Elastic IP for private subnet internet access
+- **Route Tables** properly configured for internet routing
+- **Security Groups** for Lambda and VPC endpoints
+
 ## Configuration Options
 
-### Basic VPC (Zero Configuration)
+### Basic VPC with AWS Discovery (Default)
 ```javascript
 vpc: {
-    enable: true  // Creates complete VPC infrastructure with defaults
+    enable: true  // Default: Uses AWS Discovery to find existing VPC resources
 }
 ```
 
-### Custom CIDR Block
+### Explicit Resource IDs (Override Discovery)
 ```javascript
 vpc: {
     enable: true,
+    securityGroupIds: ['sg-existing123'],  // Use specific security groups
+    subnetIds: ['subnet-existing456', 'subnet-existing789']  // Use specific subnets
+}
+```
+
+### Create New VPC Infrastructure (Explicit Opt-in)
+```javascript
+vpc: {
+    enable: true,
+    createNew: true,  // Explicit opt-in: Creates complete new VPC infrastructure
     cidrBlock: '10.1.0.0/16'  // Custom VPC CIDR (default: 10.0.0.0/16)
 }
 ```
 
-### Disable VPC Endpoints
+### Disable VPC Endpoints (Cost Optimization)
 ```javascript
 vpc: {
     enable: true,
-    enableVPCEndpoints: false  // Disable VPC endpoints (use NAT for all traffic)
+    enableVPCEndpoints: false  // Disable VPC endpoints, use NAT for all traffic
 }
 ```
 
-### Use Existing Infrastructure
+### Environment-Specific Configuration
 ```javascript
 vpc: {
-    enable: true,
-    securityGroupIds: ['sg-existing123'],  // Use existing security groups
-    subnetIds: ['subnet-existing456']      // Use existing subnets
-    // Skips infrastructure creation, only enables VPC for Lambda
+    enable: process.env.STAGE === 'prod',  // Only enable VPC in production
+    createNew: process.env.STAGE === 'dev',  // Create new VPC for dev environments
+    cidrBlock: process.env.VPC_CIDR || '10.0.0.0/16'
 }
 ```
 
@@ -151,32 +187,22 @@ const appDefinition = {
 - **Gradual rollout** - enable per environment
 - **Rollback friendly** - disable flag to revert
 
-### Override Existing Infrastructure
-```javascript
-// Use your existing VPC resources instead of auto-created ones
-vpc: {
-    enable: true,
-    securityGroupIds: ['sg-your-existing'],
-    subnetIds: ['subnet-your-existing-1', 'subnet-your-existing-2']
-}
-```
-
-
-### Production-Optimized Setup
+### Advanced: AWS Discovery with KMS and SSM
 ```javascript
 const appDefinition = {
     encryption: { useDefaultKMSForFieldLevelEncryption: true },
+    ssm: { enable: true },
     vpc: {
         enable: true,
-        cidrBlock: '10.0.0.0/16',
-        enableVPCEndpoints: true  // Include KMS endpoint for encryption
+        enableVPCEndpoints: true  // Include KMS and SSM endpoints
     }
 };
 ```
 
-### Existing Infrastructure Integration
+### Production Setup: Explicit Resources
 ```javascript
 const appDefinition = {
+    encryption: { useDefaultKMSForFieldLevelEncryption: true },
     vpc: {
         enable: true,
         securityGroupIds: ['sg-prod-lambda-12345'],

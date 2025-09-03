@@ -1,0 +1,273 @@
+
+## 🐝 HIVE MIND & SWARM ORCHESTRATION
+
+### 🚀 Quick Start with claude-flow
+```bash
+# Now you can use either:
+claude-flow sparc tdd "feature"      # With global install
+npx claude-flow@alpha sparc tdd      # Or with npx
+```
+
+### 🎯 Hive Mind Collective Intelligence
+
+**Initialize Hive Mind for Complex Tasks:**
+```javascript
+// Use hive mind for coordinated multi-agent work
+claude-flow hive-mind init --agents 8 --topology hierarchical
+
+// Available topologies:
+- hierarchical: Queen-led coordination
+- mesh: Peer-to-peer collaboration
+- ring: Sequential processing
+- star: Centralized hub
+- adaptive: Dynamic topology
+```
+
+### 👥 54 Specialized Agent Types
+
+#### Core Development Swarm
+- `coder` - Implementation specialist
+- `reviewer` - Code quality assurance
+- `tester` - Test creation and validation
+- `planner` - Strategic planning
+- `researcher` - Information gathering
+
+#### Advanced Coordination
+- `hierarchical-coordinator` - Queen-led swarms
+- `mesh-coordinator` - Distributed networks
+- `collective-intelligence-coordinator` - Hive mind
+- `swarm-memory-manager` - Shared knowledge
+
+#### Specialized Agents
+- `backend-dev`, `mobile-dev`, `ml-developer`
+- `system-architect`, `code-analyzer`
+- `api-docs`, `cicd-engineer`
+- `tdd-london-swarm`, `production-validator`
+
+[Full list: 54 total agents available]
+
+### ⚡ MANDATORY: Parallel Batch Operations
+
+**CRITICAL RULE**: ALL operations must be batched in ONE message:
+
+```javascript
+// ✅ CORRECT - Everything parallel
+[Single Message]:
+  TodoWrite { todos: [10+ todos ALL at once] }
+  Task("Agent 1: Full instructions...")
+  Task("Agent 2: Full instructions...")
+  Task("Agent 3: Full instructions...")
+  Read("file1.py")
+  Read("file2.py")
+  Write("output1.py", content)
+  Write("output2.py", content)
+  Bash("npm install && npm test && npm build")
+
+// ❌ WRONG - Sequential (NEVER do this)
+Message 1: TodoWrite single todo
+Message 2: Task spawn one agent
+Message 3: Read one file
+```
+
+### 🔄 Swarm Patterns
+
+#### Pattern 1: Full-Stack Development Swarm
+```bash
+claude-flow swarm init --type development --agents 8
+# Spawns: architect, 2x coder, tester, reviewer, api-docs, cicd, orchestrator
+```
+
+#### Pattern 2: TDD London School Swarm
+```bash
+claude-flow sparc tdd "user authentication" --swarm london
+# Spawns: tdd-london-swarm with mock-driven development
+```
+
+#### Pattern 3: GitHub Repository Management
+```bash
+claude-flow github swarm --repo owner/name --agents 5
+# Spawns: pr-manager, issue-tracker, code-review-swarm, release-manager
+```
+
+### 📊 Performance Benefits
+- **84.8% SWE-Bench solve rate**
+- **32.3% token reduction** 
+- **2.8-4.4x speed improvement**
+- **27+ neural models**
+
+### 🎯 Key Principles
+
+1. **Swarms coordinate, Claude Code executes**
+2. **Batch EVERYTHING in single messages**
+3. **Use Task tool to spawn multiple agents at once**
+4. **Every agent MUST use coordination hooks**
+5. **Store all decisions in memory (SAFLA when available)**
+
+### 💾 Memory Integration
+
+When SAFLA is available, claude-flow automatically:
+- Stores decisions in SAFLA memory
+- Retrieves patterns across projects
+- Shares successful strategies
+- Maintains session context
+
+### 🔧 Advanced Commands
+
+```bash
+# SPARC methodology
+claude-flow sparc modes                    # List all modes
+claude-flow sparc tdd "feature"           # Full TDD workflow
+claude-flow sparc batch <modes> "task"    # Parallel execution
+
+# Swarm management
+claude-flow swarm init --topology mesh    # Initialize swarm
+claude-flow swarm status                  # Check progress
+claude-flow agent list --active           # View agents
+
+# GitHub integration
+claude-flow github swarm --repo path      # Repo management
+claude-flow pr enhance --number 123       # Enhance PR
+
+# Memory & Neural
+claude-flow memory usage                  # Check memory
+claude-flow neural train                  # Train patterns
+```
+
+### 🚨 Critical Coordination Protocol
+
+Every spawned agent MUST follow this protocol:
+
+**BEFORE work:**
+```bash
+claude-flow hooks pre-task --description "task"
+claude-flow hooks session-restore --session-id "swarm-id"
+```
+
+**DURING work:**
+```bash
+claude-flow hooks post-edit --file "file" --memory-key "agent/step"
+claude-flow hooks notify --message "progress"
+```
+
+**AFTER work:**
+```bash
+claude-flow hooks post-task --task-id "task"
+claude-flow hooks session-end --export-metrics true
+```
+---
+
+## 🏗️ PROJECT-SPECIFIC SECTION - frigg
+
+### Project Overview
+frigg - General purpose project
+
+## Development Guidelines
+
+### Code Quality
+- Follow project conventions
+- Write clear, documented code
+- Handle errors appropriately
+- Write comprehensive tests
+
+### Project Information
+- **Languages**: javascript
+- **Has Package.json**: True
+- **Has PyProject.toml**: False
+
+
+## 🧠 SAFLA Memory Integration
+
+### 📚 SAFLA-Specific Memory Tools
+
+#### Core Memory Operations
+```python
+# Store learning
+mcp__safla__store_memory(content, memory_type="episodic|semantic|procedural|project")
+
+# Retrieve with keywords
+mcp__safla__retrieve_memories(query, limit=5)
+
+# Semantic search with AI
+mcp__safla__semantic_search(query, limit=5, threshold=0)
+```
+
+#### 🔖 Bookmark System
+```python
+# Save important decisions
+mcp__safla__bookmark_memory(content, bookmark_name, description, tags)
+
+# List all bookmarks
+mcp__safla__list_bookmarks(tag=None)
+
+# Retrieve specific bookmark
+mcp__safla__retrieve_bookmark(bookmark_name)
+```
+
+#### 🎯 Project Management
+
+SAFLA provides two complementary systems for project management:
+
+**📁 Project Records (Projects Table)**
+- **Scope**: Repositories or logical groups of repositories
+- **Contains**: name, path, description, tags, status, current_task, next_steps
+- **Use for**: Repo-level structure, work context, session management
+- **Examples**: "frigg" (this repo), "my-web-app" (single repo), "microservices-suite" (repo group)
+
+**🧠 Project Memories (Memory System)**  
+- **Scope**: Knowledge and experiences within a project/repo
+- **Contains**: decisions, patterns, insights, learnings, package details
+- **Use for**: "What I learned/decided while working on frigg"
+- **Examples**: Architecture decisions, bug fixes, package relationships
+
+```python
+# PROJECT RECORDS - Formal project setup and management
+mcp__safla__project_register(name, path=".", description, tags)  # Register new project
+mcp__safla__project_switch(name)                                 # Switch active project
+mcp__safla__project_list(include_archived=False)                # List all projects
+mcp__safla__project_status(name=None)                           # Get project status
+mcp__safla__project_archive(project_id)                         # Archive project
+
+# PROJECT MEMORIES - Store project-specific knowledge
+mcp__safla__store_project_memory(content, memory_type="project") # Store project insights
+mcp__safla__store_memory("Decision: chose JWT auth", memory_type="project")  # Alternative syntax
+
+# WORK SESSION MANAGEMENT - Pause/Resume with context
+mcp__safla__project_pause(project_name, current_task, next_steps, context)
+mcp__safla__project_resume(project_name, show_all=False)
+```
+
+**💡 Usage Pattern:**
+1. **Register project once**: `project_register()` to create formal project record
+2. **Store insights continuously**: `store_project_memory()` for decisions, patterns, learnings
+3. **Manage work sessions**: `project_pause()/resume()` for context switching
+
+### 🚀 Development Workflow
+
+#### 1️⃣ Session Start Protocol
+```python
+# ALWAYS start by checking project context
+mcp__safla__project_status()
+mcp__safla__list_bookmarks()
+mcp__safla__semantic_search("recent work frigg")
+```
+
+#### 2️⃣ Before Implementation
+```python
+# Search for relevant patterns
+mcp__safla__semantic_search("implementation patterns for [feature]")
+mcp__safla__retrieve_memories("[feature] architecture")
+```
+
+#### 3️⃣ During Development
+```python
+# Store insights immediately
+mcp__safla__store_memory("Successful pattern: [description]", memory_type="procedural")
+mcp__safla__bookmark_memory("[key decision]", "[memorable-name]", "[why this matters]")
+```
+
+#### 4️⃣ Session End Protocol
+```python
+# Save progress
+mcp__safla__project_pause("frigg", "Completed [what]", ["Next: [task1]", "Next: [task2]"])
+mcp__safla__consolidate_memories()
+```

@@ -3,9 +3,13 @@
   "prettier": "@friggframework/prettier-config",
   "version": "2.0.0-next.0",
   "dependencies": {
+    "@aws-sdk/client-ec2": "^3.835.0",
+    "@aws-sdk/client-kms": "^3.835.0",
+    "@aws-sdk/client-sts": "^3.835.0",
     "@babel/eslint-parser": "^7.18.9",
     "@babel/parser": "^7.25.3",
     "@babel/traverse": "^7.25.3",
+    "@friggframework/schemas": "^2.0.0-next.0",
     "@friggframework/test": "^2.0.0-next.0",
     "@hapi/boom": "^10.0.1",
     "@inquirer/prompts": "^5.3.8",
@@ -23,6 +27,7 @@
     "express": "^4.19.2",
     "express-async-handler": "^1.2.0",
     "fs-extra": "^11.2.0",
+    "js-yaml": "^4.1.0",
     "lodash": "4.17.21",
     "serverless-http": "^2.7.0"
   },

@@ -3,7 +3,7 @@ const fs = require('fs-extra');
 const { composeServerlessDefinition } = require('./serverless-template');
 const { findNearestBackendPackageJson } = require('@friggframework/core');
 
-function createFriggInfrastructure() {
+async function createFriggInfrastructure() {
     const backendPath = findNearestBackendPackageJson();
     if (!backendPath) {
         throw new Error('Could not find backend package.json');
@@ -18,7 +18,13 @@ function createFriggInfrastructure() {
     const backend = require(backendFilePath);
     const appDefinition = backend.Definition;
 
-    const definition = composeServerlessDefinition(appDefinition);
+    // const serverlessTemplate = require(path.resolve(
+    //     __dirname,
+    //     './serverless-template.js'
+    // ));
+    const definition = await composeServerlessDefinition(
+        appDefinition,
+    );
 
     return {
         ...definition,
