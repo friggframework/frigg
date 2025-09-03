@@ -1,9 +1,12 @@
 const { createHandler } = require('@friggframework/core');
-const { integrationFactory, createQueueWorker } = require('../backend-utils');
+const { loadAppDefinition } = require('../app-definition-loader');
+const { createQueueWorker } = require('../backend-utils');
 
 const handlers = {};
-integrationFactory.integrationClasses.forEach((IntegrationClass) => {
-    const defaultQueueWorker = createQueueWorker(IntegrationClass, integrationFactory);
+const { integrations: integrationClasses } = loadAppDefinition();
+
+integrationClasses.forEach((IntegrationClass) => {
+    const defaultQueueWorker = createQueueWorker(IntegrationClass);
 
     handlers[`${IntegrationClass.Definition.name}`] = {
         queueWorker: createHandler({

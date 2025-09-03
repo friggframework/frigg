@@ -38,27 +38,20 @@ const {
     IntegrationModel,
     Options,
     IntegrationMapping,
-    IntegrationFactory,
-    IntegrationHelper,
     createIntegrationRouter,
     checkRequiredParams,
-    createFriggBackend,
 } = require('./integrations/index');
 const { TimeoutCatcher } = require('./lambda/index');
 const { debug, initDebugLog, flushDebugLog } = require('./logs/index');
 const {
     Credential,
-    EntityManager,
     Entity,
-    ModuleManager,
     ApiKeyRequester,
     BasicAuthRequester,
     OAuth2Requester,
     Requester,
     ModuleConstants,
-    ModuleFactory,
-    Auther,
-} = require('./module-plugin/index');
+} = require('./modules/index');
 const utils = require('./utils');
 
 // const {Sync } = require('./syncs/model');
@@ -109,11 +102,8 @@ module.exports = {
     IntegrationModel,
     Options,
     IntegrationMapping,
-    IntegrationFactory,
-    IntegrationHelper,
     checkRequiredParams,
     createIntegrationRouter,
-    createFriggBackend,
 
     // lambda
     TimeoutCatcher,
@@ -125,17 +115,12 @@ module.exports = {
 
     // module plugin
     Credential,
-    EntityManager,
     Entity,
-    ModuleManager,
     ApiKeyRequester,
     BasicAuthRequester,
     OAuth2Requester,
     Requester,
     ModuleConstants,
-    ModuleFactory,
-    Auther,
-
     // queues
     QueuerUtil,
 

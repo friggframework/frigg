@@ -3,7 +3,6 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const Boom = require('@hapi/boom');
-const loadUserManager = require('./routers/middleware/loadUser');
 const serverlessHttp = require('serverless-http');
 
 const createApp = (applyMiddleware) => {
@@ -19,8 +18,6 @@ const createApp = (applyMiddleware) => {
             credentials: true,
         })
     );
-
-    app.use(loadUserManager);
 
     if (applyMiddleware) applyMiddleware(app);
 

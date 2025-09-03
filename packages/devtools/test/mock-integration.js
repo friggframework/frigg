@@ -1,8 +1,4 @@
 const {
-    Auther,
-    Credential,
-    Entity,
-    IntegrationFactory,
     createObjectId,
 } = require('@friggframework/core');
 
@@ -11,7 +7,6 @@ async function createMockIntegration(
     userId = null,
     config = { type: IntegrationClass.Definition.name }
 ) {
-    const integrationFactory = new IntegrationFactory([IntegrationClass]);
     userId = userId || createObjectId();
 
     const insertOptions = {
@@ -24,10 +19,8 @@ async function createMockIntegration(
     const entities = [];
     for (const moduleName in IntegrationClass.modules) {
         const ModuleDef = IntegrationClass.Definition.modules[moduleName];
-        const module = await Auther.getInstance({
-            definition: ModuleDef,
-            userId: userId,
-        });
+        // todo: create module using the new architecture
+        const module = {}
         const credential = await module.CredentialModel.findOneAndUpdate(
             user,
             { $set: user },
@@ -51,11 +44,8 @@ async function createMockIntegration(
         );
     }
 
-    const integration = await integrationFactory.createIntegration(
-        entities,
-        userId,
-        config
-    );
+    // todo: create integration using the new architecture
+    const integration = {}
 
     integration.id = integration.record._id;
 
