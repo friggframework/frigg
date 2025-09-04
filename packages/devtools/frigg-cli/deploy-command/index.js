@@ -5,7 +5,7 @@ async function deployCommand(options) {
     console.log('Deploying the serverless application...');
 
     // AWS discovery is now handled directly in serverless-template.js
-    console.log('🔥 Deploying serverless application...');
+    console.log('🤘🏼 Deploying serverless application...');
     const backendPath = path.resolve(process.cwd());
     const infrastructurePath = 'infrastructure.js';
     const command = 'serverless';
@@ -16,8 +16,6 @@ async function deployCommand(options) {
         '--stage',
         options.stage,
     ];
-
-    console.log('>>> Env vars: ', JSON.stringify(process.env));
 
     const childProcess = spawn(command, serverlessArgs, {
         cwd: backendPath,
