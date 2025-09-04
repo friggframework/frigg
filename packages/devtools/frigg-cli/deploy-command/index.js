@@ -3,7 +3,7 @@ const path = require('path');
 
 async function deployCommand(options) {
     console.log('Deploying the serverless application...');
-    
+
     // AWS discovery is now handled directly in serverless-template.js
     console.log('🚀 Deploying serverless application...');
     const backendPath = path.resolve(process.cwd());
@@ -14,12 +14,13 @@ async function deployCommand(options) {
         '--config',
         infrastructurePath,
         '--stage',
-        options.stage
+        options.stage,
     ];
 
     const childProcess = spawn(command, serverlessArgs, {
         cwd: backendPath,
         stdio: 'inherit',
+        env: { ...process.env },
     });
 
     childProcess.on('error', (error) => {
