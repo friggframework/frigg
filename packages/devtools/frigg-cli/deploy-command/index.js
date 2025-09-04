@@ -17,6 +17,8 @@ async function deployCommand(options) {
         options.stage,
     ];
 
+    console.log('>>> Env vars: ', JSON.stringify(process.env));
+
     const childProcess = spawn(command, serverlessArgs, {
         cwd: backendPath,
         stdio: 'inherit',
