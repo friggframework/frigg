@@ -558,7 +558,11 @@ const composeServerlessDefinition = async (AppDefinition) => {
     // Debug: log keys of env vars available during deploy (to verify GA -> Serverless pass-through)
     try {
         const envKeys = Object.keys(process.env || {}).sort();
-        console.log('Frigg deploy env keys (sample):', envKeys.slice(0, 30), `... total=${envKeys.length}`);
+        console.log(
+            'Frigg deploy env keys (sample):',
+            envKeys.slice(0, 30),
+            `... total=${envKeys.length}`
+        );
     } catch (e) {
         console.log('Frigg deploy env keys: <unavailable>', e?.message);
     }
@@ -584,8 +588,18 @@ const composeServerlessDefinition = async (AppDefinition) => {
             environment: {
                 STAGE: '${opt:stage, "dev"}',
                 AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1,
-                // Pass through all environment variables from the deployment process
-                ...process.env,
+                // Pass through FRIGG__ prefixed variables (stripping the prefix)
+                // This avoids CloudFormation validation errors from system variables
+                ...Object.fromEntries(
+                    Object.entries(process.env)
+                        .filter(([key]) => key.startsWith('FRIGG__'))
+                        .map(([key, value]) => [
+                            key.replace('FRIGG__', ''),
+                            value,
+                        ])
+                ),
+                // Also include essential non-prefixed variables
+                ...(process.env.NODE_ENV && { NODE_ENV: process.env.NODE_ENV }),
                 // Add discovered resources to environment if available
                 ...(discoveredResources.defaultVpcId && {
                     AWS_DISCOVERY_VPC_ID: discoveredResources.defaultVpcId,
