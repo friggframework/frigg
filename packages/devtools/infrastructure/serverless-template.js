@@ -555,6 +555,14 @@ const composeServerlessDefinition = async (AppDefinition) => {
         }
     }
 
+    // Debug: log keys of env vars available during deploy (to verify GA -> Serverless pass-through)
+    try {
+        const envKeys = Object.keys(process.env || {}).sort();
+        console.log('Frigg deploy env keys (sample):', envKeys.slice(0, 30), `... total=${envKeys.length}`);
+    } catch (e) {
+        console.log('Frigg deploy env keys: <unavailable>', e?.message);
+    }
+
     const definition = {
         frameworkVersion: '>=3.17.0',
         service: AppDefinition.name || 'create-frigg-app',
