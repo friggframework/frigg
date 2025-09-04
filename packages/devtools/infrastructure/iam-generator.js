@@ -253,7 +253,9 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
         'apigateway:PUT',
         'apigateway:DELETE',
         'apigateway:GET',
-        'apigateway:PATCH'
+        'apigateway:PATCH',
+        'apigateway:TagResource',
+        'apigateway:UntagResource'
     ];
 
     const coreStatements = [
@@ -426,13 +428,17 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                 'apigateway:PUT',
                 'apigateway:DELETE',
                 'apigateway:GET',
-                'apigateway:PATCH'
+                'apigateway:PATCH',
+                'apigateway:TagResource',
+                'apigateway:UntagResource'
             ],
             Resource: [
                 'arn:aws:apigateway:*::/restapis',
                 'arn:aws:apigateway:*::/restapis/*',
                 'arn:aws:apigateway:*::/apis',
                 'arn:aws:apigateway:*::/apis/*',
+                'arn:aws:apigateway:*::/apis/*/stages',
+                'arn:aws:apigateway:*::/apis/*/stages/*',
                 'arn:aws:apigateway:*::/domainnames',
                 'arn:aws:apigateway:*::/domainnames/*'
             ]

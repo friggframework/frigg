@@ -14,6 +14,34 @@ const shouldRunDiscovery = (AppDefinition) => {
 };
 
 /**
+ * Extract environment variables from AppDefinition
+ * @param {Object} AppDefinition - Application definition
+ * @returns {Object} Environment variables to set in serverless
+ */
+const getAppEnvironmentVars = (AppDefinition) => {
+    const envVars = {};
+    
+    if (AppDefinition.environment) {
+        console.log('📋 Loading environment variables from appDefinition...');
+        const envKeys = [];
+        
+        for (const [key, value] of Object.entries(AppDefinition.environment)) {
+            if (value === true) {
+                // Use serverless environment variable resolution with fallback to empty string
+                envVars[key] = `\${env:${key}, ''}`;
+                envKeys.push(key);
+            }
+        }
+        
+        if (envKeys.length > 0) {
+            console.log(`   Found ${envKeys.length} environment variables: ${envKeys.join(', ')}`);
+        }
+    }
+    
+    return envVars;
+};
+
+/**
  * Find the actual path to node_modules directory
  * Tries multiple methods to locate node_modules:
  * 1. Traversing up from current directory
@@ -488,6 +516,9 @@ const composeServerlessDefinition = async (AppDefinition) => {
         }
     }
 
+    // Get environment variables from appDefinition
+    const appEnvironmentVars = getAppEnvironmentVars(AppDefinition);
+    
     const definition = {
         frameworkVersion: '>=3.17.0',
         service: AppDefinition.name || 'create-frigg-app',
@@ -505,6 +536,8 @@ const composeServerlessDefinition = async (AppDefinition) => {
             environment: {
                 STAGE: '${opt:stage, "dev"}',
                 AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1,
+                // Add environment variables from appDefinition
+                ...appEnvironmentVars,
                 // Add discovered resources to environment if available
                 ...(discoveredResources.defaultVpcId && { AWS_DISCOVERY_VPC_ID: discoveredResources.defaultVpcId }),
                 ...(discoveredResources.defaultSecurityGroupId && { AWS_DISCOVERY_SECURITY_GROUP_ID: discoveredResources.defaultSecurityGroupId }),
