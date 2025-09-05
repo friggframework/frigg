@@ -119,8 +119,6 @@ async function deployCommand(options) {
 
     // AWS discovery is now handled directly in serverless-template.js
     console.log('🚀 Deploying serverless application...');
-    console.log('📋 Final environment variables being passed to serverless:');
-    console.log('   ', Object.keys(integrationEnvironmentVariables).sort().join(', '));
     const backendPath = path.resolve(process.cwd());
     const infrastructurePath = 'infrastructure.js';
     const command = 'serverless';
