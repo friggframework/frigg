@@ -27,7 +27,6 @@ const getAppEnvironmentVars = (AppDefinition) => {
         
         for (const [key, value] of Object.entries(AppDefinition.environment)) {
             if (value === true) {
-                // Use serverless environment variable resolution with fallback to empty string
                 envVars[key] = `\${env:${key}, ''}`;
                 envKeys.push(key);
             }
