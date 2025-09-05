@@ -17,6 +17,68 @@ const shouldRunDiscovery = (AppDefinition) => {
 };
 
 /**
+ * Extract environment variables from AppDefinition
+ * @param {Object} AppDefinition - Application definition
+ * @returns {Object} Environment variables to set in serverless
+ */
+const getAppEnvironmentVars = (AppDefinition) => {
+    const envVars = {};
+
+    // AWS Lambda reserved environment variables that cannot be set (from official AWS docs)
+    const reservedVars = new Set([
+        '_HANDLER',
+        '_X_AMZN_TRACE_ID',
+        'AWS_DEFAULT_REGION',
+        'AWS_EXECUTION_ENV',
+        'AWS_REGION',
+        'AWS_LAMBDA_FUNCTION_NAME',
+        'AWS_LAMBDA_FUNCTION_MEMORY_SIZE',
+        'AWS_LAMBDA_FUNCTION_VERSION',
+        'AWS_LAMBDA_INITIALIZATION_TYPE',
+        'AWS_LAMBDA_LOG_GROUP_NAME',
+        'AWS_LAMBDA_LOG_STREAM_NAME',
+        'AWS_ACCESS_KEY',
+        'AWS_ACCESS_KEY_ID',
+        'AWS_SECRET_ACCESS_KEY',
+        'AWS_SESSION_TOKEN',
+    ]);
+
+    if (AppDefinition.environment) {
+        console.log('📋 Loading environment variables from appDefinition...');
+        const envKeys = [];
+        const skippedKeys = [];
+
+        for (const [key, value] of Object.entries(AppDefinition.environment)) {
+            if (value === true) {
+                if (reservedVars.has(key)) {
+                    skippedKeys.push(key);
+                } else {
+                    envVars[key] = `\${env:${key}, ''}`;
+                    envKeys.push(key);
+                }
+            }
+        }
+
+        if (envKeys.length > 0) {
+            console.log(
+                `   Found ${
+                    envKeys.length
+                } environment variables: ${envKeys.join(', ')}`
+            );
+        }
+        if (skippedKeys.length > 0) {
+            console.log(
+                `   ⚠️  Skipped ${
+                    skippedKeys.length
+                } reserved AWS Lambda variables: ${skippedKeys.join(', ')}`
+            );
+        }
+    }
+
+    return envVars;
+};
+
+/**
  * Find the actual path to node_modules directory
  * Tries multiple methods to locate node_modules:
  * 1. Traversing up from current directory
@@ -555,17 +617,8 @@ const composeServerlessDefinition = async (AppDefinition) => {
         }
     }
 
-    // Debug: log keys of env vars available during deploy (to verify GA -> Serverless pass-through)
-    try {
-        const envKeys = Object.keys(process.env || {}).sort();
-        console.log(
-            'Frigg deploy env keys (sample):',
-            envKeys.slice(0, 30),
-            `... total=${envKeys.length}`
-        );
-    } catch (e) {
-        console.log('Frigg deploy env keys: <unavailable>', e?.message);
-    }
+    // Get environment variables from appDefinition
+    const appEnvironmentVars = getAppEnvironmentVars(AppDefinition);
 
     const definition = {
         frameworkVersion: '>=3.17.0',
@@ -588,18 +641,8 @@ const composeServerlessDefinition = async (AppDefinition) => {
             environment: {
                 STAGE: '${opt:stage, "dev"}',
                 AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1,
-                // Pass through FRIGG__ prefixed variables (stripping the prefix)
-                // This avoids CloudFormation validation errors from system variables
-                ...Object.fromEntries(
-                    Object.entries(process.env)
-                        .filter(([key]) => key.startsWith('FRIGG__'))
-                        .map(([key, value]) => [
-                            key.replace('FRIGG__', ''),
-                            value,
-                        ])
-                ),
-                // Also include essential non-prefixed variables
-                ...(process.env.NODE_ENV && { NODE_ENV: process.env.NODE_ENV }),
+                // Add environment variables from appDefinition
+                ...appEnvironmentVars,
                 // Add discovered resources to environment if available
                 ...(discoveredResources.defaultVpcId && {
                     AWS_DISCOVERY_VPC_ID: discoveredResources.defaultVpcId,

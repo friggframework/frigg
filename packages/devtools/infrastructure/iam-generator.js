@@ -180,6 +180,114 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
     };
 
     // Add Core Deployment Policy (always needed)
+    const coreActions = [
+        // CloudFormation permissions
+        'cloudformation:CreateStack',
+        'cloudformation:UpdateStack',
+        'cloudformation:DeleteStack',
+        'cloudformation:DescribeStacks',
+        'cloudformation:DescribeStackEvents',
+        'cloudformation:DescribeStackResources',
+        'cloudformation:DescribeStackResource',
+        'cloudformation:ListStackResources',
+        'cloudformation:GetTemplate',
+        'cloudformation:DescribeChangeSet',
+        'cloudformation:CreateChangeSet',
+        'cloudformation:DeleteChangeSet',
+        'cloudformation:ExecuteChangeSet',
+        'cloudformation:ValidateTemplate',
+
+        // Lambda permissions
+        'lambda:CreateFunction',
+        'lambda:UpdateFunctionCode',
+        'lambda:UpdateFunctionConfiguration',
+        'lambda:DeleteFunction',
+        'lambda:GetFunction',
+        'lambda:ListFunctions',
+        'lambda:PublishVersion',
+        'lambda:CreateAlias',
+        'lambda:UpdateAlias',
+        'lambda:DeleteAlias',
+        'lambda:GetAlias',
+        'lambda:AddPermission',
+        'lambda:RemovePermission',
+        'lambda:GetPolicy',
+        'lambda:PutProvisionedConcurrencyConfig',
+        'lambda:DeleteProvisionedConcurrencyConfig',
+        'lambda:PutConcurrency',
+        'lambda:DeleteConcurrency',
+        'lambda:TagResource',
+        'lambda:UntagResource',
+        'lambda:ListVersionsByFunction',
+
+        // IAM permissions
+        'iam:CreateRole',
+        'iam:DeleteRole',
+        'iam:GetRole',
+        'iam:PassRole',
+        'iam:PutRolePolicy',
+        'iam:DeleteRolePolicy',
+        'iam:GetRolePolicy',
+        'iam:AttachRolePolicy',
+        'iam:DetachRolePolicy',
+        'iam:TagRole',
+        'iam:UntagRole',
+        'iam:ListPolicyVersions',
+
+        // S3 permissions
+        's3:CreateBucket',
+        's3:PutObject',
+        's3:GetObject',
+        's3:DeleteObject',
+        's3:PutBucketPolicy',
+        's3:PutBucketVersioning',
+        's3:PutBucketPublicAccessBlock',
+        's3:GetBucketLocation',
+        's3:ListBucket',
+
+        // SQS permissions
+        'sqs:CreateQueue',
+        'sqs:DeleteQueue',
+        'sqs:GetQueueAttributes',
+        'sqs:SetQueueAttributes',
+        'sqs:GetQueueUrl',
+        'sqs:TagQueue',
+        'sqs:UntagQueue',
+
+        // SNS permissions
+        'sns:CreateTopic',
+        'sns:DeleteTopic',
+        'sns:GetTopicAttributes',
+        'sns:SetTopicAttributes',
+        'sns:Subscribe',
+        'sns:Unsubscribe',
+        'sns:ListSubscriptionsByTopic',
+        'sns:TagResource',
+        'sns:UntagResource',
+
+        // CloudWatch and Logs permissions
+        'cloudwatch:PutMetricAlarm',
+        'cloudwatch:DeleteAlarms',
+        'cloudwatch:DescribeAlarms',
+        'logs:CreateLogGroup',
+        'logs:CreateLogStream',
+        'logs:DeleteLogGroup',
+        'logs:DescribeLogGroups',
+        'logs:DescribeLogStreams',
+        'logs:FilterLogEvents',
+        'logs:PutLogEvents',
+        'logs:PutRetentionPolicy',
+
+        // API Gateway permissions
+        'apigateway:POST',
+        'apigateway:PUT',
+        'apigateway:DELETE',
+        'apigateway:GET',
+        'apigateway:PATCH',
+        'apigateway:TagResource',
+        'apigateway:UntagResource',
+    ];
+
     const coreStatements = [
         {
             Sid: 'CloudFormationFriggStacks',
@@ -374,6 +482,8 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                 'apigateway:DELETE',
                 'apigateway:GET',
                 'apigateway:PATCH',
+                'apigateway:TagResource',
+                'apigateway:UntagResource',
             ],
             Resource: [
                 'arn:aws:apigateway:*::/restapis',
@@ -397,8 +507,6 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                 'arn:aws:apigateway:*::/apis/*',
                 'arn:aws:apigateway:*::/apis/*/stages',
                 'arn:aws:apigateway:*::/apis/*/stages/*',
-                'arn:aws:apigateway:*::/apis/*/mappings',
-                'arn:aws:apigateway:*::/apis/*/mappings/*',
                 'arn:aws:apigateway:*::/domainnames',
                 'arn:aws:apigateway:*::/domainnames/*',
                 'arn:aws:apigateway:*::/domainnames/*/apimappings',
