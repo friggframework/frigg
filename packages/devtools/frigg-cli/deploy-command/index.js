@@ -2,6 +2,34 @@ const { spawn, spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
+/**
+ * Constructs filtered environment variables for serverless deployment
+ * @param {string[]} envVars - Array of environment variable names from app definition
+ * @returns {Object} Filtered environment variables object
+ */
+function buildFilteredEnvironment(envVars) {
+    return {
+        // Essential system variables needed to run serverless
+        PATH: process.env.PATH,
+        HOME: process.env.HOME,
+        USER: process.env.USER,
+
+        // AWS credentials and configuration (all AWS_ prefixed variables)
+        ...Object.fromEntries(
+            Object.entries(process.env).filter(([key]) =>
+                key.startsWith('AWS_')
+            )
+        ),
+
+        // App-defined environment variables
+        ...Object.fromEntries(
+            envVars
+                .map((key) => [key, process.env[key]])
+                .filter(([_, value]) => value !== undefined)
+        ),
+    };
+}
+
 async function deployCommand(options) {
     console.log('Deploying the serverless application...');
 
@@ -39,7 +67,11 @@ async function deployCommand(options) {
                         !options.skipEnvValidation
                     ) {
                         console.warn(
-                            `⚠️  Warning: Missing ${validation.missing.length} environment variables: ${validation.missing.join(', ')}`
+                            `⚠️  Warning: Missing ${
+                                validation.missing.length
+                            } environment variables: ${validation.missing.join(
+                                ', '
+                            )}`
                         );
                         console.warn(
                             '   These variables are optional and deployment will continue'
@@ -50,33 +82,16 @@ async function deployCommand(options) {
                     }
 
                     // Pass essential system variables + AWS credentials + app-defined environment variables
-                    integrationEnvironmentVariables = {
-                        // Essential system variables needed to run serverless
-                        PATH: process.env.PATH,
-                        HOME: process.env.HOME,
-                        USER: process.env.USER,
-                        
-                        // AWS credentials and configuration (all AWS_ prefixed variables)
-                        ...Object.fromEntries(
-                            Object.entries(process.env)
-                                .filter(([key]) => key.startsWith('AWS_'))
-                        ),
-                        
-                        // App-defined environment variables
-                        ...Object.fromEntries(
-                            envVars
-                                .map((key) => [key, process.env[key]])
-                                .filter(([_, value]) => value !== undefined)
-                        )
-                    };
+                    integrationEnvironmentVariables =
+                        buildFilteredEnvironment(envVars);
                 } catch (validatorError) {
                     // Validator not available in current version, just warn
                     const missing = envVars.filter((v) => !process.env[v]);
                     if (missing.length > 0) {
                         console.warn(
-                            `⚠️  Warning: Missing ${missing.length} environment variables: ${missing.join(
-                                ', '
-                            )}`
+                            `⚠️  Warning: Missing ${
+                                missing.length
+                            } environment variables: ${missing.join(', ')}`
                         );
                         console.warn(
                             '   These variables are optional and deployment will continue'
@@ -87,25 +102,8 @@ async function deployCommand(options) {
                     }
 
                     // Pass essential system variables + AWS credentials + app-defined environment variables
-                    integrationEnvironmentVariables = {
-                        // Essential system variables needed to run serverless
-                        PATH: process.env.PATH,
-                        HOME: process.env.HOME,
-                        USER: process.env.USER,
-                        
-                        // AWS credentials and configuration (all AWS_ prefixed variables)
-                        ...Object.fromEntries(
-                            Object.entries(process.env)
-                                .filter(([key]) => key.startsWith('AWS_'))
-                        ),
-                        
-                        // App-defined environment variables
-                        ...Object.fromEntries(
-                            envVars
-                                .map((key) => [key, process.env[key]])
-                                .filter(([_, value]) => value !== undefined)
-                        )
-                    };
+                    integrationEnvironmentVariables =
+                        buildFilteredEnvironment(envVars);
                 }
             }
         } catch (error) {
@@ -133,7 +131,7 @@ async function deployCommand(options) {
     const childProcess = spawn(command, serverlessArgs, {
         cwd: backendPath,
         stdio: 'inherit',
-        env: integrationEnvironmentVariables, // Only pass validated environment variables
+        env: integrationEnvironmentVariables,
     });
 
     childProcess.on('error', (error) => {
