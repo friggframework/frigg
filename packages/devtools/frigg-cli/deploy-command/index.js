@@ -39,39 +39,61 @@ async function deployCommand(options) {
                         !options.skipEnvValidation
                     ) {
                         console.warn(
-                            '⚠️  Warning: Missing environment variables detected'
+                            `⚠️  Warning: Missing ${validation.missing.length} environment variables: ${validation.missing.join(', ')}`
+                        );
+                        console.warn(
+                            '   These variables are optional and deployment will continue'
                         );
                         console.warn(
                             '   Run with --skip-env-validation to bypass this check'
                         );
                     }
 
-                    // Only pass the environment variables defined in app definition
-                    integrationEnvironmentVariables = Object.fromEntries(
-                        envVars
-                            .map((key) => [key, process.env[key]])
-                            .filter(([_, value]) => value !== undefined)
-                    );
+                    // Pass essential system variables + app-defined environment variables
+                    integrationEnvironmentVariables = {
+                        // Essential system variables needed to run serverless
+                        PATH: process.env.PATH,
+                        HOME: process.env.HOME,
+                        USER: process.env.USER,
+                        
+                        // App-defined environment variables
+                        ...Object.fromEntries(
+                            envVars
+                                .map((key) => [key, process.env[key]])
+                                .filter(([_, value]) => value !== undefined)
+                        )
+                    };
                 } catch (validatorError) {
                     // Validator not available in current version, just warn
                     const missing = envVars.filter((v) => !process.env[v]);
                     if (missing.length > 0) {
                         console.warn(
-                            `⚠️  Warning: Missing environment variables: ${missing.join(
+                            `⚠️  Warning: Missing ${missing.length} environment variables: ${missing.join(
                                 ', '
                             )}`
                         );
                         console.warn(
-                            '   These should be set in your CI/CD environment or .env file'
+                            '   These variables are optional and deployment will continue'
+                        );
+                        console.warn(
+                            '   Set them in your CI/CD environment or .env file if needed'
                         );
                     }
 
-                    // Only pass the environment variables defined in app definition
-                    integrationEnvironmentVariables = Object.fromEntries(
-                        envVars
-                            .map((key) => [key, process.env[key]])
-                            .filter(([_, value]) => value !== undefined)
-                    );
+                    // Pass essential system variables + app-defined environment variables
+                    integrationEnvironmentVariables = {
+                        // Essential system variables needed to run serverless
+                        PATH: process.env.PATH,
+                        HOME: process.env.HOME,
+                        USER: process.env.USER,
+                        
+                        // App-defined environment variables
+                        ...Object.fromEntries(
+                            envVars
+                                .map((key) => [key, process.env[key]])
+                                .filter(([_, value]) => value !== undefined)
+                        )
+                    };
                 }
             }
         } catch (error) {
