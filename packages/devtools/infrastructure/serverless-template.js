@@ -21,19 +21,46 @@ const shouldRunDiscovery = (AppDefinition) => {
 const getAppEnvironmentVars = (AppDefinition) => {
     const envVars = {};
     
+    // AWS Lambda reserved environment variables that cannot be set (from official AWS docs)
+    const reservedVars = new Set([
+        '_HANDLER',
+        '_X_AMZN_TRACE_ID',
+        'AWS_DEFAULT_REGION',
+        'AWS_EXECUTION_ENV',
+        'AWS_REGION',
+        'AWS_LAMBDA_FUNCTION_NAME',
+        'AWS_LAMBDA_FUNCTION_MEMORY_SIZE',
+        'AWS_LAMBDA_FUNCTION_VERSION',
+        'AWS_LAMBDA_INITIALIZATION_TYPE',
+        'AWS_LAMBDA_LOG_GROUP_NAME',
+        'AWS_LAMBDA_LOG_STREAM_NAME',
+        'AWS_ACCESS_KEY',
+        'AWS_ACCESS_KEY_ID',
+        'AWS_SECRET_ACCESS_KEY',
+        'AWS_SESSION_TOKEN'
+    ]);
+    
     if (AppDefinition.environment) {
         console.log('📋 Loading environment variables from appDefinition...');
         const envKeys = [];
+        const skippedKeys = [];
         
         for (const [key, value] of Object.entries(AppDefinition.environment)) {
             if (value === true) {
-                envVars[key] = `\${env:${key}, ''}`;
-                envKeys.push(key);
+                if (reservedVars.has(key)) {
+                    skippedKeys.push(key);
+                } else {
+                    envVars[key] = `\${env:${key}, ''}`;
+                    envKeys.push(key);
+                }
             }
         }
         
         if (envKeys.length > 0) {
             console.log(`   Found ${envKeys.length} environment variables: ${envKeys.join(', ')}`);
+        }
+        if (skippedKeys.length > 0) {
+            console.log(`   ⚠️  Skipped ${skippedKeys.length} reserved AWS Lambda variables: ${skippedKeys.join(', ')}`);
         }
     }
     
