@@ -8,9 +8,12 @@ const { AWSDiscovery } = require('./aws-discovery');
  * @returns {boolean} True if discovery should run
  */
 const shouldRunDiscovery = (AppDefinition) => {
-    return AppDefinition.vpc?.enable === true ||
-        AppDefinition.encryption?.useDefaultKMSForFieldLevelEncryption === true ||
-        AppDefinition.ssm?.enable === true;
+    return (
+        AppDefinition.vpc?.enable === true ||
+        AppDefinition.encryption?.useDefaultKMSForFieldLevelEncryption ===
+            true ||
+        AppDefinition.ssm?.enable === true
+    );
 };
 
 /**
@@ -20,7 +23,7 @@ const shouldRunDiscovery = (AppDefinition) => {
  */
 const getAppEnvironmentVars = (AppDefinition) => {
     const envVars = {};
-    
+
     // AWS Lambda reserved environment variables that cannot be set (from official AWS docs)
     const reservedVars = new Set([
         '_HANDLER',
@@ -37,14 +40,14 @@ const getAppEnvironmentVars = (AppDefinition) => {
         'AWS_ACCESS_KEY',
         'AWS_ACCESS_KEY_ID',
         'AWS_SECRET_ACCESS_KEY',
-        'AWS_SESSION_TOKEN'
+        'AWS_SESSION_TOKEN',
     ]);
-    
+
     if (AppDefinition.environment) {
         console.log('📋 Loading environment variables from appDefinition...');
         const envKeys = [];
         const skippedKeys = [];
-        
+
         for (const [key, value] of Object.entries(AppDefinition.environment)) {
             if (value === true) {
                 if (reservedVars.has(key)) {
@@ -55,15 +58,23 @@ const getAppEnvironmentVars = (AppDefinition) => {
                 }
             }
         }
-        
+
         if (envKeys.length > 0) {
-            console.log(`   Found ${envKeys.length} environment variables: ${envKeys.join(', ')}`);
+            console.log(
+                `   Found ${
+                    envKeys.length
+                } environment variables: ${envKeys.join(', ')}`
+            );
         }
         if (skippedKeys.length > 0) {
-            console.log(`   ⚠️  Skipped ${skippedKeys.length} reserved AWS Lambda variables: ${skippedKeys.join(', ')}`);
+            console.log(
+                `   ⚠️  Skipped ${
+                    skippedKeys.length
+                } reserved AWS Lambda variables: ${skippedKeys.join(', ')}`
+            );
         }
     }
-    
+
     return envVars;
 };
 
@@ -86,7 +97,9 @@ const findNodeModulesPath = () => {
             const potentialPath = path.join(currentDir, 'node_modules');
             if (fs.existsSync(potentialPath)) {
                 nodeModulesPath = potentialPath;
-                console.log(`Found node_modules at: ${nodeModulesPath} (method 1)`);
+                console.log(
+                    `Found node_modules at: ${nodeModulesPath} (method 1)`
+                );
                 break;
             }
             // Move up one directory
@@ -103,10 +116,14 @@ const findNodeModulesPath = () => {
             try {
                 // This requires child_process, so let's require it here
                 const { execSync } = require('node:child_process');
-                const npmRoot = execSync('npm root', { encoding: 'utf8' }).trim();
+                const npmRoot = execSync('npm root', {
+                    encoding: 'utf8',
+                }).trim();
                 if (fs.existsSync(npmRoot)) {
                     nodeModulesPath = npmRoot;
-                    console.log(`Found node_modules at: ${nodeModulesPath} (method 2)`);
+                    console.log(
+                        `Found node_modules at: ${nodeModulesPath} (method 2)`
+                    );
                 }
             } catch (npmError) {
                 console.error('Error executing npm root:', npmError);
@@ -119,10 +136,15 @@ const findNodeModulesPath = () => {
             for (let i = 0; i < 5; i++) {
                 const packageJsonPath = path.join(currentDir, 'package.json');
                 if (fs.existsSync(packageJsonPath)) {
-                    const potentialNodeModules = path.join(currentDir, 'node_modules');
+                    const potentialNodeModules = path.join(
+                        currentDir,
+                        'node_modules'
+                    );
                     if (fs.existsSync(potentialNodeModules)) {
                         nodeModulesPath = potentialNodeModules;
-                        console.log(`Found node_modules at: ${nodeModulesPath} (method 3)`);
+                        console.log(
+                            `Found node_modules at: ${nodeModulesPath} (method 3)`
+                        );
                         break;
                     }
                 }
@@ -140,7 +162,9 @@ const findNodeModulesPath = () => {
             return nodeModulesPath;
         }
 
-        console.warn('Could not find node_modules path, falling back to default');
+        console.warn(
+            'Could not find node_modules path, falling back to default'
+        );
         return path.resolve(process.cwd(), '../node_modules');
     } catch (error) {
         console.error('Error finding node_modules path:', error);
@@ -173,8 +197,13 @@ const modifyHandlerPaths = (functions) => {
         if (functionDef?.handler?.includes('node_modules/')) {
             // Replace node_modules/ with the actual path to node_modules/
             const relativePath = path.relative(process.cwd(), nodeModulesPath);
-            functionDef.handler = functionDef.handler.replace('node_modules/', `${relativePath}/`);
-            console.log(`Updated handler for ${functionName}: ${functionDef.handler}`);
+            functionDef.handler = functionDef.handler.replace(
+                'node_modules/',
+                `${relativePath}/`
+            );
+            console.log(
+                `Updated handler for ${functionName}: ${functionDef.handler}`
+            );
         }
     }
 
@@ -199,9 +228,12 @@ const createVPCInfrastructure = (AppDefinition) => {
                 EnableDnsHostnames: true,
                 EnableDnsSupport: true,
                 Tags: [
-                    { Key: 'Name', Value: '${self:service}-${self:provider.stage}-vpc' }
-                ]
-            }
+                    {
+                        Key: 'Name',
+                        Value: '${self:service}-${self:provider.stage}-vpc',
+                    },
+                ],
+            },
         },
 
         // Internet Gateway
@@ -209,9 +241,12 @@ const createVPCInfrastructure = (AppDefinition) => {
             Type: 'AWS::EC2::InternetGateway',
             Properties: {
                 Tags: [
-                    { Key: 'Name', Value: '${self:service}-${self:provider.stage}-igw' }
-                ]
-            }
+                    {
+                        Key: 'Name',
+                        Value: '${self:service}-${self:provider.stage}-igw',
+                    },
+                ],
+            },
         },
 
         // Attach Internet Gateway to VPC
@@ -219,8 +254,8 @@ const createVPCInfrastructure = (AppDefinition) => {
             Type: 'AWS::EC2::VPCGatewayAttachment',
             Properties: {
                 VpcId: { Ref: 'FriggVPC' },
-                InternetGatewayId: { Ref: 'FriggInternetGateway' }
-            }
+                InternetGatewayId: { Ref: 'FriggInternetGateway' },
+            },
         },
 
         // Public Subnet for NAT Gateway
@@ -232,9 +267,12 @@ const createVPCInfrastructure = (AppDefinition) => {
                 AvailabilityZone: { 'Fn::Select': [0, { 'Fn::GetAZs': '' }] },
                 MapPublicIpOnLaunch: true,
                 Tags: [
-                    { Key: 'Name', Value: '${self:service}-${self:provider.stage}-public-subnet' }
-                ]
-            }
+                    {
+                        Key: 'Name',
+                        Value: '${self:service}-${self:provider.stage}-public-subnet',
+                    },
+                ],
+            },
         },
 
         // Private Subnet 1 for Lambda
@@ -245,9 +283,12 @@ const createVPCInfrastructure = (AppDefinition) => {
                 CidrBlock: '10.0.2.0/24',
                 AvailabilityZone: { 'Fn::Select': [0, { 'Fn::GetAZs': '' }] },
                 Tags: [
-                    { Key: 'Name', Value: '${self:service}-${self:provider.stage}-private-subnet-1' }
-                ]
-            }
+                    {
+                        Key: 'Name',
+                        Value: '${self:service}-${self:provider.stage}-private-subnet-1',
+                    },
+                ],
+            },
         },
 
         // Private Subnet 2 for Lambda (different AZ for redundancy)
@@ -258,9 +299,12 @@ const createVPCInfrastructure = (AppDefinition) => {
                 CidrBlock: '10.0.3.0/24',
                 AvailabilityZone: { 'Fn::Select': [1, { 'Fn::GetAZs': '' }] },
                 Tags: [
-                    { Key: 'Name', Value: '${self:service}-${self:provider.stage}-private-subnet-2' }
-                ]
-            }
+                    {
+                        Key: 'Name',
+                        Value: '${self:service}-${self:provider.stage}-private-subnet-2',
+                    },
+                ],
+            },
         },
 
         // Elastic IP for NAT Gateway
@@ -269,22 +313,30 @@ const createVPCInfrastructure = (AppDefinition) => {
             Properties: {
                 Domain: 'vpc',
                 Tags: [
-                    { Key: 'Name', Value: '${self:service}-${self:provider.stage}-nat-eip' }
-                ]
+                    {
+                        Key: 'Name',
+                        Value: '${self:service}-${self:provider.stage}-nat-eip',
+                    },
+                ],
             },
-            DependsOn: 'FriggVPCGatewayAttachment'
+            DependsOn: 'FriggVPCGatewayAttachment',
         },
 
         // NAT Gateway for private subnet internet access
         FriggNATGateway: {
             Type: 'AWS::EC2::NatGateway',
             Properties: {
-                AllocationId: { 'Fn::GetAtt': ['FriggNATGatewayEIP', 'AllocationId'] },
+                AllocationId: {
+                    'Fn::GetAtt': ['FriggNATGatewayEIP', 'AllocationId'],
+                },
                 SubnetId: { Ref: 'FriggPublicSubnet' },
                 Tags: [
-                    { Key: 'Name', Value: '${self:service}-${self:provider.stage}-nat-gateway' }
-                ]
-            }
+                    {
+                        Key: 'Name',
+                        Value: '${self:service}-${self:provider.stage}-nat-gateway',
+                    },
+                ],
+            },
         },
 
         // Public Route Table
@@ -293,9 +345,12 @@ const createVPCInfrastructure = (AppDefinition) => {
             Properties: {
                 VpcId: { Ref: 'FriggVPC' },
                 Tags: [
-                    { Key: 'Name', Value: '${self:service}-${self:provider.stage}-public-rt' }
-                ]
-            }
+                    {
+                        Key: 'Name',
+                        Value: '${self:service}-${self:provider.stage}-public-rt',
+                    },
+                ],
+            },
         },
 
         // Public Route to Internet Gateway
@@ -304,9 +359,9 @@ const createVPCInfrastructure = (AppDefinition) => {
             Properties: {
                 RouteTableId: { Ref: 'FriggPublicRouteTable' },
                 DestinationCidrBlock: '0.0.0.0/0',
-                GatewayId: { Ref: 'FriggInternetGateway' }
+                GatewayId: { Ref: 'FriggInternetGateway' },
             },
-            DependsOn: 'FriggVPCGatewayAttachment'
+            DependsOn: 'FriggVPCGatewayAttachment',
         },
 
         // Associate Public Subnet with Public Route Table
@@ -314,8 +369,8 @@ const createVPCInfrastructure = (AppDefinition) => {
             Type: 'AWS::EC2::SubnetRouteTableAssociation',
             Properties: {
                 SubnetId: { Ref: 'FriggPublicSubnet' },
-                RouteTableId: { Ref: 'FriggPublicRouteTable' }
-            }
+                RouteTableId: { Ref: 'FriggPublicRouteTable' },
+            },
         },
 
         // Private Route Table
@@ -324,9 +379,12 @@ const createVPCInfrastructure = (AppDefinition) => {
             Properties: {
                 VpcId: { Ref: 'FriggVPC' },
                 Tags: [
-                    { Key: 'Name', Value: '${self:service}-${self:provider.stage}-private-rt' }
-                ]
-            }
+                    {
+                        Key: 'Name',
+                        Value: '${self:service}-${self:provider.stage}-private-rt',
+                    },
+                ],
+            },
         },
 
         // Private Route to NAT Gateway
@@ -335,8 +393,8 @@ const createVPCInfrastructure = (AppDefinition) => {
             Properties: {
                 RouteTableId: { Ref: 'FriggPrivateRouteTable' },
                 DestinationCidrBlock: '0.0.0.0/0',
-                NatGatewayId: { Ref: 'FriggNATGateway' }
-            }
+                NatGatewayId: { Ref: 'FriggNATGateway' },
+            },
         },
 
         // Associate Private Subnet 1 with Private Route Table
@@ -344,8 +402,8 @@ const createVPCInfrastructure = (AppDefinition) => {
             Type: 'AWS::EC2::SubnetRouteTableAssociation',
             Properties: {
                 SubnetId: { Ref: 'FriggPrivateSubnet1' },
-                RouteTableId: { Ref: 'FriggPrivateRouteTable' }
-            }
+                RouteTableId: { Ref: 'FriggPrivateRouteTable' },
+            },
         },
 
         // Associate Private Subnet 2 with Private Route Table
@@ -353,8 +411,8 @@ const createVPCInfrastructure = (AppDefinition) => {
             Type: 'AWS::EC2::SubnetRouteTableAssociation',
             Properties: {
                 SubnetId: { Ref: 'FriggPrivateSubnet2' },
-                RouteTableId: { Ref: 'FriggPrivateRouteTable' }
-            }
+                RouteTableId: { Ref: 'FriggPrivateRouteTable' },
+            },
         },
 
         // Security Group for Lambda functions
@@ -369,35 +427,38 @@ const createVPCInfrastructure = (AppDefinition) => {
                         FromPort: 443,
                         ToPort: 443,
                         CidrIp: '0.0.0.0/0',
-                        Description: 'HTTPS outbound'
+                        Description: 'HTTPS outbound',
                     },
                     {
                         IpProtocol: 'tcp',
                         FromPort: 80,
                         ToPort: 80,
                         CidrIp: '0.0.0.0/0',
-                        Description: 'HTTP outbound'
+                        Description: 'HTTP outbound',
                     },
                     {
                         IpProtocol: 'tcp',
                         FromPort: 53,
                         ToPort: 53,
                         CidrIp: '0.0.0.0/0',
-                        Description: 'DNS TCP'
+                        Description: 'DNS TCP',
                     },
                     {
                         IpProtocol: 'udp',
                         FromPort: 53,
                         ToPort: 53,
                         CidrIp: '0.0.0.0/0',
-                        Description: 'DNS UDP'
-                    }
+                        Description: 'DNS UDP',
+                    },
                 ],
                 Tags: [
-                    { Key: 'Name', Value: '${self:service}-${self:provider.stage}-lambda-sg' }
-                ]
-            }
-        }
+                    {
+                        Key: 'Name',
+                        Value: '${self:service}-${self:provider.stage}-lambda-sg',
+                    },
+                ],
+            },
+        },
     };
 
     // Add VPC Endpoints for cost optimization
@@ -409,10 +470,8 @@ const createVPCInfrastructure = (AppDefinition) => {
                 VpcId: { Ref: 'FriggVPC' },
                 ServiceName: 'com.amazonaws.${self:provider.region}.s3',
                 VpcEndpointType: 'Gateway',
-                RouteTableIds: [
-                    { Ref: 'FriggPrivateRouteTable' }
-                ]
-            }
+                RouteTableIds: [{ Ref: 'FriggPrivateRouteTable' }],
+            },
         };
 
         // DynamoDB Gateway Endpoint (free)
@@ -422,14 +481,15 @@ const createVPCInfrastructure = (AppDefinition) => {
                 VpcId: { Ref: 'FriggVPC' },
                 ServiceName: 'com.amazonaws.${self:provider.region}.dynamodb',
                 VpcEndpointType: 'Gateway',
-                RouteTableIds: [
-                    { Ref: 'FriggPrivateRouteTable' }
-                ]
-            }
+                RouteTableIds: [{ Ref: 'FriggPrivateRouteTable' }],
+            },
         };
 
         // KMS Interface Endpoint (paid, but useful if using KMS)
-        if (AppDefinition.encryption?.useDefaultKMSForFieldLevelEncryption === true) {
+        if (
+            AppDefinition.encryption?.useDefaultKMSForFieldLevelEncryption ===
+            true
+        ) {
             vpcResources.FriggKMSVPCEndpoint = {
                 Type: 'AWS::EC2::VPCEndpoint',
                 Properties: {
@@ -438,13 +498,13 @@ const createVPCInfrastructure = (AppDefinition) => {
                     VpcEndpointType: 'Interface',
                     SubnetIds: [
                         { Ref: 'FriggPrivateSubnet1' },
-                        { Ref: 'FriggPrivateSubnet2' }
+                        { Ref: 'FriggPrivateSubnet2' },
                     ],
                     SecurityGroupIds: [
-                        { Ref: 'FriggVPCEndpointSecurityGroup' }
+                        { Ref: 'FriggVPCEndpointSecurityGroup' },
                     ],
-                    PrivateDnsEnabled: true
-                }
+                    PrivateDnsEnabled: true,
+                },
             };
         }
 
@@ -453,17 +513,16 @@ const createVPCInfrastructure = (AppDefinition) => {
             Type: 'AWS::EC2::VPCEndpoint',
             Properties: {
                 VpcId: { Ref: 'FriggVPC' },
-                ServiceName: 'com.amazonaws.${self:provider.region}.secretsmanager',
+                ServiceName:
+                    'com.amazonaws.${self:provider.region}.secretsmanager',
                 VpcEndpointType: 'Interface',
                 SubnetIds: [
                     { Ref: 'FriggPrivateSubnet1' },
-                    { Ref: 'FriggPrivateSubnet2' }
+                    { Ref: 'FriggPrivateSubnet2' },
                 ],
-                SecurityGroupIds: [
-                    { Ref: 'FriggVPCEndpointSecurityGroup' }
-                ],
-                PrivateDnsEnabled: true
-            }
+                SecurityGroupIds: [{ Ref: 'FriggVPCEndpointSecurityGroup' }],
+                PrivateDnsEnabled: true,
+            },
         };
 
         // Security Group for VPC Endpoints
@@ -477,14 +536,19 @@ const createVPCInfrastructure = (AppDefinition) => {
                         IpProtocol: 'tcp',
                         FromPort: 443,
                         ToPort: 443,
-                        SourceSecurityGroupId: { Ref: 'FriggLambdaSecurityGroup' },
-                        Description: 'HTTPS from Lambda'
-                    }
+                        SourceSecurityGroupId: {
+                            Ref: 'FriggLambdaSecurityGroup',
+                        },
+                        Description: 'HTTPS from Lambda',
+                    },
                 ],
                 Tags: [
-                    { Key: 'Name', Value: '${self:service}-${self:provider.stage}-vpc-endpoint-sg' }
-                ]
-            }
+                    {
+                        Key: 'Name',
+                        Value: '${self:service}-${self:provider.stage}-vpc-endpoint-sg',
+                    },
+                ],
+            },
         };
     }
 
@@ -510,7 +574,9 @@ const composeServerlessDefinition = async (AppDefinition) => {
 
     // Run AWS discovery if needed
     if (shouldRunDiscovery(AppDefinition)) {
-        console.log('🔍 Running AWS resource discovery for serverless template...');
+        console.log(
+            '🔍 Running AWS resource discovery for serverless template...'
+        );
         try {
             const region = process.env.AWS_REGION || 'us-east-1';
             const discovery = new AWSDiscovery(region);
@@ -518,7 +584,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
             const config = {
                 vpc: AppDefinition.vpc || {},
                 encryption: AppDefinition.encryption || {},
-                ssm: AppDefinition.ssm || {}
+                ssm: AppDefinition.ssm || {},
             };
 
             discoveredResources = await discovery.discoverResources(config);
@@ -527,14 +593,23 @@ const composeServerlessDefinition = async (AppDefinition) => {
             if (discoveredResources.defaultVpcId) {
                 console.log(`   VPC: ${discoveredResources.defaultVpcId}`);
             }
-            if (discoveredResources.privateSubnetId1 && discoveredResources.privateSubnetId2) {
-                console.log(`   Subnets: ${discoveredResources.privateSubnetId1}, ${discoveredResources.privateSubnetId2}`);
+            if (
+                discoveredResources.privateSubnetId1 &&
+                discoveredResources.privateSubnetId2
+            ) {
+                console.log(
+                    `   Subnets: ${discoveredResources.privateSubnetId1}, ${discoveredResources.privateSubnetId2}`
+                );
             }
             if (discoveredResources.defaultSecurityGroupId) {
-                console.log(`   Security Group: ${discoveredResources.defaultSecurityGroupId}`);
+                console.log(
+                    `   Security Group: ${discoveredResources.defaultSecurityGroupId}`
+                );
             }
             if (discoveredResources.defaultKmsKeyId) {
-                console.log(`   KMS Key: ${discoveredResources.defaultKmsKeyId}`);
+                console.log(
+                    `   KMS Key: ${discoveredResources.defaultKmsKeyId}`
+                );
             }
         } catch (error) {
             console.error('❌ AWS discovery failed:', error.message);
@@ -544,13 +619,17 @@ const composeServerlessDefinition = async (AppDefinition) => {
 
     // Get environment variables from appDefinition
     const appEnvironmentVars = getAppEnvironmentVars(AppDefinition);
-    
+
     const definition = {
         frameworkVersion: '>=3.17.0',
         service: AppDefinition.name || 'create-frigg-app',
         package: {
             individually: true,
-            exclude: ["!**/node_modules/aws-sdk/**", "!**/node_modules/@aws-sdk/**", "!package.json"],
+            exclude: [
+                '!**/node_modules/aws-sdk/**',
+                '!**/node_modules/@aws-sdk/**',
+                '!package.json',
+            ],
         },
         useDotenv: true,
         provider: {
@@ -565,13 +644,33 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 // Add environment variables from appDefinition
                 ...appEnvironmentVars,
                 // Add discovered resources to environment if available
-                ...(discoveredResources.defaultVpcId && { AWS_DISCOVERY_VPC_ID: discoveredResources.defaultVpcId }),
-                ...(discoveredResources.defaultSecurityGroupId && { AWS_DISCOVERY_SECURITY_GROUP_ID: discoveredResources.defaultSecurityGroupId }),
-                ...(discoveredResources.privateSubnetId1 && { AWS_DISCOVERY_SUBNET_ID_1: discoveredResources.privateSubnetId1 }),
-                ...(discoveredResources.privateSubnetId2 && { AWS_DISCOVERY_SUBNET_ID_2: discoveredResources.privateSubnetId2 }),
-                ...(discoveredResources.publicSubnetId && { AWS_DISCOVERY_PUBLIC_SUBNET_ID: discoveredResources.publicSubnetId }),
-                ...(discoveredResources.defaultRouteTableId && { AWS_DISCOVERY_ROUTE_TABLE_ID: discoveredResources.defaultRouteTableId }),
-                ...(discoveredResources.defaultKmsKeyId && { AWS_DISCOVERY_KMS_KEY_ID: discoveredResources.defaultKmsKeyId }),
+                ...(discoveredResources.defaultVpcId && {
+                    AWS_DISCOVERY_VPC_ID: discoveredResources.defaultVpcId,
+                }),
+                ...(discoveredResources.defaultSecurityGroupId && {
+                    AWS_DISCOVERY_SECURITY_GROUP_ID:
+                        discoveredResources.defaultSecurityGroupId,
+                }),
+                ...(discoveredResources.privateSubnetId1 && {
+                    AWS_DISCOVERY_SUBNET_ID_1:
+                        discoveredResources.privateSubnetId1,
+                }),
+                ...(discoveredResources.privateSubnetId2 && {
+                    AWS_DISCOVERY_SUBNET_ID_2:
+                        discoveredResources.privateSubnetId2,
+                }),
+                ...(discoveredResources.publicSubnetId && {
+                    AWS_DISCOVERY_PUBLIC_SUBNET_ID:
+                        discoveredResources.publicSubnetId,
+                }),
+                ...(discoveredResources.defaultRouteTableId && {
+                    AWS_DISCOVERY_ROUTE_TABLE_ID:
+                        discoveredResources.defaultRouteTableId,
+                }),
+                ...(discoveredResources.defaultKmsKeyId && {
+                    AWS_DISCOVERY_KMS_KEY_ID:
+                        discoveredResources.defaultKmsKeyId,
+                }),
             },
             iamRoleStatements: [
                 {
@@ -587,22 +686,22 @@ const composeServerlessDefinition = async (AppDefinition) => {
                         'sqs:SendMessage',
                         'sqs:SendMessageBatch',
                         'sqs:GetQueueUrl',
-                        'sqs:GetQueueAttributes'
+                        'sqs:GetQueueAttributes',
                     ],
                     Resource: [
                         {
-                            'Fn::GetAtt': ['InternalErrorQueue', 'Arn']
+                            'Fn::GetAtt': ['InternalErrorQueue', 'Arn'],
                         },
                         {
                             'Fn::Join': [
                                 ':',
                                 [
-                                    'arn:aws:sqs:${self:provider.region}:*:${self:service}--${self:provider.stage}-*Queue'
-                                ]
-                            ]
-                        }
+                                    'arn:aws:sqs:${self:provider.region}:*:${self:service}--${self:provider.stage}-*Queue',
+                                ],
+                            ],
+                        },
                     ],
-                }
+                },
             ],
             httpApi: {
                 payload: '2.0',
@@ -614,7 +713,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 },
                 name: '${opt:stage, "dev"}-${self:service}',
                 disableDefaultEndpoint: false,
-            }
+            },
         },
         plugins: [
             'serverless-jetpack',
@@ -644,7 +743,8 @@ const composeServerlessDefinition = async (AppDefinition) => {
         },
         functions: {
             auth: {
-                handler: 'node_modules/@friggframework/core/handlers/routers/auth.handler',
+                handler:
+                    'node_modules/@friggframework/core/handlers/routers/auth.handler',
                 events: [
                     {
                         httpApi: {
@@ -667,7 +767,8 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 ],
             },
             user: {
-                handler: 'node_modules/@friggframework/core/handlers/routers/user.handler',
+                handler:
+                    'node_modules/@friggframework/core/handlers/routers/user.handler',
                 events: [
                     {
                         httpApi: {
@@ -678,7 +779,8 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 ],
             },
             health: {
-                handler: 'node_modules/@friggframework/core/handlers/routers/health.handler',
+                handler:
+                    'node_modules/@friggframework/core/handlers/routers/health.handler',
                 events: [
                     {
                         httpApi: {
@@ -782,23 +884,28 @@ const composeServerlessDefinition = async (AppDefinition) => {
     };
 
     // KMS Configuration based on App Definition
-    if (AppDefinition.encryption?.useDefaultKMSForFieldLevelEncryption === true) {
+    if (
+        AppDefinition.encryption?.useDefaultKMSForFieldLevelEncryption === true
+    ) {
         // Check if a KMS key was discovered
         if (discoveredResources.defaultKmsKeyId) {
             // Use the existing discovered KMS key
-            console.log(`Using existing KMS key: ${discoveredResources.defaultKmsKeyId}`);
-            
+            console.log(
+                `Using existing KMS key: ${discoveredResources.defaultKmsKeyId}`
+            );
+
             definition.provider.iamRoleStatements.push({
                 Effect: 'Allow',
                 Action: ['kms:GenerateDataKey', 'kms:Decrypt'],
-                Resource: [discoveredResources.defaultKmsKeyId]
+                Resource: [discoveredResources.defaultKmsKeyId],
             });
 
-            definition.provider.environment.KMS_KEY_ARN = discoveredResources.defaultKmsKeyId;
+            definition.provider.environment.KMS_KEY_ARN =
+                discoveredResources.defaultKmsKeyId;
         } else {
             // No existing key found, provision a dedicated KMS key
             console.log('No existing KMS key found, creating a new one...');
-            
+
             definition.resources.Resources.FriggKMSKey = {
                 Type: 'AWS::KMS::Key',
                 Properties: {
@@ -809,29 +916,38 @@ const composeServerlessDefinition = async (AppDefinition) => {
                             {
                                 Sid: 'AllowRootAccountAdmin',
                                 Effect: 'Allow',
-                                Principal: { AWS: { 'Fn::Sub': 'arn:aws:iam::${AWS::AccountId}:root' } },
+                                Principal: {
+                                    AWS: {
+                                        'Fn::Sub':
+                                            'arn:aws:iam::${AWS::AccountId}:root',
+                                    },
+                                },
                                 Action: 'kms:*',
-                                Resource: '*'
-                            }
-                        ]
-                    }
-                }
+                                Resource: '*',
+                            },
+                        ],
+                    },
+                },
             };
 
             definition.provider.iamRoleStatements.push({
                 Effect: 'Allow',
                 Action: ['kms:GenerateDataKey', 'kms:Decrypt'],
-                Resource: [{ 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] }]
+                Resource: [{ 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] }],
             });
 
-            definition.provider.environment.KMS_KEY_ARN = { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] };
+            definition.provider.environment.KMS_KEY_ARN = {
+                'Fn::GetAtt': ['FriggKMSKey', 'Arn'],
+            };
         }
 
         definition.plugins.push('serverless-kms-grants');
 
         // Configure KMS grants with discovered default key or environment variable
         definition.custom.kmsGrants = {
-            kmsKeyId: discoveredResources.defaultKmsKeyId || '${env:AWS_DISCOVERY_KMS_KEY_ID}'
+            kmsKeyId:
+                discoveredResources.defaultKmsKeyId ||
+                '${env:AWS_DISCOVERY_KMS_KEY_ID}',
         };
     }
 
@@ -845,9 +961,9 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 'ec2:DescribeNetworkInterfaces',
                 'ec2:DeleteNetworkInterface',
                 'ec2:AttachNetworkInterface',
-                'ec2:DetachNetworkInterface'
+                'ec2:DetachNetworkInterface',
             ],
-            Resource: '*'
+            Resource: '*',
         });
 
         // Default approach: Use AWS Discovery to find existing VPC resources
@@ -860,7 +976,9 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 vpcConfig.securityGroupIds = AppDefinition.vpc.securityGroupIds;
             } else {
                 // Use auto-created security group
-                vpcConfig.securityGroupIds = [{ Ref: 'FriggLambdaSecurityGroup' }];
+                vpcConfig.securityGroupIds = [
+                    { Ref: 'FriggLambdaSecurityGroup' },
+                ];
             }
 
             if (AppDefinition.vpc.subnetIds) {
@@ -870,7 +988,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 // Use auto-created private subnets
                 vpcConfig.subnetIds = [
                     { Ref: 'FriggPrivateSubnet1' },
-                    { Ref: 'FriggPrivateSubnet2' }
+                    { Ref: 'FriggPrivateSubnet2' },
                 ];
             }
 
@@ -884,16 +1002,27 @@ const composeServerlessDefinition = async (AppDefinition) => {
             // Option 2: Use AWS Discovery (default behavior)
             // VPC configuration using discovered or explicitly provided resources
             const vpcConfig = {
-                securityGroupIds: AppDefinition.vpc.securityGroupIds ||
-                    (discoveredResources.defaultSecurityGroupId ? [discoveredResources.defaultSecurityGroupId] : []),
-                subnetIds: AppDefinition.vpc.subnetIds ||
-                    (discoveredResources.privateSubnetId1 && discoveredResources.privateSubnetId2 ?
-                        [discoveredResources.privateSubnetId1, discoveredResources.privateSubnetId2] :
-                        [])
+                securityGroupIds:
+                    AppDefinition.vpc.securityGroupIds ||
+                    (discoveredResources.defaultSecurityGroupId
+                        ? [discoveredResources.defaultSecurityGroupId]
+                        : []),
+                subnetIds:
+                    AppDefinition.vpc.subnetIds ||
+                    (discoveredResources.privateSubnetId1 &&
+                    discoveredResources.privateSubnetId2
+                        ? [
+                              discoveredResources.privateSubnetId1,
+                              discoveredResources.privateSubnetId2,
+                          ]
+                        : []),
             };
 
             // Set VPC config for Lambda functions only if we have valid subnet IDs
-            if (vpcConfig.subnetIds.length >= 2 && vpcConfig.securityGroupIds.length > 0) {
+            if (
+                vpcConfig.subnetIds.length >= 2 &&
+                vpcConfig.securityGroupIds.length > 0
+            ) {
                 definition.provider.vpc = vpcConfig;
 
                 // Check if we have an existing NAT Gateway to use
@@ -907,22 +1036,35 @@ const composeServerlessDefinition = async (AppDefinition) => {
                             Properties: {
                                 Domain: 'vpc',
                                 Tags: [
-                                    { Key: 'Name', Value: '${self:service}-${self:provider.stage}-nat-eip' }
-                                ]
-                            }
+                                    {
+                                        Key: 'Name',
+                                        Value: '${self:service}-${self:provider.stage}-nat-eip',
+                                    },
+                                ],
+                            },
                         };
                     }
 
                     definition.resources.Resources.FriggNATGateway = {
                         Type: 'AWS::EC2::NatGateway',
                         Properties: {
-                            AllocationId: discoveredResources.existingElasticIpAllocationId ||
-                                { 'Fn::GetAtt': ['FriggNATGatewayEIP', 'AllocationId'] },
-                            SubnetId: discoveredResources.publicSubnetId || discoveredResources.privateSubnetId1, // Use first discovered subnet if no public subnet found
+                            AllocationId:
+                                discoveredResources.existingElasticIpAllocationId || {
+                                    'Fn::GetAtt': [
+                                        'FriggNATGatewayEIP',
+                                        'AllocationId',
+                                    ],
+                                },
+                            SubnetId:
+                                discoveredResources.publicSubnetId ||
+                                discoveredResources.privateSubnetId1, // Use first discovered subnet if no public subnet found
                             Tags: [
-                                { Key: 'Name', Value: '${self:service}-${self:provider.stage}-nat-gateway' }
-                            ]
-                        }
+                                {
+                                    Key: 'Name',
+                                    Value: '${self:service}-${self:provider.stage}-nat-gateway',
+                                },
+                            ],
+                        },
                     };
                 }
 
@@ -930,11 +1072,16 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 definition.resources.Resources.FriggLambdaRouteTable = {
                     Type: 'AWS::EC2::RouteTable',
                     Properties: {
-                        VpcId: discoveredResources.defaultVpcId || { Ref: 'FriggVPC' },
+                        VpcId: discoveredResources.defaultVpcId || {
+                            Ref: 'FriggVPC',
+                        },
                         Tags: [
-                            { Key: 'Name', Value: '${self:service}-${self:provider.stage}-lambda-rt' }
-                        ]
-                    }
+                            {
+                                Key: 'Name',
+                                Value: '${self:service}-${self:provider.stage}-lambda-rt',
+                            },
+                        ],
+                    },
                 };
 
                 definition.resources.Resources.FriggNATRoute = {
@@ -942,8 +1089,11 @@ const composeServerlessDefinition = async (AppDefinition) => {
                     Properties: {
                         RouteTableId: { Ref: 'FriggLambdaRouteTable' },
                         DestinationCidrBlock: '0.0.0.0/0',
-                        NatGatewayId: discoveredResources.existingNatGatewayId || { Ref: 'FriggNATGateway' }
-                    }
+                        NatGatewayId:
+                            discoveredResources.existingNatGatewayId || {
+                                Ref: 'FriggNATGateway',
+                            },
+                    },
                 };
 
                 // Associate Lambda subnets with NAT Gateway route table
@@ -951,16 +1101,16 @@ const composeServerlessDefinition = async (AppDefinition) => {
                     Type: 'AWS::EC2::SubnetRouteTableAssociation',
                     Properties: {
                         SubnetId: vpcConfig.subnetIds[0],
-                        RouteTableId: { Ref: 'FriggLambdaRouteTable' }
-                    }
+                        RouteTableId: { Ref: 'FriggLambdaRouteTable' },
+                    },
                 };
 
                 definition.resources.Resources.FriggSubnet2RouteAssociation = {
                     Type: 'AWS::EC2::SubnetRouteTableAssociation',
                     Properties: {
                         SubnetId: vpcConfig.subnetIds[1],
-                        RouteTableId: { Ref: 'FriggLambdaRouteTable' }
-                    }
+                        RouteTableId: { Ref: 'FriggLambdaRouteTable' },
+                    },
                 };
 
                 // Add VPC endpoints for AWS service optimization (optional but recommended)
@@ -969,116 +1119,130 @@ const composeServerlessDefinition = async (AppDefinition) => {
                         Type: 'AWS::EC2::VPCEndpoint',
                         Properties: {
                             VpcId: discoveredResources.defaultVpcId,
-                            ServiceName: 'com.amazonaws.${self:provider.region}.s3',
+                            ServiceName:
+                                'com.amazonaws.${self:provider.region}.s3',
                             VpcEndpointType: 'Gateway',
-                            RouteTableIds: [{ Ref: 'FriggLambdaRouteTable' }]
-                        }
+                            RouteTableIds: [{ Ref: 'FriggLambdaRouteTable' }],
+                        },
                     };
 
                     definition.resources.Resources.VPCEndpointDynamoDB = {
                         Type: 'AWS::EC2::VPCEndpoint',
                         Properties: {
                             VpcId: discoveredResources.defaultVpcId,
-                            ServiceName: 'com.amazonaws.${self:provider.region}.dynamodb',
+                            ServiceName:
+                                'com.amazonaws.${self:provider.region}.dynamodb',
                             VpcEndpointType: 'Gateway',
-                            RouteTableIds: [{ Ref: 'FriggLambdaRouteTable' }]
-                        }
+                            RouteTableIds: [{ Ref: 'FriggLambdaRouteTable' }],
+                        },
                     };
                 }
             }
         }
 
-    // SSM Parameter Store Configuration based on App Definition  
-    if (AppDefinition.ssm?.enable === true) {
-        // Add AWS Parameters and Secrets Lambda Extension layer
-        definition.provider.layers = [
-            'arn:aws:lambda:${self:provider.region}:177933569100:layer:AWS-Parameters-and-Secrets-Lambda-Extension:11'
-        ];
+        // SSM Parameter Store Configuration based on App Definition
+        if (AppDefinition.ssm?.enable === true) {
+            // Add AWS Parameters and Secrets Lambda Extension layer
+            definition.provider.layers = [
+                'arn:aws:lambda:${self:provider.region}:177933569100:layer:AWS-Parameters-and-Secrets-Lambda-Extension:11',
+            ];
 
-        // Add SSM IAM permissions
-        definition.provider.iamRoleStatements.push({
-            Effect: 'Allow',
-            Action: [
-                'ssm:GetParameter',
-                'ssm:GetParameters',
-                'ssm:GetParametersByPath'
-            ],
-            Resource: [
-                'arn:aws:ssm:${self:provider.region}:*:parameter/${self:service}/${self:provider.stage}/*'
-            ]
-        });
-
-        // Add environment variable for SSM parameter prefix
-        definition.provider.environment.SSM_PARAMETER_PREFIX = '/${self:service}/${self:provider.stage}';
-    }
-
-    // Add integration-specific functions and resources
-    if (AppDefinition.integrations && Array.isArray(AppDefinition.integrations)) {
-        for (const integration of AppDefinition.integrations) {
-            if (!integration || !integration.Definition || !integration.Definition.name) {
-                throw new Error('Invalid integration: missing Definition or name');
-            }
-            const integrationName = integration.Definition.name;
-
-            // Add function for the integration
-            definition.functions[integrationName] = {
-                handler: `node_modules/@friggframework/core/handlers/routers/integration-defined-routers.handlers.${integrationName}.handler`,
-                events: [
-                    {
-                        httpApi: {
-                            path: `/api/${integrationName}-integration/{proxy+}`,
-                            method: 'ANY',
-                        },
-                    },
+            // Add SSM IAM permissions
+            definition.provider.iamRoleStatements.push({
+                Effect: 'Allow',
+                Action: [
+                    'ssm:GetParameter',
+                    'ssm:GetParameters',
+                    'ssm:GetParametersByPath',
                 ],
-            };
+                Resource: [
+                    'arn:aws:ssm:${self:provider.region}:*:parameter/${self:service}/${self:provider.stage}/*',
+                ],
+            });
 
-            // Add SQS Queue for the integration
-            const queueReference = `${integrationName.charAt(0).toUpperCase() + integrationName.slice(1)
-                }Queue`;
-            const queueName = `\${self:service}--\${self:provider.stage}-${queueReference}`;
-            definition.resources.Resources[queueReference] = {
-                Type: 'AWS::SQS::Queue',
-                Properties: {
-                    QueueName: `\${self:custom.${queueReference}}`,
-                    MessageRetentionPeriod: 60,
-                    VisibilityTimeout: 1800,  // 30 minutes
-                    RedrivePolicy: {
-                        maxReceiveCount: 1,
-                        deadLetterTargetArn: {
-                            'Fn::GetAtt': ['InternalErrorQueue', 'Arn'],
-                        },
-                    },
-                },
-            };
+            // Add environment variable for SSM parameter prefix
+            definition.provider.environment.SSM_PARAMETER_PREFIX =
+                '/${self:service}/${self:provider.stage}';
+        }
 
-            // Add Queue Worker for the integration
-            const queueWorkerName = `${integrationName}QueueWorker`;
-            definition.functions[queueWorkerName] = {
-                handler: `node_modules/@friggframework/core/handlers/workers/integration-defined-workers.handlers.${integrationName}.queueWorker`,
-                reservedConcurrency: 5,
-                events: [
-                    {
-                        sqs: {
-                            arn: {
-                                'Fn::GetAtt': [queueReference, 'Arn'],
+        // Add integration-specific functions and resources
+        if (
+            AppDefinition.integrations &&
+            Array.isArray(AppDefinition.integrations)
+        ) {
+            for (const integration of AppDefinition.integrations) {
+                if (
+                    !integration ||
+                    !integration.Definition ||
+                    !integration.Definition.name
+                ) {
+                    throw new Error(
+                        'Invalid integration: missing Definition or name'
+                    );
+                }
+                const integrationName = integration.Definition.name;
+
+                // Add function for the integration
+                definition.functions[integrationName] = {
+                    handler: `node_modules/@friggframework/core/handlers/routers/integration-defined-routers.handlers.${integrationName}.handler`,
+                    events: [
+                        {
+                            httpApi: {
+                                path: `/api/${integrationName}-integration/{proxy+}`,
+                                method: 'ANY',
                             },
-                            batchSize: 1,
+                        },
+                    ],
+                };
+
+                // Add SQS Queue for the integration
+                const queueReference = `${
+                    integrationName.charAt(0).toUpperCase() +
+                    integrationName.slice(1)
+                }Queue`;
+                const queueName = `\${self:service}--\${self:provider.stage}-${queueReference}`;
+                definition.resources.Resources[queueReference] = {
+                    Type: 'AWS::SQS::Queue',
+                    Properties: {
+                        QueueName: `\${self:custom.${queueReference}}`,
+                        MessageRetentionPeriod: 60,
+                        VisibilityTimeout: 1800, // 30 minutes
+                        RedrivePolicy: {
+                            maxReceiveCount: 1,
+                            deadLetterTargetArn: {
+                                'Fn::GetAtt': ['InternalErrorQueue', 'Arn'],
+                            },
                         },
                     },
-                ],
-                timeout: 600,
-            };
+                };
 
-            // Add Queue URL for the integration to the ENVironment variables
-            definition.provider.environment = {
-                ...definition.provider.environment,
-                [`${integrationName.toUpperCase()}_QUEUE_URL`]: {
-                    Ref: queueReference,
-                },
-            };
+                // Add Queue Worker for the integration
+                const queueWorkerName = `${integrationName}QueueWorker`;
+                definition.functions[queueWorkerName] = {
+                    handler: `node_modules/@friggframework/core/handlers/workers/integration-defined-workers.handlers.${integrationName}.queueWorker`,
+                    reservedConcurrency: 5,
+                    events: [
+                        {
+                            sqs: {
+                                arn: {
+                                    'Fn::GetAtt': [queueReference, 'Arn'],
+                                },
+                                batchSize: 1,
+                            },
+                        },
+                    ],
+                    timeout: 600,
+                };
 
-            definition.custom[queueReference] = queueName;
+                // Add Queue URL for the integration to the ENVironment variables
+                definition.provider.environment = {
+                    ...definition.provider.environment,
+                    [`${integrationName.toUpperCase()}_QUEUE_URL`]: {
+                        Ref: queueReference,
+                    },
+                };
+
+                definition.custom[queueReference] = queueName;
             }
         }
 
@@ -1088,7 +1252,8 @@ const composeServerlessDefinition = async (AppDefinition) => {
         // Add websocket function if enabled
         if (AppDefinition.websockets?.enable === true) {
             definition.functions.defaultWebsocket = {
-                handler: 'node_modules/@friggframework/core/handlers/routers/websocket.handler',
+                handler:
+                    'node_modules/@friggframework/core/handlers/routers/websocket.handler',
                 events: [
                     {
                         websocket: {
@@ -1115,7 +1280,8 @@ const composeServerlessDefinition = async (AppDefinition) => {
         // Add websocket function if enabled
         if (AppDefinition.websockets?.enable === true) {
             definition.functions.defaultWebsocket = {
-                handler: 'node_modules/@friggframework/core/handlers/routers/websocket.handler',
+                handler:
+                    'node_modules/@friggframework/core/handlers/routers/websocket.handler',
                 events: [
                     {
                         websocket: {
@@ -1143,7 +1309,8 @@ const composeServerlessDefinition = async (AppDefinition) => {
     // Add websocket function if enabled
     if (AppDefinition.websockets?.enable === true) {
         definition.functions.defaultWebsocket = {
-            handler: 'node_modules/@friggframework/core/handlers/routers/websocket.handler',
+            handler:
+                'node_modules/@friggframework/core/handlers/routers/websocket.handler',
             events: [
                 {
                     websocket: {
