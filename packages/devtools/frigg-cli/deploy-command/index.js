@@ -49,12 +49,18 @@ async function deployCommand(options) {
                         );
                     }
 
-                    // Pass essential system variables + app-defined environment variables
+                    // Pass essential system variables + AWS credentials + app-defined environment variables
                     integrationEnvironmentVariables = {
                         // Essential system variables needed to run serverless
                         PATH: process.env.PATH,
                         HOME: process.env.HOME,
                         USER: process.env.USER,
+                        
+                        // AWS credentials and configuration (all AWS_ prefixed variables)
+                        ...Object.fromEntries(
+                            Object.entries(process.env)
+                                .filter(([key]) => key.startsWith('AWS_'))
+                        ),
                         
                         // App-defined environment variables
                         ...Object.fromEntries(
@@ -80,12 +86,18 @@ async function deployCommand(options) {
                         );
                     }
 
-                    // Pass essential system variables + app-defined environment variables
+                    // Pass essential system variables + AWS credentials + app-defined environment variables
                     integrationEnvironmentVariables = {
                         // Essential system variables needed to run serverless
                         PATH: process.env.PATH,
                         HOME: process.env.HOME,
                         USER: process.env.USER,
+                        
+                        // AWS credentials and configuration (all AWS_ prefixed variables)
+                        ...Object.fromEntries(
+                            Object.entries(process.env)
+                                .filter(([key]) => key.startsWith('AWS_'))
+                        ),
                         
                         // App-defined environment variables
                         ...Object.fromEntries(
@@ -107,6 +119,8 @@ async function deployCommand(options) {
 
     // AWS discovery is now handled directly in serverless-template.js
     console.log('🚀 Deploying serverless application...');
+    console.log('📋 Final environment variables being passed to serverless:');
+    console.log('   ', Object.keys(integrationEnvironmentVariables).sort().join(', '));
     const backendPath = path.resolve(process.cwd());
     const infrastructurePath = 'infrastructure.js';
     const command = 'serverless';
