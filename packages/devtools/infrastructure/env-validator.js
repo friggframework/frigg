@@ -12,15 +12,15 @@ const validateEnvironmentVariables = (AppDefinition) => {
     const results = {
         valid: [],
         missing: [],
-        warnings: []
+        warnings: [],
     };
-    
+
     if (!AppDefinition.environment) {
         return results;
     }
-    
+
     console.log('🔍 Validating environment variables...');
-    
+
     for (const [key, value] of Object.entries(AppDefinition.environment)) {
         if (value === true) {
             if (process.env[key]) {
@@ -30,30 +30,34 @@ const validateEnvironmentVariables = (AppDefinition) => {
             }
         }
     }
-    
+
     // Special handling for certain variables
     if (results.missing.includes('NODE_ENV')) {
         results.warnings.push('NODE_ENV not set, defaulting to "production"');
         // Remove from missing since it has a default
-        results.missing = results.missing.filter(v => v !== 'NODE_ENV');
+        results.missing = results.missing.filter((v) => v !== 'NODE_ENV');
     }
-    
+
     // Report results
     if (results.valid.length > 0) {
-        console.log(`   ✅ Valid: ${results.valid.length} environment variables found`);
+        console.log(
+            `   ✅ Valid: ${results.valid.length} environment variables found`
+        );
     }
-    
+
     if (results.missing.length > 0) {
         console.log(`   ⚠️  Missing: ${results.missing.join(', ')}`);
-        results.warnings.push(`Missing ${results.missing.length} environment variables. These should be set in your CI/CD environment or .env file`);
+        results.warnings.push(
+            `Missing ${results.missing.length} environment variables. These should be set in your CI/CD environment or .env file`
+        );
     }
-    
+
     if (results.warnings.length > 0) {
-        results.warnings.forEach(warning => {
+        results.warnings.forEach((warning) => {
             console.log(`   ⚠️  ${warning}`);
         });
     }
-    
+
     return results;
 };
 
@@ -67,7 +71,7 @@ const hasAllRequiredEnvVars = (AppDefinition) => {
     return results.missing.length === 0;
 };
 
-module.exports = { 
+module.exports = {
     validateEnvironmentVariables,
-    hasAllRequiredEnvVars
+    hasAllRequiredEnvVars,
 };
