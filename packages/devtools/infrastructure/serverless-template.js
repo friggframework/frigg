@@ -450,6 +450,13 @@ const createVPCInfrastructure = (AppDefinition) => {
                         CidrIp: '0.0.0.0/0',
                         Description: 'DNS UDP',
                     },
+                    {
+                        IpProtocol: 'tcp',
+                        FromPort: 27017,
+                        ToPort: 27017,
+                        CidrIp: '0.0.0.0/0',
+                        Description: 'MongoDB outbound',
+                    },
                 ],
                 Tags: [
                     {
