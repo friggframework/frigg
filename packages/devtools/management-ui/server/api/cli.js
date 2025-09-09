@@ -12,9 +12,11 @@ const AVAILABLE_COMMANDS = [
         description: 'Initialize a new Frigg project',
         usage: 'frigg init [project-name]',
         options: [
-            { name: '--template', description: 'Template to use (serverless, express)' },
-            { name: '--skip-install', description: 'Skip npm install' },
-            { name: '--force', description: 'Overwrite existing directory' }
+            { name: '--mode <mode>', description: 'Deployment mode (embedded|standalone)' },
+            { name: '--frontend', description: 'Include demo frontend' },
+            { name: '--no-frontend', description: 'Skip demo frontend' },
+            { name: '--force', description: 'Overwrite existing directory' },
+            { name: '--verbose', description: 'Enable verbose output' }
         ]
     },
     {

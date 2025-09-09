@@ -12,11 +12,13 @@ const { uiCommand } = require('./ui-command');
 const program = new Command();
 
 program
-    .command('init [templateName]')
+    .command('init [projectName]')
     .description('Initialize a new Frigg application')
-    .option('-t, --template <template>', 'template to use', 'backend-only')
-    .option('-n, --name <name>', 'project name')
-    .option('-d, --directory <directory>', 'target directory')
+    .option('-m, --mode <mode>', 'deployment mode (embedded|standalone)')
+    .option('--frontend', 'include demo frontend')
+    .option('--no-frontend', 'skip demo frontend')
+    .option('-f, --force', 'overwrite existing directory')
+    .option('-v, --verbose', 'enable verbose output')
     .action(initCommand);
 
 program
