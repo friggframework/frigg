@@ -5,9 +5,28 @@
 const { Encrypt } = require('../encrypt');
 const { mongoose } = require('./mongoose');
 const { debug, flushDebugLog } = require('../logs');
+const { findNearestBackendPackageJson } = require('../utils');
+const path = require('path');
+const fs = require('fs');
 
 mongoose.plugin(Encrypt);
 mongoose.set('applyPluginsToDiscriminators', true); // Needed for LHEncrypt
+
+// Load app definition to check for DocumentDB configuration
+let appDefinition = {};
+try {
+    const backendPath = findNearestBackendPackageJson();
+    if (backendPath) {
+        const backendDir = path.dirname(backendPath);
+        const backendFilePath = path.join(backendDir, 'index.js');
+        if (fs.existsSync(backendFilePath)) {
+            const backendJsFile = require(backendFilePath);
+            appDefinition = backendJsFile.Definition || {};
+        }
+    }
+} catch (error) {
+    debug('Could not load app definition for DocumentDB configuration:', error.message);
+}
 
 // Buffering means mongoose will queue up operations if it gets
 // With serverless, better to fail fast if not connected.
@@ -19,6 +38,19 @@ const mongoConfig = {
     useUnifiedTopology: true,
     serverSelectionTimeoutMS: 5000,
 };
+
+// Add DocumentDB TLS configuration if enabled
+if (appDefinition.database?.documentDB?.enable === true) {
+    debug('DocumentDB configuration detected, enabling TLS');
+    mongoConfig.tls = true;
+    
+    // Set TLS CA file path if specified
+    if (appDefinition.database.documentDB.tlsCAFile) {
+        const tlsCAFilePath = path.resolve(process.cwd(), appDefinition.database.documentDB.tlsCAFile);
+        mongoConfig.tlsCAFile = tlsCAFilePath;
+        debug(`DocumentDB TLS CA file: ${tlsCAFilePath}`);
+    }
+}
 
 const checkIsConnected = () => mongoose.connection?.readyState > 0;
 
