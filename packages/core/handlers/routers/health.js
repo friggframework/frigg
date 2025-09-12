@@ -15,20 +15,7 @@ const validateApiKey = (req, res, next) => {
     }
 
     if (!apiKey || apiKey !== process.env.HEALTH_API_KEY) {
-        const healthApiKey = process.env.HEALTH_API_KEY;
-        console.log('Incoming API Key Debug:', {
-            first3: apiKey ? apiKey.substring(0, 3) : 'undefined',
-            last3: apiKey ? apiKey.substring(apiKey.length - 3) : 'undefined',
-            length: apiKey ? apiKey.length : 0,
-        });
-        console.log('Health API Key Debug:', {
-            first3: healthApiKey ? healthApiKey.substring(0, 3) : 'undefined',
-            last3: healthApiKey
-                ? healthApiKey.substring(healthApiKey.length - 3)
-                : 'undefined',
-            length: healthApiKey ? healthApiKey.length : 0,
-        });
-        console.log('Unauthorized access attempt to health endpoint');
+        console.error('Unauthorized access attempt to health endpoint');
         return res.status(401).json({
             status: 'error',
             message: 'Unauthorized',
@@ -400,6 +387,8 @@ router.get('/health', async (_req, res) => {
 });
 
 router.get('/health/detailed', async (_req, res) => {
+    // eslint-disable-next-line no-console
+    console.log('Starting detailed health check');
     const startTime = Date.now();
     const response = buildHealthCheckResponse(startTime);
 
@@ -409,12 +398,16 @@ router.get('/health/detailed', async (_req, res) => {
         if (!dbState.isConnected) {
             response.status = 'unhealthy';
         }
+        // eslint-disable-next-line no-console
+        console.log('Database check completed:', response.checks.database);
     } catch (error) {
         response.checks.database = {
             status: 'unhealthy',
             error: error.message,
         };
         response.status = 'unhealthy';
+        // eslint-disable-next-line no-console
+        console.log('Database check error:', error.message);
     }
 
     try {
@@ -422,12 +415,16 @@ router.get('/health/detailed', async (_req, res) => {
         if (response.checks.encryption.status === 'unhealthy') {
             response.status = 'unhealthy';
         }
+        // eslint-disable-next-line no-console
+        console.log('Encryption check completed:', response.checks.encryption);
     } catch (error) {
         response.checks.encryption = {
             status: 'unhealthy',
             error: error.message,
         };
         response.status = 'unhealthy';
+        // eslint-disable-next-line no-console
+        console.log('Encryption check error:', error.message);
     }
 
     const { apiStatuses, allReachable } = await checkExternalAPIs();
@@ -435,15 +432,24 @@ router.get('/health/detailed', async (_req, res) => {
     if (!allReachable) {
         response.status = 'unhealthy';
     }
+    // eslint-disable-next-line no-console
+    console.log('External APIs check completed:', response.checks.externalApis);
 
     try {
         response.checks.integrations = checkIntegrations();
+        // eslint-disable-next-line no-console
+        console.log(
+            'Integrations check completed:',
+            response.checks.integrations
+        );
     } catch (error) {
         response.checks.integrations = {
             status: 'unhealthy',
             error: error.message,
         };
         response.status = 'unhealthy';
+        // eslint-disable-next-line no-console
+        console.log('Integrations check error:', error.message);
     }
 
     response.responseTime = response.calculateResponseTime();
@@ -451,6 +457,14 @@ router.get('/health/detailed', async (_req, res) => {
 
     const statusCode = response.status === 'healthy' ? 200 : 503;
     res.status(statusCode).json(response);
+
+    // eslint-disable-next-line no-console
+    console.log(
+        'Final health status:',
+        response.status,
+        'Response time:',
+        response.responseTime
+    );
 });
 
 router.get('/health/live', (_req, res) => {
