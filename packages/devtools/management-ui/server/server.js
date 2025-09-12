@@ -14,6 +14,7 @@ import { addLogEntry, LOG_LEVELS } from './api/logs.js'
 // Import API routes
 import projectRouter from './api/project.js'
 import integrationsRouter from './api/integrations.js'
+import entitiesRouter from './api/entities.js'
 import environmentRouter from './api/environment.js'
 import usersRouter from './api/users.js'
 import connectionsRouter from './api/connections.js'
@@ -155,6 +156,7 @@ app.get('/api/repository/current', (req, res) => {
 // API endpoints
 app.use('/api/project', projectRouter)
 app.use('/api/integrations', integrationsRouter)
+app.use('/api/entities', entitiesRouter)
 app.use('/api/environment', environmentRouter)
 app.use('/api/users', usersRouter)
 app.use('/api/connections', connectionsRouter)
@@ -190,6 +192,7 @@ app.get('/api', (req, res) => {
     endpoints: {
       project: '/api/project',
       integrations: '/api/integrations',
+      entities: '/api/entities',
       environment: '/api/environment',
       users: '/api/users',
       connections: '/api/connections',
