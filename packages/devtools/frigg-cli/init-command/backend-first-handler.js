@@ -36,8 +36,8 @@ class BackendFirstHandler {
 
         console.log(chalk.green('\n✅ Frigg application created successfully!'));
         
-        // If user needs custom API module, prompt to create it
-        if (config.needsCustomApiModule) {
+        // If user needs custom API module, prompt to create it (only in interactive mode)
+        if (config.needsCustomApiModule && this.options.interactive && !this.options.nonInteractive) {
             console.log(chalk.cyan('\n🔧 Now let\'s create your custom API module...'));
             const createModule = await confirm({
                 message: 'Would you like to create your custom API module now?',
@@ -49,6 +49,11 @@ class BackendFirstHandler {
                 console.log(chalk.cyan(`   cd ${path.relative(process.cwd(), this.targetPath)}`));
                 console.log(chalk.cyan('   frigg generate:api-module\n'));
             }
+        } else if (config.needsCustomApiModule && (this.options.nonInteractive || !this.options.interactive)) {
+            console.log(chalk.cyan('\n🔧 Custom API module needed'));
+            console.log(chalk.gray('\n   Run this command after setup:'));
+            console.log(chalk.cyan(`   cd ${path.relative(process.cwd(), this.targetPath)}`));
+            console.log(chalk.cyan('   frigg generate:api-module\n'));
         }
         
         this.displayNextSteps(deploymentMode, config);
@@ -62,7 +67,7 @@ class BackendFirstHandler {
             return this.options.mode;
         }
 
-        if (!this.options.interactive) {
+        if (!this.options.interactive || this.options.nonInteractive) {
             return 'standalone';
         }
 
@@ -87,25 +92,39 @@ class BackendFirstHandler {
     }
 
     /**
+     * Get default configuration for non-interactive mode
+     */
+    getDefaultConfiguration(deploymentMode) {
+        const config = {
+            deploymentMode,
+            appPurpose: this.options.appPurpose || 'exploring',
+            needsCustomApiModule: this.options.includeApiModule || false,
+            includeIntegrations: this.options.includeIntegrations || false,
+            starterIntegrations: this.options.starterIntegrations || [],
+            includeDemoFrontend: this.options.frontend === true,
+            frontendFramework: this.options.frontendFramework || 'react',
+            demoAuthMode: this.options.demoAuthMode || 'mock',
+            serverlessProvider: this.options.serverlessProvider || (deploymentMode === 'standalone' ? 'aws' : undefined),
+            installDependencies: this.options.installDependencies !== false,
+            initializeGit: this.options.initializeGit !== false
+        };
+
+        // If app purpose is 'own-app' and no explicit API module setting, default to true
+        if (config.appPurpose === 'own-app' && this.options.includeApiModule === undefined) {
+            config.needsCustomApiModule = true;
+        }
+
+        return config;
+    }
+
+    /**
      * Get project configuration based on deployment mode
      */
     async getProjectConfiguration(deploymentMode) {
         const config = { deploymentMode };
 
-        if (!this.options.interactive) {
-            return {
-                ...config,
-                appPurpose: 'exploring',
-                needsCustomApiModule: false,
-                includeIntegrations: false,
-                starterIntegrations: [],
-                includeDemoFrontend: this.options.frontend === true,
-                frontendFramework: 'react',
-                demoAuthMode: 'mock',
-                serverlessProvider: deploymentMode === 'standalone' ? 'aws' : undefined,
-                installDependencies: true,
-                initializeGit: true
-            };
+        if (!this.options.interactive || this.options.nonInteractive) {
+            return this.getDefaultConfiguration(deploymentMode);
         }
 
         // Ask about the purpose of this Frigg application
