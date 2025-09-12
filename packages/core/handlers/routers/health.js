@@ -15,6 +15,19 @@ const validateApiKey = (req, res, next) => {
     }
 
     if (!apiKey || apiKey !== process.env.HEALTH_API_KEY) {
+        const healthApiKey = process.env.HEALTH_API_KEY;
+        console.log('Incoming API Key Debug:', {
+            first3: apiKey ? apiKey.substring(0, 3) : 'undefined',
+            last3: apiKey ? apiKey.substring(apiKey.length - 3) : 'undefined',
+            length: apiKey ? apiKey.length : 0,
+        });
+        console.log('Health API Key Debug:', {
+            first3: healthApiKey ? healthApiKey.substring(0, 3) : 'undefined',
+            last3: healthApiKey
+                ? healthApiKey.substring(healthApiKey.length - 3)
+                : 'undefined',
+            length: healthApiKey ? healthApiKey.length : 0,
+        });
         console.log('Unauthorized access attempt to health endpoint');
         return res.status(401).json({
             status: 'error',
