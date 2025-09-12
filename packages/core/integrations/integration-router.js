@@ -48,24 +48,68 @@ function checkRequiredParams(params, requiredKeys) {
 
 function setIntegrationRoutes(router, factory, getUserId) {
     const { moduleFactory, integrationFactory, IntegrationHelper } = factory;
+    // GET /api/integrations - User's integrations with enhanced data
     router.route('/api/integrations').get(
         catchAsyncError(async (req, res) => {
-            const results = await integrationFactory.getIntegrationOptions();
-            results.entities.authorized =
-                await moduleFactory.getEntitiesForUser(getUserId(req));
-            results.integrations =
-                await IntegrationHelper.getIntegrationsForUserId(
-                    getUserId(req)
-                );
+            const userId = getUserId(req);
+            const userIntegrations = await IntegrationHelper.getIntegrationsForUserId(userId);
 
-            for (const integrationRecord of results.integrations) {
-                const integration =
-                    await integrationFactory.getInstanceFromIntegrationId({
+            // Enhance each integration with user actions
+            for (const integrationRecord of userIntegrations) {
+                try {
+                    const integration = await integrationFactory.getInstanceFromIntegrationId({
                         integrationId: integrationRecord.id,
-                        userId: getUserId(req),
+                        userId: userId,
                     });
-                integrationRecord.userActions = integration.userActions;
+                    integrationRecord.userActions = integration.userActions;
+                } catch (error) {
+                    debug(`Error loading user actions for integration ${integrationRecord.id}:`, error);
+                    integrationRecord.userActions = [];
+                }
             }
+
+            res.json({
+                integrations: userIntegrations,
+                total: userIntegrations.length,
+                userId: userId
+            });
+        })
+    );
+
+    // GET /api/integrations/options - Available integration types and their configuration options
+    router.route('/api/integrations/options').get(
+        catchAsyncError(async (req, res) => {
+            const integrationOptions = await integrationFactory.getIntegrationOptions();
+            res.json(integrationOptions);
+        })
+    );
+
+    // GET /api/integrations/summary - Combined view for backward compatibility
+    router.route('/api/integrations/summary').get(
+        catchAsyncError(async (req, res) => {
+            const userId = getUserId(req);
+            const results = await integrationFactory.getIntegrationOptions();
+            
+            // Get user's authorized entities
+            results.entities.authorized = await moduleFactory.getEntitiesForUser(userId);
+            
+            // Get user's integrations
+            results.integrations = await IntegrationHelper.getIntegrationsForUserId(userId);
+
+            // Enhance integrations with user actions
+            for (const integrationRecord of results.integrations) {
+                try {
+                    const integration = await integrationFactory.getInstanceFromIntegrationId({
+                        integrationId: integrationRecord.id,
+                        userId: userId,
+                    });
+                    integrationRecord.userActions = integration.userActions;
+                } catch (error) {
+                    debug(`Error loading user actions for integration ${integrationRecord.id}:`, error);
+                    integrationRecord.userActions = [];
+                }
+            }
+            
             res.json(results);
         })
     );
@@ -288,6 +332,20 @@ function setIntegrationRoutes(router, factory, getUserId) {
 
 function setEntityRoutes(router, factory, getUserId) {
     const { moduleFactory, IntegrationHelper } = factory;
+    
+    // GET /api/entities - Get all entities for the current user
+    router.route('/api/entities').get(
+        catchAsyncError(async (req, res) => {
+            const userId = getUserId(req);
+            const authorizedEntities = await moduleFactory.getEntitiesForUser(userId);
+            
+            res.json({
+                entities: authorizedEntities,
+                total: authorizedEntities.length,
+                userId: userId
+            });
+        })
+    );
     const getModuleInstance = async (req, entityType) => {
         if (!moduleFactory.checkIsValidType(entityType)) {
             throw Boom.badRequest(
