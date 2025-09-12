@@ -150,21 +150,6 @@ const createTestEncryptionModel = () => {
     );
 };
 
-const createTestDocument = async (TestModel) => {
-    const testData = {
-        testSecret: 'This is a secret value that should be encrypted',
-        normalField: 'This is a normal field that should not be encrypted',
-        nestedSecret: {
-            value: 'This is a nested secret that should be encrypted',
-        },
-    };
-
-    const testDoc = new TestModel(testData);
-    await testDoc.save();
-
-    return { testDoc, testData };
-};
-
 const verifyDecryption = (retrievedDoc, originalData) => {
     return (
         retrievedDoc &&
@@ -238,18 +223,51 @@ const evaluateEncryptionTestResults = (decryptionWorks, encryptionResults) => {
     };
 };
 
+const withTimeout = (promise, ms, errorMessage) => {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(errorMessage)), ms)
+        ),
+    ]);
+};
+
 const testEncryption = async () => {
+    // eslint-disable-next-line no-console
+    console.log('Starting encryption test');
     const TestModel = createTestEncryptionModel();
-    const { testDoc, testData } = await createTestDocument(TestModel);
+    // eslint-disable-next-line no-console
+    console.log('Test model created');
+
+    const testData = {
+        testSecret: 'This is a secret value that should be encrypted',
+        normalField: 'This is a normal field that should not be encrypted',
+        nestedSecret: {
+            value: 'This is a nested secret that should be encrypted',
+        },
+    };
+
+    const testDoc = new TestModel(testData);
+    await withTimeout(testDoc.save(), 5000, 'Save operation timed out');
+    // eslint-disable-next-line no-console
+    console.log('Test document saved');
 
     try {
-        const retrievedDoc = await TestModel.findById(testDoc._id);
-        const decryptionWorks = verifyDecryption(retrievedDoc, testData);
-        const encryptionResults = await verifyEncryptionInDatabase(
-            testDoc,
-            testData,
-            TestModel
+        const retrievedDoc = await withTimeout(
+            TestModel.findById(testDoc._id),
+            5000,
+            'Find operation timed out'
         );
+        // eslint-disable-next-line no-console
+        console.log('Test document retrieved');
+        const decryptionWorks = verifyDecryption(retrievedDoc, testData);
+        const encryptionResults = await withTimeout(
+            verifyEncryptionInDatabase(testDoc, testData, TestModel),
+            5000,
+            'Database verification timed out'
+        );
+        // eslint-disable-next-line no-console
+        console.log('Encryption verification completed');
 
         const evaluation = evaluateEncryptionTestResults(
             decryptionWorks,
@@ -261,7 +279,13 @@ const testEncryption = async () => {
             encryptionWorks: decryptionWorks,
         };
     } finally {
-        await TestModel.deleteOne({ _id: testDoc._id });
+        await withTimeout(
+            TestModel.deleteOne({ _id: testDoc._id }),
+            5000,
+            'Delete operation timed out'
+        );
+        // eslint-disable-next-line no-console
+        console.log('Test document deleted');
     }
 };
 
@@ -269,6 +293,12 @@ const checkEncryptionHealth = async () => {
     const config = getEncryptionConfiguration();
 
     if (config.isBypassed || config.mode === 'none') {
+        // eslint-disable-next-line no-console
+        console.log('Encryption check bypassed:', {
+            stage: config.stage,
+            mode: config.mode,
+        });
+
         const testResult = config.isBypassed
             ? 'Encryption bypassed for this stage'
             : 'No encryption keys configured';
