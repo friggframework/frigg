@@ -593,7 +593,41 @@ app.post('/api/frigg/restart', async (req, res) => {
 
 // Integrations
 app.get('/api/integrations', (req, res) => {
-  res.json({ integrations: mockIntegrations })
+  // Return only user's integrations following the new API structure
+  res.json(mockIntegrations.filter(i => i.installed))
+})
+
+// Integration Options - available integration types
+app.get('/api/integration-options', (req, res) => {
+  // Return available integration options
+  res.json({ 
+    integrations: mockIntegrations.map(i => ({
+      name: i.name,
+      displayName: i.displayName,
+      description: i.description,
+      category: i.category,
+      icon: i.icon
+    }))
+  })
+})
+
+// Entities - user's authorized entities
+app.get('/api/entities', (req, res) => {
+  // Return mock entities for the user
+  res.json([
+    {
+      id: 'entity1',
+      type: 'slack',
+      name: 'My Slack Workspace',
+      createdAt: new Date().toISOString()
+    },
+    {
+      id: 'entity2', 
+      type: 'salesforce',
+      name: 'Production Salesforce',
+      createdAt: new Date().toISOString()
+    }
+  ])
 })
 
 app.post('/api/integrations/install', async (req, res) => {

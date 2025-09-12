@@ -126,7 +126,9 @@ The management UI communicates with the Frigg backend through:
 - `GET /api/frigg/status` - Server status
 - `POST /api/frigg/start` - Start Frigg server
 - `POST /api/frigg/stop` - Stop Frigg server
-- `GET /api/integrations` - List integrations
+- `GET /api/integrations` - List user's installed integrations
+- `GET /api/integration-options` - List available integration types
+- `GET /api/entities` - List user's authorized entities
 - `POST /api/integrations/install` - Install integration
 - `GET /api/environment` - Environment variables
 - `PUT /api/environment` - Update environment variables

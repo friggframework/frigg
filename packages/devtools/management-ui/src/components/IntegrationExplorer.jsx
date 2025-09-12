@@ -23,13 +23,20 @@ export default function IntegrationExplorer({ mode = 'browse' }) {
   const fetchIntegrations = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/integrations')
-      const data = await response.json()
       
-      // Combine installed integrations and available API modules
+      // Fetch integrations and integration options in parallel
+      const [integrationsResponse, optionsResponse] = await Promise.all([
+        fetch('/api/integrations'),
+        fetch('/api/integration-options')
+      ])
+      
+      const integrationsData = await integrationsResponse.json()
+      const optionsData = await optionsResponse.json()
+      
+      // Combine installed integrations and available integration options
       const allIntegrations = [
-        ...data.integrations.map(int => ({ ...int, source: 'installed' })),
-        ...data.availableApiModules.map(mod => ({ ...mod, source: 'available' }))
+        ...(Array.isArray(integrationsData) ? integrationsData : integrationsData.integrations || []).map(int => ({ ...int, source: 'installed' })),
+        ...(optionsData.integrations || []).map(opt => ({ ...opt, source: 'available' }))
       ]
       
       setIntegrations(allIntegrations)

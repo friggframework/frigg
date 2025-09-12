@@ -71,26 +71,50 @@ export const handlers = [
     })
   }),
 
-  // Integrations
+  // Integrations - returns user's integrations only
   http.get('/api/integrations', () => {
-    return HttpResponse.json({
-      data: {
-        integrations: [
-          {
-            name: 'slack',
-            version: '1.0.0',
-            installed: true,
-            configured: true
-          },
-          {
-            name: 'github',
-            version: '2.0.0', 
-            installed: false,
-            configured: false
-          }
-        ]
+    return HttpResponse.json([
+      {
+        id: 'int1',
+        name: 'slack',
+        version: '1.0.0',
+        installed: true,
+        configured: true,
+        userActions: []
       }
+    ])
+  }),
+
+  // Integration Options - available integration types
+  http.get('/api/integration-options', () => {
+    return HttpResponse.json({
+      integrations: [
+        {
+          name: 'slack',
+          displayName: 'Slack',
+          description: 'Connect your Slack workspace',
+          category: 'communication'
+        },
+        {
+          name: 'github',
+          displayName: 'GitHub',
+          description: 'Connect your GitHub repositories',
+          category: 'development'
+        }
+      ]
     })
+  }),
+
+  // Entities - user's authorized entities
+  http.get('/api/entities', () => {
+    return HttpResponse.json([
+      {
+        id: 'entity1',
+        type: 'slack',
+        name: 'Test Slack Workspace',
+        createdAt: new Date().toISOString()
+      }
+    ])
   }),
 
   // Environment

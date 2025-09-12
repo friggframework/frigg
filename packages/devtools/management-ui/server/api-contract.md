@@ -78,9 +78,55 @@ Restart the Frigg project with optional new configuration.
 
 ### 2. Integration Management
 #### GET /api/integrations
-List all available and installed integrations.
+List user's installed integrations.
 
 **Response:**
+```json
+[
+  {
+    "id": "int1",
+    "name": "slack",
+    "version": "1.0.0",
+    "installed": true,
+    "configured": true,
+    "userActions": []
+  }
+]
+```
+
+#### GET /api/integration-options
+List available integration types configured in the Frigg instance.
+
+**Response:**
+```json
+{
+  "integrations": [
+    {
+      "name": "slack",
+      "displayName": "Slack",
+      "description": "Connect your Slack workspace",
+      "category": "communication"
+    }
+  ]
+}
+```
+
+#### GET /api/entities
+List user's authorized entities/accounts.
+
+**Response:**
+```json
+[
+  {
+    "id": "entity1",
+    "type": "slack",
+    "name": "My Slack Workspace",
+    "createdAt": "2023-01-01T00:00:00.000Z"
+  }
+]
+```
+
+**Original Response (deprecated):**
 ```json
 {
   "status": "success",
