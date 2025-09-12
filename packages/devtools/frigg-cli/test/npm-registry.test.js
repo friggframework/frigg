@@ -2,7 +2,7 @@ const axios = require('axios');
 
 // Mock dependencies
 jest.mock('axios');
-jest.mock('node-cache');
+jest.mock('node-cache', () => jest.fn(), { virtual: true });
 
 describe('NPMRegistryService', () => {
     let npmRegistry;

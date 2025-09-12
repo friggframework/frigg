@@ -3,6 +3,8 @@
   "version": "2.0.0-next.0",
   "description": "Canonical JSON Schema definitions for Frigg Framework",
   "main": "index.js",
+  "type": "commonjs",
+  "private": false,
   "author": "",
   "license": "MIT",
   "repository": {

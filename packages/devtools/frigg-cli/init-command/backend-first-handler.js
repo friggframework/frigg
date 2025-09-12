@@ -14,7 +14,7 @@ class BackendFirstHandler {
     constructor(targetPath, options = {}) {
         this.targetPath = targetPath;
         this.appName = path.basename(targetPath);
-        this.options = options;
+        this.options = { interactive: true, ...options };
         this.templatesDir = path.join(__dirname, '..', 'templates');
     }
 
@@ -62,6 +62,10 @@ class BackendFirstHandler {
             return this.options.mode;
         }
 
+        if (!this.options.interactive) {
+            return 'standalone';
+        }
+
         const mode = await select({
             message: 'How will you deploy this Frigg application?',
             choices: [
@@ -87,6 +91,22 @@ class BackendFirstHandler {
      */
     async getProjectConfiguration(deploymentMode) {
         const config = { deploymentMode };
+
+        if (!this.options.interactive) {
+            return {
+                ...config,
+                appPurpose: 'exploring',
+                needsCustomApiModule: false,
+                includeIntegrations: false,
+                starterIntegrations: [],
+                includeDemoFrontend: this.options.frontend === true,
+                frontendFramework: 'react',
+                demoAuthMode: 'mock',
+                serverlessProvider: deploymentMode === 'standalone' ? 'aws' : undefined,
+                installDependencies: true,
+                initializeGit: true
+            };
+        }
 
         // Ask about the purpose of this Frigg application
         config.appPurpose = await select({

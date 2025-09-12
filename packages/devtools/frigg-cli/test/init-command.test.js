@@ -128,11 +128,12 @@ describe('Init Command', () => {
                 force: true,
                 verbose: true,
                 mode: 'standalone',
-                frontend: false
+                frontend: false,
+                interactive: false
             };
-            
+
             await initCommand(mockProjectName, options);
-            
+
             expect(BackendFirstHandler).toHaveBeenCalledWith(
                 expect.any(String),
                 expect.objectContaining(options)

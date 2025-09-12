@@ -53,6 +53,7 @@ function checkNodeVersion() {
 async function initCommand(projectName, options) {
     const verbose = options.verbose || false;
     const force = options.force || false;
+    const interactive = options.interactive !== false;
     
     checkNodeVersion();
 
@@ -68,7 +69,8 @@ async function initCommand(projectName, options) {
                 force,
                 verbose,
                 mode: options.mode,
-                frontend: options.frontend
+                frontend: options.frontend,
+                interactive
             });
             
             await handler.initialize();

@@ -114,14 +114,28 @@ class FriggCLIIntegration {
 
   /**
    * Initialize a new project using CLI
-   */
+  */
   async initProject(projectDirectory, options = {}) {
     const args = [projectDirectory]
     
-    if (options.template) {
-      args.push('--template', options.template)
+    if (options.mode) {
+      args.push('--mode', options.mode)
     }
-    
+
+    if (options.frontend === false) {
+      args.push('--no-frontend')
+    } else if (options.frontend === true) {
+      args.push('--frontend')
+    }
+
+    if (options.interactive === false) {
+      args.push('--no-interactive')
+    }
+
+    if (options.force) {
+      args.push('--force')
+    }
+
     if (options.verbose) {
       args.push('--verbose')
     }

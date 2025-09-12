@@ -12,11 +12,14 @@ const { uiCommand } = require('./ui-command');
 const program = new Command();
 
 program
-    .command('init [templateName]')
+    .command('init [projectName]')
     .description('Initialize a new Frigg application')
-    .option('-t, --template <template>', 'template to use', 'backend-only')
-    .option('-n, --name <name>', 'project name')
-    .option('-d, --directory <directory>', 'target directory')
+    .option('-m, --mode <mode>', 'deployment mode (embedded|standalone)')
+    .option('--frontend', 'include demo frontend')
+    .option('--no-frontend', 'skip demo frontend')
+    .option('--no-interactive', 'run without interactive prompts')
+    .option('-f, --force', 'overwrite existing directory')
+    .option('-v, --verbose', 'enable verbose output')
     .action(initCommand);
 
 program
@@ -61,6 +64,17 @@ program
     .option('--no-open', 'do not open browser automatically')
     .action(uiCommand);
 
-program.parse(process.argv);
+if (require.main === module) {
+    program.parse(process.argv);
+}
 
-module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, generateIamCommand, uiCommand };
+module.exports = {
+    program,
+    initCommand,
+    installCommand,
+    startCommand,
+    buildCommand,
+    deployCommand,
+    generateIamCommand,
+    uiCommand
+};
