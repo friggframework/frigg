@@ -16,6 +16,7 @@ function createIntegrationRouter(params) {
     router.all('/api/entities*', requireLoggedInUser);
     router.all('/api/authorize', requireLoggedInUser);
     router.all('/api/integrations*', requireLoggedInUser);
+    router.all('/api/integration-options', requireLoggedInUser);
 
     setIntegrationRoutes(router, factory, getUserId);
     setEntityRoutes(router, factory, getUserId);
@@ -48,17 +49,16 @@ function checkRequiredParams(params, requiredKeys) {
 
 function setIntegrationRoutes(router, factory, getUserId) {
     const { moduleFactory, integrationFactory, IntegrationHelper } = factory;
+    
+    // GET /api/integrations - Returns only user's integrations
     router.route('/api/integrations').get(
         catchAsyncError(async (req, res) => {
-            const results = await integrationFactory.getIntegrationOptions();
-            results.entities.authorized =
-                await moduleFactory.getEntitiesForUser(getUserId(req));
-            results.integrations =
-                await IntegrationHelper.getIntegrationsForUserId(
-                    getUserId(req)
-                );
+            const integrations = await IntegrationHelper.getIntegrationsForUserId(
+                getUserId(req)
+            );
 
-            for (const integrationRecord of results.integrations) {
+            // Add userActions to each integration
+            for (const integrationRecord of integrations) {
                 const integration =
                     await integrationFactory.getInstanceFromIntegrationId({
                         integrationId: integrationRecord.id,
@@ -66,7 +66,19 @@ function setIntegrationRoutes(router, factory, getUserId) {
                     });
                 integrationRecord.userActions = integration.userActions;
             }
-            res.json(results);
+            
+            res.json(integrations);
+        })
+    );
+    
+    // GET /api/integration-options - Returns available integration types configured in the Frigg instance
+    router.route('/api/integration-options').get(
+        catchAsyncError(async (req, res) => {
+            const options = await integrationFactory.getIntegrationOptions();
+            // Only return the integration options, not entities or user-specific data
+            res.json({
+                integrations: options.entities.options
+            });
         })
     );
 
@@ -301,6 +313,14 @@ function setEntityRoutes(router, factory, getUserId) {
             getUserId(req)
         );
     };
+    
+    // GET /api/entities - Returns all authorized entities for the user
+    router.route('/api/entities').get(
+        catchAsyncError(async (req, res) => {
+            const entities = await moduleFactory.getEntitiesForUser(getUserId(req));
+            res.json(entities);
+        })
+    );
 
     router.route('/api/authorize').get(
         catchAsyncError(async (req, res) => {
