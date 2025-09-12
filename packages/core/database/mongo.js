@@ -49,34 +49,49 @@ if (appDefinition.database?.documentDB?.enable === true) {
     
     // Set TLS CA file path if specified
     if (appDefinition.database.documentDB.tlsCAFile) {
-        const tlsCAFilePath = path.resolve(process.cwd(), appDefinition.database.documentDB.tlsCAFile);
-        mongoConfig.tlsCAFile = tlsCAFilePath;
+        const tlsCAFile = appDefinition.database.documentDB.tlsCAFile;
         
-        console.log('📄 DocumentDB TLS CA file configured:');
-        console.log('   📎 Original path:', appDefinition.database.documentDB.tlsCAFile);
-        console.log('   📎 Resolved path:', tlsCAFilePath);
-        console.log('   📄 File exists:', fs.existsSync(tlsCAFilePath));
-        
-        // List current directory contents for debugging
-        try {
-            console.log('📁 Current directory contents:');
-            fs.readdirSync(process.cwd()).forEach(item => {
-                const stats = fs.statSync(path.join(process.cwd(), item));
-                console.log(`   ${stats.isDirectory() ? '📁' : '📄'} ${item}`);
-            });
+        // Basic safety: reject obviously dangerous paths
+        if (tlsCAFile.includes('..') || path.isAbsolute(tlsCAFile)) {
+            console.warn('⚠️  Rejecting potentially unsafe tlsCAFile path:', tlsCAFile);
+        } else {
+            const tlsCAFilePath = path.resolve(process.cwd(), tlsCAFile);
             
-            // Check if security directory exists
-            const securityDir = path.join(process.cwd(), 'security');
-            if (fs.existsSync(securityDir)) {
-                console.log('📁 Security directory contents:');
-                fs.readdirSync(securityDir).forEach(item => {
-                    console.log(`   📄 ${item}`);
-                });
+            console.log('📄 DocumentDB TLS CA file configured:');
+            console.log('   📎 Original path:', tlsCAFile);
+            console.log('   📎 Resolved path:', tlsCAFilePath);
+            console.log('   📄 File exists:', fs.existsSync(tlsCAFilePath));
+            
+            // Only set tlsCAFile if the file actually exists
+            if (fs.existsSync(tlsCAFilePath)) {
+                mongoConfig.tlsCAFile = tlsCAFilePath;
+                console.log('✅ TLS CA file configured successfully');
             } else {
-                console.log('❌ Security directory does not exist at:', securityDir);
+                console.error('❌ TLS CA file not found, continuing without certificate');
             }
-        } catch (error) {
-            console.log('❌ Error listing directory contents:', error.message);
+            
+            // Debug directory listing (only in development)
+            if (process.env.NODE_ENV !== 'production') {
+                try {
+                    console.log('📁 Current directory contents:');
+                    fs.readdirSync(process.cwd()).forEach(item => {
+                        const stats = fs.statSync(path.join(process.cwd(), item));
+                        console.log(`   ${stats.isDirectory() ? '📁' : '📄'} ${item}`);
+                    });
+                    
+                    const securityDir = path.join(process.cwd(), 'security');
+                    if (fs.existsSync(securityDir)) {
+                        console.log('📁 Security directory contents:');
+                        fs.readdirSync(securityDir).forEach(item => {
+                            console.log(`   📄 ${item}`);
+                        });
+                    } else {
+                        console.log('❌ Security directory does not exist at:', securityDir);
+                    }
+                } catch (error) {
+                    console.log('❌ Error listing directory contents:', error.message);
+                }
+            }
         }
     }
 } else {
