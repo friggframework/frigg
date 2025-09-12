@@ -1,0 +1,13 @@
+{
+  "deploymentMode": "standalone",
+  "appPurpose": "own-app",
+  "includeApiModule": true,
+  "includeIntegrations": true,
+  "starterIntegrations": ["salesforce", "hubspot"],
+  "includeFrontend": false,
+  "frontendFramework": "react",
+  "demoAuthMode": "mock",
+  "serverlessProvider": "aws",
+  "installDependencies": true,
+  "initializeGit": true
+}

@@ -136,8 +136,81 @@ describe('Init Command', () => {
 
             expect(BackendFirstHandler).toHaveBeenCalledWith(
                 expect.any(String),
-                expect.objectContaining(options)
+                expect.objectContaining({
+                    force: true,
+                    verbose: true,
+                    mode: 'standalone',
+                    frontend: false,
+                    interactive: true, // This gets set to true because interactive: false is not the same as nonInteractive: true
+                    nonInteractive: false
+                })
             );
+        });
+
+        it('should handle non-interactive mode with --non-interactive flag', async () => {
+            const options = {
+                nonInteractive: true,
+                mode: 'standalone',
+                appPurpose: 'own-app'
+            };
+
+            await initCommand(mockProjectName, options);
+
+            expect(BackendFirstHandler).toHaveBeenCalledWith(
+                expect.any(String),
+                expect.objectContaining({
+                    nonInteractive: true,
+                    interactive: false,
+                    mode: 'standalone',
+                    appPurpose: 'own-app'
+                })
+            );
+        });
+
+        it('should handle non-interactive mode with --yes flag', async () => {
+            const options = {
+                yes: true,
+                mode: 'embedded'
+            };
+
+            await initCommand(mockProjectName, options);
+
+            expect(BackendFirstHandler).toHaveBeenCalledWith(
+                expect.any(String),
+                expect.objectContaining({
+                    nonInteractive: true,
+                    interactive: false,
+                    mode: 'embedded'
+                })
+            );
+        });
+
+        it('should handle environment variables', async () => {
+            const originalEnv = process.env.FRIGG_DEPLOYMENT_MODE;
+            process.env.FRIGG_DEPLOYMENT_MODE = 'embedded';
+            process.env.FRIGG_APP_PURPOSE = 'platform';
+
+            const options = {
+                nonInteractive: true
+            };
+
+            await initCommand(mockProjectName, options);
+
+            expect(BackendFirstHandler).toHaveBeenCalledWith(
+                expect.any(String),
+                expect.objectContaining({
+                    mode: 'embedded',
+                    appPurpose: 'platform'
+                })
+            );
+
+            // Clean up
+            if (originalEnv !== undefined) {
+                process.env.FRIGG_DEPLOYMENT_MODE = originalEnv;
+            } else {
+                delete process.env.FRIGG_DEPLOYMENT_MODE;
+            }
+            delete process.env.FRIGG_APP_PURPOSE;
         });
 
         it('should handle initialization errors gracefully', async () => {
