@@ -175,7 +175,7 @@ describe('composeServerlessDefinition', () => {
     });
 
     describe('KMS Configuration', () => {
-        it('should add KMS configuration when encryption is enabled', async () => {
+        it('should add KMS configuration when encryption is enabled and key is found', async () => {
             const appDefinition = {
                 encryption: { useDefaultKMSForFieldLevelEncryption: true },
                 integrations: []
@@ -193,11 +193,114 @@ describe('composeServerlessDefinition', () => {
                     'kms:GenerateDataKey',
                     'kms:Decrypt'
                 ],
-                Resource: ['${self:custom.kmsGrants.kmsKeyId}']
+                Resource: ['arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012']
             });
 
             // Check environment variable
-            expect(result.provider.environment.KMS_KEY_ARN).toBe('${self:custom.kmsGrants.kmsKeyId}');
+            expect(result.provider.environment.KMS_KEY_ARN).toBe('arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012');
+
+            // Check plugin
+            expect(result.plugins).toContain('serverless-kms-grants');
+
+            // Check custom configuration
+            expect(result.custom.kmsGrants).toEqual({
+                kmsKeyId: 'arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012'
+            });
+        });
+
+        it('should create new KMS key when encryption is enabled, no key found, and createIfNoneFound is true', async () => {
+            // Mock AWS discovery to return no KMS key
+            const { AWSDiscovery } = require('./aws-discovery');
+            const mockDiscoverResources = jest.fn().mockResolvedValue({
+                defaultVpcId: 'vpc-123456',
+                defaultSecurityGroupId: 'sg-123456',
+                privateSubnetId1: 'subnet-123456',
+                privateSubnetId2: 'subnet-789012',
+                publicSubnetId: 'subnet-public',
+                defaultRouteTableId: 'rtb-123456',
+                defaultKmsKeyId: null // No KMS key found
+            });
+            AWSDiscovery.mockImplementation(() => ({
+                discoverResources: mockDiscoverResources
+            }));
+
+            const appDefinition = {
+                encryption: { 
+                    useDefaultKMSForFieldLevelEncryption: true,
+                    createIfNoneFound: true
+                },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            // Check that KMS key resource was created
+            expect(result.resources.Resources.FriggKMSKey).toEqual({
+                Type: 'AWS::KMS::Key',
+                Properties: {
+                    EnableKeyRotation: true,
+                    Description: 'Frigg KMS key for field-level encryption',
+                    KeyPolicy: {
+                        Version: '2012-10-17',
+                        Statement: [
+                            {
+                                Sid: 'AllowRootAccountAdmin',
+                                Effect: 'Allow',
+                                Principal: {
+                                    AWS: {
+                                        'Fn::Sub': 'arn:aws:iam::${AWS::AccountId}:root'
+                                    }
+                                },
+                                Action: 'kms:*',
+                                Resource: '*'
+                            },
+                            {
+                                Sid: 'AllowLambdaService',
+                                Effect: 'Allow',
+                                Principal: {
+                                    Service: 'lambda.amazonaws.com'
+                                },
+                                Action: [
+                                    'kms:GenerateDataKey',
+                                    'kms:Decrypt',
+                                    'kms:DescribeKey'
+                                ],
+                                Resource: '*',
+                                Condition: {
+                                    StringEquals: {
+                                        'kms:ViaService': 'lambda.us-east-1.amazonaws.com'
+                                    }
+                                }
+                            }
+                        ]
+                    },
+                    Tags: [
+                        {
+                            Key: 'Name',
+                            Value: '${self:service}-${self:provider.stage}-frigg-kms-key'
+                        },
+                        {
+                            Key: 'Purpose',
+                            Value: 'Field-level encryption for Frigg application'
+                        }
+                    ]
+                }
+            });
+
+            // Check IAM permissions for the new key
+            const kmsPermission = result.provider.iamRoleStatements.find(
+                statement => statement.Action.includes('kms:GenerateDataKey')
+            );
+            expect(kmsPermission).toEqual({
+                Effect: 'Allow',
+                Action: ['kms:GenerateDataKey', 'kms:Decrypt'],
+                Resource: [{ 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] }]
+            });
+
+            // Check environment variable
+            expect(result.provider.environment.KMS_KEY_ARN).toEqual({
+                'Fn::GetAtt': ['FriggKMSKey', 'Arn']
+            });
 
             // Check plugin
             expect(result.plugins).toContain('serverless-kms-grants');
@@ -206,6 +309,66 @@ describe('composeServerlessDefinition', () => {
             expect(result.custom.kmsGrants).toEqual({
                 kmsKeyId: '${env:AWS_DISCOVERY_KMS_KEY_ID}'
             });
+        });
+
+        it('should throw error when encryption is enabled, no key found, and createIfNoneFound is false', async () => {
+            // Mock AWS discovery to return no KMS key
+            const { AWSDiscovery } = require('./aws-discovery');
+            const mockDiscoverResources = jest.fn().mockResolvedValue({
+                defaultVpcId: 'vpc-123456',
+                defaultSecurityGroupId: 'sg-123456',
+                privateSubnetId1: 'subnet-123456',
+                privateSubnetId2: 'subnet-789012',
+                publicSubnetId: 'subnet-public',
+                defaultRouteTableId: 'rtb-123456',
+                defaultKmsKeyId: null // No KMS key found
+            });
+            AWSDiscovery.mockImplementation(() => ({
+                discoverResources: mockDiscoverResources
+            }));
+
+            const appDefinition = {
+                encryption: { 
+                    useDefaultKMSForFieldLevelEncryption: true,
+                    createIfNoneFound: false
+                },
+                integrations: []
+            };
+
+            await expect(composeServerlessDefinition(appDefinition)).rejects.toThrow(
+                'KMS field-level encryption is enabled but no KMS key was found. ' +
+                'Either provide an existing KMS key or set encryption.createIfNoneFound to true to create a new key.'
+            );
+        });
+
+        it('should throw error when encryption is enabled, no key found, and createIfNoneFound is not specified', async () => {
+            // Mock AWS discovery to return no KMS key
+            const { AWSDiscovery } = require('./aws-discovery');
+            const mockDiscoverResources = jest.fn().mockResolvedValue({
+                defaultVpcId: 'vpc-123456',
+                defaultSecurityGroupId: 'sg-123456',
+                privateSubnetId1: 'subnet-123456',
+                privateSubnetId2: 'subnet-789012',
+                publicSubnetId: 'subnet-public',
+                defaultRouteTableId: 'rtb-123456',
+                defaultKmsKeyId: null // No KMS key found
+            });
+            AWSDiscovery.mockImplementation(() => ({
+                discoverResources: mockDiscoverResources
+            }));
+
+            const appDefinition = {
+                encryption: { 
+                    useDefaultKMSForFieldLevelEncryption: true
+                    // createIfNoneFound not specified, defaults to false
+                },
+                integrations: []
+            };
+
+            await expect(composeServerlessDefinition(appDefinition)).rejects.toThrow(
+                'KMS field-level encryption is enabled but no KMS key was found. ' +
+                'Either provide an existing KMS key or set encryption.createIfNoneFound to true to create a new key.'
+            );
         });
 
         it('should not add KMS configuration when encryption is disabled', async () => {

@@ -910,42 +910,80 @@ const composeServerlessDefinition = async (AppDefinition) => {
             definition.provider.environment.KMS_KEY_ARN =
                 discoveredResources.defaultKmsKeyId;
         } else {
-            // No existing key found, provision a dedicated KMS key
-            console.log('No existing KMS key found, creating a new one...');
+            // No existing key found - check if we should create one or error
+            if (AppDefinition.encryption?.createIfNoneFound === true) {
+                // Create a new KMS key
+                console.log('No existing KMS key found, creating a new one...');
 
-            definition.resources.Resources.FriggKMSKey = {
-                Type: 'AWS::KMS::Key',
-                Properties: {
-                    EnableKeyRotation: true,
-                    KeyPolicy: {
-                        Version: '2012-10-17',
-                        Statement: [
-                            {
-                                Sid: 'AllowRootAccountAdmin',
-                                Effect: 'Allow',
-                                Principal: {
-                                    AWS: {
-                                        'Fn::Sub':
-                                            'arn:aws:iam::${AWS::AccountId}:root',
+                definition.resources.Resources.FriggKMSKey = {
+                    Type: 'AWS::KMS::Key',
+                    Properties: {
+                        EnableKeyRotation: true,
+                        Description: 'Frigg KMS key for field-level encryption',
+                        KeyPolicy: {
+                            Version: '2012-10-17',
+                            Statement: [
+                                {
+                                    Sid: 'AllowRootAccountAdmin',
+                                    Effect: 'Allow',
+                                    Principal: {
+                                        AWS: {
+                                            'Fn::Sub':
+                                                'arn:aws:iam::${AWS::AccountId}:root',
+                                        },
+                                    },
+                                    Action: 'kms:*',
+                                    Resource: '*',
+                                },
+                                {
+                                    Sid: 'AllowLambdaService',
+                                    Effect: 'Allow',
+                                    Principal: {
+                                        Service: 'lambda.amazonaws.com',
+                                    },
+                                    Action: [
+                                        'kms:GenerateDataKey',
+                                        'kms:Decrypt',
+                                        'kms:DescribeKey',
+                                    ],
+                                    Resource: '*',
+                                    Condition: {
+                                        StringEquals: {
+                                            'kms:ViaService': `lambda.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com`,
+                                        },
                                     },
                                 },
-                                Action: 'kms:*',
-                                Resource: '*',
+                            ],
+                        },
+                        Tags: [
+                            {
+                                Key: 'Name',
+                                Value: '${self:service}-${self:provider.stage}-frigg-kms-key',
+                            },
+                            {
+                                Key: 'Purpose',
+                                Value: 'Field-level encryption for Frigg application',
                             },
                         ],
                     },
-                },
-            };
+                };
 
-            definition.provider.iamRoleStatements.push({
-                Effect: 'Allow',
-                Action: ['kms:GenerateDataKey', 'kms:Decrypt'],
-                Resource: [{ 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] }],
-            });
+                definition.provider.iamRoleStatements.push({
+                    Effect: 'Allow',
+                    Action: ['kms:GenerateDataKey', 'kms:Decrypt'],
+                    Resource: [{ 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] }],
+                });
 
-            definition.provider.environment.KMS_KEY_ARN = {
-                'Fn::GetAtt': ['FriggKMSKey', 'Arn'],
-            };
+                definition.provider.environment.KMS_KEY_ARN = {
+                    'Fn::GetAtt': ['FriggKMSKey', 'Arn'],
+                };
+            } else {
+                // No key found and createIfNoneFound is not enabled - error
+                throw new Error(
+                    'KMS field-level encryption is enabled but no KMS key was found. ' +
+                    'Either provide an existing KMS key or set encryption.createIfNoneFound to true to create a new key.'
+                );
+            }
         }
 
         definition.plugins.push('serverless-kms-grants');
