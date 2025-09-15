@@ -67,7 +67,7 @@ describe('VPC/KMS/SSM Integration Tests', () => {
             process.env.AWS_DISCOVERY_SUBNET_ID_1 = discoveredResources.privateSubnetId1;
             process.env.AWS_DISCOVERY_SUBNET_ID_2 = discoveredResources.privateSubnetId2;
             process.env.AWS_DISCOVERY_ROUTE_TABLE_ID = discoveredResources.privateRouteTableId;
-            process.env.AWS_DISCOVERY_KMS_KEY_ID = discoveredResources.defaultKmsKeyId;
+            process.env.AWS_DISCOVERY_KMS_KEY_ID =discoveredResources.defaultKmsKeyId;
 
             // Generate serverless configuration
             const serverlessConfig = composeServerlessDefinition(appDefinition);
@@ -177,7 +177,7 @@ describe('VPC/KMS/SSM Integration Tests', () => {
                 integrations: []
             };
 
-            process.env.AWS_DISCOVERY_KMS_KEY_ID = mockAWSResources.defaultKmsKeyId;
+            process.env.AWS_DISCOVERY_KMS_KEY_ID =mockAWSResources.defaultKmsKeyId;
 
             const serverlessConfig = composeServerlessDefinition(appDefinition);
 
@@ -302,7 +302,7 @@ describe('VPC/KMS/SSM Integration Tests', () => {
             process.env.AWS_DISCOVERY_SECURITY_GROUP_ID = mockAWSResources.defaultSecurityGroupId;
             process.env.AWS_DISCOVERY_SUBNET_ID_1 = mockAWSResources.privateSubnetId1;
             process.env.AWS_DISCOVERY_SUBNET_ID_2 = mockAWSResources.privateSubnetId2;
-            process.env.AWS_DISCOVERY_KMS_KEY_ID = mockAWSResources.defaultKmsKeyId;
+            process.env.AWS_DISCOVERY_KMS_KEY_ID =mockAWSResources.defaultKmsKeyId;
 
             // In a real deployment, serverless framework would resolve these environment variables
             // For testing, we can verify the placeholders are correctly formatted

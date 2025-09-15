@@ -901,8 +901,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 Resource: [discoveredResources.defaultKmsKeyId],
             });
 
-            definition.provider.environment.KMS_KEY_ARN =
-                discoveredResources.defaultKmsKeyId;
+            // KMS_KEY_ARN will be set later from custom.kmsGrants for consistency
         } else {
             // No existing key found - check if we should create one or error
             if (AppDefinition.encryption?.createResourceIfNoneFound === true) {
@@ -997,6 +996,12 @@ const composeServerlessDefinition = async (AppDefinition) => {
                     discoveredResources.defaultKmsKeyId ||
                     '${env:AWS_DISCOVERY_KMS_KEY_ID}',
             };
+        }
+
+        // Always set KMS_KEY_ARN from custom.kmsGrants for consistency
+        // This translates AWS_DISCOVERY_KMS_KEY_ID to the runtime variable KMS_KEY_ARN
+        if (!definition.provider.environment.KMS_KEY_ARN) {
+            definition.provider.environment.KMS_KEY_ARN = '${self:custom.kmsGrants.kmsKeyId}';
         }
     }
 
