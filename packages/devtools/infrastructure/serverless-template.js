@@ -974,6 +974,11 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 definition.provider.environment.KMS_KEY_ARN = {
                     'Fn::GetAtt': ['FriggKMSKey', 'Arn'],
                 };
+
+                // Configure KMS grants to reference the created key
+                definition.custom.kmsGrants = {
+                    kmsKeyId: { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] }
+                };
             } else {
                 // No key found and createIfNoneFound is not enabled - error
                 throw new Error(
@@ -985,12 +990,14 @@ const composeServerlessDefinition = async (AppDefinition) => {
 
         definition.plugins.push('serverless-kms-grants');
 
-        // Configure KMS grants with discovered default key or environment variable
-        definition.custom.kmsGrants = {
-            kmsKeyId:
-                discoveredResources.defaultKmsKeyId ||
-                '${env:AWS_DISCOVERY_KMS_KEY_ID}',
-        };
+        // Configure KMS grants if not already set (when using existing key)
+        if (!definition.custom.kmsGrants) {
+            definition.custom.kmsGrants = {
+                kmsKeyId:
+                    discoveredResources.defaultKmsKeyId ||
+                    '${env:AWS_DISCOVERY_KMS_KEY_ID}',
+            };
+        }
     }
 
     // VPC Configuration based on App Definition
