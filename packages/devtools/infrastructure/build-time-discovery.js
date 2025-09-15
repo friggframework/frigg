@@ -137,8 +137,8 @@ class BuildTimeDiscovery {
             console.log('Running pre-build AWS discovery hook...');
             
             // Only run discovery if VPC, KMS, or SSM features are enabled
-            const needsDiscovery = appDefinition.vpc?.enable || 
-                                 appDefinition.encryption?.useDefaultKMSForFieldLevelEncryption ||
+            const needsDiscovery = appDefinition.vpc?.enable ||
+                                 appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms' ||
                                  appDefinition.ssm?.enable;
             
             if (!needsDiscovery) {

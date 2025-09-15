@@ -10,8 +10,7 @@ const { AWSDiscovery } = require('./aws-discovery');
 const shouldRunDiscovery = (AppDefinition) => {
     return (
         AppDefinition.vpc?.enable === true ||
-        AppDefinition.encryption?.useDefaultKMSForFieldLevelEncryption ===
-            true ||
+        AppDefinition.encryption?.fieldLevelEncryptionMethod === 'kms' ||
         AppDefinition.ssm?.enable === true
     );
 };
@@ -493,10 +492,7 @@ const createVPCInfrastructure = (AppDefinition) => {
         };
 
         // KMS Interface Endpoint (paid, but useful if using KMS)
-        if (
-            AppDefinition.encryption?.useDefaultKMSForFieldLevelEncryption ===
-            true
-        ) {
+        if (AppDefinition.encryption?.fieldLevelEncryptionMethod === 'kms') {
             vpcResources.FriggKMSVPCEndpoint = {
                 Type: 'AWS::EC2::VPCEndpoint',
                 Properties: {
@@ -891,9 +887,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
     };
 
     // KMS Configuration based on App Definition
-    if (
-        AppDefinition.encryption?.useDefaultKMSForFieldLevelEncryption === true
-    ) {
+    if (AppDefinition.encryption?.fieldLevelEncryptionMethod === 'kms') {
         // Check if a KMS key was discovered
         if (discoveredResources.defaultKmsKeyId) {
             // Use the existing discovered KMS key
@@ -911,7 +905,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 discoveredResources.defaultKmsKeyId;
         } else {
             // No existing key found - check if we should create one or error
-            if (AppDefinition.encryption?.createIfNoneFound === true) {
+            if (AppDefinition.encryption?.createResourceIfNoneFound === true) {
                 // Create a new KMS key
                 console.log('No existing KMS key found, creating a new one...');
 
@@ -949,7 +943,10 @@ const composeServerlessDefinition = async (AppDefinition) => {
                                     Resource: '*',
                                     Condition: {
                                         StringEquals: {
-                                            'kms:ViaService': `lambda.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com`,
+                                            'kms:ViaService': `lambda.${
+                                                process.env.AWS_REGION ||
+                                                'us-east-1'
+                                            }.amazonaws.com`,
                                         },
                                     },
                                 },
@@ -981,7 +978,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 // No key found and createIfNoneFound is not enabled - error
                 throw new Error(
                     'KMS field-level encryption is enabled but no KMS key was found. ' +
-                    'Either provide an existing KMS key or set encryption.createIfNoneFound to true to create a new key.'
+                        'Either provide an existing KMS key or set encryption.createResourceIfNoneFound to true to create a new key.'
                 );
             }
         }
@@ -1290,62 +1287,6 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 definition.custom[queueReference] = queueName;
             }
         }
-
-        // Discovery has already run successfully at this point if needed
-        // The discoveredResources object contains all the necessary AWS resources
-
-        // Add websocket function if enabled
-        if (AppDefinition.websockets?.enable === true) {
-            definition.functions.defaultWebsocket = {
-                handler:
-                    'node_modules/@friggframework/core/handlers/routers/websocket.handler',
-                events: [
-                    {
-                        websocket: {
-                            route: '$connect',
-                        },
-                    },
-                    {
-                        websocket: {
-                            route: '$default',
-                        },
-                    },
-                    {
-                        websocket: {
-                            route: '$disconnect',
-                        },
-                    },
-                ],
-            };
-        }
-
-        // Discovery has already run successfully at this point if needed
-        // The discoveredResources object contains all the necessary AWS resources
-
-        // Add websocket function if enabled
-        if (AppDefinition.websockets?.enable === true) {
-            definition.functions.defaultWebsocket = {
-                handler:
-                    'node_modules/@friggframework/core/handlers/routers/websocket.handler',
-                events: [
-                    {
-                        websocket: {
-                            route: '$connect',
-                        },
-                    },
-                    {
-                        websocket: {
-                            route: '$default',
-                        },
-                    },
-                    {
-                        websocket: {
-                            route: '$disconnect',
-                        },
-                    },
-                ],
-            };
-        }
     }
 
     // Discovery has already run successfully at this point if needed
@@ -1375,9 +1316,6 @@ const composeServerlessDefinition = async (AppDefinition) => {
             ],
         };
     }
-
-    // Discovery has already run successfully at this point if needed
-    // The discoveredResources object contains all the necessary AWS resources
 
     // Modify handler paths to point to the correct node_modules location
     definition.functions = modifyHandlerPaths(definition.functions);

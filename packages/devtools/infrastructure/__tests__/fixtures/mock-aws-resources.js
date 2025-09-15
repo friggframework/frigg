@@ -151,7 +151,7 @@ const mockAppDefinitions = {
     
     kmsOnly: {
         name: 'kms-test-app',
-        encryption: { useDefaultKMSForFieldLevelEncryption: true },
+        encryption: { fieldLevelEncryptionMethod: 'kms' },
         integrations: []
     },
     
@@ -164,7 +164,7 @@ const mockAppDefinitions = {
     allFeatures: {
         name: 'full-feature-app',
         vpc: { enable: true },
-        encryption: { useDefaultKMSForFieldLevelEncryption: true },
+        encryption: { fieldLevelEncryptionMethod: 'kms' },
         ssm: { enable: true },
         integrations: [{
             Definition: {

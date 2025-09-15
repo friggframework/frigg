@@ -35,7 +35,7 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
             vpc: appDefinition.vpc?.enable === true,
             kms:
                 appDefinition.encryption
-                    ?.useDefaultKMSForFieldLevelEncryption === true,
+                    ?.fieldLevelEncryptionMethod === 'kms',
             ssm: appDefinition.ssm?.enable === true,
             websockets: appDefinition.websockets?.enable === true,
         };
@@ -724,8 +724,7 @@ function getFeatureSummary(appDefinition) {
         core: true, // Always enabled
         vpc: appDefinition.vpc?.enable === true,
         kms:
-            appDefinition.encryption?.useDefaultKMSForFieldLevelEncryption ===
-            true,
+            appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms',
         ssm: appDefinition.ssm?.enable === true,
         websockets: appDefinition.websockets?.enable === true,
     };

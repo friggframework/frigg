@@ -9,7 +9,7 @@ AWS Discovery automatically finds your default AWS resources (VPC, subnets, secu
 AWS Discovery runs automatically during `frigg build` and `frigg deploy` when your AppDefinition includes:
 
 - `vpc.enable: true` - VPC support
-- `encryption.useDefaultKMSForFieldLevelEncryption: true` - KMS encryption
+- `encryption.fieldLevelEncryptionMethod: 'kms'` - KMS encryption
 - `ssm.enable: true` - SSM Parameter Store
 
 ## Fail-Fast Behavior
@@ -222,7 +222,7 @@ If you're stuck, try this recovery process:
    // backend/index.js - temporarily disable problematic features
    const appDefinition = {
        vpc: { enable: false },
-       encryption: { useDefaultKMSForFieldLevelEncryption: false },
+       encryption: { fieldLevelEncryptionMethod: 'aes' },
        ssm: { enable: false }
    };
    ```

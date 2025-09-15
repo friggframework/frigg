@@ -49,7 +49,7 @@ describe('@friggframework/schemas', () => {
             const appDef = {
                 integrations: [],
                 user: { password: true },
-                encryption: { useDefaultKMSForFieldLevelEncryption: true },
+                encryption: { fieldLevelEncryptionMethod: 'kms' },
                 vpc: { enable: true },
                 security: {
                     cors: {

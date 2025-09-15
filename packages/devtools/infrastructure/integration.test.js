@@ -49,7 +49,7 @@ describe('VPC/KMS/SSM Integration Tests', () => {
             const appDefinition = {
                 name: 'test-frigg-app',
                 vpc: { enable: true },
-                encryption: { useDefaultKMSForFieldLevelEncryption: true },
+                encryption: { fieldLevelEncryptionMethod: 'kms' },
                 ssm: { enable: true },
                 integrations: [{
                     Definition: {
@@ -173,7 +173,7 @@ describe('VPC/KMS/SSM Integration Tests', () => {
         it('should generate config with only KMS enabled', async () => {
             const appDefinition = {
                 name: 'kms-only-app',
-                encryption: { useDefaultKMSForFieldLevelEncryption: true },
+                encryption: { fieldLevelEncryptionMethod: 'kms' },
                 integrations: []
             };
 
@@ -231,7 +231,7 @@ describe('VPC/KMS/SSM Integration Tests', () => {
             expect(mockBuildTimeDiscovery.preBuildHook).toHaveBeenCalledWith(
                 expect.objectContaining({
                     vpc: { enable: true },
-                    encryption: { useDefaultKMSForFieldLevelEncryption: true }
+                    encryption: { fieldLevelEncryptionMethod: 'kms' }
                 }),
                 'us-east-1'
             );
@@ -353,7 +353,7 @@ describe('VPC/KMS/SSM Integration Tests', () => {
 
             const appDefinition = {
                 vpc: { enable: true },
-                encryption: { useDefaultKMSForFieldLevelEncryption: true },
+                encryption: { fieldLevelEncryptionMethod: 'kms' },
                 integrations: []
             };
 

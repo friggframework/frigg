@@ -115,7 +115,7 @@ function createMockAppDefinition(features = {}, integrations = []) {
     }
 
     if (features.kms) {
-        appDefinition.encryption = { useDefaultKMSForFieldLevelEncryption: true };
+        appDefinition.encryption = { fieldLevelEncryptionMethod: 'kms' };
     }
 
     if (features.ssm) {

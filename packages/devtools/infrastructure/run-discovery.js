@@ -41,7 +41,7 @@ async function runDiscovery() {
 
         // Check if discovery is needed
         const needsDiscovery = appDefinition.vpc?.enable || 
-                              appDefinition.encryption?.useDefaultKMSForFieldLevelEncryption ||
+                              appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms' ||
                               appDefinition.ssm?.enable;
         
         if (!needsDiscovery) {
@@ -51,7 +51,7 @@ async function runDiscovery() {
 
         console.log('📋 App requires AWS discovery for:');
         if (appDefinition.vpc?.enable) console.log('   ✅ VPC support');
-        if (appDefinition.encryption?.useDefaultKMSForFieldLevelEncryption) console.log('   ✅ KMS encryption');
+        if (appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms') console.log('   ✅ KMS encryption');
         if (appDefinition.ssm?.enable) console.log('   ✅ SSM parameters');
 
         // Run discovery
@@ -82,7 +82,7 @@ async function runDiscovery() {
         } else {
             console.error('🚨 Discovery is required because your AppDefinition has these features enabled:');
             if (appDefinition.vpc?.enable) console.error('   ❌ VPC support (vpc.enable: true)');
-            if (appDefinition.encryption?.useDefaultKMSForFieldLevelEncryption) console.error('   ❌ KMS encryption (encryption.useDefaultKMSForFieldLevelEncryption: true)');
+            if (appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms') console.error('   ❌ KMS encryption (encryption.fieldLevelEncryptionMethod: \'kms\')');
             if (appDefinition.ssm?.enable) console.error('   ❌ SSM parameters (ssm.enable: true)');
             console.error('');
             console.error('💡 To fix this issue:');
@@ -95,7 +95,7 @@ async function runDiscovery() {
         
         console.error('🔧 Or disable features in backend/index.js:');
         console.error('   vpc: { enable: false }');
-        console.error('   encryption: { useDefaultKMSForFieldLevelEncryption: false }');
+        console.error('   encryption: { fieldLevelEncryptionMethod: \'aes\' }');
         console.error('   ssm: { enable: false }');
         
         process.exit(1);
