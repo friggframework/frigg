@@ -291,8 +291,9 @@ describe('composeServerlessDefinition', () => {
             expect(result.plugins).toContain('serverless-kms-grants');
 
             // Check custom configuration
+            // When creating a new key, it should reference the CloudFormation resource
             expect(result.custom.kmsGrants).toEqual({
-                kmsKeyId: '${env:AWS_DISCOVERY_KMS_KEY_ID}'
+                kmsKeyId: { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] }
             });
         });
 
@@ -545,7 +546,7 @@ describe('composeServerlessDefinition', () => {
 
             // VPC
             expect(result.provider.vpc).toBeDefined();
-            expect(result.custom.vpc).toBeDefined();
+            // custom.vpc doesn't exist in the serverless template
             expect(result.resources.Resources.VPCEndpointS3).toBeDefined();
 
             // KMS

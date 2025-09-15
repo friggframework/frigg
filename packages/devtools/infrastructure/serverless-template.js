@@ -1001,7 +1001,11 @@ const composeServerlessDefinition = async (AppDefinition) => {
         // Always set KMS_KEY_ARN from custom.kmsGrants for consistency
         // This translates AWS_DISCOVERY_KMS_KEY_ID to the runtime variable KMS_KEY_ARN
         if (!definition.provider.environment.KMS_KEY_ARN) {
-            definition.provider.environment.KMS_KEY_ARN = '${self:custom.kmsGrants.kmsKeyId}';
+            // Use the discovered value directly when available (from in-process discovery)
+            // Otherwise fall back to environment variable (from separate discovery process)
+            definition.provider.environment.KMS_KEY_ARN =
+                discoveredResources.defaultKmsKeyId ||
+                '${env:AWS_DISCOVERY_KMS_KEY_ID}';
         }
     }
 
