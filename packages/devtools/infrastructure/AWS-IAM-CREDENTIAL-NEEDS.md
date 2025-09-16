@@ -354,7 +354,7 @@ Additional permissions needed when your app definition includes `vpc: { enable: 
 
 ### KMS Support
 
-Additional permissions needed when your app definition includes `encryption: { useDefaultKMSForFieldLevelEncryption: true }`:
+Additional permissions needed when your app definition includes `encryption: { fieldLevelEncryptionMethod: 'kms' }`:
 
 ```json
 {

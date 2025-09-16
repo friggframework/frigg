@@ -29,7 +29,7 @@ const { validateAppDefinition } = require('@friggframework/schemas');
 const appDefinition = {
     integrations: [],
     user: { password: true },
-    encryption: { useDefaultKMSForFieldLevelEncryption: true }
+    encryption: { fieldLevelEncryptionMethod: 'kms' }
 };
 
 const result = validateAppDefinition(appDefinition);
@@ -88,7 +88,7 @@ Defines the structure for Frigg application configuration.
 const appDefinition = {
     integrations: [HubSpotIntegration],
     user: { password: true },
-    encryption: { useDefaultKMSForFieldLevelEncryption: true },
+    encryption: { fieldLevelEncryptionMethod: 'kms' },
     vpc: { enable: true },
     security: {
         cors: {

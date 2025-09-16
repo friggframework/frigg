@@ -137,8 +137,8 @@ class BuildTimeDiscovery {
             console.log('Running pre-build AWS discovery hook...');
             
             // Only run discovery if VPC, KMS, or SSM features are enabled
-            const needsDiscovery = appDefinition.vpc?.enable || 
-                                 appDefinition.encryption?.useDefaultKMSForFieldLevelEncryption ||
+            const needsDiscovery = appDefinition.vpc?.enable ||
+                                 appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms' ||
                                  appDefinition.ssm?.enable;
             
             if (!needsDiscovery) {
@@ -159,7 +159,7 @@ class BuildTimeDiscovery {
                 AWS_DISCOVERY_SUBNET_ID_2: resources.privateSubnetId2,
                 AWS_DISCOVERY_PUBLIC_SUBNET_ID: resources.publicSubnetId,
                 AWS_DISCOVERY_ROUTE_TABLE_ID: resources.privateRouteTableId,
-                AWS_DISCOVERY_KMS_KEY_ID: resources.defaultKmsKeyId
+                AWS_DISCOVERY_KMS_KEY_ID: resources.defaultKmsKeyId  // Keep consistent naming convention (even though it's an ARN)
             };
             
             // Set environment variables for serverless to use

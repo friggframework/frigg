@@ -34,7 +34,7 @@ const appDefinition = {
         // your integrations...
     ],
     encryption: {
-        useDefaultKMSForFieldLevelEncryption: true
+        fieldLevelEncryptionMethod: 'kms'
     }
 }
 
@@ -43,7 +43,7 @@ module.exports = appDefinition;
 
 ### What Happens Automatically
 
-When `useDefaultKMSForFieldLevelEncryption` is set to `true`, Frigg automatically:
+When `fieldLevelEncryptionMethod` is set to `'kms'`, Frigg automatically:
 
 1. **Discovers KMS Key**: Uses AWS Discovery to find your account's default KMS key
 2. **Grants KMS Permissions**: Adds `kms:GenerateDataKey` and `kms:Decrypt` permissions to all Lambda function IAM roles
@@ -118,7 +118,7 @@ When both KMS and VPC are enabled, Frigg automatically optimizes for security an
 
 ```javascript
 const appDefinition = {
-    encryption: { useDefaultKMSForFieldLevelEncryption: true },
+    encryption: { fieldLevelEncryptionMethod: 'kms' },
     vpc: { enable: true },
     integrations: [/* your integrations */]
 };
@@ -194,7 +194,7 @@ const appDefinition = {
         HubspotIntegration
     ],
     encryption: {
-        useDefaultKMSForFieldLevelEncryption: true
+        fieldLevelEncryptionMethod: 'kms'
     }
 };
 

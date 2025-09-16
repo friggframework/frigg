@@ -47,7 +47,7 @@ Frigg is highly customizable, letting you tailor modules and integrations to fit
 const appDefinition = {
     integrations: [/* your integrations */],
     vpc: { enable: true },              // Network isolation
-    encryption: { useDefaultKMSForFieldLevelEncryption: true }, // Data encryption  
+    encryption: { fieldLevelEncryptionMethod: 'kms' }, // Data encryption  
     ssm: { enable: true }               // Configuration management
 };
 ```

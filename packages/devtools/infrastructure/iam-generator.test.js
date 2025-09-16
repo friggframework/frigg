@@ -7,7 +7,7 @@ describe('IAM Generator', () => {
                 name: 'test-app',
                 integrations: ['Integration1', 'Integration2'],
                 vpc: { enable: true },
-                encryption: { useDefaultKMSForFieldLevelEncryption: true },
+                encryption: { fieldLevelEncryptionMethod: 'kms' },
                 ssm: { enable: true },
                 websockets: { enable: true }
             };
@@ -46,7 +46,7 @@ describe('IAM Generator', () => {
                 name: 'test-app',
                 integrations: [],
                 vpc: { enable: false },
-                encryption: { useDefaultKMSForFieldLevelEncryption: false },
+                encryption: { fieldLevelEncryptionMethod: 'aes' },
                 ssm: { enable: false },
                 websockets: { enable: false }
             };
@@ -77,7 +77,7 @@ describe('IAM Generator', () => {
             const appDefinition = {
                 name: 'test-app',
                 integrations: [],
-                encryption: { useDefaultKMSForFieldLevelEncryption: true }
+                encryption: { fieldLevelEncryptionMethod: 'kms' }
             };
 
             const yaml = generateIAMCloudFormation(appDefinition);
@@ -106,7 +106,7 @@ describe('IAM Generator', () => {
                 name: 'test-app',
                 integrations: [],
                 vpc: { enable: true },
-                encryption: { useDefaultKMSForFieldLevelEncryption: false },
+                encryption: { fieldLevelEncryptionMethod: 'aes' },
                 ssm: { enable: true }
             };
 

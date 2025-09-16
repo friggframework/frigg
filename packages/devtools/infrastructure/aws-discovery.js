@@ -453,18 +453,16 @@ class AWSDiscovery {
 
     /**
      * Find the default KMS key for the account
-     * @returns {Promise<string>} KMS key ARN or wildcard pattern as fallback
+     * @returns {Promise<string|null>} KMS key ARN or null if no key found
      */
     async findDefaultKmsKey() {
         try {
-            // First try to find a key with alias/aws/lambda
             const command = new ListKeysCommand({});
             const response = await this.kmsClient.send(command);
             
             if (!response.Keys || response.Keys.length === 0) {
-                // Return AWS managed key ARN pattern as fallback
-                const accountId = await this.getAccountId();
-                return `arn:aws:kms:${this.region}:${accountId}:key/*`;
+                console.log('No KMS keys found in account');
+                return null;
             }
 
             // Look for customer managed keys first
@@ -476,21 +474,21 @@ class AWSDiscovery {
                     if (keyDetails.KeyMetadata && 
                         keyDetails.KeyMetadata.KeyManager === 'CUSTOMER' &&
                         keyDetails.KeyMetadata.KeyState === 'Enabled') {
+                        console.log(`Found customer managed KMS key: ${keyDetails.KeyMetadata.Arn}`);
                         return keyDetails.KeyMetadata.Arn;
                     }
                 } catch (error) {
                     // Continue to next key if we can't describe this one
+                    console.warn(`Could not describe key ${key.KeyId}:`, error.message);
                     continue;
                 }
             }
 
-            // Fallback to wildcard pattern for AWS managed keys
-            const accountId = await this.getAccountId();
-            return `arn:aws:kms:${this.region}:${accountId}:key/*`;
+            console.log('No customer managed KMS keys found');
+            return null;
         } catch (error) {
             console.error('Error finding default KMS key:', error);
-            // Return wildcard pattern as ultimate fallback
-            return '*';
+            return null;
         }
     }
 
@@ -503,7 +501,7 @@ class AWSDiscovery {
      * @returns {string} return.privateSubnetId2 - Second private subnet ID
      * @returns {string} return.publicSubnetId - Public subnet ID for NAT Gateway
      * @returns {string} return.privateRouteTableId - Private route table ID
-     * @returns {string} return.defaultKmsKeyId - Default KMS key ARN
+     * @returns {string|null} return.defaultKmsKeyId - Default KMS key ARN or null if not found
      * @throws {Error} If resource discovery fails
      */
     async discoverResources() {
@@ -526,7 +524,11 @@ class AWSDiscovery {
             console.log(`Found route table: ${routeTable.RouteTableId}`);
             
             const kmsKeyArn = await this.findDefaultKmsKey();
-            console.log(`Found KMS key: ${kmsKeyArn}`);
+            if (kmsKeyArn) {
+                console.log(`Found KMS key: ${kmsKeyArn}`);
+            } else {
+                console.log('No KMS key found');
+            }
             
             // Try to find existing NAT Gateway
             const existingNatGateway = await this.findExistingNatGateway(vpc.VpcId);

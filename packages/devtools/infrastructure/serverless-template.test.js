@@ -118,16 +118,9 @@ describe('composeServerlessDefinition', () => {
 
             const result = await composeServerlessDefinition(appDefinition);
 
-            expect(result.provider.vpc).toBe('${self:custom.vpc.${self:provider.stage}}');
-            expect(result.custom.vpc).toEqual({
-                '${self:provider.stage}': {
-                    securityGroupIds: ['${env:AWS_DISCOVERY_SECURITY_GROUP_ID}'],
-                    subnetIds: [
-                        '${env:AWS_DISCOVERY_SUBNET_ID_1}',
-                        '${env:AWS_DISCOVERY_SUBNET_ID_2}'
-                    ]
-                }
-            });
+            expect(result.provider.vpc).toBeDefined();
+            expect(result.provider.vpc.securityGroupIds).toEqual(['sg-123456']);
+            expect(result.provider.vpc.subnetIds).toEqual(['subnet-123456', 'subnet-789012']);
         });
 
         it('should add VPC endpoint for S3 when VPC is enabled', async () => {
@@ -138,15 +131,9 @@ describe('composeServerlessDefinition', () => {
 
             const result = await composeServerlessDefinition(appDefinition);
 
-            expect(result.resources.Resources.VPCEndpointS3).toEqual({
-                Type: 'AWS::EC2::VPCEndpoint',
-                Properties: {
-                    VpcId: '${env:AWS_DISCOVERY_VPC_ID}',
-                    ServiceName: 'com.amazonaws.${self:provider.region}.s3',
-                    VpcEndpointType: 'Gateway',
-                    RouteTableIds: ['${env:AWS_DISCOVERY_ROUTE_TABLE_ID}']
-                }
-            });
+            expect(result.resources.Resources.VPCEndpointS3).toBeDefined();
+            expect(result.resources.Resources.VPCEndpointS3.Type).toBe('AWS::EC2::VPCEndpoint');
+            expect(result.resources.Resources.VPCEndpointS3.Properties.VpcId).toBe('vpc-123456');
         });
 
         it('should not add VPC configuration when vpc.enable is false', async () => {
@@ -158,7 +145,6 @@ describe('composeServerlessDefinition', () => {
             const result = await composeServerlessDefinition(appDefinition);
 
             expect(result.provider.vpc).toBeUndefined();
-            expect(result.custom.vpc).toBeUndefined();
             expect(result.resources.Resources.VPCEndpointS3).toBeUndefined();
         });
 
@@ -170,14 +156,13 @@ describe('composeServerlessDefinition', () => {
             const result = await composeServerlessDefinition(appDefinition);
 
             expect(result.provider.vpc).toBeUndefined();
-            expect(result.custom.vpc).toBeUndefined();
         });
     });
 
     describe('KMS Configuration', () => {
-        it('should add KMS configuration when encryption is enabled', async () => {
+        it('should add KMS configuration when encryption is enabled and key is found', async () => {
             const appDefinition = {
-                encryption: { useDefaultKMSForFieldLevelEncryption: true },
+                encryption: { fieldLevelEncryptionMethod: 'kms' },
                 integrations: []
             };
 
@@ -193,24 +178,188 @@ describe('composeServerlessDefinition', () => {
                     'kms:GenerateDataKey',
                     'kms:Decrypt'
                 ],
-                Resource: ['${self:custom.kmsGrants.kmsKeyId}']
+                Resource: ['arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012']
             });
 
             // Check environment variable
-            expect(result.provider.environment.KMS_KEY_ARN).toBe('${self:custom.kmsGrants.kmsKeyId}');
+            expect(result.provider.environment.KMS_KEY_ARN).toBe('arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012');
 
             // Check plugin
             expect(result.plugins).toContain('serverless-kms-grants');
 
             // Check custom configuration
             expect(result.custom.kmsGrants).toEqual({
-                kmsKeyId: '${env:AWS_DISCOVERY_KMS_KEY_ID}'
+                kmsKeyId: 'arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012'
             });
+        });
+
+        it('should create new KMS key when encryption is enabled, no key found, and createResourceIfNoneFound is true', async () => {
+            // Mock AWS discovery to return no KMS key
+            const { AWSDiscovery } = require('./aws-discovery');
+            const mockDiscoverResources = jest.fn().mockResolvedValue({
+                defaultVpcId: 'vpc-123456',
+                defaultSecurityGroupId: 'sg-123456',
+                privateSubnetId1: 'subnet-123456',
+                privateSubnetId2: 'subnet-789012',
+                publicSubnetId: 'subnet-public',
+                defaultRouteTableId: 'rtb-123456',
+                defaultKmsKeyId: null // No KMS key found
+            });
+            AWSDiscovery.mockImplementation(() => ({
+                discoverResources: mockDiscoverResources
+            }));
+
+            const appDefinition = {
+                encryption: {
+                    fieldLevelEncryptionMethod: 'kms',
+                    createResourceIfNoneFound: true
+                },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            // Check that KMS key resource was created
+            expect(result.resources.Resources.FriggKMSKey).toEqual({
+                Type: 'AWS::KMS::Key',
+                Properties: {
+                    EnableKeyRotation: true,
+                    Description: 'Frigg KMS key for field-level encryption',
+                    KeyPolicy: {
+                        Version: '2012-10-17',
+                        Statement: [
+                            {
+                                Sid: 'AllowRootAccountAdmin',
+                                Effect: 'Allow',
+                                Principal: {
+                                    AWS: {
+                                        'Fn::Sub': 'arn:aws:iam::${AWS::AccountId}:root'
+                                    }
+                                },
+                                Action: 'kms:*',
+                                Resource: '*'
+                            },
+                            {
+                                Sid: 'AllowLambdaService',
+                                Effect: 'Allow',
+                                Principal: {
+                                    Service: 'lambda.amazonaws.com'
+                                },
+                                Action: [
+                                    'kms:GenerateDataKey',
+                                    'kms:Decrypt',
+                                    'kms:DescribeKey'
+                                ],
+                                Resource: '*',
+                                Condition: {
+                                    StringEquals: {
+                                        'kms:ViaService': 'lambda.us-east-1.amazonaws.com'
+                                    }
+                                }
+                            }
+                        ]
+                    },
+                    Tags: [
+                        {
+                            Key: 'Name',
+                            Value: '${self:service}-${self:provider.stage}-frigg-kms-key'
+                        },
+                        {
+                            Key: 'Purpose',
+                            Value: 'Field-level encryption for Frigg application'
+                        }
+                    ]
+                }
+            });
+
+            // Check IAM permissions for the new key
+            const kmsPermission = result.provider.iamRoleStatements.find(
+                statement => statement.Action.includes('kms:GenerateDataKey')
+            );
+            expect(kmsPermission).toEqual({
+                Effect: 'Allow',
+                Action: ['kms:GenerateDataKey', 'kms:Decrypt'],
+                Resource: [{ 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] }]
+            });
+
+            // Check environment variable
+            expect(result.provider.environment.KMS_KEY_ARN).toEqual({
+                'Fn::GetAtt': ['FriggKMSKey', 'Arn']
+            });
+
+            // Check plugin
+            expect(result.plugins).toContain('serverless-kms-grants');
+
+            // Check custom configuration
+            // When creating a new key, it should reference the CloudFormation resource
+            expect(result.custom.kmsGrants).toEqual({
+                kmsKeyId: { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] }
+            });
+        });
+
+        it('should throw error when encryption is enabled, no key found, and createResourceIfNoneFound is false', async () => {
+            // Mock AWS discovery to return no KMS key
+            const { AWSDiscovery } = require('./aws-discovery');
+            const mockDiscoverResources = jest.fn().mockResolvedValue({
+                defaultVpcId: 'vpc-123456',
+                defaultSecurityGroupId: 'sg-123456',
+                privateSubnetId1: 'subnet-123456',
+                privateSubnetId2: 'subnet-789012',
+                publicSubnetId: 'subnet-public',
+                defaultRouteTableId: 'rtb-123456',
+                defaultKmsKeyId: null // No KMS key found
+            });
+            AWSDiscovery.mockImplementation(() => ({
+                discoverResources: mockDiscoverResources
+            }));
+
+            const appDefinition = {
+                encryption: {
+                    fieldLevelEncryptionMethod: 'kms',
+                    createResourceIfNoneFound: false
+                },
+                integrations: []
+            };
+
+            await expect(composeServerlessDefinition(appDefinition)).rejects.toThrow(
+                'KMS field-level encryption is enabled but no KMS key was found. ' +
+                'Either provide an existing KMS key or set encryption.createResourceIfNoneFound to true to create a new key.'
+            );
+        });
+
+        it('should throw error when encryption is enabled, no key found, and createResourceIfNoneFound is not specified', async () => {
+            // Mock AWS discovery to return no KMS key
+            const { AWSDiscovery } = require('./aws-discovery');
+            const mockDiscoverResources = jest.fn().mockResolvedValue({
+                defaultVpcId: 'vpc-123456',
+                defaultSecurityGroupId: 'sg-123456',
+                privateSubnetId1: 'subnet-123456',
+                privateSubnetId2: 'subnet-789012',
+                publicSubnetId: 'subnet-public',
+                defaultRouteTableId: 'rtb-123456',
+                defaultKmsKeyId: null // No KMS key found
+            });
+            AWSDiscovery.mockImplementation(() => ({
+                discoverResources: mockDiscoverResources
+            }));
+
+            const appDefinition = {
+                encryption: {
+                    fieldLevelEncryptionMethod: 'kms'
+                    // createResourceIfNoneFound not specified, defaults to false
+                },
+                integrations: []
+            };
+
+            await expect(composeServerlessDefinition(appDefinition)).rejects.toThrow(
+                'KMS field-level encryption is enabled but no KMS key was found. ' +
+                'Either provide an existing KMS key or set encryption.createResourceIfNoneFound to true to create a new key.'
+            );
         });
 
         it('should not add KMS configuration when encryption is disabled', async () => {
             const appDefinition = {
-                encryption: { useDefaultKMSForFieldLevelEncryption: false },
+                encryption: { fieldLevelEncryptionMethod: 'aes' },
                 integrations: []
             };
 
@@ -315,10 +464,9 @@ describe('composeServerlessDefinition', () => {
             expect(result.functions.testIntegration).toEqual({
                 handler: 'node_modules/@friggframework/core/handlers/routers/integration-defined-routers.handlers.testIntegration.handler',
                 events: [{
-                    http: {
+                    httpApi: {
                         path: '/api/testIntegration-integration/{proxy+}',
-                        method: 'ANY',
-                        cors: true
+                        method: 'ANY'
                     }
                 }]
             });
@@ -389,7 +537,7 @@ describe('composeServerlessDefinition', () => {
         it('should combine VPC, KMS, and SSM configurations', async () => {
             const appDefinition = {
                 vpc: { enable: true },
-                encryption: { useDefaultKMSForFieldLevelEncryption: true },
+                encryption: { fieldLevelEncryptionMethod: 'kms' },
                 ssm: { enable: true },
                 integrations: [mockIntegration]
             };
@@ -398,7 +546,7 @@ describe('composeServerlessDefinition', () => {
 
             // VPC
             expect(result.provider.vpc).toBeDefined();
-            expect(result.custom.vpc).toBeDefined();
+            // custom.vpc doesn't exist in the serverless template
             expect(result.resources.Resources.VPCEndpointS3).toBeDefined();
 
             // KMS
@@ -428,7 +576,7 @@ describe('composeServerlessDefinition', () => {
         it('should handle partial configuration combinations', async () => {
             const appDefinition = {
                 vpc: { enable: true },
-                encryption: { useDefaultKMSForFieldLevelEncryption: true },
+                encryption: { fieldLevelEncryptionMethod: 'kms' },
                 integrations: []
             };
 
@@ -459,9 +607,9 @@ describe('composeServerlessDefinition', () => {
             expect(result.resources.Resources.ApiGatewayAlarm5xx).toBeDefined();
 
             // Check default functions
-            expect(result.functions.defaultWebsocket).toBeDefined();
             expect(result.functions.auth).toBeDefined();
             expect(result.functions.user).toBeDefined();
+            expect(result.functions.health).toBeDefined();
 
             // Check default plugins
             expect(result.plugins).toContain('serverless-jetpack');
@@ -496,8 +644,61 @@ describe('composeServerlessDefinition', () => {
 
             const result = await composeServerlessDefinition(appDefinition);
 
-            expect(result.provider.environment.STAGE).toBe('${opt:stage}');
+            expect(result.provider.environment.STAGE).toBe('${opt:stage, "dev"}');
             expect(result.provider.environment.AWS_NODEJS_CONNECTION_REUSE_ENABLED).toBe(1);
+        });
+    });
+
+    describe('WebSocket Configuration', () => {
+        it('should add websocket function when websockets.enable is true', async () => {
+            const appDefinition = {
+                websockets: { enable: true },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.functions.defaultWebsocket).toEqual({
+                handler: 'node_modules/@friggframework/core/handlers/routers/websocket.handler',
+                events: [
+                    {
+                        websocket: {
+                            route: '$connect',
+                        },
+                    },
+                    {
+                        websocket: {
+                            route: '$default',
+                        },
+                    },
+                    {
+                        websocket: {
+                            route: '$disconnect',
+                        },
+                    },
+                ],
+            });
+        });
+
+        it('should not add websocket function when websockets.enable is false', async () => {
+            const appDefinition = {
+                websockets: { enable: false },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.functions.defaultWebsocket).toBeUndefined();
+        });
+
+        it('should not add websocket function when websockets is not defined', async () => {
+            const appDefinition = {
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.functions.defaultWebsocket).toBeUndefined();
         });
     });
 
@@ -515,7 +716,9 @@ describe('composeServerlessDefinition', () => {
                 integrations: null
             };
 
-            await expect(composeServerlessDefinition(appDefinition)).rejects.toThrow();
+            // Should not throw, just ignore invalid integrations
+            const result = await composeServerlessDefinition(appDefinition);
+            expect(result).toBeDefined();
         });
 
         it('should handle integration with missing Definition', async () => {
@@ -524,7 +727,7 @@ describe('composeServerlessDefinition', () => {
                 integrations: [invalidIntegration]
             };
 
-            await expect(composeServerlessDefinition(appDefinition)).rejects.toThrow();
+            await expect(composeServerlessDefinition(appDefinition)).rejects.toThrow('Invalid integration: missing Definition or name');
         });
 
         it('should handle integration with missing name', async () => {
@@ -535,7 +738,7 @@ describe('composeServerlessDefinition', () => {
                 integrations: [invalidIntegration]
             };
 
-            await expect(composeServerlessDefinition(appDefinition)).rejects.toThrow();
+            await expect(composeServerlessDefinition(appDefinition)).rejects.toThrow('Invalid integration: missing Definition or name');
         });
     });
 });

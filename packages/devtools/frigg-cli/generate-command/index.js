@@ -228,7 +228,7 @@ async function generateCommand(options = {}) {
 function analyzeAppFeatures(appDefinition) {
     const features = {
         vpc: appDefinition.vpc?.enable === true,
-        kms: appDefinition.encryption?.useDefaultKMSForFieldLevelEncryption === true,
+        kms: appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms',
         ssm: appDefinition.ssm?.enable === true,
         websockets: appDefinition.websockets?.enable === true,
         // Add more feature detection as needed

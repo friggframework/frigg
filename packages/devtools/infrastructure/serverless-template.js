@@ -10,8 +10,7 @@ const { AWSDiscovery } = require('./aws-discovery');
 const shouldRunDiscovery = (AppDefinition) => {
     return (
         AppDefinition.vpc?.enable === true ||
-        AppDefinition.encryption?.useDefaultKMSForFieldLevelEncryption ===
-            true ||
+        AppDefinition.encryption?.fieldLevelEncryptionMethod === 'kms' ||
         AppDefinition.ssm?.enable === true
     );
 };
@@ -493,10 +492,7 @@ const createVPCInfrastructure = (AppDefinition) => {
         };
 
         // KMS Interface Endpoint (paid, but useful if using KMS)
-        if (
-            AppDefinition.encryption?.useDefaultKMSForFieldLevelEncryption ===
-            true
-        ) {
+        if (AppDefinition.encryption?.fieldLevelEncryptionMethod === 'kms') {
             vpcResources.FriggKMSVPCEndpoint = {
                 Type: 'AWS::EC2::VPCEndpoint',
                 Properties: {
@@ -891,9 +887,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
     };
 
     // KMS Configuration based on App Definition
-    if (
-        AppDefinition.encryption?.useDefaultKMSForFieldLevelEncryption === true
-    ) {
+    if (AppDefinition.encryption?.fieldLevelEncryptionMethod === 'kms') {
         // Check if a KMS key was discovered
         if (discoveredResources.defaultKmsKeyId) {
             // Use the existing discovered KMS key
@@ -907,55 +901,112 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 Resource: [discoveredResources.defaultKmsKeyId],
             });
 
-            definition.provider.environment.KMS_KEY_ARN =
-                discoveredResources.defaultKmsKeyId;
+            // KMS_KEY_ARN will be set later from custom.kmsGrants for consistency
         } else {
-            // No existing key found, provision a dedicated KMS key
-            console.log('No existing KMS key found, creating a new one...');
+            // No existing key found - check if we should create one or error
+            if (AppDefinition.encryption?.createResourceIfNoneFound === true) {
+                // Create a new KMS key
+                console.log('No existing KMS key found, creating a new one...');
 
-            definition.resources.Resources.FriggKMSKey = {
-                Type: 'AWS::KMS::Key',
-                Properties: {
-                    EnableKeyRotation: true,
-                    KeyPolicy: {
-                        Version: '2012-10-17',
-                        Statement: [
-                            {
-                                Sid: 'AllowRootAccountAdmin',
-                                Effect: 'Allow',
-                                Principal: {
-                                    AWS: {
-                                        'Fn::Sub':
-                                            'arn:aws:iam::${AWS::AccountId}:root',
+                definition.resources.Resources.FriggKMSKey = {
+                    Type: 'AWS::KMS::Key',
+                    Properties: {
+                        EnableKeyRotation: true,
+                        Description: 'Frigg KMS key for field-level encryption',
+                        KeyPolicy: {
+                            Version: '2012-10-17',
+                            Statement: [
+                                {
+                                    Sid: 'AllowRootAccountAdmin',
+                                    Effect: 'Allow',
+                                    Principal: {
+                                        AWS: {
+                                            'Fn::Sub':
+                                                'arn:aws:iam::${AWS::AccountId}:root',
+                                        },
+                                    },
+                                    Action: 'kms:*',
+                                    Resource: '*',
+                                },
+                                {
+                                    Sid: 'AllowLambdaService',
+                                    Effect: 'Allow',
+                                    Principal: {
+                                        Service: 'lambda.amazonaws.com',
+                                    },
+                                    Action: [
+                                        'kms:GenerateDataKey',
+                                        'kms:Decrypt',
+                                        'kms:DescribeKey',
+                                    ],
+                                    Resource: '*',
+                                    Condition: {
+                                        StringEquals: {
+                                            'kms:ViaService': `lambda.${
+                                                process.env.AWS_REGION ||
+                                                'us-east-1'
+                                            }.amazonaws.com`,
+                                        },
                                     },
                                 },
-                                Action: 'kms:*',
-                                Resource: '*',
+                            ],
+                        },
+                        Tags: [
+                            {
+                                Key: 'Name',
+                                Value: '${self:service}-${self:provider.stage}-frigg-kms-key',
+                            },
+                            {
+                                Key: 'Purpose',
+                                Value: 'Field-level encryption for Frigg application',
                             },
                         ],
                     },
-                },
-            };
+                };
 
-            definition.provider.iamRoleStatements.push({
-                Effect: 'Allow',
-                Action: ['kms:GenerateDataKey', 'kms:Decrypt'],
-                Resource: [{ 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] }],
-            });
+                definition.provider.iamRoleStatements.push({
+                    Effect: 'Allow',
+                    Action: ['kms:GenerateDataKey', 'kms:Decrypt'],
+                    Resource: [{ 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] }],
+                });
 
-            definition.provider.environment.KMS_KEY_ARN = {
-                'Fn::GetAtt': ['FriggKMSKey', 'Arn'],
-            };
+                definition.provider.environment.KMS_KEY_ARN = {
+                    'Fn::GetAtt': ['FriggKMSKey', 'Arn'],
+                };
+
+                // Configure KMS grants to reference the created key
+                definition.custom.kmsGrants = {
+                    kmsKeyId: { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] }
+                };
+            } else {
+                // No key found and createIfNoneFound is not enabled - error
+                throw new Error(
+                    'KMS field-level encryption is enabled but no KMS key was found. ' +
+                        'Either provide an existing KMS key or set encryption.createResourceIfNoneFound to true to create a new key.'
+                );
+            }
         }
 
         definition.plugins.push('serverless-kms-grants');
 
-        // Configure KMS grants with discovered default key or environment variable
-        definition.custom.kmsGrants = {
-            kmsKeyId:
+        // Configure KMS grants if not already set (when using existing key)
+        if (!definition.custom.kmsGrants) {
+            definition.custom.kmsGrants = {
+                kmsKeyId:
+                    discoveredResources.defaultKmsKeyId ||
+                    '${env:AWS_DISCOVERY_KMS_KEY_ID}',
+            };
+        }
+
+        // Always set KMS_KEY_ARN from custom.kmsGrants for consistency
+        // This translates AWS_DISCOVERY_KMS_KEY_ID to the runtime variable KMS_KEY_ARN
+        if (!definition.provider.environment.KMS_KEY_ARN) {
+            // Use the discovered value directly when available (from in-process discovery)
+            // Otherwise fall back to environment variable (from separate discovery process)
+            definition.provider.environment.KMS_KEY_ARN =
                 discoveredResources.defaultKmsKeyId ||
-                '${env:AWS_DISCOVERY_KMS_KEY_ID}',
-        };
+                '${env:AWS_DISCOVERY_KMS_KEY_ID}';
+        }
     }
 
     // VPC Configuration based on App Definition
@@ -1252,62 +1303,6 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 definition.custom[queueReference] = queueName;
             }
         }
-
-        // Discovery has already run successfully at this point if needed
-        // The discoveredResources object contains all the necessary AWS resources
-
-        // Add websocket function if enabled
-        if (AppDefinition.websockets?.enable === true) {
-            definition.functions.defaultWebsocket = {
-                handler:
-                    'node_modules/@friggframework/core/handlers/routers/websocket.handler',
-                events: [
-                    {
-                        websocket: {
-                            route: '$connect',
-                        },
-                    },
-                    {
-                        websocket: {
-                            route: '$default',
-                        },
-                    },
-                    {
-                        websocket: {
-                            route: '$disconnect',
-                        },
-                    },
-                ],
-            };
-        }
-
-        // Discovery has already run successfully at this point if needed
-        // The discoveredResources object contains all the necessary AWS resources
-
-        // Add websocket function if enabled
-        if (AppDefinition.websockets?.enable === true) {
-            definition.functions.defaultWebsocket = {
-                handler:
-                    'node_modules/@friggframework/core/handlers/routers/websocket.handler',
-                events: [
-                    {
-                        websocket: {
-                            route: '$connect',
-                        },
-                    },
-                    {
-                        websocket: {
-                            route: '$default',
-                        },
-                    },
-                    {
-                        websocket: {
-                            route: '$disconnect',
-                        },
-                    },
-                ],
-            };
-        }
     }
 
     // Discovery has already run successfully at this point if needed
@@ -1337,9 +1332,6 @@ const composeServerlessDefinition = async (AppDefinition) => {
             ],
         };
     }
-
-    // Discovery has already run successfully at this point if needed
-    // The discoveredResources object contains all the necessary AWS resources
 
     // Modify handler paths to point to the correct node_modules location
     definition.functions = modifyHandlerPaths(definition.functions);
