@@ -250,7 +250,7 @@ describe('BuildTimeDiscovery', () => {
 
         it('should run discovery when KMS is enabled', async () => {
             const appDefinition = {
-                encryption: { useDefaultKMSForFieldLevelEncryption: true },
+                encryption: { fieldLevelEncryptionMethod: 'kms' },
                 integrations: []
             };
 

@@ -58,7 +58,7 @@ The command analyzes your `backend/index.js` AppDefinition and generates IAM pol
 -   Route table and security group management
 -   Elastic IP allocation
 
-#### KMS Encryption (`encryption.useDefaultKMSForFieldLevelEncryption: true`)
+#### KMS Encryption (`encryption.fieldLevelEncryptionMethod: 'kms'`)
 
 -   KMS key usage for Lambda and S3
 -   Data encryption and decryption permissions
@@ -85,7 +85,7 @@ const appDefinition = {
         enable: true,
     },
     encryption: {
-        useDefaultKMSForFieldLevelEncryption: true,
+        fieldLevelEncryptionMethod: 'kms',
     },
     ssm: {
         enable: false,

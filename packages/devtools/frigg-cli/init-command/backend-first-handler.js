@@ -670,7 +670,7 @@ To integrate Frigg into your production application:
             const appDefinition = {
                 integrations: [], // Will be populated based on selected integrations
                 user: { password: true },
-                encryption: { useDefaultKMSForFieldLevelEncryption: true },
+                encryption: { fieldLevelEncryptionMethod: 'kms' },
                 vpc: { enable: true },
                 security: {
                     cors: {

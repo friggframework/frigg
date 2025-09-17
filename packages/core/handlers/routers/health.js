@@ -15,6 +15,7 @@ const validateApiKey = (req, res, next) => {
     }
 
     if (!apiKey || apiKey !== process.env.HEALTH_API_KEY) {
+        console.error('Unauthorized access attempt to health endpoint');
         return res.status(401).json({
             status: 'error',
             message: 'Unauthorized',
@@ -149,69 +150,6 @@ const createTestEncryptionModel = () => {
     );
 };
 
-const createTestDocument = async (TestModel) => {
-    const testData = {
-        testSecret: 'This is a secret value that should be encrypted',
-        normalField: 'This is a normal field that should not be encrypted',
-        nestedSecret: {
-            value: 'This is a nested secret that should be encrypted',
-        },
-    };
-
-    console.log('🔧 Creating test document with encryption...');
-    const testDoc = new TestModel(testData);
-
-    // Add timeout and detailed error logging
-    const savePromise = testDoc.save();
-    const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(
-            () =>
-                reject(new Error('Save operation timed out after 30 seconds')),
-            30000
-        );
-    });
-
-    try {
-        console.log('💾 Attempting to save document...');
-        const startTime = Date.now();
-
-        await Promise.race([savePromise, timeoutPromise]);
-
-        const duration = Date.now() - startTime;
-        console.log(`✅ Document saved successfully in ${duration}ms`);
-
-        return { testDoc, testData };
-    } catch (error) {
-        console.error('❌ Save operation failed:', {
-            errorName: error.name,
-            errorMessage: error.message,
-            errorStack: error.stack,
-            mongooseConnectionState: testDoc.db.readyState,
-            modelName: TestModel.modelName,
-        });
-
-        // Try to get more details about the connection
-        if (mongoose.connection && mongoose.connection.db) {
-            try {
-                const admin = mongoose.connection.db.admin();
-                const serverStatus = await admin.serverStatus();
-                console.log('📊 DocumentDB Server Status:', {
-                    version: serverStatus.version,
-                    uptime: serverStatus.uptime,
-                    connections: serverStatus.connections,
-                });
-            } catch (statusError) {
-                console.error(
-                    '❌ Could not get server status:',
-                    statusError.message
-                );
-            }
-        }
-
-        throw error;
-    }
-};
-
 const verifyDecryption = (retrievedDoc, originalData) => {
     return (
         retrievedDoc &&
@@ -285,18 +223,51 @@ const evaluateEncryptionTestResults = (decryptionWorks, encryptionResults) => {
     };
 };
 
+const withTimeout = (promise, ms, errorMessage) => {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(errorMessage)), ms)
+        ),
+    ]);
+};
+
 const testEncryption = async () => {
+    // eslint-disable-next-line no-console
+    console.log('Starting encryption test');
     const TestModel = createTestEncryptionModel();
-    const { testDoc, testData } = await createTestDocument(TestModel);
+    // eslint-disable-next-line no-console
+    console.log('Test model created');
+
+    const testData = {
+        testSecret: 'This is a secret value that should be encrypted',
+        normalField: 'This is a normal field that should not be encrypted',
+        nestedSecret: {
+            value: 'This is a nested secret that should be encrypted',
+        },
+    };
+
+    const testDoc = new TestModel(testData);
+    await withTimeout(testDoc.save(), 5000, 'Save operation timed out');
+    // eslint-disable-next-line no-console
+    console.log('Test document saved');
 
     try {
-        const retrievedDoc = await TestModel.findById(testDoc._id);
-        const decryptionWorks = verifyDecryption(retrievedDoc, testData);
-        const encryptionResults = await verifyEncryptionInDatabase(
-            testDoc,
-            testData,
-            TestModel
+        const retrievedDoc = await withTimeout(
+            TestModel.findById(testDoc._id),
+            5000,
+            'Find operation timed out'
         );
+        // eslint-disable-next-line no-console
+        console.log('Test document retrieved');
+        const decryptionWorks = verifyDecryption(retrievedDoc, testData);
+        const encryptionResults = await withTimeout(
+            verifyEncryptionInDatabase(testDoc, testData, TestModel),
+            5000,
+            'Database verification timed out'
+        );
+        // eslint-disable-next-line no-console
+        console.log('Encryption verification completed');
 
         const evaluation = evaluateEncryptionTestResults(
             decryptionWorks,
@@ -308,7 +279,13 @@ const testEncryption = async () => {
             encryptionWorks: decryptionWorks,
         };
     } finally {
-        await TestModel.deleteOne({ _id: testDoc._id });
+        await withTimeout(
+            TestModel.deleteOne({ _id: testDoc._id }),
+            5000,
+            'Delete operation timed out'
+        );
+        // eslint-disable-next-line no-console
+        console.log('Test document deleted');
     }
 };
 
@@ -316,6 +293,12 @@ const checkEncryptionHealth = async () => {
     const config = getEncryptionConfiguration();
 
     if (config.isBypassed || config.mode === 'none') {
+        // eslint-disable-next-line no-console
+        console.log('Encryption check bypassed:', {
+            stage: config.stage,
+            mode: config.mode,
+        });
+
         const testResult = config.isBypassed
             ? 'Encryption bypassed for this stage'
             : 'No encryption keys configured';
@@ -434,6 +417,8 @@ router.get('/health', async (_req, res) => {
 });
 
 router.get('/health/detailed', async (_req, res) => {
+    // eslint-disable-next-line no-console
+    console.log('Starting detailed health check');
     const startTime = Date.now();
     const response = buildHealthCheckResponse(startTime);
 
@@ -443,12 +428,16 @@ router.get('/health/detailed', async (_req, res) => {
         if (!dbState.isConnected) {
             response.status = 'unhealthy';
         }
+        // eslint-disable-next-line no-console
+        console.log('Database check completed:', response.checks.database);
     } catch (error) {
         response.checks.database = {
             status: 'unhealthy',
             error: error.message,
         };
         response.status = 'unhealthy';
+        // eslint-disable-next-line no-console
+        console.log('Database check error:', error.message);
     }
 
     try {
@@ -456,12 +445,16 @@ router.get('/health/detailed', async (_req, res) => {
         if (response.checks.encryption.status === 'unhealthy') {
             response.status = 'unhealthy';
         }
+        // eslint-disable-next-line no-console
+        console.log('Encryption check completed:', response.checks.encryption);
     } catch (error) {
         response.checks.encryption = {
             status: 'unhealthy',
             error: error.message,
         };
         response.status = 'unhealthy';
+        // eslint-disable-next-line no-console
+        console.log('Encryption check error:', error.message);
     }
 
     const { apiStatuses, allReachable } = await checkExternalAPIs();
@@ -469,15 +462,24 @@ router.get('/health/detailed', async (_req, res) => {
     if (!allReachable) {
         response.status = 'unhealthy';
     }
+    // eslint-disable-next-line no-console
+    console.log('External APIs check completed:', response.checks.externalApis);
 
     try {
         response.checks.integrations = checkIntegrations();
+        // eslint-disable-next-line no-console
+        console.log(
+            'Integrations check completed:',
+            response.checks.integrations
+        );
     } catch (error) {
         response.checks.integrations = {
             status: 'unhealthy',
             error: error.message,
         };
         response.status = 'unhealthy';
+        // eslint-disable-next-line no-console
+        console.log('Integrations check error:', error.message);
     }
 
     response.responseTime = response.calculateResponseTime();
@@ -485,6 +487,14 @@ router.get('/health/detailed', async (_req, res) => {
 
     const statusCode = response.status === 'healthy' ? 200 : 503;
     res.status(statusCode).json(response);
+
+    // eslint-disable-next-line no-console
+    console.log(
+        'Final health status:',
+        response.status,
+        'Response time:',
+        response.responseTime
+    );
 });
 
 router.get('/health/live', (_req, res) => {

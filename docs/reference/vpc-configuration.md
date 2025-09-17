@@ -190,7 +190,7 @@ const appDefinition = {
 ### Advanced: AWS Discovery with KMS and SSM
 ```javascript
 const appDefinition = {
-    encryption: { useDefaultKMSForFieldLevelEncryption: true },
+    encryption: { fieldLevelEncryptionMethod: 'kms' },
     ssm: { enable: true },
     vpc: {
         enable: true,
@@ -202,7 +202,7 @@ const appDefinition = {
 ### Production Setup: Explicit Resources
 ```javascript
 const appDefinition = {
-    encryption: { useDefaultKMSForFieldLevelEncryption: true },
+    encryption: { fieldLevelEncryptionMethod: 'kms' },
     vpc: {
         enable: true,
         securityGroupIds: ['sg-prod-lambda-12345'],

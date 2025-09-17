@@ -155,7 +155,8 @@ const appDefinition = {
 
   // KMS encryption
   encryption: {
-    useDefaultKMSForFieldLevelEncryption: true
+    fieldLevelEncryptionMethod: 'kms',
+    createResourceIfNoneFound: true
   },
 
   // SSM Parameter Store
@@ -217,7 +218,7 @@ const serverlessConfig = await composeServerlessDefinition(appDefinition);
 const appDefinition = {
     name: 'secure-app',
     vpc: { enable: true },
-    encryption: { useDefaultKMSForFieldLevelEncryption: true },
+    encryption: { fieldLevelEncryptionMethod: 'kms' },
     ssm: { enable: true },
     integrations: [{ Definition: { name: 'salesforce' } }],
 };
