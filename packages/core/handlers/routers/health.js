@@ -406,6 +406,47 @@ const buildHealthCheckResponse = (startTime) => {
     };
 };
 
+// KMS decrypt capability check
+const checkKmsDecryptCapability = async () => {
+    const start = Date.now();
+    const { KMS_KEY_ARN } = process.env;
+    if (!KMS_KEY_ARN) {
+        return {
+            status: 'skipped',
+            reason: 'KMS_KEY_ARN not configured',
+        };
+    }
+    try {
+        // Lazy load to avoid cost if unused in some environments
+        // eslint-disable-next-line global-require
+        const AWS = require('aws-sdk');
+        const kms = new AWS.KMS();
+        // Generate a data key (without plaintext logging) then immediately decrypt ciphertext to ensure decrypt perms.
+        const dataKeyResp = await kms
+            .generateDataKey({ KeyId: KMS_KEY_ARN, KeySpec: 'AES_256' })
+            .promise();
+        const decryptResp = await kms
+            .decrypt({ CiphertextBlob: dataKeyResp.CiphertextBlob })
+            .promise();
+
+        const success = Boolean(
+            dataKeyResp.CiphertextBlob && decryptResp.Plaintext
+        );
+
+        return {
+            status: success ? 'healthy' : 'unhealthy',
+            kmsKeyArnSuffix: KMS_KEY_ARN.slice(-12),
+            latencyMs: Date.now() - start,
+        };
+    } catch (error) {
+        return {
+            status: 'unhealthy',
+            error: error.message,
+            latencyMs: Date.now() - start,
+        };
+    }
+};
+
 router.get('/health', async (_req, res) => {
     const status = {
         status: 'ok',
@@ -421,6 +462,21 @@ router.get('/health/detailed', async (_req, res) => {
     console.log('Starting detailed health check');
     const startTime = Date.now();
     const response = buildHealthCheckResponse(startTime);
+
+    // 1. KMS decrypt capability (must succeed before DB assumed healthy if encryption depends on KMS)
+    try {
+        response.checks.kms = await checkKmsDecryptCapability();
+        if (response.checks.kms.status === 'unhealthy') {
+            response.status = 'unhealthy';
+        }
+        // eslint-disable-next-line no-console
+        console.log('KMS check completed:', response.checks.kms);
+    } catch (error) {
+        response.checks.kms = { status: 'unhealthy', error: error.message };
+        response.status = 'unhealthy';
+        // eslint-disable-next-line no-console
+        console.log('KMS check error:', error.message);
+    }
 
     try {
         response.checks.database = await checkDatabaseHealth();
