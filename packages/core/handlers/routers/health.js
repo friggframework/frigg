@@ -466,129 +466,64 @@ router.get('/health/detailed', async (_req, res) => {
     const startTime = Date.now();
     const response = buildHealthCheckResponse(startTime);
 
-    // Run all async health checks concurrently
-    const [
-        databaseResult,
-        encryptionResult,
-        externalApisResult,
-        integrationsResult,
-    ] = await Promise.allSettled([
-        checkDatabaseHealth().catch((error) => ({
-            status: 'unhealthy',
-            error: error.message,
-        })),
-        checkEncryptionHealth().catch((error) => ({
-            status: 'unhealthy',
-            error: error.message,
-        })),
-        checkExternalAPIs(),
-        Promise.resolve().then(() => {
-            try {
-                return checkIntegrations();
-            } catch (error) {
-                return {
-                    status: 'unhealthy',
-                    error: error.message,
-                };
-            }
-        }),
-    ]);
-
-    // Process database check results
-    if (databaseResult.status === 'fulfilled') {
-        response.checks.database = databaseResult.value;
+    try {
+        response.checks.database = await checkDatabaseHealth();
         const dbState = getDatabaseState();
-        if (
-            !dbState.isConnected ||
-            response.checks.database.status === 'unhealthy'
-        ) {
+        if (!dbState.isConnected) {
             response.status = 'unhealthy';
         }
         // eslint-disable-next-line no-console
         console.log('Database check completed:', response.checks.database);
-    } else {
+    } catch (error) {
         response.checks.database = {
             status: 'unhealthy',
-            error: databaseResult.reason?.message || 'Database check failed',
+            error: error.message,
         };
         response.status = 'unhealthy';
         // eslint-disable-next-line no-console
-        console.log('Database check error:', databaseResult.reason?.message);
+        console.log('Database check error:', error.message);
     }
 
-    // Process encryption check results
-    if (encryptionResult.status === 'fulfilled') {
-        response.checks.encryption = encryptionResult.value;
+    try {
+        response.checks.encryption = await checkEncryptionHealth();
         if (response.checks.encryption.status === 'unhealthy') {
             response.status = 'unhealthy';
         }
         // eslint-disable-next-line no-console
         console.log('Encryption check completed:', response.checks.encryption);
-    } else {
+    } catch (error) {
         response.checks.encryption = {
             status: 'unhealthy',
-            error:
-                encryptionResult.reason?.message || 'Encryption check failed',
+            error: error.message,
         };
         response.status = 'unhealthy';
         // eslint-disable-next-line no-console
-        console.log(
-            'Encryption check error:',
-            encryptionResult.reason?.message
-        );
+        console.log('Encryption check error:', error.message);
     }
 
-    // Process external APIs check results
-    if (externalApisResult.status === 'fulfilled') {
-        const { apiStatuses, allReachable } = externalApisResult.value;
-        response.checks.externalApis = apiStatuses;
-        if (!allReachable) {
-            response.status = 'unhealthy';
-        }
-        // eslint-disable-next-line no-console
-        console.log(
-            'External APIs check completed:',
-            response.checks.externalApis
-        );
-    } else {
-        response.checks.externalApis = {
-            status: 'unhealthy',
-            error:
-                externalApisResult.reason?.message ||
-                'External APIs check failed',
-        };
+    const { apiStatuses, allReachable } = await checkExternalAPIs();
+    response.checks.externalApis = apiStatuses;
+    if (!allReachable) {
         response.status = 'unhealthy';
-        // eslint-disable-next-line no-console
-        console.log(
-            'External APIs check error:',
-            externalApisResult.reason?.message
-        );
     }
+    // eslint-disable-next-line no-console
+    console.log('External APIs check completed:', response.checks.externalApis);
 
-    // Process integrations check results
-    if (integrationsResult.status === 'fulfilled') {
-        response.checks.integrations = integrationsResult.value;
-        if (response.checks.integrations.status === 'unhealthy') {
-            response.status = 'unhealthy';
-        }
+    try {
+        response.checks.integrations = checkIntegrations();
         // eslint-disable-next-line no-console
         console.log(
             'Integrations check completed:',
             response.checks.integrations
         );
-    } else {
+    } catch (error) {
         response.checks.integrations = {
             status: 'unhealthy',
-            error:
-                integrationsResult.reason?.message ||
-                'Integrations check failed',
+            error: error.message,
         };
         response.status = 'unhealthy';
         // eslint-disable-next-line no-console
-        console.log(
-            'Integrations check error:',
-            integrationsResult.reason?.message
-        );
+        console.log('Integrations check error:', error.message);
     }
 
     response.responseTime = response.calculateResponseTime();
