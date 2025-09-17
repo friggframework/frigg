@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const { AWSDiscovery } = require('./aws-discovery');
+const { getSSMLayerArn } = require('./aws-ssm-layer-arns');
 
 /**
  * Check if AWS discovery should run based on AppDefinition
@@ -962,13 +963,69 @@ const composeServerlessDefinition = async (AppDefinition) => {
             }
         }
 
-    // SSM Parameter Store Configuration based on App Definition  
-    if (AppDefinition.ssm?.enable === true) {
-        // Add AWS Parameters and Secrets Lambda Extension layer
-        definition.provider.layers = [
-            'arn:aws:lambda:${self:provider.region}:177933569100:layer:AWS-Parameters-and-Secrets-Lambda-Extension:11'
-        ];
+    // Determine if we need the AWS Parameters and Secrets Lambda Extension
+    // The extension supports BOTH SSM Parameter Store AND Secrets Manager
+    const needsExtensionLayer = AppDefinition.ssm?.enable === true || 
+                                AppDefinition.secrets?.enable !== false;
 
+    // Add the Lambda Extension layer if either service is enabled
+    if (needsExtensionLayer) {
+        // Detect architecture - defaults to x86_64 unless explicitly set
+        const architecture = AppDefinition.ssm?.architecture || 
+                           AppDefinition.provider?.architecture || 
+                           'x86_64';
+        
+        // Add custom section for layer ARN lookup
+        if (!definition.custom) definition.custom = {};
+        definition.custom.ssmLayerArns = require('./aws-ssm-layer-arns').SSM_LAYER_ARNS;
+        
+        // Add AWS Parameters and Secrets Lambda Extension layer
+        // This single layer optimizes access to BOTH Secrets Manager and SSM Parameter Store
+        definition.provider.layers = [
+            '${self:custom.ssmLayerArns.${self:provider.region}.' + architecture + '}'
+        ];
+        
+        console.log('✅ AWS Parameters and Secrets Lambda Extension layer added for optimal performance');
+    }
+
+    // Secrets Manager Configuration
+    // Enable by default unless explicitly disabled
+    if (AppDefinition.secrets?.enable !== false) {
+        // Create the Secrets Manager secret resource
+        definition.resources.Resources.FriggAppSecrets = {
+            Type: 'AWS::SecretsManager::Secret',
+            Properties: {
+                Name: '${self:service}-secrets-${self:provider.stage}',
+                Description: 'Secrets for ${self:service} application in ${self:provider.stage} environment',
+                SecretString: JSON.stringify({
+                    // Default empty object - populate via AWS Console or CLI
+                    // Example structure:
+                    // API_KEY: "your-api-key",
+                    // DATABASE_PASSWORD: "your-db-password"
+                    _NOTE: "Add your secrets via AWS Console or CLI"
+                })
+            }
+        };
+        
+        // Add SECRET_ARN environment variable referencing the created secret
+        definition.provider.environment.SECRET_ARN = { Ref: 'FriggAppSecrets' };
+        
+        // Add IAM permissions to read the secret
+        definition.provider.iamRoleStatements.push({
+            Effect: 'Allow',
+            Action: [
+                'secretsmanager:GetSecretValue'
+            ],
+            Resource: [
+                { Ref: 'FriggAppSecrets' }
+            ]
+        });
+        
+        console.log('✅ Secrets Manager enabled - secret will be created as ${self:service}-secrets-${self:provider.stage}');
+    }
+
+    // SSM Parameter Store Configuration
+    if (AppDefinition.ssm?.enable === true) {
         // Add SSM IAM permissions
         definition.provider.iamRoleStatements.push({
             Effect: 'Allow',
@@ -984,6 +1041,8 @@ const composeServerlessDefinition = async (AppDefinition) => {
 
         // Add environment variable for SSM parameter prefix
         definition.provider.environment.SSM_PARAMETER_PREFIX = '/${self:service}/${self:provider.stage}';
+        
+        console.log('✅ SSM Parameter Store enabled with prefix: /${self:service}/${self:provider.stage}');
     }
 
     // Add integration-specific functions and resources

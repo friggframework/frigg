@@ -5,6 +5,7 @@
 const { connectToDatabase } = require('../database/mongo');
 const { initDebugLog, flushDebugLog } = require('../logs');
 const { secretsToEnv } = require('./secrets-to-env');
+const { parametersToEnv } = require('./ssm-parameters');
 
 const createHandler = (optionByName = {}) => {
     const {
@@ -28,8 +29,11 @@ const createHandler = (optionByName = {}) => {
                 console.info(`${requestMethod} ${requestPath}`);
             }
 
-            // If enabled (i.e. if SECRET_ARN is set in process.env) Fetch secrets from AWS Secrets Manager, and set them as environment variables.
+            // Load secrets from AWS Secrets Manager if SECRET_ARN is set
             await secretsToEnv();
+            
+            // Load parameters from SSM Parameter Store if SSM_PARAMETER_PREFIX is set
+            await parametersToEnv();
 
             // Helps mongoose reuse the connection.  Lowers response times.
             context.callbackWaitsForEmptyEventLoop = false;
