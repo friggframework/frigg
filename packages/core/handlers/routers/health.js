@@ -333,6 +333,178 @@ const testEncryption = async () => {
     }
 };
 
+const checkKMSAccess = async () => {
+    const { KMS_KEY_ARN } = process.env;
+
+    if (!KMS_KEY_ARN || KMS_KEY_ARN.trim() === '') {
+        return {
+            status: 'disabled',
+            testResult: 'No KMS key configured',
+            canAccessKey: false,
+        };
+    }
+
+    try {
+        // eslint-disable-next-line no-console
+        console.log('Testing KMS key access with key:', KMS_KEY_ARN.substring(0, 50) + '...');
+
+        const AWS = require('aws-sdk');
+        const kms = new AWS.KMS();
+
+        // First, check if the master key exists and is accessible
+        let keyExists = false;
+        let keyMetadata = null;
+
+        try {
+            // eslint-disable-next-line no-console
+            console.log('Checking if KMS master key exists...');
+            const describeResult = await withTimeout(
+                kms.describeKey({ KeyId: KMS_KEY_ARN }).promise(),
+                5000,
+                'KMS describeKey operation timed out after 5 seconds'
+            );
+
+            keyMetadata = describeResult.KeyMetadata;
+            keyExists = true;
+            // eslint-disable-next-line no-console
+            console.log('KMS master key found:', {
+                KeyId: keyMetadata.KeyId,
+                KeyState: keyMetadata.KeyState,
+                Enabled: keyMetadata.Enabled,
+                KeyUsage: keyMetadata.KeyUsage,
+            });
+        } catch (describeError) {
+            // eslint-disable-next-line no-console
+            console.error('KMS master key does not exist or is not accessible:', describeError.message);
+
+            if (describeError.code === 'NotFoundException') {
+                return {
+                    status: 'unhealthy',
+                    testResult: 'KMS master key not found',
+                    canAccessKey: false,
+                    error: 'Master key does not exist',
+                    keyExists: false,
+                };
+            } else if (describeError.code === 'AccessDeniedException') {
+                return {
+                    status: 'unhealthy',
+                    testResult: 'No permission to access KMS master key',
+                    canAccessKey: false,
+                    error: 'Access denied to master key',
+                    keyExists: 'unknown',
+                };
+            }
+            // Continue to try generateDataKey even if describeKey fails
+            // as permissions might be limited
+        }
+
+        // Check if key is in a usable state
+        if (keyExists && keyMetadata) {
+            // Only 'Enabled' state allows cryptographic operations
+            if (keyMetadata.KeyState !== 'Enabled') {
+                // eslint-disable-next-line no-console
+                console.error(`KMS master key exists but is in state: ${keyMetadata.KeyState}`);
+
+                let testResult = '';
+                switch (keyMetadata.KeyState) {
+                    case 'Disabled':
+                        testResult = 'KMS master key is disabled';
+                        break;
+                    case 'PendingDeletion':
+                        testResult = 'KMS master key is pending deletion';
+                        break;
+                    case 'PendingImport':
+                        testResult = 'KMS master key is pending import';
+                        break;
+                    case 'Unavailable':
+                        testResult = 'KMS master key is unavailable (custom key store disconnected)';
+                        break;
+                    case 'Creating':
+                        testResult = 'KMS master key is still being created';
+                        break;
+                    case 'Updating':
+                        testResult = 'KMS master key is being updated';
+                        break;
+                    default:
+                        testResult = `KMS master key is in unusable state: ${keyMetadata.KeyState}`;
+                }
+
+                return {
+                    status: 'unhealthy',
+                    testResult,
+                    canAccessKey: false,
+                    keyExists: true,
+                    keyState: keyMetadata.KeyState,
+                };
+            }
+        }
+
+        // Try to generate a data key to test full KMS access
+        // eslint-disable-next-line no-console
+        console.log('Attempting to generate data key...');
+        const startTime = Date.now();
+        const result = await withTimeout(
+            kms.generateDataKey({
+                KeyId: KMS_KEY_ARN,
+                KeySpec: 'AES_256'
+            }).promise(),
+            10000,
+            'KMS generateDataKey operation timed out after 10 seconds'
+        );
+
+        const responseTime = Date.now() - startTime;
+
+        // If we got a result with plaintext key, KMS access works
+        if (result && result.Plaintext) {
+            // eslint-disable-next-line no-console
+            console.log(`KMS key access successful, response time: ${responseTime}ms`);
+            return {
+                status: 'healthy',
+                testResult: 'Successfully requested and received decrypt key from KMS',
+                canAccessKey: true,
+                responseTime,
+                keyExists: true,
+                keyState: keyMetadata?.KeyState || 'Enabled',
+            };
+        }
+
+        return {
+            status: 'unhealthy',
+            testResult: 'KMS responded but no key data received',
+            canAccessKey: false,
+            responseTime,
+            keyExists: keyExists,
+        };
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('KMS generateDataKey failed:', error.message);
+
+        // Provide more specific error messages based on error codes
+        let testResult = `KMS access failed: ${error.message}`;
+        if (error.code === 'NotFoundException') {
+            testResult = 'KMS master key not found during data key generation';
+            // eslint-disable-next-line no-console
+            console.error('Master key does not exist in KMS');
+        } else if (error.code === 'AccessDeniedException') {
+            testResult = 'Access denied - check IAM permissions for kms:GenerateDataKey';
+            // eslint-disable-next-line no-console
+            console.error('IAM permissions insufficient for KMS operations');
+        } else if (error.code === 'InvalidKeyId.NotFound') {
+            testResult = 'Invalid KMS key ID format or key not found';
+            // eslint-disable-next-line no-console
+            console.error('KMS key ID is invalid or does not exist');
+        }
+
+        return {
+            status: 'unhealthy',
+            testResult,
+            canAccessKey: false,
+            error: error.message,
+            errorCode: error.code,
+        };
+    }
+};
+
 const checkEncryptionHealth = async () => {
     const config = getEncryptionConfiguration();
 
@@ -499,6 +671,23 @@ router.get('/health/detailed', async (_req, res) => {
         response.status = 'unhealthy';
         // eslint-disable-next-line no-console
         console.log('Encryption check error:', error.message);
+    }
+
+    try {
+        response.checks.kmsAccess = await checkKMSAccess();
+        if (response.checks.kmsAccess.status === 'unhealthy') {
+            response.status = 'unhealthy';
+        }
+        // eslint-disable-next-line no-console
+        console.log('KMS access check completed:', response.checks.kmsAccess);
+    } catch (error) {
+        response.checks.kmsAccess = {
+            status: 'unhealthy',
+            error: error.message,
+        };
+        response.status = 'unhealthy';
+        // eslint-disable-next-line no-console
+        console.log('KMS access check error:', error.message);
     }
 
     const { apiStatuses, allReachable } = await checkExternalAPIs();
