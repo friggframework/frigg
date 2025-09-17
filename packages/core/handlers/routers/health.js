@@ -346,7 +346,10 @@ const checkKMSAccess = async () => {
 
     try {
         // eslint-disable-next-line no-console
-        console.log('Testing KMS key access with key:', KMS_KEY_ARN.substring(0, 50) + '...');
+        console.log(
+            'Testing KMS key access with key:',
+            KMS_KEY_ARN.substring(0, 50) + '...'
+        );
 
         const AWS = require('aws-sdk');
         const kms = new AWS.KMS();
@@ -375,7 +378,10 @@ const checkKMSAccess = async () => {
             });
         } catch (describeError) {
             // eslint-disable-next-line no-console
-            console.error('KMS master key does not exist or is not accessible:', describeError.message);
+            console.error(
+                'KMS master key does not exist or is not accessible:',
+                describeError.message
+            );
 
             if (describeError.code === 'NotFoundException') {
                 return {
@@ -403,7 +409,9 @@ const checkKMSAccess = async () => {
             // Only 'Enabled' state allows cryptographic operations
             if (keyMetadata.KeyState !== 'Enabled') {
                 // eslint-disable-next-line no-console
-                console.error(`KMS master key exists but is in state: ${keyMetadata.KeyState}`);
+                console.error(
+                    `KMS master key exists but is in state: ${keyMetadata.KeyState}`
+                );
 
                 let testResult = '';
                 switch (keyMetadata.KeyState) {
@@ -417,7 +425,8 @@ const checkKMSAccess = async () => {
                         testResult = 'KMS master key is pending import';
                         break;
                     case 'Unavailable':
-                        testResult = 'KMS master key is unavailable (custom key store disconnected)';
+                        testResult =
+                            'KMS master key is unavailable (custom key store disconnected)';
                         break;
                     case 'Creating':
                         testResult = 'KMS master key is still being created';
@@ -444,10 +453,12 @@ const checkKMSAccess = async () => {
         console.log('Attempting to generate data key...');
         const startTime = Date.now();
         const result = await withTimeout(
-            kms.generateDataKey({
-                KeyId: KMS_KEY_ARN,
-                KeySpec: 'AES_256'
-            }).promise(),
+            kms
+                .generateDataKey({
+                    KeyId: KMS_KEY_ARN,
+                    KeySpec: 'AES_256',
+                })
+                .promise(),
             10000,
             'KMS generateDataKey operation timed out after 10 seconds'
         );
@@ -457,10 +468,13 @@ const checkKMSAccess = async () => {
         // If we got a result with plaintext key, KMS access works
         if (result && result.Plaintext) {
             // eslint-disable-next-line no-console
-            console.log(`KMS key access successful, response time: ${responseTime}ms`);
+            console.log(
+                `KMS key access successful, response time: ${responseTime}ms`
+            );
             return {
                 status: 'healthy',
-                testResult: 'Successfully requested and received decrypt key from KMS',
+                testResult:
+                    'Successfully requested and received decrypt key from KMS',
                 canAccessKey: true,
                 responseTime,
                 keyExists: true,
@@ -486,7 +500,8 @@ const checkKMSAccess = async () => {
             // eslint-disable-next-line no-console
             console.error('Master key does not exist in KMS');
         } else if (error.code === 'AccessDeniedException') {
-            testResult = 'Access denied - check IAM permissions for kms:GenerateDataKey';
+            testResult =
+                'Access denied - check IAM permissions for kms:GenerateDataKey';
             // eslint-disable-next-line no-console
             console.error('IAM permissions insufficient for KMS operations');
         } else if (error.code === 'InvalidKeyId.NotFound') {
@@ -638,81 +653,113 @@ router.get('/health/detailed', async (_req, res) => {
     const startTime = Date.now();
     const response = buildHealthCheckResponse(startTime);
 
-    try {
-        response.checks.database = await checkDatabaseHealth();
+    // Run all health checks in parallel for faster response
+    // eslint-disable-next-line no-console
+    console.log('Running all health checks in parallel...');
+
+    const [
+        kmsResult,
+        databaseResult,
+        encryptionResult,
+        externalApisResult,
+        integrationsResult,
+    ] = await Promise.allSettled([
+        checkKMSAccess(),
+        checkDatabaseHealth(),
+        checkEncryptionHealth(),
+        checkExternalAPIs(),
+        Promise.resolve(checkIntegrations()), // Wrap sync function in Promise
+    ]);
+
+    // Process KMS check result
+    if (kmsResult.status === 'fulfilled') {
+        response.checks.kmsAccess = kmsResult.value;
+        if (kmsResult.value.status === 'unhealthy') {
+            response.status = 'unhealthy';
+        }
+        // eslint-disable-next-line no-console
+        console.log('KMS access check completed:', response.checks.kmsAccess);
+    } else {
+        response.checks.kmsAccess = {
+            status: 'unhealthy',
+            error: kmsResult.reason?.message || 'KMS check failed',
+        };
+        response.status = 'unhealthy';
+        // eslint-disable-next-line no-console
+        console.log('KMS access check error:', kmsResult.reason?.message);
+    }
+
+    // Process database check result
+    if (databaseResult.status === 'fulfilled') {
+        response.checks.database = databaseResult.value;
         const dbState = getDatabaseState();
         if (!dbState.isConnected) {
             response.status = 'unhealthy';
         }
         // eslint-disable-next-line no-console
         console.log('Database check completed:', response.checks.database);
-    } catch (error) {
+    } else {
         response.checks.database = {
             status: 'unhealthy',
-            error: error.message,
+            error: databaseResult.reason?.message || 'Database check failed',
         };
         response.status = 'unhealthy';
         // eslint-disable-next-line no-console
-        console.log('Database check error:', error.message);
+        console.log('Database check error:', databaseResult.reason?.message);
     }
 
-    try {
-        response.checks.encryption = await checkEncryptionHealth();
-        if (response.checks.encryption.status === 'unhealthy') {
+    // Process encryption check result
+    if (encryptionResult.status === 'fulfilled') {
+        response.checks.encryption = encryptionResult.value;
+        if (encryptionResult.value.status === 'unhealthy') {
             response.status = 'unhealthy';
         }
         // eslint-disable-next-line no-console
         console.log('Encryption check completed:', response.checks.encryption);
-    } catch (error) {
+    } else {
         response.checks.encryption = {
             status: 'unhealthy',
-            error: error.message,
+            error: encryptionResult.reason?.message || 'Encryption check failed',
         };
         response.status = 'unhealthy';
         // eslint-disable-next-line no-console
-        console.log('Encryption check error:', error.message);
+        console.log('Encryption check error:', encryptionResult.reason?.message);
     }
 
-    try {
-        response.checks.kmsAccess = await checkKMSAccess();
-        if (response.checks.kmsAccess.status === 'unhealthy') {
+    // Process external APIs check result
+    if (externalApisResult.status === 'fulfilled') {
+        const { apiStatuses, allReachable } = externalApisResult.value;
+        response.checks.externalApis = apiStatuses;
+        if (!allReachable) {
             response.status = 'unhealthy';
         }
         // eslint-disable-next-line no-console
-        console.log('KMS access check completed:', response.checks.kmsAccess);
-    } catch (error) {
-        response.checks.kmsAccess = {
-            status: 'unhealthy',
-            error: error.message,
+        console.log('External APIs check completed:', response.checks.externalApis);
+    } else {
+        response.checks.externalApis = {
+            error: externalApisResult.reason?.message || 'External APIs check failed',
         };
         response.status = 'unhealthy';
         // eslint-disable-next-line no-console
-        console.log('KMS access check error:', error.message);
+        console.log('External APIs check error:', externalApisResult.reason?.message);
     }
 
-    const { apiStatuses, allReachable } = await checkExternalAPIs();
-    response.checks.externalApis = apiStatuses;
-    if (!allReachable) {
-        response.status = 'unhealthy';
-    }
-    // eslint-disable-next-line no-console
-    console.log('External APIs check completed:', response.checks.externalApis);
-
-    try {
-        response.checks.integrations = checkIntegrations();
+    // Process integrations check result
+    if (integrationsResult.status === 'fulfilled') {
+        response.checks.integrations = integrationsResult.value;
         // eslint-disable-next-line no-console
         console.log(
             'Integrations check completed:',
             response.checks.integrations
         );
-    } catch (error) {
+    } else {
         response.checks.integrations = {
             status: 'unhealthy',
-            error: error.message,
+            error: integrationsResult.reason?.message || 'Integrations check failed',
         };
         response.status = 'unhealthy';
         // eslint-disable-next-line no-console
-        console.log('Integrations check error:', error.message);
+        console.log('Integrations check error:', integrationsResult.reason?.message);
     }
 
     response.responseTime = response.calculateResponseTime();
