@@ -248,9 +248,53 @@ const testEncryption = async () => {
     };
 
     const testDoc = new TestModel(testData);
-    await withTimeout(testDoc.save(), 5000, 'Save operation timed out');
-    // eslint-disable-next-line no-console
-    console.log('Test document saved');
+
+    try {
+        // eslint-disable-next-line no-console
+        console.log('Attempting to save document with encryption...');
+        const startTime = Date.now();
+
+        await withTimeout(
+            testDoc.save(),
+            30000,
+            'Save operation timed out after 30 seconds'
+        );
+
+        const duration = Date.now() - startTime;
+        // eslint-disable-next-line no-console
+        console.log(`Test document saved successfully in ${duration}ms`);
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Save operation failed:', {
+            errorName: error.name,
+            errorMessage: error.message,
+            errorStack: error.stack,
+            mongooseConnectionState: testDoc.db.readyState,
+            modelName: TestModel.modelName,
+        });
+
+        // Try to get more details about the connection
+        if (mongoose.connection && mongoose.connection.db) {
+            try {
+                const admin = mongoose.connection.db.admin();
+                const serverStatus = await admin.serverStatus();
+                // eslint-disable-next-line no-console
+                console.log('DocumentDB Server Status:', {
+                    version: serverStatus.version,
+                    uptime: serverStatus.uptime,
+                    connections: serverStatus.connections,
+                });
+            } catch (statusError) {
+                // eslint-disable-next-line no-console
+                console.error(
+                    'Could not get server status:',
+                    statusError.message
+                );
+            }
+        }
+
+        throw error;
+    }
 
     try {
         const retrievedDoc = await withTimeout(
