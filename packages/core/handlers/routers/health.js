@@ -425,7 +425,9 @@ const detectVpcConfiguration = async () => {
         try {
             await Promise.race([
                 dns.resolve4('www.google.com'),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('timeout')), 2000)
+                ),
             ]);
             results.canResolvePublicDns = true;
         } catch (e) {
@@ -436,10 +438,14 @@ const detectVpcConfiguration = async () => {
         try {
             const https = require('https');
             await new Promise((resolve, reject) => {
-                const req = https.get('https://www.google.com', { timeout: 2000 }, (res) => {
-                    res.destroy();
-                    resolve(true);
-                });
+                const req = https.get(
+                    'https://www.google.com',
+                    { timeout: 2000 },
+                    (res) => {
+                        res.destroy();
+                        resolve(true);
+                    }
+                );
                 req.on('error', reject);
                 req.on('timeout', () => {
                     req.destroy();
@@ -452,7 +458,7 @@ const detectVpcConfiguration = async () => {
         }
 
         // Test 3: Check for VPC endpoints by trying to resolve internal AWS endpoints
-        const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'eu-central-1';
+        const region = process.env.AWS_REGION; // Lambda always provides this
         const vpcEndpointDomains = [
             `com.amazonaws.${region}.kms`,
             `com.amazonaws.vpce.${region}`,
@@ -463,14 +469,17 @@ const detectVpcConfiguration = async () => {
             try {
                 const addresses = await Promise.race([
                     dns.resolve4(domain).catch(() => dns.resolve6(domain)),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1000))
+                    new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('timeout')), 1000)
+                    ),
                 ]);
                 if (addresses && addresses.length > 0) {
                     // Check if it's a private IP (VPC endpoint indicator)
-                    const isPrivateIp = addresses.some(ip =>
-                        ip.startsWith('10.') ||
-                        ip.startsWith('172.') ||
-                        ip.startsWith('192.168.')
+                    const isPrivateIp = addresses.some(
+                        (ip) =>
+                            ip.startsWith('10.') ||
+                            ip.startsWith('172.') ||
+                            ip.startsWith('192.168.')
                     );
                     if (isPrivateIp) {
                         results.vpcEndpoints.push(domain);
@@ -481,9 +490,10 @@ const detectVpcConfiguration = async () => {
             }
         }
 
-        results.isInVpc = !results.hasInternetAccess || results.vpcEndpoints.length > 0;
-        results.canConnectToAws = results.hasInternetAccess || results.vpcEndpoints.length > 0;
-
+        results.isInVpc =
+            !results.hasInternetAccess || results.vpcEndpoints.length > 0;
+        results.canConnectToAws =
+            results.hasInternetAccess || results.vpcEndpoints.length > 0;
     } catch (error) {
         console.error('VPC detection error:', error.message);
     }
@@ -507,7 +517,6 @@ const checkKmsDecryptCapability = async () => {
         hasKmsKeyArn: !!KMS_KEY_ARN,
         kmsKeyArnPrefix: KMS_KEY_ARN?.substring(0, 30),
         awsRegion: process.env.AWS_REGION,
-        awsDefaultRegion: process.env.AWS_DEFAULT_REGION,
         hasDiscoveryKey: !!process.env.AWS_DISCOVERY_KMS_KEY_ID,
     });
 
@@ -518,7 +527,7 @@ const checkKmsDecryptCapability = async () => {
     // Test DNS resolution for KMS endpoint
     try {
         const dns = require('dns').promises;
-        const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'eu-central-1';
+        const region = process.env.AWS_REGION; // Lambda always provides this
         const kmsEndpoint = `kms.${region}.amazonaws.com`;
         console.log('Testing DNS resolution for:', kmsEndpoint);
 
@@ -532,39 +541,43 @@ const checkKmsDecryptCapability = async () => {
         console.log('KMS endpoint resolved to:', addresses);
 
         // Check if resolved to private IP (VPC endpoint)
-        const isVpcEndpoint = addresses.some(ip =>
-            ip.startsWith('10.') ||
-            ip.startsWith('172.') ||
-            ip.startsWith('192.168.')
+        const isVpcEndpoint = addresses.some(
+            (ip) =>
+                ip.startsWith('10.') ||
+                ip.startsWith('172.') ||
+                ip.startsWith('192.168.')
         );
 
         if (isVpcEndpoint) {
-            console.log('KMS VPC Endpoint detected - using private connectivity');
+            console.log(
+                'KMS VPC Endpoint detected - using private connectivity'
+            );
         }
 
         // Test TCP connectivity to KMS (port 443)
         const net = require('net');
-        const testConnection = () => new Promise((resolve) => {
-            const socket = new net.Socket();
-            const connectionTimeout = setTimeout(() => {
-                socket.destroy();
-                resolve({ connected: false, error: 'Connection timeout' });
-            }, 3000);
+        const testConnection = () =>
+            new Promise((resolve) => {
+                const socket = new net.Socket();
+                const connectionTimeout = setTimeout(() => {
+                    socket.destroy();
+                    resolve({ connected: false, error: 'Connection timeout' });
+                }, 3000);
 
-            socket.on('connect', () => {
-                clearTimeout(connectionTimeout);
-                socket.destroy();
-                resolve({ connected: true });
+                socket.on('connect', () => {
+                    clearTimeout(connectionTimeout);
+                    socket.destroy();
+                    resolve({ connected: true });
+                });
+
+                socket.on('error', (err) => {
+                    clearTimeout(connectionTimeout);
+                    resolve({ connected: false, error: err.message });
+                });
+
+                // Try connecting to first resolved address on HTTPS port
+                socket.connect(443, addresses[0]);
             });
-
-            socket.on('error', (err) => {
-                clearTimeout(connectionTimeout);
-                resolve({ connected: false, error: err.message });
-            });
-
-            // Try connecting to first resolved address on HTTPS port
-            socket.connect(443, addresses[0]);
-        });
 
         const connResult = await testConnection();
         console.log('TCP connectivity test:', connResult);
@@ -591,36 +604,36 @@ const checkKmsDecryptCapability = async () => {
     }
 
     try {
-        // Lazy load to avoid cost if unused in some environments
+        // Use AWS SDK v3 for consistency with the rest of the codebase
         // eslint-disable-next-line global-require
-        const AWS = require('aws-sdk');
+        const {
+            KMSClient,
+            GenerateDataKeyCommand,
+            DecryptCommand,
+        } = require('@aws-sdk/client-kms');
 
-        // Ensure AWS SDK has proper configuration
-        const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION;
-        if (!region) {
-            return {
-                status: 'unhealthy',
-                error: 'AWS_REGION not configured',
-                latencyMs: Date.now() - start,
-            };
-        }
+        // Lambda always provides AWS_REGION
+        const region = process.env.AWS_REGION;
 
-        const kms = new AWS.KMS({
+        const kms = new KMSClient({
             region,
-            httpOptions: {
-                timeout: 25000, // 25 second timeout for slow VPC connections
-                connectTimeout: 10000, // 10 second connection timeout
+            requestHandler: {
+                connectionTimeout: 10000, // 10 second connection timeout
+                requestTimeout: 25000, // 25 second timeout for slow VPC connections
             },
-            maxRetries: 0, // No retries on health checks
+            maxAttempts: 1, // No retries on health checks
         });
 
         // Generate a data key (without plaintext logging) then immediately decrypt ciphertext to ensure decrypt perms.
-        const dataKeyResp = await kms
-            .generateDataKey({ KeyId: KMS_KEY_ARN, KeySpec: 'AES_256' })
-            .promise();
-        const decryptResp = await kms
-            .decrypt({ CiphertextBlob: dataKeyResp.CiphertextBlob })
-            .promise();
+        const dataKeyResp = await kms.send(
+            new GenerateDataKeyCommand({
+                KeyId: KMS_KEY_ARN,
+                KeySpec: 'AES_256',
+            })
+        );
+        const decryptResp = await kms.send(
+            new DecryptCommand({ CiphertextBlob: dataKeyResp.CiphertextBlob })
+        );
 
         const success = Boolean(
             dataKeyResp.CiphertextBlob && decryptResp.Plaintext
@@ -674,8 +687,11 @@ router.get('/health/detailed', async (_req, res) => {
         response.checks.network = await Promise.race([
             detectVpcConfiguration(),
             new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Network diagnostics timeout')), 5000)
-            )
+                setTimeout(
+                    () => reject(new Error('Network diagnostics timeout')),
+                    5000
+                )
+            ),
         ]);
         response.checks.network.latencyMs = Date.now() - networkStart;
         console.log('Network diagnostics completed:', response.checks.network);
@@ -693,10 +709,16 @@ router.get('/health/detailed', async (_req, res) => {
         // Wrap the entire KMS check in a timeout (allow up to 25 seconds for slow VPC)
         const kmsCheckPromise = checkKmsDecryptCapability();
         const kmsTimeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('KMS check timeout after 25 seconds')), 25000)
+            setTimeout(
+                () => reject(new Error('KMS check timeout after 25 seconds')),
+                25000
+            )
         );
 
-        response.checks.kms = await Promise.race([kmsCheckPromise, kmsTimeoutPromise]);
+        response.checks.kms = await Promise.race([
+            kmsCheckPromise,
+            kmsTimeoutPromise,
+        ]);
         if (response.checks.kms.status === 'unhealthy') {
             response.status = 'unhealthy';
         }
