@@ -416,11 +416,95 @@ const checkKmsDecryptCapability = async () => {
             reason: 'KMS_KEY_ARN not configured',
         };
     }
+
+    // Log environment for debugging
+    console.log('KMS Check Debug:', {
+        hasKmsKeyArn: !!KMS_KEY_ARN,
+        kmsKeyArnPrefix: KMS_KEY_ARN?.substring(0, 30),
+        awsRegion: process.env.AWS_REGION,
+        awsDefaultRegion: process.env.AWS_DEFAULT_REGION,
+        hasDiscoveryKey: !!process.env.AWS_DISCOVERY_KMS_KEY_ID,
+    });
+
+    // Test DNS resolution for KMS endpoint
+    try {
+        const dns = require('dns').promises;
+        const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'eu-central-1';
+        const kmsEndpoint = `kms.${region}.amazonaws.com`;
+        console.log('Testing DNS resolution for:', kmsEndpoint);
+        const addresses = await dns.resolve4(kmsEndpoint);
+        console.log('KMS endpoint resolved to:', addresses);
+
+        // Test TCP connectivity to KMS (port 443)
+        const net = require('net');
+        const testConnection = () => new Promise((resolve) => {
+            const socket = new net.Socket();
+            const connectionTimeout = setTimeout(() => {
+                socket.destroy();
+                resolve({ connected: false, error: 'Connection timeout' });
+            }, 3000);
+
+            socket.on('connect', () => {
+                clearTimeout(connectionTimeout);
+                socket.destroy();
+                resolve({ connected: true });
+            });
+
+            socket.on('error', (err) => {
+                clearTimeout(connectionTimeout);
+                resolve({ connected: false, error: err.message });
+            });
+
+            // Try connecting to first resolved address on HTTPS port
+            socket.connect(443, addresses[0]);
+        });
+
+        const connResult = await testConnection();
+        console.log('TCP connectivity test:', connResult);
+
+        if (!connResult.connected) {
+            return {
+                status: 'unhealthy',
+                error: `Cannot connect to KMS endpoint: ${connResult.error}`,
+                dnsResolved: true,
+                tcpConnection: false,
+                latencyMs: Date.now() - start,
+            };
+        }
+    } catch (dnsError) {
+        console.error('DNS resolution failed:', dnsError.message);
+        return {
+            status: 'unhealthy',
+            error: `Cannot resolve KMS endpoint: ${dnsError.message}`,
+            dnsResolved: false,
+            latencyMs: Date.now() - start,
+        };
+    }
+
     try {
         // Lazy load to avoid cost if unused in some environments
         // eslint-disable-next-line global-require
         const AWS = require('aws-sdk');
-        const kms = new AWS.KMS();
+
+        // Ensure AWS SDK has proper configuration
+        const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION;
+        if (!region) {
+            return {
+                status: 'unhealthy',
+                error: 'AWS_REGION not configured',
+                latencyMs: Date.now() - start,
+            };
+        }
+
+        const kms = new AWS.KMS({
+            region,
+            httpOptions: {
+                timeout: 5000, // 5 second timeout
+                connectTimeout: 5000,
+            },
+            maxRetries: 1, // Don't retry on health checks
+        });
+
         // Generate a data key (without plaintext logging) then immediately decrypt ciphertext to ensure decrypt perms.
         const dataKeyResp = await kms
             .generateDataKey({ KeyId: KMS_KEY_ARN, KeySpec: 'AES_256' })
