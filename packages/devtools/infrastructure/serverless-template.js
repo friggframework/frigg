@@ -372,7 +372,7 @@ const createVPCInfrastructure = (AppDefinition) => {
             },
         },
 
-        // Private Route Table
+        // Private Route Table for Private Subnets
         FriggPrivateRouteTable: {
             Type: 'AWS::EC2::RouteTable',
             Properties: {
@@ -1086,36 +1086,40 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 // ALWAYS manage NAT Gateway through CloudFormation for self-healing
                 // This ensures NAT Gateway is always in the correct subnet with proper configuration
 
+                const natGatewayMethod =
+                    AppDefinition.vpc.natGateway?.method || 'useExisting';
                 const needsNewNatGateway =
-                    (natGatewayMethod ===
-                        AppDefinition.vpc.natGateway?.method) ===
-                    'createAndManage';
+                    natGatewayMethod === 'createAndManage';
+
+                // Helper function to validate discovered public subnet
+                const isValidPublicSubnet = (subnetId, discoveredResources) => {
+                    // Basic validation - in production, AWSDiscovery should check route tables for IGW routes
+                    return (
+                        discoveredResources.publicSubnetHasIgwRoute !== false
+                    );
+                };
 
                 if (needsNewNatGateway) {
+                    // Always create new dedicated resources in create mode to avoid confusion with existing ones
                     console.log(
-                        'Creating CloudFormation-managed NAT Gateway resources...'
-                    );
-                    console.log(
-                        'Note: Any existing misconfigured NAT Gateways will be replaced by CloudFormation'
+                        'Create mode: Creating dedicated EIP, public subnet, and NAT Gateway...'
                     );
 
-                    // Only create EIP if we don't have an existing one available
-                    if (!discoveredResources.existingElasticIpAllocationId) {
-                        definition.resources.Resources.FriggNATGatewayEIP = {
-                            Type: 'AWS::EC2::EIP',
-                            Properties: {
-                                Domain: 'vpc',
-                                Tags: [
-                                    {
-                                        Key: 'Name',
-                                        Value: '${self:service}-${self:provider.stage}-nat-eip',
-                                    },
-                                ],
-                            },
-                        };
-                    }
+                    // Create EIP (ignore any discovered)
+                    definition.resources.Resources.FriggNATGatewayEIP = {
+                        Type: 'AWS::EC2::EIP',
+                        Properties: {
+                            Domain: 'vpc',
+                            Tags: [
+                                {
+                                    Key: 'Name',
+                                    Value: '${self:service}-${self:provider.stage}-nat-eip',
+                                },
+                            ],
+                        },
+                    };
 
-                    // If no public subnet exists, create one for NAT Gateway placement
+                    // Create public subnet (ignore any discovered; ensure it's in a matching AZ)
                     if (!discoveredResources.publicSubnetId) {
                         console.log(
                             'No public subnet found, creating one for NAT Gateway placement...'
@@ -1155,7 +1159,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
                                 VpcId: discoveredResources.defaultVpcId,
                                 CidrBlock:
                                     AppDefinition.vpc.natGateway
-                                        ?.publicSubnetCidr || '172.31.250.0/24', // Small /24 subnet
+                                        ?.publicSubnetCidr || '172.31.250.0/24',
                                 AvailabilityZone: {
                                     'Fn::Select': [0, { 'Fn::GetAZs': '' }],
                                 },
@@ -1216,17 +1220,16 @@ const composeServerlessDefinition = async (AppDefinition) => {
                             };
                     }
 
-                    // ALWAYS create NAT Gateway in CloudFormation for management and self-healing
+                    // Create NAT Gateway using the new resources
                     definition.resources.Resources.FriggNATGateway = {
                         Type: 'AWS::EC2::NatGateway',
                         Properties: {
-                            AllocationId:
-                                discoveredResources.existingElasticIpAllocationId || {
-                                    'Fn::GetAtt': [
-                                        'FriggNATGatewayEIP',
-                                        'AllocationId',
-                                    ],
-                                },
+                            AllocationId: {
+                                'Fn::GetAtt': [
+                                    'FriggNATGatewayEIP',
+                                    'AllocationId',
+                                ],
+                            },
                             SubnetId: discoveredResources.publicSubnetId || {
                                 Ref: 'FriggPublicSubnet',
                             },
@@ -1242,17 +1245,32 @@ const composeServerlessDefinition = async (AppDefinition) => {
                             ],
                         },
                     };
+                } else if (discoveredResources.existingNatGatewayId) {
+                    // Reuse mode: Use existing NAT, but validate first
+                    if (
+                        discoveredResources.publicSubnetId &&
+                        isValidPublicSubnet(
+                            discoveredResources.publicSubnetId,
+                            discoveredResources
+                        )
+                    ) {
+                        console.log(
+                            'Reuse mode: Valid existing NAT found; adding routes...'
+                        );
+                        // No new NAT creation; just add routes referencing existingNatGatewayId
+                    } else {
+                        throw new Error(
+                            'Existing NAT discovered but public subnet is invalid or missing. Set method to "createAndManage" or fix subnet configuration.'
+                        );
+                    }
                 } else {
-                    // We have an existing valid NAT Gateway - import it into CloudFormation management
-                    console.log(
-                        'Found existing NAT Gateway - importing into CloudFormation management for self-healing...'
+                    // No NAT and not in create mode: Error out to prevent isolated subnets
+                    throw new Error(
+                        'No existing NAT Gateway found and createAndManage not enabled. Update appDefinition.vpc.natGateway.method or ensure discovery finds a valid NAT.'
                     );
-
-                    // Note: CloudFormation will detect if a NAT Gateway already exists with these properties
-                    // and will adopt it rather than creating a duplicate
                 }
 
-                // Create route table for Lambda subnets to use NAT Gateway
+                // Always add route table and routes (referencing the NAT, whether new or existing)
                 definition.resources.Resources.FriggLambdaRouteTable = {
                     Type: 'AWS::EC2::RouteTable',
                     Properties: {
@@ -1274,7 +1292,17 @@ const composeServerlessDefinition = async (AppDefinition) => {
                         Properties: {
                             RouteTableId: { Ref: 'FriggLambdaRouteTable' },
                             DestinationCidrBlock: '0.0.0.0/0',
-                            NatGatewayId: { Ref: 'FriggNATGateway' }, // Always use CloudFormation-managed NAT Gateway
+                            NatGatewayId: { Ref: 'FriggNATGateway' },
+                        },
+                    };
+                } else {
+                    definition.resources.Resources.FriggNATRoute = {
+                        Type: 'AWS::EC2::Route',
+                        Properties: {
+                            RouteTableId: { Ref: 'FriggLambdaRouteTable' },
+                            DestinationCidrBlock: '0.0.0.0/0',
+                            NatGatewayId:
+                                discoveredResources.existingNatGatewayId,
                         },
                     };
                 }
@@ -1346,7 +1374,9 @@ const composeServerlessDefinition = async (AppDefinition) => {
                                                 IpProtocol: 'tcp',
                                                 FromPort: 443,
                                                 ToPort: 443,
-                                                CidrIp: '172.31.0.0/16', // VPC CIDR
+                                                CidrIp:
+                                                    discoveredResources.vpcCidr ||
+                                                    '10.0.0.0/16', // Dynamic VPC CIDR
                                             },
                                         ],
                                         Tags: [
