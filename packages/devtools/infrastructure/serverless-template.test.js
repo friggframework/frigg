@@ -167,6 +167,139 @@ describe('composeServerlessDefinition', () => {
             expect(result.provider.vpc.subnetIds).toEqual(['subnet-custom1', 'subnet-custom2']);
         });
 
+        // Test all 9 combinations of VPC and Subnet management modes
+        it('should handle create-new VPC with create subnets', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'create-new',
+                    subnets: { management: 'create' }
+                },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.resources.Resources.FriggVPC).toBeDefined();
+            expect(result.resources.Resources.FriggPrivateSubnet1).toBeDefined();
+            expect(result.resources.Resources.FriggPrivateSubnet2).toBeDefined();
+            expect(result.provider.vpc.subnetIds).toEqual([
+                { Ref: 'FriggPrivateSubnet1' },
+                { Ref: 'FriggPrivateSubnet2' }
+            ]);
+        });
+
+        it('should handle discover VPC with create subnets', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'discover',
+                    subnets: { management: 'create' }
+                },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.resources.Resources.FriggVPC).toBeUndefined();
+            expect(result.resources.Resources.FriggPrivateSubnet1).toBeDefined();
+            expect(result.resources.Resources.FriggPrivateSubnet2).toBeDefined();
+            expect(result.resources.Resources.FriggPrivateSubnet1.Properties.VpcId).toBe('vpc-123456');
+        });
+
+        it('should handle use-existing VPC with create subnets', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'use-existing',
+                    vpcId: 'vpc-existing123',
+                    subnets: { management: 'create' }
+                },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.resources.Resources.FriggVPC).toBeUndefined();
+            expect(result.resources.Resources.FriggPrivateSubnet1).toBeDefined();
+            expect(result.resources.Resources.FriggPrivateSubnet2).toBeDefined();
+            expect(result.resources.Resources.FriggPrivateSubnet1.Properties.VpcId).toBe('vpc-existing123');
+        });
+
+        it('should handle use-existing VPC with use-existing subnets', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'use-existing',
+                    vpcId: 'vpc-custom',
+                    subnets: {
+                        management: 'use-existing',
+                        ids: ['subnet-explicit1', 'subnet-explicit2']
+                    }
+                },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.resources.Resources.FriggPrivateSubnet1).toBeUndefined();
+            expect(result.resources.Resources.FriggPrivateSubnet2).toBeUndefined();
+            expect(result.provider.vpc.subnetIds).toEqual(['subnet-explicit1', 'subnet-explicit2']);
+        });
+
+        it('should use Fn::Cidr for subnet CIDR blocks in new VPC to avoid conflicts', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'create-new',
+                    subnets: { management: 'create' }
+                },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            // Verify new VPC uses 10.0.0.0/16
+            expect(result.resources.Resources.FriggVPC.Properties.CidrBlock).toBe('10.0.0.0/16');
+
+            // Verify subnets use Fn::Cidr to generate non-conflicting CIDRs
+            const subnet1Cidr = result.resources.Resources.FriggPrivateSubnet1.Properties.CidrBlock;
+            const subnet2Cidr = result.resources.Resources.FriggPrivateSubnet2.Properties.CidrBlock;
+            const publicSubnetCidr = result.resources.Resources.FriggPublicSubnet.Properties.CidrBlock;
+
+            // Check that CIDRs are generated using Fn::Cidr and Fn::Select
+            expect(subnet1Cidr).toHaveProperty('Fn::Select');
+            expect(subnet1Cidr['Fn::Select'][0]).toBe(0);
+            expect(subnet2Cidr).toHaveProperty('Fn::Select');
+            expect(subnet2Cidr['Fn::Select'][0]).toBe(1);
+            expect(publicSubnetCidr).toHaveProperty('Fn::Select');
+            expect(publicSubnetCidr['Fn::Select'][0]).toBe(2);
+        });
+
+        it('should create route tables for subnets even without NAT Gateway management', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'create-new',
+                    subnets: { management: 'create' },
+                    natGateway: { management: 'discover' }
+                },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            // Verify route tables are created
+            expect(result.resources.Resources.FriggPublicRouteTable).toBeDefined();
+            expect(result.resources.Resources.FriggPublicRoute).toBeDefined();
+            expect(result.resources.Resources.FriggLambdaRouteTable).toBeDefined();
+
+            // Verify subnet associations
+            expect(result.resources.Resources.FriggPublicSubnetRouteTableAssociation).toBeDefined();
+            expect(result.resources.Resources.FriggPrivateSubnet1RouteTableAssociation).toBeDefined();
+            expect(result.resources.Resources.FriggPrivateSubnet2RouteTableAssociation).toBeDefined();
+        });
+
         it('should throw error when use-existing mode without vpcId', async () => {
             const appDefinition = {
                 vpc: {

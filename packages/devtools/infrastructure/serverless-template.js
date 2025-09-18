@@ -1282,284 +1282,370 @@ const composeServerlessDefinition = async (AppDefinition) => {
             }
         }
 
-        // Determine VPC management mode
-        const vpcManagement = AppDefinition.vpc.management || 'discover'; // Default to 'discover' for backward compatibility
+        // STEP 1: Determine VPC (create, discover, or use existing)
+        const vpcManagement = AppDefinition.vpc.management || 'discover';
+        let vpcId = null;
+        let vpcConfig = {
+            securityGroupIds: [],
+            subnetIds: []
+        };
 
-        // Handle VPC based on management mode
+        console.log(`VPC Management Mode: ${vpcManagement}`);
+
+        // First, establish VPC context
         if (vpcManagement === 'create-new') {
-            // Option 1: Create new VPC infrastructure
-            const vpcConfig = {};
-
-            if (AppDefinition.vpc.securityGroupIds) {
-                // User provided custom security groups
-                vpcConfig.securityGroupIds = AppDefinition.vpc.securityGroupIds;
-            } else {
-                // Use auto-created security group
-                vpcConfig.securityGroupIds = [
-                    { Ref: 'FriggLambdaSecurityGroup' },
-                ];
-            }
-
-            if (AppDefinition.vpc.subnets?.ids?.length > 0) {
-                // User provided custom subnets
-                vpcConfig.subnetIds = AppDefinition.vpc.subnets.ids;
-            } else {
-                // Use auto-created private subnets
-                vpcConfig.subnetIds = [
-                    { Ref: 'FriggPrivateSubnet1' },
-                    { Ref: 'FriggPrivateSubnet2' },
-                ];
-            }
-
-            // Set VPC config for Lambda functions
-            definition.provider.vpc = vpcConfig;
-
-            // Add VPC infrastructure resources to CloudFormation
+            // Create new VPC infrastructure
             const vpcResources = createVPCInfrastructure(AppDefinition);
             Object.assign(definition.resources.Resources, vpcResources);
+            vpcId = { Ref: 'FriggVPC' }; // Reference to created VPC
+
+            // Default security group for new VPC
+            vpcConfig.securityGroupIds = AppDefinition.vpc.securityGroupIds || [
+                { Ref: 'FriggLambdaSecurityGroup' }
+            ];
         } else if (vpcManagement === 'use-existing') {
-            // Option 2: Use explicitly provided VPC resources
+            // Use explicitly provided VPC
             if (!AppDefinition.vpc.vpcId) {
                 throw new Error('VPC management is set to "use-existing" but no vpcId was provided');
             }
-
-            const vpcConfig = {
-                securityGroupIds: AppDefinition.vpc.securityGroupIds || [],
-                subnetIds: AppDefinition.vpc.subnets?.ids || [],
-            };
-
-            if (vpcConfig.subnetIds.length < 2) {
-                throw new Error('VPC management is set to "use-existing" but less than 2 subnet IDs were provided');
-            }
-
-            definition.provider.vpc = vpcConfig;
-
-            // Handle NAT Gateway for use-existing mode
-            if (AppDefinition.vpc.natGateway?.management === 'createAndManage') {
-                // Will create NAT Gateway resources below
-            } else if (AppDefinition.vpc.natGateway?.management === 'useExisting') {
-                if (!AppDefinition.vpc.natGateway.id) {
-                    throw new Error('NAT Gateway management is set to "useExisting" but no NAT Gateway ID was provided');
-                }
-                // Use the provided NAT Gateway ID
-            }
+            vpcId = AppDefinition.vpc.vpcId;
+            // Use provided security groups or try to discover default security group for the VPC
+            vpcConfig.securityGroupIds = AppDefinition.vpc.securityGroupIds ||
+                (discoveredResources.defaultSecurityGroupId ? [discoveredResources.defaultSecurityGroupId] : []);
         } else {
-            // Option 3: Use AWS Discovery (default behavior for 'discover' mode)
-            // Check if we discovered a VPC
+            // Discover VPC
             if (!discoveredResources.defaultVpcId) {
                 throw new Error(
                     'VPC discovery failed: No VPC found. ' +
                     'Either set vpc.management to "create-new" or provide vpc.vpcId with "use-existing".'
                 );
             }
+            vpcId = discoveredResources.defaultVpcId;
+            vpcConfig.securityGroupIds = AppDefinition.vpc.securityGroupIds ||
+                (discoveredResources.defaultSecurityGroupId ? [discoveredResources.defaultSecurityGroupId] : []);
+        }
 
-            // Handle subnet management independently
-            const subnetManagement = AppDefinition.vpc.subnets?.management || 'discover';
-            let vpcConfig = {
-                securityGroupIds:
-                    AppDefinition.vpc.securityGroupIds ||
-                    (discoveredResources.defaultSecurityGroupId
-                        ? [discoveredResources.defaultSecurityGroupId]
-                        : []),
-                subnetIds: []
-            };
+        // STEP 2: Handle Subnet Management (independent of VPC management)
+        // When creating a new VPC, default to creating subnets unless explicitly specified
+        const defaultSubnetManagement = vpcManagement === 'create-new' ? 'create' : 'discover';
+        const subnetManagement = AppDefinition.vpc.subnets?.management || defaultSubnetManagement;
+        console.log(`Subnet Management Mode: ${subnetManagement}`);
 
-            // Subnet decision tree
-            if (subnetManagement === 'create') {
-                // Create new subnets (2 private, 1 public) in discovered VPC
-                console.log('Creating new subnets in discovered VPC...');
+        // Ensure we have a valid VPC ID for subnet operations
+        const effectiveVpcId = vpcId || discoveredResources.defaultVpcId;
+        if (!effectiveVpcId) {
+            throw new Error('Cannot manage subnets without a VPC ID');
+        }
 
-                // Create private subnets
-                definition.resources.Resources.FriggPrivateSubnet1 = {
-                    Type: 'AWS::EC2::Subnet',
-                    Properties: {
-                        VpcId: discoveredResources.defaultVpcId,
-                        CidrBlock: '172.31.240.0/24',
-                        AvailabilityZone: { 'Fn::Select': [0, { 'Fn::GetAZs': '' }] },
-                        Tags: [
-                            { Key: 'Name', Value: '${self:service}-${self:provider.stage}-private-1' },
-                            { Key: 'Type', Value: 'Private' },
-                            { Key: 'ManagedBy', Value: 'Frigg' }
-                        ]
-                    }
+        // Subnet decision tree
+        if (subnetManagement === 'create') {
+            // Create new subnets in the VPC (either new or existing)
+            console.log('Creating new subnets...');
+
+            // Determine VpcId based on VPC management mode
+            const subnetVpcId = vpcManagement === 'create-new' ? { Ref: 'FriggVPC' } : effectiveVpcId;
+
+            // Generate CIDR blocks based on VPC type
+            // For new VPC: use Fn::Cidr to generate from 10.0.0.0/16
+            // For existing VPC: use safer high-range /24 blocks less likely to conflict
+            let subnet1Cidr, subnet2Cidr, publicSubnetCidr;
+
+            if (vpcManagement === 'create-new') {
+                // Use Fn::Cidr to generate 3 /24 subnets from the VPC CIDR
+                // This creates [10.0.0.0/24, 10.0.1.0/24, 10.0.2.0/24]
+                const generatedCidrs = {
+                    'Fn::Cidr': ['10.0.0.0/16', 3, 8] // 3 subnets with /24 (256-8=248 bits)
                 };
-
-                definition.resources.Resources.FriggPrivateSubnet2 = {
-                    Type: 'AWS::EC2::Subnet',
-                    Properties: {
-                        VpcId: discoveredResources.defaultVpcId,
-                        CidrBlock: '172.31.241.0/24',
-                        AvailabilityZone: { 'Fn::Select': [1, { 'Fn::GetAZs': '' }] },
-                        Tags: [
-                            { Key: 'Name', Value: '${self:service}-${self:provider.stage}-private-2' },
-                            { Key: 'Type', Value: 'Private' },
-                            { Key: 'ManagedBy', Value: 'Frigg' }
-                        ]
-                    }
-                };
-
-                // Create public subnet for NAT
-                definition.resources.Resources.FriggPublicSubnet = {
-                    Type: 'AWS::EC2::Subnet',
-                    Properties: {
-                        VpcId: discoveredResources.defaultVpcId,
-                        CidrBlock: '172.31.250.0/24',
-                        MapPublicIpOnLaunch: true,
-                        AvailabilityZone: { 'Fn::Select': [0, { 'Fn::GetAZs': '' }] },
-                        Tags: [
-                            { Key: 'Name', Value: '${self:service}-${self:provider.stage}-public' },
-                            { Key: 'Type', Value: 'Public' },
-                            { Key: 'ManagedBy', Value: 'Frigg' }
-                        ]
-                    }
-                };
-
-                vpcConfig.subnetIds = [
-                    { Ref: 'FriggPrivateSubnet1' },
-                    { Ref: 'FriggPrivateSubnet2' }
-                ];
-            } else if (subnetManagement === 'use-existing') {
-                // Use explicitly provided subnet IDs
-                if (!AppDefinition.vpc.subnets?.ids || AppDefinition.vpc.subnets.ids.length < 2) {
-                    throw new Error(
-                        'Subnet management is "use-existing" but less than 2 subnet IDs provided. ' +
-                        'Provide at least 2 subnet IDs in vpc.subnets.ids.'
-                    );
-                }
-                vpcConfig.subnetIds = AppDefinition.vpc.subnets.ids;
+                subnet1Cidr = { 'Fn::Select': [0, generatedCidrs] }; // 10.0.0.0/24
+                subnet2Cidr = { 'Fn::Select': [1, generatedCidrs] }; // 10.0.1.0/24
+                publicSubnetCidr = { 'Fn::Select': [2, generatedCidrs] }; // 10.0.2.0/24
             } else {
-                // Discover mode (default)
-                vpcConfig.subnetIds =
-                    AppDefinition.vpc.subnets?.ids?.length > 0
-                        ? AppDefinition.vpc.subnets.ids
-                        : (discoveredResources.privateSubnetId1 &&
-                            discoveredResources.privateSubnetId2
-                            ? [
-                                discoveredResources.privateSubnetId1,
-                                discoveredResources.privateSubnetId2,
-                            ]
-                            : []);
-
-                if (vpcConfig.subnetIds.length < 2) {
-                    if (AppDefinition.vpc.selfHeal) {
-                        console.log('No subnets found but self-heal enabled - creating minimal subnet setup');
-                        // Fall back to creating subnets
-                        subnetManagement = 'create';
-                        // Recursion would be complex here, so just set flag
-                        discoveredResources.createSubnets = true;
-                    } else {
-                        throw new Error(
-                            'No subnets discovered and subnets.management is "discover". ' +
-                            'Either enable vpc.selfHeal, set subnets.management to "create", or provide subnet IDs.'
-                        );
-                    }
-                }
+                // For existing VPCs, use high-range /24 blocks less likely to conflict
+                // These are in the 172.31.x.x range for default VPC or high ranges for custom VPCs
+                subnet1Cidr = '172.31.240.0/24';
+                subnet2Cidr = '172.31.241.0/24';
+                publicSubnetCidr = '172.31.250.0/24';
             }
 
-            // Set VPC config for Lambda functions only if we have valid subnet IDs
-            if (
-                vpcConfig.subnetIds.length >= 2 &&
-                vpcConfig.securityGroupIds.length > 0
-            ) {
-                definition.provider.vpc = vpcConfig;
+            // Create private subnets
+            definition.resources.Resources.FriggPrivateSubnet1 = {
+                Type: 'AWS::EC2::Subnet',
+                Properties: {
+                    VpcId: subnetVpcId,
+                    CidrBlock: subnet1Cidr,
+                    AvailabilityZone: { 'Fn::Select': [0, { 'Fn::GetAZs': '' }] },
+                    Tags: [
+                        { Key: 'Name', Value: '${self:service}-${self:provider.stage}-private-1' },
+                        { Key: 'Type', Value: 'Private' },
+                        { Key: 'ManagedBy', Value: 'Frigg' }
+                    ]
+                }
+            };
 
-                // ALWAYS manage NAT Gateway through CloudFormation for self-healing
-                // This ensures NAT Gateway is always in the correct subnet with proper configuration
+            definition.resources.Resources.FriggPrivateSubnet2 = {
+                Type: 'AWS::EC2::Subnet',
+                Properties: {
+                    VpcId: subnetVpcId,
+                    CidrBlock: subnet2Cidr,
+                    AvailabilityZone: { 'Fn::Select': [1, { 'Fn::GetAZs': '' }] },
+                    Tags: [
+                        { Key: 'Name', Value: '${self:service}-${self:provider.stage}-private-2' },
+                        { Key: 'Type', Value: 'Private' },
+                        { Key: 'ManagedBy', Value: 'Frigg' }
+                    ]
+                }
+            };
 
-                console.log('AppDefinition.vpc.natGateway', AppDefinition.vpc.natGateway);
-                const natGatewayManagement =
-                    AppDefinition.vpc.natGateway?.management || 'discover';
-                console.log('natGatewayManagement', natGatewayManagement);
-                let needsNewNatGateway =
-                    natGatewayManagement === 'createAndManage' ||
-                    discoveredResources.needsNewNatGateway === true; // Use healing flag
+            // Create public subnet for NAT
+            definition.resources.Resources.FriggPublicSubnet = {
+                Type: 'AWS::EC2::Subnet',
+                Properties: {
+                    VpcId: subnetVpcId,
+                    CidrBlock: publicSubnetCidr,
+                    MapPublicIpOnLaunch: true,
+                    AvailabilityZone: { 'Fn::Select': [0, { 'Fn::GetAZs': '' }] },
+                    Tags: [
+                        { Key: 'Name', Value: '${self:service}-${self:provider.stage}-public' },
+                        { Key: 'Type', Value: 'Public' },
+                        { Key: 'ManagedBy', Value: 'Frigg' }
+                    ]
+                }
+            };
 
-                console.log('needsNewNatGateway', needsNewNatGateway);
+            vpcConfig.subnetIds = [
+                { Ref: 'FriggPrivateSubnet1' },
+                { Ref: 'FriggPrivateSubnet2' }
+            ];
 
-                // Remove unused helper function - validation is done in discovery
-
-                // Variables to track NAT Gateway and EIP reuse
-                let reuseExistingNatGateway = false;
-                let useExistingEip = false;
-
-                if (needsNewNatGateway) {
-                    // Always create new dedicated resources in create mode to avoid confusion with existing ones
-                    console.log(
-                        'Create mode: Creating dedicated EIP, public subnet, and NAT Gateway...'
-                    );
-
-                    // Check if we can reuse existing NAT Gateway and EIP to avoid conflicts
-
-                    // Check if we have a Frigg-managed NAT Gateway that we can reuse
-                    if (discoveredResources.existingNatGatewayId &&
-                        discoveredResources.existingElasticIpAllocationId) {
-                        // We have both NAT Gateway and EIP
-                        console.log('Found existing Frigg-managed NAT Gateway and EIP');
-
-                        // CRITICAL: Check if NAT Gateway is in correct (public) subnet
-                        if (!discoveredResources.natGatewayInPrivateSubnet) {
-                            // NAT Gateway is properly configured, reuse it
-                            console.log('✅ Existing NAT Gateway is in PUBLIC subnet, will reuse it');
-                            reuseExistingNatGateway = true;
-                        } else {
-                            // NAT Gateway is in PRIVATE subnet - NEVER reuse it
-                            console.log('❌ NAT Gateway is in PRIVATE subnet - MUST create new one in PUBLIC subnet');
-
-                            if (AppDefinition.vpc.selfHeal) {
-                                console.log('Self-heal enabled: Creating new NAT Gateway in PUBLIC subnet');
-                                // Force creation of new NAT in public subnet
-                                reuseExistingNatGateway = false;
-                                // Cannot reuse the EIP since it's associated with wrong NAT
-                                useExistingEip = false;
-                                // Mark for cleanup recommendations
-                                discoveredResources.needsCleanup = true;
-                            } else {
-                                throw new Error(
-                                    'CRITICAL: NAT Gateway is in PRIVATE subnet (will not work!). ' +
-                                    'Enable vpc.selfHeal to auto-fix or set natGateway.management to "createAndManage".'
-                                );
+            // IMPORTANT: Create route tables even without NAT Gateway management
+            // Otherwise subnets won't have proper routing
+            if (!AppDefinition.vpc.natGateway || AppDefinition.vpc.natGateway.management === 'discover') {
+                // Need to ensure public subnet has IGW route
+                if (vpcManagement === 'create-new' || !discoveredResources.internetGatewayId) {
+                    // Create or reference IGW for public subnet
+                    if (!definition.resources.Resources.FriggInternetGateway) {
+                        definition.resources.Resources.FriggInternetGateway = {
+                            Type: 'AWS::EC2::InternetGateway',
+                            Properties: {
+                                Tags: [
+                                    { Key: 'Name', Value: '${self:service}-${self:provider.stage}-igw' },
+                                    { Key: 'ManagedBy', Value: 'Frigg' }
+                                ]
                             }
-                        }
-                    } else if (discoveredResources.existingElasticIpAllocationId &&
-                               !discoveredResources.existingNatGatewayId) {
-                        // We have an EIP but no NAT Gateway - can reuse the EIP
-                        console.log('Found orphaned EIP, will reuse it for new NAT Gateway in PUBLIC subnet');
-                        useExistingEip = true;
-                    }
+                        };
 
-                    // Skip all resource creation if reusing existing NAT Gateway
-                    if (reuseExistingNatGateway) {
-                        console.log('Reusing existing NAT Gateway - skipping resource creation');
-                        // The existing NAT Gateway will be used for routing
-                        // No new resources need to be created
+                        definition.resources.Resources.FriggIGWAttachment = {
+                            Type: 'AWS::EC2::VPCGatewayAttachment',
+                            Properties: {
+                                VpcId: subnetVpcId,
+                                InternetGatewayId: { Ref: 'FriggInternetGateway' }
+                            }
+                        };
+                    }
+                }
+
+                // Create public route table with IGW route
+                definition.resources.Resources.FriggPublicRouteTable = {
+                    Type: 'AWS::EC2::RouteTable',
+                    Properties: {
+                        VpcId: subnetVpcId,
+                        Tags: [
+                            { Key: 'Name', Value: '${self:service}-${self:provider.stage}-public-rt' },
+                            { Key: 'ManagedBy', Value: 'Frigg' }
+                        ]
+                    }
+                };
+
+                definition.resources.Resources.FriggPublicRoute = {
+                    Type: 'AWS::EC2::Route',
+                    DependsOn: vpcManagement === 'create-new' ? 'FriggIGWAttachment' : undefined,
+                    Properties: {
+                        RouteTableId: { Ref: 'FriggPublicRouteTable' },
+                        DestinationCidrBlock: '0.0.0.0/0',
+                        GatewayId: discoveredResources.internetGatewayId || { Ref: 'FriggInternetGateway' }
+                    }
+                };
+
+                // Associate public subnet with public route table
+                definition.resources.Resources.FriggPublicSubnetRouteTableAssociation = {
+                    Type: 'AWS::EC2::SubnetRouteTableAssociation',
+                    Properties: {
+                        SubnetId: { Ref: 'FriggPublicSubnet' },
+                        RouteTableId: { Ref: 'FriggPublicRouteTable' }
+                    }
+                };
+
+                // Create private route table for Lambda subnets
+                definition.resources.Resources.FriggLambdaRouteTable = {
+                    Type: 'AWS::EC2::RouteTable',
+                    Properties: {
+                        VpcId: subnetVpcId,
+                        Tags: [
+                            { Key: 'Name', Value: '${self:service}-${self:provider.stage}-lambda-rt' },
+                            { Key: 'ManagedBy', Value: 'Frigg' }
+                        ]
+                    }
+                };
+
+                // Associate private subnets with route table
+                definition.resources.Resources.FriggPrivateSubnet1RouteTableAssociation = {
+                    Type: 'AWS::EC2::SubnetRouteTableAssociation',
+                    Properties: {
+                        SubnetId: { Ref: 'FriggPrivateSubnet1' },
+                        RouteTableId: { Ref: 'FriggLambdaRouteTable' }
+                    }
+                };
+
+                definition.resources.Resources.FriggPrivateSubnet2RouteTableAssociation = {
+                    Type: 'AWS::EC2::SubnetRouteTableAssociation',
+                    Properties: {
+                        SubnetId: { Ref: 'FriggPrivateSubnet2' },
+                        RouteTableId: { Ref: 'FriggLambdaRouteTable' }
+                    }
+                };
+            }
+        } else if (subnetManagement === 'use-existing') {
+            // Use explicitly provided subnet IDs
+            if (!AppDefinition.vpc.subnets?.ids || AppDefinition.vpc.subnets.ids.length < 2) {
+                throw new Error(
+                    'Subnet management is "use-existing" but less than 2 subnet IDs provided. ' +
+                    'Provide at least 2 subnet IDs in vpc.subnets.ids.'
+                );
+            }
+            vpcConfig.subnetIds = AppDefinition.vpc.subnets.ids;
+        } else {
+            // Discover mode (default)
+            vpcConfig.subnetIds =
+                AppDefinition.vpc.subnets?.ids?.length > 0
+                    ? AppDefinition.vpc.subnets.ids
+                    : (discoveredResources.privateSubnetId1 &&
+                        discoveredResources.privateSubnetId2
+                        ? [
+                            discoveredResources.privateSubnetId1,
+                            discoveredResources.privateSubnetId2,
+                        ]
+                        : []);
+
+            if (vpcConfig.subnetIds.length < 2) {
+                if (AppDefinition.vpc.selfHeal) {
+                    console.log('No subnets found but self-heal enabled - creating minimal subnet setup');
+                    // Fall back to creating subnets
+                    subnetManagement = 'create';
+                    // Recursion would be complex here, so just set flag
+                    discoveredResources.createSubnets = true;
+                } else {
+                    throw new Error(
+                        'No subnets discovered and subnets.management is "discover". ' +
+                        'Either enable vpc.selfHeal, set subnets.management to "create", or provide subnet IDs.'
+                    );
+                }
+            }
+        }
+
+        // Set VPC config for Lambda functions only if we have valid subnet IDs
+        if (
+            vpcConfig.subnetIds.length >= 2 &&
+            vpcConfig.securityGroupIds.length > 0
+        ) {
+            definition.provider.vpc = vpcConfig;
+
+            // ALWAYS manage NAT Gateway through CloudFormation for self-healing
+            // This ensures NAT Gateway is always in the correct subnet with proper configuration
+
+            console.log('AppDefinition.vpc.natGateway', AppDefinition.vpc.natGateway);
+            const natGatewayManagement =
+                AppDefinition.vpc.natGateway?.management || 'discover';
+            console.log('natGatewayManagement', natGatewayManagement);
+            let needsNewNatGateway =
+                natGatewayManagement === 'createAndManage' ||
+                discoveredResources.needsNewNatGateway === true; // Use healing flag
+
+            console.log('needsNewNatGateway', needsNewNatGateway);
+
+            // Remove unused helper function - validation is done in discovery
+
+            // Variables to track NAT Gateway and EIP reuse
+            let reuseExistingNatGateway = false;
+            let useExistingEip = false;
+
+            if (needsNewNatGateway) {
+                // Always create new dedicated resources in create mode to avoid confusion with existing ones
+                console.log(
+                    'Create mode: Creating dedicated EIP, public subnet, and NAT Gateway...'
+                );
+
+                // Check if we can reuse existing NAT Gateway and EIP to avoid conflicts
+
+                // Check if we have a Frigg-managed NAT Gateway that we can reuse
+                if (discoveredResources.existingNatGatewayId &&
+                    discoveredResources.existingElasticIpAllocationId) {
+                    // We have both NAT Gateway and EIP
+                    console.log('Found existing Frigg-managed NAT Gateway and EIP');
+
+                    // CRITICAL: Check if NAT Gateway is in correct (public) subnet
+                    if (!discoveredResources.natGatewayInPrivateSubnet) {
+                        // NAT Gateway is properly configured, reuse it
+                        console.log('✅ Existing NAT Gateway is in PUBLIC subnet, will reuse it');
+                        reuseExistingNatGateway = true;
                     } else {
-                        // Only create EIP if we're not reusing an existing one
-                        if (!useExistingEip) {
-                            definition.resources.Resources.FriggNATGatewayEIP = {
-                                Type: 'AWS::EC2::EIP',
-                                Properties: {
-                                    Domain: 'vpc',
-                                    Tags: [
-                                        {
-                                            Key: 'Name',
-                                            Value: '${self:service}-${self:provider.stage}-nat-eip',
-                                        },
-                                        {
-                                            Key: 'ManagedBy',
-                                            Value: 'Frigg',
-                                        },
-                                        {
-                                            Key: 'Service',
-                                            Value: '${self:service}',
-                                        },
-                                        {
-                                            Key: 'Stage',
-                                            Value: '${self:provider.stage}',
-                                        },
-                                    ],
-                                },
-                            };
+                        // NAT Gateway is in PRIVATE subnet - NEVER reuse it
+                        console.log('❌ NAT Gateway is in PRIVATE subnet - MUST create new one in PUBLIC subnet');
+
+                        if (AppDefinition.vpc.selfHeal) {
+                            console.log('Self-heal enabled: Creating new NAT Gateway in PUBLIC subnet');
+                            // Force creation of new NAT in public subnet
+                            reuseExistingNatGateway = false;
+                            // Cannot reuse the EIP since it's associated with wrong NAT
+                            useExistingEip = false;
+                            // Mark for cleanup recommendations
+                            discoveredResources.needsCleanup = true;
+                        } else {
+                            throw new Error(
+                                'CRITICAL: NAT Gateway is in PRIVATE subnet (will not work!). ' +
+                                'Enable vpc.selfHeal to auto-fix or set natGateway.management to "createAndManage".'
+                            );
                         }
+                    }
+                } else if (discoveredResources.existingElasticIpAllocationId &&
+                           !discoveredResources.existingNatGatewayId) {
+                    // We have an EIP but no NAT Gateway - can reuse the EIP
+                    console.log('Found orphaned EIP, will reuse it for new NAT Gateway in PUBLIC subnet');
+                    useExistingEip = true;
+                }
+
+                // Skip all resource creation if reusing existing NAT Gateway
+                if (reuseExistingNatGateway) {
+                    console.log('Reusing existing NAT Gateway - skipping resource creation');
+                    // The existing NAT Gateway will be used for routing
+                    // No new resources need to be created
+                } else {
+                    // Only create EIP if we're not reusing an existing one
+                    if (!useExistingEip) {
+                        definition.resources.Resources.FriggNATGatewayEIP = {
+                            Type: 'AWS::EC2::EIP',
+                            Properties: {
+                                Domain: 'vpc',
+                                Tags: [
+                                    {
+                                        Key: 'Name',
+                                        Value: '${self:service}-${self:provider.stage}-nat-eip',
+                                    },
+                                    {
+                                        Key: 'ManagedBy',
+                                        Value: 'Frigg',
+                                    },
+                                    {
+                                        Key: 'Service',
+                                        Value: '${self:service}',
+                                    },
+                                    {
+                                        Key: 'Stage',
+                                        Value: '${self:provider.stage}',
+                                    },
+                                ],
+                            },
+                        };
+                    }
 
                     // Create public subnet if needed (for NAT Gateway placement)
                     if (!discoveredResources.publicSubnetId || discoveredResources.createPublicSubnet) {
@@ -1966,7 +2052,6 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 }
             }
         }
-    }
 
     // SSM Parameter Store Configuration based on App Definition
     if (AppDefinition.ssm?.enable === true) {

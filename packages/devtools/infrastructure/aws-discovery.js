@@ -147,6 +147,16 @@ class AWSDiscovery {
      * @param {string} subnetId - The subnet ID to check
      * @returns {Promise<boolean>} True if subnet is private, false if public
      */
+    /**
+     * Validate if a subnet is truly public (has IGW route)
+     * @param {string} subnetId - The subnet ID to validate
+     * @returns {Promise<boolean>} true if public (has IGW route), false if private
+     */
+    async isSubnetPublic(subnetId) {
+        const isPrivate = await this.isSubnetPrivate(subnetId);
+        return !isPrivate;
+    }
+
     async isSubnetPrivate(subnetId) {
         try {
             // First, get the subnet details to find its VPC
@@ -207,13 +217,25 @@ class AWSDiscovery {
             }
             
             // Check if route table has a route to an Internet Gateway
+            let hasIgwRoute = false;
+            let gatewayId = null;
+
             for (const route of routeTable.Routes || []) {
                 if (route.GatewayId && route.GatewayId.startsWith('igw-')) {
-                    return false; // It's a public subnet
+                    hasIgwRoute = true;
+                    gatewayId = route.GatewayId;
+                    break;
                 }
             }
-            
-            return true; // No IGW route found, it's private
+
+            // Enhanced logging for validation
+            if (hasIgwRoute) {
+                console.log(`✅ Subnet ${subnetId} is PUBLIC (has route to IGW ${gatewayId})`);
+                return false; // It's a public subnet
+            } else {
+                console.log(`🔒 Subnet ${subnetId} is PRIVATE (no IGW route found)`);
+                return true; // No IGW route found, it's private
+            }
         } catch (error) {
             console.warn(`Could not determine if subnet ${subnetId} is private:`, error);
             return true; // Default to private for safety
