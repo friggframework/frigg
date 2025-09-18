@@ -12,7 +12,8 @@ jest.mock('./aws-discovery', () => {
                     privateSubnetId2: 'subnet-789012',
                     publicSubnetId: 'subnet-public',
                     defaultRouteTableId: 'rtb-123456',
-                    defaultKmsKeyId: 'arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012'
+                    defaultKmsKeyId: 'arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012',
+                    existingNatGatewayId: 'nat-default123' // Add default NAT Gateway for discover mode
                 })
             };
         })
@@ -110,7 +111,77 @@ describe('composeServerlessDefinition', () => {
     });
 
     describe('VPC Configuration', () => {
-        it('should add VPC configuration when vpc.enable is true', async () => {
+        it('should add VPC configuration when vpc.enable is true with discover mode', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'discover'
+                },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.provider.vpc).toBeDefined();
+            expect(result.provider.vpc.securityGroupIds).toEqual(['sg-123456']);
+            expect(result.provider.vpc.subnetIds).toEqual(['subnet-123456', 'subnet-789012']);
+        });
+
+        it('should create new VPC infrastructure when management is create-new', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'create-new'
+                },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.provider.vpc).toBeDefined();
+            expect(result.provider.vpc.securityGroupIds).toEqual([{ Ref: 'FriggLambdaSecurityGroup' }]);
+            expect(result.provider.vpc.subnetIds).toEqual([
+                { Ref: 'FriggPrivateSubnet1' },
+                { Ref: 'FriggPrivateSubnet2' }
+            ]);
+            expect(result.resources.Resources.FriggVPC).toBeDefined();
+            expect(result.resources.Resources.FriggLambdaSecurityGroup).toBeDefined();
+        });
+
+        it('should use provided VPC resources when management is use-existing', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'use-existing',
+                    vpcId: 'vpc-custom123',
+                    subnets: {
+                        ids: ['subnet-custom1', 'subnet-custom2']
+                    }
+                },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.provider.vpc).toBeDefined();
+            expect(result.provider.vpc.subnetIds).toEqual(['subnet-custom1', 'subnet-custom2']);
+        });
+
+        it('should throw error when use-existing mode without vpcId', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'use-existing'
+                },
+                integrations: []
+            };
+
+            await expect(composeServerlessDefinition(appDefinition)).rejects.toThrow(
+                'VPC management is set to "use-existing" but no vpcId was provided'
+            );
+        });
+
+        it('should default to discover mode when management not specified', async () => {
             const appDefinition = {
                 vpc: { enable: true },
                 integrations: []
@@ -125,7 +196,10 @@ describe('composeServerlessDefinition', () => {
 
         it('should add VPC endpoint for S3 when VPC is enabled', async () => {
             const appDefinition = {
-                vpc: { enable: true },
+                vpc: {
+                    enable: true,
+                    management: 'discover'
+                },
                 integrations: []
             };
 
@@ -533,11 +607,142 @@ describe('composeServerlessDefinition', () => {
         });
     });
 
+    describe('NAT Gateway Management', () => {
+        it('should handle NAT Gateway with createAndManage mode', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'discover',
+                    natGateway: {
+                        management: 'createAndManage'
+                    }
+                },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.resources.Resources.FriggLambdaRouteTable).toBeDefined();
+            expect(result.resources.Resources.FriggNATRoute).toBeDefined();
+        });
+
+        it('should handle NAT Gateway with discover mode', async () => {
+            // Mock discovery to return existing NAT Gateway
+            const { AWSDiscovery } = require('./aws-discovery');
+            const mockDiscoverResources = jest.fn().mockResolvedValue({
+                defaultVpcId: 'vpc-123456',
+                defaultSecurityGroupId: 'sg-123456',
+                privateSubnetId1: 'subnet-123456',
+                privateSubnetId2: 'subnet-789012',
+                publicSubnetId: 'subnet-public',
+                defaultRouteTableId: 'rtb-123456',
+                defaultKmsKeyId: null,
+                existingNatGatewayId: 'nat-existing123'
+            });
+            AWSDiscovery.mockImplementation(() => ({
+                discoverResources: mockDiscoverResources
+            }));
+
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'discover',
+                    natGateway: {
+                        management: 'discover'
+                    }
+                },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.resources.Resources.FriggNATRoute).toBeDefined();
+            expect(result.resources.Resources.FriggNATRoute.Properties.NatGatewayId).toBe('nat-existing123');
+        });
+
+        it('should handle NAT Gateway with useExisting mode and provided ID', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'discover',
+                    natGateway: {
+                        management: 'useExisting',
+                        id: 'nat-custom456'
+                    }
+                },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.resources.Resources.FriggNATRoute).toBeDefined();
+            expect(result.resources.Resources.FriggNATRoute.Properties.NatGatewayId).toBe('nat-custom456');
+        });
+
+        it('should throw error when NAT Gateway not found in discover mode', async () => {
+            // Mock discovery to return no NAT Gateway
+            const { AWSDiscovery } = require('./aws-discovery');
+            const mockDiscoverResources = jest.fn().mockResolvedValue({
+                defaultVpcId: 'vpc-123456',
+                defaultSecurityGroupId: 'sg-123456',
+                privateSubnetId1: 'subnet-123456',
+                privateSubnetId2: 'subnet-789012',
+                publicSubnetId: 'subnet-public',
+                defaultRouteTableId: 'rtb-123456',
+                defaultKmsKeyId: null,
+                existingNatGatewayId: null // No NAT Gateway
+            });
+            AWSDiscovery.mockImplementation(() => ({
+                discoverResources: mockDiscoverResources
+            }));
+
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'discover',
+                    natGateway: {
+                        management: 'discover'
+                    }
+                },
+                integrations: []
+            };
+
+            await expect(composeServerlessDefinition(appDefinition)).rejects.toThrow(
+                'No existing NAT Gateway found in discovery mode'
+            );
+        });
+
+        it('should enable self-healing when selfHeal is true', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'discover',
+                    natGateway: {
+                        management: 'discover'
+                    },
+                    selfHeal: true
+                },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            // With self-healing enabled, it should handle misconfigured NAT Gateways
+            expect(result.resources.Resources.FriggLambdaRouteTable).toBeDefined();
+        });
+    });
+
     describe('Combined Configurations', () => {
         it('should combine VPC, KMS, and SSM configurations', async () => {
             const appDefinition = {
-                vpc: { enable: true },
-                encryption: { fieldLevelEncryptionMethod: 'kms' },
+                vpc: {
+                    enable: true,
+                    natGateway: { management: 'createAndManage' }  // Explicitly set NAT management mode
+                },
+                encryption: {
+                    fieldLevelEncryptionMethod: 'kms',
+                    createResourceIfNoneFound: true  // Allow creating KMS key if not found
+                },
                 ssm: { enable: true },
                 integrations: [mockIntegration]
             };
@@ -575,8 +780,14 @@ describe('composeServerlessDefinition', () => {
 
         it('should handle partial configuration combinations', async () => {
             const appDefinition = {
-                vpc: { enable: true },
-                encryption: { fieldLevelEncryptionMethod: 'kms' },
+                vpc: {
+                    enable: true,
+                    natGateway: { management: 'createAndManage' }  // Explicitly set NAT management mode
+                },
+                encryption: {
+                    fieldLevelEncryptionMethod: 'kms',
+                    createResourceIfNoneFound: true  // Allow creating KMS key if not found
+                },
                 integrations: []
             };
 
@@ -699,6 +910,218 @@ describe('composeServerlessDefinition', () => {
             const result = await composeServerlessDefinition(appDefinition);
 
             expect(result.functions.defaultWebsocket).toBeUndefined();
+        });
+    });
+
+    describe('CRITICAL: NAT Gateway MUST be in PUBLIC Subnet', () => {
+        it('should NEVER reuse NAT Gateway in private subnet - throw error when selfHeal disabled', async () => {
+            // Mock NAT Gateway found in PRIVATE subnet (the original bug)
+            const mockDiscovery = require('./aws-discovery').AWSDiscovery;
+            const mockInstance = new mockDiscovery();
+            mockInstance.discoverResources = jest.fn().mockResolvedValue({
+                defaultVpcId: 'vpc-123456',
+                defaultSecurityGroupId: 'sg-123456',
+                privateSubnetId1: 'subnet-private1',
+                privateSubnetId2: 'subnet-private2',
+                publicSubnetId: 'subnet-public',
+                existingNatGatewayId: 'nat-in-private',
+                natGatewayInPrivateSubnet: true, // CRITICAL: NAT is in WRONG subnet
+                existingElasticIpAllocationId: 'eipalloc-123'
+            });
+            mockDiscovery.mockImplementation(() => mockInstance);
+
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    natGateway: { management: 'createAndManage' },
+                    selfHeal: false
+                },
+                integrations: []
+            };
+
+            // Should throw error because NAT is in private subnet
+            await expect(composeServerlessDefinition(appDefinition))
+                .rejects
+                .toThrow('CRITICAL: NAT Gateway is in PRIVATE subnet');
+        });
+
+        it('should create NEW NAT in PUBLIC subnet when existing NAT is in private subnet with selfHeal', async () => {
+            const mockDiscovery = require('./aws-discovery').AWSDiscovery;
+            const mockInstance = new mockDiscovery();
+            mockInstance.discoverResources = jest.fn().mockResolvedValue({
+                defaultVpcId: 'vpc-123456',
+                defaultSecurityGroupId: 'sg-123456',
+                privateSubnetId1: 'subnet-private1',
+                privateSubnetId2: 'subnet-private2',
+                publicSubnetId: 'subnet-public',
+                existingNatGatewayId: 'nat-in-private',
+                natGatewayInPrivateSubnet: true, // NAT is in WRONG subnet
+                existingElasticIpAllocationId: 'eipalloc-123'
+            });
+            mockDiscovery.mockImplementation(() => mockInstance);
+
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    natGateway: { management: 'createAndManage' },
+                    selfHeal: true
+                },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            // MUST create new NAT Gateway (not reuse the one in private subnet)
+            expect(result.resources.Resources.FriggNATGateway).toBeDefined();
+
+            // MUST be placed in PUBLIC subnet
+            const natSubnet = result.resources.Resources.FriggNATGateway.Properties.SubnetId;
+            expect(natSubnet).toEqual('subnet-public');
+
+            // MUST create new EIP (cannot reuse the one associated with wrong NAT)
+            expect(result.resources.Resources.FriggNATGatewayEIP).toBeDefined();
+        });
+
+        it('should create public subnet for NAT when none exists', async () => {
+            const mockDiscovery = require('./aws-discovery').AWSDiscovery;
+            const mockInstance = new mockDiscovery();
+            mockInstance.discoverResources = jest.fn().mockResolvedValue({
+                defaultVpcId: 'vpc-123456',
+                defaultSecurityGroupId: 'sg-123456',
+                privateSubnetId1: 'subnet-private1',
+                privateSubnetId2: 'subnet-private2',
+                publicSubnetId: null, // NO PUBLIC SUBNET EXISTS
+                existingNatGatewayId: null
+            });
+            mockDiscovery.mockImplementation(() => mockInstance);
+
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    natGateway: { management: 'createAndManage' },
+                    selfHeal: true
+                },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            // MUST create public subnet
+            expect(result.resources.Resources.FriggPublicSubnet).toBeDefined();
+            expect(result.resources.Resources.FriggPublicSubnet.Properties.MapPublicIpOnLaunch).toBe(true);
+
+            // NAT Gateway MUST be in the newly created public subnet
+            expect(result.resources.Resources.FriggNATGateway.Properties.SubnetId)
+                .toEqual({ Ref: 'FriggPublicSubnet' });
+        });
+
+        it('should reuse CORRECTLY placed NAT Gateway in public subnet', async () => {
+            const mockDiscovery = require('./aws-discovery').AWSDiscovery;
+            const mockInstance = new mockDiscovery();
+            mockInstance.discoverResources = jest.fn().mockResolvedValue({
+                defaultVpcId: 'vpc-123456',
+                defaultSecurityGroupId: 'sg-123456',
+                privateSubnetId1: 'subnet-private1',
+                privateSubnetId2: 'subnet-private2',
+                publicSubnetId: 'subnet-public',
+                existingNatGatewayId: 'nat-good',
+                natGatewayInPrivateSubnet: false, // NAT is CORRECTLY in public subnet
+                existingElasticIpAllocationId: 'eipalloc-123'
+            });
+            mockDiscovery.mockImplementation(() => mockInstance);
+
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    natGateway: { management: 'createAndManage' },
+                    selfHeal: true
+                },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            // Should NOT create new NAT Gateway (reuse the good one)
+            expect(result.resources.Resources.FriggNATGateway).toBeUndefined();
+            expect(result.resources.Resources.FriggNATGatewayEIP).toBeUndefined();
+
+            // Should use existing NAT in routes
+            expect(result.resources.Resources.FriggNATRoute.Properties.NatGatewayId)
+                .toEqual('nat-good');
+        });
+
+        it('should fix route table associations to prevent NAT misconfiguration', async () => {
+            const mockDiscovery = require('./aws-discovery').AWSDiscovery;
+            const mockInstance = new mockDiscovery();
+            mockInstance.discoverResources = jest.fn().mockResolvedValue({
+                defaultVpcId: 'vpc-123456',
+                defaultSecurityGroupId: 'sg-123456',
+                privateSubnetId1: 'subnet-private1',
+                privateSubnetId2: 'subnet-private2',
+                publicSubnetId: 'subnet-public',
+                existingNatGatewayId: 'nat-good',
+                natGatewayInPrivateSubnet: false
+            });
+            mockDiscovery.mockImplementation(() => mockInstance);
+
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    natGateway: { management: 'discover' },
+                    selfHeal: true
+                },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            // Should create route table to fix associations
+            expect(result.resources.Resources.FriggLambdaRouteTable).toBeDefined();
+
+            // Should create NAT route pointing to good NAT
+            expect(result.resources.Resources.FriggNATRoute).toBeDefined();
+            expect(result.resources.Resources.FriggNATRoute.Properties.NatGatewayId)
+                .toEqual('nat-good');
+
+            // Should associate private subnets with correct route table
+            expect(result.resources.Resources.FriggSubnet1RouteAssociation).toBeDefined();
+            expect(result.resources.Resources.FriggSubnet2RouteAssociation).toBeDefined();
+        });
+
+        it('should handle EIP already associated error by reusing existing NAT', async () => {
+            const mockDiscovery = require('./aws-discovery').AWSDiscovery;
+            const mockInstance = new mockDiscovery();
+            mockInstance.discoverResources = jest.fn().mockResolvedValue({
+                defaultVpcId: 'vpc-123456',
+                defaultSecurityGroupId: 'sg-123456',
+                privateSubnetId1: 'subnet-private1',
+                privateSubnetId2: 'subnet-private2',
+                publicSubnetId: 'subnet-public',
+                existingNatGatewayId: 'nat-existing',
+                natGatewayInPrivateSubnet: false, // NAT is correctly placed
+                existingElasticIpAllocationId: 'eipalloc-inuse',
+                elasticIpAlreadyAssociated: true // EIP is already in use
+            });
+            mockDiscovery.mockImplementation(() => mockInstance);
+
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    natGateway: { management: 'createAndManage' },
+                    selfHeal: true
+                },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            // Should NOT create new NAT or EIP (reuse existing)
+            expect(result.resources.Resources.FriggNATGateway).toBeUndefined();
+            expect(result.resources.Resources.FriggNATGatewayEIP).toBeUndefined();
+
+            // Should use existing NAT
+            expect(result.resources.Resources.FriggNATRoute.Properties.NatGatewayId)
+                .toEqual('nat-existing');
         });
     });
 

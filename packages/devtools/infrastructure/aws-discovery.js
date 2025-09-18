@@ -392,37 +392,64 @@ class AWSDiscovery {
             const response = await this.ec2Client.send(command);
 
             if (response.NatGateways && response.NatGateways.length > 0) {
-                // Check each NAT Gateway to ensure it's in a public subnet
-                for (const natGateway of response.NatGateways) {
+                // Sort NAT Gateways to prioritize Frigg-managed ones
+                const sortedNatGateways = response.NatGateways.sort((a, b) => {
+                    const aIsFrigg = a.Tags && a.Tags.some(tag =>
+                        (tag.Key === 'ManagedBy' && tag.Value === 'Frigg') ||
+                        (tag.Key === 'Name' && tag.Value.includes('frigg'))
+                    );
+                    const bIsFrigg = b.Tags && b.Tags.some(tag =>
+                        (tag.Key === 'ManagedBy' && tag.Value === 'Frigg') ||
+                        (tag.Key === 'Name' && tag.Value.includes('frigg'))
+                    );
+
+                    if (aIsFrigg && !bIsFrigg) return -1;
+                    if (!aIsFrigg && bIsFrigg) return 1;
+                    return 0;
+                });
+
+                // Check each NAT Gateway to ensure it's properly configured
+                for (const natGateway of sortedNatGateways) {
                     const subnetId = natGateway.SubnetId;
                     const isPrivate = await this.isSubnetPrivate(subnetId);
 
-                    if (isPrivate) {
-                        console.warn(`WARNING: NAT Gateway ${natGateway.NatGatewayId} is in private subnet ${subnetId} - this will not work!`);
-                        console.warn('NAT Gateways MUST be placed in public subnets with Internet Gateway routes');
-                        console.warn('Skipping this misconfigured NAT Gateway...');
-                        continue; // Skip this NAT Gateway
-                    }
-
-                    // Check if it's a Frigg-tagged NAT Gateway
+                    // Check if it's a Frigg-managed NAT Gateway
                     const isFriggNat = natGateway.Tags && natGateway.Tags.some(tag =>
-                        tag.Key === 'Name' && tag.Value.includes('frigg')
+                        (tag.Key === 'ManagedBy' && tag.Value === 'Frigg') ||
+                        (tag.Key === 'Name' && tag.Value.includes('frigg'))
                     );
 
+                    if (isPrivate) {
+                        // NAT Gateway appears to be in a private subnet
+                        // This could be due to route table misconfiguration
+                        console.warn(`WARNING: NAT Gateway ${natGateway.NatGatewayId} is in subnet ${subnetId} which appears to be private`);
+
+                        if (isFriggNat) {
+                            console.warn('This is a Frigg-managed NAT Gateway that may have been misconfigured by route table changes');
+                            console.warn('Consider enabling selfHeal: true to fix this automatically');
+                            // Return it anyway if it's Frigg-managed - we can fix the routes
+                            return natGateway;
+                        } else {
+                            console.warn('NAT Gateways MUST be placed in public subnets with Internet Gateway routes');
+                            console.warn('Skipping this misconfigured NAT Gateway...');
+                            continue; // Skip non-Frigg NAT Gateways in private subnets
+                        }
+                    }
+
                     if (isFriggNat) {
-                        console.log(`Found existing Frigg NAT Gateway in public subnet: ${natGateway.NatGatewayId}`);
+                        console.log(`Found existing Frigg-managed NAT Gateway: ${natGateway.NatGatewayId}`);
                         return natGateway;
                     }
 
-                    // Keep track of first valid NAT Gateway as fallback
+                    // Return first valid NAT Gateway that's in a public subnet
                     console.log(`Found existing NAT Gateway in public subnet: ${natGateway.NatGatewayId}`);
-                    return natGateway; // Return first NAT Gateway that's in a public subnet
+                    return natGateway;
                 }
 
-                // All NAT Gateways are in private subnets - don't use any of them
-                console.error(`ERROR: Found ${response.NatGateways.length} NAT Gateway(s) but all are in private subnets!`);
-                console.error('These NAT Gateways will not provide internet connectivity');
-                console.error('A new NAT Gateway will be created in a public subnet');
+                // All non-Frigg NAT Gateways are in private subnets
+                console.error(`ERROR: Found ${response.NatGateways.length} NAT Gateway(s) but all non-Frigg ones are in private subnets!`);
+                console.error('These NAT Gateways will not provide internet connectivity without route table fixes');
+                console.error('Enable selfHeal: true to fix automatically or create a new NAT Gateway');
                 return null; // Return null to trigger creation of new NAT Gateway
             }
 
@@ -512,6 +539,221 @@ class AWSDiscovery {
             console.error('Error finding default KMS key:', error);
             return null;
         }
+    }
+
+    /**
+     * Find Frigg-managed resources by tags
+     * @param {string} vpcId - The VPC ID to search within
+     * @returns {Promise<Object>} Object containing Frigg-managed resources
+     */
+    async findFriggManagedResources(vpcId) {
+        try {
+            const resources = {
+                natGateways: [],
+                elasticIps: [],
+                subnets: [],
+                routeTables: []
+            };
+
+            // Find NAT Gateways with Frigg tags
+            const natCommand = new DescribeNatGatewaysCommand({
+                Filter: [
+                    { Name: 'vpc-id', Values: [vpcId] },
+                    { Name: 'state', Values: ['available'] }
+                ]
+            });
+            const natResponse = await this.ec2Client.send(natCommand);
+
+            if (natResponse.NatGateways) {
+                resources.natGateways = natResponse.NatGateways.filter(nat =>
+                    nat.Tags && nat.Tags.some(tag =>
+                        tag.Key === 'ManagedBy' && tag.Value === 'Frigg'
+                    )
+                );
+            }
+
+            // Find Elastic IPs with Frigg tags
+            const eipCommand = new DescribeAddressesCommand({});
+            const eipResponse = await this.ec2Client.send(eipCommand);
+
+            if (eipResponse.Addresses) {
+                resources.elasticIps = eipResponse.Addresses.filter(eip =>
+                    eip.Tags && eip.Tags.some(tag =>
+                        tag.Key === 'ManagedBy' && tag.Value === 'Frigg'
+                    )
+                );
+            }
+
+            // Find Route Tables with Frigg tags
+            const rtCommand = new DescribeRouteTablesCommand({
+                Filters: [
+                    { Name: 'vpc-id', Values: [vpcId] }
+                ]
+            });
+            const rtResponse = await this.ec2Client.send(rtCommand);
+
+            if (rtResponse.RouteTables) {
+                resources.routeTables = rtResponse.RouteTables.filter(rt =>
+                    rt.Tags && rt.Tags.some(tag =>
+                        tag.Key === 'ManagedBy' && tag.Value === 'Frigg'
+                    )
+                );
+            }
+
+            return resources;
+        } catch (error) {
+            console.error('Error finding Frigg-managed resources:', error);
+            return {
+                natGateways: [],
+                elasticIps: [],
+                subnets: [],
+                routeTables: []
+            };
+        }
+    }
+
+    /**
+     * Detect misconfigured resources that need healing
+     * @param {string} vpcId - The VPC ID to check
+     * @returns {Promise<Object>} Object containing misconfiguration details
+     */
+    async detectMisconfiguredResources(vpcId) {
+        try {
+            const misconfigurations = {
+                natGatewaysInPrivateSubnets: [],
+                orphanedElasticIps: [],
+                misconfiguredRouteTables: [],
+                privateSubnetsWithoutNatRoute: []
+            };
+
+            // Find NAT Gateways in private subnets
+            const natCommand = new DescribeNatGatewaysCommand({
+                Filter: [
+                    { Name: 'vpc-id', Values: [vpcId] },
+                    { Name: 'state', Values: ['available'] }
+                ]
+            });
+            const natResponse = await this.ec2Client.send(natCommand);
+
+            if (natResponse.NatGateways) {
+                for (const nat of natResponse.NatGateways) {
+                    const isPrivate = await this.isSubnetPrivate(nat.SubnetId);
+                    if (isPrivate) {
+                        misconfigurations.natGatewaysInPrivateSubnets.push({
+                            natGatewayId: nat.NatGatewayId,
+                            subnetId: nat.SubnetId,
+                            tags: nat.Tags
+                        });
+                    }
+                }
+            }
+
+            // Find orphaned Elastic IPs
+            const eipCommand = new DescribeAddressesCommand({});
+            const eipResponse = await this.ec2Client.send(eipCommand);
+
+            if (eipResponse.Addresses) {
+                for (const eip of eipResponse.Addresses) {
+                    if (!eip.InstanceId && !eip.NetworkInterfaceId && !eip.AssociationId) {
+                        // Check if it's Frigg-managed
+                        const isFriggManaged = eip.Tags && eip.Tags.some(tag =>
+                            tag.Key === 'ManagedBy' && tag.Value === 'Frigg'
+                        );
+                        if (isFriggManaged) {
+                            misconfigurations.orphanedElasticIps.push({
+                                allocationId: eip.AllocationId,
+                                publicIp: eip.PublicIp,
+                                tags: eip.Tags
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Find private subnets without NAT route
+            const subnets = await this.findPrivateSubnets(vpcId);
+            const routeTables = await this.findRouteTables(vpcId);
+
+            for (const subnet of subnets) {
+                let hasNatRoute = false;
+
+                // Find route table for this subnet
+                for (const rt of routeTables) {
+                    const isAssociated = rt.Associations && rt.Associations.some(
+                        assoc => assoc.SubnetId === subnet.SubnetId
+                    );
+
+                    if (isAssociated) {
+                        hasNatRoute = rt.Routes && rt.Routes.some(
+                            route => route.NatGatewayId &&
+                                    route.DestinationCidrBlock === '0.0.0.0/0'
+                        );
+                        break;
+                    }
+                }
+
+                if (!hasNatRoute) {
+                    misconfigurations.privateSubnetsWithoutNatRoute.push({
+                        subnetId: subnet.SubnetId,
+                        availabilityZone: subnet.AvailabilityZone
+                    });
+                }
+            }
+
+            return misconfigurations;
+        } catch (error) {
+            console.error('Error detecting misconfigurations:', error);
+            return {
+                natGatewaysInPrivateSubnets: [],
+                orphanedElasticIps: [],
+                misconfiguredRouteTables: [],
+                privateSubnetsWithoutNatRoute: []
+            };
+        }
+    }
+
+    /**
+     * Get healing recommendations based on detected issues
+     * @param {Object} misconfigurations - Object from detectMisconfiguredResources
+     * @returns {Array} Array of healing recommendations
+     */
+    getHealingRecommendations(misconfigurations) {
+        const recommendations = [];
+
+        if (misconfigurations.natGatewaysInPrivateSubnets.length > 0) {
+            recommendations.push({
+                severity: 'critical',
+                issue: 'NAT Gateway in private subnet',
+                recommendation: 'Recreate NAT Gateway in public subnet or fix route tables',
+                affectedResources: misconfigurations.natGatewaysInPrivateSubnets.map(n => n.natGatewayId)
+            });
+        }
+
+        if (misconfigurations.orphanedElasticIps.length > 0) {
+            recommendations.push({
+                severity: 'warning',
+                issue: 'Orphaned Elastic IPs',
+                recommendation: 'Release unused Elastic IPs to avoid charges',
+                affectedResources: misconfigurations.orphanedElasticIps.map(e => e.allocationId)
+            });
+        }
+
+        if (misconfigurations.privateSubnetsWithoutNatRoute.length > 0) {
+            recommendations.push({
+                severity: 'critical',
+                issue: 'Private subnets without NAT route',
+                recommendation: 'Add NAT Gateway route to private subnet route tables',
+                affectedResources: misconfigurations.privateSubnetsWithoutNatRoute.map(s => s.subnetId)
+            });
+        }
+
+        // Sort by severity
+        recommendations.sort((a, b) => {
+            const severityOrder = { critical: 0, warning: 1, info: 2 };
+            return severityOrder[a.severity] - severityOrder[b.severity];
+        });
+
+        return recommendations;
     }
 
     /**
@@ -619,6 +861,126 @@ class AWSDiscovery {
         } catch (error) {
             console.warn('Error finding Internet Gateway:', error.message);
             return null;
+        }
+    }
+
+    /**
+     * Find Frigg-managed resources by tags
+     * @param {string} serviceName - The service name to search for
+     * @param {string} stage - The deployment stage
+     * @returns {Promise<Object>} Object containing found Frigg-managed resources
+     */
+    async findFriggManagedResources(serviceName, stage) {
+        try {
+            const results = {
+                natGateways: [],
+                elasticIps: [],
+                routeTables: [],
+                subnets: [],
+                securityGroups: []
+            };
+
+            // Common filter for Frigg-managed resources
+            const friggFilters = [
+                {
+                    Name: 'tag:ManagedBy',
+                    Values: ['Frigg']
+                }
+            ];
+
+            if (serviceName) {
+                friggFilters.push({
+                    Name: 'tag:Service',
+                    Values: [serviceName]
+                });
+            }
+
+            if (stage) {
+                friggFilters.push({
+                    Name: 'tag:Stage',
+                    Values: [stage]
+                });
+            }
+
+            // Find NAT Gateways
+            try {
+                const natCommand = new DescribeNatGatewaysCommand({
+                    Filter: [
+                        ...friggFilters,
+                        {
+                            Name: 'state',
+                            Values: ['available']
+                        }
+                    ]
+                });
+                const natResponse = await this.ec2Client.send(natCommand);
+                results.natGateways = natResponse.NatGateways || [];
+            } catch (err) {
+                console.warn('Error finding Frigg NAT Gateways:', err.message);
+            }
+
+            // Find Elastic IPs
+            try {
+                const eipCommand = new DescribeAddressesCommand({
+                    Filters: friggFilters
+                });
+                const eipResponse = await this.ec2Client.send(eipCommand);
+                results.elasticIps = eipResponse.Addresses || [];
+            } catch (err) {
+                console.warn('Error finding Frigg Elastic IPs:', err.message);
+            }
+
+            // Find Route Tables
+            try {
+                const rtCommand = new DescribeRouteTablesCommand({
+                    Filters: friggFilters
+                });
+                const rtResponse = await this.ec2Client.send(rtCommand);
+                results.routeTables = rtResponse.RouteTables || [];
+            } catch (err) {
+                console.warn('Error finding Frigg Route Tables:', err.message);
+            }
+
+            // Find Subnets
+            try {
+                const subnetCommand = new DescribeSubnetsCommand({
+                    Filters: friggFilters
+                });
+                const subnetResponse = await this.ec2Client.send(subnetCommand);
+                results.subnets = subnetResponse.Subnets || [];
+            } catch (err) {
+                console.warn('Error finding Frigg Subnets:', err.message);
+            }
+
+            // Find Security Groups
+            try {
+                const sgCommand = new DescribeSecurityGroupsCommand({
+                    Filters: friggFilters
+                });
+                const sgResponse = await this.ec2Client.send(sgCommand);
+                results.securityGroups = sgResponse.SecurityGroups || [];
+            } catch (err) {
+                console.warn('Error finding Frigg Security Groups:', err.message);
+            }
+
+            console.log('Found Frigg-managed resources:', {
+                natGateways: results.natGateways.length,
+                elasticIps: results.elasticIps.length,
+                routeTables: results.routeTables.length,
+                subnets: results.subnets.length,
+                securityGroups: results.securityGroups.length
+            });
+
+            return results;
+        } catch (error) {
+            console.error('Error finding Frigg-managed resources:', error);
+            return {
+                natGateways: [],
+                elasticIps: [],
+                routeTables: [],
+                subnets: [],
+                securityGroups: []
+            };
         }
     }
 }
