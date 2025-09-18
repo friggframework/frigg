@@ -388,27 +388,44 @@ class AWSDiscovery {
                     }
                 ]
             });
-            
+
             const response = await this.ec2Client.send(command);
-            
+
             if (response.NatGateways && response.NatGateways.length > 0) {
-                // Find a NAT Gateway tagged for Frigg first
-                const friggNatGateway = response.NatGateways.find(nat => 
-                    nat.Tags && nat.Tags.some(tag => 
+                // Check each NAT Gateway to ensure it's in a public subnet
+                for (const natGateway of response.NatGateways) {
+                    const subnetId = natGateway.SubnetId;
+                    const isPrivate = await this.isSubnetPrivate(subnetId);
+
+                    if (isPrivate) {
+                        console.warn(`WARNING: NAT Gateway ${natGateway.NatGatewayId} is in private subnet ${subnetId} - this will not work!`);
+                        console.warn('NAT Gateways MUST be placed in public subnets with Internet Gateway routes');
+                        console.warn('Skipping this misconfigured NAT Gateway...');
+                        continue; // Skip this NAT Gateway
+                    }
+
+                    // Check if it's a Frigg-tagged NAT Gateway
+                    const isFriggNat = natGateway.Tags && natGateway.Tags.some(tag =>
                         tag.Key === 'Name' && tag.Value.includes('frigg')
-                    )
-                );
-                
-                if (friggNatGateway) {
-                    console.log(`Found existing Frigg NAT Gateway: ${friggNatGateway.NatGatewayId}`);
-                    return friggNatGateway;
+                    );
+
+                    if (isFriggNat) {
+                        console.log(`Found existing Frigg NAT Gateway in public subnet: ${natGateway.NatGatewayId}`);
+                        return natGateway;
+                    }
+
+                    // Keep track of first valid NAT Gateway as fallback
+                    console.log(`Found existing NAT Gateway in public subnet: ${natGateway.NatGatewayId}`);
+                    return natGateway; // Return first NAT Gateway that's in a public subnet
                 }
-                
-                // Return first available NAT Gateway if no Frigg-specific one found
-                console.log(`Found existing NAT Gateway: ${response.NatGateways[0].NatGatewayId}`);
-                return response.NatGateways[0];
+
+                // All NAT Gateways are in private subnets - don't use any of them
+                console.error(`ERROR: Found ${response.NatGateways.length} NAT Gateway(s) but all are in private subnets!`);
+                console.error('These NAT Gateways will not provide internet connectivity');
+                console.error('A new NAT Gateway will be created in a public subnet');
+                return null; // Return null to trigger creation of new NAT Gateway
             }
-            
+
             return null;
         } catch (error) {
             console.warn('Error finding existing NAT Gateway:', error.message);
