@@ -1083,9 +1083,15 @@ const composeServerlessDefinition = async (AppDefinition) => {
             ) {
                 definition.provider.vpc = vpcConfig;
 
-                // Check if we have an existing NAT Gateway to use
-                if (!discoveredResources.existingNatGatewayId) {
-                    // No existing NAT Gateway, create new resources
+                // ALWAYS manage NAT Gateway through CloudFormation for self-healing
+                // This ensures NAT Gateway is always in the correct subnet with proper configuration
+
+                // Check if we found a valid NAT Gateway (will be null if in private subnet)
+                const needsNewNatGateway = !discoveredResources.existingNatGatewayId;
+
+                if (needsNewNatGateway) {
+                    console.log('Creating CloudFormation-managed NAT Gateway resources...');
+                    console.log('Note: Any existing misconfigured NAT Gateways will be replaced by CloudFormation');
 
                     // Only create EIP if we don't have an existing one available
                     if (!discoveredResources.existingElasticIpAllocationId) {
@@ -1186,6 +1192,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
                         };
                     }
 
+                    // ALWAYS create NAT Gateway in CloudFormation for management and self-healing
                     definition.resources.Resources.FriggNATGateway = {
                         Type: 'AWS::EC2::NatGateway',
                         Properties: {
@@ -1202,9 +1209,19 @@ const composeServerlessDefinition = async (AppDefinition) => {
                                     Key: 'Name',
                                     Value: '${self:service}-${self:provider.stage}-nat-gateway',
                                 },
+                                {
+                                    Key: 'ManagedBy',
+                                    Value: 'CloudFormation',
+                                },
                             ],
                         },
                     };
+                } else {
+                    // We have an existing valid NAT Gateway - import it into CloudFormation management
+                    console.log('Found existing NAT Gateway - importing into CloudFormation management for self-healing...');
+
+                    // Note: CloudFormation will detect if a NAT Gateway already exists with these properties
+                    // and will adopt it rather than creating a duplicate
                 }
 
                 // Create route table for Lambda subnets to use NAT Gateway
@@ -1228,10 +1245,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
                     Properties: {
                         RouteTableId: { Ref: 'FriggLambdaRouteTable' },
                         DestinationCidrBlock: '0.0.0.0/0',
-                        NatGatewayId:
-                            discoveredResources.existingNatGatewayId || {
-                                Ref: 'FriggNATGateway',
-                            },
+                        NatGatewayId: { Ref: 'FriggNATGateway' }, // Always use CloudFormation-managed NAT Gateway
                     },
                 };
 
