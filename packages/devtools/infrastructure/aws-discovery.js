@@ -1,10 +1,10 @@
-let EC2Client, DescribeVpcsCommand, DescribeSubnetsCommand, DescribeSecurityGroupsCommand, DescribeRouteTablesCommand, DescribeNatGatewaysCommand, DescribeAddressesCommand;
+let EC2Client, DescribeVpcsCommand, DescribeSubnetsCommand, DescribeSecurityGroupsCommand, DescribeRouteTablesCommand, DescribeNatGatewaysCommand, DescribeAddressesCommand, DescribeInternetGatewaysCommand;
 let KMSClient, ListKeysCommand, DescribeKeyCommand;
 let STSClient, GetCallerIdentityCommand;
 
 function loadEC2() {
     if (!EC2Client) {
-        ({ EC2Client, DescribeVpcsCommand, DescribeSubnetsCommand, DescribeSecurityGroupsCommand, DescribeRouteTablesCommand, DescribeNatGatewaysCommand, DescribeAddressesCommand } = require('@aws-sdk/client-ec2'));
+        ({ EC2Client, DescribeVpcsCommand, DescribeSubnetsCommand, DescribeSecurityGroupsCommand, DescribeRouteTablesCommand, DescribeNatGatewaysCommand, DescribeAddressesCommand, DescribeInternetGatewaysCommand } = require('@aws-sdk/client-ec2'));
     }
 }
 
@@ -289,9 +289,9 @@ class AWSDiscovery {
                     }
                 ]
             });
-            
+
             const response = await this.ec2Client.send(command);
-            
+
             if (!response.Subnets || response.Subnets.length === 0) {
                 throw new Error(`No subnets found in VPC ${vpcId}`);
             }
@@ -308,10 +308,15 @@ class AWSDiscovery {
             }
 
             if (publicSubnets.length === 0) {
-                throw new Error(`No public subnets found in VPC ${vpcId} for NAT Gateway placement`);
+                // If no public subnets found, we need to create one or inform the user
+                console.warn(`WARNING: No public subnets found in VPC ${vpcId}`);
+                console.warn('A public subnet with Internet Gateway route is required for NAT Gateway placement');
+                console.warn('Please create a public subnet or use VPC endpoints instead');
+                return null; // Return null instead of throwing to allow graceful handling
             }
 
             // Return first public subnet for NAT Gateway
+            console.log(`Found ${publicSubnets.length} public subnets, using ${publicSubnets[0].SubnetId} for NAT Gateway`);
             return publicSubnets[0];
         } catch (error) {
             console.error('Error finding public subnets:', error);
@@ -554,7 +559,7 @@ class AWSDiscovery {
                 defaultSecurityGroupId: securityGroup.GroupId,
                 privateSubnetId1: privateSubnets[0]?.SubnetId,
                 privateSubnetId2: privateSubnets[1]?.SubnetId || privateSubnets[0]?.SubnetId,
-                publicSubnetId: publicSubnet.SubnetId,
+                publicSubnetId: publicSubnet?.SubnetId || null, // May be null if no public subnet exists
                 privateRouteTableId: routeTable.RouteTableId,
                 defaultKmsKeyId: kmsKeyArn,
                 existingNatGatewayId: natGatewayId,
@@ -563,6 +568,40 @@ class AWSDiscovery {
         } catch (error) {
             console.error('Error discovering AWS resources:', error);
             throw error;
+        }
+    }
+
+    /**
+     * Find an existing Internet Gateway attached to the VPC
+     * @param {string} vpcId - VPC ID to search in
+     * @returns {Promise<Object|null>} Internet Gateway object or null if none found
+     */
+    async findInternetGateway(vpcId) {
+        try {
+            const command = new DescribeInternetGatewaysCommand({
+                Filters: [
+                    {
+                        Name: 'attachment.vpc-id',
+                        Values: [vpcId]
+                    },
+                    {
+                        Name: 'attachment.state',
+                        Values: ['available']
+                    }
+                ]
+            });
+
+            const response = await this.ec2Client.send(command);
+
+            if (response.InternetGateways && response.InternetGateways.length > 0) {
+                console.log(`Found existing Internet Gateway: ${response.InternetGateways[0].InternetGatewayId}`);
+                return response.InternetGateways[0];
+            }
+
+            return null;
+        } catch (error) {
+            console.warn('Error finding Internet Gateway:', error.message);
+            return null;
         }
     }
 }

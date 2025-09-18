@@ -1103,6 +1103,89 @@ const composeServerlessDefinition = async (AppDefinition) => {
                         };
                     }
 
+                    // If no public subnet exists, create one for NAT Gateway placement
+                    if (!discoveredResources.publicSubnetId) {
+                        console.log('No public subnet found, creating one for NAT Gateway placement...');
+
+                        // Check if Internet Gateway exists or create one
+                        if (!discoveredResources.internetGatewayId) {
+                            definition.resources.Resources.FriggInternetGateway = {
+                                Type: 'AWS::EC2::InternetGateway',
+                                Properties: {
+                                    Tags: [
+                                        {
+                                            Key: 'Name',
+                                            Value: '${self:service}-${self:provider.stage}-igw',
+                                        },
+                                    ],
+                                },
+                            };
+
+                            definition.resources.Resources.FriggIGWAttachment = {
+                                Type: 'AWS::EC2::VPCGatewayAttachment',
+                                Properties: {
+                                    VpcId: discoveredResources.defaultVpcId,
+                                    InternetGatewayId: { Ref: 'FriggInternetGateway' },
+                                },
+                            };
+                        }
+
+                        // Create a small public subnet for NAT Gateway
+                        definition.resources.Resources.FriggPublicSubnet = {
+                            Type: 'AWS::EC2::Subnet',
+                            Properties: {
+                                VpcId: discoveredResources.defaultVpcId,
+                                CidrBlock: '${self:custom.publicSubnetCidr, "172.31.250.0/24"}', // Small /24 subnet
+                                AvailabilityZone: '${self:provider.region}a',
+                                MapPublicIpOnLaunch: true,
+                                Tags: [
+                                    {
+                                        Key: 'Name',
+                                        Value: '${self:service}-${self:provider.stage}-public-subnet',
+                                    },
+                                    {
+                                        Key: 'Type',
+                                        Value: 'Public',
+                                    },
+                                ],
+                            },
+                        };
+
+                        // Create route table for public subnet
+                        definition.resources.Resources.FriggPublicRouteTable = {
+                            Type: 'AWS::EC2::RouteTable',
+                            Properties: {
+                                VpcId: discoveredResources.defaultVpcId,
+                                Tags: [
+                                    {
+                                        Key: 'Name',
+                                        Value: '${self:service}-${self:provider.stage}-public-rt',
+                                    },
+                                ],
+                            },
+                        };
+
+                        // Add route to Internet Gateway
+                        definition.resources.Resources.FriggPublicRoute = {
+                            Type: 'AWS::EC2::Route',
+                            DependsOn: discoveredResources.internetGatewayId ? [] : 'FriggIGWAttachment',
+                            Properties: {
+                                RouteTableId: { Ref: 'FriggPublicRouteTable' },
+                                DestinationCidrBlock: '0.0.0.0/0',
+                                GatewayId: discoveredResources.internetGatewayId || { Ref: 'FriggInternetGateway' },
+                            },
+                        };
+
+                        // Associate public subnet with public route table
+                        definition.resources.Resources.FriggPublicSubnetRouteTableAssociation = {
+                            Type: 'AWS::EC2::SubnetRouteTableAssociation',
+                            Properties: {
+                                SubnetId: { Ref: 'FriggPublicSubnet' },
+                                RouteTableId: { Ref: 'FriggPublicRouteTable' },
+                            },
+                        };
+                    }
+
                     definition.resources.Resources.FriggNATGateway = {
                         Type: 'AWS::EC2::NatGateway',
                         Properties: {
@@ -1113,9 +1196,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
                                         'AllocationId',
                                     ],
                                 },
-                            SubnetId:
-                                discoveredResources.publicSubnetId ||
-                                discoveredResources.privateSubnetId1, // Use first discovered subnet if no public subnet found
+                            SubnetId: discoveredResources.publicSubnetId || { Ref: 'FriggPublicSubnet' },
                             Tags: [
                                 {
                                     Key: 'Name',
