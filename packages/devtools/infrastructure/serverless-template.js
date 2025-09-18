@@ -976,7 +976,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
 
                 // Configure KMS grants to reference the created key
                 definition.custom.kmsGrants = {
-                    kmsKeyId: { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] }
+                    kmsKeyId: { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] },
                 };
             } else {
                 // No key found and createIfNoneFound is not enabled - error
@@ -1086,12 +1086,18 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 // ALWAYS manage NAT Gateway through CloudFormation for self-healing
                 // This ensures NAT Gateway is always in the correct subnet with proper configuration
 
-                // Check if we found a valid NAT Gateway (will be null if in private subnet)
-                const needsNewNatGateway = !discoveredResources.existingNatGatewayId;
+                const needsNewNatGateway =
+                    (natGatewayMethod ===
+                        AppDefinition.vpc.natGateway?.method) ===
+                    'createAndManage';
 
                 if (needsNewNatGateway) {
-                    console.log('Creating CloudFormation-managed NAT Gateway resources...');
-                    console.log('Note: Any existing misconfigured NAT Gateways will be replaced by CloudFormation');
+                    console.log(
+                        'Creating CloudFormation-managed NAT Gateway resources...'
+                    );
+                    console.log(
+                        'Note: Any existing misconfigured NAT Gateways will be replaced by CloudFormation'
+                    );
 
                     // Only create EIP if we don't have an existing one available
                     if (!discoveredResources.existingElasticIpAllocationId) {
@@ -1111,29 +1117,35 @@ const composeServerlessDefinition = async (AppDefinition) => {
 
                     // If no public subnet exists, create one for NAT Gateway placement
                     if (!discoveredResources.publicSubnetId) {
-                        console.log('No public subnet found, creating one for NAT Gateway placement...');
+                        console.log(
+                            'No public subnet found, creating one for NAT Gateway placement...'
+                        );
 
                         // Check if Internet Gateway exists or create one
                         if (!discoveredResources.internetGatewayId) {
-                            definition.resources.Resources.FriggInternetGateway = {
-                                Type: 'AWS::EC2::InternetGateway',
-                                Properties: {
-                                    Tags: [
-                                        {
-                                            Key: 'Name',
-                                            Value: '${self:service}-${self:provider.stage}-igw',
-                                        },
-                                    ],
-                                },
-                            };
+                            definition.resources.Resources.FriggInternetGateway =
+                                {
+                                    Type: 'AWS::EC2::InternetGateway',
+                                    Properties: {
+                                        Tags: [
+                                            {
+                                                Key: 'Name',
+                                                Value: '${self:service}-${self:provider.stage}-igw',
+                                            },
+                                        ],
+                                    },
+                                };
 
-                            definition.resources.Resources.FriggIGWAttachment = {
-                                Type: 'AWS::EC2::VPCGatewayAttachment',
-                                Properties: {
-                                    VpcId: discoveredResources.defaultVpcId,
-                                    InternetGatewayId: { Ref: 'FriggInternetGateway' },
-                                },
-                            };
+                            definition.resources.Resources.FriggIGWAttachment =
+                                {
+                                    Type: 'AWS::EC2::VPCGatewayAttachment',
+                                    Properties: {
+                                        VpcId: discoveredResources.defaultVpcId,
+                                        InternetGatewayId: {
+                                            Ref: 'FriggInternetGateway',
+                                        },
+                                    },
+                                };
                         }
 
                         // Create a small public subnet for NAT Gateway
@@ -1141,8 +1153,12 @@ const composeServerlessDefinition = async (AppDefinition) => {
                             Type: 'AWS::EC2::Subnet',
                             Properties: {
                                 VpcId: discoveredResources.defaultVpcId,
-                                CidrBlock: '${self:custom.publicSubnetCidr, "172.31.250.0/24"}', // Small /24 subnet
-                                AvailabilityZone: '${self:provider.region}a',
+                                CidrBlock:
+                                    AppDefinition.vpc.natGateway
+                                        ?.publicSubnetCidr || '172.31.250.0/24', // Small /24 subnet
+                                AvailabilityZone: {
+                                    'Fn::Select': [0, { 'Fn::GetAZs': '' }],
+                                },
                                 MapPublicIpOnLaunch: true,
                                 Tags: [
                                     {
@@ -1174,22 +1190,30 @@ const composeServerlessDefinition = async (AppDefinition) => {
                         // Add route to Internet Gateway
                         definition.resources.Resources.FriggPublicRoute = {
                             Type: 'AWS::EC2::Route',
-                            DependsOn: discoveredResources.internetGatewayId ? [] : 'FriggIGWAttachment',
+                            DependsOn: discoveredResources.internetGatewayId
+                                ? []
+                                : 'FriggIGWAttachment',
                             Properties: {
                                 RouteTableId: { Ref: 'FriggPublicRouteTable' },
                                 DestinationCidrBlock: '0.0.0.0/0',
-                                GatewayId: discoveredResources.internetGatewayId || { Ref: 'FriggInternetGateway' },
+                                GatewayId:
+                                    discoveredResources.internetGatewayId || {
+                                        Ref: 'FriggInternetGateway',
+                                    },
                             },
                         };
 
                         // Associate public subnet with public route table
-                        definition.resources.Resources.FriggPublicSubnetRouteTableAssociation = {
-                            Type: 'AWS::EC2::SubnetRouteTableAssociation',
-                            Properties: {
-                                SubnetId: { Ref: 'FriggPublicSubnet' },
-                                RouteTableId: { Ref: 'FriggPublicRouteTable' },
-                            },
-                        };
+                        definition.resources.Resources.FriggPublicSubnetRouteTableAssociation =
+                            {
+                                Type: 'AWS::EC2::SubnetRouteTableAssociation',
+                                Properties: {
+                                    SubnetId: { Ref: 'FriggPublicSubnet' },
+                                    RouteTableId: {
+                                        Ref: 'FriggPublicRouteTable',
+                                    },
+                                },
+                            };
                     }
 
                     // ALWAYS create NAT Gateway in CloudFormation for management and self-healing
@@ -1203,7 +1227,9 @@ const composeServerlessDefinition = async (AppDefinition) => {
                                         'AllocationId',
                                     ],
                                 },
-                            SubnetId: discoveredResources.publicSubnetId || { Ref: 'FriggPublicSubnet' },
+                            SubnetId: discoveredResources.publicSubnetId || {
+                                Ref: 'FriggPublicSubnet',
+                            },
                             Tags: [
                                 {
                                     Key: 'Name',
@@ -1218,7 +1244,9 @@ const composeServerlessDefinition = async (AppDefinition) => {
                     };
                 } else {
                     // We have an existing valid NAT Gateway - import it into CloudFormation management
-                    console.log('Found existing NAT Gateway - importing into CloudFormation management for self-healing...');
+                    console.log(
+                        'Found existing NAT Gateway - importing into CloudFormation management for self-healing...'
+                    );
 
                     // Note: CloudFormation will detect if a NAT Gateway already exists with these properties
                     // and will adopt it rather than creating a duplicate
@@ -1240,14 +1268,16 @@ const composeServerlessDefinition = async (AppDefinition) => {
                     },
                 };
 
-                definition.resources.Resources.FriggNATRoute = {
-                    Type: 'AWS::EC2::Route',
-                    Properties: {
-                        RouteTableId: { Ref: 'FriggLambdaRouteTable' },
-                        DestinationCidrBlock: '0.0.0.0/0',
-                        NatGatewayId: { Ref: 'FriggNATGateway' }, // Always use CloudFormation-managed NAT Gateway
-                    },
-                };
+                if (needsNewNatGateway) {
+                    definition.resources.Resources.FriggNATRoute = {
+                        Type: 'AWS::EC2::Route',
+                        Properties: {
+                            RouteTableId: { Ref: 'FriggLambdaRouteTable' },
+                            DestinationCidrBlock: '0.0.0.0/0',
+                            NatGatewayId: { Ref: 'FriggNATGateway' }, // Always use CloudFormation-managed NAT Gateway
+                        },
+                    };
+                }
 
                 // Associate Lambda subnets with NAT Gateway route table
                 // Note: This will only work if the subnets aren't already associated with another route table
@@ -1295,37 +1325,46 @@ const composeServerlessDefinition = async (AppDefinition) => {
                     };
 
                     // Add KMS VPC endpoint if using KMS encryption
-                    if (AppDefinition.encryption?.fieldLevelEncryptionMethod === 'kms') {
+                    if (
+                        AppDefinition.encryption?.fieldLevelEncryptionMethod ===
+                        'kms'
+                    ) {
                         // Create security group for VPC endpoints if it doesn't exist
-                        if (!definition.resources.Resources.VPCEndpointSecurityGroup) {
-                            definition.resources.Resources.VPCEndpointSecurityGroup = {
-                                Type: 'AWS::EC2::SecurityGroup',
-                                Properties: {
-                                    GroupDescription: 'Security group for VPC endpoints',
-                                    VpcId: discoveredResources.defaultVpcId,
-                                    SecurityGroupIngress: [
-                                        {
-                                            IpProtocol: 'tcp',
-                                            FromPort: 443,
-                                            ToPort: 443,
-                                            CidrIp: '172.31.0.0/16', // VPC CIDR
-                                        },
-                                    ],
-                                    Tags: [
-                                        {
-                                            Key: 'Name',
-                                            Value: '${self:service}-${self:provider.stage}-vpc-endpoints-sg',
-                                        },
-                                    ],
-                                },
-                            };
+                        if (
+                            !definition.resources.Resources
+                                .VPCEndpointSecurityGroup
+                        ) {
+                            definition.resources.Resources.VPCEndpointSecurityGroup =
+                                {
+                                    Type: 'AWS::EC2::SecurityGroup',
+                                    Properties: {
+                                        GroupDescription:
+                                            'Security group for VPC endpoints',
+                                        VpcId: discoveredResources.defaultVpcId,
+                                        SecurityGroupIngress: [
+                                            {
+                                                IpProtocol: 'tcp',
+                                                FromPort: 443,
+                                                ToPort: 443,
+                                                CidrIp: '172.31.0.0/16', // VPC CIDR
+                                            },
+                                        ],
+                                        Tags: [
+                                            {
+                                                Key: 'Name',
+                                                Value: '${self:service}-${self:provider.stage}-vpc-endpoints-sg',
+                                            },
+                                        ],
+                                    },
+                                };
                         }
 
                         definition.resources.Resources.VPCEndpointKMS = {
                             Type: 'AWS::EC2::VPCEndpoint',
                             Properties: {
                                 VpcId: discoveredResources.defaultVpcId,
-                                ServiceName: 'com.amazonaws.${self:provider.region}.kms',
+                                ServiceName:
+                                    'com.amazonaws.${self:provider.region}.kms',
                                 VpcEndpointType: 'Interface',
                                 SubnetIds: vpcConfig.subnetIds,
                                 SecurityGroupIds: [
@@ -1337,19 +1376,21 @@ const composeServerlessDefinition = async (AppDefinition) => {
 
                         // Also add Secrets Manager endpoint if using Secrets Manager
                         if (AppDefinition.secretsManager?.enable === true) {
-                            definition.resources.Resources.VPCEndpointSecretsManager = {
-                                Type: 'AWS::EC2::VPCEndpoint',
-                                Properties: {
-                                    VpcId: discoveredResources.defaultVpcId,
-                                    ServiceName: 'com.amazonaws.${self:provider.region}.secretsmanager',
-                                    VpcEndpointType: 'Interface',
-                                    SubnetIds: vpcConfig.subnetIds,
-                                    SecurityGroupIds: [
-                                        { Ref: 'VPCEndpointSecurityGroup' },
-                                    ],
-                                    PrivateDnsEnabled: true,
-                                },
-                            };
+                            definition.resources.Resources.VPCEndpointSecretsManager =
+                                {
+                                    Type: 'AWS::EC2::VPCEndpoint',
+                                    Properties: {
+                                        VpcId: discoveredResources.defaultVpcId,
+                                        ServiceName:
+                                            'com.amazonaws.${self:provider.region}.secretsmanager',
+                                        VpcEndpointType: 'Interface',
+                                        SubnetIds: vpcConfig.subnetIds,
+                                        SecurityGroupIds: [
+                                            { Ref: 'VPCEndpointSecurityGroup' },
+                                        ],
+                                        PrivateDnsEnabled: true,
+                                    },
+                                };
                         }
                     }
                 }
