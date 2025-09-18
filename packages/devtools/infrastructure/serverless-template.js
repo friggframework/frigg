@@ -1155,12 +1155,15 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 };
 
                 // Associate Lambda subnets with NAT Gateway route table
+                // Note: This will only work if the subnets aren't already associated with another route table
+                // If deployment fails, manually associate the subnets with the correct route table in AWS Console
                 definition.resources.Resources.FriggSubnet1RouteAssociation = {
                     Type: 'AWS::EC2::SubnetRouteTableAssociation',
                     Properties: {
                         SubnetId: vpcConfig.subnetIds[0],
                         RouteTableId: { Ref: 'FriggLambdaRouteTable' },
                     },
+                    DependsOn: 'FriggLambdaRouteTable',
                 };
 
                 definition.resources.Resources.FriggSubnet2RouteAssociation = {
@@ -1169,6 +1172,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
                         SubnetId: vpcConfig.subnetIds[1],
                         RouteTableId: { Ref: 'FriggLambdaRouteTable' },
                     },
+                    DependsOn: 'FriggLambdaRouteTable',
                 };
 
                 // Add VPC endpoints for AWS service optimization (optional but recommended)
@@ -1194,6 +1198,65 @@ const composeServerlessDefinition = async (AppDefinition) => {
                             RouteTableIds: [{ Ref: 'FriggLambdaRouteTable' }],
                         },
                     };
+
+                    // Add KMS VPC endpoint if using KMS encryption
+                    if (AppDefinition.encryption?.fieldLevelEncryptionMethod === 'kms') {
+                        // Create security group for VPC endpoints if it doesn't exist
+                        if (!definition.resources.Resources.VPCEndpointSecurityGroup) {
+                            definition.resources.Resources.VPCEndpointSecurityGroup = {
+                                Type: 'AWS::EC2::SecurityGroup',
+                                Properties: {
+                                    GroupDescription: 'Security group for VPC endpoints',
+                                    VpcId: discoveredResources.defaultVpcId,
+                                    SecurityGroupIngress: [
+                                        {
+                                            IpProtocol: 'tcp',
+                                            FromPort: 443,
+                                            ToPort: 443,
+                                            CidrIp: '172.31.0.0/16', // VPC CIDR
+                                        },
+                                    ],
+                                    Tags: [
+                                        {
+                                            Key: 'Name',
+                                            Value: '${self:service}-${self:provider.stage}-vpc-endpoints-sg',
+                                        },
+                                    ],
+                                },
+                            };
+                        }
+
+                        definition.resources.Resources.VPCEndpointKMS = {
+                            Type: 'AWS::EC2::VPCEndpoint',
+                            Properties: {
+                                VpcId: discoveredResources.defaultVpcId,
+                                ServiceName: 'com.amazonaws.${self:provider.region}.kms',
+                                VpcEndpointType: 'Interface',
+                                SubnetIds: vpcConfig.subnetIds,
+                                SecurityGroupIds: [
+                                    { Ref: 'VPCEndpointSecurityGroup' },
+                                ],
+                                PrivateDnsEnabled: true,
+                            },
+                        };
+
+                        // Also add Secrets Manager endpoint if using Secrets Manager
+                        if (AppDefinition.secretsManager?.enable === true) {
+                            definition.resources.Resources.VPCEndpointSecretsManager = {
+                                Type: 'AWS::EC2::VPCEndpoint',
+                                Properties: {
+                                    VpcId: discoveredResources.defaultVpcId,
+                                    ServiceName: 'com.amazonaws.${self:provider.region}.secretsmanager',
+                                    VpcEndpointType: 'Interface',
+                                    SubnetIds: vpcConfig.subnetIds,
+                                    SecurityGroupIds: [
+                                        { Ref: 'VPCEndpointSecurityGroup' },
+                                    ],
+                                    PrivateDnsEnabled: true,
+                                },
+                            };
+                        }
+                    }
                 }
             }
         }
