@@ -406,6 +406,91 @@ const buildHealthCheckResponse = (startTime) => {
     };
 };
 
+// Helper to detect VPC configuration
+const detectVpcConfiguration = async () => {
+    const results = {
+        isInVpc: false,
+        hasInternetAccess: false,
+        canResolvePublicDns: false,
+        canConnectToAws: false,
+        vpcEndpoints: [],
+    };
+
+    try {
+        // Check if we're in a VPC by looking for VPC-specific environment
+        // Lambda in VPC has specific network interface configuration
+        const dns = require('dns').promises;
+
+        // Test 1: Can we resolve public DNS? (indicates DNS configuration)
+        try {
+            await Promise.race([
+                dns.resolve4('www.google.com'),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
+            ]);
+            results.canResolvePublicDns = true;
+        } catch (e) {
+            console.log('Public DNS resolution failed:', e.message);
+        }
+
+        // Test 2: Can we reach internet? (indicates NAT gateway)
+        try {
+            const https = require('https');
+            await new Promise((resolve, reject) => {
+                const req = https.get('https://www.google.com', { timeout: 2000 }, (res) => {
+                    res.destroy();
+                    resolve(true);
+                });
+                req.on('error', reject);
+                req.on('timeout', () => {
+                    req.destroy();
+                    reject(new Error('timeout'));
+                });
+            });
+            results.hasInternetAccess = true;
+        } catch (e) {
+            console.log('Internet connectivity test failed:', e.message);
+        }
+
+        // Test 3: Check for VPC endpoints by trying to resolve internal AWS endpoints
+        const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'eu-central-1';
+        const vpcEndpointDomains = [
+            `com.amazonaws.${region}.kms`,
+            `com.amazonaws.vpce.${region}`,
+            `kms.${region}.amazonaws.com`,
+        ];
+
+        for (const domain of vpcEndpointDomains) {
+            try {
+                const addresses = await Promise.race([
+                    dns.resolve4(domain).catch(() => dns.resolve6(domain)),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1000))
+                ]);
+                if (addresses && addresses.length > 0) {
+                    // Check if it's a private IP (VPC endpoint indicator)
+                    const isPrivateIp = addresses.some(ip =>
+                        ip.startsWith('10.') ||
+                        ip.startsWith('172.') ||
+                        ip.startsWith('192.168.')
+                    );
+                    if (isPrivateIp) {
+                        results.vpcEndpoints.push(domain);
+                    }
+                }
+            } catch (e) {
+                // Expected for non-existent endpoints
+            }
+        }
+
+        results.isInVpc = !results.hasInternetAccess || results.vpcEndpoints.length > 0;
+        results.canConnectToAws = results.hasInternetAccess || results.vpcEndpoints.length > 0;
+
+    } catch (error) {
+        console.error('VPC detection error:', error.message);
+    }
+
+    return results;
+};
+
 // KMS decrypt capability check
 const checkKmsDecryptCapability = async () => {
     const start = Date.now();
@@ -426,14 +511,36 @@ const checkKmsDecryptCapability = async () => {
         hasDiscoveryKey: !!process.env.AWS_DISCOVERY_KMS_KEY_ID,
     });
 
+    // First, detect VPC configuration
+    const vpcConfig = await detectVpcConfiguration();
+    console.log('VPC Configuration:', vpcConfig);
+
     // Test DNS resolution for KMS endpoint
     try {
         const dns = require('dns').promises;
         const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'eu-central-1';
         const kmsEndpoint = `kms.${region}.amazonaws.com`;
         console.log('Testing DNS resolution for:', kmsEndpoint);
-        const addresses = await dns.resolve4(kmsEndpoint);
+
+        // Wrap DNS resolution in a timeout
+        const dnsPromise = dns.resolve4(kmsEndpoint);
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('DNS resolution timeout')), 3000)
+        );
+
+        const addresses = await Promise.race([dnsPromise, timeoutPromise]);
         console.log('KMS endpoint resolved to:', addresses);
+
+        // Check if resolved to private IP (VPC endpoint)
+        const isVpcEndpoint = addresses.some(ip =>
+            ip.startsWith('10.') ||
+            ip.startsWith('172.') ||
+            ip.startsWith('192.168.')
+        );
+
+        if (isVpcEndpoint) {
+            console.log('KMS VPC Endpoint detected - using private connectivity');
+        }
 
         // Test TCP connectivity to KMS (port 443)
         const net = require('net');
@@ -468,6 +575,7 @@ const checkKmsDecryptCapability = async () => {
                 error: `Cannot connect to KMS endpoint: ${connResult.error}`,
                 dnsResolved: true,
                 tcpConnection: false,
+                vpcConfig,
                 latencyMs: Date.now() - start,
             };
         }
@@ -477,6 +585,7 @@ const checkKmsDecryptCapability = async () => {
             status: 'unhealthy',
             error: `Cannot resolve KMS endpoint: ${dnsError.message}`,
             dnsResolved: false,
+            vpcConfig,
             latencyMs: Date.now() - start,
         };
     }
@@ -520,12 +629,14 @@ const checkKmsDecryptCapability = async () => {
         return {
             status: success ? 'healthy' : 'unhealthy',
             kmsKeyArnSuffix: KMS_KEY_ARN.slice(-12),
+            vpcConfig,
             latencyMs: Date.now() - start,
         };
     } catch (error) {
         return {
             status: 'unhealthy',
             error: error.message,
+            vpcConfig,
             latencyMs: Date.now() - start,
         };
     }
@@ -547,9 +658,45 @@ router.get('/health/detailed', async (_req, res) => {
     const startTime = Date.now();
     const response = buildHealthCheckResponse(startTime);
 
-    // 1. KMS decrypt capability (must succeed before DB assumed healthy if encryption depends on KMS)
+    // Log environment before any async operations
+    console.log('Health Check Environment:', {
+        hasKmsKeyArn: !!process.env.KMS_KEY_ARN,
+        awsRegion: process.env.AWS_REGION,
+        awsDefaultRegion: process.env.AWS_DEFAULT_REGION,
+        nodeEnv: process.env.NODE_ENV,
+        stage: process.env.STAGE,
+    });
+
+    // 1. Network diagnostics (run first to understand connectivity)
     try {
-        response.checks.kms = await checkKmsDecryptCapability();
+        console.log('Running network diagnostics...');
+        const networkStart = Date.now();
+        response.checks.network = await Promise.race([
+            detectVpcConfiguration(),
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Network diagnostics timeout')), 5000)
+            )
+        ]);
+        response.checks.network.latencyMs = Date.now() - networkStart;
+        console.log('Network diagnostics completed:', response.checks.network);
+    } catch (error) {
+        response.checks.network = {
+            status: 'error',
+            error: error.message,
+        };
+        console.log('Network diagnostics error:', error.message);
+    }
+
+    // 2. KMS decrypt capability (must succeed before DB assumed healthy if encryption depends on KMS)
+    try {
+        console.log('About to check KMS capability...');
+        // Wrap the entire KMS check in a timeout
+        const kmsCheckPromise = checkKmsDecryptCapability();
+        const kmsTimeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('KMS check timeout after 8 seconds')), 8000)
+        );
+
+        response.checks.kms = await Promise.race([kmsCheckPromise, kmsTimeoutPromise]);
         if (response.checks.kms.status === 'unhealthy') {
             response.status = 'unhealthy';
         }
