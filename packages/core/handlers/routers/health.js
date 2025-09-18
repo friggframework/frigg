@@ -608,10 +608,10 @@ const checkKmsDecryptCapability = async () => {
         const kms = new AWS.KMS({
             region,
             httpOptions: {
-                timeout: 5000, // 5 second timeout
-                connectTimeout: 5000,
+                timeout: 25000, // 25 second timeout for slow VPC connections
+                connectTimeout: 10000, // 10 second connection timeout
             },
-            maxRetries: 1, // Don't retry on health checks
+            maxRetries: 0, // No retries on health checks
         });
 
         // Generate a data key (without plaintext logging) then immediately decrypt ciphertext to ensure decrypt perms.
@@ -690,10 +690,10 @@ router.get('/health/detailed', async (_req, res) => {
     // 2. KMS decrypt capability (must succeed before DB assumed healthy if encryption depends on KMS)
     try {
         console.log('About to check KMS capability...');
-        // Wrap the entire KMS check in a timeout
+        // Wrap the entire KMS check in a timeout (allow up to 25 seconds for slow VPC)
         const kmsCheckPromise = checkKmsDecryptCapability();
         const kmsTimeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('KMS check timeout after 8 seconds')), 8000)
+            setTimeout(() => reject(new Error('KMS check timeout after 25 seconds')), 25000)
         );
 
         response.checks.kms = await Promise.race([kmsCheckPromise, kmsTimeoutPromise]);
