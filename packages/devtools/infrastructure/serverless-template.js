@@ -60,15 +60,13 @@ const getAppEnvironmentVars = (AppDefinition) => {
 
         if (envKeys.length > 0) {
             console.log(
-                `   Found ${
-                    envKeys.length
+                `   Found ${envKeys.length
                 } environment variables: ${envKeys.join(', ')}`
             );
         }
         if (skippedKeys.length > 0) {
             console.log(
-                `   ⚠️  Skipped ${
-                    skippedKeys.length
+                `   ⚠️  Skipped ${skippedKeys.length
                 } reserved AWS Lambda variables: ${skippedKeys.join(', ')}`
             );
         }
@@ -572,6 +570,7 @@ const createVPCInfrastructure = (AppDefinition) => {
  * @returns {Object} Complete serverless framework configuration
  */
 const composeServerlessDefinition = async (AppDefinition) => {
+    console.log('composeServerlessDefinition', AppDefinition);
     // Store discovered resources
     let discoveredResources = {};
 
@@ -942,10 +941,9 @@ const composeServerlessDefinition = async (AppDefinition) => {
                                     Resource: '*',
                                     Condition: {
                                         StringEquals: {
-                                            'kms:ViaService': `lambda.${
-                                                process.env.AWS_REGION ||
+                                            'kms:ViaService': `lambda.${process.env.AWS_REGION ||
                                                 'us-east-1'
-                                            }.amazonaws.com`,
+                                                }.amazonaws.com`,
                                         },
                                     },
                                 },
@@ -982,7 +980,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 // No key found and createIfNoneFound is not enabled - error
                 throw new Error(
                     'KMS field-level encryption is enabled but no KMS key was found. ' +
-                        'Either provide an existing KMS key or set encryption.createResourceIfNoneFound to true to create a new key.'
+                    'Either provide an existing KMS key or set encryption.createResourceIfNoneFound to true to create a new key.'
                 );
             }
         }
@@ -1068,11 +1066,11 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 subnetIds:
                     AppDefinition.vpc.subnetIds ||
                     (discoveredResources.privateSubnetId1 &&
-                    discoveredResources.privateSubnetId2
+                        discoveredResources.privateSubnetId2
                         ? [
-                              discoveredResources.privateSubnetId1,
-                              discoveredResources.privateSubnetId2,
-                          ]
+                            discoveredResources.privateSubnetId1,
+                            discoveredResources.privateSubnetId2,
+                        ]
                         : []),
             };
 
@@ -1086,10 +1084,14 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 // ALWAYS manage NAT Gateway through CloudFormation for self-healing
                 // This ensures NAT Gateway is always in the correct subnet with proper configuration
 
+                console.log('AppDefinition.vpc.natGateway', AppDefinition.vpc.natGateway);
                 const natGatewayMethod =
                     AppDefinition.vpc.natGateway?.method || 'useExisting';
+                console.log('natGatewayMethod', natGatewayMethod);
                 const needsNewNatGateway =
                     natGatewayMethod === 'createAndManage';
+
+                console.log('needsNewNatGateway', needsNewNatGateway);
 
                 // Helper function to validate discovered public subnet
                 const isValidPublicSubnet = (subnetId, discoveredResources) => {
@@ -1128,28 +1130,28 @@ const composeServerlessDefinition = async (AppDefinition) => {
                         // Check if Internet Gateway exists or create one
                         if (!discoveredResources.internetGatewayId) {
                             definition.resources.Resources.FriggInternetGateway =
-                                {
-                                    Type: 'AWS::EC2::InternetGateway',
-                                    Properties: {
-                                        Tags: [
-                                            {
-                                                Key: 'Name',
-                                                Value: '${self:service}-${self:provider.stage}-igw',
-                                            },
-                                        ],
-                                    },
-                                };
+                            {
+                                Type: 'AWS::EC2::InternetGateway',
+                                Properties: {
+                                    Tags: [
+                                        {
+                                            Key: 'Name',
+                                            Value: '${self:service}-${self:provider.stage}-igw',
+                                        },
+                                    ],
+                                },
+                            };
 
                             definition.resources.Resources.FriggIGWAttachment =
-                                {
-                                    Type: 'AWS::EC2::VPCGatewayAttachment',
-                                    Properties: {
-                                        VpcId: discoveredResources.defaultVpcId,
-                                        InternetGatewayId: {
-                                            Ref: 'FriggInternetGateway',
-                                        },
+                            {
+                                Type: 'AWS::EC2::VPCGatewayAttachment',
+                                Properties: {
+                                    VpcId: discoveredResources.defaultVpcId,
+                                    InternetGatewayId: {
+                                        Ref: 'FriggInternetGateway',
                                     },
-                                };
+                                },
+                            };
                         }
 
                         // Create a small public subnet for NAT Gateway
@@ -1209,15 +1211,15 @@ const composeServerlessDefinition = async (AppDefinition) => {
 
                         // Associate public subnet with public route table
                         definition.resources.Resources.FriggPublicSubnetRouteTableAssociation =
-                            {
-                                Type: 'AWS::EC2::SubnetRouteTableAssociation',
-                                Properties: {
-                                    SubnetId: { Ref: 'FriggPublicSubnet' },
-                                    RouteTableId: {
-                                        Ref: 'FriggPublicRouteTable',
-                                    },
+                        {
+                            Type: 'AWS::EC2::SubnetRouteTableAssociation',
+                            Properties: {
+                                SubnetId: { Ref: 'FriggPublicSubnet' },
+                                RouteTableId: {
+                                    Ref: 'FriggPublicRouteTable',
                                 },
-                            };
+                            },
+                        };
                     }
 
                     // Create NAT Gateway using the new resources
@@ -1246,6 +1248,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
                         },
                     };
                 } else if (discoveredResources.existingNatGatewayId) {
+                    console.log('discoveredResources.existingNatGatewayId', discoveredResources.existingNatGatewayId);
                     // Reuse mode: Use existing NAT, but validate first
                     if (
                         discoveredResources.publicSubnetId &&
@@ -1363,30 +1366,30 @@ const composeServerlessDefinition = async (AppDefinition) => {
                                 .VPCEndpointSecurityGroup
                         ) {
                             definition.resources.Resources.VPCEndpointSecurityGroup =
-                                {
-                                    Type: 'AWS::EC2::SecurityGroup',
-                                    Properties: {
-                                        GroupDescription:
-                                            'Security group for VPC endpoints',
-                                        VpcId: discoveredResources.defaultVpcId,
-                                        SecurityGroupIngress: [
-                                            {
-                                                IpProtocol: 'tcp',
-                                                FromPort: 443,
-                                                ToPort: 443,
-                                                CidrIp:
-                                                    discoveredResources.vpcCidr ||
-                                                    '10.0.0.0/16', // Dynamic VPC CIDR
-                                            },
-                                        ],
-                                        Tags: [
-                                            {
-                                                Key: 'Name',
-                                                Value: '${self:service}-${self:provider.stage}-vpc-endpoints-sg',
-                                            },
-                                        ],
-                                    },
-                                };
+                            {
+                                Type: 'AWS::EC2::SecurityGroup',
+                                Properties: {
+                                    GroupDescription:
+                                        'Security group for VPC endpoints',
+                                    VpcId: discoveredResources.defaultVpcId,
+                                    SecurityGroupIngress: [
+                                        {
+                                            IpProtocol: 'tcp',
+                                            FromPort: 443,
+                                            ToPort: 443,
+                                            CidrIp:
+                                                discoveredResources.vpcCidr ||
+                                                '10.0.0.0/16', // Dynamic VPC CIDR
+                                        },
+                                    ],
+                                    Tags: [
+                                        {
+                                            Key: 'Name',
+                                            Value: '${self:service}-${self:provider.stage}-vpc-endpoints-sg',
+                                        },
+                                    ],
+                                },
+                            };
                         }
 
                         definition.resources.Resources.VPCEndpointKMS = {
@@ -1407,20 +1410,20 @@ const composeServerlessDefinition = async (AppDefinition) => {
                         // Also add Secrets Manager endpoint if using Secrets Manager
                         if (AppDefinition.secretsManager?.enable === true) {
                             definition.resources.Resources.VPCEndpointSecretsManager =
-                                {
-                                    Type: 'AWS::EC2::VPCEndpoint',
-                                    Properties: {
-                                        VpcId: discoveredResources.defaultVpcId,
-                                        ServiceName:
-                                            'com.amazonaws.${self:provider.region}.secretsmanager',
-                                        VpcEndpointType: 'Interface',
-                                        SubnetIds: vpcConfig.subnetIds,
-                                        SecurityGroupIds: [
-                                            { Ref: 'VPCEndpointSecurityGroup' },
-                                        ],
-                                        PrivateDnsEnabled: true,
-                                    },
-                                };
+                            {
+                                Type: 'AWS::EC2::VPCEndpoint',
+                                Properties: {
+                                    VpcId: discoveredResources.defaultVpcId,
+                                    ServiceName:
+                                        'com.amazonaws.${self:provider.region}.secretsmanager',
+                                    VpcEndpointType: 'Interface',
+                                    SubnetIds: vpcConfig.subnetIds,
+                                    SecurityGroupIds: [
+                                        { Ref: 'VPCEndpointSecurityGroup' },
+                                    ],
+                                    PrivateDnsEnabled: true,
+                                },
+                            };
                         }
                     }
                 }
@@ -1483,10 +1486,9 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 };
 
                 // Add SQS Queue for the integration
-                const queueReference = `${
-                    integrationName.charAt(0).toUpperCase() +
+                const queueReference = `${integrationName.charAt(0).toUpperCase() +
                     integrationName.slice(1)
-                }Queue`;
+                    }Queue`;
                 const queueName = `\${self:service}--\${self:provider.stage}-${queueReference}`;
                 definition.resources.Resources[queueReference] = {
                     Type: 'AWS::SQS::Queue',
