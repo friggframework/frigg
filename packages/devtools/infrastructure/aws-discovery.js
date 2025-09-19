@@ -959,8 +959,16 @@ class AWSDiscovery {
                 existingElasticIpAllocationId: elasticIpAllocationId,
                 natGatewayInPrivateSubnet: natGatewayInPrivateSubnet,
                 subnetConversionRequired: subnetStatus.requiresConversion,
-                privateSubnetsWithWrongRoutes: subnetStatus.requiresConversion ?
-                    [privateSubnets[0]?.SubnetId, privateSubnets[1]?.SubnetId].filter(Boolean) : []
+                privateSubnetsWithWrongRoutes: (() => {
+                    const wrongRoutes = [];
+                    if (subnetStatus.subnet1NeedsConversion && privateSubnets[0]) {
+                        wrongRoutes.push(privateSubnets[0].SubnetId);
+                    }
+                    if (subnetStatus.subnet2NeedsConversion && privateSubnets[1]) {
+                        wrongRoutes.push(privateSubnets[1].SubnetId);
+                    }
+                    return wrongRoutes;
+                })()
             };
         } catch (error) {
             console.error('Error discovering AWS resources:', error);
