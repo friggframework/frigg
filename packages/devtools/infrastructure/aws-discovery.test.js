@@ -444,6 +444,166 @@ describe('AWSDiscovery', () => {
         });
     });
 
+    describe('findExistingNatGateway', () => {
+        const mockVpcId = 'vpc-12345678';
+
+        it('should return NAT Gateway in public subnet', async () => {
+            const mockNatGateway = {
+                NatGatewayId: 'nat-12345678',
+                SubnetId: 'subnet-public-1',
+                State: 'available',
+                NatGatewayAddresses: [{ AllocationId: 'eipalloc-12345' }],
+                Tags: []
+            };
+
+            mockEC2Send
+                .mockResolvedValueOnce({ // DescribeNatGateways
+                    NatGateways: [mockNatGateway]
+                })
+                .mockResolvedValueOnce({ // DescribeSubnets for NAT's subnet
+                    Subnets: [{ SubnetId: 'subnet-public-1', VpcId: mockVpcId }]
+                })
+                .mockResolvedValueOnce({ // DescribeRouteTables
+                    RouteTables: [{
+                        Associations: [{ SubnetId: 'subnet-public-1' }],
+                        Routes: [{ GatewayId: 'igw-12345' }] // Has IGW = public
+                    }]
+                });
+
+            const result = await discovery.findExistingNatGateway(mockVpcId);
+
+            expect(result).toBeDefined();
+            expect(result.NatGatewayId).toBe('nat-12345678');
+            expect(result._isInPrivateSubnet).toBe(false);
+        });
+
+        it('should detect NAT Gateway in private subnet', async () => {
+            const mockNatGateway = {
+                NatGatewayId: 'nat-12345678',
+                SubnetId: 'subnet-private-1',
+                State: 'available',
+                NatGatewayAddresses: [{ AllocationId: 'eipalloc-12345' }],
+                Tags: [
+                    { Key: 'ManagedBy', Value: 'Frigg' }
+                ]
+            };
+
+            mockEC2Send
+                .mockResolvedValueOnce({ // DescribeNatGateways
+                    NatGateways: [mockNatGateway]
+                })
+                .mockResolvedValueOnce({ // DescribeSubnets for NAT's subnet
+                    Subnets: [{ SubnetId: 'subnet-private-1', VpcId: mockVpcId }]
+                })
+                .mockResolvedValueOnce({ // DescribeRouteTables
+                    RouteTables: [{
+                        Associations: [{ SubnetId: 'subnet-private-1' }],
+                        Routes: [{ GatewayId: 'local' }] // No IGW = private
+                    }]
+                });
+
+            const result = await discovery.findExistingNatGateway(mockVpcId);
+
+            expect(result).toBeDefined();
+            expect(result.NatGatewayId).toBe('nat-12345678');
+            expect(result._isInPrivateSubnet).toBe(true); // Should be marked as in private subnet
+        });
+
+        it('should skip non-Frigg NAT Gateway in private subnet', async () => {
+            const mockNatGateways = [
+                {
+                    NatGatewayId: 'nat-other-12345',
+                    SubnetId: 'subnet-private-1',
+                    State: 'available',
+                    Tags: [] // No Frigg tags
+                },
+                {
+                    NatGatewayId: 'nat-good-12345',
+                    SubnetId: 'subnet-public-1',
+                    State: 'available',
+                    Tags: []
+                }
+            ];
+
+            mockEC2Send
+                .mockResolvedValueOnce({ // DescribeNatGateways
+                    NatGateways: mockNatGateways
+                })
+                // First NAT Gateway (private subnet check)
+                .mockResolvedValueOnce({ // DescribeSubnets
+                    Subnets: [{ SubnetId: 'subnet-private-1', VpcId: mockVpcId }]
+                })
+                .mockResolvedValueOnce({ // DescribeRouteTables
+                    RouteTables: [{
+                        Associations: [{ SubnetId: 'subnet-private-1' }],
+                        Routes: [{ GatewayId: 'local' }] // Private
+                    }]
+                })
+                // Second NAT Gateway (public subnet check)
+                .mockResolvedValueOnce({ // DescribeSubnets
+                    Subnets: [{ SubnetId: 'subnet-public-1', VpcId: mockVpcId }]
+                })
+                .mockResolvedValueOnce({ // DescribeRouteTables
+                    RouteTables: [{
+                        Associations: [{ SubnetId: 'subnet-public-1' }],
+                        Routes: [{ GatewayId: 'igw-12345' }] // Public
+                    }]
+                });
+
+            const result = await discovery.findExistingNatGateway(mockVpcId);
+
+            expect(result).toBeDefined();
+            expect(result.NatGatewayId).toBe('nat-good-12345'); // Should return the public one
+            expect(result._isInPrivateSubnet).toBe(false);
+        });
+
+        it('should prioritize Frigg-managed NAT Gateways', async () => {
+            const mockNatGateways = [
+                {
+                    NatGatewayId: 'nat-other-12345',
+                    SubnetId: 'subnet-public-1',
+                    State: 'available',
+                    Tags: []
+                },
+                {
+                    NatGatewayId: 'nat-frigg-12345',
+                    SubnetId: 'subnet-public-2',
+                    State: 'available',
+                    Tags: [{ Key: 'ManagedBy', Value: 'Frigg' }]
+                }
+            ];
+
+            mockEC2Send
+                .mockResolvedValueOnce({ // DescribeNatGateways
+                    NatGateways: mockNatGateways
+                })
+                // Frigg NAT Gateway check (should be checked first due to sorting)
+                .mockResolvedValueOnce({ // DescribeSubnets
+                    Subnets: [{ SubnetId: 'subnet-public-2', VpcId: mockVpcId }]
+                })
+                .mockResolvedValueOnce({ // DescribeRouteTables
+                    RouteTables: [{
+                        Associations: [{ SubnetId: 'subnet-public-2' }],
+                        Routes: [{ GatewayId: 'igw-12345' }] // Public
+                    }]
+                });
+
+            const result = await discovery.findExistingNatGateway(mockVpcId);
+
+            expect(result).toBeDefined();
+            expect(result.NatGatewayId).toBe('nat-frigg-12345'); // Should return Frigg-managed one
+            expect(result._isInPrivateSubnet).toBe(false);
+        });
+
+        it('should return null when no NAT Gateways found', async () => {
+            mockEC2Send.mockResolvedValueOnce({ NatGateways: [] });
+
+            const result = await discovery.findExistingNatGateway(mockVpcId);
+
+            expect(result).toBeNull();
+        });
+    });
+
     describe('discoverResources', () => {
         it('should discover all AWS resources successfully', async () => {
             const mockVpc = { VpcId: 'vpc-12345678' };
@@ -484,6 +644,7 @@ describe('AWSDiscovery', () => {
                 defaultKmsKeyId: mockKmsArn,
                 existingNatGatewayId: 'nat-12345678',
                 existingElasticIpAllocationId: 'eipalloc-12345',
+                natGatewayInPrivateSubnet: false,
                 subnetConversionRequired: false,
                 privateSubnetsWithWrongRoutes: []
             });
@@ -557,6 +718,43 @@ describe('AWSDiscovery', () => {
             expect(result).toMatchObject({
                 subnetConversionRequired: true,
                 privateSubnetsWithWrongRoutes: ['subnet-public-1', 'subnet-public-2']
+            });
+        });
+
+        it('should detect NAT Gateway in private subnet in discoverResources', async () => {
+            const mockVpc = { VpcId: 'vpc-12345678' };
+            const mockSubnets = [
+                { SubnetId: 'subnet-1' },
+                { SubnetId: 'subnet-2' }
+            ];
+            const mockPublicSubnet = { SubnetId: 'subnet-public-1' };
+            const mockSecurityGroup = { GroupId: 'sg-12345678' };
+            const mockRouteTable = { RouteTableId: 'rtb-12345678' };
+            const mockNatGateway = {
+                NatGatewayId: 'nat-12345678',
+                NatGatewayAddresses: [{ AllocationId: 'eipalloc-12345' }],
+                _isInPrivateSubnet: true // NAT is in private subnet
+            };
+
+            jest.spyOn(discovery, 'findDefaultVpc').mockResolvedValue(mockVpc);
+            jest.spyOn(discovery, 'findPrivateSubnets').mockResolvedValue(mockSubnets);
+            jest.spyOn(discovery, 'findPublicSubnets').mockResolvedValue(mockPublicSubnet);
+            jest.spyOn(discovery, 'findDefaultSecurityGroup').mockResolvedValue(mockSecurityGroup);
+            jest.spyOn(discovery, 'findPrivateRouteTable').mockResolvedValue(mockRouteTable);
+            jest.spyOn(discovery, 'findDefaultKmsKey').mockResolvedValue(null);
+            jest.spyOn(discovery, 'findExistingNatGateway').mockResolvedValue(mockNatGateway);
+            jest.spyOn(discovery, 'isSubnetPrivate')
+                .mockResolvedValueOnce(true)
+                .mockResolvedValueOnce(true);
+
+            const result = await discovery.discoverResources();
+
+            expect(result).toMatchObject({
+                defaultVpcId: 'vpc-12345678',
+                existingNatGatewayId: 'nat-12345678',
+                natGatewayInPrivateSubnet: true, // Should be true
+                subnetConversionRequired: false,
+                privateSubnetsWithWrongRoutes: []
             });
         });
 

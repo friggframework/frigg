@@ -510,6 +510,8 @@ class AWSDiscovery {
                             console.warn('This is a Frigg-managed NAT Gateway that may have been misconfigured by route table changes');
                             console.warn('Consider enabling selfHeal: true to fix this automatically');
                             // Return it anyway if it's Frigg-managed - we can fix the routes
+                            // Mark that it's in a private subnet
+                            natGateway._isInPrivateSubnet = true;
                             return natGateway;
                         } else {
                             console.warn('NAT Gateways MUST be placed in public subnets with Internet Gateway routes');
@@ -520,11 +522,13 @@ class AWSDiscovery {
 
                     if (isFriggNat) {
                         console.log(`Found existing Frigg-managed NAT Gateway: ${natGateway.NatGatewayId}`);
+                        natGateway._isInPrivateSubnet = false;
                         return natGateway;
                     }
 
                     // Return first valid NAT Gateway that's in a public subnet
                     console.log(`Found existing NAT Gateway in public subnet: ${natGateway.NatGatewayId}`);
+                    natGateway._isInPrivateSubnet = false;
                     return natGateway;
                 }
 
@@ -888,9 +892,13 @@ class AWSDiscovery {
             const existingNatGateway = await this.findExistingNatGateway(vpc.VpcId);
             let natGatewayId = null;
             let elasticIpAllocationId = null;
-            
+            let natGatewayInPrivateSubnet = false;
+
             if (existingNatGateway) {
                 natGatewayId = existingNatGateway.NatGatewayId;
+                // Check if NAT Gateway is in a private subnet (from our detection)
+                natGatewayInPrivateSubnet = existingNatGateway._isInPrivateSubnet || false;
+
                 // Get the EIP allocation ID from the NAT Gateway
                 if (existingNatGateway.NatGatewayAddresses && existingNatGateway.NatGatewayAddresses.length > 0) {
                     elasticIpAllocationId = existingNatGateway.NatGatewayAddresses[0].AllocationId;
@@ -949,6 +957,7 @@ class AWSDiscovery {
                 defaultKmsKeyId: kmsKeyArn,
                 existingNatGatewayId: natGatewayId,
                 existingElasticIpAllocationId: elasticIpAllocationId,
+                natGatewayInPrivateSubnet: natGatewayInPrivateSubnet,
                 subnetConversionRequired: subnetStatus.requiresConversion,
                 privateSubnetsWithWrongRoutes: subnetStatus.requiresConversion ?
                     [privateSubnets[0]?.SubnetId, privateSubnets[1]?.SubnetId].filter(Boolean) : []
