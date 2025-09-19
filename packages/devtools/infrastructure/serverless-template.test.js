@@ -7,6 +7,7 @@ jest.mock('./aws-discovery', () => {
             return {
                 discoverResources: jest.fn().mockResolvedValue({
                     defaultVpcId: 'vpc-123456',
+                    vpcCidr: '172.31.0.0/16', // Add VPC CIDR for security group configuration
                     defaultSecurityGroupId: 'sg-123456',
                     privateSubnetId1: 'subnet-123456',
                     privateSubnetId2: 'subnet-789012',
@@ -483,6 +484,10 @@ describe('composeServerlessDefinition', () => {
                         {
                             Key: 'Name',
                             Value: '${self:service}-${self:provider.stage}-frigg-kms-key'
+                        },
+                        {
+                            Key: 'ManagedBy',
+                            Value: 'Frigg'
                         },
                         {
                             Key: 'Purpose',

@@ -1252,6 +1252,7 @@ class AWSDiscovery {
 
             return {
                 defaultVpcId: vpc.VpcId,
+                vpcCidr: vpc.CidrBlock, // Add VPC CIDR for security group configuration
                 defaultSecurityGroupId: securityGroup.GroupId,
                 privateSubnetId1: privateSubnets[0]?.SubnetId,
                 privateSubnetId2:

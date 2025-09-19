@@ -2028,6 +2028,13 @@ const composeServerlessDefinition = async (AppDefinition) => {
                         AppDefinition.encryption?.fieldLevelEncryptionMethod ===
                         'kms'
                     ) {
+                        // Validate we have VPC CIDR for security group configuration
+                        if (!discoveredResources.vpcCidr) {
+                            console.warn(
+                                '⚠️  Warning: VPC CIDR not discovered. VPC endpoint security group may not work correctly.'
+                            );
+                        }
+
                         // Create security group for VPC endpoints if it doesn't exist
                         if (
                             !definition.resources.Resources
@@ -2040,16 +2047,16 @@ const composeServerlessDefinition = async (AppDefinition) => {
                                     GroupDescription:
                                         'Security group for VPC endpoints',
                                     VpcId: discoveredResources.defaultVpcId,
-                                    SecurityGroupIngress: [
-                                        {
-                                            IpProtocol: 'tcp',
-                                            FromPort: 443,
-                                            ToPort: 443,
-                                            CidrIp:
-                                                discoveredResources.vpcCidr ||
-                                                '10.0.0.0/16', // Dynamic VPC CIDR
-                                        },
-                                    ],
+                                    SecurityGroupIngress: discoveredResources.vpcCidr
+                                        ? [
+                                              {
+                                                  IpProtocol: 'tcp',
+                                                  FromPort: 443,
+                                                  ToPort: 443,
+                                                  CidrIp: discoveredResources.vpcCidr, // Use discovered VPC CIDR
+                                              },
+                                          ]
+                                        : [], // Empty array if no VPC CIDR discovered
                                     Tags: [
                                         {
                                             Key: 'Name',
