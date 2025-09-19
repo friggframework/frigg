@@ -1174,7 +1174,8 @@ const composeServerlessDefinition = async (AppDefinition) => {
             healed: [],
             warnings: [],
             errors: [],
-            recommendations: []
+            recommendations: [],
+            criticalActions: []
         };
 
         // Only heal if selfHeal is explicitly enabled
@@ -1218,13 +1219,27 @@ const composeServerlessDefinition = async (AppDefinition) => {
             }
         }
 
-        // Check route table associations
-        if (discoveredResources.privateSubnetsWithWrongRoutes) {
+        // Check route table associations and subnet conversion requirements
+        if (discoveredResources.privateSubnetsWithWrongRoutes &&
+            discoveredResources.privateSubnetsWithWrongRoutes.length > 0) {
             healingReport.warnings.push(
-                `Found ${discoveredResources.privateSubnetsWithWrongRoutes.length} private subnets with incorrect routes`
+                `Found ${discoveredResources.privateSubnetsWithWrongRoutes.length} subnets that are PUBLIC but will be used for Lambda`
             );
             healingReport.healed.push(
-                'Route tables will be corrected during deployment'
+                'Route tables will be corrected during deployment - converting public subnets to private'
+            );
+            healingReport.criticalActions.push(
+                'SUBNET ISOLATION: Will create separate route tables to ensure Lambda subnets are private'
+            );
+        }
+
+        // Check if subnet conversion is required
+        if (discoveredResources.subnetConversionRequired) {
+            healingReport.warnings.push(
+                'Subnet configuration mismatch detected - Lambda functions require private subnets'
+            );
+            healingReport.healed.push(
+                'Will create proper route table configuration for subnet isolation'
             );
         }
 
@@ -1239,6 +1254,11 @@ const composeServerlessDefinition = async (AppDefinition) => {
         }
 
         // Log healing report
+        if (healingReport.criticalActions.length > 0) {
+            console.log('🚨 CRITICAL ACTIONS:');
+            healingReport.criticalActions.forEach(action => console.log(`   - ${action}`));
+        }
+
         if (healingReport.healed.length > 0) {
             console.log('✅ Self-healing actions:');
             healingReport.healed.forEach(action => console.log(`   - ${action}`));

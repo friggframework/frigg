@@ -96,10 +96,11 @@ class AWSDiscovery {
     /**
      * Find private subnets for the given VPC
      * @param {string} vpcId - The VPC ID to search within
+     * @param {boolean} autoConvert - If true, convert public subnets to private if needed
      * @returns {Promise<Array>} Array of subnet objects (at least 2 for high availability)
      * @throws {Error} If no subnets are found in the VPC
      */
-    async findPrivateSubnets(vpcId) {
+    async findPrivateSubnets(vpcId, autoConvert = false) {
         try {
             const command = new DescribeSubnetsCommand({
                 Filters: [
@@ -109,14 +110,16 @@ class AWSDiscovery {
                     }
                 ]
             });
-            
+
             const response = await this.ec2Client.send(command);
-            
+
             if (!response.Subnets || response.Subnets.length === 0) {
                 throw new Error(`No subnets found in VPC ${vpcId}`);
             }
 
-            // Prefer private subnets (no direct route to IGW)
+            console.log(`\n🔍 Analyzing ${response.Subnets.length} subnets in VPC ${vpcId}...`);
+
+            // Categorize subnets by their actual routing
             const privateSubnets = [];
             const publicSubnets = [];
 
@@ -125,17 +128,74 @@ class AWSDiscovery {
                 const isPrivate = await this.isSubnetPrivate(subnet.SubnetId);
                 if (isPrivate) {
                     privateSubnets.push(subnet);
+                    console.log(`  🔒 Private subnet: ${subnet.SubnetId} (AZ: ${subnet.AvailabilityZone})`);
                 } else {
                     publicSubnets.push(subnet);
+                    console.log(`  🌐 Public subnet: ${subnet.SubnetId} (AZ: ${subnet.AvailabilityZone})`);
                 }
             }
 
-            // Return at least 2 subnets for high availability
-            const selectedSubnets = privateSubnets.length >= 2 ? 
-                privateSubnets.slice(0, 2) : 
-                response.Subnets.slice(0, 2);
+            console.log(`\n📊 Subnet Analysis Results:`);
+            console.log(`  - Private subnets: ${privateSubnets.length}`);
+            console.log(`  - Public subnets: ${publicSubnets.length}`);
 
-            return selectedSubnets;
+            // If we have at least 2 private subnets, use them
+            if (privateSubnets.length >= 2) {
+                console.log(`✅ Found ${privateSubnets.length} private subnets for Lambda deployment`);
+                return privateSubnets.slice(0, 2);
+            }
+
+            // If we have 1 private subnet, we need at least one more
+            if (privateSubnets.length === 1) {
+                console.warn(`⚠️  Only 1 private subnet found. Need at least 2 for high availability.`);
+                if (publicSubnets.length > 0 && autoConvert) {
+                    console.log(`🔄 Will convert 1 public subnet to private for high availability...`);
+                    // Note: The actual conversion happens in the serverless template
+                }
+                // Return what we have - mix of private and public if needed
+                return [...privateSubnets, ...publicSubnets].slice(0, 2);
+            }
+
+            // No private subnets found at all - this is a problem!
+            if (privateSubnets.length === 0 && publicSubnets.length > 0) {
+                console.error(`❌ CRITICAL: No private subnets found, but ${publicSubnets.length} public subnets exist`);
+                console.error(`❌ Lambda functions should NOT be deployed in public subnets!`);
+
+                if (autoConvert && publicSubnets.length >= 3) {
+                    console.log(`\n🔧 AUTO-CONVERSION: Will configure subnets for proper isolation...`);
+                    console.log(`  - Keeping ${publicSubnets[0].SubnetId} as public (for NAT Gateway)`);
+                    console.log(`  - Converting ${publicSubnets[1].SubnetId} to private (for Lambda)`);
+                    if (publicSubnets[2]) {
+                        console.log(`  - Converting ${publicSubnets[2].SubnetId} to private (for Lambda)`);
+                    }
+
+                    // Return subnets that SHOULD be private (indexes 1 and 2)
+                    // The actual conversion happens in the serverless template
+                    return publicSubnets.slice(1, 3);
+                } else if (autoConvert && publicSubnets.length >= 2) {
+                    console.log(`\n🔧 AUTO-CONVERSION: Only ${publicSubnets.length} subnets available`);
+                    console.log(`  - Will need to create new subnets or reconfigure existing ones`);
+                    // Return what we have but flag for conversion
+                    return publicSubnets.slice(0, 2);
+                } else {
+                    console.error(`\n⚠️  CONFIGURATION ERROR:`);
+                    console.error(`  Found ${publicSubnets.length} public subnets but no private subnets.`);
+                    console.error(`  Lambda functions require private subnets for security.`);
+                    console.error(`\n  Options:`);
+                    console.error(`  1. Enable selfHeal: true in vpc configuration`);
+                    console.error(`  2. Create private subnets manually`);
+                    console.error(`  3. Set subnets.management: 'create' to create new private subnets`);
+
+                    throw new Error(
+                        `No private subnets found in VPC ${vpcId}. ` +
+                        `Found ${publicSubnets.length} public subnets. ` +
+                        `Lambda requires private subnets. Enable selfHeal or create private subnets.`
+                    );
+                }
+            }
+
+            // No subnets at all?
+            throw new Error(`No subnets found in VPC ${vpcId}`);
         } catch (error) {
             console.error('Error finding private subnets:', error);
             throw error;
@@ -790,30 +850,38 @@ class AWSDiscovery {
      * @returns {string|null} return.defaultKmsKeyId - Default KMS key ARN or null if not found
      * @throws {Error} If resource discovery fails
      */
-    async discoverResources() {
+    async discoverResources(options = {}) {
         try {
-            console.log('Discovering AWS resources for Frigg deployment...');
-            
+            console.log('\n🚀 Discovering AWS resources for Frigg deployment...');
+            console.log('═'.repeat(60));
+
             const vpc = await this.findDefaultVpc();
-            console.log(`Found VPC: ${vpc.VpcId}`);
-            
-            const privateSubnets = await this.findPrivateSubnets(vpc.VpcId);
-            console.log(`Found ${privateSubnets.length} private subnets: ${privateSubnets.map(s => s.SubnetId).join(', ')}`);
-            
+            console.log(`\n✅ Found VPC: ${vpc.VpcId}`);
+
+            // Enable auto-convert if selfHeal is enabled
+            const autoConvert = options.selfHeal || false;
+
+            const privateSubnets = await this.findPrivateSubnets(vpc.VpcId, autoConvert);
+            console.log(`\n✅ Selected subnets for Lambda: ${privateSubnets.map(s => s.SubnetId).join(', ')}`);
+
             const publicSubnet = await this.findPublicSubnets(vpc.VpcId);
-            console.log(`Found public subnet for NAT Gateway: ${publicSubnet.SubnetId}`);
-            
+            if (publicSubnet) {
+                console.log(`\n✅ Found public subnet for NAT Gateway: ${publicSubnet.SubnetId}`);
+            } else {
+                console.log(`\n⚠️  No public subnet found - NAT Gateway creation may fail`);
+            }
+
             const securityGroup = await this.findDefaultSecurityGroup(vpc.VpcId);
-            console.log(`Found security group: ${securityGroup.GroupId}`);
-            
+            console.log(`\n✅ Found security group: ${securityGroup.GroupId}`);
+
             const routeTable = await this.findPrivateRouteTable(vpc.VpcId);
-            console.log(`Found route table: ${routeTable.RouteTableId}`);
-            
+            console.log(`✅ Found route table: ${routeTable.RouteTableId}`);
+
             const kmsKeyArn = await this.findDefaultKmsKey();
             if (kmsKeyArn) {
-                console.log(`Found KMS key: ${kmsKeyArn}`);
+                console.log(`✅ Found KMS key: ${kmsKeyArn}`);
             } else {
-                console.log('No KMS key found');
+                console.log('ℹ️  No KMS key found');
             }
             
             // Try to find existing NAT Gateway
@@ -835,6 +903,42 @@ class AWSDiscovery {
                 }
             }
 
+            // Check if the "private" subnets are actually public
+            const subnet1IsActuallyPrivate = privateSubnets[0] ?
+                await this.isSubnetPrivate(privateSubnets[0].SubnetId) : false;
+            const subnet2IsActuallyPrivate = privateSubnets[1] ?
+                await this.isSubnetPrivate(privateSubnets[1].SubnetId) :
+                subnet1IsActuallyPrivate;
+
+            const subnetStatus = {
+                requiresConversion: !subnet1IsActuallyPrivate || !subnet2IsActuallyPrivate,
+                subnet1NeedsConversion: !subnet1IsActuallyPrivate,
+                subnet2NeedsConversion: !subnet2IsActuallyPrivate
+            };
+
+            if (subnetStatus.requiresConversion) {
+                console.log(`\n⚠️  SUBNET CONFIGURATION WARNING:`);
+                if (subnetStatus.subnet1NeedsConversion && privateSubnets[0]) {
+                    console.log(`  - Subnet ${privateSubnets[0].SubnetId} is currently PUBLIC but will be used for Lambda`);
+                }
+                if (subnetStatus.subnet2NeedsConversion && privateSubnets[1]) {
+                    console.log(`  - Subnet ${privateSubnets[1].SubnetId} is currently PUBLIC but will be used for Lambda`);
+                }
+                console.log(`  💡 Enable selfHeal: true to automatically fix this`);
+            }
+
+            console.log(`\n${'═'.repeat(60)}`);
+            console.log('📋 Discovery Summary:');
+            console.log(`  VPC: ${vpc.VpcId}`);
+            console.log(`  Lambda Subnets: ${privateSubnets.map(s => s.SubnetId).join(', ')}`);
+            console.log(`  NAT Subnet: ${publicSubnet?.SubnetId || 'None (needs creation)'}`);
+            console.log(`  NAT Gateway: ${natGatewayId || 'None (will be created)'}`);
+            console.log(`  Elastic IP: ${elasticIpAllocationId || 'None (will be allocated)'}`);
+            if (subnetStatus.requiresConversion) {
+                console.log(`  ⚠️  Subnet Conversion Required: Yes`);
+            }
+            console.log(`${'═'.repeat(60)}\n`);
+
             return {
                 defaultVpcId: vpc.VpcId,
                 defaultSecurityGroupId: securityGroup.GroupId,
@@ -844,7 +948,10 @@ class AWSDiscovery {
                 privateRouteTableId: routeTable.RouteTableId,
                 defaultKmsKeyId: kmsKeyArn,
                 existingNatGatewayId: natGatewayId,
-                existingElasticIpAllocationId: elasticIpAllocationId
+                existingElasticIpAllocationId: elasticIpAllocationId,
+                subnetConversionRequired: subnetStatus.requiresConversion,
+                privateSubnetsWithWrongRoutes: subnetStatus.requiresConversion ?
+                    [privateSubnets[0]?.SubnetId, privateSubnets[1]?.SubnetId].filter(Boolean) : []
             };
         } catch (error) {
             console.error('Error discovering AWS resources:', error);

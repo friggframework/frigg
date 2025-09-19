@@ -118,39 +118,144 @@ describe('AWSDiscovery', () => {
 
         it('should return private subnets when found', async () => {
             const mockSubnets = [
-                { SubnetId: 'subnet-private-1', VpcId: mockVpcId },
-                { SubnetId: 'subnet-private-2', VpcId: mockVpcId }
+                { SubnetId: 'subnet-private-1', VpcId: mockVpcId, AvailabilityZone: 'us-east-1a' },
+                { SubnetId: 'subnet-private-2', VpcId: mockVpcId, AvailabilityZone: 'us-east-1b' }
             ];
 
             mockEC2Send
                 .mockResolvedValueOnce({ Subnets: mockSubnets }) // DescribeSubnets
-                .mockResolvedValue({ RouteTables: [] }); // DescribeRouteTables (private)
+                .mockResolvedValueOnce({ // Check subnet-private-1
+                    Subnets: [{ SubnetId: 'subnet-private-1', VpcId: mockVpcId }]
+                })
+                .mockResolvedValueOnce({ // Route tables for private-1
+                    RouteTables: [{
+                        Associations: [{ SubnetId: 'subnet-private-1' }],
+                        Routes: [{ GatewayId: 'local' }] // No IGW = private
+                    }]
+                })
+                .mockResolvedValueOnce({ // Check subnet-private-2
+                    Subnets: [{ SubnetId: 'subnet-private-2', VpcId: mockVpcId }]
+                })
+                .mockResolvedValueOnce({ // Route tables for private-2
+                    RouteTables: [{
+                        Associations: [{ SubnetId: 'subnet-private-2' }],
+                        Routes: [{ GatewayId: 'local' }] // No IGW = private
+                    }]
+                });
 
-            const result = await discovery.findPrivateSubnets(mockVpcId);
+            const result = await discovery.findPrivateSubnets(mockVpcId, false);
 
             expect(result).toHaveLength(2);
             expect(result[0].SubnetId).toBe('subnet-private-1');
             expect(result[1].SubnetId).toBe('subnet-private-2');
         });
 
-        it('should return at least 2 subnets even if mixed private/public', async () => {
+        it('should handle all public subnets with autoConvert enabled', async () => {
             const mockSubnets = [
-                { SubnetId: 'subnet-1', VpcId: mockVpcId },
-                { SubnetId: 'subnet-2', VpcId: mockVpcId },
-                { SubnetId: 'subnet-3', VpcId: mockVpcId }
+                { SubnetId: 'subnet-public-1', VpcId: mockVpcId, AvailabilityZone: 'us-east-1a' },
+                { SubnetId: 'subnet-public-2', VpcId: mockVpcId, AvailabilityZone: 'us-east-1b' },
+                { SubnetId: 'subnet-public-3', VpcId: mockVpcId, AvailabilityZone: 'us-east-1c' }
             ];
 
+            // Mock all subnets as public
             mockEC2Send
                 .mockResolvedValueOnce({ Subnets: mockSubnets }) // DescribeSubnets
-                .mockResolvedValue({ // Only one private subnet
+                .mockResolvedValueOnce({ Subnets: [{ SubnetId: 'subnet-public-1', VpcId: mockVpcId }] })
+                .mockResolvedValueOnce({ // Route table for public-1
                     RouteTables: [{
-                        Routes: [] // No IGW route = private
+                        Associations: [{ SubnetId: 'subnet-public-1' }],
+                        Routes: [{ GatewayId: 'igw-12345' }] // IGW = public
+                    }]
+                })
+                .mockResolvedValueOnce({ Subnets: [{ SubnetId: 'subnet-public-2', VpcId: mockVpcId }] })
+                .mockResolvedValueOnce({ // Route table for public-2
+                    RouteTables: [{
+                        Associations: [{ SubnetId: 'subnet-public-2' }],
+                        Routes: [{ GatewayId: 'igw-12345' }] // IGW = public
+                    }]
+                })
+                .mockResolvedValueOnce({ Subnets: [{ SubnetId: 'subnet-public-3', VpcId: mockVpcId }] })
+                .mockResolvedValueOnce({ // Route table for public-3
+                    RouteTables: [{
+                        Associations: [{ SubnetId: 'subnet-public-3' }],
+                        Routes: [{ GatewayId: 'igw-12345' }] // IGW = public
                     }]
                 });
 
-            const result = await discovery.findPrivateSubnets(mockVpcId);
+            // With autoConvert=true, should return subnets to be converted
+            const result = await discovery.findPrivateSubnets(mockVpcId, true);
 
             expect(result).toHaveLength(2);
+            // Should return subnets 2 and 3 for conversion (keeping 1 as public for NAT)
+            expect(result[0].SubnetId).toBe('subnet-public-2');
+            expect(result[1].SubnetId).toBe('subnet-public-3');
+        });
+
+        it('should throw error when all subnets are public and autoConvert is false', async () => {
+            const mockSubnets = [
+                { SubnetId: 'subnet-public-1', VpcId: mockVpcId, AvailabilityZone: 'us-east-1a' },
+                { SubnetId: 'subnet-public-2', VpcId: mockVpcId, AvailabilityZone: 'us-east-1b' }
+            ];
+
+            mockEC2Send
+                .mockResolvedValueOnce({ Subnets: mockSubnets })
+                .mockResolvedValueOnce({ Subnets: [{ SubnetId: 'subnet-public-1', VpcId: mockVpcId }] })
+                .mockResolvedValueOnce({ // Public route table
+                    RouteTables: [{
+                        Associations: [{ SubnetId: 'subnet-public-1' }],
+                        Routes: [{ GatewayId: 'igw-12345' }]
+                    }]
+                })
+                .mockResolvedValueOnce({ Subnets: [{ SubnetId: 'subnet-public-2', VpcId: mockVpcId }] })
+                .mockResolvedValueOnce({ // Public route table
+                    RouteTables: [{
+                        Associations: [{ SubnetId: 'subnet-public-2' }],
+                        Routes: [{ GatewayId: 'igw-12345' }]
+                    }]
+                });
+
+            await expect(discovery.findPrivateSubnets(mockVpcId, false)).rejects.toThrow(
+                `No private subnets found in VPC ${mockVpcId}`
+            );
+        });
+
+        it('should handle mixed private/public subnets correctly', async () => {
+            const mockSubnets = [
+                { SubnetId: 'subnet-private-1', VpcId: mockVpcId, AvailabilityZone: 'us-east-1a' },
+                { SubnetId: 'subnet-public-1', VpcId: mockVpcId, AvailabilityZone: 'us-east-1b' },
+                { SubnetId: 'subnet-public-2', VpcId: mockVpcId, AvailabilityZone: 'us-east-1c' }
+            ];
+
+            mockEC2Send
+                .mockResolvedValueOnce({ Subnets: mockSubnets })
+                .mockResolvedValueOnce({ Subnets: [{ SubnetId: 'subnet-private-1', VpcId: mockVpcId }] })
+                .mockResolvedValueOnce({ // Private route table
+                    RouteTables: [{
+                        Associations: [{ SubnetId: 'subnet-private-1' }],
+                        Routes: [{ GatewayId: 'local' }] // No IGW
+                    }]
+                })
+                .mockResolvedValueOnce({ Subnets: [{ SubnetId: 'subnet-public-1', VpcId: mockVpcId }] })
+                .mockResolvedValueOnce({ // Public route table
+                    RouteTables: [{
+                        Associations: [{ SubnetId: 'subnet-public-1' }],
+                        Routes: [{ GatewayId: 'igw-12345' }]
+                    }]
+                })
+                .mockResolvedValueOnce({ Subnets: [{ SubnetId: 'subnet-public-2', VpcId: mockVpcId }] })
+                .mockResolvedValueOnce({ // Public route table
+                    RouteTables: [{
+                        Associations: [{ SubnetId: 'subnet-public-2' }],
+                        Routes: [{ GatewayId: 'igw-12345' }]
+                    }]
+                });
+
+            const result = await discovery.findPrivateSubnets(mockVpcId, false);
+
+            expect(result).toHaveLength(2);
+            // Should return the one private and one public subnet for HA
+            expect(result[0].SubnetId).toBe('subnet-private-1');
+            expect(result[1].SubnetId).toBe('subnet-public-1');
         });
 
         it('should throw error when no subnets found', async () => {
@@ -162,16 +267,22 @@ describe('AWSDiscovery', () => {
 
     describe('isSubnetPrivate', () => {
         const mockSubnetId = 'subnet-12345678';
+        const mockVpcId = 'vpc-12345678';
 
         it('should return false for public subnet (has IGW route)', async () => {
-            mockEC2Send.mockResolvedValue({
-                RouteTables: [{
-                    Routes: [{
-                        GatewayId: 'igw-12345678',
-                        DestinationCidrBlock: '0.0.0.0/0'
+            mockEC2Send
+                .mockResolvedValueOnce({ // DescribeSubnets
+                    Subnets: [{ SubnetId: mockSubnetId, VpcId: mockVpcId }]
+                })
+                .mockResolvedValueOnce({ // DescribeRouteTables
+                    RouteTables: [{
+                        Associations: [{ SubnetId: mockSubnetId }],
+                        Routes: [{
+                            GatewayId: 'igw-12345678',
+                            DestinationCidrBlock: '0.0.0.0/0'
+                        }]
                     }]
-                }]
-            });
+                });
 
             const result = await discovery.isSubnetPrivate(mockSubnetId);
 
@@ -179,26 +290,63 @@ describe('AWSDiscovery', () => {
         });
 
         it('should return true for private subnet (no IGW route)', async () => {
-            mockEC2Send.mockResolvedValue({
-                RouteTables: [{
-                    Routes: [{
-                        GatewayId: 'local',
-                        DestinationCidrBlock: '10.0.0.0/16'
+            mockEC2Send
+                .mockResolvedValueOnce({ // DescribeSubnets
+                    Subnets: [{ SubnetId: mockSubnetId, VpcId: mockVpcId }]
+                })
+                .mockResolvedValueOnce({ // DescribeRouteTables
+                    RouteTables: [{
+                        Associations: [{ SubnetId: mockSubnetId }],
+                        Routes: [{
+                            GatewayId: 'local',
+                            DestinationCidrBlock: '10.0.0.0/16'
+                        }]
                     }]
-                }]
-            });
+                });
 
             const result = await discovery.isSubnetPrivate(mockSubnetId);
 
             expect(result).toBe(true);
         });
 
+        it('should use main route table if no explicit association', async () => {
+            mockEC2Send
+                .mockResolvedValueOnce({ // DescribeSubnets
+                    Subnets: [{ SubnetId: mockSubnetId, VpcId: mockVpcId }]
+                })
+                .mockResolvedValueOnce({ // DescribeRouteTables
+                    RouteTables: [{
+                        Associations: [{ Main: true }], // Main route table
+                        Routes: [{
+                            GatewayId: 'igw-12345678',
+                            DestinationCidrBlock: '0.0.0.0/0'
+                        }]
+                    }]
+                });
+
+            const result = await discovery.isSubnetPrivate(mockSubnetId);
+
+            expect(result).toBe(false); // Public because main route has IGW
+        });
+
         it('should default to private on error', async () => {
-            mockEC2Send.mockRejectedValue(new Error('Route table error'));
+            mockEC2Send
+                .mockResolvedValueOnce({ // DescribeSubnets
+                    Subnets: [{ SubnetId: mockSubnetId, VpcId: mockVpcId }]
+                })
+                .mockRejectedValue(new Error('Route table error'));
 
             const result = await discovery.isSubnetPrivate(mockSubnetId);
 
             expect(result).toBe(true);
+        });
+
+        it('should throw error when subnet not found', async () => {
+            mockEC2Send.mockResolvedValueOnce({ Subnets: [] });
+
+            await expect(discovery.isSubnetPrivate(mockSubnetId)).rejects.toThrow(
+                `Subnet ${mockSubnetId} not found`
+            );
         });
     });
 
@@ -300,37 +448,116 @@ describe('AWSDiscovery', () => {
         it('should discover all AWS resources successfully', async () => {
             const mockVpc = { VpcId: 'vpc-12345678' };
             const mockSubnets = [
-                { SubnetId: 'subnet-1' }, 
+                { SubnetId: 'subnet-1' },
                 { SubnetId: 'subnet-2' }
             ];
+            const mockPublicSubnet = { SubnetId: 'subnet-public-1' };
             const mockSecurityGroup = { GroupId: 'sg-12345678' };
             const mockRouteTable = { RouteTableId: 'rtb-12345678' };
             const mockKmsArn = 'arn:aws:kms:us-east-1:123456789012:key/12345678';
+            const mockNatGateway = {
+                NatGatewayId: 'nat-12345678',
+                NatGatewayAddresses: [{ AllocationId: 'eipalloc-12345' }]
+            };
 
             // Mock all the discovery methods
             jest.spyOn(discovery, 'findDefaultVpc').mockResolvedValue(mockVpc);
             jest.spyOn(discovery, 'findPrivateSubnets').mockResolvedValue(mockSubnets);
+            jest.spyOn(discovery, 'findPublicSubnets').mockResolvedValue(mockPublicSubnet);
             jest.spyOn(discovery, 'findDefaultSecurityGroup').mockResolvedValue(mockSecurityGroup);
             jest.spyOn(discovery, 'findPrivateRouteTable').mockResolvedValue(mockRouteTable);
             jest.spyOn(discovery, 'findDefaultKmsKey').mockResolvedValue(mockKmsArn);
+            jest.spyOn(discovery, 'findExistingNatGateway').mockResolvedValue(mockNatGateway);
+            jest.spyOn(discovery, 'isSubnetPrivate')
+                .mockResolvedValueOnce(true)  // subnet-1 is private
+                .mockResolvedValueOnce(true); // subnet-2 is private
 
             const result = await discovery.discoverResources();
 
-            expect(result).toEqual({
+            expect(result).toMatchObject({
                 defaultVpcId: 'vpc-12345678',
                 defaultSecurityGroupId: 'sg-12345678',
                 privateSubnetId1: 'subnet-1',
                 privateSubnetId2: 'subnet-2',
+                publicSubnetId: 'subnet-public-1',
                 privateRouteTableId: 'rtb-12345678',
-                defaultKmsKeyId: mockKmsArn
+                defaultKmsKeyId: mockKmsArn,
+                existingNatGatewayId: 'nat-12345678',
+                existingElasticIpAllocationId: 'eipalloc-12345',
+                subnetConversionRequired: false,
+                privateSubnetsWithWrongRoutes: []
             });
 
             // Verify all methods were called
             expect(discovery.findDefaultVpc).toHaveBeenCalled();
-            expect(discovery.findPrivateSubnets).toHaveBeenCalledWith('vpc-12345678');
+            expect(discovery.findPrivateSubnets).toHaveBeenCalledWith('vpc-12345678', false);
+            expect(discovery.findPublicSubnets).toHaveBeenCalledWith('vpc-12345678');
             expect(discovery.findDefaultSecurityGroup).toHaveBeenCalledWith('vpc-12345678');
             expect(discovery.findPrivateRouteTable).toHaveBeenCalledWith('vpc-12345678');
             expect(discovery.findDefaultKmsKey).toHaveBeenCalled();
+            expect(discovery.findExistingNatGateway).toHaveBeenCalledWith('vpc-12345678');
+        });
+
+        it('should detect subnet conversion requirements', async () => {
+            const mockVpc = { VpcId: 'vpc-12345678' };
+            const mockSubnets = [
+                { SubnetId: 'subnet-1' },
+                { SubnetId: 'subnet-2' }
+            ];
+            const mockPublicSubnet = { SubnetId: 'subnet-public-1' };
+            const mockSecurityGroup = { GroupId: 'sg-12345678' };
+            const mockRouteTable = { RouteTableId: 'rtb-12345678' };
+
+            jest.spyOn(discovery, 'findDefaultVpc').mockResolvedValue(mockVpc);
+            jest.spyOn(discovery, 'findPrivateSubnets').mockResolvedValue(mockSubnets);
+            jest.spyOn(discovery, 'findPublicSubnets').mockResolvedValue(mockPublicSubnet);
+            jest.spyOn(discovery, 'findDefaultSecurityGroup').mockResolvedValue(mockSecurityGroup);
+            jest.spyOn(discovery, 'findPrivateRouteTable').mockResolvedValue(mockRouteTable);
+            jest.spyOn(discovery, 'findDefaultKmsKey').mockResolvedValue(null);
+            jest.spyOn(discovery, 'findExistingNatGateway').mockResolvedValue(null);
+            jest.spyOn(discovery, 'findAvailableElasticIP').mockResolvedValue(null);
+            jest.spyOn(discovery, 'isSubnetPrivate')
+                .mockResolvedValueOnce(false) // subnet-1 is actually public
+                .mockResolvedValueOnce(true); // subnet-2 is private
+
+            const result = await discovery.discoverResources({ selfHeal: true });
+
+            expect(result).toMatchObject({
+                subnetConversionRequired: true,
+                privateSubnetsWithWrongRoutes: ['subnet-1']
+            });
+        });
+
+        it('should handle selfHeal option', async () => {
+            const mockVpc = { VpcId: 'vpc-12345678' };
+            const mockSubnets = [
+                { SubnetId: 'subnet-public-1' },
+                { SubnetId: 'subnet-public-2' }
+            ];
+            const mockPublicSubnet = { SubnetId: 'subnet-public-3' };
+            const mockSecurityGroup = { GroupId: 'sg-12345678' };
+            const mockRouteTable = { RouteTableId: 'rtb-12345678' };
+
+            jest.spyOn(discovery, 'findDefaultVpc').mockResolvedValue(mockVpc);
+            jest.spyOn(discovery, 'findPrivateSubnets').mockResolvedValue(mockSubnets);
+            jest.spyOn(discovery, 'findPublicSubnets').mockResolvedValue(mockPublicSubnet);
+            jest.spyOn(discovery, 'findDefaultSecurityGroup').mockResolvedValue(mockSecurityGroup);
+            jest.spyOn(discovery, 'findPrivateRouteTable').mockResolvedValue(mockRouteTable);
+            jest.spyOn(discovery, 'findDefaultKmsKey').mockResolvedValue(null);
+            jest.spyOn(discovery, 'findExistingNatGateway').mockResolvedValue(null);
+            jest.spyOn(discovery, 'findAvailableElasticIP').mockResolvedValue(null);
+            jest.spyOn(discovery, 'isSubnetPrivate')
+                .mockResolvedValue(false); // All subnets are public
+
+            const result = await discovery.discoverResources({ selfHeal: true });
+
+            // Verify that findPrivateSubnets was called with autoConvert=true
+            expect(discovery.findPrivateSubnets).toHaveBeenCalledWith('vpc-12345678', true);
+
+            expect(result).toMatchObject({
+                subnetConversionRequired: true,
+                privateSubnetsWithWrongRoutes: ['subnet-public-1', 'subnet-public-2']
+            });
         });
 
         it('should handle single subnet scenario', async () => {
