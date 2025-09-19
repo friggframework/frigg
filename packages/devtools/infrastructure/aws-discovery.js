@@ -592,37 +592,99 @@ class AWSDiscovery {
      */
     async findDefaultKmsKey() {
         try {
+            // Log AWS account and region info for verification
+            console.log(`[KMS Discovery] Running in region: ${this.region}`);
+            try {
+                const accountId = await this.getAccountId();
+                console.log(`[KMS Discovery] AWS Account ID: ${accountId}`);
+            } catch (error) {
+                console.warn('[KMS Discovery] Could not retrieve account ID:', error.message);
+            }
+
             const command = new ListKeysCommand({});
             const response = await this.kmsClient.send(command);
-            
+
             if (!response.Keys || response.Keys.length === 0) {
-                console.log('No KMS keys found in account');
+                console.log('[KMS Discovery] No KMS keys found in account');
                 return null;
             }
+
+            console.log(`[KMS Discovery] Found ${response.Keys.length} total keys in account`);
+            let keysExamined = 0;
+            let customerManagedKeys = 0;
+            let enabledKeys = 0;
+            let pendingDeletionKeys = 0;
 
             // Look for customer managed keys first
             for (const key of response.Keys) {
                 try {
                     const describeCommand = new DescribeKeyCommand({ KeyId: key.KeyId });
                     const keyDetails = await this.kmsClient.send(describeCommand);
-                    
-                    if (keyDetails.KeyMetadata && 
-                        keyDetails.KeyMetadata.KeyManager === 'CUSTOMER' &&
-                        keyDetails.KeyMetadata.KeyState === 'Enabled') {
-                        console.log(`Found customer managed KMS key: ${keyDetails.KeyMetadata.Arn}`);
-                        return keyDetails.KeyMetadata.Arn;
+                    keysExamined++;
+
+                    if (keyDetails.KeyMetadata) {
+                        const metadata = keyDetails.KeyMetadata;
+
+                        // Log detailed key information
+                        console.log(`[KMS Discovery] Key ${key.KeyId}:`, {
+                            KeyManager: metadata.KeyManager,
+                            KeyState: metadata.KeyState,
+                            Enabled: metadata.Enabled,
+                            DeletionDate: metadata.DeletionDate || 'Not scheduled for deletion',
+                            Arn: metadata.Arn
+                        });
+
+                        if (metadata.KeyManager === 'CUSTOMER') {
+                            customerManagedKeys++;
+
+                            if (metadata.KeyState === 'Enabled') {
+                                enabledKeys++;
+                            } else if (metadata.KeyState === 'PendingDeletion') {
+                                pendingDeletionKeys++;
+                                console.warn(`[KMS Discovery] Skipping key ${key.KeyId} - State: PendingDeletion, DeletionDate: ${metadata.DeletionDate}`);
+                            }
+
+                            // Explicitly check for enabled state AND absence of deletion
+                            if (metadata.KeyManager === 'CUSTOMER' &&
+                                metadata.KeyState === 'Enabled' &&
+                                !metadata.DeletionDate) {
+                                console.log(`[KMS Discovery] Found eligible customer managed KMS key: ${metadata.Arn}`);
+                                return metadata.Arn;
+                            } else if (metadata.KeyManager === 'CUSTOMER' &&
+                                      metadata.KeyState === 'Enabled' &&
+                                      metadata.DeletionDate) {
+                                // This shouldn't happen according to AWS docs, but log it if it does
+                                console.error(`[KMS Discovery] WARNING: Key ${key.KeyId} has KeyState='Enabled' but DeletionDate is set: ${metadata.DeletionDate}`);
+                            }
+                        }
                     }
                 } catch (error) {
                     // Continue to next key if we can't describe this one
-                    console.warn(`Could not describe key ${key.KeyId}:`, error.message);
+                    console.warn(`[KMS Discovery] Could not describe key ${key.KeyId}:`, error.message);
                     continue;
                 }
             }
 
-            console.log('No customer managed KMS keys found');
+            // Summary logging
+            console.log('[KMS Discovery] Summary:', {
+                totalKeys: response.Keys.length,
+                keysExamined: keysExamined,
+                customerManagedKeys: customerManagedKeys,
+                enabledKeys: enabledKeys,
+                pendingDeletionKeys: pendingDeletionKeys
+            });
+
+            if (customerManagedKeys === 0) {
+                console.log('[KMS Discovery] No customer managed KMS keys found in account');
+            } else if (enabledKeys === 0) {
+                console.warn('[KMS Discovery] Found customer managed keys but none are in Enabled state');
+            } else {
+                console.warn('[KMS Discovery] Found enabled customer managed keys but none met all criteria');
+            }
+
             return null;
         } catch (error) {
-            console.error('Error finding default KMS key:', error);
+            console.error('[KMS Discovery] Error finding default KMS key:', error);
             return null;
         }
     }
