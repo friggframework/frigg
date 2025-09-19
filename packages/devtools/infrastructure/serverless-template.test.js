@@ -398,6 +398,17 @@ describe('composeServerlessDefinition', () => {
             expect(result.custom.kmsGrants).toEqual({
                 kmsKeyId: 'arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012'
             });
+
+            // Check KMS Alias resource is created for discovered key
+            expect(result.resources.Resources.FriggKMSKeyAlias).toBeDefined();
+            expect(result.resources.Resources.FriggKMSKeyAlias).toEqual({
+                Type: 'AWS::KMS::Alias',
+                DeletionPolicy: 'Retain',
+                Properties: {
+                    AliasName: 'alias/${self:service}-${self:provider.stage}-frigg-kms',
+                    TargetKeyId: 'arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012'
+                }
+            });
         });
 
         it('should create new KMS key when encryption is enabled, no key found, and createResourceIfNoneFound is true', async () => {
@@ -426,9 +437,11 @@ describe('composeServerlessDefinition', () => {
 
             const result = await composeServerlessDefinition(appDefinition);
 
-            // Check that KMS key resource was created
+            // Check that KMS key resource was created with DeletionPolicy
             expect(result.resources.Resources.FriggKMSKey).toEqual({
                 Type: 'AWS::KMS::Key',
+                DeletionPolicy: 'Retain',
+                UpdateReplacePolicy: 'Retain',
                 Properties: {
                     EnableKeyRotation: true,
                     Description: 'Frigg KMS key for field-level encryption',
@@ -476,6 +489,17 @@ describe('composeServerlessDefinition', () => {
                             Value: 'Field-level encryption for Frigg application'
                         }
                     ]
+                }
+            });
+
+            // Check KMS Alias resource is created for the new key
+            expect(result.resources.Resources.FriggKMSKeyAlias).toBeDefined();
+            expect(result.resources.Resources.FriggKMSKeyAlias).toEqual({
+                Type: 'AWS::KMS::Alias',
+                DeletionPolicy: 'Retain',
+                Properties: {
+                    AliasName: 'alias/${self:service}-${self:provider.stage}-frigg-kms',
+                    TargetKeyId: { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] }
                 }
             });
 

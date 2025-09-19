@@ -1050,6 +1050,17 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 `Using existing KMS key: ${discoveredResources.defaultKmsKeyId}`
             );
 
+            // Create a CloudFormation-managed alias to track the discovered key
+            // This ensures CloudFormation always has a resource to manage, preventing deletion
+            definition.resources.Resources.FriggKMSKeyAlias = {
+                Type: 'AWS::KMS::Alias',
+                DeletionPolicy: 'Retain',
+                Properties: {
+                    AliasName: 'alias/${self:service}-${self:provider.stage}-frigg-kms',
+                    TargetKeyId: discoveredResources.defaultKmsKeyId
+                }
+            };
+
             definition.provider.iamRoleStatements.push({
                 Effect: 'Allow',
                 Action: ['kms:GenerateDataKey', 'kms:Decrypt'],
@@ -1065,6 +1076,8 @@ const composeServerlessDefinition = async (AppDefinition) => {
 
                 definition.resources.Resources.FriggKMSKey = {
                     Type: 'AWS::KMS::Key',
+                    DeletionPolicy: 'Retain',
+                    UpdateReplacePolicy: 'Retain',
                     Properties: {
                         EnableKeyRotation: true,
                         Description: 'Frigg KMS key for field-level encryption',
@@ -1111,11 +1124,25 @@ const composeServerlessDefinition = async (AppDefinition) => {
                                 Value: '${self:service}-${self:provider.stage}-frigg-kms-key',
                             },
                             {
+                                Key: 'ManagedBy',
+                                Value: 'Frigg',
+                            },
+                            {
                                 Key: 'Purpose',
                                 Value: 'Field-level encryption for Frigg application',
                             },
                         ],
                     },
+                };
+
+                // Create an alias for the new KMS key for consistent discovery
+                definition.resources.Resources.FriggKMSKeyAlias = {
+                    Type: 'AWS::KMS::Alias',
+                    DeletionPolicy: 'Retain',
+                    Properties: {
+                        AliasName: 'alias/${self:service}-${self:provider.stage}-frigg-kms',
+                        TargetKeyId: { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] }
+                    }
                 };
 
                 definition.provider.iamRoleStatements.push({
