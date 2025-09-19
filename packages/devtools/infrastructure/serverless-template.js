@@ -1552,10 +1552,8 @@ const composeServerlessDefinition = async (AppDefinition) => {
             // ALWAYS manage NAT Gateway through CloudFormation for self-healing
             // This ensures NAT Gateway is always in the correct subnet with proper configuration
 
-            console.log('AppDefinition.vpc.natGateway', AppDefinition.vpc.natGateway);
-            const natGatewayManagement =
-                AppDefinition.vpc.natGateway?.management || 'discover';
-            console.log('natGatewayManagement', natGatewayManagement);
+            // Use only the new 'management' property pattern from backend/index.js
+            const natGatewayManagement = AppDefinition.vpc.natGateway?.management || 'discover';
             let needsNewNatGateway =
                 natGatewayManagement === 'createAndManage' ||
                 discoveredResources.needsNewNatGateway === true; // Use healing flag
