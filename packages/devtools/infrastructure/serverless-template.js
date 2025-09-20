@@ -1893,6 +1893,8 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 }
 
                 // Always add route table and routes (referencing the NAT, whether new or existing)
+                // IMPORTANT: Create a new route table to ensure clean routing configuration
+                // This avoids issues with stale routes pointing to deleted NAT Gateways
                 definition.resources.Resources.FriggLambdaRouteTable = {
                     Type: 'AWS::EC2::RouteTable',
                     Properties: {
@@ -1904,6 +1906,10 @@ const composeServerlessDefinition = async (AppDefinition) => {
                                 Key: 'Name',
                                 Value: '${self:service}-${self:provider.stage}-lambda-rt',
                             },
+                            {
+                                Key: 'ManagedBy',
+                                Value: 'Frigg',
+                            },
                         ],
                     },
                 };
@@ -1914,18 +1920,23 @@ const composeServerlessDefinition = async (AppDefinition) => {
                 if (reuseExistingNatGateway) {
                     // Use the existing NAT Gateway that we're reusing
                     natGatewayIdForRoute = discoveredResources.existingNatGatewayId;
+                    console.log(`Using discovered NAT Gateway for routing: ${natGatewayIdForRoute}`);
                 } else if (needsNewNatGateway && !reuseExistingNatGateway) {
                     // Reference the new NAT Gateway being created
                     natGatewayIdForRoute = { Ref: 'FriggNATGateway' };
+                    console.log('Using newly created NAT Gateway for routing');
                 } else if (discoveredResources.existingNatGatewayId) {
                     // Use the existing NAT Gateway ID
                     natGatewayIdForRoute = discoveredResources.existingNatGatewayId;
+                    console.log(`Using discovered NAT Gateway for routing: ${natGatewayIdForRoute}`);
                 } else if (AppDefinition.vpc.natGateway?.id) {
                     // Use explicitly provided NAT Gateway ID
                     natGatewayIdForRoute = AppDefinition.vpc.natGateway.id;
+                    console.log(`Using explicitly provided NAT Gateway for routing: ${natGatewayIdForRoute}`);
                 } else if (AppDefinition.vpc.selfHeal === true) {
                     // Self-healing enabled but no NAT Gateway - skip NAT route
                     natGatewayIdForRoute = null;
+                    console.log('No NAT Gateway available - skipping NAT route creation');
                 } else {
                     throw new Error(
                         'Unable to determine NAT Gateway ID for routing. ' +
@@ -1935,7 +1946,8 @@ const composeServerlessDefinition = async (AppDefinition) => {
 
                 // Only create NAT route if we have a NAT Gateway
                 if (natGatewayIdForRoute) {
-                        definition.resources.Resources.FriggNATRoute = {
+                    console.log(`Creating NAT route: 0.0.0.0/0 → ${natGatewayIdForRoute}`);
+                    definition.resources.Resources.FriggNATRoute = {
                         Type: 'AWS::EC2::Route',
                         Properties: {
                             RouteTableId: { Ref: 'FriggLambdaRouteTable' },
@@ -1943,6 +1955,8 @@ const composeServerlessDefinition = async (AppDefinition) => {
                             NatGatewayId: natGatewayIdForRoute,
                         },
                     };
+                } else {
+                    console.warn('⚠️  No NAT Gateway configured - Lambda functions will not have internet access');
                 }
 
                 // Associate Lambda subnets with NAT Gateway route table

@@ -559,8 +559,23 @@ class AWSDiscovery {
             const response = await this.ec2Client.send(command);
 
             if (response.NatGateways && response.NatGateways.length > 0) {
+                // Filter out any NAT Gateways that are not truly available
+                const availableNatGateways = response.NatGateways.filter(nat => {
+                    // Double-check the state is truly 'available'
+                    if (nat.State !== 'available') {
+                        console.warn(`Skipping NAT Gateway ${nat.NatGatewayId} with state: ${nat.State}`);
+                        return false;
+                    }
+                    return true;
+                });
+
+                if (availableNatGateways.length === 0) {
+                    console.warn('No truly available NAT Gateways found in VPC');
+                    return null;
+                }
+
                 // Sort NAT Gateways to prioritize Frigg-managed ones
-                const sortedNatGateways = response.NatGateways.sort((a, b) => {
+                const sortedNatGateways = availableNatGateways.sort((a, b) => {
                     const aIsFrigg =
                         a.Tags &&
                         a.Tags.some(
@@ -632,7 +647,7 @@ class AWSDiscovery {
 
                     if (isFriggNat) {
                         console.log(
-                            `Found existing Frigg-managed NAT Gateway: ${natGateway.NatGatewayId}`
+                            `Found existing Frigg-managed NAT Gateway: ${natGateway.NatGatewayId} (State: ${natGateway.State})`
                         );
                         natGateway._isInPrivateSubnet = false;
                         return natGateway;
@@ -640,7 +655,7 @@ class AWSDiscovery {
 
                     // Return first valid NAT Gateway that's in a public subnet
                     console.log(
-                        `Found existing NAT Gateway in public subnet: ${natGateway.NatGatewayId}`
+                        `Found existing NAT Gateway in public subnet: ${natGateway.NatGatewayId} (State: ${natGateway.State})`
                     );
                     natGateway._isInPrivateSubnet = false;
                     return natGateway;
