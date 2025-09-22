@@ -76,6 +76,18 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                 Description:
                     'Enable SSM Parameter Store permissions for Frigg applications',
             },
+            DeploymentKmsAliasName: {
+                Type: 'String',
+                Default: 'alias/frigg-deployment',
+                Description:
+                    'Alias name to create or manage for the deployment KMS key',
+            },
+            DeploymentKmsTargetKeyArn: {
+                Type: 'String',
+                Default: '',
+                Description:
+                    'Optional existing KMS key ARN that the deployment alias should reference',
+            },
         },
 
         Conditions: {
@@ -87,6 +99,23 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
             },
             CreateSSMPermissions: {
                 'Fn::Equals': [{ Ref: 'EnableSSMSupport' }, 'true'],
+            },
+            CreateKMSAlias: {
+                'Fn::And': [
+                    {
+                        'Fn::Equals': [{ Ref: 'EnableKMSSupport' }, 'true'],
+                    },
+                    {
+                        'Fn::Not': [
+                            {
+                                'Fn::Equals': [
+                                    { Ref: 'DeploymentKmsTargetKeyArn' },
+                                    '',
+                                ],
+                            },
+                        ],
+                    },
+                ],
             },
         },
 
@@ -556,6 +585,7 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                                 'ec2:DescribeRouteTables',
                                 'ec2:CreateRoute',
                                 'ec2:DeleteRoute',
+                                'ec2:ReplaceRoute',
                                 'ec2:AssociateRouteTable',
                                 'ec2:DisassociateRouteTable',
                                 'ec2:CreateSecurityGroup',
@@ -615,6 +645,11 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                                 'kms:TagResource',
                                 'kms:UntagResource',
                                 'kms:ListResourceTags',
+                                'kms:CreateAlias',
+                                'kms:UpdateAlias',
+                                'kms:DeleteAlias',
+                                'kms:ListAliases',
+                                'kms:DescribeKey',
                             ],
                             Resource: '*',
                         },
@@ -623,6 +658,17 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
             },
         };
     }
+
+    template.Resources.FriggKMSKeyAlias = {
+        Type: 'AWS::KMS::Alias',
+        Condition: 'CreateKMSAlias',
+        DeletionPolicy: 'Retain',
+        UpdateReplacePolicy: 'Retain',
+        Properties: {
+            AliasName: { Ref: 'DeploymentKmsAliasName' },
+            TargetKeyId: { Ref: 'DeploymentKmsTargetKeyArn' },
+        },
+    };
 
     if (features.ssm) {
         template.Resources.FriggSSMPolicy = {
