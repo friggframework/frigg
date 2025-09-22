@@ -670,7 +670,7 @@ const createVPCInfrastructure = (AppDefinition) => {
         vpcResources.FriggVPCEndpointSecurityGroup = {
             Type: 'AWS::EC2::SecurityGroup',
             Properties: {
-                GroupDescription: 'Security group for Frigg VPC Endpoints',
+                GroupDescription: 'Security group for Frigg VPC Endpoints - allows HTTPS from Lambda functions',
                 VpcId: { Ref: 'FriggVPC' },
                 SecurityGroupIngress: [
                     {
@@ -680,7 +680,15 @@ const createVPCInfrastructure = (AppDefinition) => {
                         SourceSecurityGroupId: {
                             Ref: 'FriggLambdaSecurityGroup',
                         },
-                        Description: 'HTTPS from Lambda',
+                        Description: 'HTTPS from Lambda security group',
+                    },
+                    {
+                        // Also allow from VPC CIDR as fallback
+                        IpProtocol: 'tcp',
+                        FromPort: 443,
+                        ToPort: 443,
+                        CidrIp: AppDefinition.vpc.cidrBlock || '10.0.0.0/16',
+                        Description: 'HTTPS from VPC CIDR (fallback)',
                     },
                 ],
                 Tags: [
@@ -703,6 +711,10 @@ const createVPCInfrastructure = (AppDefinition) => {
                     {
                         Key: 'Type',
                         Value: 'VPCEndpoint',
+                    },
+                    {
+                        Key: 'Purpose',
+                        Value: 'Allow Lambda functions to access VPC endpoints',
                     },
                 ],
             },
@@ -2054,27 +2066,79 @@ const composeServerlessDefinition = async (AppDefinition) => {
                             !definition.resources.Resources
                                 .VPCEndpointSecurityGroup
                         ) {
+                            // Build ingress rules based on what we have
+                            const vpcEndpointIngressRules = [];
+
+                            // CRITICAL: Allow from Lambda's security group (preferred method)
+                            if (vpcConfig.securityGroupIds && vpcConfig.securityGroupIds.length > 0) {
+                                // If we have the Lambda security group, reference it directly
+                                const lambdaSgId = vpcConfig.securityGroupIds[0];
+                                if (typeof lambdaSgId === 'string') {
+                                    // It's a discovered security group ID
+                                    vpcEndpointIngressRules.push({
+                                        IpProtocol: 'tcp',
+                                        FromPort: 443,
+                                        ToPort: 443,
+                                        SourceSecurityGroupId: lambdaSgId,
+                                        Description: 'HTTPS from Lambda security group',
+                                    });
+                                } else if (lambdaSgId && lambdaSgId.Ref) {
+                                    // It's a CloudFormation reference
+                                    vpcEndpointIngressRules.push({
+                                        IpProtocol: 'tcp',
+                                        FromPort: 443,
+                                        ToPort: 443,
+                                        SourceSecurityGroupId: lambdaSgId,
+                                        Description: 'HTTPS from Lambda security group',
+                                    });
+                                }
+                            }
+
+                            // Fallback: If we don't have Lambda SG, use VPC CIDR
+                            if (vpcEndpointIngressRules.length === 0 && discoveredResources.vpcCidr) {
+                                vpcEndpointIngressRules.push({
+                                    IpProtocol: 'tcp',
+                                    FromPort: 443,
+                                    ToPort: 443,
+                                    CidrIp: discoveredResources.vpcCidr,
+                                    Description: 'HTTPS from VPC CIDR (fallback)',
+                                });
+                            }
+
+                            // Last resort: Allow from common private IP ranges
+                            if (vpcEndpointIngressRules.length === 0) {
+                                console.warn(
+                                    '⚠️  WARNING: No Lambda security group or VPC CIDR found. Using default private IP ranges.'
+                                );
+                                vpcEndpointIngressRules.push({
+                                    IpProtocol: 'tcp',
+                                    FromPort: 443,
+                                    ToPort: 443,
+                                    CidrIp: '172.31.0.0/16', // Default VPC CIDR
+                                    Description: 'HTTPS from default VPC range',
+                                });
+                            }
+
                             definition.resources.Resources.VPCEndpointSecurityGroup =
                             {
                                 Type: 'AWS::EC2::SecurityGroup',
                                 Properties: {
                                     GroupDescription:
-                                        'Security group for VPC endpoints',
+                                        'Security group for VPC endpoints - allows HTTPS from Lambda functions',
                                     VpcId: discoveredResources.defaultVpcId,
-                                    SecurityGroupIngress: discoveredResources.vpcCidr
-                                        ? [
-                                              {
-                                                  IpProtocol: 'tcp',
-                                                  FromPort: 443,
-                                                  ToPort: 443,
-                                                  CidrIp: discoveredResources.vpcCidr, // Use discovered VPC CIDR
-                                              },
-                                          ]
-                                        : [], // Empty array if no VPC CIDR discovered
+                                    SecurityGroupIngress: vpcEndpointIngressRules,
                                     Tags: [
                                         {
                                             Key: 'Name',
                                             Value: '${self:service}-${self:provider.stage}-vpc-endpoints-sg',
+                                        },
+                                        {
+                                            Key: 'ManagedBy',
+                                            Value: 'Frigg',
+                                        },
+                                        {
+                                            Key: 'Purpose',
+                                            Value: 'Allow Lambda functions to access VPC endpoints',
                                         },
                                     ],
                                 },
