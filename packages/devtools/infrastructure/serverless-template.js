@@ -1680,6 +1680,8 @@ const composeServerlessDefinition = async (AppDefinition) => {
                     if (!useExistingEip) {
                         definition.resources.Resources.FriggNATGatewayEIP = {
                             Type: 'AWS::EC2::EIP',
+                            DeletionPolicy: 'Retain', // Prevent accidental deletion
+                            UpdateReplacePolicy: 'Retain', // Prevent replacement during updates
                             Properties: {
                                 Domain: 'vpc',
                                 Tags: [
@@ -1808,6 +1810,8 @@ const composeServerlessDefinition = async (AppDefinition) => {
                         // Create NAT Gateway only if not reusing existing one
                         definition.resources.Resources.FriggNATGateway = {
                             Type: 'AWS::EC2::NatGateway',
+                            DeletionPolicy: 'Retain', // Prevent accidental deletion
+                            UpdateReplacePolicy: 'Retain', // Prevent replacement during updates
                             Properties: {
                                 AllocationId: useExistingEip ?
                                     discoveredResources.existingElasticIpAllocationId :
@@ -1904,11 +1908,15 @@ const composeServerlessDefinition = async (AppDefinition) => {
                     }
                 }
 
-                // Always add route table and routes (referencing the NAT, whether new or existing)
-                // IMPORTANT: Create a new route table to ensure clean routing configuration
-                // This avoids issues with stale routes pointing to deleted NAT Gateways
+                // ALWAYS create the route table resource in CloudFormation for consistency
+                // Use DeletionPolicy: Retain to prevent deletion when removed from template
+                // This ensures CloudFormation maintains consistent state management
+                console.log('Setting up route table for Lambda subnets');
+
                 definition.resources.Resources.FriggLambdaRouteTable = {
                     Type: 'AWS::EC2::RouteTable',
+                    DeletionPolicy: 'Retain', // Critical: Prevents deletion when resource is removed
+                    UpdateReplacePolicy: 'Retain', // Prevents replacement during stack updates
                     Properties: {
                         VpcId: discoveredResources.defaultVpcId || {
                             Ref: 'FriggVPC',
@@ -1922,9 +1930,20 @@ const composeServerlessDefinition = async (AppDefinition) => {
                                 Key: 'ManagedBy',
                                 Value: 'Frigg',
                             },
+                            {
+                                Key: 'Environment',
+                                Value: '${self:provider.stage}',
+                            },
+                            {
+                                Key: 'Service',
+                                Value: '${self:service}',
+                            },
                         ],
                     },
                 };
+
+                // Always use CloudFormation reference for consistency
+                const routeTableId = { Ref: 'FriggLambdaRouteTable' };
 
                 // Determine which NAT Gateway ID to use for routing
                 let natGatewayIdForRoute;
@@ -1956,13 +1975,15 @@ const composeServerlessDefinition = async (AppDefinition) => {
                     );
                 }
 
-                // Only create NAT route if we have a NAT Gateway
+                // ALWAYS create/update NAT route if we have a NAT Gateway
+                // This ensures routes are always correct even if NAT Gateway changes
                 if (natGatewayIdForRoute) {
-                    console.log(`Creating NAT route: 0.0.0.0/0 → ${natGatewayIdForRoute}`);
+                    console.log(`Configuring NAT route: 0.0.0.0/0 → ${natGatewayIdForRoute}`);
                     definition.resources.Resources.FriggNATRoute = {
                         Type: 'AWS::EC2::Route',
+                        DependsOn: 'FriggLambdaRouteTable',
                         Properties: {
-                            RouteTableId: { Ref: 'FriggLambdaRouteTable' },
+                            RouteTableId: routeTableId,
                             DestinationCidrBlock: '0.0.0.0/0',
                             NatGatewayId: natGatewayIdForRoute,
                         },
@@ -1979,13 +2000,15 @@ const composeServerlessDefinition = async (AppDefinition) => {
                     // CloudFormation will automatically disassociate from old route table first
                 }
 
+                // ALWAYS create subnet associations to ensure correct routing
+                // CloudFormation will handle existing associations gracefully
                 // Only create associations for discovered subnets (not for Refs)
                 if (typeof vpcConfig.subnetIds[0] === 'string') {
                     definition.resources.Resources.FriggSubnet1RouteAssociation = {
                         Type: 'AWS::EC2::SubnetRouteTableAssociation',
                         Properties: {
                             SubnetId: vpcConfig.subnetIds[0],
-                            RouteTableId: { Ref: 'FriggLambdaRouteTable' },
+                            RouteTableId: routeTableId,
                         },
                         DependsOn: 'FriggLambdaRouteTable',
                     };
@@ -1996,7 +2019,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
                         Type: 'AWS::EC2::SubnetRouteTableAssociation',
                         Properties: {
                             SubnetId: vpcConfig.subnetIds[1],
-                            RouteTableId: { Ref: 'FriggLambdaRouteTable' },
+                            RouteTableId: routeTableId,
                         },
                         DependsOn: 'FriggLambdaRouteTable',
                     };
@@ -2008,7 +2031,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
                         Type: 'AWS::EC2::SubnetRouteTableAssociation',
                         Properties: {
                             SubnetId: vpcConfig.subnetIds[0],
-                            RouteTableId: { Ref: 'FriggLambdaRouteTable' },
+                            RouteTableId: routeTableId,
                         },
                         DependsOn: ['FriggLambdaRouteTable', vpcConfig.subnetIds[0].Ref],
                     };
@@ -2019,13 +2042,14 @@ const composeServerlessDefinition = async (AppDefinition) => {
                         Type: 'AWS::EC2::SubnetRouteTableAssociation',
                         Properties: {
                             SubnetId: vpcConfig.subnetIds[1],
-                            RouteTableId: { Ref: 'FriggLambdaRouteTable' },
+                            RouteTableId: routeTableId,
                         },
                         DependsOn: ['FriggLambdaRouteTable', vpcConfig.subnetIds[1].Ref],
                     };
                 }
 
-                // Add VPC endpoints for AWS service optimization (optional but recommended)
+                // Add VPC endpoints for AWS service optimization
+                // ALWAYS create these to ensure Lambda functions have optimized access to AWS services
                 if (AppDefinition.vpc.enableVPCEndpoints !== false) {
                     definition.resources.Resources.VPCEndpointS3 = {
                         Type: 'AWS::EC2::VPCEndpoint',
@@ -2034,7 +2058,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
                             ServiceName:
                                 'com.amazonaws.${self:provider.region}.s3',
                             VpcEndpointType: 'Gateway',
-                            RouteTableIds: [{ Ref: 'FriggLambdaRouteTable' }],
+                            RouteTableIds: [routeTableId],
                         },
                     };
 
@@ -2045,15 +2069,15 @@ const composeServerlessDefinition = async (AppDefinition) => {
                             ServiceName:
                                 'com.amazonaws.${self:provider.region}.dynamodb',
                             VpcEndpointType: 'Gateway',
-                            RouteTableIds: [{ Ref: 'FriggLambdaRouteTable' }],
+                            RouteTableIds: [routeTableId],
                         },
                     };
+                }
 
-                    // Add KMS VPC endpoint if using KMS encryption
-                    if (
-                        AppDefinition.encryption?.fieldLevelEncryptionMethod ===
-                        'kms'
-                    ) {
+                // Add KMS VPC endpoint if using KMS encryption
+                if (
+                    AppDefinition.encryption?.fieldLevelEncryptionMethod === 'kms'
+                ) {
                         // Validate we have VPC CIDR for security group configuration
                         if (!discoveredResources.vpcCidr) {
                             console.warn(
@@ -2181,7 +2205,6 @@ const composeServerlessDefinition = async (AppDefinition) => {
                     }
                 }
             }
-        }
 
     // SSM Parameter Store Configuration based on App Definition
     if (AppDefinition.ssm?.enable === true) {
