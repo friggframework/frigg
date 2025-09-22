@@ -1958,7 +1958,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
 
                 // Only create NAT route if we have a NAT Gateway
                 if (natGatewayIdForRoute) {
-                    console.log(`Creating NAT route: 0.0.0.0/0 → ${natGatewayIdForRoute}`);
+                    console.log(`Creating NAT route: 0.0.0.0/0 → ${JSON.stringify(natGatewayIdForRoute)}`);
                     definition.resources.Resources.FriggNATRoute = {
                         Type: 'AWS::EC2::Route',
                         Properties: {
@@ -1967,6 +1967,13 @@ const composeServerlessDefinition = async (AppDefinition) => {
                             NatGatewayId: natGatewayIdForRoute,
                         },
                     };
+
+                    // Add DependsOn if we're creating a new NAT Gateway
+                    if (needsNewNatGateway && !reuseExistingNatGateway) {
+                        definition.resources.Resources.FriggNATRoute.DependsOn = ['FriggNATGateway', 'FriggLambdaRouteTable'];
+                    } else {
+                        definition.resources.Resources.FriggNATRoute.DependsOn = 'FriggLambdaRouteTable';
+                    }
                 } else {
                     console.warn('⚠️  No NAT Gateway configured - Lambda functions will not have internet access');
                 }
@@ -2036,6 +2043,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
                             VpcEndpointType: 'Gateway',
                             RouteTableIds: [{ Ref: 'FriggLambdaRouteTable' }],
                         },
+                        DependsOn: 'FriggLambdaRouteTable',
                     };
 
                     definition.resources.Resources.VPCEndpointDynamoDB = {
@@ -2047,6 +2055,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
                             VpcEndpointType: 'Gateway',
                             RouteTableIds: [{ Ref: 'FriggLambdaRouteTable' }],
                         },
+                        DependsOn: 'FriggLambdaRouteTable',
                     };
 
                     // Add KMS VPC endpoint if using KMS encryption
