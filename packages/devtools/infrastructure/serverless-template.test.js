@@ -1,30 +1,43 @@
 const { composeServerlessDefinition } = require('./serverless-template');
 
+// Helper to build discovery responses with overridable fields
+const createDiscoveryResponse = (overrides = {}) => ({
+    defaultVpcId: 'vpc-123456',
+    vpcCidr: '172.31.0.0/16', // Provide VPC CIDR so security group fallbacks can be tested
+    defaultSecurityGroupId: 'sg-123456',
+    privateSubnetId1: 'subnet-123456',
+    privateSubnetId2: 'subnet-789012',
+    publicSubnetId: 'subnet-public',
+    defaultRouteTableId: 'rtb-123456',
+    defaultKmsKeyId:
+        'arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012',
+    existingNatGatewayId: 'nat-default123',
+    ...overrides,
+});
+
 // Mock AWS Discovery to prevent actual AWS calls
 jest.mock('./aws-discovery', () => {
     return {
-        AWSDiscovery: jest.fn().mockImplementation(() => {
-            return {
-                discoverResources: jest.fn().mockResolvedValue({
-                    defaultVpcId: 'vpc-123456',
-                    vpcCidr: '172.31.0.0/16', // Add VPC CIDR for security group configuration
-                    defaultSecurityGroupId: 'sg-123456',
-                    privateSubnetId1: 'subnet-123456',
-                    privateSubnetId2: 'subnet-789012',
-                    publicSubnetId: 'subnet-public',
-                    defaultRouteTableId: 'rtb-123456',
-                    defaultKmsKeyId: 'arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012',
-                    existingNatGatewayId: 'nat-default123' // Add default NAT Gateway for discover mode
-                })
-            };
-        })
+        AWSDiscovery: jest.fn().mockImplementation(() => ({
+            discoverResources: jest
+                .fn()
+                .mockResolvedValue(createDiscoveryResponse()),
+        })),
     };
 });
+
+const { AWSDiscovery } = require('./aws-discovery');
 
 describe('composeServerlessDefinition', () => {
     let mockIntegration;
 
     beforeEach(() => {
+        AWSDiscovery.mockImplementation(() => ({
+            discoverResources: jest
+                .fn()
+                .mockResolvedValue(createDiscoveryResponse()),
+        }));
+
         mockIntegration = {
             Definition: {
                 name: 'testIntegration'
@@ -342,6 +355,137 @@ describe('composeServerlessDefinition', () => {
             expect(result.resources.Resources.VPCEndpointS3).toBeDefined();
             expect(result.resources.Resources.VPCEndpointS3.Type).toBe('AWS::EC2::VPCEndpoint');
             expect(result.resources.Resources.VPCEndpointS3.Properties.VpcId).toBe('vpc-123456');
+        });
+
+        it('should allow Lambda security group access for VPC endpoints when security group is discovered', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'discover'
+                },
+                encryption: { fieldLevelEncryptionMethod: 'kms' },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+            const endpointSg = result.resources.Resources.VPCEndpointSecurityGroup;
+
+            expect(endpointSg).toBeDefined();
+            expect(endpointSg.Properties.SecurityGroupIngress).toEqual([
+                {
+                    IpProtocol: 'tcp',
+                    FromPort: 443,
+                    ToPort: 443,
+                    SourceSecurityGroupId: 'sg-123456',
+                    Description: 'HTTPS from Lambda security group'
+                }
+            ]);
+        });
+
+        it('should fall back to VPC CIDR when Lambda security group identifier cannot be resolved', async () => {
+            AWSDiscovery.mockImplementation(() => ({
+                discoverResources: jest
+                    .fn()
+                    .mockResolvedValue(createDiscoveryResponse()),
+            }));
+
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'discover',
+                    securityGroupIds: [
+                        {
+                            'Fn::ImportValue': 'shared-lambda-security-group',
+                        },
+                    ],
+                },
+                encryption: { fieldLevelEncryptionMethod: 'kms' },
+                integrations: [],
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+            const endpointSg = result.resources.Resources.VPCEndpointSecurityGroup;
+
+            expect(endpointSg).toBeDefined();
+            expect(endpointSg.Properties.SecurityGroupIngress).toEqual([
+                {
+                    IpProtocol: 'tcp',
+                    FromPort: 443,
+                    ToPort: 443,
+                    CidrIp: '172.31.0.0/16',
+                    Description: 'HTTPS from VPC CIDR (fallback)',
+                },
+            ]);
+        });
+
+        it('should fall back to default private ranges when neither Lambda security group nor VPC CIDR is available', async () => {
+            AWSDiscovery.mockImplementation(() => ({
+                discoverResources: jest
+                    .fn()
+                    .mockResolvedValue(
+                        createDiscoveryResponse({ vpcCidr: null })
+                    ),
+            }));
+
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'discover',
+                    securityGroupIds: [
+                        {
+                            'Fn::ImportValue': 'shared-lambda-security-group',
+                        },
+                    ],
+                },
+                encryption: { fieldLevelEncryptionMethod: 'kms' },
+                integrations: [],
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+            const endpointSg = result.resources.Resources.VPCEndpointSecurityGroup;
+
+            expect(endpointSg).toBeDefined();
+            expect(endpointSg.Properties.SecurityGroupIngress).toEqual([
+                {
+                    IpProtocol: 'tcp',
+                    FromPort: 443,
+                    ToPort: 443,
+                    CidrIp: '172.31.0.0/16',
+                    Description: 'HTTPS from default VPC range',
+                },
+            ]);
+        });
+
+        it('should reference the Lambda security group when creating a new VPC', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'create-new'
+                },
+                encryption: { fieldLevelEncryptionMethod: 'kms' },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+            const endpointSg = result.resources.Resources.FriggVPCEndpointSecurityGroup;
+
+            expect(endpointSg).toBeDefined();
+            expect(endpointSg.Properties.SecurityGroupIngress).toEqual([
+                {
+                    IpProtocol: 'tcp',
+                    FromPort: 443,
+                    ToPort: 443,
+                    SourceSecurityGroupId: { Ref: 'FriggLambdaSecurityGroup' },
+                    Description: 'HTTPS from Lambda security group'
+                },
+                {
+                    IpProtocol: 'tcp',
+                    FromPort: 443,
+                    ToPort: 443,
+                    CidrIp: '10.0.0.0/16',
+                    Description: 'HTTPS from VPC CIDR (fallback)'
+                }
+            ]);
         });
 
         it('should not add VPC configuration when vpc.enable is false', async () => {
