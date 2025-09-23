@@ -43,15 +43,7 @@ function loadSTS() {
     }
 }
 
-/**
- * AWS Resource Discovery utilities for Frigg applications
- * These functions use AWS credentials to discover default resources during build time
- */
 class AWSDiscovery {
-    /**
-     * Creates an instance of AWSDiscovery
-     * @param {string} [region='us-east-1'] - AWS region to use for discovery
-     */
     constructor(region = 'us-east-1') {
         this.region = region;
         loadEC2();
@@ -62,11 +54,6 @@ class AWSDiscovery {
         this.stsClient = new STSClient({ region });
     }
 
-    /**
-     * Get AWS account ID
-     * @returns {Promise<string>} The AWS account ID
-     * @throws {Error} If unable to retrieve account ID
-     */
     async getAccountId() {
         try {
             const command = new GetCallerIdentityCommand({});
@@ -78,11 +65,6 @@ class AWSDiscovery {
         }
     }
 
-    /**
-     * Find the default VPC for the account
-     * @returns {Promise<Object>} VPC object containing VpcId and other properties
-     * @throws {Error} If no VPC is found in the account
-     */
     async findDefaultVpc() {
         try {
             const command = new DescribeVpcsCommand({
@@ -100,7 +82,6 @@ class AWSDiscovery {
                 return response.Vpcs[0];
             }
 
-            // If no default VPC, get the first available VPC
             const allVpcsCommand = new DescribeVpcsCommand({});
             const allVpcsResponse = await this.ec2Client.send(allVpcsCommand);
 
@@ -116,144 +97,34 @@ class AWSDiscovery {
         }
     }
 
-    /**
-     * Find private subnets for the given VPC
-     * @param {string} vpcId - The VPC ID to search within
-     * @param {boolean} autoConvert - If true, convert public subnets to private if needed
-     * @returns {Promise<Array>} Array of subnet objects (at least 2 for high availability)
-     * @throws {Error} If no subnets are found in the VPC
-     */
     async findPrivateSubnets(vpcId, autoConvert = false) {
         try {
-            const command = new DescribeSubnetsCommand({
-                Filters: [
-                    {
-                        Name: 'vpc-id',
-                        Values: [vpcId],
-                    },
-                ],
-            });
+            const subnets = await this._fetchSubnets(vpcId);
 
-            const response = await this.ec2Client.send(command);
-
-            if (!response.Subnets || response.Subnets.length === 0) {
+            if (subnets.length === 0) {
                 throw new Error(`No subnets found in VPC ${vpcId}`);
             }
 
-            console.log(
-                `\n🔍 Analyzing ${response.Subnets.length} subnets in VPC ${vpcId}...`
+            console.log(`\n🔍 Analyzing ${subnets.length} subnets in VPC ${vpcId}...`);
+
+            const { privateSubnets, publicSubnets } = await this._classifySubnets(
+                subnets,
+                { logDetails: true }
             );
 
-            // Categorize subnets by their actual routing
-            const privateSubnets = [];
-            const publicSubnets = [];
+            this._logSubnetSummary(privateSubnets.length, publicSubnets.length);
 
-            for (const subnet of response.Subnets) {
-                // Check route tables to determine if subnet is private
-                const isPrivate = await this.isSubnetPrivate(subnet.SubnetId);
-                if (isPrivate) {
-                    privateSubnets.push(subnet);
-                    console.log(
-                        `  🔒 Private subnet: ${subnet.SubnetId} (AZ: ${subnet.AvailabilityZone})`
-                    );
-                } else {
-                    publicSubnets.push(subnet);
-                    console.log(
-                        `  🌐 Public subnet: ${subnet.SubnetId} (AZ: ${subnet.AvailabilityZone})`
-                    );
-                }
+            const selection = this._selectSubnetsForLambda({
+                privateSubnets,
+                publicSubnets,
+                autoConvert,
+                vpcId,
+            });
+
+            if (selection) {
+                return selection;
             }
 
-            console.log(`\n📊 Subnet Analysis Results:`);
-            console.log(`  - Private subnets: ${privateSubnets.length}`);
-            console.log(`  - Public subnets: ${publicSubnets.length}`);
-
-            // If we have at least 2 private subnets, use them
-            if (privateSubnets.length >= 2) {
-                console.log(
-                    `✅ Found ${privateSubnets.length} private subnets for Lambda deployment`
-                );
-                return privateSubnets.slice(0, 2);
-            }
-
-            // If we have 1 private subnet, we need at least one more
-            if (privateSubnets.length === 1) {
-                console.warn(
-                    `⚠️  Only 1 private subnet found. Need at least 2 for high availability.`
-                );
-                if (publicSubnets.length > 0 && autoConvert) {
-                    console.log(
-                        `🔄 Will convert 1 public subnet to private for high availability...`
-                    );
-                    // Note: The actual conversion happens in the serverless template
-                }
-                // Return what we have - mix of private and public if needed
-                return [...privateSubnets, ...publicSubnets].slice(0, 2);
-            }
-
-            // No private subnets found at all - this is a problem!
-            if (privateSubnets.length === 0 && publicSubnets.length > 0) {
-                console.error(
-                    `❌ CRITICAL: No private subnets found, but ${publicSubnets.length} public subnets exist`
-                );
-                console.error(
-                    `❌ Lambda functions should NOT be deployed in public subnets!`
-                );
-
-                if (autoConvert && publicSubnets.length >= 3) {
-                    console.log(
-                        `\n🔧 AUTO-CONVERSION: Will configure subnets for proper isolation...`
-                    );
-                    console.log(
-                        `  - Keeping ${publicSubnets[0].SubnetId} as public (for NAT Gateway)`
-                    );
-                    console.log(
-                        `  - Converting ${publicSubnets[1].SubnetId} to private (for Lambda)`
-                    );
-                    if (publicSubnets[2]) {
-                        console.log(
-                            `  - Converting ${publicSubnets[2].SubnetId} to private (for Lambda)`
-                        );
-                    }
-
-                    // Return subnets that SHOULD be private (indexes 1 and 2)
-                    // The actual conversion happens in the serverless template
-                    return publicSubnets.slice(1, 3);
-                } else if (autoConvert && publicSubnets.length >= 2) {
-                    console.log(
-                        `\n🔧 AUTO-CONVERSION: Only ${publicSubnets.length} subnets available`
-                    );
-                    console.log(
-                        `  - Will need to create new subnets or reconfigure existing ones`
-                    );
-                    // Return what we have but flag for conversion
-                    return publicSubnets.slice(0, 2);
-                } else {
-                    console.error(`\n⚠️  CONFIGURATION ERROR:`);
-                    console.error(
-                        `  Found ${publicSubnets.length} public subnets but no private subnets.`
-                    );
-                    console.error(
-                        `  Lambda functions require private subnets for security.`
-                    );
-                    console.error(`\n  Options:`);
-                    console.error(
-                        `  1. Enable selfHeal: true in vpc configuration`
-                    );
-                    console.error(`  2. Create private subnets manually`);
-                    console.error(
-                        `  3. Set subnets.management: 'create' to create new private subnets`
-                    );
-
-                    throw new Error(
-                        `No private subnets found in VPC ${vpcId}. ` +
-                            `Found ${publicSubnets.length} public subnets. ` +
-                            `Lambda requires private subnets. Enable selfHeal or create private subnets.`
-                    );
-                }
-            }
-
-            // No subnets at all?
             throw new Error(`No subnets found in VPC ${vpcId}`);
         } catch (error) {
             console.error('Error finding private subnets:', error);
@@ -261,168 +132,57 @@ class AWSDiscovery {
         }
     }
 
-    /**
-     * Check if a subnet is private (no direct route to Internet Gateway)
-     * @param {string} subnetId - The subnet ID to check
-     * @returns {Promise<boolean>} True if subnet is private, false if public
-     */
-    /**
-     * Validate if a subnet is truly public (has IGW route)
-     * @param {string} subnetId - The subnet ID to validate
-     * @returns {Promise<boolean>} true if public (has IGW route), false if private
-     */
-    async isSubnetPublic(subnetId) {
-        const isPrivate = await this.isSubnetPrivate(subnetId);
+    async isSubnetPublic(subnetId, vpcId) {
+        const isPrivate = await this.isSubnetPrivate(subnetId, vpcId);
         return !isPrivate;
     }
 
-    async isSubnetPrivate(subnetId) {
+    async isSubnetPrivate(subnetId, vpcId) {
         try {
-            // First, get the subnet details to find its VPC
-            const subnetCommand = new DescribeSubnetsCommand({
-                SubnetIds: [subnetId],
-            });
-            const subnetResponse = await this.ec2Client.send(subnetCommand);
+            const targetVpcId = vpcId || (await this._getSubnetVpcId(subnetId));
 
-            if (
-                !subnetResponse.Subnets ||
-                subnetResponse.Subnets.length === 0
-            ) {
-                throw new Error(`Subnet ${subnetId} not found`);
-            }
-
-            const subnet = subnetResponse.Subnets[0];
-            const vpcId = subnet.VpcId;
-
-            // Get all route tables for this VPC
-            const routeTablesCommand = new DescribeRouteTablesCommand({
-                Filters: [
-                    {
-                        Name: 'vpc-id',
-                        Values: [vpcId],
-                    },
-                ],
-            });
-
-            const routeTablesResponse = await this.ec2Client.send(
-                routeTablesCommand
-            );
-
-            // Find the route table for this subnet
-            let routeTable = null;
-
-            // First check for explicit association
-            for (const rt of routeTablesResponse.RouteTables || []) {
-                for (const assoc of rt.Associations || []) {
-                    if (assoc.SubnetId === subnetId) {
-                        routeTable = rt;
-                        break;
-                    }
-                }
-                if (routeTable) break;
-            }
-
-            // If no explicit association, use the main route table
-            if (!routeTable) {
-                for (const rt of routeTablesResponse.RouteTables || []) {
-                    for (const assoc of rt.Associations || []) {
-                        if (assoc.Main === true) {
-                            routeTable = rt;
-                            break;
-                        }
-                    }
-                    if (routeTable) break;
-                }
-            }
+            const routeTables = await this.findRouteTables(targetVpcId);
+            const routeTable = this._findRouteTableForSubnet(routeTables, subnetId);
 
             if (!routeTable) {
                 console.warn(`No route table found for subnet ${subnetId}`);
-                return true; // Default to private for safety
+                return true;
             }
 
-            // Check if route table has a route to an Internet Gateway
-            let hasIgwRoute = false;
-            let gatewayId = null;
-
-            for (const route of routeTable.Routes || []) {
-                if (route.GatewayId && route.GatewayId.startsWith('igw-')) {
-                    hasIgwRoute = true;
-                    gatewayId = route.GatewayId;
-                    break;
-                }
-            }
-
-            // Enhanced logging for validation
-            if (hasIgwRoute) {
+            const gatewayId = this._findIgwRoute(routeTable);
+            if (gatewayId) {
                 console.log(
                     `✅ Subnet ${subnetId} is PUBLIC (has route to IGW ${gatewayId})`
                 );
-                return false; // It's a public subnet
-            } else {
-                console.log(
-                    `🔒 Subnet ${subnetId} is PRIVATE (no IGW route found)`
-                );
-                return true; // No IGW route found, it's private
+                return false;
             }
+
+            console.log(
+                `🔒 Subnet ${subnetId} is PRIVATE (no IGW route found)`
+            );
+            return true;
         } catch (error) {
             console.warn(
                 `Could not determine if subnet ${subnetId} is private:`,
                 error
             );
-            return true; // Default to private for safety
+            return true;
         }
     }
 
-    /**
-     * Find or create a default security group for Lambda functions
-     * @param {string} vpcId - The VPC ID to search within
-     * @returns {Promise<Object>} Security group object containing GroupId and other properties
-     * @throws {Error} If no security group is found for the VPC
-     */
     async findDefaultSecurityGroup(vpcId) {
         try {
-            // First try to find existing Frigg security group
-            const friggSgCommand = new DescribeSecurityGroupsCommand({
-                Filters: [
-                    {
-                        Name: 'vpc-id',
-                        Values: [vpcId],
-                    },
-                    {
-                        Name: 'group-name',
-                        Values: ['frigg-lambda-sg'],
-                    },
-                ],
-            });
-
-            const friggResponse = await this.ec2Client.send(friggSgCommand);
-            if (
-                friggResponse.SecurityGroups &&
-                friggResponse.SecurityGroups.length > 0
-            ) {
-                return friggResponse.SecurityGroups[0];
+            const friggGroup = await this._findSecurityGroupByName(
+                vpcId,
+                'frigg-lambda-sg'
+            );
+            if (friggGroup) {
+                return friggGroup;
             }
 
-            // Fall back to default security group
-            const defaultSgCommand = new DescribeSecurityGroupsCommand({
-                Filters: [
-                    {
-                        Name: 'vpc-id',
-                        Values: [vpcId],
-                    },
-                    {
-                        Name: 'group-name',
-                        Values: ['default'],
-                    },
-                ],
-            });
-
-            const defaultResponse = await this.ec2Client.send(defaultSgCommand);
-            if (
-                defaultResponse.SecurityGroups &&
-                defaultResponse.SecurityGroups.length > 0
-            ) {
-                return defaultResponse.SecurityGroups[0];
+            const defaultGroup = await this._findSecurityGroupByName(vpcId, 'default');
+            if (defaultGroup) {
+                return defaultGroup;
             }
 
             throw new Error(`No security group found for VPC ${vpcId}`);
@@ -432,42 +192,17 @@ class AWSDiscovery {
         }
     }
 
-    /**
-     * Find public subnets for NAT Gateway placement
-     * @param {string} vpcId - The VPC ID to search within
-     * @returns {Promise<Object>} First public subnet object for NAT Gateway placement
-     * @throws {Error} If no public subnets are found in the VPC
-     */
     async findPublicSubnets(vpcId) {
         try {
-            const command = new DescribeSubnetsCommand({
-                Filters: [
-                    {
-                        Name: 'vpc-id',
-                        Values: [vpcId],
-                    },
-                ],
-            });
+            const subnets = await this._fetchSubnets(vpcId);
 
-            const response = await this.ec2Client.send(command);
-
-            if (!response.Subnets || response.Subnets.length === 0) {
+            if (subnets.length === 0) {
                 throw new Error(`No subnets found in VPC ${vpcId}`);
             }
 
-            // Find public subnets (have direct route to IGW)
-            const publicSubnets = [];
-
-            for (const subnet of response.Subnets) {
-                // Check route tables to determine if subnet is public
-                const isPrivate = await this.isSubnetPrivate(subnet.SubnetId);
-                if (!isPrivate) {
-                    publicSubnets.push(subnet);
-                }
-            }
+            const { publicSubnets } = await this._classifySubnets(subnets);
 
             if (publicSubnets.length === 0) {
-                // If no public subnets found, we need to create one or inform the user
                 console.warn(
                     `WARNING: No public subnets found in VPC ${vpcId}`
                 );
@@ -477,10 +212,9 @@ class AWSDiscovery {
                 console.warn(
                     'Please create a public subnet or use VPC endpoints instead'
                 );
-                return null; // Return null instead of throwing to allow graceful handling
+                return null;
             }
 
-            // Return first public subnet for NAT Gateway
             console.log(
                 `Found ${publicSubnets.length} public subnets, using ${publicSubnets[0].SubnetId} for NAT Gateway`
             );
@@ -491,56 +225,25 @@ class AWSDiscovery {
         }
     }
 
-    /**
-     * Find private route table for VPC endpoints
-     * @param {string} vpcId - The VPC ID to search within
-     * @returns {Promise<Object>} Route table object containing RouteTableId and other properties
-     * @throws {Error} If no route tables are found for the VPC
-     */
     async findPrivateRouteTable(vpcId) {
         try {
-            const command = new DescribeRouteTablesCommand({
-                Filters: [
-                    {
-                        Name: 'vpc-id',
-                        Values: [vpcId],
-                    },
-                ],
-            });
+            const routeTables = await this.findRouteTables(vpcId);
 
-            const response = await this.ec2Client.send(command);
-
-            if (!response.RouteTables || response.RouteTables.length === 0) {
+            if (routeTables.length === 0) {
                 throw new Error(`No route tables found for VPC ${vpcId}`);
             }
 
-            // Find a route table that doesn't have direct IGW route (private)
-            for (const routeTable of response.RouteTables) {
-                let hasIgwRoute = false;
-                for (const route of routeTable.Routes || []) {
-                    if (route.GatewayId && route.GatewayId.startsWith('igw-')) {
-                        hasIgwRoute = true;
-                        break;
-                    }
-                }
-                if (!hasIgwRoute) {
-                    return routeTable;
-                }
-            }
+            const privateTable = routeTables.find(
+                (rt) => !this._findIgwRoute(rt)
+            );
 
-            // If no private route table found, return the first one
-            return response.RouteTables[0];
+            return privateTable || routeTables[0];
         } catch (error) {
             console.error('Error finding private route table:', error);
             throw error;
         }
     }
 
-    /**
-     * Find existing NAT Gateways in the VPC
-     * @param {string} vpcId - The VPC ID to search within
-     * @returns {Promise<Object|null>} NAT Gateway object or null if none found
-     */
     async findExistingNatGateway(vpcId) {
         try {
             const command = new DescribeNatGatewaysCommand({
@@ -558,122 +261,85 @@ class AWSDiscovery {
 
             const response = await this.ec2Client.send(command);
 
-            if (response.NatGateways && response.NatGateways.length > 0) {
-                // Filter out any NAT Gateways that are not truly available
-                const availableNatGateways = response.NatGateways.filter(nat => {
-                    // Double-check the state is truly 'available'
-                    if (nat.State !== 'available') {
-                        console.warn(`Skipping NAT Gateway ${nat.NatGatewayId} with state: ${nat.State}`);
-                        return false;
-                    }
-                    return true;
-                });
-
-                if (availableNatGateways.length === 0) {
-                    console.warn('No truly available NAT Gateways found in VPC');
-                    return null;
+            const natGateways = (response.NatGateways || []).filter((nat) => {
+                if (nat.State !== 'available') {
+                    console.warn(
+                        `Skipping NAT Gateway ${nat.NatGatewayId} with state: ${nat.State}`
+                    );
+                    return false;
                 }
+                return true;
+            });
 
-                // Sort NAT Gateways to prioritize Frigg-managed ones
-                const sortedNatGateways = availableNatGateways.sort((a, b) => {
-                    const aIsFrigg =
-                        a.Tags &&
-                        a.Tags.some(
-                            (tag) =>
-                                (tag.Key === 'ManagedBy' &&
-                                    tag.Value === 'Frigg') ||
-                                (tag.Key === 'Name' &&
-                                    tag.Value.includes('frigg'))
-                        );
-                    const bIsFrigg =
-                        b.Tags &&
-                        b.Tags.some(
-                            (tag) =>
-                                (tag.Key === 'ManagedBy' &&
-                                    tag.Value === 'Frigg') ||
-                                (tag.Key === 'Name' &&
-                                    tag.Value.includes('frigg'))
-                        );
+            if (natGateways.length === 0) {
+                console.warn('No truly available NAT Gateways found in VPC');
+                return null;
+            }
 
-                    if (aIsFrigg && !bIsFrigg) return -1;
-                    if (!aIsFrigg && bIsFrigg) return 1;
-                    return 0;
-                });
+            const sortedNatGateways = natGateways.sort((a, b) => {
+                const aIsFrigg = this._isFriggManaged(a.Tags);
+                const bIsFrigg = this._isFriggManaged(b.Tags);
 
-                // Check each NAT Gateway to ensure it's properly configured
-                for (const natGateway of sortedNatGateways) {
-                    const subnetId = natGateway.SubnetId;
-                    const isPrivate = await this.isSubnetPrivate(subnetId);
+                if (aIsFrigg && !bIsFrigg) return -1;
+                if (!aIsFrigg && bIsFrigg) return 1;
+                return 0;
+            });
 
-                    // Check if it's a Frigg-managed NAT Gateway
-                    const isFriggNat =
-                        natGateway.Tags &&
-                        natGateway.Tags.some(
-                            (tag) =>
-                                (tag.Key === 'ManagedBy' &&
-                                    tag.Value === 'Frigg') ||
-                                (tag.Key === 'Name' &&
-                                    tag.Value.includes('frigg'))
-                        );
+            for (const natGateway of sortedNatGateways) {
+                const subnetId = natGateway.SubnetId;
+                const isPrivate = await this.isSubnetPrivate(
+                    subnetId,
+                    natGateway.VpcId
+                );
+                const isFriggNat = this._isFriggManaged(natGateway.Tags);
 
-                    if (isPrivate) {
-                        // NAT Gateway appears to be in a private subnet
-                        // This could be due to route table misconfiguration
-                        console.warn(
-                            `WARNING: NAT Gateway ${natGateway.NatGatewayId} is in subnet ${subnetId} which appears to be private`
-                        );
-
-                        if (isFriggNat) {
-                            console.warn(
-                                'This is a Frigg-managed NAT Gateway that may have been misconfigured by route table changes'
-                            );
-                            console.warn(
-                                'Consider enabling selfHeal: true to fix this automatically'
-                            );
-                            // Return it anyway if it's Frigg-managed - we can fix the routes
-                            // Mark that it's in a private subnet
-                            natGateway._isInPrivateSubnet = true;
-                            return natGateway;
-                        } else {
-                            console.warn(
-                                'NAT Gateways MUST be placed in public subnets with Internet Gateway routes'
-                            );
-                            console.warn(
-                                'Skipping this misconfigured NAT Gateway...'
-                            );
-                            continue; // Skip non-Frigg NAT Gateways in private subnets
-                        }
-                    }
+                if (isPrivate) {
+                    console.warn(
+                        `WARNING: NAT Gateway ${natGateway.NatGatewayId} is in subnet ${subnetId} which appears to be private`
+                    );
 
                     if (isFriggNat) {
-                        console.log(
-                            `Found existing Frigg-managed NAT Gateway: ${natGateway.NatGatewayId} (State: ${natGateway.State})`
+                        console.warn(
+                            'This is a Frigg-managed NAT Gateway that may have been misconfigured by route table changes'
                         );
-                        natGateway._isInPrivateSubnet = false;
+                        console.warn(
+                            'Consider enabling selfHeal: true to fix this automatically'
+                        );
+                        natGateway._isInPrivateSubnet = true;
                         return natGateway;
                     }
 
-                    // Return first valid NAT Gateway that's in a public subnet
+                    console.warn(
+                        'NAT Gateways MUST be placed in public subnets with Internet Gateway routes'
+                    );
+                    console.warn('Skipping this misconfigured NAT Gateway...');
+                    continue;
+                }
+
+                if (isFriggNat) {
                     console.log(
-                        `Found existing NAT Gateway in public subnet: ${natGateway.NatGatewayId} (State: ${natGateway.State})`
+                        `Found existing Frigg-managed NAT Gateway: ${natGateway.NatGatewayId} (State: ${natGateway.State})`
                     );
                     natGateway._isInPrivateSubnet = false;
                     return natGateway;
                 }
 
-                // All non-Frigg NAT Gateways are in private subnets
-                console.error(
-                    `ERROR: Found ${response.NatGateways.length} NAT Gateway(s) but all non-Frigg ones are in private subnets!`
+                console.log(
+                    `Found existing NAT Gateway in public subnet: ${natGateway.NatGatewayId} (State: ${natGateway.State})`
                 );
-                console.error(
-                    'These NAT Gateways will not provide internet connectivity without route table fixes'
-                );
-                console.error(
-                    'Enable selfHeal: true to fix automatically or create a new NAT Gateway'
-                );
-                return null; // Return null to trigger creation of new NAT Gateway
+                natGateway._isInPrivateSubnet = false;
+                return natGateway;
             }
 
+            console.error(
+                `ERROR: Found ${(response.NatGateways || []).length} NAT Gateway(s) but all non-Frigg ones are in private subnets!`
+            );
+            console.error(
+                'These NAT Gateways will not provide internet connectivity without route table fixes'
+            );
+            console.error(
+                'Enable selfHeal: true to fix automatically or create a new NAT Gateway'
+            );
             return null;
         } catch (error) {
             console.warn('Error finding existing NAT Gateway:', error.message);
@@ -681,17 +347,12 @@ class AWSDiscovery {
         }
     }
 
-    /**
-     * Find available Elastic IPs
-     * @returns {Promise<Object|null>} Available EIP object or null if none found
-     */
     async findAvailableElasticIP() {
         try {
             const command = new DescribeAddressesCommand({});
             const response = await this.ec2Client.send(command);
 
             if (response.Addresses && response.Addresses.length > 0) {
-                // Find an unassociated EIP first
                 const availableEIP = response.Addresses.find(
                     (eip) =>
                         !eip.AssociationId &&
@@ -706,15 +367,8 @@ class AWSDiscovery {
                     return availableEIP;
                 }
 
-                // Check for EIPs tagged for Frigg
-                const friggEIP = response.Addresses.find(
-                    (eip) =>
-                        eip.Tags &&
-                        eip.Tags.some(
-                            (tag) =>
-                                tag.Key === 'Name' &&
-                                tag.Value.includes('frigg')
-                        )
+                const friggEIP = response.Addresses.find((eip) =>
+                    this._isFriggManaged(eip.Tags)
                 );
 
                 if (friggEIP) {
@@ -732,14 +386,9 @@ class AWSDiscovery {
         }
     }
 
-    /**
-     * Find the default KMS key for the account
-     * @returns {Promise<string|null>} KMS key ARN or null if no key found
-     */
     async findDefaultKmsKey() {
         console.log('KMS Discovery Starting...');
         try {
-            // Log AWS account and region info for verification
             console.log(`[KMS Discovery] Running in region: ${this.region}`);
             try {
                 const accountId = await this.getAccountId();
@@ -767,7 +416,6 @@ class AWSDiscovery {
             let enabledKeys = 0;
             let pendingDeletionKeys = 0;
 
-            // Look for customer managed keys first
             for (const key of response.Keys) {
                 try {
                     const describeCommand = new DescribeKeyCommand({
@@ -778,58 +426,50 @@ class AWSDiscovery {
                     );
                     keysExamined++;
 
-                    if (keyDetails.KeyMetadata) {
-                        const metadata = keyDetails.KeyMetadata;
+                    const metadata = keyDetails.KeyMetadata;
+                    if (!metadata) {
+                        continue;
+                    }
 
-                        // Log detailed key information
-                        console.log(`[KMS Discovery] Key ${key.KeyId}:`, {
-                            KeyManager: metadata.KeyManager,
-                            KeyState: metadata.KeyState,
-                            Enabled: metadata.Enabled,
-                            DeletionDate:
-                                metadata.DeletionDate ||
-                                'Not scheduled for deletion',
-                            Arn: metadata.Arn,
-                        });
+                    console.log(`[KMS Discovery] Key ${key.KeyId}:`, {
+                        KeyManager: metadata.KeyManager,
+                        KeyState: metadata.KeyState,
+                        Enabled: metadata.Enabled,
+                        DeletionDate:
+                            metadata.DeletionDate || 'Not scheduled for deletion',
+                        Arn: metadata.Arn,
+                    });
 
-                        if (metadata.KeyManager === 'CUSTOMER') {
-                            customerManagedKeys++;
+                    if (metadata.KeyManager === 'CUSTOMER') {
+                        customerManagedKeys++;
 
-                            if (metadata.KeyState === 'Enabled') {
-                                enabledKeys++;
-                            } else if (
-                                metadata.KeyState === 'PendingDeletion'
-                            ) {
-                                pendingDeletionKeys++;
-                                console.warn(
-                                    `[KMS Discovery] Skipping key ${key.KeyId} - State: PendingDeletion, DeletionDate: ${metadata.DeletionDate}`
-                                );
-                            }
+                        if (metadata.KeyState === 'Enabled') {
+                            enabledKeys++;
+                        } else if (metadata.KeyState === 'PendingDeletion') {
+                            pendingDeletionKeys++;
+                            console.warn(
+                                `[KMS Discovery] Skipping key ${key.KeyId} - State: PendingDeletion, DeletionDate: ${metadata.DeletionDate}`
+                            );
+                        }
 
-                            // Explicitly check for enabled state AND absence of deletion
-                            if (
-                                metadata.KeyManager === 'CUSTOMER' &&
-                                metadata.KeyState === 'Enabled' &&
-                                !metadata.DeletionDate
-                            ) {
-                                console.log(
-                                    `[KMS Discovery] Found eligible customer managed KMS key: ${metadata.Arn}`
-                                );
-                                return metadata.Arn;
-                            } else if (
-                                metadata.KeyManager === 'CUSTOMER' &&
-                                metadata.KeyState === 'Enabled' &&
-                                metadata.DeletionDate
-                            ) {
-                                // This shouldn't happen according to AWS docs, but log it if it does
-                                console.error(
-                                    `[KMS Discovery] WARNING: Key ${key.KeyId} has KeyState='Enabled' but DeletionDate is set: ${metadata.DeletionDate}`
-                                );
-                            }
+                        if (
+                            metadata.KeyState === 'Enabled' &&
+                            !metadata.DeletionDate
+                        ) {
+                            console.log(
+                                `[KMS Discovery] Found eligible customer managed KMS key: ${metadata.Arn}`
+                            );
+                            return metadata.Arn;
+                        } else if (
+                            metadata.KeyState === 'Enabled' &&
+                            metadata.DeletionDate
+                        ) {
+                            console.error(
+                                `[KMS Discovery] WARNING: Key ${key.KeyId} has KeyState='Enabled' but DeletionDate is set: ${metadata.DeletionDate}`
+                            );
                         }
                     }
                 } catch (error) {
-                    // Continue to next key if we can't describe this one
                     console.warn(
                         `[KMS Discovery] Could not describe key ${key.KeyId}:`,
                         error.message
@@ -838,13 +478,12 @@ class AWSDiscovery {
                 }
             }
 
-            // Summary logging
             console.log('[KMS Discovery] Summary:', {
                 totalKeys: response.Keys.length,
-                keysExamined: keysExamined,
-                customerManagedKeys: customerManagedKeys,
-                enabledKeys: enabledKeys,
-                pendingDeletionKeys: pendingDeletionKeys,
+                keysExamined,
+                customerManagedKeys,
+                enabledKeys,
+                pendingDeletionKeys,
             });
 
             if (customerManagedKeys === 0) {
@@ -871,89 +510,6 @@ class AWSDiscovery {
         }
     }
 
-    /**
-     * Find Frigg-managed resources by tags
-     * @param {string} vpcId - The VPC ID to search within
-     * @returns {Promise<Object>} Object containing Frigg-managed resources
-     */
-    async findFriggManagedResources(vpcId) {
-        try {
-            const resources = {
-                natGateways: [],
-                elasticIps: [],
-                subnets: [],
-                routeTables: [],
-            };
-
-            // Find NAT Gateways with Frigg tags
-            const natCommand = new DescribeNatGatewaysCommand({
-                Filter: [
-                    { Name: 'vpc-id', Values: [vpcId] },
-                    { Name: 'state', Values: ['available'] },
-                ],
-            });
-            const natResponse = await this.ec2Client.send(natCommand);
-
-            if (natResponse.NatGateways) {
-                resources.natGateways = natResponse.NatGateways.filter(
-                    (nat) =>
-                        nat.Tags &&
-                        nat.Tags.some(
-                            (tag) =>
-                                tag.Key === 'ManagedBy' && tag.Value === 'Frigg'
-                        )
-                );
-            }
-
-            // Find Elastic IPs with Frigg tags
-            const eipCommand = new DescribeAddressesCommand({});
-            const eipResponse = await this.ec2Client.send(eipCommand);
-
-            if (eipResponse.Addresses) {
-                resources.elasticIps = eipResponse.Addresses.filter(
-                    (eip) =>
-                        eip.Tags &&
-                        eip.Tags.some(
-                            (tag) =>
-                                tag.Key === 'ManagedBy' && tag.Value === 'Frigg'
-                        )
-                );
-            }
-
-            // Find Route Tables with Frigg tags
-            const rtCommand = new DescribeRouteTablesCommand({
-                Filters: [{ Name: 'vpc-id', Values: [vpcId] }],
-            });
-            const rtResponse = await this.ec2Client.send(rtCommand);
-
-            if (rtResponse.RouteTables) {
-                resources.routeTables = rtResponse.RouteTables.filter(
-                    (rt) =>
-                        rt.Tags &&
-                        rt.Tags.some(
-                            (tag) =>
-                                tag.Key === 'ManagedBy' && tag.Value === 'Frigg'
-                        )
-                );
-            }
-
-            return resources;
-        } catch (error) {
-            console.error('Error finding Frigg-managed resources:', error);
-            return {
-                natGateways: [],
-                elasticIps: [],
-                subnets: [],
-                routeTables: [],
-            };
-        }
-    }
-
-    /**
-     * Detect misconfigured resources that need healing
-     * @param {string} vpcId - The VPC ID to check
-     * @returns {Promise<Object>} Object containing misconfiguration details
-     */
     async detectMisconfiguredResources(vpcId) {
         try {
             const misconfigurations = {
@@ -963,7 +519,6 @@ class AWSDiscovery {
                 privateSubnetsWithoutNatRoute: [],
             };
 
-            // Find NAT Gateways in private subnets
             const natCommand = new DescribeNatGatewaysCommand({
                 Filter: [
                     { Name: 'vpc-id', Values: [vpcId] },
@@ -972,75 +527,52 @@ class AWSDiscovery {
             });
             const natResponse = await this.ec2Client.send(natCommand);
 
-            if (natResponse.NatGateways) {
-                for (const nat of natResponse.NatGateways) {
-                    const isPrivate = await this.isSubnetPrivate(nat.SubnetId);
-                    if (isPrivate) {
-                        misconfigurations.natGatewaysInPrivateSubnets.push({
-                            natGatewayId: nat.NatGatewayId,
-                            subnetId: nat.SubnetId,
-                            tags: nat.Tags,
-                        });
-                    }
+            for (const nat of natResponse.NatGateways || []) {
+                const isPrivate = await this.isSubnetPrivate(nat.SubnetId, vpcId);
+                if (isPrivate) {
+                    misconfigurations.natGatewaysInPrivateSubnets.push({
+                        natGatewayId: nat.NatGatewayId,
+                        subnetId: nat.SubnetId,
+                        tags: nat.Tags,
+                    });
                 }
             }
 
-            // Find orphaned Elastic IPs
             const eipCommand = new DescribeAddressesCommand({});
             const eipResponse = await this.ec2Client.send(eipCommand);
 
-            if (eipResponse.Addresses) {
-                for (const eip of eipResponse.Addresses) {
-                    if (
-                        !eip.InstanceId &&
-                        !eip.NetworkInterfaceId &&
-                        !eip.AssociationId
-                    ) {
-                        // Check if it's Frigg-managed
-                        const isFriggManaged =
-                            eip.Tags &&
-                            eip.Tags.some(
-                                (tag) =>
-                                    tag.Key === 'ManagedBy' &&
-                                    tag.Value === 'Frigg'
-                            );
-                        if (isFriggManaged) {
-                            misconfigurations.orphanedElasticIps.push({
-                                allocationId: eip.AllocationId,
-                                publicIp: eip.PublicIp,
-                                tags: eip.Tags,
-                            });
-                        }
-                    }
+            for (const eip of eipResponse.Addresses || []) {
+                if (
+                    !eip.InstanceId &&
+                    !eip.NetworkInterfaceId &&
+                    !eip.AssociationId &&
+                    this._isFriggManaged(eip.Tags)
+                ) {
+                    misconfigurations.orphanedElasticIps.push({
+                        allocationId: eip.AllocationId,
+                        publicIp: eip.PublicIp,
+                        tags: eip.Tags,
+                    });
                 }
             }
 
-            // Find private subnets without NAT route
             const subnets = await this.findPrivateSubnets(vpcId);
             const routeTables = await this.findRouteTables(vpcId);
 
             for (const subnet of subnets) {
-                let hasNatRoute = false;
-
-                // Find route table for this subnet
-                for (const rt of routeTables) {
-                    const isAssociated =
-                        rt.Associations &&
-                        rt.Associations.some(
-                            (assoc) => assoc.SubnetId === subnet.SubnetId
-                        );
-
-                    if (isAssociated) {
-                        hasNatRoute =
-                            rt.Routes &&
-                            rt.Routes.some(
-                                (route) =>
-                                    route.NatGatewayId &&
-                                    route.DestinationCidrBlock === '0.0.0.0/0'
-                            );
-                        break;
+                const hasNatRoute = routeTables.some((rt) => {
+                    const isAssociated = (rt.Associations || []).some(
+                        (assoc) => assoc.SubnetId === subnet.SubnetId
+                    );
+                    if (!isAssociated) {
+                        return false;
                     }
-                }
+                    return (rt.Routes || []).some(
+                        (route) =>
+                            route.NatGatewayId &&
+                            route.DestinationCidrBlock === '0.0.0.0/0'
+                    );
+                });
 
                 if (!hasNatRoute) {
                     misconfigurations.privateSubnetsWithoutNatRoute.push({
@@ -1062,11 +594,6 @@ class AWSDiscovery {
         }
     }
 
-    /**
-     * Get healing recommendations based on detected issues
-     * @param {Object} misconfigurations - Object from detectMisconfiguredResources
-     * @returns {Array} Array of healing recommendations
-     */
     getHealingRecommendations(misconfigurations) {
         const recommendations = [];
 
@@ -1107,7 +634,6 @@ class AWSDiscovery {
             });
         }
 
-        // Sort by severity
         recommendations.sort((a, b) => {
             const severityOrder = { critical: 0, warning: 1, info: 2 };
             return severityOrder[a.severity] - severityOrder[b.severity];
@@ -1116,18 +642,6 @@ class AWSDiscovery {
         return recommendations;
     }
 
-    /**
-     * Discover all AWS resources needed for Frigg deployment
-     * @returns {Promise<Object>} Object containing discovered resource IDs:
-     * @returns {string} return.defaultVpcId - The default VPC ID
-     * @returns {string} return.defaultSecurityGroupId - The default security group ID
-     * @returns {string} return.privateSubnetId1 - First private subnet ID
-     * @returns {string} return.privateSubnetId2 - Second private subnet ID
-     * @returns {string} return.publicSubnetId - Public subnet ID for NAT Gateway
-     * @returns {string} return.privateRouteTableId - Private route table ID
-     * @returns {string|null} return.defaultKmsKeyId - Default KMS key ARN or null if not found
-     * @throws {Error} If resource discovery fails
-     */
     async discoverResources(options = {}) {
         try {
             console.log(
@@ -1138,7 +652,6 @@ class AWSDiscovery {
             const vpc = await this.findDefaultVpc();
             console.log(`\n✅ Found VPC: ${vpc.VpcId}`);
 
-            // Enable auto-convert if selfHeal is enabled
             const autoConvert = options.selfHeal || false;
 
             const privateSubnets = await this.findPrivateSubnets(
@@ -1177,7 +690,6 @@ class AWSDiscovery {
                 console.log('ℹ️  No KMS key found');
             }
 
-            // Try to find existing NAT Gateway
             const existingNatGateway = await this.findExistingNatGateway(
                 vpc.VpcId
             );
@@ -1187,11 +699,9 @@ class AWSDiscovery {
 
             if (existingNatGateway) {
                 natGatewayId = existingNatGateway.NatGatewayId;
-                // Check if NAT Gateway is in a private subnet (from our detection)
                 natGatewayInPrivateSubnet =
                     existingNatGateway._isInPrivateSubnet || false;
 
-                // Get the EIP allocation ID from the NAT Gateway
                 if (
                     existingNatGateway.NatGatewayAddresses &&
                     existingNatGateway.NatGatewayAddresses.length > 0
@@ -1200,19 +710,23 @@ class AWSDiscovery {
                         existingNatGateway.NatGatewayAddresses[0].AllocationId;
                 }
             } else {
-                // If no NAT Gateway exists, check for available EIP
                 const availableEIP = await this.findAvailableElasticIP();
                 if (availableEIP) {
                     elasticIpAllocationId = availableEIP.AllocationId;
                 }
             }
 
-            // Check if the "private" subnets are actually public
             const subnet1IsActuallyPrivate = privateSubnets[0]
-                ? await this.isSubnetPrivate(privateSubnets[0].SubnetId)
+                ? await this.isSubnetPrivate(
+                      privateSubnets[0].SubnetId,
+                      privateSubnets[0].VpcId || vpc.VpcId
+                  )
                 : false;
             const subnet2IsActuallyPrivate = privateSubnets[1]
-                ? await this.isSubnetPrivate(privateSubnets[1].SubnetId)
+                ? await this.isSubnetPrivate(
+                      privateSubnets[1].SubnetId,
+                      privateSubnets[1].VpcId || vpc.VpcId
+                  )
                 : subnet1IsActuallyPrivate;
 
             const subnetStatus = {
@@ -1267,12 +781,12 @@ class AWSDiscovery {
 
             return {
                 defaultVpcId: vpc.VpcId,
-                vpcCidr: vpc.CidrBlock, // Add VPC CIDR for security group configuration
+                vpcCidr: vpc.CidrBlock,
                 defaultSecurityGroupId: securityGroup.GroupId,
                 privateSubnetId1: privateSubnets[0]?.SubnetId,
                 privateSubnetId2:
                     privateSubnets[1]?.SubnetId || privateSubnets[0]?.SubnetId,
-                publicSubnetId: publicSubnet?.SubnetId || null, // May be null if no public subnet exists
+                publicSubnetId: publicSubnet?.SubnetId || null,
                 privateRouteTableId: routeTable.RouteTableId,
                 defaultKmsKeyId: kmsKeyArn,
                 existingNatGatewayId: natGatewayId,
@@ -1302,11 +816,6 @@ class AWSDiscovery {
         }
     }
 
-    /**
-     * Find an existing Internet Gateway attached to the VPC
-     * @param {string} vpcId - VPC ID to search in
-     * @returns {Promise<Object|null>} Internet Gateway object or null if none found
-     */
     async findInternetGateway(vpcId) {
         try {
             const command = new DescribeInternetGatewaysCommand({
@@ -1341,24 +850,17 @@ class AWSDiscovery {
         }
     }
 
-    /**
-     * Find Frigg-managed resources by tags
-     * @param {string} serviceName - The service name to search for
-     * @param {string} stage - The deployment stage
-     * @returns {Promise<Object>} Object containing found Frigg-managed resources
-     */
     async findFriggManagedResources(serviceName, stage) {
-        try {
-            const results = {
-                natGateways: [],
-                elasticIps: [],
-                routeTables: [],
-                subnets: [],
-                securityGroups: [],
-            };
+        const results = {
+            natGateways: [],
+            elasticIps: [],
+            routeTables: [],
+            subnets: [],
+            securityGroups: [],
+        };
 
-            // Common filter for Frigg-managed resources
-            const friggFilters = [
+        try {
+            const filters = [
                 {
                     Name: 'tag:ManagedBy',
                     Values: ['Frigg'],
@@ -1366,82 +868,76 @@ class AWSDiscovery {
             ];
 
             if (serviceName) {
-                friggFilters.push({
+                filters.push({
                     Name: 'tag:Service',
                     Values: [serviceName],
                 });
             }
 
             if (stage) {
-                friggFilters.push({
+                filters.push({
                     Name: 'tag:Stage',
                     Values: [stage],
                 });
             }
 
-            // Find NAT Gateways
-            try {
-                const natCommand = new DescribeNatGatewaysCommand({
+            const fetchWithFallback = async (Command, input, field, label) => {
+                try {
+                    const response = await this.ec2Client.send(
+                        new Command(input)
+                    );
+                    return response[field] || [];
+                } catch (err) {
+                    console.warn(
+                        `Error finding Frigg ${label}:`,
+                        err.message
+                    );
+                    return [];
+                }
+            };
+
+            results.natGateways = await fetchWithFallback(
+                DescribeNatGatewaysCommand,
+                {
                     Filter: [
-                        ...friggFilters,
+                        ...filters,
                         {
                             Name: 'state',
                             Values: ['available'],
                         },
                     ],
-                });
-                const natResponse = await this.ec2Client.send(natCommand);
-                results.natGateways = natResponse.NatGateways || [];
-            } catch (err) {
-                console.warn('Error finding Frigg NAT Gateways:', err.message);
-            }
+                },
+                'NatGateways',
+                'NAT Gateways'
+            );
 
-            // Find Elastic IPs
-            try {
-                const eipCommand = new DescribeAddressesCommand({
-                    Filters: friggFilters,
-                });
-                const eipResponse = await this.ec2Client.send(eipCommand);
-                results.elasticIps = eipResponse.Addresses || [];
-            } catch (err) {
-                console.warn('Error finding Frigg Elastic IPs:', err.message);
-            }
+            results.elasticIps = await fetchWithFallback(
+                DescribeAddressesCommand,
+                { Filters: filters },
+                'Addresses',
+                'Elastic IPs'
+            );
 
-            // Find Route Tables
-            try {
-                const rtCommand = new DescribeRouteTablesCommand({
-                    Filters: friggFilters,
-                });
-                const rtResponse = await this.ec2Client.send(rtCommand);
-                results.routeTables = rtResponse.RouteTables || [];
-            } catch (err) {
-                console.warn('Error finding Frigg Route Tables:', err.message);
-            }
+            results.routeTables = await fetchWithFallback(
+                DescribeRouteTablesCommand,
+                { Filters: filters },
+                'RouteTables',
+                'Route Tables'
+            );
 
-            // Find Subnets
-            try {
-                const subnetCommand = new DescribeSubnetsCommand({
-                    Filters: friggFilters,
-                });
-                const subnetResponse = await this.ec2Client.send(subnetCommand);
-                results.subnets = subnetResponse.Subnets || [];
-            } catch (err) {
-                console.warn('Error finding Frigg Subnets:', err.message);
-            }
+            results.subnets = await fetchWithFallback(
+                DescribeSubnetsCommand,
+                { Filters: filters },
+                'Subnets',
+                'Subnets'
+            );
 
-            // Find Security Groups
-            try {
-                const sgCommand = new DescribeSecurityGroupsCommand({
-                    Filters: friggFilters,
-                });
-                const sgResponse = await this.ec2Client.send(sgCommand);
-                results.securityGroups = sgResponse.SecurityGroups || [];
-            } catch (err) {
-                console.warn(
-                    'Error finding Frigg Security Groups:',
-                    err.message
-                );
-            }
+            results.securityGroups = await fetchWithFallback(
+                DescribeSecurityGroupsCommand,
+                { Filters: filters },
+                'SecurityGroups',
+                'Security Groups'
+            );
 
             console.log('Found Frigg-managed resources:', {
                 natGateways: results.natGateways.length,
@@ -1454,14 +950,226 @@ class AWSDiscovery {
             return results;
         } catch (error) {
             console.error('Error finding Frigg-managed resources:', error);
-            return {
-                natGateways: [],
-                elasticIps: [],
-                routeTables: [],
-                subnets: [],
-                securityGroups: [],
-            };
+            return results;
         }
+    }
+
+    async findRouteTables(vpcId) {
+        const command = new DescribeRouteTablesCommand({
+            Filters: [
+                {
+                    Name: 'vpc-id',
+                    Values: [vpcId],
+                },
+            ],
+        });
+        const response = await this.ec2Client.send(command);
+        return response.RouteTables || [];
+    }
+
+    async _fetchSubnets(vpcId) {
+        const command = new DescribeSubnetsCommand({
+            Filters: [
+                {
+                    Name: 'vpc-id',
+                    Values: [vpcId],
+                },
+            ],
+        });
+        const response = await this.ec2Client.send(command);
+        return response.Subnets || [];
+    }
+
+    async _getSubnetVpcId(subnetId) {
+        const command = new DescribeSubnetsCommand({
+            SubnetIds: [subnetId],
+        });
+        const response = await this.ec2Client.send(command);
+
+        if (!response.Subnets || response.Subnets.length === 0) {
+            throw new Error(`Subnet ${subnetId} not found`);
+        }
+
+        return response.Subnets[0].VpcId;
+    }
+
+    async _classifySubnets(subnets, { logDetails = false } = {}) {
+        const privateSubnets = [];
+        const publicSubnets = [];
+
+        for (const subnet of subnets) {
+            const isPrivate = await this.isSubnetPrivate(
+                subnet.SubnetId,
+                subnet.VpcId
+            );
+            if (isPrivate) {
+                privateSubnets.push(subnet);
+                if (logDetails) {
+                    console.log(
+                        `  🔒 Private subnet: ${subnet.SubnetId} (AZ: ${subnet.AvailabilityZone})`
+                    );
+                }
+            } else {
+                publicSubnets.push(subnet);
+                if (logDetails) {
+                    console.log(
+                        `  🌐 Public subnet: ${subnet.SubnetId} (AZ: ${subnet.AvailabilityZone})`
+                    );
+                }
+            }
+        }
+
+        return { privateSubnets, publicSubnets };
+    }
+
+    _logSubnetSummary(privateCount, publicCount) {
+        console.log(`\n📊 Subnet Analysis Results:`);
+        console.log(`  - Private subnets: ${privateCount}`);
+        console.log(`  - Public subnets: ${publicCount}`);
+    }
+
+    _selectSubnetsForLambda({ privateSubnets, publicSubnets, autoConvert, vpcId }) {
+        if (privateSubnets.length >= 2) {
+            console.log(
+                `✅ Found ${privateSubnets.length} private subnets for Lambda deployment`
+            );
+            return privateSubnets.slice(0, 2);
+        }
+
+        if (privateSubnets.length === 1) {
+            console.warn(
+                `⚠️  Only 1 private subnet found. Need at least 2 for high availability.`
+            );
+            if (publicSubnets.length > 0 && autoConvert) {
+                console.log(
+                    `🔄 Will convert 1 public subnet to private for high availability...`
+                );
+            }
+            return [...privateSubnets, ...publicSubnets].slice(0, 2);
+        }
+
+        if (privateSubnets.length === 0 && publicSubnets.length > 0) {
+            console.error(
+                `❌ CRITICAL: No private subnets found, but ${publicSubnets.length} public subnets exist`
+            );
+            console.error(
+                `❌ Lambda functions should NOT be deployed in public subnets!`
+            );
+
+            if (autoConvert && publicSubnets.length >= 3) {
+                console.log(
+                    `\n🔧 AUTO-CONVERSION: Will configure subnets for proper isolation...`
+                );
+                console.log(
+                    `  - Keeping ${publicSubnets[0].SubnetId} as public (for NAT Gateway)`
+                );
+                console.log(
+                    `  - Converting ${publicSubnets[1].SubnetId} to private (for Lambda)`
+                );
+                if (publicSubnets[2]) {
+                    console.log(
+                        `  - Converting ${publicSubnets[2].SubnetId} to private (for Lambda)`
+                    );
+                }
+                return publicSubnets.slice(1, 3);
+            }
+
+            if (autoConvert && publicSubnets.length >= 2) {
+                console.log(
+                    `\n🔧 AUTO-CONVERSION: Only ${publicSubnets.length} subnets available`
+                );
+                console.log(
+                    `  - Will need to create new subnets or reconfigure existing ones`
+                );
+                return publicSubnets.slice(0, 2);
+            }
+
+            console.error(`\n⚠️  CONFIGURATION ERROR:`);
+            console.error(
+                `  Found ${publicSubnets.length} public subnets but no private subnets.`
+            );
+            console.error(
+                `  Lambda functions require private subnets for security.`
+            );
+            console.error(`\n  Options:`);
+            console.error(
+                `  1. Enable selfHeal: true in vpc configuration`
+            );
+            console.error(`  2. Create private subnets manually`);
+            console.error(
+                `  3. Set subnets.management: 'create' to create new private subnets`
+            );
+
+            throw new Error(
+                `No private subnets found in VPC ${vpcId}. ` +
+                    `Found ${publicSubnets.length} public subnets. ` +
+                    `Lambda requires private subnets. Enable selfHeal or create private subnets.`
+            );
+        }
+
+        return null;
+    }
+
+    _findRouteTableForSubnet(routeTables, subnetId) {
+        for (const rt of routeTables) {
+            for (const assoc of rt.Associations || []) {
+                if (assoc.SubnetId === subnetId) {
+                    return rt;
+                }
+            }
+        }
+
+        for (const rt of routeTables) {
+            for (const assoc of rt.Associations || []) {
+                if (assoc.Main === true) {
+                    return rt;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    _findIgwRoute(routeTable) {
+        for (const route of routeTable.Routes || []) {
+            if (route.GatewayId && route.GatewayId.startsWith('igw-')) {
+                return route.GatewayId;
+            }
+        }
+        return null;
+    }
+
+    _isFriggManaged(tags) {
+        if (!tags) {
+            return false;
+        }
+
+        return tags.some(
+            (tag) =>
+                (tag.Key === 'ManagedBy' && tag.Value === 'Frigg') ||
+                (tag.Key === 'Name' &&
+                    typeof tag.Value === 'string' &&
+                    tag.Value.includes('frigg'))
+        );
+    }
+
+    async _findSecurityGroupByName(vpcId, groupName) {
+        const command = new DescribeSecurityGroupsCommand({
+            Filters: [
+                {
+                    Name: 'vpc-id',
+                    Values: [vpcId],
+                },
+                {
+                    Name: 'group-name',
+                    Values: [groupName],
+                },
+            ],
+        });
+
+        const response = await this.ec2Client.send(command);
+        const groups = response.SecurityGroups || [];
+        return groups[0] || null;
     }
 }
 
