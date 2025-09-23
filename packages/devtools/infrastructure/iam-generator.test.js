@@ -71,6 +71,7 @@ describe('IAM Generator', () => {
             expect(yaml).toContain('FriggVPCPolicy');
             expect(yaml).toContain('CreateVPCPermissions');
             expect(yaml).toContain('EnableVPCSupport');
+            expect(yaml).toContain('ec2:ReplaceRoute');
         });
 
         it('should include KMS policy when encryption is enabled', () => {
@@ -85,6 +86,8 @@ describe('IAM Generator', () => {
             expect(yaml).toContain('FriggKMSPolicy');
             expect(yaml).toContain('CreateKMSPermissions');
             expect(yaml).toContain('EnableKMSSupport');
+            expect(yaml).toContain('FriggKMSKeyAlias');
+            expect(yaml).toContain('kms:CreateAlias');
         });
 
         it('should include SSM policy when SSM is enabled', () => {
@@ -113,9 +116,9 @@ describe('IAM Generator', () => {
             const yaml = generateIAMCloudFormation(appDefinition);
 
             // Check parameter defaults match the enabled features
-            expect(yaml).toContain('Default: true'); // VPC enabled
-            expect(yaml).toContain('Default: false'); // KMS disabled  
-            // SSM should be true
+            expect(yaml).toContain("Default: 'true'"); // VPC enabled
+            expect(yaml).toContain("Default: 'false'"); // KMS disabled
+            expect(yaml).toContain('alias/frigg-deployment');
         });
 
         it('should include all core permissions', () => {

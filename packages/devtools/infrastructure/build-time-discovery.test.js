@@ -56,6 +56,7 @@ describe('BuildTimeDiscovery', () => {
     describe('discoverAndCreateConfig', () => {
         const mockResources = {
             defaultVpcId: 'vpc-12345678',
+            vpcCidr: '172.31.0.0/16',
             defaultSecurityGroupId: 'sg-12345678',
             privateSubnetId1: 'subnet-1',
             privateSubnetId2: 'subnet-2',
@@ -100,6 +101,7 @@ describe('BuildTimeDiscovery', () => {
     describe('replaceTemplateVariables', () => {
         const mockResources = {
             defaultVpcId: 'vpc-12345678',
+            vpcCidr: '172.31.0.0/16',
             defaultSecurityGroupId: 'sg-12345678',
             privateSubnetId1: 'subnet-1',
             privateSubnetId2: 'subnet-2',
@@ -225,6 +227,7 @@ describe('BuildTimeDiscovery', () => {
     describe('preBuildHook', () => {
         const mockResources = {
             defaultVpcId: 'vpc-12345678',
+            vpcCidr: '172.31.0.0/16',
             defaultSecurityGroupId: 'sg-12345678',
             privateSubnetId1: 'subnet-1',
             privateSubnetId2: 'subnet-2',
