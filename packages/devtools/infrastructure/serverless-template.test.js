@@ -172,6 +172,19 @@ describe('composeServerlessDefinition', () => {
             expect(result.provider.environment).not.toHaveProperty('AWS_REGION');
             expect(result.provider.environment).not.toHaveProperty('OPTIONAL_DISABLED');
         });
+
+        it('should ignore string-valued environment entries', async () => {
+            const appDefinition = {
+                integrations: [],
+                environment: {
+                    CUSTOM_FLAG: 'enabled',
+                },
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.provider.environment).not.toHaveProperty('CUSTOM_FLAG');
+        });
     });
 
     describe('VPC Configuration', () => {
@@ -327,6 +340,31 @@ describe('composeServerlessDefinition', () => {
                 'sg-custom-1',
                 'sg-custom-2',
             ]);
+        });
+
+        it('should throw when discover mode finds no subnets and self-heal is disabled', async () => {
+            const discoveryInstance = {
+                discoverResources: jest.fn().mockResolvedValue(
+                    createDiscoveryResponse({
+                        privateSubnetId1: null,
+                        privateSubnetId2: null,
+                    })
+                ),
+            };
+            AWSDiscovery.mockImplementation(() => discoveryInstance);
+
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'discover',
+                    subnets: { management: 'discover' },
+                },
+                integrations: [],
+            };
+
+            await expect(composeServerlessDefinition(appDefinition)).rejects.toThrow(
+                'No subnets discovered and subnets.management is "discover". Either enable vpc.selfHeal, set subnets.management to "create", or provide subnet IDs.'
+            );
         });
 
         it('should use Fn::Cidr for subnet CIDR blocks in new VPC to avoid conflicts', async () => {
@@ -660,6 +698,63 @@ describe('composeServerlessDefinition', () => {
 
             expect(result.resources.Resources.FriggNATGateway).toBeUndefined();
             expect(result.resources.Resources.FriggNATRoute.Properties.NatGatewayId).toBe('nat-custom-001');
+        });
+
+        it('should reuse existing elastic IP allocation when creating managed NAT', async () => {
+            const discoveryInstance = {
+                discoverResources: jest.fn().mockResolvedValue(
+                    createDiscoveryResponse({
+                        existingNatGatewayId: null,
+                        existingElasticIpAllocationId: 'eip-alloc-123',
+                    })
+                ),
+            };
+            AWSDiscovery.mockImplementation(() => discoveryInstance);
+
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'discover',
+                    natGateway: { management: 'createAndManage' },
+                    selfHeal: true,
+                },
+                integrations: [],
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.resources.Resources.FriggNATGatewayEIP).toBeUndefined();
+            expect(result.resources.Resources.FriggNATGateway.Properties.AllocationId).toBe(
+                'eip-alloc-123'
+            );
+        });
+
+        it('should create a public subnet when discovery provides none', async () => {
+            const discoveryInstance = {
+                discoverResources: jest.fn().mockResolvedValue(
+                    createDiscoveryResponse({
+                        publicSubnetId: null,
+                        internetGatewayId: null,
+                        existingNatGatewayId: null,
+                    })
+                ),
+            };
+            AWSDiscovery.mockImplementation(() => discoveryInstance);
+
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'discover',
+                    natGateway: { management: 'createAndManage' },
+                    selfHeal: true,
+                },
+                integrations: [],
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.resources.Resources.FriggPublicSubnet).toBeDefined();
+            expect(result.resources.Resources.FriggPublicRouteTable).toBeDefined();
         });
     });
 
