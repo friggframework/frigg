@@ -1036,9 +1036,47 @@ describe('AWSDiscovery', () => {
             const result = await discovery.discoverResources({ selfHeal: true });
 
             expect(result).toMatchObject({
+                defaultVpcId: 'vpc-12345678',
+                privateSubnetId1: 'subnet-1',
+                privateSubnetId2: 'subnet-2',
+                publicSubnetId: 'subnet-public-1',
                 subnetConversionRequired: true,
                 privateSubnetsWithWrongRoutes: ['subnet-1']
             });
+        });
+
+        it('should surface subnet analysis summary for diagnostic tooling', async () => {
+            const mockVpc = { VpcId: 'vpc-987654321', CidrBlock: '10.0.0.0/16' };
+            const mockSubnets = [
+                { SubnetId: 'subnet-public-a', AvailabilityZone: 'us-east-1a' },
+                { SubnetId: 'subnet-private-b', AvailabilityZone: 'us-east-1b' }
+            ];
+            const mockSecurityGroup = { GroupId: 'sg-22222222' };
+            const mockRouteTable = { RouteTableId: 'rtb-22222222' };
+
+            jest.spyOn(discovery, 'findDefaultVpc').mockResolvedValue(mockVpc);
+            jest.spyOn(discovery, 'findPrivateSubnets').mockResolvedValue(mockSubnets);
+            jest.spyOn(discovery, 'findPublicSubnets').mockResolvedValue({ SubnetId: 'subnet-nat-home' });
+            jest.spyOn(discovery, 'findDefaultSecurityGroup').mockResolvedValue(mockSecurityGroup);
+            jest.spyOn(discovery, 'findPrivateRouteTable').mockResolvedValue(mockRouteTable);
+            jest.spyOn(discovery, 'findDefaultKmsKey').mockResolvedValue(null);
+            jest.spyOn(discovery, 'findExistingNatGateway').mockResolvedValue({
+                NatGatewayId: 'nat-2222',
+                NatGatewayAddresses: [{ AllocationId: 'eipalloc-2222' }],
+                _isInPrivateSubnet: false
+            });
+            jest.spyOn(discovery, 'isSubnetPrivate')
+                .mockImplementation((subnetId) => subnetId === 'subnet-private-b');
+
+            const result = await discovery.discoverResources({ selfHeal: true });
+
+            expect(result.defaultVpcId).toBe('vpc-987654321');
+            expect(result.subnetConversionRequired).toBe(true);
+            expect(result.privateSubnetsWithWrongRoutes).toEqual(['subnet-public-a']);
+            expect(result.privateSubnetId1).toBe('subnet-public-a');
+            expect(result.privateSubnetId2).toBe('subnet-private-b');
+            expect(result.existingNatGatewayId).toBe('nat-2222');
+            expect(result.existingElasticIpAllocationId).toBe('eipalloc-2222');
         });
 
         it('should handle selfHeal option', async () => {

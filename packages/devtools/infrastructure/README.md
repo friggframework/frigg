@@ -61,7 +61,8 @@ infrastructure/
 
 Generates complete serverless.yml configurations with:
 
--   VPC configuration and resource discovery
+-   VPC configuration and resource discovery (with optional self-healing)
+-   NAT/EIP management strategies (`discover`, `createAndManage`, `useExisting`)
 -   KMS encryption for field-level encryption
 -   SSM Parameter Store integration
 -   Integration-specific functions and queues
@@ -69,12 +70,13 @@ Generates complete serverless.yml configurations with:
 
 #### 2. AWS Discovery (`aws-discovery.js`)
 
-Automatically discovers existing AWS resources:
+Automatically discovers existing AWS resources and highlights misconfigurations:
 
 -   Default VPC and security groups
--   Private subnets for Lambda functions
+-   Private subnets for Lambda functions (with routing validation)
 -   Customer-managed KMS keys
 -   Route tables for VPC endpoints
+-   NAT gateways / Elastic IPs and whether remediation is required
 
 #### 3. Build-Time Discovery (`build-time-discovery.js`)
 
@@ -147,10 +149,18 @@ const appDefinition = {
   // VPC configuration
   vpc: {
     enable: true,
-    createNew: false,           // Use existing VPC (default)
-    securityGroupIds: [...],    // Optional: custom security groups
-    subnetIds: [...],          // Optional: custom subnets
-    enableVPCEndpoints: true   // Optional: create VPC endpoints
+    management: 'discover',     // 'discover' | 'create-new' | 'use-existing'
+    selfHeal: true,             // Let the template repair routing/NAT issues
+    securityGroupIds: [...],    // Optional: custom security groups or CFN Refs
+    subnets: {
+      management: 'discover',   // 'discover' | 'create' | 'use-existing'
+      ids: [...],               // Required when management is 'use-existing'
+    },
+    natGateway: {
+      management: 'discover',   // 'discover' | 'createAndManage' | 'useExisting'
+      id: 'nat-xxxxxxxx',       // Required when management is 'useExisting'
+    },
+    enableVPCEndpoints: true    // Optional: create VPC endpoints
   },
 
   // KMS encryption
@@ -164,7 +174,7 @@ const appDefinition = {
     enable: true
   },
 
-  // WebSocket support (Phase 3)
+  // WebSocket support (optional)
   websockets: {
     enable: true
   },
@@ -187,6 +197,7 @@ AWS_DISCOVERY_VPC_ID=vpc-12345678
 AWS_DISCOVERY_SECURITY_GROUP_ID=sg-12345678
 AWS_DISCOVERY_SUBNET_ID_1=subnet-12345678
 AWS_DISCOVERY_SUBNET_ID_2=subnet-87654321
+AWS_DISCOVERY_PUBLIC_SUBNET_ID=subnet-abcdef12
 AWS_DISCOVERY_ROUTE_TABLE_ID=rtb-12345678
 AWS_DISCOVERY_KMS_KEY_ID=arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012
 
