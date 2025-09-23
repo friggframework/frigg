@@ -55,6 +55,37 @@ describe('composeServerlessDefinition', () => {
         jest.restoreAllMocks();
         // Restore env
         delete process.env.AWS_REGION;
+        process.argv = ['node', 'test'];
+    });
+
+    describe('AWS discovery gating', () => {
+        it('should skip AWS discovery when no features require it', async () => {
+            AWSDiscovery.mockClear();
+
+            const appDefinition = {
+                integrations: [],
+                vpc: { enable: false },
+                encryption: { fieldLevelEncryptionMethod: 'aes' },
+                ssm: { enable: false },
+            };
+
+            await composeServerlessDefinition(appDefinition);
+
+            expect(AWSDiscovery).not.toHaveBeenCalled();
+        });
+
+        it('should run AWS discovery when VPC features are enabled', async () => {
+            AWSDiscovery.mockClear();
+
+            const appDefinition = {
+                integrations: [],
+                vpc: { enable: true },
+            };
+
+            await composeServerlessDefinition(appDefinition);
+
+            expect(AWSDiscovery).toHaveBeenCalledTimes(1);
+        });
     });
 
     describe('Basic Configuration', () => {
@@ -121,6 +152,25 @@ describe('composeServerlessDefinition', () => {
 
             expect(result.provider.region).toBe('us-east-1');
             expect(result.custom['serverless-offline-sqs'].region).toBe('us-east-1');
+        });
+    });
+
+    describe('Environment variables', () => {
+        it('should include only non-reserved environment flags', async () => {
+            const appDefinition = {
+                integrations: [],
+                environment: {
+                    CUSTOM_FLAG: true,
+                    AWS_REGION: true,
+                    OPTIONAL_DISABLED: false,
+                },
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.provider.environment.CUSTOM_FLAG).toBe("${env:CUSTOM_FLAG, ''}");
+            expect(result.provider.environment).not.toHaveProperty('AWS_REGION');
+            expect(result.provider.environment).not.toHaveProperty('OPTIONAL_DISABLED');
         });
     });
 
@@ -261,6 +311,24 @@ describe('composeServerlessDefinition', () => {
             expect(result.provider.vpc.subnetIds).toEqual(['subnet-explicit1', 'subnet-explicit2']);
         });
 
+        it('should respect provided security group IDs when supplied', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'discover',
+                    securityGroupIds: ['sg-custom-1', 'sg-custom-2'],
+                },
+                integrations: [],
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.provider.vpc.securityGroupIds).toEqual([
+                'sg-custom-1',
+                'sg-custom-2',
+            ]);
+        });
+
         it('should use Fn::Cidr for subnet CIDR blocks in new VPC to avoid conflicts', async () => {
             const appDefinition = {
                 vpc: {
@@ -355,6 +423,39 @@ describe('composeServerlessDefinition', () => {
             expect(result.resources.Resources.VPCEndpointS3).toBeDefined();
             expect(result.resources.Resources.VPCEndpointS3.Type).toBe('AWS::EC2::VPCEndpoint');
             expect(result.resources.Resources.VPCEndpointS3.Properties.VpcId).toBe('vpc-123456');
+        });
+
+        it('should skip creating VPC endpoints when disabled explicitly', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'discover',
+                    enableVPCEndpoints: false,
+                },
+                integrations: [],
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.resources.Resources.VPCEndpointS3).toBeUndefined();
+            expect(result.resources.Resources.VPCEndpointKMS).toBeUndefined();
+            expect(result.resources.Resources.VPCEndpointSecretsManager).toBeUndefined();
+        });
+
+        it('should add Secrets Manager endpoint only when enabled', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'discover',
+                },
+                secretsManager: { enable: true },
+                encryption: { fieldLevelEncryptionMethod: 'kms' },
+                integrations: [],
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.resources.Resources.VPCEndpointSecretsManager).toBeDefined();
         });
 
         it('should allow Lambda security group access for VPC endpoints when security group is discovered', async () => {
@@ -508,6 +609,57 @@ describe('composeServerlessDefinition', () => {
             const result = await composeServerlessDefinition(appDefinition);
 
             expect(result.provider.vpc).toBeUndefined();
+        });
+    });
+
+    describe('NAT Gateway behaviour', () => {
+        it('should reuse discovered NAT gateway in discover mode without creating new resources', async () => {
+            const discoveryInstance = {
+                discoverResources: jest.fn().mockResolvedValue(
+                    createDiscoveryResponse({
+                        existingNatGatewayId: 'nat-existing123',
+                        natGatewayInPrivateSubnet: false,
+                    })
+                ),
+            };
+            AWSDiscovery.mockImplementation(() => discoveryInstance);
+
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'discover',
+                    natGateway: { management: 'discover' },
+                },
+                integrations: [],
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.resources.Resources.FriggNATGateway).toBeUndefined();
+            expect(result.resources.Resources.FriggNATRoute).toBeDefined();
+        });
+
+        it('should reference provided NAT gateway when management set to useExisting', async () => {
+            const discoveryInstance = {
+                discoverResources: jest.fn().mockResolvedValue(
+                    createDiscoveryResponse({ existingNatGatewayId: null })
+                ),
+            };
+            AWSDiscovery.mockImplementation(() => discoveryInstance);
+
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'discover',
+                    natGateway: { management: 'useExisting', id: 'nat-custom-001' },
+                },
+                integrations: [],
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.resources.Resources.FriggNATGateway).toBeUndefined();
+            expect(result.resources.Resources.FriggNATRoute.Properties.NatGatewayId).toBe('nat-custom-001');
         });
     });
 
@@ -913,6 +1065,27 @@ describe('composeServerlessDefinition', () => {
         });
     });
 
+    describe('Handler path adjustments', () => {
+        const fs = require('fs');
+        const path = require('path');
+
+        it('should rewrite handler paths in offline mode', async () => {
+            process.argv = ['node', 'test', 'offline'];
+            const existsSpy = jest.spyOn(fs, 'existsSync');
+            const fallbackNodeModules = path.resolve(process.cwd(), '..', 'node_modules');
+            existsSpy.mockImplementation((p) => p === fallbackNodeModules);
+
+            const appDefinition = { integrations: [] };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(existsSpy).toHaveBeenCalled();
+            expect(result.functions.auth.handler.startsWith('../node_modules/')).toBe(true);
+
+            existsSpy.mockRestore();
+        });
+    });
+
     describe('NAT Gateway Management', () => {
         it('should handle NAT Gateway with createAndManage mode', async () => {
             const appDefinition = {
@@ -930,6 +1103,24 @@ describe('composeServerlessDefinition', () => {
 
             expect(result.resources.Resources.FriggLambdaRouteTable).toBeDefined();
             expect(result.resources.Resources.FriggNATRoute).toBeDefined();
+        });
+
+        it('should mark managed NAT Gateway resources for retention', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'discover',
+                    natGateway: { management: 'createAndManage' },
+                    selfHeal: true,
+                },
+                integrations: [],
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.resources.Resources.FriggNATGateway).toBeDefined();
+            expect(result.resources.Resources.FriggNATGateway.DeletionPolicy).toBe('Retain');
+            expect(result.resources.Resources.FriggNATGateway.UpdateReplacePolicy).toBe('Retain');
         });
 
         it('should handle NAT Gateway with discover mode', async () => {
