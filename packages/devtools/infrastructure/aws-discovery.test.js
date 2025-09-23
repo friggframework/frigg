@@ -9,7 +9,8 @@ const {
     DescribeSecurityGroupsCommand,
     DescribeRouteTablesCommand,
     DescribeNatGatewaysCommand,
-    DescribeAddressesCommand
+    DescribeAddressesCommand,
+    DescribeInternetGatewaysCommand,
 } = require('@aws-sdk/client-ec2');
 const {
     KMSClient,
@@ -77,6 +78,18 @@ describe('AWSDiscovery', () => {
             expect(vpc).toEqual(mockVpc);
         });
 
+        it('should retry without default filter when default VPC query returns empty', async () => {
+            const mockVpc = { VpcId: 'vpc-23456789', IsDefault: false };
+
+            ec2Mock
+                .on(DescribeVpcsCommand)
+                .resolvesOnce({ Vpcs: [] })
+                .resolves({ Vpcs: [mockVpc] });
+
+            const vpc = await discovery.findDefaultVpc();
+            expect(vpc).toEqual(mockVpc);
+        });
+
         it('should throw error when no VPCs found', async () => {
             ec2Mock.on(DescribeVpcsCommand).resolves({
                 Vpcs: []
@@ -127,6 +140,39 @@ describe('AWSDiscovery', () => {
             const isPrivate = await discovery.isSubnetPrivate(mockSubnetId, mockVpcId);
             expect(isPrivate).toBe(false);
         });
+
+        it('should default to private when no route table found', async () => {
+            ec2Mock.on(DescribeSubnetsCommand).resolves({
+                Subnets: [{ SubnetId: mockSubnetId, VpcId: mockVpcId }]
+            });
+
+            ec2Mock.on(DescribeRouteTablesCommand).resolves({ RouteTables: [] });
+
+            const isPrivate = await discovery.isSubnetPrivate(mockSubnetId, mockVpcId);
+            expect(isPrivate).toBe(true);
+        });
+
+        it('should default to private when AWS throws describing subnet', async () => {
+            ec2Mock.on(DescribeSubnetsCommand).rejects(new Error('boom'));
+
+            const isPrivate = await discovery.isSubnetPrivate(mockSubnetId, mockVpcId);
+            expect(isPrivate).toBe(true);
+        });
+
+        it('should log warning when subnet cannot be found', async () => {
+            ec2Mock.on(DescribeSubnetsCommand).resolves({ Subnets: [] });
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+            const isPrivate = await discovery.isSubnetPrivate(mockSubnetId);
+
+            expect(isPrivate).toBe(true);
+            expect(warnSpy).toHaveBeenCalledWith(
+                `Could not determine if subnet ${mockSubnetId} is private:`,
+                expect.any(Error)
+            );
+
+            warnSpy.mockRestore();
+        });
     });
 
     describe('findPrivateSubnets', () => {
@@ -157,6 +203,26 @@ describe('AWSDiscovery', () => {
 
             const subnets = await discovery.findPrivateSubnets(mockVpcId);
             expect(subnets).toEqual(mockSubnets);
+        });
+
+        it('should duplicate single private subnet when only one available', async () => {
+            const mockSubnets = [
+                { SubnetId: 'subnet-private-1', AvailabilityZone: 'us-east-1a' },
+                { SubnetId: 'subnet-public-1', AvailabilityZone: 'us-east-1b' }
+            ];
+
+            ec2Mock.on(DescribeSubnetsCommand).resolves({ Subnets: mockSubnets });
+
+            jest
+                .spyOn(discovery, 'isSubnetPrivate')
+                .mockResolvedValueOnce(true)
+                .mockResolvedValueOnce(false);
+
+            const subnets = await discovery.findPrivateSubnets(mockVpcId);
+            expect(subnets.map((s) => s.SubnetId)).toEqual([
+                'subnet-private-1',
+                'subnet-public-1'
+            ]);
         });
 
         it('should throw error when no private subnets found and autoConvert is false', async () => {
@@ -215,6 +281,31 @@ describe('AWSDiscovery', () => {
             expect(subnets).toHaveLength(2);
             expect(subnets[0].SubnetId).toBe('subnet-public-1');
         });
+
+        it('should select converted subnets when autoConvert handles three public subnets', async () => {
+            const mockSubnets = [
+                { SubnetId: 'subnet-public-1' },
+                { SubnetId: 'subnet-public-2' },
+                { SubnetId: 'subnet-public-3' }
+            ];
+
+            ec2Mock.on(DescribeSubnetsCommand).resolves({ Subnets: mockSubnets });
+            jest.spyOn(discovery, 'isSubnetPrivate').mockResolvedValue(false);
+
+            const subnets = await discovery.findPrivateSubnets(mockVpcId, true);
+            expect(subnets.map((s) => s.SubnetId)).toEqual([
+                'subnet-public-2',
+                'subnet-public-3'
+            ]);
+        });
+
+        it('should throw when AWS returns no subnets', async () => {
+            ec2Mock.on(DescribeSubnetsCommand).resolves({ Subnets: [] });
+
+            await expect(discovery.findPrivateSubnets(mockVpcId)).rejects.toThrow(
+                `No subnets found in VPC ${mockVpcId}`
+            );
+        });
     });
 
     describe('findPublicSubnets', () => {
@@ -246,6 +337,21 @@ describe('AWSDiscovery', () => {
             await expect(discovery.findPublicSubnets(mockVpcId))
                 .rejects.toThrow('No subnets found in VPC');
         });
+
+        it('should return null when no public subnets identified', async () => {
+            const mockSubnet = { SubnetId: 'subnet-private-1' };
+            ec2Mock.on(DescribeSubnetsCommand).resolves({ Subnets: [mockSubnet] });
+
+            ec2Mock.on(DescribeRouteTablesCommand).resolves({
+                RouteTables: [{
+                    Associations: [{ SubnetId: 'subnet-private-1' }],
+                    Routes: [{ GatewayId: 'local' }]
+                }]
+            });
+
+            const subnet = await discovery.findPublicSubnets(mockVpcId);
+            expect(subnet).toBeNull();
+        });
     });
 
     describe('findDefaultSecurityGroup', () => {
@@ -257,12 +363,27 @@ describe('AWSDiscovery', () => {
                 GroupName: 'default'
             };
 
-            ec2Mock.on(DescribeSecurityGroupsCommand).resolves({
-                SecurityGroups: [mockSecurityGroup]
-            });
+            ec2Mock
+                .on(DescribeSecurityGroupsCommand)
+                .resolvesOnce({ SecurityGroups: [] })
+                .resolves({ SecurityGroups: [mockSecurityGroup] });
 
             const sg = await discovery.findDefaultSecurityGroup(mockVpcId);
             expect(sg).toEqual(mockSecurityGroup);
+        });
+
+        it('should prefer Frigg-managed security group when present', async () => {
+            const friggSg = {
+                GroupId: 'sg-frigg',
+                GroupName: 'frigg-lambda-sg',
+            };
+
+            ec2Mock
+                .on(DescribeSecurityGroupsCommand)
+                .resolves({ SecurityGroups: [friggSg] });
+
+            const sg = await discovery.findDefaultSecurityGroup(mockVpcId);
+            expect(sg).toEqual(friggSg);
         });
 
         it('should throw error when no default security group found', async () => {
@@ -309,6 +430,14 @@ describe('AWSDiscovery', () => {
             const rt = await discovery.findPrivateRouteTable(mockVpcId);
             expect(rt).toEqual(mockRouteTable);
         });
+
+        it('should throw error when no route tables found', async () => {
+            ec2Mock.on(DescribeRouteTablesCommand).resolves({ RouteTables: [] });
+
+            await expect(
+                discovery.findPrivateRouteTable(mockVpcId)
+            ).rejects.toThrow(`No route tables found for VPC ${mockVpcId}`);
+        });
     });
 
     describe('findDefaultKmsKey', () => {
@@ -340,6 +469,69 @@ describe('AWSDiscovery', () => {
             const keyArn = await discovery.findDefaultKmsKey();
             expect(keyArn).toBeNull();
         });
+
+        it('should return null when only AWS-managed keys exist', async () => {
+            kmsMock.on(ListKeysCommand).resolves({
+                Keys: [{ KeyId: 'aws-key' }]
+            });
+
+            kmsMock.on(DescribeKeyCommand).resolves({
+                KeyMetadata: {
+                    Arn: 'arn:aws:kms:us-east-1:123456789012:key/aws-key',
+                    KeyManager: 'AWS',
+                    KeyState: 'Enabled'
+                }
+            });
+
+            const keyArn = await discovery.findDefaultKmsKey();
+            expect(keyArn).toBeNull();
+        });
+
+        it('should skip keys that fail to describe', async () => {
+            kmsMock.on(ListKeysCommand).resolves({ Keys: [{ KeyId: 'bad-key' }] });
+            kmsMock.on(DescribeKeyCommand).rejects(new Error('describe failure'));
+
+            const keyArn = await discovery.findDefaultKmsKey();
+            expect(keyArn).toBeNull();
+        });
+
+        it('should return null when ListKeys fails', async () => {
+            kmsMock.on(ListKeysCommand).rejects(new Error('list failure'));
+
+            const keyArn = await discovery.findDefaultKmsKey();
+            expect(keyArn).toBeNull();
+        });
+
+        it('should skip customer keys pending deletion', async () => {
+            const mockKeyId = 'pending-key';
+            kmsMock.on(ListKeysCommand).resolves({ Keys: [{ KeyId: mockKeyId }] });
+            kmsMock.on(DescribeKeyCommand).resolves({
+                KeyMetadata: {
+                    Arn: `arn:aws:kms:us-east-1:123456789012:key/${mockKeyId}`,
+                    KeyManager: 'CUSTOMER',
+                    KeyState: 'PendingDeletion',
+                    DeletionDate: '2024-01-01T00:00:00Z',
+                },
+            });
+
+            const keyArn = await discovery.findDefaultKmsKey();
+            expect(keyArn).toBeNull();
+        });
+
+        it('should return null when all customer keys are disabled', async () => {
+            const mockKeyId = 'disabled-key';
+            kmsMock.on(ListKeysCommand).resolves({ Keys: [{ KeyId: mockKeyId }] });
+            kmsMock.on(DescribeKeyCommand).resolves({
+                KeyMetadata: {
+                    Arn: `arn:aws:kms:us-east-1:123456789012:key/${mockKeyId}`,
+                    KeyManager: 'CUSTOMER',
+                    KeyState: 'Disabled',
+                },
+            });
+
+            const keyArn = await discovery.findDefaultKmsKey();
+            expect(keyArn).toBeNull();
+        });
     });
 
     describe('findAvailableElasticIP', () => {
@@ -361,6 +553,32 @@ describe('AWSDiscovery', () => {
             ec2Mock.on(DescribeAddressesCommand).resolves({
                 Addresses: []
             });
+
+            const eip = await discovery.findAvailableElasticIP();
+            expect(eip).toBeNull();
+        });
+
+        it('should return Frigg-tagged Elastic IP when present', async () => {
+            const friggAddress = {
+                AllocationId: 'eipalloc-frigg',
+                PublicIp: '52.0.0.1',
+                NetworkInterfaceId: 'eni-12345',
+                Tags: [{ Key: 'Name', Value: 'frigg-shared-ip' }]
+            };
+
+            ec2Mock.on(DescribeAddressesCommand).resolves({
+                Addresses: [
+                    { AllocationId: 'eipalloc-associated', AssociationId: 'assoc-1' },
+                    friggAddress,
+                ]
+            });
+
+            const eip = await discovery.findAvailableElasticIP();
+            expect(eip).toEqual(friggAddress);
+        });
+
+        it('should return null when DescribeAddresses fails', async () => {
+            ec2Mock.on(DescribeAddressesCommand).rejects(new Error('addr failure'));
 
             const eip = await discovery.findAvailableElasticIP();
             expect(eip).toBeNull();
@@ -541,6 +759,197 @@ describe('AWSDiscovery', () => {
             const result = await discovery.findExistingNatGateway(mockVpcId);
             expect(result).toBeNull();
         });
+
+        it('should skip NAT Gateways that are not available', async () => {
+            const mockNatGateways = [
+                {
+                    NatGatewayId: 'nat-pending',
+                    SubnetId: 'subnet-public-1',
+                    State: 'pending',
+                    Tags: [],
+                },
+            ];
+
+            ec2Mock.on(DescribeNatGatewaysCommand).resolves({
+                NatGateways: mockNatGateways,
+            });
+
+            const result = await discovery.findExistingNatGateway(mockVpcId);
+            expect(result).toBeNull();
+        });
+
+        it('should return null when only non-Frigg NAT Gateways are in private subnets', async () => {
+            const mockNatGateways = [
+                {
+                    NatGatewayId: 'nat-private-only',
+                    SubnetId: 'subnet-private-1',
+                    State: 'available',
+                    Tags: [],
+                },
+            ];
+
+            ec2Mock.on(DescribeNatGatewaysCommand).resolves({
+                NatGateways: mockNatGateways,
+            });
+
+            ec2Mock.on(DescribeSubnetsCommand).resolves({
+                Subnets: [{ SubnetId: 'subnet-private-1', VpcId: mockVpcId }],
+            });
+
+            ec2Mock.on(DescribeRouteTablesCommand).resolves({
+                RouteTables: [
+                    {
+                        Associations: [{ SubnetId: 'subnet-private-1' }],
+                        Routes: [{ GatewayId: 'local' }],
+                    },
+                ],
+            });
+
+            const result = await discovery.findExistingNatGateway(mockVpcId);
+            expect(result).toBeNull();
+        });
+
+        it('should return null when DescribeNatGateways fails', async () => {
+            ec2Mock.on(DescribeNatGatewaysCommand).rejects(new Error('nat failure'));
+
+            const result = await discovery.findExistingNatGateway(mockVpcId);
+            expect(result).toBeNull();
+        });
+    });
+
+    describe('findInternetGateway', () => {
+        const mockVpcId = 'vpc-12345678';
+
+        it('should return existing Internet Gateway', async () => {
+            const mockIgw = { InternetGatewayId: 'igw-12345' };
+
+            ec2Mock.on(DescribeInternetGatewaysCommand).resolves({
+                InternetGateways: [mockIgw]
+            });
+
+            const igw = await discovery.findInternetGateway(mockVpcId);
+            expect(igw).toEqual(mockIgw);
+        });
+
+        it('should return null when no Internet Gateway found', async () => {
+            ec2Mock.on(DescribeInternetGatewaysCommand).resolves({ InternetGateways: [] });
+
+            const igw = await discovery.findInternetGateway(mockVpcId);
+            expect(igw).toBeNull();
+        });
+
+        it('should return null when DescribeInternetGateways fails', async () => {
+            ec2Mock.on(DescribeInternetGatewaysCommand).rejects(new Error('igw failure'));
+
+            const igw = await discovery.findInternetGateway(mockVpcId);
+            expect(igw).toBeNull();
+        });
+    });
+
+    describe('findFriggManagedResources', () => {
+        it('should return tagged resources', async () => {
+            const mockNat = { NatGatewayId: 'nat-frigg', Tags: [{ Key: 'ManagedBy', Value: 'Frigg' }] };
+            const mockEip = { AllocationId: 'eip-frigg', Tags: [{ Key: 'ManagedBy', Value: 'Frigg' }] };
+            const mockRouteTable = { RouteTableId: 'rtb-frigg', Tags: [{ Key: 'ManagedBy', Value: 'Frigg' }] };
+            const mockSubnet = { SubnetId: 'subnet-frigg', Tags: [{ Key: 'ManagedBy', Value: 'Frigg' }] };
+            const mockSg = { GroupId: 'sg-frigg', Tags: [{ Key: 'ManagedBy', Value: 'Frigg' }] };
+
+            ec2Mock.on(DescribeNatGatewaysCommand).resolves({ NatGateways: [mockNat] });
+            ec2Mock.on(DescribeAddressesCommand).resolves({ Addresses: [mockEip] });
+            ec2Mock.on(DescribeRouteTablesCommand).resolves({ RouteTables: [mockRouteTable] });
+            ec2Mock.on(DescribeSubnetsCommand).resolves({ Subnets: [mockSubnet] });
+            ec2Mock.on(DescribeSecurityGroupsCommand).resolves({ SecurityGroups: [mockSg] });
+
+            const result = await discovery.findFriggManagedResources('service', 'stage');
+            expect(result).toMatchObject({
+                natGateways: [mockNat],
+                elasticIps: [mockEip],
+                routeTables: [mockRouteTable],
+                subnets: [mockSubnet],
+                securityGroups: [mockSg],
+            });
+        });
+
+        it('should return empty arrays when calls fail', async () => {
+            ec2Mock.on(DescribeNatGatewaysCommand).rejects(new Error('error'));
+            ec2Mock.on(DescribeAddressesCommand).rejects(new Error('error'));
+            ec2Mock.on(DescribeRouteTablesCommand).rejects(new Error('error'));
+            ec2Mock.on(DescribeSubnetsCommand).rejects(new Error('error'));
+            ec2Mock.on(DescribeSecurityGroupsCommand).rejects(new Error('error'));
+
+            const result = await discovery.findFriggManagedResources('service', 'stage');
+            expect(result).toEqual({
+                natGateways: [],
+                elasticIps: [],
+                routeTables: [],
+                subnets: [],
+                securityGroups: [],
+            });
+        });
+    });
+
+    describe('detectMisconfiguredResources', () => {
+        const mockVpcId = 'vpc-12345678';
+
+        it('should capture misconfigured resources', async () => {
+            ec2Mock.on(DescribeNatGatewaysCommand).resolves({
+                NatGateways: [
+                    { NatGatewayId: 'nat-private', SubnetId: 'subnet-private', State: 'available' },
+                ],
+            });
+
+            ec2Mock.on(DescribeAddressesCommand).resolves({
+                Addresses: [
+                    {
+                        AllocationId: 'eip-123',
+                        PublicIp: '52.0.0.1',
+                        Tags: [{ Key: 'ManagedBy', Value: 'Frigg' }],
+                    },
+                ],
+            });
+
+            discovery.findPrivateSubnets = jest
+                .fn()
+                .mockResolvedValue([{ SubnetId: 'subnet-private', AvailabilityZone: 'us-east-1a' }]);
+            discovery.findRouteTables = jest.fn().mockResolvedValue([
+                {
+                    Associations: [],
+                    Routes: [],
+                },
+            ]);
+
+            jest.spyOn(discovery, 'isSubnetPrivate').mockResolvedValue(true);
+
+            const misconfigs = await discovery.detectMisconfiguredResources(mockVpcId);
+            expect(misconfigs.natGatewaysInPrivateSubnets).toHaveLength(1);
+            expect(misconfigs.orphanedElasticIps).toHaveLength(1);
+            expect(misconfigs.privateSubnetsWithoutNatRoute).toHaveLength(1);
+        });
+    });
+
+    describe('getHealingRecommendations', () => {
+        it('should produce ordered recommendations', () => {
+            const recs = discovery.getHealingRecommendations({
+                natGatewaysInPrivateSubnets: [{ natGatewayId: 'nat-1' }],
+                orphanedElasticIps: [{ allocationId: 'eip-1' }],
+                privateSubnetsWithoutNatRoute: [{ subnetId: 'subnet-1' }],
+            });
+
+            expect(recs[0].severity).toBe('critical');
+            expect(recs[0].issue).toContain('NAT Gateway');
+            expect(recs[1].severity).toBe('critical');
+            expect(recs[2].severity).toBe('warning');
+        });
+
+        it('should return empty array for no issues', () => {
+            const recs = discovery.getHealingRecommendations({
+                natGatewaysInPrivateSubnets: [],
+                orphanedElasticIps: [],
+                privateSubnetsWithoutNatRoute: [],
+            });
+
+            expect(recs).toEqual([]);
+        });
     });
 
     describe('discoverResources', () => {
@@ -662,6 +1071,36 @@ describe('AWSDiscovery', () => {
                 subnetConversionRequired: true,
                 privateSubnetsWithWrongRoutes: ['subnet-public-1', 'subnet-public-2']
             });
+        });
+
+        it('should reuse available Elastic IP when no NAT Gateway exists and no public subnet is found', async () => {
+            const mockVpc = { VpcId: 'vpc-12345678' };
+            const mockSubnets = [
+                { SubnetId: 'subnet-a' },
+                { SubnetId: 'subnet-b' }
+            ];
+            const mockSecurityGroup = { GroupId: 'sg-12345678' };
+            const mockRouteTable = { RouteTableId: 'rtb-12345678' };
+            const mockElasticIp = { AllocationId: 'eipalloc-available' };
+
+            jest.spyOn(discovery, 'findDefaultVpc').mockResolvedValue(mockVpc);
+            jest.spyOn(discovery, 'findPrivateSubnets').mockResolvedValue(mockSubnets);
+            jest.spyOn(discovery, 'findPublicSubnets').mockResolvedValue(null);
+            jest.spyOn(discovery, 'findDefaultSecurityGroup').mockResolvedValue(mockSecurityGroup);
+            jest.spyOn(discovery, 'findPrivateRouteTable').mockResolvedValue(mockRouteTable);
+            jest.spyOn(discovery, 'findDefaultKmsKey').mockResolvedValue(null);
+            jest.spyOn(discovery, 'findExistingNatGateway').mockResolvedValue(null);
+            const findAvailableElasticIPSpy = jest
+                .spyOn(discovery, 'findAvailableElasticIP')
+                .mockResolvedValue(mockElasticIp);
+            jest.spyOn(discovery, 'isSubnetPrivate').mockResolvedValue(true);
+
+            const result = await discovery.discoverResources();
+
+            expect(result.publicSubnetId).toBeNull();
+            expect(result.existingNatGatewayId).toBeNull();
+            expect(result.existingElasticIpAllocationId).toBe('eipalloc-available');
+            expect(findAvailableElasticIPSpy).toHaveBeenCalled();
         });
 
         it('should detect NAT Gateway in private subnet in discoverResources', async () => {
