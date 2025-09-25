@@ -34,6 +34,10 @@ function startCommand(options) {
     const childProcess = spawn(command, args, {
         cwd: backendPath,
         stdio: 'inherit',
+        env: {
+            ...process.env,
+            FRIGG_SKIP_AWS_DISCOVERY: 'true',
+        },
     });
 
     childProcess.on('error', (error) => {

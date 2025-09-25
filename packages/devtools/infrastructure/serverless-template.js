@@ -2,10 +2,18 @@ const path = require('path');
 const fs = require('fs');
 const { AWSDiscovery } = require('./aws-discovery');
 
-const shouldRunDiscovery = (AppDefinition) =>
-    AppDefinition.vpc?.enable === true ||
-    AppDefinition.encryption?.fieldLevelEncryptionMethod === 'kms' ||
-    AppDefinition.ssm?.enable === true;
+const shouldRunDiscovery = (AppDefinition) => {
+    if (process.env.FRIGG_SKIP_AWS_DISCOVERY === 'true') {
+        console.log('⚙️  Skipping AWS discovery because FRIGG_SKIP_AWS_DISCOVERY is set.');
+        return false;
+    }
+
+    return (
+        AppDefinition.vpc?.enable === true ||
+        AppDefinition.encryption?.fieldLevelEncryptionMethod === 'kms' ||
+        AppDefinition.ssm?.enable === true
+    );
+};
 
 const getAppEnvironmentVars = (AppDefinition) => {
     const envVars = {};
