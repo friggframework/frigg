@@ -2,19 +2,10 @@ const path = require('path');
 const fs = require('fs');
 const { AWSDiscovery } = require('./aws-discovery');
 
-const shouldRunDiscovery = (AppDefinition) => {
-    // Check if we're running in offline mode (local development)
-    // Set IS_OFFLINE=true in your .env file for local development
-    if (process.env.IS_OFFLINE === 'true') {
-        console.log('⏭️  Skipping AWS discovery for local development (IS_OFFLINE=true)');
-        return false;
-    }
-
-    // Only run discovery if VPC, KMS encryption, or SSM is enabled
-    return AppDefinition.vpc?.enable === true ||
-           AppDefinition.encryption?.fieldLevelEncryptionMethod === 'kms' ||
-           AppDefinition.ssm?.enable === true;
-};
+const shouldRunDiscovery = (AppDefinition) =>
+    AppDefinition.vpc?.enable === true ||
+    AppDefinition.encryption?.fieldLevelEncryptionMethod === 'kms' ||
+    AppDefinition.ssm?.enable === true;
 
 const getAppEnvironmentVars = (AppDefinition) => {
     const envVars = {};
