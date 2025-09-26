@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Card } from '../Card'
 import { Button } from '../Button'
-import { StatusBadge } from '../StatusBadge'
+import StatusBadge from '../StatusBadge'
 import LoadingSpinner from '../LoadingSpinner'
 import { useSocket } from '../../hooks/useSocket'
 import LambdaMetrics from './LambdaMetrics'

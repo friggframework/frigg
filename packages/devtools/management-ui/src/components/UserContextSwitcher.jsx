@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { User, ChevronDown, UserCircle } from 'lucide-react'
 import { cn } from '../lib/utils'
-import { cn } from '../lib/utils'
 
 const UserContextSwitcher = ({ users, currentUser, onUserSwitch }) => {
   const [isOpen, setIsOpen] = useState(false)

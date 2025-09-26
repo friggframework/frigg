@@ -391,9 +391,7 @@ async function getAvailableIntegrations() {
                     details: 'Failed to configure integration'
                 });
             }
-        }
-});
-}
+        });
 
 // Get integration configuration
 router.get('/:integrationName/config', async (req, res) => {
@@ -411,21 +409,16 @@ router.get('/:integrationName/config', async (req, res) => {
         if (await fs.pathExists(configPath)) {
             const config = await fs.readJson(configPath);
             res.json({ config });
+        } else {
+            res.json({ config: {} });
         }
-    } else {
-        res.json({ config: {} });
-    }
-}
-
     } catch (error) {
-    res.status(500).json({
-        error: error.message,
-        details: 'Failed to read integration configuration'
-    });
-}
+        res.status(500).json({
+            error: error.message,
+            details: 'Failed to read integration configuration'
+        });
     }
 });
-}
 
 // Remove an integration
 router.delete('/:integrationName', async (req, res) => {
@@ -438,59 +431,53 @@ router.delete('/:integrationName', async (req, res) => {
             packageName: integrationName,
             message: `Removing ${integrationName}...`
         });
-    }
 
         // Remove the package
         const { stdout, stderr } = await execAsync(
-        `npm uninstall ${integrationName}`,
-        { cwd: path.join(process.cwd(), '../../../backend') }
-    );
+            `npm uninstall ${integrationName}`,
+            { cwd: path.join(process.cwd(), '../../../backend') }
+        );
 
-    // Remove config if exists
-    const configPath = path.join(
-        process.cwd(),
-        '../../../backend',
-        'config',
-        'integrations',
-        `${integrationName}.json`
-    );
+        // Remove config if exists
+        const configPath = path.join(
+            process.cwd(),
+            '../../../backend',
+            'config',
+            'integrations',
+            `${integrationName}.json`
+        );
 
-    if (await fs.pathExists(configPath)) {
-        await fs.remove(configPath);
-    }
+        if (await fs.pathExists(configPath)) {
+            await fs.remove(configPath);
+        }
 
-    // Broadcast success
-    wsHandler.broadcast('integration-remove', {
-        status: 'removed',
-        packageName: integrationName,
-        message: `Successfully removed ${integrationName}`
-    });
-}
+        // Broadcast success
+        wsHandler.broadcast('integration-remove', {
+            status: 'removed',
+            packageName: integrationName,
+            message: `Successfully removed ${integrationName}`
+        });
 
         res.json({
-    status: 'success',
-    message: `Integration ${integrationName} removed successfully`
-});
-}
+            status: 'success',
+            message: `Integration ${integrationName} removed successfully`
+        });
 
     } catch (error) {
-    // Broadcast error
-    wsHandler.broadcast('integration-remove', {
-        status: 'error',
-        packageName: integrationName,
-        message: `Failed to remove ${integrationName}`,
-        error: error.message
-    });
-}
+        // Broadcast error
+        wsHandler.broadcast('integration-remove', {
+            status: 'error',
+            packageName: integrationName,
+            message: `Failed to remove ${integrationName}`,
+            error: error.message
+        });
 
-res.status(500).json({
-    error: error.message,
-    details: 'Failed to remove integration'
-});
-}
+        res.status(500).json({
+            error: error.message,
+            details: 'Failed to remove integration'
+        });
     }
 });
-}
 
-export { getInstalledIntegrations }
-export default router
+export { getInstalledIntegrations };
+export default router;
