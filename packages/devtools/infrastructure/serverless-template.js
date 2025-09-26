@@ -3,6 +3,7 @@ const fs = require('fs');
 const { AWSDiscovery } = require('./aws-discovery');
 
 const shouldRunDiscovery = (AppDefinition) => {
+    console.log('⚙️  Checking FRIGG_SKIP_AWS_DISCOVERY:', process.env.FRIGG_SKIP_AWS_DISCOVERY);
     if (process.env.FRIGG_SKIP_AWS_DISCOVERY === 'true') {
         console.log('⚙️  Skipping AWS discovery because FRIGG_SKIP_AWS_DISCOVERY is set.');
         return false;
@@ -657,6 +658,12 @@ const applyKmsConfiguration = (definition, AppDefinition, discoveredResources) =
         return;
     }
 
+    // Skip KMS configuration for local development when AWS discovery is disabled
+    if (process.env.FRIGG_SKIP_AWS_DISCOVERY === 'true') {
+        console.log('⚙️  Skipping KMS configuration for local development (FRIGG_SKIP_AWS_DISCOVERY is set)');
+        return;
+    }
+
     if (discoveredResources.defaultKmsKeyId) {
         console.log(`Using existing KMS key: ${discoveredResources.defaultKmsKeyId}`);
         definition.resources.Resources.FriggKMSKeyAlias = {
@@ -851,6 +858,12 @@ const healVpcConfiguration = (discoveredResources, AppDefinition) => {
 
 const configureVpc = (definition, AppDefinition, discoveredResources) => {
     if (AppDefinition.vpc?.enable !== true) {
+        return;
+    }
+
+    // Skip VPC configuration for local development when AWS discovery is disabled
+    if (process.env.FRIGG_SKIP_AWS_DISCOVERY === 'true') {
+        console.log('⚙️  Skipping VPC configuration for local development (FRIGG_SKIP_AWS_DISCOVERY is set)');
         return;
     }
 
