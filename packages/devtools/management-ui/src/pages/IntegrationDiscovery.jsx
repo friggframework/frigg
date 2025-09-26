@@ -394,8 +394,9 @@ const IntegrationDiscovery = () => {
             </h3>
           </div>
           <div className={cn(
+            viewMode === 'grid' 
               ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
-            : 'space-y-4'
+              : 'space-y-4'
           )}>
           {displayIntegrations
             .filter(integration => integration.installed)
@@ -451,9 +452,10 @@ const IntegrationDiscovery = () => {
     </div>
   ) : (
     <div className={cn(
-              ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
-      : 'space-y-4'
-          )}>
+      viewMode === 'grid'
+        ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
+        : 'space-y-4'
+    )}>
   {displayIntegrations
     .filter(integration => !integration.installed)
     .map((integration) => (

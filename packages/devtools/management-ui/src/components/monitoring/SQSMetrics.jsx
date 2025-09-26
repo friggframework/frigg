@@ -1,6 +1,6 @@
 import React from 'react'
 import { Card } from '../Card'
-import { StatusBadge } from '../StatusBadge'
+import StatusBadge from '../StatusBadge'
 
 /**
  * SQS Queue Metrics Component

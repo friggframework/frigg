@@ -32,18 +32,8 @@ const ConnectionsEnhanced = () => {
       if (unsubscribeUpdate) unsubscribeUpdate()
       if (unsubscribeTest) unsubscribeTest()
       emit('unsubscribe', { topics: ['connections'] })
-
-      // Subscribe to real-time updates
-      const unsubscribeUpdate = on('connection-update', handleConnectionUpdate)
-      const unsubscribeTest = on('connection-test', handleTestUpdate)
-      emit('subscribe', { topics: ['connections'] })
-
-      return () => {
-        if (unsubscribeUpdate) unsubscribeUpdate()
-        if (unsubscribeTest) unsubscribeTest()
-        emit('unsubscribe', { topics: ['connections'] })
-      }
-    }, [socket]);
+    }
+  }, [socket]);
 
   const fetchConnectionStats = async () => {
     try {
