@@ -27,7 +27,7 @@ infrastructure/
 ├── AWS-DISCOVERY-TROUBLESHOOTING.md      # AWS discovery troubleshooting
 ├── DEPLOYMENT-INSTRUCTIONS.md            # General deployment instructions
 ├── README-TESTING.md                     # Testing strategy documentation
-├── 
+├──
 ├── cloudformation/                        # CloudFormation templates
 │   ├── monitoring-infrastructure.yaml    # Enhanced monitoring (Phase 3)
 │   ├── cdn-infrastructure.yaml          # CDN and UI distribution (Phase 3)
@@ -60,71 +60,81 @@ infrastructure/
 #### 1. Serverless Template Generator (`serverless-template.js`)
 
 Generates complete serverless.yml configurations with:
-- VPC configuration and resource discovery
-- KMS encryption for field-level encryption
-- SSM Parameter Store integration
-- Integration-specific functions and queues
-- WebSocket support for real-time features
+
+-   VPC configuration and resource discovery (with optional self-healing)
+-   NAT/EIP management strategies (`discover`, `createAndManage`, `useExisting`)
+-   KMS encryption for field-level encryption
+-   SSM Parameter Store integration
+-   Integration-specific functions and queues
+-   WebSocket support for real-time features
 
 #### 2. AWS Discovery (`aws-discovery.js`)
 
-Automatically discovers existing AWS resources:
-- Default VPC and security groups
-- Private subnets for Lambda functions
-- Customer-managed KMS keys
-- Route tables for VPC endpoints
+Automatically discovers existing AWS resources and highlights misconfigurations:
+
+-   Default VPC and security groups
+-   Private subnets for Lambda functions (with routing validation)
+-   Customer-managed KMS keys
+-   Route tables for VPC endpoints
+-   NAT gateways / Elastic IPs and whether remediation is required
 
 #### 3. Build-Time Discovery (`build-time-discovery.js`)
 
 Integrates AWS discovery into the build process:
-- Pre-build hook for serverless deployments
-- Environment variable injection
-- Template variable replacement
-- Error handling and fallback values
+
+-   Pre-build hook for serverless deployments
+-   Environment variable injection
+-   Template variable replacement
+-   Error handling and fallback values
 
 ### Phase 3 Infrastructure
 
 #### 1. Enhanced Monitoring (`cloudformation/monitoring-infrastructure.yaml`)
 
 Production-ready monitoring with:
-- Code generation service monitoring
-- UI distribution monitoring
-- Advanced CloudWatch dashboards
-- Custom metrics and alarms
+
+-   Code generation service monitoring
+-   UI distribution monitoring
+-   Advanced CloudWatch dashboards
+-   Custom metrics and alarms
 
 #### 2. CDN Infrastructure (`cloudformation/cdn-infrastructure.yaml`)
 
 CloudFront distribution for UI packages:
-- S3 bucket for multi-framework UI packages
-- CloudFront distribution with custom domains
-- Lambda function for package deployment
-- API Gateway for package management
+
+-   S3 bucket for multi-framework UI packages
+-   CloudFront distribution with custom domains
+-   Lambda function for package deployment
+-   API Gateway for package management
 
 #### 3. Code Generation Infrastructure (`cloudformation/codegen-infrastructure.yaml`)
 
 Serverless code generation platform:
-- SQS queue for generation requests
-- Lambda function with AI/ML integration
-- DynamoDB tracking table
-- S3 storage for templates and generated code
-- ElastiCache for template caching
+
+-   SQS queue for generation requests
+-   Lambda function with AI/ML integration
+-   DynamoDB tracking table
+-   S3 storage for templates and generated code
+-   ElastiCache for template caching
 
 #### 4. Advanced Alerting (`cloudformation/alerting-infrastructure.yaml`)
 
 Multi-channel alerting system:
-- Multiple SNS topics for alert severity levels
-- Lambda function for alert processing
-- PagerDuty and Slack integration
-- Composite alarms for system health
-- Advanced metrics collection
+
+-   Multiple SNS topics for alert severity levels
+-   Lambda function for alert processing
+-   PagerDuty and Slack integration
+-   Composite alarms for system health
+-   Advanced metrics collection
 
 #### 5. Deployment Pipeline (`cloudformation/deployment-pipeline.yaml`)
 
 CI/CD pipeline for automated deployments:
-- CodePipeline with GitHub integration
-- CodeBuild projects for backend and UI
-- Multi-stage deployment workflow
-- Integration testing and approval gates
+
+-   CodePipeline with GitHub integration
+-   CodeBuild projects for backend and UI
+-   Multi-stage deployment workflow
+-   Integration testing and approval gates
 
 ## Configuration Options
 
@@ -135,31 +145,40 @@ const appDefinition = {
   // Basic configuration
   name: 'my-frigg-app',
   provider: 'aws',
-  
+
   // VPC configuration
   vpc: {
     enable: true,
-    createNew: false,           // Use existing VPC (default)
-    securityGroupIds: [...],    // Optional: custom security groups
-    subnetIds: [...],          // Optional: custom subnets
-    enableVPCEndpoints: true   // Optional: create VPC endpoints
+    management: 'discover',     // 'discover' | 'create-new' | 'use-existing'
+    selfHeal: true,             // Let the template repair routing/NAT issues
+    securityGroupIds: [...],    // Optional: custom security groups or CFN Refs
+    subnets: {
+      management: 'discover',   // 'discover' | 'create' | 'use-existing'
+      ids: [...],               // Required when management is 'use-existing'
+    },
+    natGateway: {
+      management: 'discover',   // 'discover' | 'createAndManage' | 'useExisting'
+      id: 'nat-xxxxxxxx',       // Required when management is 'useExisting'
+    },
+    enableVPCEndpoints: true    // Optional: create VPC endpoints
   },
-  
+
   // KMS encryption
   encryption: {
-    useDefaultKMSForFieldLevelEncryption: true
+    fieldLevelEncryptionMethod: 'kms',
+    createResourceIfNoneFound: true
   },
-  
+
   // SSM Parameter Store
   ssm: {
     enable: true
   },
-  
-  // WebSocket support (Phase 3)
+
+  // WebSocket support (optional)
   websockets: {
     enable: true
   },
-  
+
   // Integrations
   integrations: [
     { Definition: { name: 'hubspot' } },
@@ -178,6 +197,7 @@ AWS_DISCOVERY_VPC_ID=vpc-12345678
 AWS_DISCOVERY_SECURITY_GROUP_ID=sg-12345678
 AWS_DISCOVERY_SUBNET_ID_1=subnet-12345678
 AWS_DISCOVERY_SUBNET_ID_2=subnet-87654321
+AWS_DISCOVERY_PUBLIC_SUBNET_ID=subnet-abcdef12
 AWS_DISCOVERY_ROUTE_TABLE_ID=rtb-12345678
 AWS_DISCOVERY_KMS_KEY_ID=arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012
 
@@ -195,10 +215,8 @@ SERVICE_NAME=my-frigg-app
 const { composeServerlessDefinition } = require('./serverless-template');
 
 const appDefinition = {
-  name: 'my-app',
-  integrations: [
-    { Definition: { name: 'hubspot' } }
-  ]
+    name: 'my-app',
+    integrations: [{ Definition: { name: 'hubspot' } }],
 };
 
 const serverlessConfig = await composeServerlessDefinition(appDefinition);
@@ -209,13 +227,11 @@ const serverlessConfig = await composeServerlessDefinition(appDefinition);
 
 ```javascript
 const appDefinition = {
-  name: 'secure-app',
-  vpc: { enable: true },
-  encryption: { useDefaultKMSForFieldLevelEncryption: true },
-  ssm: { enable: true },
-  integrations: [
-    { Definition: { name: 'salesforce' } }
-  ]
+    name: 'secure-app',
+    vpc: { enable: true },
+    encryption: { fieldLevelEncryptionMethod: 'kms' },
+    ssm: { enable: true },
+    integrations: [{ Definition: { name: 'salesforce' } }],
 };
 
 const serverlessConfig = await composeServerlessDefinition(appDefinition);
@@ -225,12 +241,10 @@ const serverlessConfig = await composeServerlessDefinition(appDefinition);
 
 ```javascript
 const appDefinition = {
-  name: 'realtime-app',
-  websockets: { enable: true },
-  vpc: { enable: true },
-  integrations: [
-    { Definition: { name: 'slack' } }
-  ]
+    name: 'realtime-app',
+    websockets: { enable: true },
+    vpc: { enable: true },
+    integrations: [{ Definition: { name: 'slack' } }],
 };
 
 const serverlessConfig = await composeServerlessDefinition(appDefinition);
@@ -259,19 +273,21 @@ npm test -- --watch
 ### Test Categories
 
 1. **Unit Tests**: Test individual components
-   - AWS discovery utilities
-   - Serverless template generation
-   - IAM policy generation
+
+    - AWS discovery utilities
+    - Serverless template generation
+    - IAM policy generation
 
 2. **Integration Tests**: Test end-to-end workflows
-   - Complete discovery and template generation
-   - Plugin integration
-   - Phase 3 infrastructure validation
+
+    - Complete discovery and template generation
+    - Plugin integration
+    - Phase 3 infrastructure validation
 
 3. **Performance Tests**: Validate infrastructure limits
-   - CloudFormation template sizes
-   - Resource count limits
-   - Cross-stack dependencies
+    - CloudFormation template sizes
+    - Resource count limits
+    - Cross-stack dependencies
 
 ### Mock Data
 
@@ -279,11 +295,12 @@ Tests use mock AWS resources to avoid real AWS API calls:
 
 ```javascript
 const mockAWSResources = {
-  defaultVpcId: 'vpc-12345678',
-  defaultSecurityGroupId: 'sg-12345678',
-  privateSubnetId1: 'subnet-private-1',
-  privateSubnetId2: 'subnet-private-2',
-  defaultKmsKeyId: 'arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012'
+    defaultVpcId: 'vpc-12345678',
+    defaultSecurityGroupId: 'sg-12345678',
+    privateSubnetId1: 'subnet-private-1',
+    privateSubnetId2: 'subnet-private-2',
+    defaultKmsKeyId:
+        'arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012',
 };
 ```
 
@@ -293,18 +310,18 @@ const mockAWSResources = {
 
 The infrastructure requires specific IAM permissions for AWS resource discovery and deployment:
 
-- **EC2**: Describe VPCs, subnets, security groups, route tables
-- **KMS**: List keys, describe keys
-- **STS**: Get caller identity
-- **CloudFormation**: Full access for stack operations
-- **Lambda**: Function management
-- **API Gateway**: API management
-- **S3**: Bucket and object operations (including tagging)
-- **DynamoDB**: Table operations
-- **SQS**: Queue operations
-- **SNS**: Topic operations
-- **CloudWatch**: Metrics and alarms
-- **IAM**: Role and policy management
+-   **EC2**: Describe VPCs, subnets, security groups, route tables
+-   **KMS**: List keys, describe keys
+-   **STS**: Get caller identity
+-   **CloudFormation**: Full access for stack operations
+-   **Lambda**: Function management
+-   **API Gateway**: API management
+-   **S3**: Bucket and object operations (including tagging)
+-   **DynamoDB**: Table operations
+-   **SQS**: Queue operations
+-   **SNS**: Topic operations
+-   **CloudWatch**: Metrics and alarms
+-   **IAM**: Role and policy management
 
 ### Best Practices
 
@@ -348,6 +365,8 @@ serverless print
 aws cloudformation validate-template --template-body file://template.json
 ```
 
+-   **Connectivity to external services (e.g., databases):** If your Lambda functions in a VPC cannot connect to external services, ensure that the `FriggLambdaSecurityGroup` has the correct **egress** rules to allow outbound traffic on the required ports (e.g., port 27017 for MongoDB).
+
 #### Infrastructure Test Failures
 
 ```bash
@@ -364,19 +383,22 @@ npm run test:debug
 ### Performance Optimization
 
 #### Lambda Cold Starts
-- Use provisioned concurrency for critical functions
-- Optimize function size and dependencies
-- Monitor cold start metrics
+
+-   Use provisioned concurrency for critical functions
+-   Optimize function size and dependencies
+-   Monitor cold start metrics
 
 #### VPC Performance
-- Use VPC endpoints to reduce NAT Gateway costs
-- Monitor ENI creation/deletion times
-- Consider Lambda@Edge for global distribution
+
+-   Use VPC endpoints to reduce NAT Gateway costs
+-   Monitor ENI creation/deletion times
+-   Consider Lambda@Edge for global distribution
 
 #### Cost Optimization
-- Use S3 Intelligent Tiering
-- Configure CloudWatch log retention
-- Monitor and alert on unexpected usage
+
+-   Use S3 Intelligent Tiering
+-   Configure CloudWatch log retention
+-   Monitor and alert on unexpected usage
 
 ## Contributing
 
@@ -405,17 +427,17 @@ npm run test:debug
 
 ## Support
 
-- **Documentation**: See `PHASE3-DEPLOYMENT-GUIDE.md` for detailed deployment instructions
-- **Testing**: See `README-TESTING.md` for testing strategy
-- **Troubleshooting**: See `AWS-DISCOVERY-TROUBLESHOOTING.md` for common issues
-- **Issues**: Create GitHub issues for bugs and feature requests
-- **Discussions**: Use GitHub Discussions for questions and ideas
+-   **Documentation**: See `PHASE3-DEPLOYMENT-GUIDE.md` for detailed deployment instructions
+-   **Testing**: See `README-TESTING.md` for testing strategy
+-   **Troubleshooting**: See `AWS-DISCOVERY-TROUBLESHOOTING.md` for common issues
+-   **Issues**: Create GitHub issues for bugs and feature requests
+-   **Discussions**: Use GitHub Discussions for questions and ideas
 
 ## Related Documentation
 
-- [Phase 3 Deployment Guide](./PHASE3-DEPLOYMENT-GUIDE.md)
-- [Testing Strategy](./README-TESTING.md)
-- [AWS Discovery Troubleshooting](./AWS-DISCOVERY-TROUBLESHOOTING.md)
-- [IAM Policy Templates](./IAM-POLICY-TEMPLATES.md)
-- [VPC Configuration](./VPC-CONFIGURATION.md)
-- [WebSocket Configuration](./WEBSOCKET-CONFIGURATION.md)
+-   [Phase 3 Deployment Guide](./PHASE3-DEPLOYMENT-GUIDE.md)
+-   [Testing Strategy](./README-TESTING.md)
+-   [AWS Discovery Troubleshooting](./AWS-DISCOVERY-TROUBLESHOOTING.md)
+-   [IAM Policy Templates](./IAM-POLICY-TEMPLATES.md)
+-   [VPC Configuration](./VPC-CONFIGURATION.md)
+-   [WebSocket Configuration](./WEBSOCKET-CONFIGURATION.md)

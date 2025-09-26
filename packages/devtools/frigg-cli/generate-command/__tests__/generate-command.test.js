@@ -54,7 +54,7 @@ describe('Generate Command', () => {
         // Mock app definition
         jest.doMock(mockAppDefinitionPath, () => ({
             vpc: { enable: true },
-            encryption: { useDefaultKMSForFieldLevelEncryption: true },
+            encryption: { fieldLevelEncryptionMethod: 'kms' },
             ssm: { enable: true },
             websockets: { enable: false }
         }), { virtual: true });

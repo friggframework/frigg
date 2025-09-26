@@ -7,7 +7,7 @@ describe('IAM Generator', () => {
                 name: 'test-app',
                 integrations: ['Integration1', 'Integration2'],
                 vpc: { enable: true },
-                encryption: { useDefaultKMSForFieldLevelEncryption: true },
+                encryption: { fieldLevelEncryptionMethod: 'kms' },
                 ssm: { enable: true },
                 websockets: { enable: true }
             };
@@ -46,7 +46,7 @@ describe('IAM Generator', () => {
                 name: 'test-app',
                 integrations: [],
                 vpc: { enable: false },
-                encryption: { useDefaultKMSForFieldLevelEncryption: false },
+                encryption: { fieldLevelEncryptionMethod: 'aes' },
                 ssm: { enable: false },
                 websockets: { enable: false }
             };
@@ -71,13 +71,14 @@ describe('IAM Generator', () => {
             expect(yaml).toContain('FriggVPCPolicy');
             expect(yaml).toContain('CreateVPCPermissions');
             expect(yaml).toContain('EnableVPCSupport');
+            expect(yaml).toContain('ec2:ReplaceRoute');
         });
 
         it('should include KMS policy when encryption is enabled', () => {
             const appDefinition = {
                 name: 'test-app',
                 integrations: [],
-                encryption: { useDefaultKMSForFieldLevelEncryption: true }
+                encryption: { fieldLevelEncryptionMethod: 'kms' }
             };
 
             const yaml = generateIAMCloudFormation(appDefinition);
@@ -85,6 +86,8 @@ describe('IAM Generator', () => {
             expect(yaml).toContain('FriggKMSPolicy');
             expect(yaml).toContain('CreateKMSPermissions');
             expect(yaml).toContain('EnableKMSSupport');
+            expect(yaml).toContain('FriggKMSKeyAlias');
+            expect(yaml).toContain('kms:CreateAlias');
         });
 
         it('should include SSM policy when SSM is enabled', () => {
@@ -106,16 +109,16 @@ describe('IAM Generator', () => {
                 name: 'test-app',
                 integrations: [],
                 vpc: { enable: true },
-                encryption: { useDefaultKMSForFieldLevelEncryption: false },
+                encryption: { fieldLevelEncryptionMethod: 'aes' },
                 ssm: { enable: true }
             };
 
             const yaml = generateIAMCloudFormation(appDefinition);
 
             // Check parameter defaults match the enabled features
-            expect(yaml).toContain('Default: true'); // VPC enabled
-            expect(yaml).toContain('Default: false'); // KMS disabled  
-            // SSM should be true
+            expect(yaml).toContain("Default: 'true'"); // VPC enabled
+            expect(yaml).toContain("Default: 'false'"); // KMS disabled
+            expect(yaml).toContain('alias/frigg-deployment');
         });
 
         it('should include all core permissions', () => {

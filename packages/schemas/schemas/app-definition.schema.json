@@ -93,10 +93,16 @@
       "type": "object",
       "description": "Encryption settings for sensitive data",
       "properties": {
-        "useDefaultKMSForFieldLevelEncryption": {
+        "fieldLevelEncryptionMethod": {
+          "type": "string",
+          "description": "Method for field-level encryption",
+          "enum": ["kms", "aes"],
+          "default": "kms"
+        },
+        "createResourceIfNoneFound": {
           "type": "boolean",
-          "description": "Use default KMS for field-level encryption",
-          "default": true
+          "description": "Create KMS key if none found",
+          "default": false
         }
       },
       "additionalProperties": false
@@ -252,7 +258,7 @@
         "password": true
       },
       "encryption": {
-        "useDefaultKMSForFieldLevelEncryption": true
+        "fieldLevelEncryptionMethod": "kms"
       },
       "vpc": {
         "enable": true

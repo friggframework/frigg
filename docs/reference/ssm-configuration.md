@@ -274,7 +274,7 @@ const appDefinition = {
         HubspotIntegration
     ],
     ssm: { enable: true },
-    encryption: { useDefaultKMSForFieldLevelEncryption: true },
+    encryption: { fieldLevelEncryptionMethod: 'kms' },
     vpc: { enable: true }
 };
 

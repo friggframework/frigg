@@ -151,7 +151,7 @@ const mockAppDefinitions = {
     
     kmsOnly: {
         name: 'kms-test-app',
-        encryption: { useDefaultKMSForFieldLevelEncryption: true },
+        encryption: { fieldLevelEncryptionMethod: 'kms' },
         integrations: []
     },
     
@@ -164,7 +164,7 @@ const mockAppDefinitions = {
     allFeatures: {
         name: 'full-feature-app',
         vpc: { enable: true },
-        encryption: { useDefaultKMSForFieldLevelEncryption: true },
+        encryption: { fieldLevelEncryptionMethod: 'kms' },
         ssm: { enable: true },
         integrations: [{
             Definition: {
@@ -281,7 +281,7 @@ const mockEnvironmentVariables = {
     AWS_DISCOVERY_SUBNET_ID_1: mockSubnets[0].SubnetId,
     AWS_DISCOVERY_SUBNET_ID_2: mockSubnets[1].SubnetId,
     AWS_DISCOVERY_ROUTE_TABLE_ID: mockRouteTables[0].RouteTableId,
-    AWS_DISCOVERY_KMS_KEY_ID: mockKmsKeyMetadata.Arn
+    AWS_DISCOVERY_KMS_KEY_ID:mockKmsKeyMetadata.Arn
 };
 
 // Fallback environment variables for error scenarios
@@ -291,7 +291,7 @@ const mockFallbackEnvironmentVariables = {
     AWS_DISCOVERY_SUBNET_ID_1: 'subnet-fallback-1',
     AWS_DISCOVERY_SUBNET_ID_2: 'subnet-fallback-2',
     AWS_DISCOVERY_ROUTE_TABLE_ID: 'rtb-fallback',
-    AWS_DISCOVERY_KMS_KEY_ID: 'arn:aws:kms:*:*:key/*'
+    AWS_DISCOVERY_KMS_KEY_ID:'arn:aws:kms:*:*:key/*'
 };
 
 // Mock AWS SDK responses

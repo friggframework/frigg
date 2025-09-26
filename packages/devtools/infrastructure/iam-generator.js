@@ -1,4 +1,3 @@
-const fs = require('fs-extra');
 const path = require('path');
 
 /**
@@ -11,11 +10,8 @@ const path = require('path');
  * @returns {string} CloudFormation YAML template
  */
 function generateIAMCloudFormation(appDefinition, options = {}) {
-    const {
-        deploymentUserName = 'frigg-deployment-user',
-        stackName = 'frigg-deployment-iam',
-        mode = 'auto'
-    } = options;
+    const { deploymentUserName = 'frigg-deployment-user', mode = 'auto' } =
+        options;
 
     // Determine which features are enabled based on mode
     let features;
@@ -24,62 +20,106 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
             vpc: false,
             kms: false,
             ssm: false,
-            websockets: appDefinition.websockets?.enable === true
+            websockets: appDefinition.websockets?.enable === true,
         };
     } else if (mode === 'full') {
         features = {
             vpc: true,
             kms: true,
             ssm: true,
-            websockets: appDefinition.websockets?.enable === true
+            websockets: appDefinition.websockets?.enable === true,
         };
-    } else { // mode === 'auto'
+    } else {
+        // mode === 'auto'
         features = {
             vpc: appDefinition.vpc?.enable === true,
-            kms: appDefinition.encryption?.useDefaultKMSForFieldLevelEncryption === true,
+            kms:
+                appDefinition.encryption
+                    ?.fieldLevelEncryptionMethod === 'kms',
             ssm: appDefinition.ssm?.enable === true,
-            websockets: appDefinition.websockets?.enable === true
+            websockets: appDefinition.websockets?.enable === true,
         };
     }
 
     // Build the CloudFormation template
     const template = {
         AWSTemplateFormatVersion: '2010-09-09',
-        Description: `IAM roles and policies for ${appDefinition.name || 'Frigg'} application deployment pipeline`,
-        
+        Description: `IAM roles and policies for ${
+            appDefinition.name || 'Frigg'
+        } application deployment pipeline`,
+
         Parameters: {
             DeploymentUserName: {
                 Type: 'String',
                 Default: deploymentUserName,
-                Description: 'Name for the IAM user that will deploy Frigg applications'
+                Description:
+                    'Name for the IAM user that will deploy Frigg applications',
             },
             EnableVPCSupport: {
                 Type: 'String',
                 Default: features.vpc ? 'true' : 'false',
                 AllowedValues: ['true', 'false'],
-                Description: 'Enable VPC-related permissions for Frigg applications'
+                Description:
+                    'Enable VPC-related permissions for Frigg applications',
             },
             EnableKMSSupport: {
                 Type: 'String',
                 Default: features.kms ? 'true' : 'false',
                 AllowedValues: ['true', 'false'],
-                Description: 'Enable KMS encryption permissions for Frigg applications'
+                Description:
+                    'Enable KMS encryption permissions for Frigg applications',
             },
             EnableSSMSupport: {
                 Type: 'String',
                 Default: features.ssm ? 'true' : 'false',
                 AllowedValues: ['true', 'false'],
-                Description: 'Enable SSM Parameter Store permissions for Frigg applications'
-            }
+                Description:
+                    'Enable SSM Parameter Store permissions for Frigg applications',
+            },
+            DeploymentKmsAliasName: {
+                Type: 'String',
+                Default: 'alias/frigg-deployment',
+                Description:
+                    'Alias name to create or manage for the deployment KMS key',
+            },
+            DeploymentKmsTargetKeyArn: {
+                Type: 'String',
+                Default: '',
+                Description:
+                    'Optional existing KMS key ARN that the deployment alias should reference',
+            },
         },
 
         Conditions: {
-            CreateVPCPermissions: { 'Fn::Equals': [{ Ref: 'EnableVPCSupport' }, 'true'] },
-            CreateKMSPermissions: { 'Fn::Equals': [{ Ref: 'EnableKMSSupport' }, 'true'] },
-            CreateSSMPermissions: { 'Fn::Equals': [{ Ref: 'EnableSSMSupport' }, 'true'] }
+            CreateVPCPermissions: {
+                'Fn::Equals': [{ Ref: 'EnableVPCSupport' }, 'true'],
+            },
+            CreateKMSPermissions: {
+                'Fn::Equals': [{ Ref: 'EnableKMSSupport' }, 'true'],
+            },
+            CreateSSMPermissions: {
+                'Fn::Equals': [{ Ref: 'EnableSSMSupport' }, 'true'],
+            },
+            CreateKMSAlias: {
+                'Fn::And': [
+                    {
+                        'Fn::Equals': [{ Ref: 'EnableKMSSupport' }, 'true'],
+                    },
+                    {
+                        'Fn::Not': [
+                            {
+                                'Fn::Equals': [
+                                    { Ref: 'DeploymentKmsTargetKeyArn' },
+                                    '',
+                                ],
+                            },
+                        ],
+                    },
+                ],
+            },
         },
 
-        Resources: {}
+        Resources: {},
     };
 
     // Add IAM User
@@ -89,34 +129,52 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
             UserName: { Ref: 'DeploymentUserName' },
             ManagedPolicyArns: [
                 { Ref: 'FriggDiscoveryPolicy' },
-                { Ref: 'FriggCoreDeploymentPolicy' }
-            ]
-        }
+                { Ref: 'FriggCoreDeploymentPolicy' },
+            ],
+        },
     };
 
     // Conditionally add feature-specific policies
     if (features.vpc) {
-        template.Resources.FriggDeploymentUser.Properties.ManagedPolicyArns.push({
-            'Fn::If': ['CreateVPCPermissions', { Ref: 'FriggVPCPolicy' }, { Ref: 'AWS::NoValue' }]
-        });
+        template.Resources.FriggDeploymentUser.Properties.ManagedPolicyArns.push(
+            {
+                'Fn::If': [
+                    'CreateVPCPermissions',
+                    { Ref: 'FriggVPCPolicy' },
+                    { Ref: 'AWS::NoValue' },
+                ],
+            }
+        );
     }
     if (features.kms) {
-        template.Resources.FriggDeploymentUser.Properties.ManagedPolicyArns.push({
-            'Fn::If': ['CreateKMSPermissions', { Ref: 'FriggKMSPolicy' }, { Ref: 'AWS::NoValue' }]
-        });
+        template.Resources.FriggDeploymentUser.Properties.ManagedPolicyArns.push(
+            {
+                'Fn::If': [
+                    'CreateKMSPermissions',
+                    { Ref: 'FriggKMSPolicy' },
+                    { Ref: 'AWS::NoValue' },
+                ],
+            }
+        );
     }
     if (features.ssm) {
-        template.Resources.FriggDeploymentUser.Properties.ManagedPolicyArns.push({
-            'Fn::If': ['CreateSSMPermissions', { Ref: 'FriggSSMPolicy' }, { Ref: 'AWS::NoValue' }]
-        });
+        template.Resources.FriggDeploymentUser.Properties.ManagedPolicyArns.push(
+            {
+                'Fn::If': [
+                    'CreateSSMPermissions',
+                    { Ref: 'FriggSSMPolicy' },
+                    { Ref: 'AWS::NoValue' },
+                ],
+            }
+        );
     }
 
     // Add Access Key
     template.Resources.FriggDeploymentAccessKey = {
         Type: 'AWS::IAM::AccessKey',
         Properties: {
-            UserName: { Ref: 'FriggDeploymentUser' }
-        }
+            UserName: { Ref: 'FriggDeploymentUser' },
+        },
     };
 
     // Add Discovery Policy (always needed)
@@ -124,7 +182,8 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
         Type: 'AWS::IAM::ManagedPolicy',
         Properties: {
             ManagedPolicyName: 'FriggDiscoveryPolicy',
-            Description: 'Permissions for AWS resource discovery during Frigg build process',
+            Description:
+                'Permissions for AWS resource discovery during Frigg build process',
             PolicyDocument: {
                 Version: '2012-10-17',
                 Statement: [
@@ -140,13 +199,13 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                             'ec2:DescribeNatGateways',
                             'ec2:DescribeAddresses',
                             'kms:ListKeys',
-                            'kms:DescribeKey'
+                            'kms:DescribeKey',
                         ],
-                        Resource: '*'
-                    }
-                ]
-            }
-        }
+                        Resource: '*',
+                    },
+                ],
+            },
+        },
     };
 
     // Add Core Deployment Policy (always needed)
@@ -166,7 +225,7 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
         'cloudformation:DeleteChangeSet',
         'cloudformation:ExecuteChangeSet',
         'cloudformation:ValidateTemplate',
-        
+
         // Lambda permissions
         'lambda:CreateFunction',
         'lambda:UpdateFunctionCode',
@@ -189,7 +248,7 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
         'lambda:TagResource',
         'lambda:UntagResource',
         'lambda:ListVersionsByFunction',
-        
+
         // IAM permissions
         'iam:CreateRole',
         'iam:DeleteRole',
@@ -203,7 +262,7 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
         'iam:TagRole',
         'iam:UntagRole',
         'iam:ListPolicyVersions',
-        
+
         // S3 permissions
         's3:CreateBucket',
         's3:PutObject',
@@ -214,7 +273,7 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
         's3:PutBucketPublicAccessBlock',
         's3:GetBucketLocation',
         's3:ListBucket',
-        
+
         // SQS permissions
         'sqs:CreateQueue',
         'sqs:DeleteQueue',
@@ -223,7 +282,7 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
         'sqs:GetQueueUrl',
         'sqs:TagQueue',
         'sqs:UntagQueue',
-        
+
         // SNS permissions
         'sns:CreateTopic',
         'sns:DeleteTopic',
@@ -234,7 +293,7 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
         'sns:ListSubscriptionsByTopic',
         'sns:TagResource',
         'sns:UntagResource',
-        
+
         // CloudWatch and Logs permissions
         'cloudwatch:PutMetricAlarm',
         'cloudwatch:DeleteAlarms',
@@ -247,13 +306,15 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
         'logs:FilterLogEvents',
         'logs:PutLogEvents',
         'logs:PutRetentionPolicy',
-        
+
         // API Gateway permissions
         'apigateway:POST',
         'apigateway:PUT',
         'apigateway:DELETE',
         'apigateway:GET',
-        'apigateway:PATCH'
+        'apigateway:PATCH',
+        'apigateway:TagResource',
+        'apigateway:UntagResource',
     ];
 
     const coreStatements = [
@@ -273,17 +334,20 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                 'cloudformation:DescribeChangeSet',
                 'cloudformation:CreateChangeSet',
                 'cloudformation:DeleteChangeSet',
-                'cloudformation:ExecuteChangeSet'
+                'cloudformation:ExecuteChangeSet',
             ],
             Resource: [
-                { 'Fn::Sub': 'arn:aws:cloudformation:*:${AWS::AccountId}:stack/*frigg*/*' }
-            ]
+                {
+                    'Fn::Sub':
+                        'arn:aws:cloudformation:*:${AWS::AccountId}:stack/*frigg*/*',
+                },
+            ],
         },
         {
             Sid: 'CloudFormationValidateTemplate',
             Effect: 'Allow',
             Action: ['cloudformation:ValidateTemplate'],
-            Resource: '*'
+            Resource: '*',
         },
         {
             Sid: 'S3DeploymentBucket',
@@ -297,12 +361,12 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                 's3:PutBucketVersioning',
                 's3:PutBucketPublicAccessBlock',
                 's3:GetBucketLocation',
-                's3:ListBucket'
+                's3:ListBucket',
             ],
             Resource: [
                 'arn:aws:s3:::*serverless*',
-                'arn:aws:s3:::*serverless*/*'
-            ]
+                'arn:aws:s3:::*serverless*/*',
+            ],
         },
         {
             Sid: 'LambdaFriggFunctions',
@@ -328,11 +392,14 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                 'lambda:DeleteConcurrency',
                 'lambda:TagResource',
                 'lambda:UntagResource',
-                'lambda:ListVersionsByFunction'
+                'lambda:ListVersionsByFunction',
             ],
             Resource: [
-                { 'Fn::Sub': 'arn:aws:lambda:*:${AWS::AccountId}:function:*frigg*' }
-            ]
+                {
+                    'Fn::Sub':
+                        'arn:aws:lambda:*:${AWS::AccountId}:function:*frigg*',
+                },
+            ],
         },
         {
             Sid: 'IAMRolesForFriggLambda',
@@ -348,18 +415,23 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                 'iam:AttachRolePolicy',
                 'iam:DetachRolePolicy',
                 'iam:TagRole',
-                'iam:UntagRole'
+                'iam:UntagRole',
             ],
             Resource: [
                 { 'Fn::Sub': 'arn:aws:iam::${AWS::AccountId}:role/*frigg*' },
-                { 'Fn::Sub': 'arn:aws:iam::${AWS::AccountId}:role/*frigg*LambdaRole*' }
-            ]
+                {
+                    'Fn::Sub':
+                        'arn:aws:iam::${AWS::AccountId}:role/*frigg*LambdaRole*',
+                },
+            ],
         },
         {
             Sid: 'IAMPolicyVersionPermissions',
             Effect: 'Allow',
             Action: ['iam:ListPolicyVersions'],
-            Resource: [{ 'Fn::Sub': 'arn:aws:iam::${AWS::AccountId}:policy/*' }]
+            Resource: [
+                { 'Fn::Sub': 'arn:aws:iam::${AWS::AccountId}:policy/*' },
+            ],
         },
         {
             Sid: 'FriggMessagingServices',
@@ -371,12 +443,15 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                 'sqs:SetQueueAttributes',
                 'sqs:GetQueueUrl',
                 'sqs:TagQueue',
-                'sqs:UntagQueue'
+                'sqs:UntagQueue',
             ],
             Resource: [
                 { 'Fn::Sub': 'arn:aws:sqs:*:${AWS::AccountId}:*frigg*' },
-                { 'Fn::Sub': 'arn:aws:sqs:*:${AWS::AccountId}:internal-error-queue-*' }
-            ]
+                {
+                    'Fn::Sub':
+                        'arn:aws:sqs:*:${AWS::AccountId}:internal-error-queue-*',
+                },
+            ],
         },
         {
             Sid: 'FriggSNSTopics',
@@ -390,11 +465,11 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                 'sns:Unsubscribe',
                 'sns:ListSubscriptionsByTopic',
                 'sns:TagResource',
-                'sns:UntagResource'
+                'sns:UntagResource',
             ],
             Resource: [
-                { 'Fn::Sub': 'arn:aws:sns:*:${AWS::AccountId}:*frigg*' }
-            ]
+                { 'Fn::Sub': 'arn:aws:sns:*:${AWS::AccountId}:*frigg*' },
+            ],
         },
         {
             Sid: 'FriggMonitoringAndLogs',
@@ -410,13 +485,22 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                 'logs:DescribeLogStreams',
                 'logs:FilterLogEvents',
                 'logs:PutLogEvents',
-                'logs:PutRetentionPolicy'
+                'logs:PutRetentionPolicy',
             ],
             Resource: [
-                { 'Fn::Sub': 'arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/*frigg*' },
-                { 'Fn::Sub': 'arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/*frigg*:*' },
-                { 'Fn::Sub': 'arn:aws:cloudwatch:*:${AWS::AccountId}:alarm:*frigg*' }
-            ]
+                {
+                    'Fn::Sub':
+                        'arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/*frigg*',
+                },
+                {
+                    'Fn::Sub':
+                        'arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/*frigg*:*',
+                },
+                {
+                    'Fn::Sub':
+                        'arn:aws:cloudwatch:*:${AWS::AccountId}:alarm:*frigg*',
+                },
+            ],
         },
         {
             Sid: 'FriggAPIGateway',
@@ -426,17 +510,37 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                 'apigateway:PUT',
                 'apigateway:DELETE',
                 'apigateway:GET',
-                'apigateway:PATCH'
+                'apigateway:PATCH',
+                'apigateway:TagResource',
+                'apigateway:UntagResource',
             ],
             Resource: [
                 'arn:aws:apigateway:*::/restapis',
                 'arn:aws:apigateway:*::/restapis/*',
+                'arn:aws:apigateway:*::/domainnames',
+                'arn:aws:apigateway:*::/domainnames/*',
+            ],
+        },
+        {
+            Sid: 'FriggAPIGatewayV2',
+            Effect: 'Allow',
+            Action: [
+                'apigateway:GET',
+                'apigateway:DELETE',
+                'apigateway:PATCH',
+                'apigateway:POST',
+                'apigateway:PUT',
+            ],
+            Resource: [
                 'arn:aws:apigateway:*::/apis',
                 'arn:aws:apigateway:*::/apis/*',
+                'arn:aws:apigateway:*::/apis/*/stages',
+                'arn:aws:apigateway:*::/apis/*/stages/*',
                 'arn:aws:apigateway:*::/domainnames',
-                'arn:aws:apigateway:*::/domainnames/*'
-            ]
-        }
+                'arn:aws:apigateway:*::/domainnames/*',
+                'arn:aws:apigateway:*::/domainnames/*/apimappings',
+            ],
+        },
     ];
 
     template.Resources.FriggCoreDeploymentPolicy = {
@@ -446,9 +550,9 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
             Description: 'Core permissions for deploying Frigg applications',
             PolicyDocument: {
                 Version: '2012-10-17',
-                Statement: coreStatements
-            }
-        }
+                Statement: coreStatements,
+            },
+        },
     };
 
     // Add feature-specific policies only if needed
@@ -481,6 +585,7 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                                 'ec2:DescribeRouteTables',
                                 'ec2:CreateRoute',
                                 'ec2:DeleteRoute',
+                                'ec2:ReplaceRoute',
                                 'ec2:AssociateRouteTable',
                                 'ec2:DisassociateRouteTable',
                                 'ec2:CreateSecurityGroup',
@@ -488,13 +593,15 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                                 'ec2:AuthorizeSecurityGroupEgress',
                                 'ec2:AuthorizeSecurityGroupIngress',
                                 'ec2:RevokeSecurityGroupEgress',
-                                'ec2:RevokeSecurityGroupIngress'
+                                'ec2:RevokeSecurityGroupIngress',
+                                'ec2:DetachInternetGateway',
+                                'ec2:DeleteSubnet',
                             ],
-                            Resource: '*'
-                        }
-                    ]
-                }
-            }
+                            Resource: '*',
+                        },
+                    ],
+                },
+            },
         };
     }
 
@@ -504,34 +611,64 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
             Condition: 'CreateKMSPermissions',
             Properties: {
                 ManagedPolicyName: 'FriggKMSPolicy',
-                Description: 'KMS encryption permissions for Frigg applications',
+                Description:
+                    'KMS encryption permissions for Frigg applications',
                 PolicyDocument: {
                     Version: '2012-10-17',
                     Statement: [
                         {
                             Sid: 'FriggKMSEncryptionRuntime',
                             Effect: 'Allow',
-                            Action: [
-                                'kms:GenerateDataKey',
-                                'kms:Decrypt'
-                            ],
+                            Action: ['kms:GenerateDataKey', 'kms:Decrypt'],
                             Resource: [
-                                { 'Fn::Sub': 'arn:aws:kms:*:${AWS::AccountId}:key/*' }
+                                {
+                                    'Fn::Sub':
+                                        'arn:aws:kms:*:${AWS::AccountId}:key/*',
+                                },
                             ],
                             Condition: {
                                 StringEquals: {
                                     'kms:ViaService': [
                                         'lambda.*.amazonaws.com',
-                                        's3.*.amazonaws.com'
-                                    ]
-                                }
-                            }
-                        }
-                    ]
-                }
-            }
+                                        's3.*.amazonaws.com',
+                                    ],
+                                },
+                            },
+                        },
+                        {
+                            Sid: 'FriggKMSManagement',
+                            Effect: 'Allow',
+                            Action: [
+                                'kms:CreateKey',
+                                'kms:PutKeyPolicy',
+                                'kms:EnableKeyRotation',
+                                'kms:TagResource',
+                                'kms:UntagResource',
+                                'kms:ListResourceTags',
+                                'kms:CreateAlias',
+                                'kms:UpdateAlias',
+                                'kms:DeleteAlias',
+                                'kms:ListAliases',
+                                'kms:DescribeKey',
+                            ],
+                            Resource: '*',
+                        },
+                    ],
+                },
+            },
         };
     }
+
+    template.Resources.FriggKMSKeyAlias = {
+        Type: 'AWS::KMS::Alias',
+        Condition: 'CreateKMSAlias',
+        DeletionPolicy: 'Retain',
+        UpdateReplacePolicy: 'Retain',
+        Properties: {
+            AliasName: { Ref: 'DeploymentKmsAliasName' },
+            TargetKeyId: { Ref: 'DeploymentKmsTargetKeyArn' },
+        },
+    };
 
     if (features.ssm) {
         template.Resources.FriggSSMPolicy = {
@@ -539,7 +676,8 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
             Condition: 'CreateSSMPermissions',
             Properties: {
                 ManagedPolicyName: 'FriggSSMPolicy',
-                Description: 'SSM Parameter Store permissions for Frigg applications',
+                Description:
+                    'SSM Parameter Store permissions for Frigg applications',
                 PolicyDocument: {
                     Version: '2012-10-17',
                     Statement: [
@@ -549,16 +687,22 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
                             Action: [
                                 'ssm:GetParameter',
                                 'ssm:GetParameters',
-                                'ssm:GetParametersByPath'
+                                'ssm:GetParametersByPath',
                             ],
                             Resource: [
-                                { 'Fn::Sub': 'arn:aws:ssm:*:${AWS::AccountId}:parameter/*frigg*' },
-                                { 'Fn::Sub': 'arn:aws:ssm:*:${AWS::AccountId}:parameter/*frigg*/*' }
-                            ]
-                        }
-                    ]
-                }
-            }
+                                {
+                                    'Fn::Sub':
+                                        'arn:aws:ssm:*:${AWS::AccountId}:parameter/*frigg*',
+                                },
+                                {
+                                    'Fn::Sub':
+                                        'arn:aws:ssm:*:${AWS::AccountId}:parameter/*frigg*/*',
+                                },
+                            ],
+                        },
+                    ],
+                },
+            },
         };
     }
 
@@ -571,10 +715,11 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
             SecretString: {
                 'Fn::Sub': JSON.stringify({
                     AccessKeyId: '${FriggDeploymentAccessKey}',
-                    SecretAccessKey: '${FriggDeploymentAccessKey.SecretAccessKey}'
-                })
-            }
-        }
+                    SecretAccessKey:
+                        '${FriggDeploymentAccessKey.SecretAccessKey}',
+                }),
+            },
+        },
     };
 
     // Add Outputs
@@ -583,29 +728,30 @@ function generateIAMCloudFormation(appDefinition, options = {}) {
             Description: 'ARN of the Frigg deployment user',
             Value: { 'Fn::GetAtt': ['FriggDeploymentUser', 'Arn'] },
             Export: {
-                Name: { 'Fn::Sub': '${AWS::StackName}-UserArn' }
-            }
+                Name: { 'Fn::Sub': '${AWS::StackName}-UserArn' },
+            },
         },
         AccessKeyId: {
             Description: 'Access Key ID for the deployment user',
             Value: { Ref: 'FriggDeploymentAccessKey' },
             Export: {
-                Name: { 'Fn::Sub': '${AWS::StackName}-AccessKeyId' }
-            }
+                Name: { 'Fn::Sub': '${AWS::StackName}-AccessKeyId' },
+            },
         },
         SecretAccessKeyCommand: {
             Description: 'Command to retrieve the secret access key',
             Value: {
-                'Fn::Sub': 'aws secretsmanager get-secret-value --secret-id frigg-deployment-credentials --query SecretString --output text | jq -r .SecretAccessKey'
-            }
+                'Fn::Sub':
+                    'aws secretsmanager get-secret-value --secret-id frigg-deployment-credentials --query SecretString --output text | jq -r .SecretAccessKey',
+            },
         },
         CredentialsSecretArn: {
             Description: 'ARN of the secret containing deployment credentials',
             Value: { Ref: 'FriggDeploymentCredentials' },
             Export: {
-                Name: { 'Fn::Sub': '${AWS::StackName}-CredentialsSecretArn' }
-            }
-        }
+                Name: { 'Fn::Sub': '${AWS::StackName}-CredentialsSecretArn' },
+            },
+        },
     };
 
     // Convert to YAML
@@ -623,7 +769,7 @@ function convertToYAML(obj) {
         indent: 2,
         lineWidth: 120,
         noRefs: true,
-        sortKeys: false
+        sortKeys: false,
     });
 }
 
@@ -636,9 +782,10 @@ function getFeatureSummary(appDefinition) {
     const features = {
         core: true, // Always enabled
         vpc: appDefinition.vpc?.enable === true,
-        kms: appDefinition.encryption?.useDefaultKMSForFieldLevelEncryption === true,
+        kms:
+            appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms',
         ssm: appDefinition.ssm?.enable === true,
-        websockets: appDefinition.websockets?.enable === true
+        websockets: appDefinition.websockets?.enable === true,
     };
 
     const integrationCount = appDefinition.integrations?.length || 0;
@@ -646,7 +793,7 @@ function getFeatureSummary(appDefinition) {
     return {
         features,
         integrationCount,
-        appName: appDefinition.name || 'Unnamed Frigg App'
+        appName: appDefinition.name || 'Unnamed Frigg App',
     };
 }
 
@@ -685,5 +832,5 @@ module.exports = {
     getFeatureSummary,
     generateBasicIAMPolicy,
     generateFullIAMPolicy,
-    generateIAMPolicy
+    generateIAMPolicy,
 };
