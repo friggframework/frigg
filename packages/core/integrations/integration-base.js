@@ -62,12 +62,7 @@ class IntegrationBase {
         return this.Definition.version;
     }
 
-    registerEventHandlers() {
-        this.on = {
-            ...this.defaultEvents,
-            ...this.events,
-        };
-    }
+    // REMOVED: registerEventHandlers() - Event handling is now done by IntegrationEventDispatcher
 
     constructor(params = {}) {
         // Data from database record (when instantiated by use cases)
@@ -130,14 +125,7 @@ class IntegrationBase {
         };
     }
 
-    async send(event, object) {
-        if (!this.on[event]) {
-            throw new Error(
-                `Event ${event} is not defined in the Integration event object`
-            );
-        }
-        return this.on[event].handler.call(this, object);
-    }
+    // REMOVED: send() - Event dispatching is now done by IntegrationEventDispatcher
 
     async validateConfig() {
         const configOptions = await this.getConfigOptions();
@@ -336,8 +324,7 @@ class IntegrationBase {
             this.addError(e);
         }
 
-        // Register event handlers
-        await this.registerEventHandlers();
+        // Event handlers are no longer registered here - handled by IntegrationEventDispatcher
     }
 
     getOptionDetails() {

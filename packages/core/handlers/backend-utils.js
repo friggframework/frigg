@@ -4,7 +4,7 @@ const { IntegrationRepository } = require('../integrations/integration-repositor
 const { ModuleFactory } = require('../modules/module-factory');
 const { getModulesDefinitionFromIntegrationClasses } = require('../integrations/utils/map-integration-dto');
 const { ModuleRepository } = require('../modules/module-repository');
-const { GetIntegrationInstanceByDefinition } = require('../integrations/use-cases/get-integration-instance-by-definition');
+const { IntegrationEventDispatcher } = require('./integration-event-dispatcher');
 
 const loadRouterFromObject = (IntegrationClass, routerObject) => {
 
@@ -14,6 +14,14 @@ const loadRouterFromObject = (IntegrationClass, routerObject) => {
         moduleRepository,
         moduleDefinitions: getModulesDefinitionFromIntegrationClasses([IntegrationClass]),
     });
+
+    // Create the event dispatcher
+    const dispatcher = new IntegrationEventDispatcher({
+        integrationRepository,
+        moduleFactory,
+        moduleRepository,
+    });
+
     const router = Router();
     const { path, method, event } = routerObject;
 
@@ -23,13 +31,13 @@ const loadRouterFromObject = (IntegrationClass, routerObject) => {
 
     router[method.toLowerCase()](path, async (req, res, next) => {
         try {
-            const getIntegrationInstanceByDefinition = new GetIntegrationInstanceByDefinition({
-                integrationRepository,
-                moduleFactory,
-                moduleRepository,
+            const result = await dispatcher.dispatchHttp({
+                integrationClass: IntegrationClass,
+                event,
+                req,
+                res,
+                next
             });
-            const integration = await getIntegrationInstanceByDefinition.execute(IntegrationClass);
-            const result = await integration.send(event, { req, res, next });
             res.json(result);
         } catch (error) {
             next(error);
@@ -50,19 +58,19 @@ const createQueueWorker = (integrationClass) => {
             moduleDefinitions: getModulesDefinitionFromIntegrationClasses([integrationClass]),
         });
 
+        dispatcher = new IntegrationEventDispatcher({
+            integrationRepository: this.integrationRepository,
+            moduleFactory: this.moduleFactory,
+            moduleRepository: this.moduleRepository,
+        });
+
         async _run(params, context) {
             try {
-                const getIntegrationInstanceByDefinition = new GetIntegrationInstanceByDefinition({
-                    integrationRepository: this.integrationRepository,
-                    moduleFactory: this.moduleFactory,
-                    moduleRepository: this.moduleRepository,
-                });
-
-                const integration = await getIntegrationInstanceByDefinition.execute(integrationClass);
-
-                const res = await integration.send(params.event, {
+                const res = await this.dispatcher.dispatchJob({
+                    integrationClass: integrationClass,
+                    event: params.event,
                     data: params.data,
-                    context,
+                    context: context,
                 });
                 return res;
             } catch (error) {
