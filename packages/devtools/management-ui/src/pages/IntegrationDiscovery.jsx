@@ -11,7 +11,7 @@ import LoadingSpinner from '../components/LoadingSpinner'
 const IntegrationDiscovery = () => {
   const { refreshData } = useFrigg()
   const { on, emit } = useSocket()
-  
+
   // State management
   const [loading, setLoading] = useState(true)
   const [availableIntegrations, setAvailableIntegrations] = useState([])
@@ -90,15 +90,11 @@ const IntegrationDiscovery = () => {
   const fetchIntegrations = async () => {
     setLoading(true)
     setError(null)
-    
+
     try {
       // Fetch both available and installed integrations in parallel
       const [availableRes, installedRes] = await Promise.all([
-<<<<<<< HEAD
         searchQuery
-=======
-        searchQuery 
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
           ? api.get(`/api/discovery/search?query=${encodeURIComponent(searchQuery)}&limit=100`)
           : api.get('/api/discovery/integrations'),
         api.get('/api/discovery/installed')
@@ -106,14 +102,10 @@ const IntegrationDiscovery = () => {
 
       // Process available integrations
       let available = availableRes.data.data.integrations || availableRes.data.data.all || []
-      
+
       // Filter by category if needed
       if (selectedCategory && selectedCategory !== 'all') {
-<<<<<<< HEAD
         available = available.filter(int =>
-=======
-        available = available.filter(int => 
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
           int.category?.toLowerCase() === selectedCategory.toLowerCase()
         )
       }
@@ -123,13 +115,13 @@ const IntegrationDiscovery = () => {
       available = available.map(integration => ({
         ...integration,
         installed: installedNames.includes(integration.name),
-        status: installProgress[integration.name]?.status || 
-                (installedNames.includes(integration.name) ? 'installed' : 'available')
+        status: installProgress[integration.name]?.status ||
+          (installedNames.includes(integration.name) ? 'installed' : 'available')
       }))
 
       setAvailableIntegrations(available)
       setInstalledIntegrations(installedRes.data.data)
-      
+
     } catch (err) {
       console.error('Failed to fetch integrations:', err)
       setError('Failed to load integrations. Please try again.')
@@ -150,7 +142,7 @@ const IntegrationDiscovery = () => {
       }))
 
       await api.post('/api/discovery/install', { packageName })
-      
+
     } catch (err) {
       console.error('Installation failed:', err)
       setInstallProgress(prev => ({
@@ -168,7 +160,7 @@ const IntegrationDiscovery = () => {
       const confirmed = window.confirm(
         `Are you sure you want to uninstall ${packageName}? This action cannot be undone.`
       )
-      
+
       if (!confirmed) return
 
       setInstallProgress(prev => ({
@@ -180,17 +172,17 @@ const IntegrationDiscovery = () => {
       }))
 
       await api.delete(`/api/discovery/uninstall/${packageName}`)
-      
+
       setInstallProgress(prev => {
         const newProgress = { ...prev }
         delete newProgress[packageName]
         return newProgress
       })
-      
+
       // Refresh lists
       await fetchIntegrations()
       refreshData()
-      
+
     } catch (err) {
       console.error('Uninstall failed:', err)
       setInstallProgress(prev => ({
@@ -214,11 +206,11 @@ const IntegrationDiscovery = () => {
       }))
 
       await api.post('/api/discovery/update', { packageName })
-      
+
       // Refresh after update
       await fetchIntegrations()
       refreshData()
-      
+
     } catch (err) {
       console.error('Update failed:', err)
       setInstallProgress(prev => ({
@@ -287,33 +279,9 @@ const IntegrationDiscovery = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-<<<<<<< HEAD
-<<<<<<< HEAD
           <h2 className="text-3xl font-bold text-gray-900">Integration Library</h2>
           <p className="mt-2 text-gray-600">
             Discover and add integrations to your Frigg app
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-          <h2 className="text-3xl font-bold text-gray-900">Integration Library</h2>
-          <p className="mt-2 text-gray-600">
-            Discover and add integrations to your Frigg app
-=======
-          <h2 className="text-3xl font-bold text-gray-900">Integration Marketplace</h2>
-          <p className="mt-2 text-gray-600">
-            Discover and install Frigg integrations to extend your capabilities
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-          <h2 className="text-3xl font-bold text-gray-900">Integration Library</h2>
-          <p className="mt-2 text-gray-600">
-            Discover and add integrations to your Frigg app
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-          <h2 className="text-3xl font-bold text-gray-900">Integration Library</h2>
-          <p className="mt-2 text-gray-600">
-            Discover and add integrations to your Frigg app
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
           </p>
         </div>
         <Button
@@ -350,19 +318,7 @@ const IntegrationDiscovery = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-<<<<<<< HEAD
-<<<<<<< HEAD
-        
-=======
-<<<<<<< HEAD
 
-=======
-        
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-        
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         <div className="flex items-center gap-2">
           <select
             value={selectedCategory}
@@ -375,19 +331,7 @@ const IntegrationDiscovery = () => {
               </option>
             ))}
           </select>
-<<<<<<< HEAD
-<<<<<<< HEAD
-          
-=======
-<<<<<<< HEAD
 
-=======
-          
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-          
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
           <div className="flex border border-gray-300 rounded-lg">
             <Button
               variant={viewMode === 'grid' ? 'default' : 'ghost'}
@@ -450,117 +394,84 @@ const IntegrationDiscovery = () => {
             </h3>
           </div>
           <div className={cn(
-<<<<<<< HEAD
-            viewMode === 'grid'
-=======
-            viewMode === 'grid' 
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
               ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
-              : 'space-y-4'
+            : 'space-y-4'
           )}>
-            {displayIntegrations
-              .filter(integration => integration.installed)
-              .map((integration) => (
-                <IntegrationCard
-                  key={integration.name}
-                  integration={integration}
-                  onInstall={() => handleInstall(integration.name)}
-                  onUninstall={() => handleUninstall(integration.name)}
-                  onUpdate={() => handleUpdate(integration.name)}
-                  onConfigure={() => handleConfigure(integration.name)}
-                  onTest={() => handleTest(integration.name)}
-                  installing={integration.installing}
-                  uninstalling={integration.uninstalling}
-                  updating={integration.updating}
-                  error={integration.installError}
-                  message={integration.installMessage}
-                  progress={integration.installProgress}
-                  className={viewMode === 'list' ? 'max-w-none' : ''}
-                />
-              ))}
-          </div>
+          {displayIntegrations
+            .filter(integration => integration.installed)
+            .map((integration) => (
+              <IntegrationCard
+                key={integration.name}
+                integration={integration}
+                onInstall={() => handleInstall(integration.name)}
+                onUninstall={() => handleUninstall(integration.name)}
+                onUpdate={() => handleUpdate(integration.name)}
+                onConfigure={() => handleConfigure(integration.name)}
+                onTest={() => handleTest(integration.name)}
+                installing={integration.installing}
+                uninstalling={integration.uninstalling}
+                updating={integration.updating}
+                error={integration.installError}
+                message={integration.installMessage}
+                progress={integration.installProgress}
+                className={viewMode === 'list' ? 'max-w-none' : ''}
+              />
+            ))}
         </div>
+        </div>
+  )
+}
+
+{/* Available Integrations Section */ }
+<div>
+  <h3 className="text-lg font-medium text-gray-900 mb-4">
+    Available Integrations ({availableCount})
+  </h3>
+
+  {availableCount === 0 ? (
+    <div className="text-center py-12">
+      <Package size={48} className="mx-auto text-gray-300 mb-4" />
+      <p className="text-gray-500">
+        {searchQuery || selectedCategory !== 'all'
+          ? 'No integrations found matching your criteria'
+          : 'All available integrations are already installed'}
+      </p>
+      {(searchQuery || selectedCategory !== 'all') && (
+        <Button
+          variant="outline"
+          onClick={() => {
+            setSearchQuery('')
+            setSelectedCategory('all')
+          }}
+          className="mt-4"
+        >
+          Clear Filters
+        </Button>
       )}
-
-      {/* Available Integrations Section */}
-      <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">
-          Available Integrations ({availableCount})
-        </h3>
-<<<<<<< HEAD
-<<<<<<< HEAD
-        
-=======
-<<<<<<< HEAD
-
-=======
-        
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-        
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
-        {availableCount === 0 ? (
-          <div className="text-center py-12">
-            <Package size={48} className="mx-auto text-gray-300 mb-4" />
-            <p className="text-gray-500">
-<<<<<<< HEAD
-<<<<<<< HEAD
-              {searchQuery || selectedCategory !== 'all' 
-=======
-<<<<<<< HEAD
-              {searchQuery || selectedCategory !== 'all'
-=======
-              {searchQuery || selectedCategory !== 'all' 
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-              {searchQuery || selectedCategory !== 'all' 
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
-                ? 'No integrations found matching your criteria'
-                : 'All available integrations are already installed'}
-            </p>
-            {(searchQuery || selectedCategory !== 'all') && (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setSearchQuery('')
-                  setSelectedCategory('all')
-                }}
-                className="mt-4"
-              >
-                Clear Filters
-              </Button>
-            )}
-          </div>
-        ) : (
-          <div className={cn(
-<<<<<<< HEAD
-            viewMode === 'grid'
-=======
-            viewMode === 'grid' 
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
-              ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
-              : 'space-y-4'
-          )}>
-            {displayIntegrations
-              .filter(integration => !integration.installed)
-              .map((integration) => (
-                <IntegrationCard
-                  key={integration.name}
-                  integration={integration}
-                  onInstall={() => handleInstall(integration.name)}
-                  installing={integration.installing}
-                  error={integration.installError}
-                  message={integration.installMessage}
-                  progress={integration.installProgress}
-                  className={viewMode === 'list' ? 'max-w-none' : ''}
-                />
-              ))}
-          </div>
-        )}
-      </div>
     </div>
+  ) : (
+    <div className={cn(
+              ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
+      : 'space-y-4'
+          )}>
+  {displayIntegrations
+    .filter(integration => !integration.installed)
+    .map((integration) => (
+      <IntegrationCard
+        key={integration.name}
+        integration={integration}
+        onInstall={() => handleInstall(integration.name)}
+        installing={integration.installing}
+        error={integration.installError}
+        message={integration.installMessage}
+        progress={integration.installProgress}
+        className={viewMode === 'list' ? 'max-w-none' : ''}
+      />
+    ))}
+</div>
+        )}
+      </div >
+    </div >
   )
 }
 
