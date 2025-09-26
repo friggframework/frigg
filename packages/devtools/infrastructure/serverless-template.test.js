@@ -55,6 +55,7 @@ describe('composeServerlessDefinition', () => {
         jest.restoreAllMocks();
         // Restore env
         delete process.env.AWS_REGION;
+        delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
         process.argv = ['node', 'test'];
     });
 
@@ -85,6 +86,50 @@ describe('composeServerlessDefinition', () => {
             await composeServerlessDefinition(appDefinition);
 
             expect(AWSDiscovery).toHaveBeenCalledTimes(1);
+        });
+
+        it('should skip AWS discovery when FRIGG_SKIP_AWS_DISCOVERY is set to true', async () => {
+            AWSDiscovery.mockClear();
+            process.env.FRIGG_SKIP_AWS_DISCOVERY = 'true';
+
+            const appDefinition = {
+                integrations: [],
+                vpc: { enable: true },
+                encryption: { fieldLevelEncryptionMethod: 'kms' },
+                ssm: { enable: true },
+            };
+
+            await composeServerlessDefinition(appDefinition);
+
+            expect(AWSDiscovery).not.toHaveBeenCalled();
+        });
+
+        it('should run AWS discovery when FRIGG_SKIP_AWS_DISCOVERY is not set', async () => {
+            AWSDiscovery.mockClear();
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+
+            const appDefinition = {
+                integrations: [],
+                vpc: { enable: true },
+            };
+
+            await composeServerlessDefinition(appDefinition);
+
+            expect(AWSDiscovery).toHaveBeenCalledTimes(1);
+        });
+
+        it('should skip VPC configuration when FRIGG_SKIP_AWS_DISCOVERY is true', async () => {
+            process.env.FRIGG_SKIP_AWS_DISCOVERY = 'true';
+
+            const appDefinition = {
+                integrations: [],
+                vpc: { enable: true, management: 'discover' },
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            // VPC configuration should not be present when skipped
+            expect(result.provider.vpc).toBeUndefined();
         });
     });
 
