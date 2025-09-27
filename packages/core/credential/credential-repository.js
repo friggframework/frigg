@@ -1,4 +1,4 @@
-const { Credential } = require('../modules');
+const { Credential } = require('../modules/credential');
 
 class CredentialRepository {
     async findCredentialById(id) {
