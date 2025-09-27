@@ -39,7 +39,7 @@ class ModuleFactory {
 
         if (!moduleDefinition) {
             throw new Error(
-                `Module definition not found for entity type: ${entityType}`
+                `Module definition not found for module: ${moduleName}`
             );
         }
 

@@ -5,6 +5,8 @@ const { BasicAuthRequester } = require('./requester/basic');
 const { OAuth2Requester } = require('./requester/oauth-2');
 const { Requester } = require('./requester/requester');
 const { ModuleConstants } = require('./ModuleConstants');
+const { ModuleFactory } = require('./module-factory');
+const { ModuleRepository } = require('./module-repository');
 
 module.exports = {
     Credential,
@@ -14,4 +16,6 @@ module.exports = {
     OAuth2Requester,
     Requester,
     ModuleConstants,
+    ModuleFactory,
+    ModuleRepository,
 };

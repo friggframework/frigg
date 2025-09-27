@@ -57,6 +57,25 @@ class ModuleRepository {
         }));
     }
 
+    async findEntitiesByUserIdAndModuleName(userId, moduleName) {
+        const entitiesRecords = await Entity.find(
+            { user: userId, moduleName: moduleName },
+            '',
+            { lean: true }
+        ).populate('credential');
+
+        return entitiesRecords.map(e => ({
+            id: e._id.toString(),
+            accountId: e.accountId,
+            credential: e.credential,
+            userId: e.user.toString(),
+            name: e.name,
+            externalId: e.externalId,
+            type: e.__t,
+            moduleName: e.moduleName,
+        }));
+    }
+
     /**
      * Remove the credential reference from an Entity document without loading a full Mongoose instance.
      * Useful when a credential has been revoked/deleted (e.g. via Module.deauthorize).

@@ -40,6 +40,9 @@ const {
     IntegrationMapping,
     createIntegrationRouter,
     checkRequiredParams,
+    IntegrationRepository,
+    getModulesDefinitionFromIntegrationClasses,
+    LoadIntegrationContextUseCase,
 } = require('./integrations/index');
 const { TimeoutCatcher } = require('./lambda/index');
 const { debug, initDebugLog, flushDebugLog } = require('./logs/index');
@@ -51,6 +54,8 @@ const {
     OAuth2Requester,
     Requester,
     ModuleConstants,
+    ModuleFactory,
+    ModuleRepository,
 } = require('./modules/index');
 const utils = require('./utils');
 
@@ -104,6 +109,9 @@ module.exports = {
     IntegrationMapping,
     checkRequiredParams,
     createIntegrationRouter,
+    IntegrationRepository,
+    getModulesDefinitionFromIntegrationClasses,
+    LoadIntegrationContextUseCase,
 
     // lambda
     TimeoutCatcher,
@@ -121,6 +129,8 @@ module.exports = {
     OAuth2Requester,
     Requester,
     ModuleConstants,
+    ModuleFactory,
+    ModuleRepository,
     // queues
     QueuerUtil,
 

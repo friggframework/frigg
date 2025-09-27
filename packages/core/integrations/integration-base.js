@@ -65,29 +65,14 @@ class IntegrationBase {
     // REMOVED: registerEventHandlers() - Event handling is now done by IntegrationEventDispatcher
 
     constructor(params = {}) {
-        // Data from database record (when instantiated by use cases)
-        this.id = params.id;
-        this.userId = params.userId || params.integrationId; // fallback for legacy
-        this.entities = params.entities;
-        this.config = params.config;
-        this.status = params.status;
-        this.version = params.version;
-        this.messages = params.messages || { errors: [], warnings: [] };
-        
-        // Module instances (injected by factory)
         this.modules = {};
-        if (params.modules) {
-            for (const mod of params.modules) {
-                const key = typeof mod.getName === 'function' ? mod.getName() : mod.name;
-                if (key) {
-                    this.modules[key] = mod;
-                    this[key] = mod; // Direct access (e.g., this.hubspot)
-                }
-            }
-        }
-
-        // Initialize events object (will be populated by child classes)
         this.events = this.events || {};
+        this.messages = { errors: [], warnings: [] };
+        this._isHydrated = false;
+
+        if (params && Object.keys(params).length > 0) {
+            this.setIntegrationRecord(params);
+        }
 
         this.defaultEvents = {
             [constantsToBeMigrated.defaultEvents.ON_CREATE]: {
@@ -126,6 +111,93 @@ class IntegrationBase {
     }
 
     // REMOVED: send() - Event dispatching is now done by IntegrationEventDispatcher
+
+    /**
+     * Persist the database record and module instances onto this integration instance.
+     * Accepts either a plain object containing the persisted fields or an object with
+     * a `record` property plus a `modules` collection.
+     * @param {Object} payload
+     * @param {Object} [payload.record]
+     * @param {Array|Object} [payload.modules]
+     */
+    setIntegrationRecord(payload = {}) {
+        if (!payload || Object.keys(payload).length === 0) {
+            throw new Error('setIntegrationRecord requires integration data');
+        }
+
+        const record = payload.record ? payload.record : payload;
+        const modulesInput = payload.modules ?? record.modules;
+
+        if (!record) {
+            throw new Error('Integration record not provided');
+        }
+
+        const {
+            id,
+            userId,
+            entities,
+            config,
+            status,
+            version,
+            messages,
+        } = record;
+
+        this.id = id;
+        this.userId = userId || record.integrationId;
+        this.entities = entities;
+        this.config = config;
+        this.status = status;
+        this.version = version;
+        this.messages = messages || { errors: [], warnings: [] };
+
+        const existingModuleKeys = Object.keys(this.modules || {});
+        for (const key of existingModuleKeys) {
+            if (Object.prototype.hasOwnProperty.call(this, key) && this[key] === this.modules[key]) {
+                delete this[key];
+            }
+        }
+
+        this.modules = {};
+
+        if (modulesInput) {
+            const modulesArray = Array.isArray(modulesInput)
+                ? modulesInput
+                : Object.values(modulesInput);
+
+            for (const mod of modulesArray) {
+                if (!mod) continue;
+                const key = typeof mod.getName === 'function' ? mod.getName() : mod.name;
+                if (key) {
+                    this.modules[key] = mod;
+                    this[key] = mod;
+                }
+            }
+        }
+
+        this.integrationRecord = {
+            id: this.id,
+            userId: this.userId,
+            entities: this.entities,
+            config: this.config,
+            status: this.status,
+            version: this.version,
+            messages: this.messages,
+        };
+        this.record = this.integrationRecord;
+
+        this._isHydrated = Boolean(this.id);
+        return this;
+    }
+
+    get isHydrated() {
+        return this._isHydrated;
+    }
+
+    assertHydrated(message = 'Integration instance is not hydrated') {
+        if (!this.isHydrated) {
+            throw new Error(message);
+        }
+    }
 
     async validateConfig() {
         const configOptions = await this.getConfigOptions();
