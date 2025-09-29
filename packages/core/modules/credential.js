@@ -12,7 +12,10 @@ const schema = new mongoose.Schema(
         auth_is_valid: { type: Boolean },
         externalId: { type: String }, // Used for lookups, identifying the owner of the credential
     },
-    { timestamps: true }
+    {
+        timestamps: true,
+        strict: false  // Allow dynamic fields like access_token, refresh_token, domain
+    }
 );
 
 schema.plugin(Encrypt);
