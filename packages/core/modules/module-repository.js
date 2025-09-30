@@ -121,6 +121,45 @@ class ModuleRepository {
         };
     }
 
+    /**
+     * Update an entity by ID
+     * @param {string} entityId - Entity ID to update
+     * @param {Object} updates - Fields to update
+     * @returns {Promise<Object|null>} Updated entity object or null if not found
+     */
+    async updateEntity(entityId, updates) {
+        const entity = await Entity.findByIdAndUpdate(
+            entityId,
+            updates,
+            { new: true, lean: true }
+        ).populate('credential');
+
+        if (!entity) {
+            return null;
+        }
+
+        return {
+            id: entity._id.toString(),
+            accountId: entity.accountId,
+            credential: entity.credential,
+            userId: entity.user.toString(),
+            name: entity.name,
+            externalId: entity.externalId,
+            type: entity.__t,
+            moduleName: entity.moduleName,
+        };
+    }
+
+    /**
+     * Delete an entity by ID
+     * @param {string} entityId - Entity ID to delete
+     * @returns {Promise<boolean>} True if deleted successfully
+     */
+    async deleteEntity(entityId) {
+        const result = await Entity.deleteOne({ _id: entityId });
+        return result.deletedCount > 0;
+    }
+
 }
 
 module.exports = { ModuleRepository }; 

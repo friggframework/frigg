@@ -51,6 +51,72 @@ class CredentialRepository {
             refresh_token: credential.refresh_token,
         }
     }
+
+    /**
+     * Find a credential by filter criteria
+     * @param {Object} filter
+     * @param {string} [filter.userId] - User ID
+     * @param {string} [filter.externalId] - External ID
+     * @param {string} [filter.credentialId] - Credential ID
+     * @returns {Promise<Object|null>} Credential object or null if not found
+     */
+    async findCredential(filter) {
+        const query = {};
+
+        if (filter.credentialId) {
+            query._id = filter.credentialId;
+        }
+        if (filter.userId) {
+            query.user = filter.userId;
+        }
+        if (filter.externalId) {
+            query.externalId = filter.externalId;
+        }
+
+        const credential = await Credential.findOne(query, undefined, { lean: true });
+
+        if (!credential) {
+            return null;
+        }
+
+        return {
+            id: credential._id.toString(),
+            userId: credential.user ? credential.user.toString() : null,
+            externalId: credential.externalId,
+            access_token: credential.access_token,
+            refresh_token: credential.refresh_token,
+            auth_is_valid: credential.auth_is_valid,
+            domain: credential.domain,
+        };
+    }
+
+    /**
+     * Update a credential by ID
+     * @param {string} credentialId - Credential ID
+     * @param {Object} updates - Fields to update
+     * @returns {Promise<Object|null>} Updated credential object or null if not found
+     */
+    async updateCredential(credentialId, updates) {
+        const credential = await Credential.findByIdAndUpdate(
+            credentialId,
+            { $set: updates },
+            { new: true, lean: true, strict: false }
+        );
+
+        if (!credential) {
+            return null;
+        }
+
+        return {
+            id: credential._id.toString(),
+            userId: credential.user ? credential.user.toString() : null,
+            externalId: credential.externalId,
+            access_token: credential.access_token,
+            refresh_token: credential.refresh_token,
+            auth_is_valid: credential.auth_is_valid,
+            domain: credential.domain,
+        };
+    }
 }
 
 module.exports = { CredentialRepository };

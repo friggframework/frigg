@@ -57,6 +57,7 @@ const {
     ModuleFactory,
     ModuleRepository,
 } = require('./modules/index');
+const application = require('./application');
 const utils = require('./utils');
 
 // const {Sync } = require('./syncs/model');
@@ -112,6 +113,17 @@ module.exports = {
     IntegrationRepository,
     getModulesDefinitionFromIntegrationClasses,
     LoadIntegrationContextUseCase,
+
+    // application - Command factories for integration developers
+    application,
+    createFriggCommands: application.createFriggCommands,
+    createIntegrationCommands: application.createIntegrationCommands,
+    createUserCommands: application.createUserCommands,
+    createEntityCommands: application.createEntityCommands,
+    createCredentialCommands: application.createCredentialCommands,
+    findIntegrationContextByExternalEntityId:
+        application.findIntegrationContextByExternalEntityId,
+    integrationCommands: application.integrationCommands,
 
     // lambda
     TimeoutCatcher,

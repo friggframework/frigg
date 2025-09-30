@@ -1,39 +1,30 @@
-const { IntegrationRepository } = require('../integration-repository');
-const { ModuleRepository } = require('../../modules/module-repository');
-const { ModuleFactory } = require('../../modules/module-factory');
-const { getModulesDefinitionFromIntegrationClasses } = require('../utils/map-integration-dto');
-
 class LoadIntegrationContextUseCase {
     constructor({
-        integrationClass,
         integrationRepository,
         moduleRepository,
         moduleFactory,
     }) {
-        if (!integrationClass) {
-            throw new Error('integrationClass is required');
+        if (!integrationRepository) {
+            throw new Error('integrationRepository is required');
+        }
+        if (!moduleRepository) {
+            throw new Error('moduleRepository is required');
+        }
+        if (!moduleFactory) {
+            throw new Error('moduleFactory is required');
         }
 
-        this.integrationClass = integrationClass;
-        this.integrationRepository = integrationRepository || new IntegrationRepository();
-        this.moduleRepository = moduleRepository || new ModuleRepository();
-
-        const moduleDefinitions = getModulesDefinitionFromIntegrationClasses([
-            integrationClass,
-        ]);
-
-        this.moduleFactory =
-            moduleFactory ||
-            new ModuleFactory({
-                moduleRepository: this.moduleRepository,
-                moduleDefinitions,
-            });
+        this.integrationRepository = integrationRepository;
+        this.moduleRepository = moduleRepository;
+        this.moduleFactory = moduleFactory;
     }
 
     async execute({ integrationId, integrationRecord }) {
         const record = integrationRecord
             ? integrationRecord
-            : await this.integrationRepository.findIntegrationById(integrationId);
+            : await this.integrationRepository.findIntegrationById(
+                  integrationId
+              );
 
         if (!record) {
             const error = new Error('Integration record not found');
@@ -41,7 +32,10 @@ class LoadIntegrationContextUseCase {
             throw error;
         }
 
-        if (!Array.isArray(record.entitiesIds) || record.entitiesIds.length === 0) {
+        if (
+            !Array.isArray(record.entitiesIds) ||
+            record.entitiesIds.length === 0
+        ) {
             return {
                 record: {
                     ...record,

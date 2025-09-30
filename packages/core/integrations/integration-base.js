@@ -1,8 +1,12 @@
 const { IntegrationMapping } = require('./integration-mapping');
 const { Options } = require('./options');
-const { UpdateIntegrationStatus } = require('./use-cases/update-integration-status');
+const {
+    UpdateIntegrationStatus,
+} = require('./use-cases/update-integration-status');
 const { IntegrationRepository } = require('./integration-repository');
-const { UpdateIntegrationMessages } = require('./use-cases/update-integration-messages');
+const {
+    UpdateIntegrationMessages,
+} = require('./use-cases/update-integration-messages');
 
 const constantsToBeMigrated = {
     defaultEvents: {
@@ -23,11 +27,14 @@ const constantsToBeMigrated = {
 };
 
 class IntegrationBase {
-
     // todo: maybe we can pass this as Dependency Injection in the sub-class constructor
     integrationRepository = new IntegrationRepository();
-    updateIntegrationStatus = new UpdateIntegrationStatus({ integrationRepository: this.integrationRepository });
-    updateIntegrationMessages = new UpdateIntegrationMessages({ integrationRepository: this.integrationRepository });
+    updateIntegrationStatus = new UpdateIntegrationStatus({
+        integrationRepository: this.integrationRepository,
+    });
+    updateIntegrationMessages = new UpdateIntegrationMessages({
+        integrationRepository: this.integrationRepository,
+    });
 
     static getOptionDetails() {
         const options = new Options({
@@ -110,8 +117,6 @@ class IntegrationBase {
         };
     }
 
-    // REMOVED: send() - Event dispatching is now done by IntegrationEventDispatcher
-
     /**
      * Persist the database record and module instances onto this integration instance.
      * Accepts either a plain object containing the persisted fields or an object with
@@ -132,15 +137,8 @@ class IntegrationBase {
             throw new Error('Integration record not provided');
         }
 
-        const {
-            id,
-            userId,
-            entities,
-            config,
-            status,
-            version,
-            messages,
-        } = record;
+        const { id, userId, entities, config, status, version, messages } =
+            record;
 
         this.id = id;
         this.userId = userId || record.integrationId;
@@ -152,7 +150,10 @@ class IntegrationBase {
 
         const existingModuleKeys = Object.keys(this.modules || {});
         for (const key of existingModuleKeys) {
-            if (Object.prototype.hasOwnProperty.call(this, key) && this[key] === this.modules[key]) {
+            if (
+                Object.prototype.hasOwnProperty.call(this, key) &&
+                this[key] === this.modules[key]
+            ) {
                 delete this[key];
             }
         }
@@ -166,7 +167,10 @@ class IntegrationBase {
 
             for (const mod of modulesArray) {
                 if (!mod) continue;
-                const key = typeof mod.getName === 'function' ? mod.getName() : mod.name;
+                const key =
+                    typeof mod.getName === 'function'
+                        ? mod.getName()
+                        : mod.name;
                 if (key) {
                     this.modules[key] = mod;
                     this[key] = mod;
@@ -264,11 +268,7 @@ class IntegrationBase {
             throw new Error(`sourceId must be set`);
         }
         // todo: this should be a use case
-        return await IntegrationMapping.upsert(
-            this.id,
-            sourceId,
-            mapping
-        );
+        return await IntegrationMapping.upsert(this.id, sourceId, mapping);
     }
 
     /**
@@ -278,9 +278,9 @@ class IntegrationBase {
         await this.updateIntegrationStatus.execute(integrationId, 'ENABLED');
     }
 
-    async onUpdate(params) { }
+    async onUpdate(params) {}
 
-    async onDelete(params) { }
+    async onDelete(params) {}
 
     async getConfigOptions() {
         const options = {
@@ -317,10 +317,10 @@ class IntegrationBase {
         const dynamicUserActions = await this.loadDynamicUserActions();
         const filteredDynamicActions = actionType
             ? Object.fromEntries(
-                Object.entries(dynamicUserActions).filter(
-                    ([_, event]) => event.userActionType === actionType
-                )
-            )
+                  Object.entries(dynamicUserActions).filter(
+                      ([_, event]) => event.userActionType === actionType
+                  )
+              )
             : dynamicUserActions;
         return { ...userActions, ...filteredDynamicActions };
     }
@@ -342,7 +342,7 @@ class IntegrationBase {
     }
 
     // === Domain Methods (moved from Integration.js) ===
-    
+
     getConfig() {
         return this.config;
     }

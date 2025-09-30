@@ -75,6 +75,26 @@ class IntegrationRepository {
             messages: integrationRecord.messages,
         };
     }
+
+    async findIntegrationByUserId(userId) {
+        const integrationRecord = await IntegrationModel.findOne({ user: userId }, '', {
+            lean: true,
+        }).populate('entities');
+
+        if (!integrationRecord) {
+            return null;
+        }
+
+        return {
+            id: integrationRecord._id.toString(),
+            entitiesIds: integrationRecord.entities.map((e) => e._id),
+            userId: integrationRecord.user.toString(),
+            config: integrationRecord.config,
+            version: integrationRecord.version,
+            status: integrationRecord.status,
+            messages: integrationRecord.messages,
+        };
+    }
 }
 
 module.exports = { IntegrationRepository };

@@ -36,6 +36,16 @@ class TestIntegrationRepository {
         return results;
     }
 
+    async findIntegrationByUserId(userId) {
+        const record = Array.from(this.store.values()).find((r) => r.userId === userId);
+        this.operationHistory.push({
+            operation: 'findSingleByUserId',
+            userId,
+            found: !!record,
+        });
+        return record || null;
+    }
+
     async updateIntegrationMessages(id, type, title, body, timestamp) {
         const rec = this.store.get(id);
         if (!rec) {
