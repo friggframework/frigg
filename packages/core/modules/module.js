@@ -2,17 +2,20 @@ const { Delegate } = require('../core');
 const _ = require('lodash');
 const { flushDebugLog } = require('../logs');
 const { ModuleConstants } = require('./ModuleConstants');
-const { CredentialRepository } = require('../credential/credential-repository');
-const { ModuleRepository } = require('./module-repository');
+const {
+    createCredentialRepository,
+} = require('../credential/repositories/credential-repository-factory');
+const {
+    createModuleRepository,
+} = require('./repositories/module-repository-factory');
 
 // todo: this class should be a Domain class, and the Delegate function is preventing us from
-// doing that, we probably have to get rid of the Delegate class as well as the event based 
+// doing that, we probably have to get rid of the Delegate class as well as the event based
 // calls since they go against the Domain Driven Design principles (eg. a domain class should not call repository methods or use cases)
 class Module extends Delegate {
-
     //todo: entity should be replaced with actual entity properties
     /**
-     * 
+     *
      * @param {Object} params
      * @param {Object} params.definition The definition of the Api Module
      * @param {string} params.userId The user id
@@ -31,8 +34,8 @@ class Module extends Delegate {
         this.modelName = this.definition.modelName;
         this.apiClass = this.definition.API;
 
-        this.credentialRepository = new CredentialRepository();
-        this.moduleRepository = new ModuleRepository();
+        this.credentialRepository = createCredentialRepository();
+        this.moduleRepository = createModuleRepository();
 
         Object.assign(this, this.definition.requiredAuthMethods);
 
@@ -50,7 +53,7 @@ class Module extends Delegate {
     }
 
     getEntityOptions() {
-        return this.definition.getEntityOptions()
+        return this.definition.getEntityOptions();
     }
 
     async refreshEntityOptions(options) {
@@ -103,7 +106,9 @@ class Module extends Delegate {
         );
         credentialDetails.details.auth_is_valid = true;
 
-        const persisted = await this.credentialRepository.upsertCredential(credentialDetails);
+        const persisted = await this.credentialRepository.upsertCredential(
+            credentialDetails
+        );
         this.credential = persisted;
     }
 
@@ -141,7 +146,9 @@ class Module extends Delegate {
         // Remove persisted credential (if any)
         if (this.entity?.credential) {
             const credentialId =
-                this.entity.credential._id || this.entity.credential.id || this.entity.credential;
+                this.entity.credential._id ||
+                this.entity.credential.id ||
+                this.entity.credential;
 
             // Delete credential via repository
             await this.credentialRepository.deleteCredentialById(credentialId);
@@ -173,7 +180,7 @@ class Module extends Delegate {
         } else {
             if (
                 definition.API.requesterType ===
-                ModuleConstants.authType.oauth2 &&
+                    ModuleConstants.authType.oauth2 &&
                 !definition.requiredAuthMethods.getToken
             ) {
                 throw new Error(
@@ -215,4 +222,4 @@ class Module extends Delegate {
     }
 }
 
-module.exports = { Module }; 
+module.exports = { Module };

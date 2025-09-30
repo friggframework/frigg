@@ -1,4 +1,7 @@
-const { mongoose } = require('./mongoose');
+const { mongoose } = require('../mongoose');
+const {
+    HealthCheckRepositoryInterface,
+} = require('./health-check-repository-interface');
 
 /**
  * Repository for Health Check database operations.
@@ -8,8 +11,20 @@ const { mongoose } = require('./mongoose');
  * - Infrastructure Layer (this repository)
  * - Pure database operations only, no business logic
  * - Used by Application Layer (Use Cases)
+ *
+ * Works identically for both MongoDB and PostgreSQL:
+ * - MongoDB: Uses native mongoose connection state checking
+ * - PostgreSQL: Would use similar Prisma connection state APIs
+ * - Both use same query patterns (no many-to-many differences)
+ *
+ * Migration from Mongoose:
+ * - Constructor injection for testing support
+ * - Maintains same method signatures for compatibility
  */
-class HealthCheckRepository {
+class HealthCheckRepository extends HealthCheckRepositoryInterface {
+    constructor() {
+        super();
+    }
     /**
      * Get database connection state
      * @returns {Object} Object with readyState, stateName, and isConnected
@@ -47,7 +62,7 @@ class HealthCheckRepository {
      * @returns {Model} Mongoose model with encryption plugin
      */
     createEncryptionTestModel() {
-        const { Encrypt } = require('../encrypt');
+        const { Encrypt } = require('../../encrypt');
 
         const testSchema = new mongoose.Schema(
             {

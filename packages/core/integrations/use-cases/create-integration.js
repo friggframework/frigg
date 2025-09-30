@@ -1,5 +1,7 @@
 // Removed Integration wrapper - using IntegrationBase directly
-const { mapIntegrationClassToIntegrationDTO } = require('../utils/map-integration-dto');
+const {
+    mapIntegrationClassToIntegrationDTO,
+} = require('../utils/map-integration-dto');
 
 /**
  * Use case for creating a new integration instance.
@@ -9,7 +11,7 @@ class CreateIntegration {
     /**
      * Creates a new CreateIntegration instance.
      * @param {Object} params - Configuration parameters.
-     * @param {import('../integration-repository').IntegrationRepository} params.integrationRepository - Repository for integration data operations.
+     * @param {import('../repositories/integration-repository-interface').IntegrationRepositoryInterface} params.integrationRepository - Repository for integration data operations.
      * @param {import('../integration-classes').IntegrationClasses} params.integrationClasses - Array of available integration classes.
      * @param {import('../../modules/module-factory').ModuleFactory} params.moduleFactory - Service for module instantiation and management.
      */
@@ -30,15 +32,23 @@ class CreateIntegration {
      * @throws {Error} When integration class is not found for the specified type.
      */
     async execute(entities, userId, config) {
-        const integrationRecord = await this.integrationRepository.createIntegration(entities, userId, config);
-
+        const integrationRecord =
+            await this.integrationRepository.createIntegration(
+                entities,
+                userId,
+                config
+            );
 
         const integrationClass = this.integrationClasses.find(
-            (integrationClass) => integrationClass.Definition.name === integrationRecord.config.type
+            (integrationClass) =>
+                integrationClass.Definition.name ===
+                integrationRecord.config.type
         );
 
         if (!integrationClass) {
-            throw new Error(`No integration class found for type: ${integrationRecord.config.type}`);
+            throw new Error(
+                `No integration class found for type: ${integrationRecord.config.type}`
+            );
         }
 
         const modules = [];
@@ -58,14 +68,16 @@ class CreateIntegration {
             status: integrationRecord.status,
             version: integrationRecord.version,
             messages: integrationRecord.messages,
-            modules
+            modules,
         });
 
         await integrationInstance.initialize();
-        await integrationInstance.send('ON_CREATE', { integrationId: integrationRecord.id });
+        await integrationInstance.send('ON_CREATE', {
+            integrationId: integrationRecord.id,
+        });
 
         return mapIntegrationClassToIntegrationDTO(integrationInstance);
     }
 }
 
-module.exports = { CreateIntegration }; 
+module.exports = { CreateIntegration };

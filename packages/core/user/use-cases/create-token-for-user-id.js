@@ -8,7 +8,7 @@ class CreateTokenForUserId {
     /**
      * Creates a new CreateTokenForUserId instance.
      * @param {Object} params - Configuration parameters.
-     * @param {import('../user-repository').UserRepository} params.userRepository - Repository for user data operations.
+     * @param {import('../user-repository-interface').UserRepositoryInterface} params.userRepository - Repository for user data operations.
      */
     constructor({ userRepository }) {
         this.userRepository = userRepository;

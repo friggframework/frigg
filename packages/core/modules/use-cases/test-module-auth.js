@@ -2,10 +2,10 @@ const { Module } = require('../module');
 
 class TestModuleAuth {
     /**
- * @param {Object} params - Configuration parameters.
- * @param {import('./module-repository').ModuleRepository} params.moduleRepository - Repository for module data operations.
- * @param {Array<Object>} params.moduleDefinitions - Array of module definitions.
- */
+     * @param {Object} params - Configuration parameters.
+     * @param {import('../repositories/module-repository-interface').ModuleRepositoryInterface} params.moduleRepository - Repository for module data operations.
+     * @param {Array<Object>} params.moduleDefinitions - Array of module definitions.
+     */
     constructor({ moduleRepository, moduleDefinitions }) {
         this.moduleRepository = moduleRepository;
         this.moduleDefinitions = moduleDefinitions;
@@ -29,7 +29,8 @@ class TestModuleAuth {
 
         const entityType = entity.type;
         const moduleDefinition = this.moduleDefinitions.find((def) => {
-            const modelName = Module.getEntityModelFromDefinition(def).modelName;
+            const modelName =
+                Module.getEntityModelFromDefinition(def).modelName;
             return entityType === modelName;
         });
 

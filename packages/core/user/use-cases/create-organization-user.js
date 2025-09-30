@@ -9,7 +9,7 @@ class CreateOrganizationUser {
     /**
      * Creates a new CreateOrganizationUser instance.
      * @param {Object} params - Configuration parameters.
-     * @param {import('../user-repository').UserRepository} params.userRepository - Repository for user data operations.
+     * @param {import('../user-repository-interface').UserRepositoryInterface} params.userRepository - Repository for user data operations.
      * @param {Object} params.userConfig - The user properties inside of the app definition.
      */
     constructor({ userRepository, userConfig }) {

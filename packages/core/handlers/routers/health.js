@@ -4,8 +4,8 @@ const http = require('http');
 const { moduleFactory, integrationFactory } = require('./../backend-utils');
 const { createAppHandler } = require('./../app-handler-helpers');
 const {
-    HealthCheckRepository,
-} = require('../../database/health-check-repository');
+    createHealthCheckRepository,
+} = require('../../database/health-check-repository-factory');
 const {
     TestEncryptionUseCase,
 } = require('../../database/use-cases/test-encryption-use-case');
@@ -14,7 +14,7 @@ const {
 } = require('../../database/use-cases/check-database-health-use-case');
 
 const router = Router();
-const healthCheckRepository = new HealthCheckRepository();
+const healthCheckRepository = createHealthCheckRepository();
 const testEncryptionUseCase = new TestEncryptionUseCase({
     healthCheckRepository,
 });

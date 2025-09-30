@@ -31,7 +31,6 @@ claude-flow.log
 
 # claude files
 .claude/
-CLAUDE.md
 .roomodes
 
 .env
@@ -39,6 +38,5 @@ CLAUDE.md
 .autorc
 /.nx/
 
-CLAUDE.md
 /.claude
 /.claude-flow

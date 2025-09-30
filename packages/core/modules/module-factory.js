@@ -8,7 +8,7 @@ const { Module } = require('./module');
 class ModuleFactory {
     /**
      * @param {Object} params - Configuration parameters.
-     * @param {import('./module-repository').ModuleRepository} params.moduleRepository - Repository for module data operations.
+     * @param {import('./repositories/module-repository-interface').ModuleRepositoryInterface} params.moduleRepository - Repository for module data operations.
      * @param {Array<Object>} params.moduleDefinitions - Array of module definitions.
      */
     constructor({ moduleRepository, moduleDefinitions }) {

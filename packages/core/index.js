@@ -24,7 +24,20 @@ const {
     Token,
     UserModel,
     WebsocketConnection,
+    prisma,
+    TokenRepository,
+    WebsocketConnectionRepository,
 } = require('./database/index');
+const { UserRepository } = require('./user/repositories/user-repository');
+const {
+    CredentialRepository,
+} = require('./credential/repositories/credential-repository');
+const {
+    ModuleRepository,
+} = require('./modules/repositories/module-repository');
+const {
+    IntegrationMappingRepository,
+} = require('./integrations/repositories/integration-mapping-repository');
 const { Encrypt, Cryptor } = require('./encrypt/encrypt');
 const {
     BaseError,
@@ -35,12 +48,9 @@ const {
 } = require('./errors/index');
 const {
     IntegrationBase,
-    IntegrationModel,
     Options,
-    IntegrationMapping,
     createIntegrationRouter,
     checkRequiredParams,
-    IntegrationRepository,
     getModulesDefinitionFromIntegrationClasses,
     LoadIntegrationContextUseCase,
 } = require('./integrations/index');
@@ -55,7 +65,6 @@ const {
     Requester,
     ModuleConstants,
     ModuleFactory,
-    ModuleRepository,
 } = require('./modules/index');
 const application = require('./application');
 const utils = require('./utils');
@@ -91,6 +100,14 @@ module.exports = {
     Token,
     UserModel,
     WebsocketConnection,
+    prisma,
+    TokenRepository,
+    WebsocketConnectionRepository,
+    UserRepository,
+    CredentialRepository,
+    ModuleRepository,
+    IntegrationMappingRepository,
+    PrismaIntegrationRepository,
 
     // encrypt
     Encrypt,
@@ -105,12 +122,9 @@ module.exports = {
 
     // integrations
     IntegrationBase,
-    IntegrationModel,
     Options,
-    IntegrationMapping,
     checkRequiredParams,
     createIntegrationRouter,
-    IntegrationRepository,
     getModulesDefinitionFromIntegrationClasses,
     LoadIntegrationContextUseCase,
 
@@ -142,7 +156,6 @@ module.exports = {
     Requester,
     ModuleConstants,
     ModuleFactory,
-    ModuleRepository,
     // queues
     QueuerUtil,
 

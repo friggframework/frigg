@@ -1,7 +1,9 @@
 const {
-    IntegrationRepository,
-} = require('../../integrations/integration-repository');
-const { ModuleRepository } = require('../../modules/module-repository');
+    createIntegrationRepository,
+} = require('../../integrations/repositories/integration-repository-factory');
+const {
+    createModuleRepository,
+} = require('../../modules/repositories/module-repository-factory');
 const { ModuleFactory } = require('../../modules/module-factory');
 const {
     LoadIntegrationContextUseCase,
@@ -36,8 +38,8 @@ function createIntegrationCommands({ integrationClass } = {}) {
     }
 
     // Always use Frigg's default repositories and use cases
-    const integrationRepository = new IntegrationRepository();
-    const moduleRepository = new ModuleRepository();
+    const integrationRepository = createIntegrationRepository();
+    const moduleRepository = createModuleRepository();
 
     const moduleDefinitions = getModulesDefinitionFromIntegrationClasses([
         integrationClass,

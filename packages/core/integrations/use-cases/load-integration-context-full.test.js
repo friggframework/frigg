@@ -1,6 +1,6 @@
 const { LoadIntegrationContextUseCase } = require('./load-integration-context');
 const { IntegrationBase } = require('../integration-base');
-const { IntegrationRepository } = require('../integration-repository');
+const { createIntegrationRepository } = require('../integration-repository-factory');
 const { Module } = require('../../modules/module');
 const { ModuleFactory } = require('../../modules/module-factory');
 const { ModuleRepository } = require('../../modules/module-repository');
@@ -185,7 +185,7 @@ describe('LoadIntegrationContextUseCase - Full Rounded Test', () => {
 
         // Create the use case
         const useCase = new LoadIntegrationContextUseCase({
-            integrationRepository: new IntegrationRepository(),
+            integrationRepository: createIntegrationRepository(),
             moduleRepository,
             moduleFactory,
         });
@@ -287,7 +287,7 @@ describe('LoadIntegrationContextUseCase - Full Rounded Test', () => {
         });
 
         const useCase = new LoadIntegrationContextUseCase({
-            integrationRepository: new IntegrationRepository(),
+            integrationRepository: createIntegrationRepository(),
             moduleRepository,
             moduleFactory,
         });

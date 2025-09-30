@@ -1,4 +1,6 @@
-const { ModuleRepository } = require('../../modules/module-repository');
+const {
+    createModuleRepository,
+} = require('../../modules/repositories/module-repository-factory');
 
 const ERROR_CODE_MAP = {
     ENTITY_NOT_FOUND: 404,
@@ -22,7 +24,7 @@ function mapErrorToResponse(error) {
  * @returns {Object} Entity command object with CRUD operations
  */
 function createEntityCommands() {
-    const moduleRepo = new ModuleRepository();
+    const moduleRepo = createModuleRepository();
 
     return {
         /**

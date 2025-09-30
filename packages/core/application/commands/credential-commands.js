@@ -1,6 +1,6 @@
 const {
-    CredentialRepository,
-} = require('../../credential/credential-repository');
+    createCredentialRepository,
+} = require('../../credential/repositories/credential-repository-factory');
 
 const ERROR_CODE_MAP = {
     CREDENTIAL_NOT_FOUND: 404,
@@ -24,7 +24,7 @@ function mapErrorToResponse(error) {
  * @returns {Object} Credential command object with CRUD operations
  */
 function createCredentialCommands() {
-    const credRepo = new CredentialRepository();
+    const credRepo = createCredentialRepository();
 
     return {
         /**
@@ -49,7 +49,7 @@ function createCredentialCommands() {
             try {
                 if (!userId || !externalId || !access_token) {
                     const error = new Error(
-                        'userId, externalId, and access_token are required',
+                        'userId, externalId, and access_token are required'
                     );
                     error.code = 'INVALID_CREDENTIAL_DATA';
                     throw error;
@@ -71,7 +71,7 @@ function createCredentialCommands() {
                 }
 
                 const credential = await credRepo.upsertCredential(
-                    credentialData,
+                    credentialData
                 );
 
                 return {
@@ -103,7 +103,7 @@ function createCredentialCommands() {
                     !filter.credentialId
                 ) {
                     const error = new Error(
-                        'At least one filter criterion is required',
+                        'At least one filter criterion is required'
                     );
                     error.code = 'INVALID_CREDENTIAL_DATA';
                     throw error;
@@ -145,12 +145,12 @@ function createCredentialCommands() {
 
                 const credential = await credRepo.updateCredential(
                     credentialId,
-                    updates,
+                    updates
                 );
 
                 if (!credential) {
                     const error = new Error(
-                        `Credential ${credentialId} not found`,
+                        `Credential ${credentialId} not found`
                     );
                     error.code = 'CREDENTIAL_NOT_FOUND';
                     throw error;
@@ -186,7 +186,7 @@ function createCredentialCommands() {
 
                 await credRepo.updateAuthenticationStatus(
                     credentialId,
-                    isValid,
+                    isValid
                 );
 
                 return { success: true };

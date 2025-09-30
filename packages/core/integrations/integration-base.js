@@ -1,9 +1,13 @@
-const { IntegrationMappingRepository } = require('./integration-mapping-repository');
+const {
+    createIntegrationMappingRepository,
+} = require('./repositories/integration-mapping-repository-factory');
 const { Options } = require('./options');
 const {
     UpdateIntegrationStatus,
 } = require('./use-cases/update-integration-status');
-const { IntegrationRepository } = require('./integration-repository');
+const {
+    createIntegrationRepository,
+} = require('./repositories/integration-repository-factory');
 const {
     UpdateIntegrationMessages,
 } = require('./use-cases/update-integration-messages');
@@ -28,8 +32,8 @@ const constantsToBeMigrated = {
 
 class IntegrationBase {
     // todo: maybe we can pass this as Dependency Injection in the sub-class constructor
-    integrationRepository = new IntegrationRepository();
-    integrationMappingRepository = new IntegrationMappingRepository();
+    integrationRepository = createIntegrationRepository();
+    integrationMappingRepository = createIntegrationMappingRepository();
     updateIntegrationStatus = new UpdateIntegrationStatus({
         integrationRepository: this.integrationRepository,
     });
@@ -261,7 +265,10 @@ class IntegrationBase {
 
     async getMapping(sourceId) {
         // todo: this should be a use case
-        return this.integrationMappingRepository.findMappingBy(this.id, sourceId);
+        return this.integrationMappingRepository.findMappingBy(
+            this.id,
+            sourceId
+        );
     }
 
     async upsertMapping(sourceId, mapping) {
@@ -269,7 +276,11 @@ class IntegrationBase {
             throw new Error(`sourceId must be set`);
         }
         // todo: this should be a use case
-        return await this.integrationMappingRepository.upsertMapping(this.id, sourceId, mapping);
+        return await this.integrationMappingRepository.upsertMapping(
+            this.id,
+            sourceId,
+            mapping
+        );
     }
 
     /**

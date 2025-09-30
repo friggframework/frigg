@@ -5,7 +5,7 @@
 class CheckDatabaseHealthUseCase {
     /**
      * @param {Object} params
-     * @param {import('../health-check-repository').HealthCheckRepository} params.healthCheckRepository
+     * @param {import('../health-check-repository-interface').HealthCheckRepositoryInterface} params.healthCheckRepository
      */
     constructor({ healthCheckRepository }) {
         this.repository = healthCheckRepository;

@@ -1,4 +1,4 @@
-const { UserRepository } = require('../../user/user-repository');
+const { createUserRepository } = require('../../user/user-repository-factory');
 
 const ERROR_CODE_MAP = {
     USER_NOT_FOUND: 404,
@@ -23,7 +23,7 @@ function mapErrorToResponse(error) {
  * @returns {Object} User command object with CRUD operations
  */
 function createUserCommands() {
-    const userRepository = new UserRepository({ userConfig: {} });
+    const userRepository = createUserRepository({ userConfig: {} });
 
     return {
         /**

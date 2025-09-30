@@ -1,7 +1,7 @@
 const { createHandler } = require('@friggframework/core');
-const { WebsocketConnectionRepository } = require('../../database/websocket-connection-repository');
+const { createWebsocketConnectionRepository } = require('../../database/websocket-connection-repository-factory');
 
-const websocketConnectionRepository = new WebsocketConnectionRepository();
+const websocketConnectionRepository = createWebsocketConnectionRepository();
 
 const handleWebSocketConnection = async (event, context) => {
     // Handle different WebSocket events

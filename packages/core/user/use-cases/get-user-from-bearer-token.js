@@ -9,7 +9,7 @@ class GetUserFromBearerToken {
     /**
      * Creates a new GetUserFromBearerToken instance.
      * @param {Object} params - Configuration parameters.
-     * @param {import('../user-repository').UserRepository} params.userRepository - Repository for user data operations.
+     * @param {import('../user-repository-interface').UserRepositoryInterface} params.userRepository - Repository for user data operations.
      * @param {Object} params.userConfig - The user config in the app definition.
      */
     constructor({ userRepository, userConfig }) {

@@ -1,7 +1,7 @@
 const express = require('express');
 const { createAppHandler } = require('../app-handler-helpers');
 const { checkRequiredParams } = require('@friggframework/core');
-const { UserRepository } = require('../../user/user-repository');
+const { createUserRepository } = require('../../user/user-repository-factory');
 const {
     CreateIndividualUser,
 } = require('../../user/use-cases/create-individual-user');
@@ -14,7 +14,7 @@ const { loadAppDefinition } = require('../app-definition-loader');
 
 const router = express();
 const { userConfig } = loadAppDefinition();
-const userRepository = new UserRepository({ userConfig });
+const userRepository = createUserRepository({ userConfig });
 const createIndividualUser = new CreateIndividualUser({
     userRepository,
     userConfig,

@@ -6,7 +6,7 @@ class UpdateIntegrationMessages {
     /**
      * Creates a new UpdateIntegrationMessages instance.
      * @param {Object} params - Configuration parameters.
-     * @param {import('../integration-repository').IntegrationRepository} params.integrationRepository - Repository for integration data operations.
+     * @param {import('../repositories/integration-repository-interface').IntegrationRepositoryInterface} params.integrationRepository - Repository for integration data operations.
      */
     constructor({ integrationRepository }) {
         this.integrationRepository = integrationRepository;
@@ -22,8 +22,21 @@ class UpdateIntegrationMessages {
      * @param {string} messageTimestamp - Timestamp when the message was created.
      * @returns {Promise<Object>} The updated integration record.
      */
-    async execute(integrationId, messageType, messageTitle, messageBody, messageTimestamp) {
-        const integration = await this.integrationRepository.updateIntegrationMessages(integrationId, messageType, messageTitle, messageBody, messageTimestamp);
+    async execute(
+        integrationId,
+        messageType,
+        messageTitle,
+        messageBody,
+        messageTimestamp
+    ) {
+        const integration =
+            await this.integrationRepository.updateIntegrationMessages(
+                integrationId,
+                messageType,
+                messageTitle,
+                messageBody,
+                messageTimestamp
+            );
         return integration;
     }
 }

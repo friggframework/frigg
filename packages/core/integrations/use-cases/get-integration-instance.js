@@ -5,19 +5,14 @@
  * @class GetIntegrationInstance
  */
 class GetIntegrationInstance {
-
     /**
      * Creates a new GetIntegrationInstance instance.
      * @param {Object} params - Configuration parameters.
-     * @param {import('../integration-repository').IntegrationRepository} params.integrationRepository - Repository for integration data access
+     * @param {import('../repositories/integration-repository-interface').IntegrationRepositoryInterface} params.integrationRepository - Repository for integration data access
      * @param {Array<import('../integration').Integration>} params.integrationClasses - Array of available integration classes
      * @param {import('../../modules/module-factory').ModuleFactory} params.moduleFactory - Service for module instantiation and management
      */
-    constructor({
-        integrationRepository,
-        integrationClasses,
-        moduleFactory,
-    }) {
+    constructor({ integrationRepository, integrationClasses, moduleFactory }) {
         this.integrationRepository = integrationRepository;
         this.integrationClasses = integrationClasses;
         this.moduleFactory = moduleFactory;
@@ -32,18 +27,25 @@ class GetIntegrationInstance {
      * @throws {Error} When integration is not found, doesn't belong to user, or integration class is not found.
      */
     async execute(integrationId, userId) {
-        const integrationRecord = await this.integrationRepository.findIntegrationById(integrationId);
+        const integrationRecord =
+            await this.integrationRepository.findIntegrationById(integrationId);
 
         if (!integrationRecord) {
-            throw new Error(`No integration found by the ID of ${integrationId}`);
+            throw new Error(
+                `No integration found by the ID of ${integrationId}`
+            );
         }
 
         const integrationClass = this.integrationClasses.find(
-            (integrationClass) => integrationClass.Definition.name === integrationRecord.config.type
+            (integrationClass) =>
+                integrationClass.Definition.name ===
+                integrationRecord.config.type
         );
 
         if (!integrationClass) {
-            throw new Error(`No integration class found for type: ${integrationRecord.config.type}`);
+            throw new Error(
+                `No integration class found for type: ${integrationRecord.config.type}`
+            );
         }
 
         if (integrationRecord.userId !== userId) {
@@ -51,7 +53,6 @@ class GetIntegrationInstance {
                 `Integration ${integrationId} does not belong to User ${userId}`
             );
         }
-
 
         const modules = [];
         for (const entityId of integrationRecord.entitiesIds) {
@@ -70,7 +71,7 @@ class GetIntegrationInstance {
             status: integrationRecord.status,
             version: integrationRecord.version,
             messages: integrationRecord.messages,
-            modules
+            modules,
         });
 
         await integrationInstance.initialize();
@@ -79,4 +80,4 @@ class GetIntegrationInstance {
     }
 }
 
-module.exports = { GetIntegrationInstance }; 
+module.exports = { GetIntegrationInstance };

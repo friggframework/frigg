@@ -3,7 +3,7 @@ const { Module } = require('../module');
 class GetEntityOptionsById {
     /**
      * @param {Object} params
-     * @param {import('../module-repository').ModuleRepository} params.moduleRepository
+     * @param {import('../repositories/module-repository-interface').ModuleRepositoryInterface} params.moduleRepository
      * @param {} params.moduleDefinitions
      */
     constructor({ moduleRepository, moduleDefinitions }) {
@@ -34,7 +34,8 @@ class GetEntityOptionsById {
 
         const entityType = entity.type;
         const moduleDefinition = this.moduleDefinitions.find((def) => {
-            const modelName = Module.getEntityModelFromDefinition(def).modelName;
+            const modelName =
+                Module.getEntityModelFromDefinition(def).modelName;
             return entityType === modelName;
         });
 

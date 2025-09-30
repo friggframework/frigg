@@ -9,13 +9,12 @@ class DeleteIntegrationForUser {
     /**
      * Creates a new DeleteIntegrationForUser instance.
      * @param {Object} params - Configuration parameters.
-     * @param {import('../integration-repository').IntegrationRepository} params.integrationRepository - Repository for integration data operations.
+     * @param {import('../repositories/integration-repository-interface').IntegrationRepositoryInterface} params.integrationRepository - Repository for integration data operations.
      * @param {Array<import('../integration').Integration>} params.integrationClasses - Array of available integration classes.
      */
     constructor({ integrationRepository, integrationClasses }) {
-
         /**
-         * @type {import('../integration-repository').IntegrationRepository}
+         * @type {import('../repositories/integration-repository-interface').IntegrationRepositoryInterface}
          */
         this.integrationRepository = integrationRepository;
         this.integrationClasses = integrationClasses;
@@ -31,7 +30,8 @@ class DeleteIntegrationForUser {
      * @throws {Error} When the integration doesn't belong to the specified user.
      */
     async execute(integrationId, userId) {
-        const integrationRecord = await this.integrationRepository.findIntegrationById(integrationId);
+        const integrationRecord =
+            await this.integrationRepository.findIntegrationById(integrationId);
 
         if (!integrationRecord) {
             throw Boom.notFound(
@@ -40,7 +40,9 @@ class DeleteIntegrationForUser {
         }
 
         const integrationClass = this.integrationClasses.find(
-            (integrationClass) => integrationClass.Definition.name === integrationRecord.config.type
+            (integrationClass) =>
+                integrationClass.Definition.name ===
+                integrationRecord.config.type
         );
 
         if (integrationRecord.userId !== userId) {
@@ -65,8 +67,7 @@ class DeleteIntegrationForUser {
         await integrationInstance.send('ON_DELETE');
 
         await this.integrationRepository.deleteIntegrationById(integrationId);
-
     }
 }
 
-module.exports = { DeleteIntegrationForUser }; 
+module.exports = { DeleteIntegrationForUser };

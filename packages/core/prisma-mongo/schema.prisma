@@ -1,0 +1,321 @@
+// Frigg Framework - Prisma Schema
+// MongoDB database schema for enterprise integration platform
+// Migration from Mongoose ODM to Prisma ORM
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/@prisma-mongo/client"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// USER MODELS
+// ============================================================================
+
+/// User model with discriminator pattern support
+/// Replaces Mongoose discriminators (IndividualUser, OrganizationUser)
+model User {
+  id    String   @id @default(auto()) @map("_id") @db.ObjectId
+  type  UserType
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // IndividualUser fields (nullable for organizations)
+  email          String?
+  username       String?
+  hashword       String? // Bcrypt hashed password (handled in application layer)
+  appUserId      String?
+  organizationId String? @db.ObjectId
+
+  // Self-referential relation for organization membership
+  organization User?  @relation("OrgMembers", fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  members      User[] @relation("OrgMembers")
+
+  // OrganizationUser fields (nullable for individuals)
+  appOrgId String?
+  name     String?
+
+  // Relations
+  tokens       Token[]
+  credentials  Credential[]
+  entities     Entity[]
+  integrations Integration[]
+
+  @@unique([email])
+  @@unique([username])
+  @@unique([appOrgId])
+  @@index([type])
+  @@index([appUserId])
+  @@map("User")
+}
+
+enum UserType {
+  INDIVIDUAL
+  ORGANIZATION
+}
+
+// ============================================================================
+// AUTHENTICATION MODELS
+// ============================================================================
+
+/// Authentication tokens with expiration
+/// Bcrypt hashed tokens stored (handled in application layer)
+model Token {
+  id      String    @id @default(auto()) @map("_id") @db.ObjectId
+  token   String // Bcrypt hashed
+  created DateTime  @default(now())
+  expires DateTime?
+  userId  String    @db.ObjectId
+  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expires])
+  @@map("Token")
+}
+
+// ============================================================================
+// CREDENTIAL & ENTITY MODELS
+// ============================================================================
+
+/// OAuth credentials and API tokens
+/// All sensitive data encrypted with KMS at rest
+model Credential {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String?  @db.ObjectId
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subType    String?
+  authIsValid Boolean? @map("auth_is_valid")
+  externalId String?
+
+  // Dynamic OAuth fields stored as JSON (encrypted via Prisma middleware)
+  // Contains: access_token, refresh_token, domain, expires_in, token_type, etc.
+  data Json @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  entities Entity[]
+
+  @@index([userId])
+  @@index([externalId])
+  @@map("Credential")
+}
+
+/// External service entities (API connections)
+model Entity {
+  id           String      @id @default(auto()) @map("_id") @db.ObjectId
+  credentialId String?     @db.ObjectId
+  credential   Credential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+  subType      String?
+  userId       String?     @db.ObjectId
+  user         User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String?
+  moduleName   String?
+  externalId   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations - many-to-many with scalar lists
+  integrations    Integration[] @relation("IntegrationEntities", fields: [integrationIds], references: [id])
+  integrationIds  String[]      @db.ObjectId
+
+  syncs           Sync[]        @relation("SyncEntities", fields: [syncIds], references: [id])
+  syncIds         String[]      @db.ObjectId
+
+  dataIdentifiers    DataIdentifier[]
+  associationObjects AssociationObject[]
+
+  @@index([userId])
+  @@index([externalId])
+  @@index([moduleName])
+  @@index([credentialId])
+  @@map("Entity")
+}
+
+// ============================================================================
+// INTEGRATION MODELS
+// ============================================================================
+
+/// Main integration configuration and state
+model Integration {
+  id     String            @id @default(auto()) @map("_id") @db.ObjectId
+  userId String?           @db.ObjectId
+  user   User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status IntegrationStatus @default(ENABLED)
+
+  // Configuration and version
+  config  Json?   // Integration configuration object
+  version String?
+
+  // Entity references (many-to-many via explicit scalar list)
+  entities  Entity[] @relation("IntegrationEntities", fields: [entityIds], references: [id])
+  entityIds String[] @db.ObjectId
+
+  // Entity reference map (Map<String, String> stored as JSON)
+  entityReferenceMap Json? @default("{}")
+
+  // Message arrays (stored as JSON)
+  errors   Json @default("[]")
+  warnings Json @default("[]")
+  info     Json @default("[]")
+  logs     Json @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  associations Association[]
+  syncs        Sync[]
+  mappings     IntegrationMapping[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("Integration")
+}
+
+enum IntegrationStatus {
+  ENABLED
+  NEEDS_CONFIG
+  PROCESSING
+  DISABLED
+  ERROR
+}
+
+/// Integration-specific data mappings
+/// All mapping data encrypted with KMS
+model IntegrationMapping {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  integrationId String      @db.ObjectId
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  sourceId      String?
+
+  // Encrypted mapping data (handled via Prisma middleware)
+  mapping Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([integrationId, sourceId])
+  @@index([integrationId])
+  @@index([sourceId])
+  @@map("IntegrationMapping")
+}
+
+// ============================================================================
+// SYNC MODELS
+// ============================================================================
+
+/// Bidirectional data synchronization tracking
+model Sync {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  integrationId String?      @db.ObjectId
+  integration   Integration? @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  // Entity references (many-to-many via explicit scalar list)
+  entities  Entity[] @relation("SyncEntities", fields: [entityIds], references: [id])
+  entityIds String[] @db.ObjectId
+
+  hash String
+  name String
+
+  // Data identifiers (extracted to separate model)
+  dataIdentifiers DataIdentifier[]
+
+  @@index([integrationId])
+  @@index([hash])
+  @@index([name])
+  @@map("Sync")
+}
+
+/// Data identifier for sync operations
+/// Replaces nested array structure in Mongoose
+model DataIdentifier {
+  id       String  @id @default(auto()) @map("_id") @db.ObjectId
+  syncId   String? @db.ObjectId
+  sync     Sync?   @relation(fields: [syncId], references: [id], onDelete: Cascade)
+  entityId String  @db.ObjectId
+  entity   Entity  @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  // Identifier data (can be any structure)
+  idData Json
+
+  hash String
+
+  @@index([syncId])
+  @@index([entityId])
+  @@index([hash])
+  @@map("DataIdentifier")
+}
+
+// ============================================================================
+// ASSOCIATION MODELS
+// ============================================================================
+
+/// Entity associations with cardinality tracking
+model Association {
+  id            String          @id @default(auto()) @map("_id") @db.ObjectId
+  integrationId String          @db.ObjectId
+  integration   Integration     @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  name          String
+  type          AssociationType
+  primaryObject String
+
+  // Associated objects (extracted to separate model)
+  objects AssociationObject[]
+
+  @@index([integrationId])
+  @@index([name])
+  @@map("Association")
+}
+
+/// Association object entry
+/// Replaces nested array structure in Mongoose
+model AssociationObject {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  associationId String       @db.ObjectId
+  association   Association  @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  entityId      String       @db.ObjectId
+  entity        Entity       @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  objectType    String
+  objId         String
+  metadata      Json? // Optional metadata
+
+  @@index([associationId])
+  @@index([entityId])
+  @@map("AssociationObject")
+}
+
+enum AssociationType {
+  ONE_TO_MANY
+  ONE_TO_ONE
+  MANY_TO_ONE
+}
+
+// ============================================================================
+// UTILITY MODELS
+// ============================================================================
+
+/// Generic state storage
+model State {
+  id    String @id @default(auto()) @map("_id") @db.ObjectId
+  state Json?
+
+  @@map("State")
+}
+
+/// AWS API Gateway WebSocket connection tracking
+model WebsocketConnection {
+  id           String  @id @default(auto()) @map("_id") @db.ObjectId
+  connectionId String?
+
+  @@index([connectionId])
+  @@map("WebsocketConnection")
+}

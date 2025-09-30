@@ -2,36 +2,69 @@ const express = require('express');
 const { get } = require('../assertions');
 const Boom = require('@hapi/boom');
 const catchAsyncError = require('express-async-handler');
-const { IntegrationRepository } = require('./integration-repository');
-const { DeleteIntegrationForUser } = require('./use-cases/delete-integration-for-user');
-const { GetIntegrationsForUser } = require('./use-cases/get-integrations-for-user');
-const { CredentialRepository } = require('../credential/credential-repository');
-const { GetCredentialForUser } = require('../credential/use-cases/get-credential-for-user');
+const {
+    createIntegrationRepository,
+} = require('./repositories/integration-repository-factory');
+const {
+    DeleteIntegrationForUser,
+} = require('./use-cases/delete-integration-for-user');
+const {
+    GetIntegrationsForUser,
+} = require('./use-cases/get-integrations-for-user');
+const {
+    createCredentialRepository,
+} = require('../credential/repositories/credential-repository-factory');
+const {
+    GetCredentialForUser,
+} = require('../credential/use-cases/get-credential-for-user');
 const { CreateIntegration } = require('./use-cases/create-integration');
 const { ModuleFactory } = require('../modules/module-factory');
-const { ModuleRepository } = require('../modules/module-repository');
-const { GetEntitiesForUser } = require('../modules/use-cases/get-entities-for-user');
+const {
+    createModuleRepository,
+} = require('../modules/repositories/module-repository-factory');
+const {
+    GetEntitiesForUser,
+} = require('../modules/use-cases/get-entities-for-user');
 const { loadAppDefinition } = require('../handlers/app-definition-loader');
-const { GetIntegrationInstance } = require('./use-cases/get-integration-instance');
+const {
+    GetIntegrationInstance,
+} = require('./use-cases/get-integration-instance');
 const { UpdateIntegration } = require('./use-cases/update-integration');
-const { getModulesDefinitionFromIntegrationClasses } = require('./utils/map-integration-dto');
-const { GetModuleInstanceFromType } = require('../modules/use-cases/get-module-instance-from-type');
-const { GetEntityOptionsByType } = require('../modules/use-cases/get-entity-options-by-type');
+const {
+    getModulesDefinitionFromIntegrationClasses,
+} = require('./utils/map-integration-dto');
+const {
+    GetModuleInstanceFromType,
+} = require('../modules/use-cases/get-module-instance-from-type');
+const {
+    GetEntityOptionsByType,
+} = require('../modules/use-cases/get-entity-options-by-type');
 const { TestModuleAuth } = require('../modules/use-cases/test-module-auth');
 const { GetModule } = require('../modules/use-cases/get-module');
-const { GetEntityOptionsById } = require('../modules/use-cases/get-entity-options-by-id');
-const { RefreshEntityOptions } = require('../modules/use-cases/refresh-entity-options');
-const { GetPossibleIntegrations } = require('./use-cases/get-possible-integrations');
-const { UserRepository } = require('../user/user-repository');
-const { GetUserFromBearerToken } = require('../user/use-cases/get-user-from-bearer-token');
-const { ProcessAuthorizationCallback } = require('../modules/use-cases/process-authorization-callback');
+const {
+    GetEntityOptionsById,
+} = require('../modules/use-cases/get-entity-options-by-id');
+const {
+    RefreshEntityOptions,
+} = require('../modules/use-cases/refresh-entity-options');
+const {
+    GetPossibleIntegrations,
+} = require('./use-cases/get-possible-integrations');
+const { createUserRepository } = require('../user/user-repository-factory');
+const {
+    GetUserFromBearerToken,
+} = require('../user/use-cases/get-user-from-bearer-token');
+const {
+    ProcessAuthorizationCallback,
+} = require('../modules/use-cases/process-authorization-callback');
 
 function createIntegrationRouter() {
-    const { integrations: integrationClasses, userConfig } = loadAppDefinition();
-    const moduleRepository = new ModuleRepository();
-    const integrationRepository = new IntegrationRepository();
-    const credentialRepository = new CredentialRepository();
-    const userRepository = new UserRepository({ userConfig });
+    const { integrations: integrationClasses, userConfig } =
+        loadAppDefinition();
+    const moduleRepository = createModuleRepository();
+    const integrationRepository = createIntegrationRepository();
+    const credentialRepository = createCredentialRepository();
+    const userRepository = createUserRepository({ userConfig });
 
     const getUserFromBearerToken = new GetUserFromBearerToken({
         userRepository,
@@ -40,7 +73,8 @@ function createIntegrationRouter() {
 
     const moduleFactory = new ModuleFactory({
         moduleRepository,
-        moduleDefinitions: getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions:
+            getModulesDefinitionFromIntegrationClasses(integrationClasses),
     });
     const deleteIntegrationForUser = new DeleteIntegrationForUser({
         integrationRepository,
@@ -66,7 +100,8 @@ function createIntegrationRouter() {
 
     const getEntitiesForUser = new GetEntitiesForUser({
         moduleRepository,
-        moduleDefinitions: getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions:
+            getModulesDefinitionFromIntegrationClasses(integrationClasses),
     });
 
     const getIntegrationInstance = new GetIntegrationInstance({
@@ -82,31 +117,37 @@ function createIntegrationRouter() {
     });
 
     const getModuleInstanceFromType = new GetModuleInstanceFromType({
-        moduleDefinitions: getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions:
+            getModulesDefinitionFromIntegrationClasses(integrationClasses),
     });
 
     const getEntityOptionsByType = new GetEntityOptionsByType({
-        moduleDefinitions: getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions:
+            getModulesDefinitionFromIntegrationClasses(integrationClasses),
     });
 
     const testModuleAuth = new TestModuleAuth({
         moduleRepository,
-        moduleDefinitions: getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions:
+            getModulesDefinitionFromIntegrationClasses(integrationClasses),
     });
 
     const getModule = new GetModule({
         moduleRepository,
-        moduleDefinitions: getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions:
+            getModulesDefinitionFromIntegrationClasses(integrationClasses),
     });
 
     const getEntityOptionsById = new GetEntityOptionsById({
         moduleRepository,
-        moduleDefinitions: getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions:
+            getModulesDefinitionFromIntegrationClasses(integrationClasses),
     });
 
     const refreshEntityOptions = new RefreshEntityOptions({
         moduleRepository,
-        moduleDefinitions: getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions:
+            getModulesDefinitionFromIntegrationClasses(integrationClasses),
     });
 
     const getPossibleIntegrations = new GetPossibleIntegrations({
@@ -116,7 +157,8 @@ function createIntegrationRouter() {
     const processAuthorizationCallback = new ProcessAuthorizationCallback({
         moduleRepository,
         credentialRepository,
-        moduleDefinitions: getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions:
+            getModulesDefinitionFromIntegrationClasses(integrationClasses),
     });
 
     const router = express();
@@ -157,8 +199,10 @@ function checkRequiredParams(params, requiredKeys) {
 
     if (missingKeys.length > 0) {
         throw Boom.badRequest(
-            `Missing Parameter${missingKeys.length === 1 ? '' : 's'
-            }: ${missingKeys.join(', ')} ${missingKeys.length === 1 ? 'is' : 'are'
+            `Missing Parameter${
+                missingKeys.length === 1 ? '' : 's'
+            }: ${missingKeys.join(', ')} ${
+                missingKeys.length === 1 ? 'is' : 'are'
             } required.`
         );
     }
@@ -194,7 +238,7 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
                     authorized: await getEntitiesForUser.execute(userId),
                 },
                 integrations: integrations,
-            }
+            };
 
             res.json(results);
         })
@@ -231,7 +275,11 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
             const userId = user.getId();
             const params = checkRequiredParams(req.body, ['config']);
 
-            const integration = await updateIntegration.execute(req.params.integrationId, userId, params.config);
+            const integration = await updateIntegration.execute(
+                req.params.integrationId,
+                userId,
+                params.config
+            );
             res.json(integration);
         })
     );
@@ -242,7 +290,10 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
                 req.headers.authorization
             );
             const params = checkRequiredParams(req.params, ['integrationId']);
-            await deleteIntegrationForUser.execute(params.integrationId, user.getId());
+            await deleteIntegrationForUser.execute(
+                params.integrationId,
+                user.getId()
+            );
             res.status(204).json({});
         })
     );
@@ -253,7 +304,10 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
                 req.headers.authorization
             );
             const params = checkRequiredParams(req.params, ['integrationId']);
-            const integration = await getIntegrationInstance.execute(params.integrationId, user.getId());
+            const integration = await getIntegrationInstance.execute(
+                params.integrationId,
+                user.getId()
+            );
             res.json(await integration.send('GET_CONFIG_OPTIONS'));
         })
     );
@@ -268,7 +322,10 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
                 const params = checkRequiredParams(req.params, [
                     'integrationId',
                 ]);
-                const integration = await getIntegrationInstance.execute(params.integrationId, user.getId());
+                const integration = await getIntegrationInstance.execute(
+                    params.integrationId,
+                    user.getId()
+                );
 
                 res.json(
                     await integration.send('REFRESH_CONFIG_OPTIONS', req.body)
@@ -281,7 +338,10 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
                 req.headers.authorization
             );
             const params = checkRequiredParams(req.params, ['integrationId']);
-            const integration = await getIntegrationInstance.execute(params.integrationId, user.getId());
+            const integration = await getIntegrationInstance.execute(
+                params.integrationId,
+                user.getId()
+            );
             res.json(await integration.send('GET_USER_ACTIONS', req.body));
         })
     );
@@ -297,7 +357,10 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
                     'integrationId',
                     'actionId',
                 ]);
-                const integration = await getIntegrationInstance.execute(params.integrationId, user.getId());
+                const integration = await getIntegrationInstance.execute(
+                    params.integrationId,
+                    user.getId()
+                );
 
                 res.json(
                     await integration.send('GET_USER_ACTION_OPTIONS', {
@@ -321,7 +384,10 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
                     'integrationId',
                     'actionId',
                 ]);
-                const integration = await getIntegrationInstance.execute(params.integrationId, user.getId());
+                const integration = await getIntegrationInstance.execute(
+                    params.integrationId,
+                    user.getId()
+                );
 
                 res.json(
                     await integration.send('REFRESH_USER_ACTION_OPTIONS', {
@@ -341,7 +407,10 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
                 'integrationId',
                 'actionId',
             ]);
-            const integration = await getIntegrationInstance.execute(params.integrationId, user.getId());
+            const integration = await getIntegrationInstance.execute(
+                params.integrationId,
+                user.getId()
+            );
             res.json(await integration.send(params.actionId, req.body));
         })
     );
@@ -357,7 +426,10 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
             }
 
             const params = checkRequiredParams(req.params, ['integrationId']);
-            const integration = await getIntegrationInstance.execute(params.integrationId, user.getId());
+            const integration = await getIntegrationInstance.execute(
+                params.integrationId,
+                user.getId()
+            );
 
             // We could perhaps augment router with dynamic options? Haven't decided yet, but here may be the place
 
@@ -376,7 +448,10 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
                 req.headers.authorization
             );
             const params = checkRequiredParams(req.params, ['integrationId']);
-            const instance = await getIntegrationInstance.execute(params.integrationId, user.getId());
+            const instance = await getIntegrationInstance.execute(
+                params.integrationId,
+                user.getId()
+            );
 
             if (!instance) {
                 throw Boom.notFound();
@@ -397,7 +472,6 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
         })
     );
 }
-
 
 /**
  * Sets up entity-related routes for the integration router
@@ -423,8 +497,12 @@ function setEntityRoutes(router, getUserFromBearerToken, useCases) {
             );
             const userId = user.getId();
             const params = checkRequiredParams(req.query, ['entityType']);
-            const module = await getModuleInstanceFromType.execute(userId, params.entityType);
-            const areRequirementsValid = module.validateAuthorizationRequirements();
+            const module = await getModuleInstanceFromType.execute(
+                userId,
+                params.entityType
+            );
+            const areRequirementsValid =
+                module.validateAuthorizationRequirements();
             if (!areRequirementsValid) {
                 throw new Error(
                     `Error: Entity of type ${params.entityType} requires a valid url`
@@ -446,7 +524,11 @@ function setEntityRoutes(router, getUserFromBearerToken, useCases) {
                 'data',
             ]);
 
-            const entityDetails = await processAuthorizationCallback.execute(userId, params.entityType, params.data);
+            const entityDetails = await processAuthorizationCallback.execute(
+                userId,
+                params.entityType,
+                params.data
+            );
 
             res.json(entityDetails);
         })
@@ -474,7 +556,10 @@ function setEntityRoutes(router, getUserFromBearerToken, useCases) {
                 throw Boom.badRequest('Invalid credential ID');
             }
 
-            const module = await getModuleInstanceFromType.execute(userId, params.entityType);
+            const module = await getModuleInstanceFromType.execute(
+                userId,
+                params.entityType
+            );
             const entityDetails = await module.getEntityDetails(
                 module.api,
                 null,
@@ -503,7 +588,10 @@ function setEntityRoutes(router, getUserFromBearerToken, useCases) {
             }
 
             const params = checkRequiredParams(req.query, ['entityType']);
-            const entityOptions = await getEntityOptionsByType.execute(userId, params.entityType);
+            const entityOptions = await getEntityOptionsByType.execute(
+                userId,
+                params.entityType
+            );
 
             res.json(entityOptions);
         })
@@ -545,10 +633,7 @@ function setEntityRoutes(router, getUserFromBearerToken, useCases) {
             );
             const userId = user.getId();
             const params = checkRequiredParams(req.params, ['entityId']);
-            const module = await getModule.execute(
-                params.entityId,
-                userId
-            );
+            const module = await getModule.execute(params.entityId, userId);
 
             res.json(module);
         })
@@ -560,11 +645,12 @@ function setEntityRoutes(router, getUserFromBearerToken, useCases) {
                 req.headers.authorization
             );
             const userId = user.getId();
-            const params = checkRequiredParams(req.params, [
-                'entityId',
-            ]);
+            const params = checkRequiredParams(req.params, ['entityId']);
 
-            const entityOptions = await getEntityOptionsById.execute(params.entityId, userId);
+            const entityOptions = await getEntityOptionsById.execute(
+                params.entityId,
+                userId
+            );
 
             res.json(entityOptions);
         })
@@ -576,9 +662,7 @@ function setEntityRoutes(router, getUserFromBearerToken, useCases) {
                 req.headers.authorization
             );
             const userId = user.getId();
-            const params = checkRequiredParams(req.params, [
-                'entityId',
-            ]);
+            const params = checkRequiredParams(req.params, ['entityId']);
             const updatedOptions = await refreshEntityOptions.execute(
                 params.entityId,
                 userId,

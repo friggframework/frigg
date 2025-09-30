@@ -1,24 +1,21 @@
 // Removed Integration wrapper - using IntegrationBase directly
-const { mapIntegrationClassToIntegrationDTO } = require('../utils/map-integration-dto');
+const {
+    mapIntegrationClassToIntegrationDTO,
+} = require('../utils/map-integration-dto');
 
 /**
  * Use case for updating a single integration by ID and user.
  * @class UpdateIntegration
  */
 class UpdateIntegration {
-
     /**
      * Creates a new UpdateIntegration instance.
      * @param {Object} params - Configuration parameters.
-     * @param {import('../integration-repository').IntegrationRepository} params.integrationRepository - Repository for integration data access
+     * @param {import('../repositories/integration-repository-interface').IntegrationRepositoryInterface} params.integrationRepository - Repository for integration data access
      * @param {Array<import('../integration').Integration>} params.integrationClasses - Array of available integration classes
      * @param {import('../../modules/module-factory').ModuleFactory} params.moduleFactory - Service for module instantiation and management
      */
-    constructor({
-        integrationRepository,
-        integrationClasses,
-        moduleFactory,
-    }) {
+    constructor({ integrationRepository, integrationClasses, moduleFactory }) {
         this.integrationRepository = integrationRepository;
         this.integrationClasses = integrationClasses;
         this.moduleFactory = moduleFactory;
@@ -35,19 +32,26 @@ class UpdateIntegration {
      */
     async execute(integrationId, userId, config) {
         // 1. Get integration record from repository
-        const integrationRecord = await this.integrationRepository.findIntegrationById(integrationId);
+        const integrationRecord =
+            await this.integrationRepository.findIntegrationById(integrationId);
 
         if (!integrationRecord) {
-            throw new Error(`No integration found by the ID of ${integrationId}`);
+            throw new Error(
+                `No integration found by the ID of ${integrationId}`
+            );
         }
 
         // 2. Get the correct Integration class by type
         const integrationClass = this.integrationClasses.find(
-            (integrationClass) => integrationClass.Definition.name === integrationRecord.config.type
+            (integrationClass) =>
+                integrationClass.Definition.name ===
+                integrationRecord.config.type
         );
 
         if (!integrationClass) {
-            throw new Error(`No integration class found for type: ${integrationRecord.config.type}`);
+            throw new Error(
+                `No integration class found for type: ${integrationRecord.config.type}`
+            );
         }
 
         if (integrationRecord.userId !== userId) {
@@ -55,7 +59,6 @@ class UpdateIntegration {
                 `Integration ${integrationId} does not belong to User ${userId}`
             );
         }
-
 
         // 3. Load modules based on entity references
         const modules = [];
@@ -76,9 +79,8 @@ class UpdateIntegration {
             status: integrationRecord.status,
             version: integrationRecord.version,
             messages: integrationRecord.messages,
-            modules
+            modules,
         });
-
 
         // 6. Complete async initialization (load dynamic actions, register handlers)
         await integrationInstance.initialize();
@@ -88,4 +90,4 @@ class UpdateIntegration {
     }
 }
 
-module.exports = { UpdateIntegration }; 
+module.exports = { UpdateIntegration };

@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const SyncObject = require('./sync');
 const { debug } = require('packages/logs');
 const { get } = require('../assertions');
-const { SyncRepository } = require('./sync-repository');
+const { createSyncRepository } = require('./sync-repository-factory');
 
 class SyncManager {
     constructor(params) {
@@ -31,7 +31,7 @@ class SyncManager {
         );
 
         this.integration = get(params, 'integration', null); // TODO Change to type validation
-        this.syncRepository = new SyncRepository();
+        this.syncRepository = createSyncRepository();
     }
 
     // calls getAllSyncObjects() on the modules and then finds the difference between each. The Primary Module

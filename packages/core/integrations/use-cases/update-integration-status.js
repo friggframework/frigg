@@ -6,7 +6,7 @@ class UpdateIntegrationStatus {
     /**
      * Creates a new UpdateIntegrationStatus instance.
      * @param {Object} params - Configuration parameters.
-     * @param {import('../integration-repository').IntegrationRepository} params.integrationRepository - Repository for integration data operations.
+     * @param {import('../repositories/integration-repository-interface').IntegrationRepositoryInterface} params.integrationRepository - Repository for integration data operations.
      */
     constructor({ integrationRepository }) {
         this.integrationRepository = integrationRepository;
@@ -20,7 +20,11 @@ class UpdateIntegrationStatus {
      * @returns {Promise<Object>} The updated integration record.
      */
     async execute(integrationId, status) {
-        const integration = await this.integrationRepository.updateIntegrationStatus(integrationId, status);
+        const integration =
+            await this.integrationRepository.updateIntegrationStatus(
+                integrationId,
+                status
+            );
         return integration;
     }
 }

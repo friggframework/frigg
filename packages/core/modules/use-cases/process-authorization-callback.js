@@ -4,8 +4,8 @@ const { ModuleConstants } = require('../ModuleConstants');
 class ProcessAuthorizationCallback {
     /**
      * @param {Object} params - Configuration parameters.
-     * @param {import('../module-repository').ModuleRepository} params.moduleRepository - Repository for module data operations.
-     * @param {import('../../credential/credential-repository').CredentialRepository} params.credentialRepository - Repository for credential data operations.
+     * @param {import('../repositories/module-repository-factory').ModuleRepositoryInterface} params.moduleRepository - Repository for module data operations.
+     * @param {import('../../credential/repositories/credential-repository-factory').CredentialRepositoryInterface} params.credentialRepository - Repository for credential data operations.
      * @param {Array<Object>} params.moduleDefinitions - Array of module definitions.
      */
     constructor({ moduleRepository, credentialRepository, moduleDefinitions }) {
@@ -36,9 +36,16 @@ class ProcessAuthorizationCallback {
 
         let tokenResponse;
         if (module.apiClass.requesterType === ModuleConstants.authType.oauth2) {
-            tokenResponse = await moduleDefinition.requiredAuthMethods.getToken(module.api, params);
+            tokenResponse = await moduleDefinition.requiredAuthMethods.getToken(
+                module.api,
+                params
+            );
         } else {
-            tokenResponse = await moduleDefinition.requiredAuthMethods.setAuthParams(module.api, params);
+            tokenResponse =
+                await moduleDefinition.requiredAuthMethods.setAuthParams(
+                    module.api,
+                    params
+                );
             await this.onTokenUpdate(module, moduleDefinition, userId);
         }
 
@@ -47,19 +54,24 @@ class ProcessAuthorizationCallback {
             throw new Error('Authorization failed');
         }
 
-        const entityDetails = await moduleDefinition.requiredAuthMethods.getEntityDetails(
-            module.api,
-            params,
-            tokenResponse,
-            userId
-        );
+        const entityDetails =
+            await moduleDefinition.requiredAuthMethods.getEntityDetails(
+                module.api,
+                params,
+                tokenResponse,
+                userId
+            );
 
         Object.assign(
             entityDetails.details,
             module.apiParamsFromEntity(module.api)
         );
 
-        const persistedEntity = await this.findOrCreateEntity(entityDetails, entityType, module.credential.id);
+        const persistedEntity = await this.findOrCreateEntity(
+            entityDetails,
+            entityType,
+            module.credential.id
+        );
 
         return {
             credential_id: module.credential.id,
@@ -69,10 +81,11 @@ class ProcessAuthorizationCallback {
     }
 
     async onTokenUpdate(module, moduleDefinition, userId) {
-        const credentialDetails = await moduleDefinition.requiredAuthMethods.getCredentialDetails(
-            module.api,
-            userId
-        );
+        const credentialDetails =
+            await moduleDefinition.requiredAuthMethods.getCredentialDetails(
+                module.api,
+                userId
+            );
 
         Object.assign(
             credentialDetails.details,
@@ -100,7 +113,7 @@ class ProcessAuthorizationCallback {
             ...identifiers,
             ...details,
             moduleName: moduleName,
-            credential: credentialId
+            credential: credentialId,
         });
     }
 }

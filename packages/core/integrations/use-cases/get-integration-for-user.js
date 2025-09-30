@@ -10,15 +10,15 @@ class GetIntegrationForUser {
     /**
      * Creates a new GetIntegrationForUser instance.
      * @param {Object} params - Configuration parameters.
-     * @param {import('../integration-repository').IntegrationRepository} params.integrationRepository - Repository for integration data operations.
+     * @param {import('../integration-repository-interface').IntegrationRepositoryInterface} params.integrationRepository - Repository for integration data operations.
      * @param {Array<import('../integration').Integration>} params.integrationClasses - Array of available integration classes.
      * @param {import('../../modules/module-factory').ModuleFactory} params.moduleFactory - Service for module instantiation and management.
-     * @param {import('../../modules/module-repository').ModuleRepository} params.moduleRepository - Repository for module and entity data operations.
+     * @param {import('../../modules/module-repository-interface').ModuleRepositoryInterface} params.moduleRepository - Repository for module and entity data operations.
      */
     constructor({ integrationRepository, integrationClasses, moduleFactory, moduleRepository }) {
 
         /**
-         * @type {import('../integration-repository').IntegrationRepository}
+         * @type {import('../integration-repository-interface').IntegrationRepositoryInterface}
          */
         this.integrationRepository = integrationRepository;
         this.integrationClasses = integrationClasses;
