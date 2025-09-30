@@ -1,11 +1,26 @@
 const { Router } = require('express');
-const mongoose = require('mongoose');
 const https = require('https');
 const http = require('http');
 const { moduleFactory, integrationFactory } = require('./../backend-utils');
 const { createAppHandler } = require('./../app-handler-helpers');
+const {
+    HealthCheckRepository,
+} = require('../../database/health-check-repository');
+const {
+    TestEncryptionUseCase,
+} = require('../../database/use-cases/test-encryption-use-case');
+const {
+    CheckDatabaseHealthUseCase,
+} = require('../../database/use-cases/check-database-health-use-case');
 
 const router = Router();
+const healthCheckRepository = new HealthCheckRepository();
+const testEncryptionUseCase = new TestEncryptionUseCase({
+    healthCheckRepository,
+});
+const checkDatabaseHealthUseCase = new CheckDatabaseHealthUseCase({
+    healthCheckRepository,
+});
 
 const validateApiKey = (req, res, next) => {
     const apiKey = req.headers['x-api-key'];
@@ -73,35 +88,11 @@ const checkExternalAPI = (url, timeout = 5000) => {
 };
 
 const getDatabaseState = () => {
-    const stateMap = {
-        0: 'disconnected',
-        1: 'connected',
-        2: 'connecting',
-        3: 'disconnecting',
-    };
-    const readyState = mongoose.connection.readyState;
-
-    return {
-        readyState,
-        stateName: stateMap[readyState],
-        isConnected: readyState === 1,
-    };
+    return healthCheckRepository.getDatabaseConnectionState();
 };
 
 const checkDatabaseHealth = async () => {
-    const { stateName, isConnected } = getDatabaseState();
-    const result = {
-        status: isConnected ? 'healthy' : 'unhealthy',
-        state: stateName,
-    };
-
-    if (isConnected) {
-        const pingStart = Date.now();
-        await mongoose.connection.db.admin().ping({ maxTimeMS: 2000 });
-        result.responseTime = Date.now() - pingStart;
-    }
-
-    return result;
+    return await checkDatabaseHealthUseCase.execute();
 };
 
 const getEncryptionConfiguration = () => {
@@ -126,167 +117,6 @@ const getEncryptionConfiguration = () => {
         hasKMS,
         mode,
     };
-};
-
-const createTestEncryptionModel = () => {
-    const { Encrypt } = require('./../../encrypt');
-
-    const testSchema = new mongoose.Schema(
-        {
-            testSecret: { type: String, lhEncrypt: true },
-            normalField: { type: String },
-            nestedSecret: {
-                value: { type: String, lhEncrypt: true },
-            },
-        },
-        { timestamps: false }
-    );
-
-    testSchema.plugin(Encrypt);
-
-    return (
-        mongoose.models.TestEncryption ||
-        mongoose.model('TestEncryption', testSchema)
-    );
-};
-
-const verifyDecryption = (retrievedDoc, originalData) => {
-    return (
-        retrievedDoc &&
-        retrievedDoc.testSecret === originalData.testSecret &&
-        retrievedDoc.normalField === originalData.normalField &&
-        retrievedDoc.nestedSecret?.value === originalData.nestedSecret.value
-    );
-};
-
-const verifyEncryptionInDatabase = async (testDoc, originalData, TestModel) => {
-    const collectionName = TestModel.collection.name;
-    const rawDoc = await mongoose.connection.db
-        .collection(collectionName)
-        .findOne({ _id: testDoc._id });
-
-    const secretIsEncrypted =
-        rawDoc &&
-        typeof rawDoc.testSecret === 'string' &&
-        rawDoc.testSecret.includes(':') &&
-        rawDoc.testSecret !== originalData.testSecret;
-
-    const nestedIsEncrypted =
-        rawDoc?.nestedSecret?.value &&
-        typeof rawDoc.nestedSecret.value === 'string' &&
-        rawDoc.nestedSecret.value.includes(':') &&
-        rawDoc.nestedSecret.value !== originalData.nestedSecret.value;
-
-    const normalNotEncrypted =
-        rawDoc && rawDoc.normalField === originalData.normalField;
-
-    return {
-        secretIsEncrypted,
-        nestedIsEncrypted,
-        normalNotEncrypted,
-    };
-};
-
-const evaluateEncryptionTestResults = (decryptionWorks, encryptionResults) => {
-    const { secretIsEncrypted, nestedIsEncrypted, normalNotEncrypted } =
-        encryptionResults;
-
-    if (
-        decryptionWorks &&
-        secretIsEncrypted &&
-        nestedIsEncrypted &&
-        normalNotEncrypted
-    ) {
-        return {
-            status: 'enabled',
-            testResult: 'Encryption and decryption verified successfully',
-        };
-    }
-
-    if (decryptionWorks && (!secretIsEncrypted || !nestedIsEncrypted)) {
-        return {
-            status: 'unhealthy',
-            testResult: 'Fields are not being encrypted in database',
-        };
-    }
-
-    if (decryptionWorks && !normalNotEncrypted) {
-        return {
-            status: 'unhealthy',
-            testResult: 'Normal fields are being incorrectly encrypted',
-        };
-    }
-
-    return {
-        status: 'unhealthy',
-        testResult: 'Decryption failed or data mismatch',
-    };
-};
-
-const withTimeout = (promise, ms, errorMessage) => {
-    return Promise.race([
-        promise,
-        new Promise((_, reject) =>
-            setTimeout(() => reject(new Error(errorMessage)), ms)
-        ),
-    ]);
-};
-
-const testEncryption = async () => {
-    // eslint-disable-next-line no-console
-    console.log('Starting encryption test');
-    const TestModel = createTestEncryptionModel();
-    // eslint-disable-next-line no-console
-    console.log('Test model created');
-
-    const testData = {
-        testSecret: 'This is a secret value that should be encrypted',
-        normalField: 'This is a normal field that should not be encrypted',
-        nestedSecret: {
-            value: 'This is a nested secret that should be encrypted',
-        },
-    };
-
-    const testDoc = new TestModel(testData);
-    await withTimeout(testDoc.save(), 5000, 'Save operation timed out');
-    // eslint-disable-next-line no-console
-    console.log('Test document saved');
-
-    try {
-        const retrievedDoc = await withTimeout(
-            TestModel.findById(testDoc._id),
-            5000,
-            'Find operation timed out'
-        );
-        // eslint-disable-next-line no-console
-        console.log('Test document retrieved');
-        const decryptionWorks = verifyDecryption(retrievedDoc, testData);
-        const encryptionResults = await withTimeout(
-            verifyEncryptionInDatabase(testDoc, testData, TestModel),
-            5000,
-            'Database verification timed out'
-        );
-        // eslint-disable-next-line no-console
-        console.log('Encryption verification completed');
-
-        const evaluation = evaluateEncryptionTestResults(
-            decryptionWorks,
-            encryptionResults
-        );
-
-        return {
-            ...evaluation,
-            encryptionWorks: decryptionWorks,
-        };
-    } finally {
-        await withTimeout(
-            TestModel.deleteOne({ _id: testDoc._id }),
-            5000,
-            'Delete operation timed out'
-        );
-        // eslint-disable-next-line no-console
-        console.log('Test document deleted');
-    }
 };
 
 const checkEncryptionHealth = async () => {
@@ -318,7 +148,11 @@ const checkEncryptionHealth = async () => {
     }
 
     try {
-        const testResults = await testEncryption();
+        // eslint-disable-next-line no-console
+        console.log('Starting encryption test');
+        const testResults = await testEncryptionUseCase.execute();
+        // eslint-disable-next-line no-console
+        console.log('Encryption test completed');
 
         return {
             ...testResults,
@@ -733,8 +567,7 @@ router.get('/health/detailed', async (_req, res) => {
 
     try {
         response.checks.database = await checkDatabaseHealth();
-        const dbState = getDatabaseState();
-        if (!dbState.isConnected) {
+        if (response.checks.database.status === 'unhealthy') {
             response.status = 'unhealthy';
         }
         // eslint-disable-next-line no-console
@@ -814,8 +647,8 @@ router.get('/health/live', (_req, res) => {
 });
 
 router.get('/health/ready', async (_req, res) => {
-    const dbState = getDatabaseState();
-    const isDbReady = dbState.isConnected;
+    const dbHealth = await checkDatabaseHealth();
+    const isDbReady = dbHealth.status === 'healthy';
 
     let areModulesReady = false;
     try {

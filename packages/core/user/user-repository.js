@@ -1,4 +1,4 @@
-const { Token } = require('../database/models/Token');
+const { TokenRepository } = require('../database/token-repository');
 const { IndividualUser } = require('../database/models/IndividualUser');
 const { OrganizationUser } = require('../database/models/OrganizationUser');
 
@@ -9,15 +9,15 @@ class UserRepository {
     constructor({ userConfig }) {
         this.IndividualUser = IndividualUser;
         this.OrganizationUser = OrganizationUser;
-        this.Token = Token;
+        this.tokenRepository = new TokenRepository();
         this.userConfig = userConfig;
     }
 
     async getSessionToken(token) {
         const jsonToken =
-            this.Token.getJSONTokenFromBase64BufferToken(token);
+            this.tokenRepository.getJSONTokenFromBase64BufferToken(token);
         const sessionToken =
-            await this.Token.validateAndGetTokenFromJSONToken(jsonToken);
+            await this.tokenRepository.validateAndGetToken(jsonToken);
         return sessionToken;
     }
 
@@ -30,12 +30,12 @@ class UserRepository {
     }
 
     async createToken(userId, rawToken, minutes = 120) {
-        const createdToken = await this.Token.createTokenWithExpire(
+        const createdToken = await this.tokenRepository.createTokenWithExpire(
             userId,
             rawToken,
             minutes
         );
-        return this.Token.createBase64BufferToken(createdToken, rawToken);
+        return this.tokenRepository.createBase64BufferToken(createdToken, rawToken);
     }
 
     async createIndividualUser(params) {

@@ -238,3 +238,105 @@ await mongoose.connection.db.admin().ping({ maxTimeMS: 2000 });
 ## Environment Variables
 
 - `HEALTH_API_KEY`: Required API key for accessing detailed health endpoints
+
+## TODO: DDD/Hexagonal Architecture Refactoring
+
+### Current Architecture Issues
+
+The health router (health.js, 677 lines) currently violates DDD/Hexagonal Architecture principles:
+
+**✅ What's Good:**
+- Database access properly abstracted through `HealthCheckRepository`
+- `CheckDatabaseHealthUseCase` and `TestEncryptionUseCase` correctly implement use case pattern
+- All tests passing, no breaking changes
+
+**❌ Architecture Violations:**
+1. **Handler contains significant business logic** - Functions like `getEncryptionConfiguration()`, `checkEncryptionHealth()`, `checkKmsDecryptCapability()`, `detectVpcConfiguration()`, `checkExternalAPIs()`, and `checkIntegrations()` contain business logic that should be in use cases
+2. **Direct infrastructure dependencies** - Handler directly uses `https`, `http`, Node.js `dns`, and factory modules instead of accessing through repositories
+3. **Mixed concerns** - Single file handles HTTP routing, business logic, infrastructure detection, and response formatting
+4. **Violates dependency rule** - Handler should only call use cases, never repositories or contain business logic
+
+### Proposed Refactoring Plan
+
+#### Priority 1: Extract Core Health Check Use Cases (Immediate)
+
+**New Use Cases:**
+1. `CheckEncryptionHealthUseCase` - Orchestrate encryption testing with configuration checks (from health.js:122-181)
+2. `CheckKmsConnectivityUseCase` - Test KMS decrypt capability (from health.js:339-490)
+3. `DetectNetworkConfigurationUseCase` - VPC and network detection (from health.js:244-336)
+
+**New Repositories:**
+1. `EncryptionConfigRepository` - Get encryption mode, bypass rules (from health.js:98-120)
+2. `KmsRepository` - KMS connectivity testing, decrypt capability checks
+3. `NetworkRepository` - DNS resolution, VPC detection, TCP connectivity tests
+
+#### Priority 2: Extract External Service Checks
+
+**New Use Cases:**
+4. `CheckExternalServicesUseCase` - Check external API availability (from health.js:183-209)
+
+**New Repositories:**
+4. `ExternalServiceRepository` - HTTP-based service health checking with timeout handling
+
+#### Priority 3: Extract Integration Checks
+
+**New Use Cases:**
+5. `CheckIntegrationAvailabilityUseCase` - Verify integrations and modules loaded (from health.js:211-231)
+
+**Extend Existing:**
+- Add `getAvailableIntegrations()` and `getAvailableModules()` methods to existing `IntegrationRepository`
+
+### Architectural Principles to Follow
+
+**The Handler Should Only:**
+- Define routes
+- Call use cases
+- Map use case results to HTTP responses
+- Handle HTTP-specific concerns (status codes, headers)
+
+**The Rule:**
+> "Handlers (adapters) should only call use cases, never repositories or business logic directly"
+
+**Dependency Direction:**
+```
+Handler (Adapter Layer)
+  ↓ calls
+Use Cases (Application Layer)
+  ↓ calls
+Repositories (Infrastructure Layer)
+  ↓ calls
+External Systems (Database, APIs, AWS Services)
+```
+
+### Expected Outcome
+
+- Reduce health.js from **677 lines to ~100-150 lines**
+- All business logic moved to use cases
+- All infrastructure access moved to repositories
+- Handler becomes thin HTTP adapter
+- Improved testability (use cases testable without HTTP context)
+- Better reusability (use cases usable in CLI tools, background jobs, etc.)
+
+### Implementation Status
+
+- [ ] P1: Extract `CheckEncryptionHealthUseCase`
+- [ ] P1: Create `EncryptionConfigRepository`
+- [ ] P1: Extract `CheckKmsConnectivityUseCase`
+- [ ] P1: Create `KmsRepository`
+- [ ] P1: Extract `DetectNetworkConfigurationUseCase`
+- [ ] P1: Create `NetworkRepository`
+- [ ] P2: Extract `CheckExternalServicesUseCase`
+- [ ] P2: Create `ExternalServiceRepository`
+- [ ] P3: Extract `CheckIntegrationAvailabilityUseCase`
+- [ ] P3: Extend existing `IntegrationRepository`
+
+### Future Considerations (Optional)
+
+**Domain Models (Value Objects):**
+- `HealthCheckResult` - Overall health check result with status, checks, timestamp
+- `DatabaseHealth` - Database-specific health information
+- `EncryptionHealth` - Encryption-specific health information
+- `ServiceHealth` - Generic external service health
+- `NetworkConfiguration` - VPC and network detection results
+
+These would replace plain objects and provide type safety and business logic encapsulation.
