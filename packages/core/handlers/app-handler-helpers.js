@@ -3,6 +3,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const Boom = require('@hapi/boom');
+const loadUserManager = require('./routers/middleware/loadUser');
 const serverlessHttp = require('serverless-http');
 
 const createApp = (applyMiddleware) => {
@@ -18,6 +19,8 @@ const createApp = (applyMiddleware) => {
             credentials: true,
         })
     );
+
+    app.use(loadUserManager);
 
     if (applyMiddleware) applyMiddleware(app);
 
@@ -39,9 +42,13 @@ const createApp = (applyMiddleware) => {
     return app;
 };
 
-function createAppHandler(eventName, router, shouldUseDatabase = true) {
+function createAppHandler(eventName, router, shouldUseDatabase = true, basePath = null) {
     const app = createApp((app) => {
-        app.use(router);
+        if (basePath) {
+            app.use(basePath, router);
+        } else {
+            app.use(router);
+        }
     });
     return createHandler({
         eventName,
