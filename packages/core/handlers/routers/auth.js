@@ -1,17 +1,7 @@
 const { createIntegrationRouter } = require('@friggframework/core');
 const { createAppHandler } = require('./../app-handler-helpers');
-const { requireLoggedInUser } = require('./middleware/requireLoggedInUser');
-const {
-    moduleFactory,
-    integrationFactory,
-    IntegrationHelper,
-} = require('./../backend-utils');
 
-const router = createIntegrationRouter({
-    factory: { moduleFactory, integrationFactory, IntegrationHelper },
-    requireLoggedInUser,
-    getUserId: (req) => req.user.getUserId(),
-});
+const router = createIntegrationRouter();
 
 router.route('/redirect/:appId').get((req, res) => {
     res.redirect(
@@ -20,19 +10,6 @@ router.route('/redirect/:appId').get((req, res) => {
     );
 });
 
-// Integration settings endpoint
-router.route('/config/integration-settings').get(requireLoggedInUser, (req, res) => {
-    const appDefinition = global.appDefinition || {};
-
-    const settings = {
-        autoProvisioningEnabled: appDefinition.integration?.autoProvisioningEnabled ?? true,
-        credentialReuseStrategy: appDefinition.integration?.credentialReuseStrategy ?? 'shared',
-        allowUserManagedEntities: appDefinition.integration?.allowUserManagedEntities ?? true
-    };
-
-    res.json(settings);
-});
-
 const handler = createAppHandler('HTTP Event: Auth', router);
 
-module.exports = { handler, router };
+module.exports = { handler };
