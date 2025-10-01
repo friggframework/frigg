@@ -1,19 +1,21 @@
-const { ModuleRepository } = require('./module-repository');
+const { ModuleRepositoryMongo } = require('./module-repository-mongo');
+const { ModuleRepositoryPostgres } = require('./module-repository-postgres');
 
 /**
  * Module Repository Factory
  * Creates the appropriate repository adapter based on database type
  *
- * Note: Currently, Entity model has identical structure across MongoDB and PostgreSQL,
- * so this factory always returns ModuleRepository. This pattern is maintained for:
- * - Consistency with other repository factories
- * - Future-proofing if database-specific implementations become needed
- * - Unified API for repository instantiation across the codebase
+ * Database-specific implementations:
+ * - MongoDB: Uses String IDs (ObjectId), no conversion needed
+ * - PostgreSQL: Uses Int IDs, converts String ↔ Int
+ *
+ * All repository methods return String IDs regardless of database type,
+ * ensuring application layer consistency.
  *
  * Usage:
  * ```javascript
  * const repository = createModuleRepository();
- * const entity = await repository.findEntityById(id);
+ * const entity = await repository.findEntityById(id); // ID is string
  * ```
  *
  * @param {Object} [prismaClient] - Optional Prisma client for testing
@@ -22,14 +24,12 @@ const { ModuleRepository } = require('./module-repository');
 function createModuleRepository(prismaClient) {
     const dbType = process.env.DB_TYPE || 'mongodb';
 
-    // Currently, ModuleRepository works identically for both databases
-    // If database-specific logic is needed in the future, add cases here:
     switch (dbType) {
         case 'mongodb':
-            return new ModuleRepository(prismaClient);
+            return new ModuleRepositoryMongo(prismaClient);
 
         case 'postgresql':
-            return new ModuleRepository(prismaClient);
+            return new ModuleRepositoryPostgres(prismaClient);
 
         default:
             throw new Error(
@@ -40,6 +40,7 @@ function createModuleRepository(prismaClient) {
 
 module.exports = {
     createModuleRepository,
-    // Export adapter for direct testing
-    ModuleRepository,
+    // Export adapters for direct testing
+    ModuleRepositoryMongo,
+    ModuleRepositoryPostgres,
 };

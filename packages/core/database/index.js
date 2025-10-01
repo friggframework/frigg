@@ -1,3 +1,5 @@
+//todo: probably most of this file content can be removed
+
 /**
  * Database Module Index
  * Exports Mongoose models and connection utilities
@@ -11,11 +13,6 @@
  */
 
 const { mongoose } = require('./mongoose');
-const {
-    connectToDatabase,
-    disconnectFromDatabase,
-    createObjectId,
-} = require('./mongo');
 const { IndividualUser } = require('./models/IndividualUser');
 const { OrganizationUser } = require('./models/OrganizationUser');
 const { UserModel } = require('./models/UserModel');
@@ -30,9 +27,6 @@ const {
 
 module.exports = {
     mongoose,
-    connectToDatabase,
-    disconnectFromDatabase,
-    createObjectId,
     IndividualUser,
     OrganizationUser,
     UserModel,

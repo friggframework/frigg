@@ -12,6 +12,12 @@ const {
     FindIntegrationContextByExternalEntityIdUseCase,
 } = require('../../integrations/use-cases/find-integration-context-by-external-entity-id');
 const {
+    GetIntegrationsForUser,
+} = require('../../integrations/use-cases/get-integrations-for-user');
+const {
+    CreateIntegration,
+} = require('../../integrations/use-cases/create-integration');
+const {
     getModulesDefinitionFromIntegrationClasses,
 } = require('../../integrations/utils/map-integration-dto');
 
@@ -50,7 +56,7 @@ function createIntegrationCommands({ integrationClass } = {}) {
         moduleDefinitions,
     });
 
-    const loadUseCase = new LoadIntegrationContextUseCase({
+    const loadIntegrationContextUseCase = new LoadIntegrationContextUseCase({
         integrationRepository,
         moduleRepository,
         moduleFactory,
@@ -60,8 +66,21 @@ function createIntegrationCommands({ integrationClass } = {}) {
         new FindIntegrationContextByExternalEntityIdUseCase({
             integrationRepository,
             moduleRepository,
-            loadIntegrationContextUseCase: loadUseCase,
+            loadIntegrationContextUseCase: loadIntegrationContextUseCase,
         });
+
+    const getIntegrationsForUserUseCase = new GetIntegrationsForUser({
+        integrationRepository,
+        integrationClasses: [integrationClass],
+        moduleFactory,
+        moduleRepository,
+    });
+
+    const createIntegrationUseCase = new CreateIntegration({
+        integrationRepository,
+        integrationClasses: [integrationClass],
+        moduleFactory,
+    });
 
     return {
         async findIntegrationContextByExternalEntityId(externalEntityId) {
@@ -79,8 +98,46 @@ function createIntegrationCommands({ integrationClass } = {}) {
 
         async loadIntegrationContextById(integrationId) {
             try {
-                const context = await loadUseCase.execute({ integrationId });
+                const context = await loadIntegrationContextUseCase.execute({
+                    integrationId,
+                });
                 return { context };
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        /**
+         * Find all integrations for a user
+         * @param {string} userId - User ID to search for
+         * @returns {Promise<Array>} Array of integration records
+         */
+        async findIntegrationsByUserId(userId) {
+            try {
+                const integrations =
+                    await getIntegrationsForUserUseCase.execute(userId);
+                return integrations;
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        /**
+         * Create a new integration
+         * @param {Object} params
+         * @param {Array<string>} params.entityIds - Array of entity IDs
+         * @param {string} params.userId - User ID
+         * @param {Object} params.config - Integration configuration (must include type)
+         * @returns {Promise<Object>} Created integration object
+         */
+        async createIntegration({ entityIds, userId, config }) {
+            try {
+                const integration = await createIntegrationUseCase.execute(
+                    entityIds,
+                    userId,
+                    config
+                );
+                return integration;
             } catch (error) {
                 return mapErrorToResponse(error);
             }

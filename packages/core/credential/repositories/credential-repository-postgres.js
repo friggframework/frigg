@@ -4,36 +4,47 @@ const {
 } = require('./credential-repository-interface');
 
 /**
- * Prisma-based Credential Repository
- * Handles OAuth credentials and API tokens persistence
+ * PostgreSQL Credential Repository Adapter
+ * Handles OAuth credentials and API tokens persistence with PostgreSQL
  *
- * Works identically for both MongoDB and PostgreSQL:
- * - MongoDB: String IDs with @db.ObjectId
- * - PostgreSQL: Integer IDs with auto-increment
- * - Both use same query patterns (no many-to-many differences)
- *
- * Migration from Mongoose:
- * - Constructor injection of Prisma client
- * - Dynamic schema (strict: false) → JSON field (data)
- * - All OAuth tokens stored in data JSON field
- * - Mongoose field names → Prisma field names (user → userId)
+ * PostgreSQL-specific characteristics:
+ * - Uses Int IDs with autoincrement
+ * - Requires ID conversion: String (app layer) ↔ Int (database)
+ * - All returned IDs are converted to strings for application layer consistency
  */
-class CredentialRepository extends CredentialRepositoryInterface {
+class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
     constructor(prismaClient = prisma) {
         super();
         this.prisma = prismaClient; // Allow injection for testing
     }
 
     /**
+     * Convert string ID to integer for PostgreSQL queries
+     * @private
+     * @param {string|number|null|undefined} id - ID to convert
+     * @returns {number|null|undefined} Integer ID or null/undefined
+     * @throws {Error} If ID cannot be converted to integer
+     */
+    _convertId(id) {
+        if (id === null || id === undefined) return id;
+        const parsed = parseInt(id, 10);
+        if (isNaN(parsed)) {
+            throw new Error(`Invalid ID: ${id} cannot be converted to integer`);
+        }
+        return parsed;
+    }
+
+    /**
      * Find credential by ID
      * Replaces: Credential.findById(id)
      *
-     * @param {string} id - Credential ID
-     * @returns {Promise<Object|null>} Credential object or null
+     * @param {string} id - Credential ID (string from application layer)
+     * @returns {Promise<Object|null>} Credential object with string IDs or null
      */
     async findCredentialById(id) {
+        const intId = this._convertId(id);
         const credential = await this.prisma.credential.findUnique({
-            where: { id },
+            where: { id: intId },
         });
 
         if (!credential) {
@@ -44,10 +55,10 @@ class CredentialRepository extends CredentialRepositoryInterface {
         const data = credential.data || {};
 
         return {
-            _id: credential.id,
-            id: credential.id,
-            user: credential.userId,
-            userId: credential.userId,
+            _id: credential.id.toString(),
+            id: credential.id.toString(),
+            user: credential.userId?.toString(),
+            userId: credential.userId?.toString(),
             externalId: credential.externalId,
             auth_is_valid: credential.authIsValid,
             subType: credential.subType,
@@ -59,13 +70,14 @@ class CredentialRepository extends CredentialRepositoryInterface {
      * Update authentication status
      * Replaces: Credential.updateOne({ _id: credentialId }, { $set: { auth_is_valid: authIsValid } })
      *
-     * @param {string} credentialId - Credential ID
+     * @param {string} credentialId - Credential ID (string from application layer)
      * @param {boolean} authIsValid - Authentication validity status
      * @returns {Promise<Object>} Update result
      */
     async updateAuthenticationStatus(credentialId, authIsValid) {
+        const intId = this._convertId(credentialId);
         await this.prisma.credential.update({
-            where: { id: credentialId },
+            where: { id: intId },
             data: { authIsValid },
         });
 
@@ -76,13 +88,14 @@ class CredentialRepository extends CredentialRepositoryInterface {
      * Permanently remove a credential document
      * Replaces: Credential.deleteOne({ _id: credentialId })
      *
-     * @param {string} credentialId - Credential ID
+     * @param {string} credentialId - Credential ID (string from application layer)
      * @returns {Promise<Object>} Deletion result
      */
     async deleteCredentialById(credentialId) {
         try {
+            const intId = this._convertId(credentialId);
             await this.prisma.credential.delete({
-                where: { id: credentialId },
+                where: { id: intId },
             });
             return { acknowledged: true, deletedCount: 1 };
         } catch (error) {
@@ -99,14 +112,14 @@ class CredentialRepository extends CredentialRepositoryInterface {
      * Replaces: Credential.findOneAndUpdate(query, update, { upsert: true })
      *
      * @param {{identifiers: Object, details: Object}} credentialDetails
-     * @returns {Promise<Object>} The persisted credential
+     * @returns {Promise<Object>} The persisted credential with string IDs
      */
     async upsertCredential(credentialDetails) {
         const { identifiers, details } = credentialDetails;
         if (!identifiers)
             throw new Error('identifiers required to upsert credential');
 
-        // Build where clause from identifiers
+        // Build where clause from identifiers (converting IDs to Int)
         const where = this._convertIdentifiersToWhere(identifiers);
 
         // Separate schema fields from dynamic OAuth data
@@ -130,7 +143,7 @@ class CredentialRepository extends CredentialRepositoryInterface {
             const updated = await this.prisma.credential.update({
                 where: { id: existing.id },
                 data: {
-                    userId: userId || user || existing.userId,
+                    userId: this._convertId(userId || user || existing.userId),
                     externalId:
                         externalId !== undefined
                             ? externalId
@@ -147,9 +160,9 @@ class CredentialRepository extends CredentialRepositoryInterface {
             });
 
             return {
-                id: updated.id,
+                id: updated.id.toString(),
                 externalId: updated.externalId,
-                userId: updated.userId,
+                userId: updated.userId?.toString(),
                 auth_is_valid: updated.authIsValid,
                 ...(updated.data || {}),
             };
@@ -158,7 +171,7 @@ class CredentialRepository extends CredentialRepositoryInterface {
         // Create new credential
         const created = await this.prisma.credential.create({
             data: {
-                userId: userId || user,
+                userId: this._convertId(userId || user),
                 externalId,
                 authIsValid:
                     authIsValid !== undefined ? authIsValid : auth_is_valid,
@@ -168,9 +181,9 @@ class CredentialRepository extends CredentialRepositoryInterface {
         });
 
         return {
-            id: created.id,
+            id: created.id.toString(),
             externalId: created.externalId,
-            userId: created.userId,
+            userId: created.userId?.toString(),
             auth_is_valid: created.authIsValid,
             ...(created.data || {}),
         };
@@ -181,10 +194,10 @@ class CredentialRepository extends CredentialRepositoryInterface {
      * Replaces: Credential.findOne(query)
      *
      * @param {Object} filter
-     * @param {string} [filter.userId] - User ID
+     * @param {string} [filter.userId] - User ID (string from application layer)
      * @param {string} [filter.externalId] - External ID
-     * @param {string} [filter.credentialId] - Credential ID
-     * @returns {Promise<Object|null>} Credential object or null if not found
+     * @param {string} [filter.credentialId] - Credential ID (string from application layer)
+     * @returns {Promise<Object|null>} Credential object with string IDs or null if not found
      */
     async findCredential(filter) {
         const where = this._convertFilterToWhere(filter);
@@ -200,8 +213,8 @@ class CredentialRepository extends CredentialRepositoryInterface {
         const data = credential.data || {};
 
         return {
-            id: credential.id,
-            userId: credential.userId,
+            id: credential.id.toString(),
+            userId: credential.userId?.toString(),
             externalId: credential.externalId,
             auth_is_valid: credential.authIsValid,
             access_token: data.access_token,
@@ -215,14 +228,15 @@ class CredentialRepository extends CredentialRepositoryInterface {
      * Update a credential by ID
      * Replaces: Credential.findByIdAndUpdate(credentialId, { $set: updates })
      *
-     * @param {string} credentialId - Credential ID
+     * @param {string} credentialId - Credential ID (string from application layer)
      * @param {Object} updates - Fields to update
-     * @returns {Promise<Object|null>} Updated credential object or null if not found
+     * @returns {Promise<Object|null>} Updated credential object with string IDs or null if not found
      */
     async updateCredential(credentialId, updates) {
         // Get existing credential to merge OAuth data
+        const intId = this._convertId(credentialId);
         const existing = await this.prisma.credential.findUnique({
-            where: { id: credentialId },
+            where: { id: intId },
         });
 
         if (!existing) {
@@ -244,9 +258,9 @@ class CredentialRepository extends CredentialRepositoryInterface {
         const mergedData = { ...(existing.data || {}), ...oauthData };
 
         const updated = await this.prisma.credential.update({
-            where: { id: credentialId },
+            where: { id: intId },
             data: {
-                userId: userId || user || existing.userId,
+                userId: this._convertId(userId || user || existing.userId),
                 externalId:
                     externalId !== undefined ? externalId : existing.externalId,
                 authIsValid:
@@ -263,8 +277,8 @@ class CredentialRepository extends CredentialRepositoryInterface {
         const data = updated.data || {};
 
         return {
-            id: updated.id,
-            userId: updated.userId,
+            id: updated.id.toString(),
+            userId: updated.userId?.toString(),
             externalId: updated.externalId,
             auth_is_valid: updated.authIsValid,
             access_token: data.access_token,
@@ -275,18 +289,19 @@ class CredentialRepository extends CredentialRepositoryInterface {
     }
 
     /**
-     * Convert identifiers to Prisma where clause
+     * Convert identifiers to Prisma where clause (converting IDs to Int)
      * @private
      * @param {Object} identifiers - Identifier fields
-     * @returns {Object} Prisma where clause
+     * @returns {Object} Prisma where clause with Int IDs
      */
     _convertIdentifiersToWhere(identifiers) {
         const where = {};
 
-        if (identifiers._id) where.id = identifiers._id;
-        if (identifiers.id) where.id = identifiers.id;
-        if (identifiers.user) where.userId = identifiers.user;
-        if (identifiers.userId) where.userId = identifiers.userId;
+        if (identifiers._id) where.id = this._convertId(identifiers._id);
+        if (identifiers.id) where.id = this._convertId(identifiers.id);
+        if (identifiers.user) where.userId = this._convertId(identifiers.user);
+        if (identifiers.userId)
+            where.userId = this._convertId(identifiers.userId);
         if (identifiers.externalId) where.externalId = identifiers.externalId;
         if (identifiers.subType) where.subType = identifiers.subType;
 
@@ -294,18 +309,19 @@ class CredentialRepository extends CredentialRepositoryInterface {
     }
 
     /**
-     * Convert filter to Prisma where clause
+     * Convert filter to Prisma where clause (converting IDs to Int)
      * @private
      * @param {Object} filter - Filter criteria
-     * @returns {Object} Prisma where clause
+     * @returns {Object} Prisma where clause with Int IDs
      */
     _convertFilterToWhere(filter) {
         const where = {};
 
-        if (filter.credentialId) where.id = filter.credentialId;
-        if (filter.id) where.id = filter.id;
-        if (filter.user) where.userId = filter.user;
-        if (filter.userId) where.userId = filter.userId;
+        if (filter.credentialId)
+            where.id = this._convertId(filter.credentialId);
+        if (filter.id) where.id = this._convertId(filter.id);
+        if (filter.user) where.userId = this._convertId(filter.user);
+        if (filter.userId) where.userId = this._convertId(filter.userId);
         if (filter.externalId) where.externalId = filter.externalId;
         if (filter.subType) where.subType = filter.subType;
 
@@ -313,4 +329,4 @@ class CredentialRepository extends CredentialRepositoryInterface {
     }
 }
 
-module.exports = { CredentialRepository };
+module.exports = { CredentialRepositoryPostgres };

@@ -128,62 +128,34 @@ class IntegrationBase {
      * a `record` property plus a `modules` collection.
      * @param {Object} payload
      * @param {Object} [payload.record]
-     * @param {Array|Object} [payload.modules]
+     * @param {Array} [payload.modules]
      */
     setIntegrationRecord(payload = {}) {
         if (!payload || Object.keys(payload).length === 0) {
             throw new Error('setIntegrationRecord requires integration data');
         }
 
-        const record = payload.record ? payload.record : payload;
-        const modulesInput = payload.modules ?? record.modules;
+        const integrationRecord = payload.record;
+        const integrationModules = payload.modules ?? [];
 
-        if (!record) {
+        if (!integrationRecord) {
             throw new Error('Integration record not provided');
         }
 
         const { id, userId, entities, config, status, version, messages } =
-            record;
+            integrationRecord;
 
         this.id = id;
-        this.userId = userId || record.integrationId;
+        this.userId = userId;
         this.entities = entities;
         this.config = config;
         this.status = status;
         this.version = version;
         this.messages = messages || { errors: [], warnings: [] };
 
-        const existingModuleKeys = Object.keys(this.modules || {});
-        for (const key of existingModuleKeys) {
-            if (
-                Object.prototype.hasOwnProperty.call(this, key) &&
-                this[key] === this.modules[key]
-            ) {
-                delete this[key];
-            }
-        }
+        this.modules = this._appendModules(integrationModules);
 
-        this.modules = {};
-
-        if (modulesInput) {
-            const modulesArray = Array.isArray(modulesInput)
-                ? modulesInput
-                : Object.values(modulesInput);
-
-            for (const mod of modulesArray) {
-                if (!mod) continue;
-                const key =
-                    typeof mod.getName === 'function'
-                        ? mod.getName()
-                        : mod.name;
-                if (key) {
-                    this.modules[key] = mod;
-                    this[key] = mod;
-                }
-            }
-        }
-
-        this.integrationRecord = {
+        this.record = {
             id: this.id,
             userId: this.userId,
             entities: this.entities,
@@ -192,7 +164,6 @@ class IntegrationBase {
             version: this.version,
             messages: this.messages,
         };
-        this.record = this.integrationRecord;
 
         this._isHydrated = Boolean(this.id);
         return this;
@@ -206,6 +177,27 @@ class IntegrationBase {
         if (!this.isHydrated) {
             throw new Error(message);
         }
+    }
+
+    /**
+     * Returns the modules as object with keys as module names.
+     * @private
+     * @param {Array} integrationModules - Array of module instances
+     * @returns {Object} The modules object
+     */
+    _appendModules(integrationModules) {
+        const modules = {};
+        for (const module of integrationModules) {
+            const key =
+                typeof module.getName === 'function'
+                    ? module.getName()
+                    : module.name;
+            if (key) {
+                modules[key] = module;
+                this[key] = module;
+            }
+        }
+        return modules;
     }
 
     async validateConfig() {
@@ -264,7 +256,7 @@ class IntegrationBase {
     }
 
     async getMapping(sourceId) {
-        // todo: this should be a use case
+        // todo: not sure we should call the repository directly from here
         return this.integrationMappingRepository.findMappingBy(
             this.id,
             sourceId
@@ -275,7 +267,7 @@ class IntegrationBase {
         if (!sourceId) {
             throw new Error(`sourceId must be set`);
         }
-        // todo: this should be a use case
+        // todo: not sure we should call the repository directly from here
         return await this.integrationMappingRepository.upsertMapping(
             this.id,
             sourceId,

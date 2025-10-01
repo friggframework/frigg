@@ -4,21 +4,15 @@ const {
 } = require('./credential-repository-interface');
 
 /**
- * Prisma-based Credential Repository
- * Handles OAuth credentials and API tokens persistence
+ * MongoDB Credential Repository Adapter
+ * Handles OAuth credentials and API tokens persistence with MongoDB
  *
- * Works identically for both MongoDB and PostgreSQL:
- * - MongoDB: String IDs with @db.ObjectId
- * - PostgreSQL: Integer IDs with auto-increment
- * - Both use same query patterns (no many-to-many differences)
- *
- * Migration from Mongoose:
- * - Constructor injection of Prisma client
- * - Dynamic schema (strict: false) → JSON field (data)
- * - All OAuth tokens stored in data JSON field
- * - Mongoose field names → Prisma field names (user → userId)
+ * MongoDB-specific characteristics:
+ * - Uses String IDs (ObjectId)
+ * - No ID conversion needed (IDs are already strings)
+ * - Dynamic schema support via JSON field
  */
-class CredentialRepository extends CredentialRepositoryInterface {
+class CredentialRepositoryMongo extends CredentialRepositoryInterface {
     constructor(prismaClient = prisma) {
         super();
         this.prisma = prismaClient; // Allow injection for testing
@@ -313,4 +307,4 @@ class CredentialRepository extends CredentialRepositoryInterface {
     }
 }
 
-module.exports = { CredentialRepository };
+module.exports = { CredentialRepositoryMongo };

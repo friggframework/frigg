@@ -1,25 +1,19 @@
 const { prisma } = require('../../database/prisma');
 const {
-    TokenRepository,
-} = require('../../token/repositories/token-repository');
+    createTokenRepository,
+} = require('../../token/repositories/token-repository-factory');
 const { UserRepositoryInterface } = require('./user-repository-interface');
 
 /**
- * Prisma-based User Repository
+ * MongoDB User Repository Adapter
  * Handles user operations with discriminator pattern support
  *
- * Works identically for both MongoDB and PostgreSQL:
- * - MongoDB: String IDs with @db.ObjectId
- * - PostgreSQL: Integer IDs with auto-increment
- * - Both use same query patterns (no scalar arrays vs relations issue)
- *
- * Migration from Mongoose:
+ * MongoDB-specific characteristics:
+ * - Uses String IDs (ObjectId)
+ * - No ID conversion needed (IDs are already strings)
  * - IndividualUser/OrganizationUser discriminators → User model with type field
- * - type: INDIVIDUAL for IndividualUser, ORGANIZATION for OrganizationUser
- * - Discriminator-specific fields are nullable in schema
- * - TokenRepository dependency injected
  */
-class UserRepository extends UserRepositoryInterface {
+class UserRepositoryMongo extends UserRepositoryInterface {
     /**
      * @param {Object} config - Configuration object
      * @param {Object} config.userConfig - The user config in the app definition
@@ -30,7 +24,7 @@ class UserRepository extends UserRepositoryInterface {
         super();
         this.prisma = prismaClient;
         this.tokenRepository =
-            tokenRepository || new TokenRepository(prismaClient);
+            tokenRepository || createTokenRepository(prismaClient);
         this.userConfig = userConfig;
     }
 
@@ -39,7 +33,7 @@ class UserRepository extends UserRepositoryInterface {
      * Delegates to TokenRepository
      *
      * @param {string} token - Base64 buffer token
-     * @returns {Promise<Object>} Session token object
+     * @returns {Promise<Object>} Session token object with string IDs
      */
     async getSessionToken(token) {
         const jsonToken =
@@ -55,7 +49,7 @@ class UserRepository extends UserRepositoryInterface {
      * Replaces: OrganizationUser.findById(userId)
      *
      * @param {string} userId - User ID
-     * @returns {Promise<Object|null>} User object or null
+     * @returns {Promise<Object|null>} User object with string IDs or null
      */
     async findOrganizationUserById(userId) {
         return await this.prisma.user.findFirst({
@@ -71,7 +65,7 @@ class UserRepository extends UserRepositoryInterface {
      * Replaces: IndividualUser.findById(userId)
      *
      * @param {string} userId - User ID
-     * @returns {Promise<Object|null>} User object or null
+     * @returns {Promise<Object|null>} User object with string IDs or null
      */
     async findIndividualUserById(userId) {
         return await this.prisma.user.findFirst({
@@ -108,7 +102,7 @@ class UserRepository extends UserRepositoryInterface {
      * Replaces: IndividualUser.create(params)
      *
      * @param {Object} params - User creation parameters
-     * @returns {Promise<Object>} Created user object
+     * @returns {Promise<Object>} Created user object with string IDs
      */
     async createIndividualUser(params) {
         return await this.prisma.user.create({
@@ -128,7 +122,7 @@ class UserRepository extends UserRepositoryInterface {
      * Replaces: OrganizationUser.create(params)
      *
      * @param {Object} params - Organization creation parameters
-     * @returns {Promise<Object>} Created organization object
+     * @returns {Promise<Object>} Created organization object with string IDs
      */
     async createOrganizationUser(params) {
         return await this.prisma.user.create({
@@ -145,7 +139,7 @@ class UserRepository extends UserRepositoryInterface {
      * Replaces: IndividualUser.findOne({ username })
      *
      * @param {string} username - Username to search for
-     * @returns {Promise<Object|null>} User object or null
+     * @returns {Promise<Object|null>} User object with string IDs or null
      */
     async findIndividualUserByUsername(username) {
         return await this.prisma.user.findFirst({
@@ -161,7 +155,7 @@ class UserRepository extends UserRepositoryInterface {
      * Replaces: IndividualUser.getUserByAppUserId(appUserId)
      *
      * @param {string} appUserId - App user ID to search for
-     * @returns {Promise<Object|null>} User object or null
+     * @returns {Promise<Object|null>} User object with string IDs or null
      */
     async findIndividualUserByAppUserId(appUserId) {
         return await this.prisma.user.findFirst({
@@ -177,7 +171,7 @@ class UserRepository extends UserRepositoryInterface {
      * Replaces: OrganizationUser.getUserByAppOrgId(appOrgId)
      *
      * @param {string} appOrgId - App organization ID to search for
-     * @returns {Promise<Object|null>} User object or null
+     * @returns {Promise<Object|null>} User object with string IDs or null
      */
     async findOrganizationUserByAppOrgId(appOrgId) {
         return await this.prisma.user.findFirst({
@@ -191,7 +185,7 @@ class UserRepository extends UserRepositoryInterface {
     /**
      * Find user by ID (any type)
      * @param {string} userId - User ID
-     * @returns {Promise<Object|null>} User object or null
+     * @returns {Promise<Object|null>} User object with string IDs or null
      */
     async findUserById(userId) {
         return await this.prisma.user.findUnique({
@@ -202,7 +196,7 @@ class UserRepository extends UserRepositoryInterface {
     /**
      * Find individual user by email
      * @param {string} email - Email to search for
-     * @returns {Promise<Object|null>} User object or null
+     * @returns {Promise<Object|null>} User object with string IDs or null
      */
     async findIndividualUserByEmail(email) {
         return await this.prisma.user.findFirst({
@@ -217,7 +211,7 @@ class UserRepository extends UserRepositoryInterface {
      * Update individual user
      * @param {string} userId - User ID
      * @param {Object} updates - Fields to update
-     * @returns {Promise<Object>} Updated user object
+     * @returns {Promise<Object>} Updated user object with string IDs
      */
     async updateIndividualUser(userId, updates) {
         return await this.prisma.user.update({
@@ -230,7 +224,7 @@ class UserRepository extends UserRepositoryInterface {
      * Update organization user
      * @param {string} userId - User ID
      * @param {Object} updates - Fields to update
-     * @returns {Promise<Object>} Updated user object
+     * @returns {Promise<Object>} Updated user object with string IDs
      */
     async updateOrganizationUser(userId, updates) {
         return await this.prisma.user.update({
@@ -260,4 +254,4 @@ class UserRepository extends UserRepositoryInterface {
     }
 }
 
-module.exports = { UserRepository };
+module.exports = { UserRepositoryMongo };

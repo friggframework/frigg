@@ -290,7 +290,7 @@ enum AssociationType {
 
 /// Generic state storage
 model State {
-  id    Int   @id @default(autoincrement())
+  id    Int  @id @default(autoincrement())
   state Json?
 }
 

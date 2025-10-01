@@ -1,25 +1,19 @@
 const { prisma } = require('../../database/prisma');
 const {
-    TokenRepository,
-} = require('../../token/repositories/token-repository');
+    createTokenRepository,
+} = require('../../token/repositories/token-repository-factory');
 const { UserRepositoryInterface } = require('./user-repository-interface');
 
 /**
- * Prisma-based User Repository
+ * PostgreSQL User Repository Adapter
  * Handles user operations with discriminator pattern support
  *
- * Works identically for both MongoDB and PostgreSQL:
- * - MongoDB: String IDs with @db.ObjectId
- * - PostgreSQL: Integer IDs with auto-increment
- * - Both use same query patterns (no scalar arrays vs relations issue)
- *
- * Migration from Mongoose:
- * - IndividualUser/OrganizationUser discriminators → User model with type field
- * - type: INDIVIDUAL for IndividualUser, ORGANIZATION for OrganizationUser
- * - Discriminator-specific fields are nullable in schema
- * - TokenRepository dependency injected
+ * PostgreSQL-specific characteristics:
+ * - Uses Int IDs with autoincrement
+ * - Requires ID conversion: String (app layer) ↔ Int (database)
+ * - All returned IDs are converted to strings for application layer consistency
  */
-class UserRepository extends UserRepositoryInterface {
+class UserRepositoryPostgres extends UserRepositoryInterface {
     /**
      * @param {Object} config - Configuration object
      * @param {Object} config.userConfig - The user config in the app definition
@@ -30,8 +24,39 @@ class UserRepository extends UserRepositoryInterface {
         super();
         this.prisma = prismaClient;
         this.tokenRepository =
-            tokenRepository || new TokenRepository(prismaClient);
+            tokenRepository || createTokenRepository(prismaClient);
         this.userConfig = userConfig;
+    }
+
+    /**
+     * Convert string ID to integer for PostgreSQL queries
+     * @private
+     * @param {string|number|null|undefined} id - ID to convert
+     * @returns {number|null|undefined} Integer ID or null/undefined
+     * @throws {Error} If ID cannot be converted to integer
+     */
+    _convertId(id) {
+        if (id === null || id === undefined) return id;
+        const parsed = parseInt(id, 10);
+        if (isNaN(parsed)) {
+            throw new Error(`Invalid ID: ${id} cannot be converted to integer`);
+        }
+        return parsed;
+    }
+
+    /**
+     * Convert user object IDs to strings
+     * @private
+     * @param {Object|null} user - User object from database
+     * @returns {Object|null} User with string IDs
+     */
+    _convertUserIds(user) {
+        if (!user) return user;
+        return {
+            ...user,
+            id: user.id?.toString(),
+            organizationId: user.organizationId?.toString(),
+        };
     }
 
     /**
@@ -39,7 +64,7 @@ class UserRepository extends UserRepositoryInterface {
      * Delegates to TokenRepository
      *
      * @param {string} token - Base64 buffer token
-     * @returns {Promise<Object>} Session token object
+     * @returns {Promise<Object>} Session token object with string IDs
      */
     async getSessionToken(token) {
         const jsonToken =
@@ -54,39 +79,43 @@ class UserRepository extends UserRepositoryInterface {
      * Find organization user by ID
      * Replaces: OrganizationUser.findById(userId)
      *
-     * @param {string} userId - User ID
-     * @returns {Promise<Object|null>} User object or null
+     * @param {string} userId - User ID (string from application layer)
+     * @returns {Promise<Object|null>} User object with string IDs or null
      */
     async findOrganizationUserById(userId) {
-        return await this.prisma.user.findFirst({
+        const intId = this._convertId(userId);
+        const user = await this.prisma.user.findFirst({
             where: {
-                id: userId,
+                id: intId,
                 type: 'ORGANIZATION',
             },
         });
+        return this._convertUserIds(user);
     }
 
     /**
      * Find individual user by ID
      * Replaces: IndividualUser.findById(userId)
      *
-     * @param {string} userId - User ID
-     * @returns {Promise<Object|null>} User object or null
+     * @param {string} userId - User ID (string from application layer)
+     * @returns {Promise<Object|null>} User object with string IDs or null
      */
     async findIndividualUserById(userId) {
-        return await this.prisma.user.findFirst({
+        const intId = this._convertId(userId);
+        const user = await this.prisma.user.findFirst({
             where: {
-                id: userId,
+                id: intId,
                 type: 'INDIVIDUAL',
             },
         });
+        return this._convertUserIds(user);
     }
 
     /**
      * Create token with expiration
      * Delegates to TokenRepository
      *
-     * @param {string} userId - User ID
+     * @param {string} userId - User ID (string from application layer)
      * @param {string} rawToken - Raw unhashed token
      * @param {number} minutes - Minutes until expiration (default 120)
      * @returns {Promise<string>} Base64 buffer token
@@ -107,20 +136,23 @@ class UserRepository extends UserRepositoryInterface {
      * Create individual user
      * Replaces: IndividualUser.create(params)
      *
-     * @param {Object} params - User creation parameters
-     * @returns {Promise<Object>} Created user object
+     * @param {Object} params - User creation parameters (with string IDs from application layer)
+     * @returns {Promise<Object>} Created user object with string IDs
      */
     async createIndividualUser(params) {
-        return await this.prisma.user.create({
+        const user = await this.prisma.user.create({
             data: {
                 type: 'INDIVIDUAL',
                 email: params.email,
                 username: params.username,
                 hashword: params.hashword,
                 appUserId: params.appUserId,
-                organizationId: params.organization || params.organizationId,
+                organizationId: this._convertId(
+                    params.organization || params.organizationId
+                ),
             },
         });
+        return this._convertUserIds(user);
     }
 
     /**
@@ -128,16 +160,17 @@ class UserRepository extends UserRepositoryInterface {
      * Replaces: OrganizationUser.create(params)
      *
      * @param {Object} params - Organization creation parameters
-     * @returns {Promise<Object>} Created organization object
+     * @returns {Promise<Object>} Created organization object with string IDs
      */
     async createOrganizationUser(params) {
-        return await this.prisma.user.create({
+        const user = await this.prisma.user.create({
             data: {
                 type: 'ORGANIZATION',
                 appOrgId: params.appOrgId,
                 name: params.name,
             },
         });
+        return this._convertUserIds(user);
     }
 
     /**
@@ -145,15 +178,16 @@ class UserRepository extends UserRepositoryInterface {
      * Replaces: IndividualUser.findOne({ username })
      *
      * @param {string} username - Username to search for
-     * @returns {Promise<Object|null>} User object or null
+     * @returns {Promise<Object|null>} User object with string IDs or null
      */
     async findIndividualUserByUsername(username) {
-        return await this.prisma.user.findFirst({
+        const user = await this.prisma.user.findFirst({
             where: {
                 type: 'INDIVIDUAL',
                 username,
             },
         });
+        return this._convertUserIds(user);
     }
 
     /**
@@ -161,15 +195,16 @@ class UserRepository extends UserRepositoryInterface {
      * Replaces: IndividualUser.getUserByAppUserId(appUserId)
      *
      * @param {string} appUserId - App user ID to search for
-     * @returns {Promise<Object|null>} User object or null
+     * @returns {Promise<Object|null>} User object with string IDs or null
      */
     async findIndividualUserByAppUserId(appUserId) {
-        return await this.prisma.user.findFirst({
+        const user = await this.prisma.user.findFirst({
             where: {
                 type: 'INDIVIDUAL',
                 appUserId,
             },
         });
+        return this._convertUserIds(user);
     }
 
     /**
@@ -177,77 +212,97 @@ class UserRepository extends UserRepositoryInterface {
      * Replaces: OrganizationUser.getUserByAppOrgId(appOrgId)
      *
      * @param {string} appOrgId - App organization ID to search for
-     * @returns {Promise<Object|null>} User object or null
+     * @returns {Promise<Object|null>} User object with string IDs or null
      */
     async findOrganizationUserByAppOrgId(appOrgId) {
-        return await this.prisma.user.findFirst({
+        const user = await this.prisma.user.findFirst({
             where: {
                 type: 'ORGANIZATION',
                 appOrgId,
             },
         });
+        return this._convertUserIds(user);
     }
 
     /**
      * Find user by ID (any type)
-     * @param {string} userId - User ID
-     * @returns {Promise<Object|null>} User object or null
+     * @param {string} userId - User ID (string from application layer)
+     * @returns {Promise<Object|null>} User object with string IDs or null
      */
     async findUserById(userId) {
-        return await this.prisma.user.findUnique({
-            where: { id: userId },
+        const intId = this._convertId(userId);
+        const user = await this.prisma.user.findUnique({
+            where: { id: intId },
         });
+        return this._convertUserIds(user);
     }
 
     /**
      * Find individual user by email
      * @param {string} email - Email to search for
-     * @returns {Promise<Object|null>} User object or null
+     * @returns {Promise<Object|null>} User object with string IDs or null
      */
     async findIndividualUserByEmail(email) {
-        return await this.prisma.user.findFirst({
+        const user = await this.prisma.user.findFirst({
             where: {
                 type: 'INDIVIDUAL',
                 email,
             },
         });
+        return this._convertUserIds(user);
     }
 
     /**
      * Update individual user
-     * @param {string} userId - User ID
-     * @param {Object} updates - Fields to update
-     * @returns {Promise<Object>} Updated user object
+     * @param {string} userId - User ID (string from application layer)
+     * @param {Object} updates - Fields to update (with string IDs from application layer)
+     * @returns {Promise<Object>} Updated user object with string IDs
      */
     async updateIndividualUser(userId, updates) {
-        return await this.prisma.user.update({
-            where: { id: userId },
-            data: updates,
+        const intId = this._convertId(userId);
+
+        // Convert organizationId if present in updates
+        const data = { ...updates };
+        if (data.organizationId !== undefined) {
+            data.organizationId = this._convertId(data.organizationId);
+        }
+        if (data.organization !== undefined) {
+            data.organizationId = this._convertId(data.organization);
+            delete data.organization;
+        }
+
+        const user = await this.prisma.user.update({
+            where: { id: intId },
+            data,
         });
+        return this._convertUserIds(user);
     }
 
     /**
      * Update organization user
-     * @param {string} userId - User ID
+     * @param {string} userId - User ID (string from application layer)
      * @param {Object} updates - Fields to update
-     * @returns {Promise<Object>} Updated user object
+     * @returns {Promise<Object>} Updated user object with string IDs
      */
     async updateOrganizationUser(userId, updates) {
-        return await this.prisma.user.update({
-            where: { id: userId },
+        const intId = this._convertId(userId);
+        const user = await this.prisma.user.update({
+            where: { id: intId },
             data: updates,
         });
+        return this._convertUserIds(user);
     }
 
     /**
      * Delete user by ID
-     * @param {string} userId - User ID to delete
+     * @param {string} userId - User ID to delete (string from application layer)
      * @returns {Promise<boolean>} True if deleted successfully
      */
     async deleteUser(userId) {
         try {
+            const intId = this._convertId(userId);
             await this.prisma.user.delete({
-                where: { id: userId },
+                where: { id: intId },
             });
             return true;
         } catch (error) {
@@ -260,4 +315,4 @@ class UserRepository extends UserRepositoryInterface {
     }
 }
 
-module.exports = { UserRepository };
+module.exports = { UserRepositoryPostgres };

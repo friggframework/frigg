@@ -1,21 +1,25 @@
 const {
-    IntegrationMappingRepository,
-} = require('./integration-mapping-repository');
+    IntegrationMappingRepositoryMongo,
+} = require('./integration-mapping-repository-mongo');
+const {
+    IntegrationMappingRepositoryPostgres,
+} = require('./integration-mapping-repository-postgres');
 
 /**
  * Integration Mapping Repository Factory
  * Creates the appropriate repository adapter based on database type
  *
- * Note: Currently, IntegrationMapping model has identical structure across MongoDB and PostgreSQL,
- * so this factory always returns IntegrationMappingRepository. This pattern is maintained for:
- * - Consistency with other repository factories
- * - Future-proofing if database-specific implementations become needed
- * - Unified API for repository instantiation across the codebase
+ * Database-specific implementations:
+ * - MongoDB: Uses String IDs (ObjectId), no conversion needed
+ * - PostgreSQL: Uses Int IDs, converts String ↔ Int
+ *
+ * All repository methods return String IDs regardless of database type,
+ * ensuring application layer consistency.
  *
  * Usage:
  * ```javascript
  * const repository = createIntegrationMappingRepository();
- * const mapping = await repository.findMappingBy(integrationId, sourceId);
+ * const mapping = await repository.findMappingBy(integrationId, sourceId); // integrationId is string
  * ```
  *
  * @param {Object} [prismaClient] - Optional Prisma client for testing
@@ -24,14 +28,12 @@ const {
 function createIntegrationMappingRepository(prismaClient) {
     const dbType = process.env.DB_TYPE || 'mongodb';
 
-    // Currently, IntegrationMappingRepository works identically for both databases
-    // If database-specific logic is needed in the future, add cases here:
     switch (dbType) {
         case 'mongodb':
-            return new IntegrationMappingRepository(prismaClient);
+            return new IntegrationMappingRepositoryMongo(prismaClient);
 
         case 'postgresql':
-            return new IntegrationMappingRepository(prismaClient);
+            return new IntegrationMappingRepositoryPostgres(prismaClient);
 
         default:
             throw new Error(
@@ -42,6 +44,7 @@ function createIntegrationMappingRepository(prismaClient) {
 
 module.exports = {
     createIntegrationMappingRepository,
-    // Export adapter for direct testing
-    IntegrationMappingRepository,
+    // Export adapters for direct testing
+    IntegrationMappingRepositoryMongo,
+    IntegrationMappingRepositoryPostgres,
 };

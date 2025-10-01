@@ -1,4 +1,6 @@
-const { createUserRepository } = require('../../user/user-repository-factory');
+const {
+    createUserRepository,
+} = require('../../user/repositories/user-repository-factory');
 
 const ERROR_CODE_MAP = {
     USER_NOT_FOUND: 404,
@@ -53,7 +55,7 @@ function createUserCommands() {
                 );
 
                 return {
-                    id: user._id.toString(),
+                    id: user.id,
                     username: user.username,
                     email: user.email,
                     appUserId: user.appUserId,
@@ -93,7 +95,7 @@ function createUserCommands() {
                 }
 
                 return {
-                    id: user._id.toString(),
+                    id: user.id,
                     username: user.username,
                     email: user.email,
                     appUserId: user.appUserId,
@@ -125,7 +127,7 @@ function createUserCommands() {
                 }
 
                 return {
-                    id: user._id.toString(),
+                    id: user.id,
                     username: user.username,
                     email: user.email,
                     appUserId: user.appUserId,

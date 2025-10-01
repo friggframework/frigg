@@ -1,19 +1,21 @@
-const { TokenRepository } = require('./token-repository');
+const { TokenRepositoryMongo } = require('./token-repository-mongo');
+const { TokenRepositoryPostgres } = require('./token-repository-postgres');
 
 /**
  * Token Repository Factory
  * Creates the appropriate repository adapter based on database type
  *
- * Note: Currently, Token model has identical structure across MongoDB and PostgreSQL,
- * so this factory always returns TokenRepository. This pattern is maintained for:
- * - Consistency with other repository factories
- * - Future-proofing if database-specific implementations become needed
- * - Unified API for repository instantiation across the codebase
+ * Database-specific implementations:
+ * - MongoDB: Uses String IDs (ObjectId), no conversion needed
+ * - PostgreSQL: Uses Int IDs, converts String ↔ Int
+ *
+ * All repository methods return String IDs regardless of database type,
+ * ensuring application layer consistency.
  *
  * Usage:
  * ```javascript
  * const repository = createTokenRepository();
- * const token = await repository.createTokenWithExpire(userId, rawToken, 120);
+ * const token = await repository.createTokenWithExpire(userId, rawToken, 120); // userId is string
  * ```
  *
  * @param {Object} [prismaClient] - Optional Prisma client for testing
@@ -22,14 +24,12 @@ const { TokenRepository } = require('./token-repository');
 function createTokenRepository(prismaClient) {
     const dbType = process.env.DB_TYPE || 'mongodb';
 
-    // Currently, TokenRepository works identically for both databases
-    // If database-specific logic is needed in the future, add cases here:
     switch (dbType) {
         case 'mongodb':
-            return new TokenRepository(prismaClient);
+            return new TokenRepositoryMongo(prismaClient);
 
         case 'postgresql':
-            return new TokenRepository(prismaClient);
+            return new TokenRepositoryPostgres(prismaClient);
 
         default:
             throw new Error(
@@ -40,6 +40,7 @@ function createTokenRepository(prismaClient) {
 
 module.exports = {
     createTokenRepository,
-    // Export adapter for direct testing
-    TokenRepository,
+    // Export adapters for direct testing
+    TokenRepositoryMongo,
+    TokenRepositoryPostgres,
 };

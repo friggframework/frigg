@@ -42,7 +42,7 @@ class Module extends Delegate {
         const apiParams = {
             ...this.definition.env,
             delegate: this,
-            ...this.apiParamsFromCredential(this.credential),
+            ...this.apiParamsFromCredential(this.credential.data), // todo: check if this works for mongo as well
             ...this.apiParamsFromEntity(this.entity),
         };
         this.api = new this.apiClass(apiParams);

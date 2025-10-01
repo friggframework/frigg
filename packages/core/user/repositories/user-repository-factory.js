@@ -1,19 +1,21 @@
-const { UserRepository } = require('./user-repository');
+const { UserRepositoryMongo } = require('./user-repository-mongo');
+const { UserRepositoryPostgres } = require('./user-repository-postgres');
 
 /**
  * User Repository Factory
  * Creates the appropriate repository adapter based on database type
  *
- * Note: Currently, User model has identical structure across MongoDB and PostgreSQL,
- * so this factory always returns UserRepository. This pattern is maintained for:
- * - Consistency with other repository factories
- * - Future-proofing if database-specific implementations become needed
- * - Unified API for repository instantiation across the codebase
+ * Database-specific implementations:
+ * - MongoDB: Uses String IDs (ObjectId), no conversion needed
+ * - PostgreSQL: Uses Int IDs, converts String ↔ Int
+ *
+ * All repository methods return String IDs regardless of database type,
+ * ensuring application layer consistency.
  *
  * Usage:
  * ```javascript
  * const repository = createUserRepository({ userConfig: {} });
- * const user = await repository.findUserById(id);
+ * const user = await repository.findUserById(id); // ID is string
  * ```
  *
  * @param {Object} config - Repository configuration
@@ -25,14 +27,12 @@ const { UserRepository } = require('./user-repository');
 function createUserRepository(config) {
     const dbType = process.env.DB_TYPE || 'mongodb';
 
-    // Currently, UserRepository works identically for both databases
-    // If database-specific logic is needed in the future, add cases here:
     switch (dbType) {
         case 'mongodb':
-            return new UserRepository(config);
+            return new UserRepositoryMongo(config);
 
         case 'postgresql':
-            return new UserRepository(config);
+            return new UserRepositoryPostgres(config);
 
         default:
             throw new Error(
@@ -43,6 +43,7 @@ function createUserRepository(config) {
 
 module.exports = {
     createUserRepository,
-    // Export adapter for direct testing
-    UserRepository,
+    // Export adapters for direct testing
+    UserRepositoryMongo,
+    UserRepositoryPostgres,
 };
