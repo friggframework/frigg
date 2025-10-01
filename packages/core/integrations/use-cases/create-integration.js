@@ -32,24 +32,50 @@ class CreateIntegration {
      * @throws {Error} When integration class is not found for the specified type.
      */
     async execute(entities, userId, config) {
-        const integrationRecord =
-            await this.integrationRepository.createIntegration(
-                entities,
-                userId,
-                config
-            );
-
+        // Find integration class first to check for global entities
         const integrationClass = this.integrationClasses.find(
             (integrationClass) =>
-                integrationClass.Definition.name ===
-                integrationRecord.config.type
+                integrationClass.Definition.name === config.type
         );
 
         if (!integrationClass) {
             throw new Error(
-                `No integration class found for type: ${integrationRecord.config.type}`
+                `No integration class found for type: ${config.type}`
             );
         }
+
+        // Auto-include global entities if defined in integration
+        const allEntities = [...entities];
+
+        if (integrationClass.Definition?.entities) {
+            // Check for global entities that need to be auto-included
+            for (const [entityKey, entityConfig] of Object.entries(integrationClass.Definition.entities)) {
+                if (entityConfig.global === true) {
+                    // Find the global entity of this type using module repository
+                    const globalEntity = await this.moduleFactory.moduleRepository.findEntityBy({
+                        type: entityConfig.type,
+                        isGlobal: true,
+                        status: 'connected'
+                    });
+
+                    if (globalEntity) {
+                        console.log(`✅ Auto-including global entity: ${entityConfig.type} (${globalEntity._id})`);
+                        allEntities.push(globalEntity._id.toString());
+                    } else if (entityConfig.required !== false) {
+                        throw new Error(
+                            `Required global entity "${entityConfig.type}" not found. Admin must configure this entity first.`
+                        );
+                    }
+                }
+            }
+        }
+
+        const integrationRecord =
+            await this.integrationRepository.createIntegration(
+                allEntities,
+                userId,
+                config
+            );
 
         const modules = [];
         for (const entityId of integrationRecord.entitiesIds) {
