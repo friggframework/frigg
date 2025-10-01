@@ -1,29 +1,10 @@
-import IntegrationDropdown from "./IntegrationDropdown";
-import IntegrationHorizontal from "./IntegrationHorizontal";
-import IntegrationList from "./IntegrationList.jsx";
-import IntegrationSkeleton from "./IntegrationSkeleton.jsx";
-import IntegrationVertical from "./IntegrationVertical";
-import QuickActionsMenu from "./QuickActionsMenu";
-import RedirectFromAuth from "./RedirectFromAuth.jsx";
-import { Form } from "./Form";
-import {
-  FormBasedAuthModal,
-  IntegrationConfigurationModal,
-  UserActionModal,
-} from "./modals";
-import * as BaseComponents from "../components";
+// Export the custom hook
+export { useIntegrationLogic } from './hooks/useIntegrationLogic';
 
-export {
-  IntegrationDropdown,
-  IntegrationHorizontal,
-  IntegrationList,
-  IntegrationSkeleton,
-  IntegrationVertical,
-  QuickActionsMenu,
-  RedirectFromAuth,
-  Form,
-  FormBasedAuthModal,
-  IntegrationConfigurationModal,
-  UserActionModal,
-  BaseComponents,
-};
+// Export the layout components
+export { IntegrationHorizontalLayout } from './layouts/IntegrationHorizontalLayout';
+export { IntegrationVerticalLayout } from './layouts/IntegrationVerticalLayout';
+
+// Export the main components
+export { default as IntegrationHorizontal } from './IntegrationHorizontal';
+export { default as IntegrationVertical } from './IntegrationVertical';

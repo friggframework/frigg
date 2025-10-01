@@ -119,9 +119,20 @@ export default class API {
     return this._checkResponse(response, url);
   }
 
-  // get the list of integrations for this token
+  // BREAKING CHANGE: Now returns only user's installed integrations (array)
+  // Previously returned { integrations: [], entities: { options: [], authorized: [] } }
   async listIntegrations() {
     return this._get(this.endpointIntegrations);
+  }
+
+  // Get available integration types/options configured in the Frigg instance
+  async listIntegrationOptions() {
+    return this._get(`${this.endpointIntegrations}/options`);
+  }
+
+  // Get user's authorized entities/connected accounts
+  async listEntities() {
+    return this._get('/api/entities');
   }
 
   // get authorize url with the following params:
