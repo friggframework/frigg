@@ -43,7 +43,10 @@ const {
 const {
     IntegrationMappingRepository,
 } = require('./integrations/repositories/integration-mapping-repository');
-const { Cryptor } = require('./encrypt');
+const {
+    PrismaIntegrationRepository,
+} = require('./integrations/repositories/prisma-integration-repository');
+const { Cryptor, Encrypt } = require('./encrypt');
 const {
     BaseError,
     FetchError,
@@ -114,6 +117,10 @@ module.exports = {
     CredentialRepository,
     ModuleRepository,
     IntegrationMappingRepository,
+    PrismaIntegrationRepository,
+
+    // encrypt
+    Encrypt,
     Cryptor,
 
     // errors
