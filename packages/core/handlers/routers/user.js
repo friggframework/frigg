@@ -1,39 +1,54 @@
 const express = require('express');
 const { createAppHandler } = require('../app-handler-helpers');
 const { checkRequiredParams } = require('@friggframework/core');
-const { createUserRepository } = require('../../user/user-repository-factory');
-const {
-    CreateIndividualUser,
-} = require('../../user/use-cases/create-individual-user');
-const { LoginUser } = require('../../user/use-cases/login-user');
-const {
-    CreateTokenForUserId,
-} = require('../../user/use-cases/create-token-for-user-id');
+const { User } = require('../backend-utils');
 const catchAsyncError = require('express-async-handler');
-const { loadAppDefinition } = require('../app-definition-loader');
 
 const router = express();
-const { userConfig } = loadAppDefinition();
-const userRepository = createUserRepository({ userConfig });
-const createIndividualUser = new CreateIndividualUser({
-    userRepository,
-    userConfig,
-});
-const loginUser = new LoginUser({
-    userRepository,
-    userConfig,
-});
-const createTokenForUserId = new CreateTokenForUserId({ userRepository });
 
-// define the login endpoint
+// Admin API key middleware
+const validateAdminApiKey = (req, res, next) => {
+    // Allow access in local development (when NODE_ENV is not production)
+    if (process.env.NODE_ENV !== 'production') {
+        return next();
+    }
+
+    const apiKey = req.headers['x-api-key'];
+
+    if (!apiKey || apiKey !== process.env.ADMIN_API_KEY) {
+        console.error('Unauthorized access attempt to admin endpoint');
+        return res.status(401).json({
+            status: 'error',
+            message: 'Unauthorized - Admin API key required',
+        });
+    }
+
+    next();
+};
+
+// define the login endpoint (keeping /user/login for backward compatibility)
 router.route('/user/login').post(
     catchAsyncError(async (req, res) => {
         const { username, password } = checkRequiredParams(req.body, [
             'username',
             'password',
         ]);
-        const user = await loginUser.execute({ username, password });
-        const token = await createTokenForUserId.execute(user.getId(), 120);
+        const user = await User.loginUser({ username, password });
+        const token = await user.createUserToken(120);
+        res.status(201);
+        res.json({ token });
+    })
+);
+
+// RESTful login endpoint
+router.route('/users/login').post(
+    catchAsyncError(async (req, res) => {
+        const { username, password } = checkRequiredParams(req.body, [
+            'username',
+            'password',
+        ]);
+        const user = await User.loginUser({ username, password });
+        const token = await user.createUserToken(120);
         res.status(201);
         res.json({ token });
     })
@@ -45,16 +60,34 @@ router.route('/user/create').post(
             'username',
             'password',
         ]);
-
-        const user = await createIndividualUser.execute({
+        const user = await User.createIndividualUser({
             username,
             password,
         });
-        const token = await createTokenForUserId.execute(user.getId(), 120);
+        const token = await user.createUserToken(120);
         res.status(201);
         res.json({ token });
     })
 );
+
+// RESTful create endpoint
+router.route('/users').post(
+    catchAsyncError(async (req, res) => {
+        const { username, password } = checkRequiredParams(req.body, [
+            'username',
+            'password',
+        ]);
+        const user = await User.createIndividualUser({
+            username,
+            password,
+        });
+        const token = await user.createUserToken(120);
+        res.status(201);
+        res.json({ token });
+    })
+);
+
+// Admin endpoints moved to /api/admin/users in admin.js router
 
 const handler = createAppHandler('HTTP Event: User', router);
 
