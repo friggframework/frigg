@@ -122,6 +122,29 @@ router.get('/api/admin/users/search', catchAsyncError(async (req, res) => {
 }));
 
 /**
+ * GET /api/admin/users/:userId
+ * Get a specific user by ID
+ */
+router.get('/users/:userId', catchAsyncError(async (req, res) => {
+    const { userId } = req.params;
+
+    const user = await userRepository.findUserById(userId);
+
+    if (!user) {
+        return res.status(404).json({
+            status: 'error',
+            message: 'User not found'
+        });
+    }
+
+    // Remove sensitive fields
+    const userObj = user.toObject ? user.toObject() : user;
+    delete userObj.hashword;
+
+    res.json({ user: userObj });
+}));
+
+/**
  * POST /api/admin/users
  * Create a new user (admin only)
  * Admin-specific features:

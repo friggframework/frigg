@@ -36,8 +36,8 @@ router.route('/users/login').post(
             'username',
             'password',
         ]);
-        const user = await User.loginUser({ username, password });
-        const token = await user.createUserToken(120);
+        const user = await loginUser.execute({ username, password });
+        const token = await createTokenForUserId.execute(user.getId(), 120);
         res.status(201);
         res.json({ token });
     })
@@ -50,8 +50,8 @@ router.route('/users/login').post(
             'username',
             'password',
         ]);
-        const user = await User.loginUser({ username, password });
-        const token = await user.createUserToken(120);
+        const user = await loginUser.execute({ username, password });
+        const token = await createTokenForUserId.execute(user.getId(), 120);
         res.status(201);
         res.json({ token });
     })
@@ -68,7 +68,7 @@ router.route('/users').post(
             username,
             password,
         });
-        const token = await user.createUserToken(120);
+        const token = await createTokenForUserId.execute(user.getId(), 120);
         res.status(201);
         res.json({ token });
     })
