@@ -1,9 +1,18 @@
-import '@testing-library/jest-dom'
-import { beforeAll, afterEach, afterAll, vi } from 'vitest'
-import { cleanup } from '@testing-library/react'
-import { server } from './mocks/server'
+// Vitest setup file
+// This file runs before all tests
 
-// Mock matchMedia
+// Mock global browser APIs if needed
+global.IntersectionObserver = class IntersectionObserver {
+  constructor() {}
+  disconnect() {}
+  observe() {}
+  takeRecords() {
+    return []
+  }
+  unobserve() {}
+}
+
+// Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: vi.fn().mockImplementation(query => ({
@@ -18,44 +27,5 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 })
 
-// Mock ResizeObserver
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}))
-
-// Mock IntersectionObserver
-global.IntersectionObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}))
-
-// Mock localStorage
-const localStorageMock = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn(),
-}
-global.localStorage = localStorageMock
-
-// Mock socket.io-client
-vi.mock('socket.io-client', () => ({
-  io: vi.fn(() => ({
-    on: vi.fn(),
-    off: vi.fn(),
-    emit: vi.fn(),
-    connect: vi.fn(),
-    disconnect: vi.fn(),
-  })),
-}))
-
-// Setup MSW
-beforeAll(() => server.listen())
-afterEach(() => {
-  server.resetHandlers()
-  cleanup()
-})
-afterAll(() => server.close())
+// Export for tests that need it
+export {}
