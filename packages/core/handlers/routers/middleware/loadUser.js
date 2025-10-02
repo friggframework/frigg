@@ -3,7 +3,7 @@ const { GetUserFromBearerToken } = require('../../../user/use-cases/get-user-fro
 const {
     createUserRepository,
 } = require('../../../user/repositories/user-repository-factory');
-const { loadAppDefinition } = require('@friggframework/core');
+const { loadAppDefinition } = require('../../app-definition-loader');
 
 /**
  * Load user from bearer token middleware
