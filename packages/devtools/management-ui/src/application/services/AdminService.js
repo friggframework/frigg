@@ -90,6 +90,18 @@ class AdminService {
   }
 
   /**
+   * Delete a user by ID
+   * Validates ID and delegates to repository
+   */
+  async deleteUser(userId) {
+    if (!userId) {
+      throw new Error('User ID is required')
+    }
+
+    return await this.adminRepository.deleteUser(userId)
+  }
+
+  /**
    * List all global entities
    */
   async listGlobalEntities() {

@@ -142,6 +142,13 @@ export default class API {
     return this._get(url);
   }
 
+  // Simplified method for getting authorization requirements for a single entity type
+  // Used when connecting a new account during integration builder flow
+  async getAuthorizationRequirements(entityType) {
+    const url = `${this.endpointAuthorize}?entityType=${entityType}`;
+    return this._get(url);
+  }
+
   async authorize(entityType, authData) {
     const url = `${this.endpointAuthorize}`;
     const params = {

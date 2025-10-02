@@ -40,37 +40,43 @@ const TestAreaUserSelection = ({
       setLoading(true)
       setError(null)
 
-      // Call the management-ui API which proxies to Frigg admin API
-      const usersUrl = `${api.defaults.baseURL}/api/admin/users`
-      console.log('Loading users from management-ui admin API:', usersUrl)
+      // Call the Frigg app's admin API directly
+      const usersUrl = `${friggBaseUrl}/api/admin/users`
+      console.log('Loading users from Frigg admin API:', usersUrl)
 
-      const response = await api.get('/api/admin/users')
-      console.log('Admin users response:', response.data)
+      const response = await fetch(usersUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+
+      console.log('Admin users response status:', response.status)
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Failed to load users:', response.status, errorText)
+        throw new Error(`Failed to load users: ${response.status}`)
+      }
+
+      const data = await response.json()
+      console.log('Admin users response:', data)
 
       // Admin API returns { users: [...], pagination: {...} }
-      const usersData = response.data?.users || []
+      const usersData = data?.users || []
 
       // Populate users with org info if available
-      const usersWithOrg = await Promise.all(
-        usersData.map(async (user) => {
-          // If user has organizationUser reference, fetch org details
-          if (user.organizationUser) {
-            try {
-              // We'll need to add an endpoint to fetch org by ID
-              // For now, just include the org reference
-              return {
-                ...user,
-                orgId: user.organizationUser,
-                orgName: null // Will be populated when we add org fetch
-              }
-            } catch (err) {
-              console.warn('Could not load org for user:', user.username, err)
-              return user
-            }
+      const usersWithOrg = usersData.map((user) => {
+        // If user has organizationUser reference, include it
+        if (user.organizationUser) {
+          return {
+            ...user,
+            orgId: user.organizationUser,
+            orgName: null // Will be populated when we add org fetch
           }
-          return user
-        })
-      )
+        }
+        return user
+      })
 
       setUsers(usersWithOrg)
     } catch (err) {
@@ -86,33 +92,33 @@ const TestAreaUserSelection = ({
       setLoggingIn(true)
       setError(null)
 
-      console.log('Attempting to login user:', user.username || user.email, 'to:', friggBaseUrl)
+      console.log('Impersonating user:', user.username || user.email)
 
-      // Login to get JWT token (RESTful endpoint)
-      const loginUrl = `${friggBaseUrl}/users/login`
-      console.log('Login URL:', loginUrl)
+      // Use admin impersonation API to get token without password
+      const impersonateUrl = `${friggBaseUrl}/api/admin/users/${user.id}/impersonate`
+      console.log('Impersonation URL:', impersonateUrl)
 
-      const response = await fetch(loginUrl, {
+      const response = await fetch(impersonateUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          username: user.username || user.email,
-          password: 'defaultPassword123' // TODO: Handle password properly
+          expiresInMinutes: 120
         })
       })
 
-      console.log('Login response status:', response.status)
+      console.log('Impersonation response status:', response.status)
 
       if (!response.ok) {
-        const errorText = await response.text()
-        console.error('Login failed:', response.status, errorText)
-        throw new Error(`Failed to login user: ${response.status} - ${errorText}`)
+        const errorData = await response.json().catch(() => null)
+        const errorMessage = errorData?.message || `Impersonation failed: ${response.status}`
+        console.error('Impersonation failed:', errorMessage)
+        throw new Error(errorMessage)
       }
 
       const data = await response.json()
-      console.log('Login successful, token received:', data.token ? 'Yes' : 'No')
+      console.log('Impersonation successful, token received:', data.token ? 'Yes' : 'No')
 
       // Pass user and token to parent
       onUserSelected({
@@ -120,7 +126,7 @@ const TestAreaUserSelection = ({
         token: data.token
       })
     } catch (err) {
-      console.error('Error logging in user:', err)
+      console.error('Error impersonating user:', err)
       setError(err.message)
     } finally {
       setLoggingIn(false)

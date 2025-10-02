@@ -10,11 +10,6 @@ import {
   MoreVertical,
   RefreshCw,
   Lock,
-  Package,
-  Link as LinkIcon,
-  Wrench,
-  LayoutGrid,
-  LayoutList,
   ChevronDown,
   Check
 } from 'lucide-react'
@@ -28,18 +23,18 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 
-// Import full suite from @friggframework/ui
-import { IntegrationList, EntityManager, IntegrationBuilder } from '@friggframework/ui'
+// Import IntegrationHub - complete integration management in one component
+import { IntegrationHub } from '@friggframework/ui'
 import '@friggframework/ui/dist/style.css'
 
 /**
  * TestAreaContainer - Desktop browser mockup container
- * Complete User View - handed over to Frigg UI library
+ * Complete User View - IntegrationHub provides all integration management
  *
- * Features:
- * - Integration Gallery (IntegrationList)
- * - Connected Accounts (EntityManager)
- * - Build Integration (IntegrationBuilder)
+ * Features (via IntegrationHub):
+ * - Integration Gallery with search/filter
+ * - Connected Accounts management
+ * - Build Integration wizard
  */
 const TestAreaContainer = ({
   friggBaseUrl,
@@ -50,53 +45,35 @@ const TestAreaContainer = ({
   onUserSwitch,
   className
 }) => {
-  // Debug: Log when allUsers changes
+  // Debug: Log props
   React.useEffect(() => {
-    console.log('TestAreaContainer - allUsers:', allUsers.length, allUsers)
-  }, [allUsers])
+    console.log('TestAreaContainer - Props:', {
+      friggBaseUrl,
+      authToken: authToken ? `${authToken.substring(0, 20)}...` : 'undefined',
+      selectedUser: selectedUser?.username || selectedUser?.email,
+      allUsersCount: allUsers.length
+    })
+  }, [friggBaseUrl, authToken, selectedUser, allUsers])
 
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [activeTab, setActiveTab] = useState('gallery') // 'gallery', 'accounts', 'builder'
-  const [selectedEntity, setSelectedEntity] = useState(null)
   const [componentKey, setComponentKey] = useState(0)
-  const [viewMode, setViewMode] = useState('default-vertical') // 'default-vertical' or 'default-horizontal'
 
   const handleNavigateToSampleData = useCallback((integrationId) => {
     console.log('Navigate to sample data for integration:', integrationId)
   }, [])
 
   const handleRefresh = useCallback(() => {
-    // Re-render components by updating key instead of full page reload
+    // Re-render IntegrationHub by updating key
     setComponentKey(prev => prev + 1)
-  }, [])
-
-  const handleBuildIntegration = useCallback((entity) => {
-    setSelectedEntity(entity)
-    setActiveTab('builder')
-  }, [])
-
-  const handleConnectNewEntity = useCallback(() => {
-    // TODO: Implement entity connection flow
-    console.log('Connect new entity')
   }, [])
 
   const handleIntegrationCreated = useCallback((integration) => {
     console.log('Integration created:', integration)
-    // Switch back to gallery to see the new integration
-    setActiveTab('gallery')
-    setSelectedEntity(null)
   }, [])
 
-  const handleCancelBuilder = useCallback(() => {
-    setSelectedEntity(null)
-    setActiveTab('accounts')
+  const handleError = useCallback((error) => {
+    console.error('IntegrationHub error:', error)
   }, [])
-
-  const tabs = [
-    { id: 'gallery', label: 'Integration Gallery', icon: Package },
-    { id: 'accounts', label: 'Connected Accounts', icon: LinkIcon },
-    { id: 'builder', label: 'Build Integration', icon: Wrench }
-  ]
 
   return (
     <>
@@ -169,35 +146,17 @@ const TestAreaContainer = ({
                 </div>
               </div>
 
-              {/* Tab Bar */}
-              <div className="border-t bg-muted/20 px-2 py-1 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {tabs.map(tab => {
-                    const Icon = tab.icon
-                    const isActive = activeTab === tab.id
-                    return (
-                      <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={cn(
-                          'flex items-center gap-2 px-3 py-1 rounded-t transition-colors',
-                          isActive
-                            ? 'bg-background border-b-2 border-primary'
-                            : 'hover:bg-muted'
-                        )}
-                      >
-                        <Icon className="w-3 h-3" />
-                        <span className="text-xs font-medium">{tab.label}</span>
-                      </button>
-                    )
-                  })}
+              {/* User Context Bar */}
+              <div className="border-t bg-muted/20 px-4 py-2 flex items-center justify-between">
+                <div className="text-xs text-muted-foreground">
+                  Viewing as: <span className="font-medium text-foreground">{selectedUser?.username || selectedUser?.email}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   {allUsers.length > 0 ? (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm" className="h-6 px-2 text-xs gap-1">
-                          {selectedUser?.username || selectedUser?.email}
+                          Switch User
                           <ChevronDown className="w-3 h-3" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -223,95 +182,42 @@ const TestAreaContainer = ({
                       </DropdownMenuContent>
                     </DropdownMenu>
                   ) : (
-                    <>
-                      <Badge variant="secondary" className="text-xs px-2 py-0.5">
-                        {selectedUser?.username || selectedUser?.email}
-                      </Badge>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={onBackToUserSelection}
-                        className="h-6 px-2 text-xs"
-                      >
-                        Switch User
-                      </Button>
-                    </>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={onBackToUserSelection}
+                      className="h-6 px-2 text-xs"
+                    >
+                      Switch User
+                    </Button>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Browser Content Area - Handed to Frigg UI */}
+            {/* Browser Content Area - IntegrationHub handles everything */}
             <div className="flex-1 overflow-hidden bg-background">
               <div className="h-full overflow-auto">
                 <div className="min-h-full p-8">
-                  {/* Tab Content - Use key to force re-render on refresh */}
-                  {activeTab === 'gallery' && (
-                    <>
-                      <div className="mb-6">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h1 className="text-2xl font-bold text-foreground">Integration Gallery</h1>
-                            <p className="text-muted-foreground mt-1">
-                              Browse and install integrations for your application
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2 bg-muted rounded-lg p-1">
-                            <Button
-                              variant={viewMode === 'default-vertical' ? 'default' : 'ghost'}
-                              size="sm"
-                              onClick={() => setViewMode('default-vertical')}
-                              className="h-8 w-8 p-0"
-                              title="Grid view"
-                            >
-                              <LayoutGrid className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant={viewMode === 'default-horizontal' ? 'default' : 'ghost'}
-                              size="sm"
-                              onClick={() => setViewMode('default-horizontal')}
-                              className="h-8 w-8 p-0"
-                              title="List view"
-                            >
-                              <LayoutList className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-
-                      <IntegrationList
-                        key={`gallery-${componentKey}`}
-                        friggBaseUrl={friggBaseUrl}
-                        authToken={authToken}
-                        componentLayout={viewMode}
-                        navigateToSampleDataFn={handleNavigateToSampleData}
-                      />
-                    </>
-                  )}
-
-                  {activeTab === 'accounts' && (
-                    <>
-                      <EntityManager
-                        key={`accounts-${componentKey}`}
-                        friggBaseUrl={friggBaseUrl}
-                        authToken={authToken}
-                        onBuildIntegration={handleBuildIntegration}
-                        onConnectNewEntity={handleConnectNewEntity}
-                      />
-                    </>
-                  )}
-
-                  {activeTab === 'builder' && (
-                    <>
-                      <IntegrationBuilder
-                        key={`builder-${componentKey}`}
-                        friggBaseUrl={friggBaseUrl}
-                        authToken={authToken}
-                        preselectedEntity={selectedEntity}
-                        onIntegrationCreated={handleIntegrationCreated}
-                        onCancel={handleCancelBuilder}
-                      />
-                    </>
+                  {!authToken ? (
+                    <div className="p-8 text-center">
+                      <p className="text-muted-foreground">No authentication token available. Please select a user.</p>
+                      <Button onClick={onBackToUserSelection} className="mt-4">
+                        Back to User Selection
+                      </Button>
+                    </div>
+                  ) : (
+                    <IntegrationHub
+                      key={`hub-fullscreen-${componentKey}`}
+                      friggBaseUrl={friggBaseUrl}
+                      authToken={authToken}
+                      onIntegrationCreated={handleIntegrationCreated}
+                      onError={handleError}
+                      navigateToSampleDataFn={handleNavigateToSampleData}
+                      showSearch={true}
+                      showCategoryFilter={true}
+                      componentLayout="default-vertical"
+                    />
                   )}
                 </div>
               </div>
@@ -413,36 +319,18 @@ const TestAreaContainer = ({
             </div>
           </div>
 
-          {/* Tab Bar with User Context */}
+          {/* User Context Bar */}
           {!isFullscreen && (
-            <div className="hidden sm:flex border-t bg-muted/20 px-2 py-1 items-center justify-between">
-              <div className="flex items-center gap-2">
-                {tabs.map(tab => {
-                  const Icon = tab.icon
-                  const isActive = activeTab === tab.id
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={cn(
-                        'flex items-center gap-2 px-3 py-1 rounded-t transition-colors',
-                        isActive
-                          ? 'bg-background border-b-2 border-primary'
-                          : 'hover:bg-muted'
-                      )}
-                    >
-                      <Icon className="w-3 h-3" />
-                      <span className="text-xs font-medium">{tab.label}</span>
-                    </button>
-                  )
-                })}
+            <div className="hidden sm:flex border-t bg-muted/20 px-4 py-2 items-center justify-between">
+              <div className="text-xs text-muted-foreground">
+                Viewing as: <span className="font-medium text-foreground">{selectedUser?.username || selectedUser?.email}</span>
               </div>
               <div className="flex items-center gap-2">
                 {allUsers.length > 0 ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" size="sm" className="h-6 px-2 text-xs gap-1">
-                        {selectedUser?.username || selectedUser?.email}
+                        Switch User
                         <ChevronDown className="w-3 h-3" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -468,26 +356,21 @@ const TestAreaContainer = ({
                     </DropdownMenuContent>
                   </DropdownMenu>
                 ) : (
-                  <>
-                    <Badge variant="secondary" className="text-xs px-2 py-0.5">
-                      {selectedUser?.username || selectedUser?.email}
-                    </Badge>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={onBackToUserSelection}
-                      className="h-6 px-2 text-xs"
-                    >
-                      Switch User
-                    </Button>
-                  </>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onBackToUserSelection}
+                    className="h-6 px-2 text-xs"
+                  >
+                    Switch User
+                  </Button>
                 )}
               </div>
             </div>
           )}
         </div>
 
-        {/* Browser Content Area - Handed to Frigg UI */}
+        {/* Browser Content Area - IntegrationHub handles everything */}
         <div className="flex-1 overflow-hidden bg-background">
           <div className="h-full overflow-auto">
             <div className={cn(
@@ -511,73 +394,26 @@ const TestAreaContainer = ({
                 </div>
               </div>
 
-              {/* Tab Content - Use key to force re-render on refresh */}
-              {activeTab === 'gallery' && (
-                <>
-                  <div className="mb-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h1 className="text-2xl font-bold text-foreground">Integration Gallery</h1>
-                        <p className="text-muted-foreground mt-1">
-                          Browse and install integrations for your application
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 bg-muted rounded-lg p-1">
-                        <Button
-                          variant={viewMode === 'default-vertical' ? 'default' : 'ghost'}
-                          size="sm"
-                          onClick={() => setViewMode('default-vertical')}
-                          className="h-8 w-8 p-0"
-                          title="Grid view"
-                        >
-                          <LayoutGrid className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant={viewMode === 'default-horizontal' ? 'default' : 'ghost'}
-                          size="sm"
-                          onClick={() => setViewMode('default-horizontal')}
-                          className="h-8 w-8 p-0"
-                          title="List view"
-                        >
-                          <LayoutList className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <IntegrationList
-                    key={`gallery-${componentKey}`}
-                    friggBaseUrl={friggBaseUrl}
-                    authToken={authToken}
-                    componentLayout={viewMode}
-                    navigateToSampleDataFn={handleNavigateToSampleData}
-                  />
-                </>
-              )}
-
-              {activeTab === 'accounts' && (
-                <>
-                  <EntityManager
-                    key={`accounts-${componentKey}`}
-                    friggBaseUrl={friggBaseUrl}
-                    authToken={authToken}
-                    onBuildIntegration={handleBuildIntegration}
-                    onConnectNewEntity={handleConnectNewEntity}
-                  />
-                </>
-              )}
-
-              {activeTab === 'builder' && (
-                <>
-                  <IntegrationBuilder
-                    key={`builder-${componentKey}`}
-                    friggBaseUrl={friggBaseUrl}
-                    authToken={authToken}
-                    preselectedEntity={selectedEntity}
-                    onIntegrationCreated={handleIntegrationCreated}
-                    onCancel={handleCancelBuilder}
-                  />
-                </>
+              {/* IntegrationHub - Complete integration management */}
+              {!authToken ? (
+                <div className="p-8 text-center">
+                  <p className="text-muted-foreground">No authentication token available. Please select a user.</p>
+                  <Button onClick={onBackToUserSelection} className="mt-4">
+                    Back to User Selection
+                  </Button>
+                </div>
+              ) : (
+                <IntegrationHub
+                  key={`hub-normal-${componentKey}`}
+                  friggBaseUrl={friggBaseUrl}
+                  authToken={authToken}
+                  onIntegrationCreated={handleIntegrationCreated}
+                  onError={handleError}
+                  navigateToSampleDataFn={handleNavigateToSampleData}
+                  showSearch={true}
+                  showCategoryFilter={true}
+                  componentLayout="default-vertical"
+                />
               )}
             </div>
           </div>
