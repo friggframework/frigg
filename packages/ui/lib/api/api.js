@@ -119,8 +119,8 @@ export default class API {
     return this._checkResponse(response, url);
   }
 
-  // BREAKING CHANGE: Now returns only user's installed integrations (array)
-  // Previously returned { integrations: [], entities: { options: [], authorized: [] } }
+  // Get user's installed integrations
+  // Returns: { integrations: [] }
   async listIntegrations() {
     return this._get(this.endpointIntegrations);
   }

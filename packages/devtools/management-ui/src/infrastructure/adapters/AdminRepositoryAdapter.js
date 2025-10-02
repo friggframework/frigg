@@ -3,7 +3,8 @@ import { AdminRepository } from '../../domain/interfaces/AdminRepository.js'
 /**
  * AdminRepositoryAdapter
  * Infrastructure adapter implementing AdminRepository
- * Communicates with the management-ui backend which proxies to Frigg admin API
+ * Calls the Frigg API directly (NOT the Management UI backend)
+ * The apiClient passed to constructor should be configured with friggBaseUrl
  */
 class AdminRepositoryAdapter extends AdminRepository {
   constructor(apiClient) {

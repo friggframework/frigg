@@ -1,7 +1,6 @@
 import api from './infrastructure/http/api-client.js'
 
 // Domain interfaces (not instantiated directly, just for reference)
-import { IntegrationRepository } from './domain/interfaces/IntegrationRepository.js'
 import { ProjectRepository } from './domain/interfaces/ProjectRepository.js'
 import { UserRepository } from './domain/interfaces/UserRepository.js'
 import { EnvironmentRepository } from './domain/interfaces/EnvironmentRepository.js'
@@ -9,7 +8,6 @@ import { SessionRepository } from './domain/interfaces/SessionRepository.js'
 import { SocketService } from './domain/interfaces/SocketService.js'
 
 // Infrastructure adapters
-import { IntegrationRepositoryAdapter } from './infrastructure/adapters/IntegrationRepositoryAdapter.js'
 import { ProjectRepositoryAdapter } from './infrastructure/adapters/ProjectRepositoryAdapter.js'
 import { UserRepositoryAdapter } from './infrastructure/adapters/UserRepositoryAdapter.js'
 import { EnvironmentRepositoryAdapter } from './infrastructure/adapters/EnvironmentRepositoryAdapter.js'
@@ -17,7 +15,6 @@ import { SessionRepositoryAdapter } from './infrastructure/adapters/SessionRepos
 import { SocketServiceAdapter } from './infrastructure/adapters/SocketServiceAdapter.js'
 
 // Application services
-import { IntegrationService } from './application/services/IntegrationService.js'
 import { ProjectService } from './application/services/ProjectService.js'
 import { UserService } from './application/services/UserService.js'
 import { EnvironmentService } from './application/services/EnvironmentService.js'
@@ -44,11 +41,6 @@ class Container {
     this.registerSingleton('apiClient', () => api)
 
     // Register repositories as singletons (infrastructure layer)
-    this.registerSingleton('integrationRepository', () => {
-      const apiClient = this.resolve('apiClient')
-      return new IntegrationRepositoryAdapter(apiClient)
-    })
-
     this.registerSingleton('projectRepository', () => {
       const apiClient = this.resolve('apiClient')
       return new ProjectRepositoryAdapter(apiClient)
@@ -72,11 +64,6 @@ class Container {
     // Socket service will be registered separately when socket client is available
 
     // Register application services as singletons
-    this.registerSingleton('integrationService', () => {
-      const integrationRepository = this.resolve('integrationRepository')
-      return new IntegrationService(integrationRepository)
-    })
-
     this.registerSingleton('projectService', () => {
       const projectRepository = this.resolve('projectRepository')
       return new ProjectService(projectRepository)
