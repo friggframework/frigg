@@ -227,6 +227,7 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
         updateIntegration,
         getPossibleIntegrations,
     } = useCases;
+    // GET /api/integrations - Get user's installed integrations
     router.route('/api/integrations').get(
         catchAsyncError(async (req, res) => {
             const user = await getUserFromBearerToken.execute(
@@ -234,15 +235,29 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
             );
             const userId = user.getId();
             const integrations = await getIntegrationsForUser.execute(userId);
-            const results = {
-                entities: {
-                    options: await getPossibleIntegrations.execute(),
-                    authorized: await getEntitiesForUser.execute(userId),
-                },
-                integrations: integrations,
-            };
 
-            res.json(results);
+            res.json({ integrations });
+        })
+    );
+
+    // GET /api/integrations/options - Get available integration options with module requirements
+    router.route('/api/integrations/options').get(
+        catchAsyncError(async (req, res) => {
+            const options = await getPossibleIntegrations.execute();
+            res.json({ integrations: options });
+        })
+    );
+
+    // GET /api/entities - Get user's connected entities/accounts
+    router.route('/api/entities').get(
+        catchAsyncError(async (req, res) => {
+            const user = await getUserFromBearerToken.execute(
+                req.headers.authorization
+            );
+            const userId = user.getId();
+            const entities = await getEntitiesForUser.execute(userId);
+
+            res.json({ entities });
         })
     );
 
