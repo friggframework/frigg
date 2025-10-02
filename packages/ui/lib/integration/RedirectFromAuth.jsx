@@ -22,7 +22,6 @@ const RedirectFromAuth = (props) => {
         const targetEntity = await api.authorize(props.app, {
           code: params.code,
         });
-        const integrations = await api.listIntegrations();
 
         if (targetEntity?.error) {
           alert(targetEntity.error);
@@ -30,22 +29,25 @@ const RedirectFromAuth = (props) => {
           return;
         }
 
+        // Get user's entities to find primary entity
+        const entitiesResult = await api.listEntities();
+
         const config = {
           type: props.app,
           category: "CRM",
         };
 
-        const primaryEntity = integrations.entities.authorized.find(
+        const primaryEntity = entitiesResult.entities?.find(
           (entity) => entity.type === props.primaryEntityName
         );
 
         const integration = await api.createIntegration(
-          primaryEntity.id ?? targetEntity.entity_id,
+          primaryEntity?.id ?? targetEntity.entity_id,
           targetEntity.entity_id,
           config
         );
 
-        if (integration.error) {
+        if (integration?.error) {
           alert(integration.error);
           return;
         }

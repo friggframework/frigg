@@ -7,7 +7,7 @@ import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
-import ThemeProvider from '../../components/ThemeProvider'
+import ThemeProvider from '../../presentation/components/theme/ThemeProvider'
 
 // Wrapper component for tests that need theme context
 export const ThemeWrapper = ({ children, defaultTheme = 'light' }) => (

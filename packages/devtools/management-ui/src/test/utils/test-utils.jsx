@@ -2,7 +2,7 @@ import React from 'react'
 import { render } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { vi } from 'vitest'
-import { ThemeProvider } from '../../components/theme-provider'
+import { ThemeProvider } from '../../presentation/components/theme/ThemeProvider'
 
 // Mock providers for testing
 const MockSocketProvider = ({ children }) => children

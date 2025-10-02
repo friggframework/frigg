@@ -1,120 +1,83 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo } from "react";
 import IntegrationSkeleton from "./IntegrationSkeleton";
-import { getActiveAndPossibleIntegrationsCombined } from "../utils/IntegrationUtils";
-import API from "../api/api";
+import { useIntegrationData } from "./context/IntegrationDataContext";
 import { IntegrationHorizontal, IntegrationVertical } from "../integration";
 
 /**
  *
  * @param props.integrationType - Type of integration to filter by
- * @param props.friggBaseUrl - Base URL for Frigg backend
  * @param props.componentLayout - Layout for displaying integrations - either 'default-horizontal' or 'default-vertical'
- * @param props.authToken - JWT token for authenticated user in Frigg
  * @param {Function} props.navigateToSampleDataFn - A function to navigate to sample data route, receives integration ID as a parameter
  * @returns {JSX.Element} The rendered component
  * @constructor
  */
 const IntegrationList = (props) => {
-  const [installedIntegrations, setInstalledIntegrations] = useState([]);
-  const [integrations, setIntegrations] = useState([]);
-  const [isloading, setIsLoading] = useState(true);
-
-  const loadIntegrations = useCallback(async () => {
-    const api = new API(props.friggBaseUrl, props.authToken);
-    const integrationsData = await api.listIntegrations();
-
-    if (integrationsData.error) {
-      console.log(
-        "Something went wrong while fetching integrations, please try again later."
-      );
-    }
-
-    if (integrationsData.integrations) {
-      const activeAndPossibleIntegrations =
-        getActiveAndPossibleIntegrationsCombined(integrationsData);
-      setIntegrations(activeAndPossibleIntegrations);
-    }
-  }, [props.authToken, props.friggBaseUrl]);
+  const {
+    integrationOptions,
+    installedIntegrations,
+    loading,
+    loadData
+  } = useIntegrationData();
 
   useEffect(() => {
-    if (!props.authToken) {
-      console.log("Authentication token is required to fetch integrations.");
-      return;
+    loadData();
+  }, [loadData]);
+
+  // Combine installed and available integrations for display
+  const displayIntegrations = useMemo(() => {
+    // For installed filter, show only installed
+    if (props.integrationType === "Installed") {
+      return installedIntegrations;
     }
 
-    loadIntegrations().then(() => setIsLoading(false));
-  }, [loadIntegrations, props.authToken]);
+    // Combine available options with installed integrations
+    // Show installed if exists, otherwise show option
+    const combined = [];
+    const installedTypes = new Set(installedIntegrations.map(i => i.type));
 
-  const setInstalled = (data) => {
-    const items = [data, ...installedIntegrations];
-    setInstalledIntegrations(items);
-  };
+    // Add all integration options
+    integrationOptions.forEach(option => {
+      const installed = installedIntegrations.find(i => i.type === option.type);
+      combined.push(installed || option);
+    });
+
+    // Filter by type if specified
+    if (props.integrationType && props.integrationType !== "Recently added") {
+      return combined.filter(
+        integration => integration.display?.category === props.integrationType
+      );
+    }
+
+    return combined;
+  }, [installedIntegrations, integrationOptions, props.integrationType]);
 
   const integrationComponent = (integration) => {
-    if (props.componentLayout === "default-horizontal") {
-      return (
-        <IntegrationHorizontal
-          data={integration}
-          key={`combined-integration-${integration.type}`}
-          handleInstall={setInstalled}
-          refreshIntegrations={loadIntegrations}
-          friggBaseUrl={props.friggBaseUrl}
-          authToken={props.authToken}
-          navigateToSampleDataFn={props.navigateToSampleDataFn}
-        />
-      );
-    }
-    if (props.componentLayout === "default-vertical") {
-      return (
-        <IntegrationVertical
-          data={integration}
-          key={`combined-integration-${integration.type}`}
-          handleInstall={setInstalled}
-          refreshIntegrations={loadIntegrations}
-          friggBaseUrl={props.friggBaseUrl}
-        />
-      );
-    }
-  };
+    const Component = props.componentLayout === "default-horizontal"
+      ? IntegrationHorizontal
+      : IntegrationVertical;
 
-  const renderCombinedIntegrations = (combinedIntegrations) => {
-    if (props.integrationType === "Recently added") {
-      return combinedIntegrations.map((integration) =>
-        integrationComponent(integration)
-      );
-    }
-    if (props.integrationType === "Installed") {
-      return installedIntegrations.map((integration) =>
-        integrationComponent(integration)
-      );
-    }
-    return combinedIntegrations
-      .filter(
-        (integration) =>
-          integration.display.description === props.integrationType
-      )
-      .map((integration) => integrationComponent(integration));
+    return (
+      <Component
+        data={integration}
+        key={`integration-${integration.type || integration.id}`}
+        navigateToSampleDataFn={props.navigateToSampleDataFn}
+      />
+    );
   };
 
   return (
     <>
-      {isloading && (
+      {loading && (
         <div className="grid gap-6 lg:col-span-1 lg:grid-cols-1 xl:col-span-2 xl:grid-cols-2 2xl:col-span-3 2xl:grid-cols-3 grid-auto-rows-[128px]">
-          <IntegrationSkeleton layout={props.componentLayout} />
-          <IntegrationSkeleton layout={props.componentLayout} />
-          <IntegrationSkeleton layout={props.componentLayout} />
-          <IntegrationSkeleton layout={props.componentLayout} />
-          <IntegrationSkeleton layout={props.componentLayout} />
-          <IntegrationSkeleton layout={props.componentLayout} />
-          <IntegrationSkeleton layout={props.componentLayout} />
-          <IntegrationSkeleton layout={props.componentLayout} />
-          <IntegrationSkeleton layout={props.componentLayout} />
+          {Array.from({ length: 9 }).map((_, i) => (
+            <IntegrationSkeleton key={i} layout={props.componentLayout} />
+          ))}
         </div>
       )}
-      {renderCombinedIntegrations(integrations).length === 0 ? (
+      {!loading && displayIntegrations.length === 0 ? (
         <p>No {props.integrationType} integrations found.</p>
       ) : (
-        renderCombinedIntegrations(integrations)
+        displayIntegrations.map(integrationComponent)
       )}
     </>
   );

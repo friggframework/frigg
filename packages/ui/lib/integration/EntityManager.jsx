@@ -38,8 +38,19 @@ export default function EntityManager(props) {
         throw new Error(result.error);
       }
 
-      setEntities(result.entities || []);
-      setEntitiesByType(result.entitiesByType || {});
+      const entities = result.entities || [];
+      setEntities(entities);
+
+      // Group entities by type locally
+      const grouped = entities.reduce((acc, entity) => {
+        const type = entity.type || 'unknown';
+        if (!acc[type]) {
+          acc[type] = [];
+        }
+        acc[type].push(entity);
+        return acc;
+      }, {});
+      setEntitiesByType(grouped);
     } catch (err) {
       console.error("Failed to load entities:", err);
       setError(err.message);

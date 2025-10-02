@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { ExternalLink, Code, Settings, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { useIDE } from '../../hooks/useIDE'
+import { useFrigg } from '../../hooks/useFrigg'
 import { cn } from '../../../lib/utils'
 
 const OpenInIDEButton = ({
@@ -13,6 +14,7 @@ const OpenInIDEButton = ({
   disabled = false
 }) => {
   const { preferredIDE, openInIDE } = useIDE()
+  const { currentRepository } = useFrigg()
   const [isOpening, setIsOpening] = useState(false)
   const [status, setStatus] = useState(null) // 'success' | 'error' | null
 
@@ -23,7 +25,8 @@ const OpenInIDEButton = ({
     setStatus(null)
 
     try {
-      await openInIDE(filePath)
+      // Pass project ID from current repository
+      await openInIDE(filePath, currentRepository?.id)
       setStatus('success')
 
       // Clear success status after 2 seconds
