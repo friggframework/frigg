@@ -15,6 +15,7 @@ export { default as IntegrationBuilder } from './IntegrationBuilder';
 export { default as EntityManager } from './EntityManager';
 export { default as IntegrationList } from './IntegrationList';
 export { default as RedirectFromAuth } from './RedirectFromAuth';
+export { UserActionModal } from './modals';
 
 // Export presentation components
 export { EntityCard } from './presentation/components/EntityCard';
