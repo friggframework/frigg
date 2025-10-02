@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { UserPlus, Search, RefreshCw, ChevronRight } from 'lucide-react'
+import { UserPlus, Search, RefreshCw, ChevronRight, Trash2 } from 'lucide-react'
 import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
@@ -25,6 +25,8 @@ const UserManagement = ({ friggBaseUrl, onUserSelect }) => {
   const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0 })
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [error, setError] = useState(null)
+  const [deletingUserId, setDeletingUserId] = useState(null)
+  const [userToDelete, setUserToDelete] = useState(null)
 
   // Create axios client for Frigg API
   const friggApiClient = useMemo(() => {
@@ -110,44 +112,28 @@ const UserManagement = ({ friggBaseUrl, onUserSelect }) => {
       setLoading(true)
       setError(null)
 
-      console.log('Admin selecting user, logging in:', user.username || user.email)
+      console.log('Admin impersonating user:', user.username || user.email)
 
-      // Login to get JWT token
-      let response = await fetch(`${friggBaseUrl}/users/login`, {
+      // Use admin impersonation API to get token without password
+      const response = await fetch(`${friggBaseUrl}/api/admin/users/${user.id}/impersonate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          username: user.username || user.email,
-          password: 'defaultPassword123' // TODO: Handle password properly
+          expiresInMinutes: 120
         })
       })
 
-      // If login fails, user might not have password set - create new user with same username
       if (!response.ok) {
-        console.warn('Login failed, attempting to create user with default password')
-
-        response = await fetch(`${friggBaseUrl}/users`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            username: user.username || user.email,
-            password: 'defaultPassword123'
-          })
-        })
-
-        if (!response.ok) {
-          const errorText = await response.text()
-          console.error('User creation also failed:', response.status, errorText)
-          throw new Error(`Failed to login or create user: ${response.status}`)
-        }
+        const errorData = await response.json().catch(() => null)
+        const errorMessage = errorData?.message || `Failed to impersonate user: ${response.status}`
+        console.error('Impersonation failed:', errorMessage)
+        throw new Error(errorMessage)
       }
 
       const data = await response.json()
-      console.log('User authenticated successfully, got token')
+      console.log('User impersonation successful, got token')
 
       // Pass user with token to parent
       onUserSelect({
@@ -155,11 +141,40 @@ const UserManagement = ({ friggBaseUrl, onUserSelect }) => {
         token: data.token
       })
     } catch (err) {
-      console.error('Error authenticating user:', err)
-      setError(`Failed to authenticate as user: ${err.message}`)
+      console.error('Error impersonating user:', err)
+      setError(`Failed to impersonate user: ${err.message}`)
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleDeleteClick = (user, event) => {
+    event.stopPropagation() // Prevent triggering user selection
+    setUserToDelete(user)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!userToDelete) return
+
+    try {
+      setDeletingUserId(userToDelete.id)
+      setError(null)
+
+      await adminService.deleteUser(userToDelete.id)
+
+      // Remove user from list
+      setUsers(prev => prev.filter(u => u.id !== userToDelete.id))
+      setUserToDelete(null)
+    } catch (err) {
+      console.error('Failed to delete user:', err)
+      setError(`Failed to delete user: ${err.message}`)
+    } finally {
+      setDeletingUserId(null)
+    }
+  }
+
+  const handleDeleteCancel = () => {
+    setUserToDelete(null)
   }
 
   const filteredUsers = users
@@ -237,7 +252,7 @@ const UserManagement = ({ friggBaseUrl, onUserSelect }) => {
               onClick={() => handleUserClick(user)}
             >
               <div className="p-4 flex items-center justify-between">
-                <div className="space-y-1">
+                <div className="space-y-1 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{user.getDisplayName()}</span>
                     {user.type && (
@@ -261,6 +276,16 @@ const UserManagement = ({ friggBaseUrl, onUserSelect }) => {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => handleDeleteClick(user, e)}
+                    disabled={deletingUserId === user.id}
+                    className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    title="Delete user"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                   <span className="text-sm text-muted-foreground">View as user</span>
                   <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 </div>
@@ -304,6 +329,39 @@ const UserManagement = ({ friggBaseUrl, onUserSelect }) => {
           onClose={() => setShowCreateModal(false)}
           onCreate={handleCreateUser}
         />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {userToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <Card className="max-w-md w-full mx-4">
+            <div className="p-6 space-y-4">
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold">Delete User</h3>
+                <p className="text-sm text-muted-foreground">
+                  Are you sure you want to delete user <strong>{userToDelete.getDisplayName()}</strong>?
+                  This action cannot be undone.
+                </p>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={handleDeleteCancel}
+                  disabled={!!deletingUserId}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteConfirm}
+                  disabled={!!deletingUserId}
+                >
+                  {deletingUserId ? 'Deleting...' : 'Delete'}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
       )}
     </div>
   )

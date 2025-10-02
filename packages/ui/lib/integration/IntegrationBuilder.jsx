@@ -4,6 +4,7 @@ import { Button } from "../components/button.jsx";
 import { LoadingSpinner } from "../components/LoadingSpinner.jsx";
 import { ArrowRight, Check, X, Plus } from "lucide-react";
 import { useIntegrationData } from "./context/IntegrationDataContext";
+import AuthModal from "./AuthModal.jsx";
 
 /**
  * IntegrationBuilder - Build integrations from connected entities
@@ -35,6 +36,11 @@ export default function IntegrationBuilder(props) {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
+
+  // Auth modal state
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authRequirements, setAuthRequirements] = useState(null);
+  const [connectingEntityType, setConnectingEntityType] = useState(null);
 
   const api = new API(baseUrl, authToken);
 
@@ -103,6 +109,38 @@ export default function IntegrationBuilder(props) {
       delete updated[entityType];
       return updated;
     });
+  };
+
+  const handleConnectAccount = async (entityType) => {
+    try {
+      // Get authorization requirements for this module type
+      const authReqs = await api.getAuthorizationRequirements(entityType);
+      setAuthRequirements(authReqs);
+      setConnectingEntityType(entityType);
+      setAuthModalOpen(true);
+    } catch (err) {
+      alert('Failed to get authorization requirements: ' + err.message);
+    }
+  };
+
+  const handleAuthSubmit = async (formData) => {
+    try {
+      // Submit form-based auth data to authorize endpoint
+      const result = await api.authorize(connectingEntityType, formData);
+
+      if (result?.error) {
+        throw new Error(result.error);
+      }
+
+      // Close modal and refresh entities
+      setAuthModalOpen(false);
+      await loadData();
+
+      // Show success message
+      alert(`Successfully connected ${connectingEntityType} account!`);
+    } catch (err) {
+      throw new Error(err.message || 'Failed to authorize account');
+    }
   };
 
   const getCompatibleIntegrations = () => {
@@ -206,88 +244,84 @@ export default function IntegrationBuilder(props) {
             <p className="text-sm">
               {startFromGallery && selectedIntegrationType ? (
                 <>
-                  Select accounts to connect with <strong>{selectedIntegrationType.display?.name || selectedIntegrationType.displayName || selectedIntegrationType.type}</strong>.
-                  {selectedIntegrationType.requiredEntities?.length > 0 && (
-                    <> Required: {selectedIntegrationType.requiredEntities.join(', ')}</>
-                  )}
+                  Select or connect accounts for <strong>{selectedIntegrationType.display?.name || selectedIntegrationType.displayName || selectedIntegrationType.type}</strong>.
                 </>
               ) : (
                 <>
-                  Select at least 2 accounts to integrate. For example, connect your
-                  Salesforce CRM with your Slack workspace.
+                  Select accounts for each required module to build your integration.
                 </>
               )}
             </p>
           </div>
 
-          {entities.length === 0 ? (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-              <h3 className="font-semibold mb-2">No Connected Accounts</h3>
-              <p className="text-gray-600 mb-4">
-                You need to connect accounts before creating integrations.
-                {startFromGallery && selectedIntegrationType?.requiredEntities && (
-                  <> This integration requires: <strong>{selectedIntegrationType.requiredEntities.join(', ')}</strong></>
-                )}
-              </p>
-              <Button onClick={() => {
-                alert('OAuth flow not yet implemented. This would redirect to connect accounts.');
-              }}>
-                Connect Accounts
-              </Button>
-            </div>
-          ) : (
-            <>
-              <div className="grid gap-3">
-                {entities.map((entity) => {
-                  const isSelected = selectedEntities[entity.type] === entity.id;
+          {/* Get required entity types from selected integration or use generic 2+ requirement */}
+          {(() => {
+            const requiredTypes = startFromGallery && selectedIntegrationType?.requiredEntities
+              ? selectedIntegrationType.requiredEntities
+              : [...new Set(entities.map(e => e.type))]; // Fallback to unique types from available entities
+
+            return (
+              <div className="space-y-3">
+                {requiredTypes.map((moduleType) => {
+                  const availableEntities = entities.filter(e => e.type === moduleType);
+                  const selectedEntityId = selectedEntities[moduleType];
+
                   return (
-                    <div
-                      key={entity.id}
-                      onClick={() =>
-                        isSelected
-                          ? handleDeselectEntity(entity.type)
-                          : handleSelectEntity(entity.type, entity.id)
-                      }
-                      className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                        isSelected
-                          ? "border-blue-500 bg-blue-50"
-                          : "border-gray-300 hover:border-gray-400"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-medium">{entity.name}</h4>
-                          <p className="text-sm text-gray-600 capitalize">
-                            {entity.type}
-                          </p>
+                    <div key={moduleType} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between gap-4">
+                        {/* Module name */}
+                        <div className="flex-shrink-0 w-32">
+                          <h4 className="font-semibold capitalize text-gray-900">
+                            {moduleType}
+                          </h4>
                         </div>
-                        {isSelected && (
-                          <Check className="w-5 h-5 text-blue-600" />
+
+                        {/* Dropdown or Connect button */}
+                        <div className="flex-1">
+                          {availableEntities.length > 0 ? (
+                            <select
+                              value={selectedEntityId || ''}
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  handleSelectEntity(moduleType, e.target.value);
+                                } else {
+                                  handleDeselectEntity(moduleType);
+                                }
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            >
+                              <option value="">Select {moduleType} account...</option>
+                              {availableEntities.map((entity) => (
+                                <option key={entity.id} value={entity.id}>
+                                  {entity.name} {entity.externalId ? `(${entity.externalId})` : ''}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-500">No {moduleType} accounts connected</span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleConnectAccount(moduleType)}
+                              >
+                                Connect {moduleType}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Selected indicator */}
+                        {selectedEntityId && (
+                          <Check className="w-5 h-5 text-green-600 flex-shrink-0" />
                         )}
                       </div>
                     </div>
                   );
                 })}
               </div>
-
-              {/* Show connect more accounts option */}
-              <div className="border border-dashed border-gray-300 rounded-lg p-4 text-center">
-                <p className="text-sm text-gray-600 mb-2">
-                  Don't see the account you need?
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    alert('OAuth flow not yet implemented. This would redirect to connect a new account.');
-                  }}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Connect New Account
-                </Button>
-              </div>
-            </>
-          )}
+            );
+          })()}
 
           <div className="flex justify-between pt-4">
             <div className="text-sm text-gray-600">
@@ -295,7 +329,7 @@ export default function IntegrationBuilder(props) {
             </div>
             <Button
               onClick={() => setStep(2)}
-              disabled={Object.keys(selectedEntities).length < 2}
+              disabled={Object.keys(selectedEntities).length < (startFromGallery && selectedIntegrationType?.requiredEntities ? selectedIntegrationType.requiredEntities.length : 2)}
             >
               Next
               <ArrowRight className="w-4 h-4 ml-2" />
@@ -483,6 +517,19 @@ export default function IntegrationBuilder(props) {
           </div>
         </div>
       )}
+
+      {/* Auth Modal for connecting accounts */}
+      <AuthModal
+        isOpen={authModalOpen}
+        authRequirements={authRequirements}
+        entityType={connectingEntityType}
+        onSubmit={handleAuthSubmit}
+        onCancel={() => {
+          setAuthModalOpen(false);
+          setAuthRequirements(null);
+          setConnectingEntityType(null);
+        }}
+      />
     </div>
   );
 }

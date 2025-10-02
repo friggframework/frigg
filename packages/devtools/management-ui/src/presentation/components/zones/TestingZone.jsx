@@ -6,6 +6,7 @@ import TestAreaUserSelection from './TestAreaUserSelection'
 import TestAreaContainer from './TestAreaContainer'
 import AdminViewContainer from '../admin/AdminViewContainer'
 import LiveLogPanel from '../common/LiveLogPanel'
+import TestAreaErrorBoundary from './TestAreaErrorBoundary'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { cn } from '../../../lib/utils'
@@ -414,28 +415,30 @@ const TestingZone = ({ className }) => {
       setTestAreaState('admin_view')
       addLog('info', 'Switched to Admin View')
     } else {
-      setTestAreaState('user_view')
-      addLog('info', 'Switched to User View')
+      // For user view, first show user selection
+      setTestAreaState('user_selection')
+      addLog('info', 'Preparing User View - Select a user')
     }
   }
 
   const reloginUser = async (user, baseUrl) => {
     try {
-      console.log('Re-logging in user after session restore:', user.username || user.email)
+      console.log('Re-impersonating user after session restore:', user.username || user.email)
 
-      const response = await fetch(`${baseUrl}/users/login`, {
+      const response = await fetch(`${baseUrl}/api/admin/users/${user.id}/impersonate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          username: user.username || user.email,
-          password: 'defaultPassword123' // Must match the password used in TestAreaUserSelection
+          expiresInMinutes: 120
         })
       })
 
       if (!response.ok) {
-        throw new Error('Failed to re-login user')
+        const errorData = await response.json().catch(() => null)
+        const errorMessage = errorData?.message || 'Failed to re-impersonate user'
+        throw new Error(errorMessage)
       }
 
       const data = await response.json()
@@ -448,7 +451,7 @@ const TestingZone = ({ className }) => {
 
       addLog('info', `✅ Re-authenticated as ${user.username || user.email}`)
     } catch (err) {
-      console.error('Error re-logging in user:', err)
+      console.error('Error re-impersonating user:', err)
       setSelectedUser(null)
       setTestAreaState('running')
       addLog('error', `Failed to re-authenticate user: ${err.message}`)
@@ -465,21 +468,22 @@ const TestingZone = ({ className }) => {
   }
 
   const handleUserSwitch = async (user) => {
-    // When switching users from the dropdown, login to get fresh token
+    // When switching users from the dropdown, use impersonation to get fresh token
     try {
       const baseUrl = friggStatus?.friggBaseUrl || `http://localhost:${friggStatus?.port || 3000}`
 
-      const response = await fetch(`${baseUrl}/users/login`, {
+      const response = await fetch(`${baseUrl}/api/admin/users/${user.id}/impersonate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: user.username || user.email,
-          password: 'defaultPassword123'
+          expiresInMinutes: 120
         })
       })
 
       if (!response.ok) {
-        throw new Error('Failed to login user')
+        const errorData = await response.json().catch(() => null)
+        const errorMessage = errorData?.message || 'Failed to impersonate user'
+        throw new Error(errorMessage)
       }
 
       const data = await response.json()
@@ -662,6 +666,35 @@ const TestingZone = ({ className }) => {
 
         return renderViewModeSelection()
 
+      case 'user_selection':
+        return (
+          <div className="h-full flex flex-col">
+            {/* Header with back button */}
+            <div className="flex items-center gap-4 px-6 py-4 border-b border-border bg-muted/30">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleBackToViewSelection}
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to View Selection
+              </Button>
+              <div className="flex items-center gap-2 ml-auto">
+                <Badge variant="outline" className="gap-2">
+                  <User className="w-3 h-3" />
+                  User Selection
+                </Badge>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto">
+              <TestAreaUserSelection
+                friggBaseUrl={friggStatus?.friggBaseUrl || `http://localhost:${friggStatus?.port || 3000}`}
+                onUserSelected={handleUserSelected}
+              />
+            </div>
+          </div>
+        )
+
       case 'admin_view':
         return (
           <div className="h-full flex flex-col">
@@ -780,7 +813,9 @@ const TestingZone = ({ className }) => {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="flex-1 min-h-0">
-          {renderContent()}
+          <TestAreaErrorBoundary>
+            {renderContent()}
+          </TestAreaErrorBoundary>
         </div>
 
         {/* Live Log Panel - Always visible at bottom */}

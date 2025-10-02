@@ -14,6 +14,7 @@ import IntegrationTabs from "./integration/IntegrationTabs";
 import EntityManager from "./integration/EntityManager";
 import IntegrationBuilder from "./integration/IntegrationBuilder";
 import UserActionTester from "./integration/UserActionTester";
+import AuthModal from "./integration/AuthModal";
 import { FriggProvider, useFrigg, useIntegrationData } from "./integration/context/IntegrationDataContext";
 
 export {
@@ -31,6 +32,7 @@ export {
   EntityManager,
   IntegrationBuilder,
   UserActionTester,
+  AuthModal,
   // Context providers and hooks
   FriggProvider,
   useFrigg,

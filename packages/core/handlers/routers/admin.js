@@ -13,6 +13,7 @@ const { GetModuleEntityById } = require('../../modules/use-cases/get-module-enti
 const { UpdateModuleEntity } = require('../../modules/use-cases/update-module-entity');
 const { DeleteModuleEntity } = require('../../modules/use-cases/delete-module-entity');
 const { CreateTokenForUserId } = require('../../user/use-cases/create-token-for-user-id');
+const { DeleteUser } = require('../../user/use-cases/delete-user');
 
 // Initialize repositories and use cases
 const { userConfig } = loadAppDefinition();
@@ -24,6 +25,7 @@ const getModuleEntityById = new GetModuleEntityById({ moduleRepository });
 const updateModuleEntity = new UpdateModuleEntity({ moduleRepository });
 const deleteModuleEntity = new DeleteModuleEntity({ moduleRepository });
 const createTokenForUserId = new CreateTokenForUserId({ userRepository });
+const deleteUser = new DeleteUser({ userRepository });
 
 // Debug logging
 router.use((req, res, next) => {
@@ -241,6 +243,20 @@ router.post('/api/admin/users/:userId/impersonate', catchAsyncError(async (req, 
         message: `Impersonating user: ${user.username || user.email}`,
         expiresInMinutes
     });
+}));
+
+/**
+ * DELETE /api/admin/users/:userId
+ * Delete a user by ID (admin only)
+ * IMPORTANT: This is a destructive operation - use with caution
+ */
+router.delete('/api/admin/users/:userId', catchAsyncError(async (req, res) => {
+    const { userId } = req.params;
+
+    // Execute delete user use case
+    await deleteUser.execute(userId);
+
+    res.status(204).send();
 }));
 
 /**

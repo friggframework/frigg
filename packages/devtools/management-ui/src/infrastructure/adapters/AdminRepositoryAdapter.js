@@ -73,6 +73,14 @@ class AdminRepositoryAdapter extends AdminRepository {
   }
 
   /**
+   * Delete a user by ID
+   */
+  async deleteUser(userId) {
+    const response = await this.api.delete(`/api/admin/users/${userId}`)
+    return response.status === 204
+  }
+
+  /**
    * List all global entities
    */
   async listGlobalEntities() {
