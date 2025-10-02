@@ -29,21 +29,7 @@ const loginUser = new LoginUser({
 });
 const createTokenForUserId = new CreateTokenForUserId({ userRepository });
 
-// define the login endpoint (keeping /user/login for backward compatibility)
-router.route('/user/login').post(
-    catchAsyncError(async (req, res) => {
-        const { username, password } = checkRequiredParams(req.body, [
-            'username',
-            'password',
-        ]);
-        const user = await loginUser.execute({ username, password });
-        const token = await createTokenForUserId.execute(user.getId(), 120);
-        res.status(201);
-        res.json({ token });
-    })
-);
-
-// RESTful login endpoint
+// Login endpoint
 router.route('/users/login').post(
     catchAsyncError(async (req, res) => {
         const { username, password } = checkRequiredParams(req.body, [
@@ -57,24 +43,7 @@ router.route('/users/login').post(
     })
 );
 
-// define the create endpoint (keeping /user/create for backward compatibility)
-router.route('/user/create').post(
-    catchAsyncError(async (req, res) => {
-        const { username, password } = checkRequiredParams(req.body, [
-            'username',
-            'password',
-        ]);
-        const user = await createIndividualUser.execute({
-            username,
-            password,
-        });
-        const token = await createTokenForUserId.execute(user.getId(), 120);
-        res.status(201);
-        res.json({ token });
-    })
-);
-
-// RESTful create endpoint
+// Create user endpoint
 router.route('/users').post(
     catchAsyncError(async (req, res) => {
         const { username, password } = checkRequiredParams(req.body, [
@@ -90,8 +59,6 @@ router.route('/users').post(
         res.json({ token });
     })
 );
-
-// Admin endpoints moved to /api/admin/users in admin.js router
 
 const handler = createAppHandler('HTTP Event: User', router);
 

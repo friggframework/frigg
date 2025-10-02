@@ -313,6 +313,119 @@ class UserRepositoryPostgres extends UserRepositoryInterface {
             throw error;
         }
     }
+
+    /**
+     * Find all users with pagination
+     * @param {Object} options - Query options
+     * @param {number} [options.skip] - Number of records to skip
+     * @param {number} [options.limit] - Maximum number of records to return
+     * @param {Object} [options.sort] - Sort criteria (e.g., { createdAt: -1 })
+     * @param {Array<string>} [options.excludeFields] - Fields to exclude (not used in Prisma, kept for interface compatibility)
+     * @returns {Promise<Array<Object>>} Array of user objects with string IDs
+     */
+    async findAllUsers(options = {}) {
+        const { skip = 0, limit = 50, sort = { createdAt: -1 } } = options;
+
+        // Convert MongoDB-style sort to Prisma orderBy format
+        const orderBy = Object.entries(sort).map(([field, direction]) => ({
+            [field]: direction === -1 ? 'desc' : 'asc',
+        }));
+
+        const users = await this.prisma.user.findMany({
+            skip,
+            take: limit,
+            orderBy,
+            select: {
+                id: true,
+                type: true,
+                email: true,
+                username: true,
+                appUserId: true,
+                appOrgId: true,
+                name: true,
+                organizationId: true,
+                createdAt: true,
+                updatedAt: true,
+                // Exclude hashword
+            },
+        });
+
+        // Convert integer IDs to strings for each user
+        return users.map((user) => this._convertUserIds(user));
+    }
+
+    /**
+     * Get total user count
+     * @returns {Promise<number>} Total number of users
+     */
+    async countUsers() {
+        return await this.prisma.user.count();
+    }
+
+    /**
+     * Search users by username or email
+     * @param {Object} options - Search options
+     * @param {string} options.query - Search query string
+     * @param {number} [options.skip] - Number of records to skip
+     * @param {number} [options.limit] - Maximum number of records to return
+     * @param {Object} [options.sort] - Sort criteria (e.g., { createdAt: -1 })
+     * @param {Array<string>} [options.excludeFields] - Fields to exclude (not used in Prisma, kept for interface compatibility)
+     * @returns {Promise<Array<Object>>} Array of matching user objects with string IDs
+     */
+    async searchUsers(options = {}) {
+        const { query, skip = 0, limit = 50, sort = { createdAt: -1 } } = options;
+
+        // Convert MongoDB-style sort to Prisma orderBy format
+        const orderBy = Object.entries(sort).map(([field, direction]) => ({
+            [field]: direction === -1 ? 'desc' : 'asc',
+        }));
+
+        const users = await this.prisma.user.findMany({
+            where: {
+                OR: [
+                    { username: { contains: query, mode: 'insensitive' } },
+                    { email: { contains: query, mode: 'insensitive' } },
+                    { name: { contains: query, mode: 'insensitive' } },
+                ],
+            },
+            skip,
+            take: limit,
+            orderBy,
+            select: {
+                id: true,
+                type: true,
+                email: true,
+                username: true,
+                appUserId: true,
+                appOrgId: true,
+                name: true,
+                organizationId: true,
+                createdAt: true,
+                updatedAt: true,
+                // Exclude hashword
+            },
+        });
+
+        // Convert integer IDs to strings for each user
+        return users.map((user) => this._convertUserIds(user));
+    }
+
+    /**
+     * Count users matching search query
+     * @param {string} query - Search query string
+     * @returns {Promise<number>} Number of matching users
+     */
+    async countUsersBySearchQuery(query) {
+        return await this.prisma.user.count({
+            where: {
+                OR: [
+                    { username: { contains: query, mode: 'insensitive' } },
+                    { email: { contains: query, mode: 'insensitive' } },
+                    { name: { contains: query, mode: 'insensitive' } },
+                ],
+            },
+        });
+    }
 }
 
 module.exports = { UserRepositoryPostgres };

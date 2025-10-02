@@ -92,6 +92,17 @@ class ModuleRepositoryInterface {
     }
 
     /**
+     * Find entities matching filter criteria
+     *
+     * @param {Object} filter - Filter criteria
+     * @returns {Promise<Array>} Array of entity objects
+     * @abstract
+     */
+    async findEntitiesBy(filter) {
+        throw new Error('Method findEntitiesBy must be implemented by subclass');
+    }
+
+    /**
      * Create a new entity
      *
      * @param {Object} entityData - Entity data

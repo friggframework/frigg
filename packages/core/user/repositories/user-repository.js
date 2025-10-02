@@ -258,6 +258,121 @@ class UserRepository extends UserRepositoryInterface {
             throw error;
         }
     }
+
+    /**
+     * Find all users with pagination
+     * Converts Mongoose-style sort syntax to Prisma
+     *
+     * @param {Object} options - Query options
+     * @param {number} [options.skip] - Number of records to skip
+     * @param {number} [options.limit] - Maximum number of records to return
+     * @param {Object} [options.sort] - Sort criteria (e.g., { createdAt: -1 })
+     * @param {Array<string>} [options.excludeFields] - Fields to exclude (e.g., ['-hashword'])
+     * @returns {Promise<Array<Object>>} Array of user objects
+     */
+    async findAllUsers(options = {}) {
+        const { skip, limit, sort, excludeFields = [] } = options;
+
+        // Build select object - exclude password by default
+        const select = {};
+        const shouldExcludePassword =
+            excludeFields.includes('-hashword') ||
+            excludeFields.includes('hashword');
+
+        if (shouldExcludePassword) {
+            select.hashword = false;
+        }
+
+        // Convert Mongoose-style sort to Prisma orderBy
+        let orderBy = undefined;
+        if (sort) {
+            orderBy = {};
+            for (const [field, direction] of Object.entries(sort)) {
+                orderBy[field] = direction === -1 ? 'desc' : 'asc';
+            }
+        }
+
+        return await this.prisma.user.findMany({
+            skip,
+            take: limit,
+            orderBy,
+            select: Object.keys(select).length > 0 ? select : undefined,
+        });
+    }
+
+    /**
+     * Get total user count
+     *
+     * @returns {Promise<number>} Total number of users
+     */
+    async countUsers() {
+        return await this.prisma.user.count();
+    }
+
+    /**
+     * Search users by username or email (case-insensitive)
+     * Uses Prisma's contains mode for case-insensitive search
+     *
+     * @param {Object} options - Search options
+     * @param {string} options.query - Search query string
+     * @param {number} [options.skip] - Number of records to skip
+     * @param {number} [options.limit] - Maximum number of records to return
+     * @param {Object} [options.sort] - Sort criteria (e.g., { createdAt: -1 })
+     * @param {Array<string>} [options.excludeFields] - Fields to exclude (e.g., ['-hashword'])
+     * @returns {Promise<Array<Object>>} Array of matching user objects
+     */
+    async searchUsers(options = {}) {
+        const { query, skip, limit, sort, excludeFields = [] } = options;
+
+        // Build select object - exclude password by default
+        const select = {};
+        const shouldExcludePassword =
+            excludeFields.includes('-hashword') ||
+            excludeFields.includes('hashword');
+
+        if (shouldExcludePassword) {
+            select.hashword = false;
+        }
+
+        // Convert Mongoose-style sort to Prisma orderBy
+        let orderBy = undefined;
+        if (sort) {
+            orderBy = {};
+            for (const [field, direction] of Object.entries(sort)) {
+                orderBy[field] = direction === -1 ? 'desc' : 'asc';
+            }
+        }
+
+        return await this.prisma.user.findMany({
+            where: {
+                OR: [
+                    { username: { contains: query, mode: 'insensitive' } },
+                    { email: { contains: query, mode: 'insensitive' } },
+                ],
+            },
+            skip,
+            take: limit,
+            orderBy,
+            select: Object.keys(select).length > 0 ? select : undefined,
+        });
+    }
+
+    /**
+     * Count users matching search query (case-insensitive)
+     *
+     * @param {string} query - Search query string
+     * @returns {Promise<number>} Number of matching users
+     */
+    async countUsersBySearchQuery(query) {
+        return await this.prisma.user.count({
+            where: {
+                OR: [
+                    { username: { contains: query, mode: 'insensitive' } },
+                    { email: { contains: query, mode: 'insensitive' } },
+                ],
+            },
+        });
+    }
 }
 
 module.exports = { UserRepository };
