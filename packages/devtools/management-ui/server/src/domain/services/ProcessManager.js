@@ -322,13 +322,22 @@ export class ProcessManager extends EventEmitter {
           } else {
             // Fallback: classify stderr content
             const lowerMessage = message.toLowerCase()
+            const trimmedMessage = message.trim()
 
-            // Informational messages that go to stderr
+            // Informational messages that go to stderr (serverless-offline outputs to stderr)
             if (lowerMessage.includes('running "serverless"') ||
                 lowerMessage.includes('dotenv:') ||
                 lowerMessage.includes('starting offline') ||
                 lowerMessage.includes('function names exposed') ||
-                lowerMessage.includes('server ready')) {
+                lowerMessage.includes('server ready') ||
+                lowerMessage.includes('offline') && lowerMessage.includes('listening') ||
+                lowerMessage.includes('initializing') ||
+                // HTTP request logs from serverless-offline (e.g., "GET /api/integrations (λ: auth)")
+                message.match(/^(GET|POST|PUT|PATCH|DELETE|ANY)\s+\//) ||
+                // Lambda execution logs (e.g., "(λ: auth) RequestId: ... Duration: ...")
+                message.match(/^\(λ:.*\)\s+(RequestId|Running in offline mode)/) ||
+                // Empty lines / whitespace only
+                trimmedMessage.length === 0) {
               logLevel = 'info'
             }
             // Actual warnings (deprecations)

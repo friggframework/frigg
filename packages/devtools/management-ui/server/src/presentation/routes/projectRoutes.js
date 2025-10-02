@@ -146,8 +146,8 @@ export function createProjectRoutes(projectController) {
   // ============================================
 
   /**
-   * POST /api/projects/{id}/ide-sessions
-   * Open project in IDE
+   * POST /api/projects/:id/ide-sessions
+   * Open project/file in IDE
    */
   router.post('/:id/ide-sessions', async (req, res, next) => {
     try {
@@ -160,7 +160,21 @@ export function createProjectRoutes(projectController) {
         })
       }
 
-      await controller.createIDESession(req, res, next)
+      // Find project path
+      const projectPath = await projectController._findProjectPathById(id)
+      if (!projectPath) {
+        return res.status(404).json({
+          success: false,
+          error: 'Project not found'
+        })
+      }
+
+      // Use the path from request body or default to project root
+      if (!req.body.path) {
+        req.body.path = projectPath
+      }
+
+      await projectController.openInIDE(req, res, next)
     } catch (error) {
       next(error)
     }
@@ -170,7 +184,7 @@ export function createProjectRoutes(projectController) {
    * GET /api/projects/ides/available
    * Get list of available IDEs (not project-specific)
    */
-  router.get('/ides/available', controller.getAvailableIDEs)
+  router.get('/ides/available', (req, res, next) => controller.getAvailableIDEs(req, res, next))
 
   // ============================================
   // Frigg Process Management
