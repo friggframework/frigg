@@ -119,31 +119,22 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
         if (!identifiers)
             throw new Error('identifiers required to upsert credential');
 
-        // Build where clause from identifiers (converting IDs to Int)
         const where = this._convertIdentifiersToWhere(identifiers);
 
-        // Separate schema fields from dynamic OAuth data
-        const {
-            user,
-            userId,
-            externalId,
-            auth_is_valid,
-            authIsValid,
-            subType,
-            ...oauthData
-        } = details;
+        const { user, externalId } = identifiers;
 
-        // Find existing credential
+        // Separate schema fields from dynamic OAuth data
+        const { auth_is_valid, authIsValid, subType, ...oauthData } = details;
+
         const existing = await this.prisma.credential.findFirst({ where });
 
         if (existing) {
-            // Update existing - merge OAuth data into existing data JSON
             const mergedData = { ...(existing.data || {}), ...oauthData };
 
             const updated = await this.prisma.credential.update({
                 where: { id: existing.id },
                 data: {
-                    userId: this._convertId(userId || user || existing.userId),
+                    userId: this._convertId(user || existing.userId),
                     externalId:
                         externalId !== undefined
                             ? externalId
@@ -168,10 +159,9 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
             };
         }
 
-        // Create new credential
         const created = await this.prisma.credential.create({
             data: {
-                userId: this._convertId(userId || user),
+                userId: this._convertId(user),
                 externalId,
                 authIsValid:
                     authIsValid !== undefined ? authIsValid : auth_is_valid,
@@ -244,15 +234,8 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
         }
 
         // Separate schema fields from OAuth data
-        const {
-            user,
-            userId,
-            externalId,
-            auth_is_valid,
-            authIsValid,
-            subType,
-            ...oauthData
-        } = updates;
+        const { user, auth_is_valid, authIsValid, subType, ...oauthData } =
+            updates;
 
         // Merge OAuth data with existing
         const mergedData = { ...(existing.data || {}), ...oauthData };
@@ -297,7 +280,6 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
     _convertIdentifiersToWhere(identifiers) {
         const where = {};
 
-        if (identifiers._id) where.id = this._convertId(identifiers._id);
         if (identifiers.id) where.id = this._convertId(identifiers.id);
         if (identifiers.user) where.userId = this._convertId(identifiers.user);
         if (identifiers.userId)

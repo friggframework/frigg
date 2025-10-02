@@ -125,13 +125,10 @@ class Module extends Delegate {
     async markCredentialsInvalid() {
         if (!this.credential) return;
 
-        // Persist flag change through repository – works even when the
-        // credential object is a plain JavaScript object (lean query).
-        const credentialId = this.credential._id || this.credential.id;
-        if (!credentialId) return;
+        if (!this.credential.id) return;
 
         await this.credentialRepository.updateAuthenticationStatus(
-            credentialId,
+            this.credential.id,
             false
         );
 
@@ -141,20 +138,19 @@ class Module extends Delegate {
     }
 
     async deauthorize() {
+        //todo: Check if this is correct, we're instantiating a new api without params (credentials, tokens, etc...)
         this.api = new this.apiClass();
 
         // Remove persisted credential (if any)
         if (this.entity?.credential) {
             const credentialId =
-                this.entity.credential._id ||
-                this.entity.credential.id ||
-                this.entity.credential;
+                this.entity.credential.id || this.entity.credential;
 
             // Delete credential via repository
             await this.credentialRepository.deleteCredentialById(credentialId);
 
             // Unset credential reference on the Entity document
-            const entityId = this.entity._id || this.entity.id;
+            const entityId = this.entity.id;
             if (entityId) {
                 await this.moduleRepository.unsetCredential(entityId);
             }
