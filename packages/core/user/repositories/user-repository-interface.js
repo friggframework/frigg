@@ -193,6 +193,60 @@ class UserRepositoryInterface {
     async deleteUser(userId) {
         throw new Error('Method deleteUser must be implemented by subclass');
     }
+
+    /**
+     * Find all users with pagination
+     *
+     * @param {Object} options - Query options
+     * @param {number} [options.skip] - Number of records to skip
+     * @param {number} [options.limit] - Maximum number of records to return
+     * @param {Object} [options.sort] - Sort criteria (e.g., { createdAt: -1 })
+     * @param {Array<string>} [options.excludeFields] - Fields to exclude (e.g., ['-hashword'])
+     * @returns {Promise<Array<Object>>} Array of user objects
+     * @abstract
+     */
+    async findAllUsers(options = {}) {
+        throw new Error('Method findAllUsers must be implemented by subclass');
+    }
+
+    /**
+     * Get total user count
+     *
+     * @returns {Promise<number>} Total number of users
+     * @abstract
+     */
+    async countUsers() {
+        throw new Error('Method countUsers must be implemented by subclass');
+    }
+
+    /**
+     * Search users by username or email
+     *
+     * @param {Object} options - Search options
+     * @param {string} options.query - Search query string
+     * @param {number} [options.skip] - Number of records to skip
+     * @param {number} [options.limit] - Maximum number of records to return
+     * @param {Object} [options.sort] - Sort criteria (e.g., { createdAt: -1 })
+     * @param {Array<string>} [options.excludeFields] - Fields to exclude (e.g., ['-hashword'])
+     * @returns {Promise<Array<Object>>} Array of matching user objects
+     * @abstract
+     */
+    async searchUsers(options = {}) {
+        throw new Error('Method searchUsers must be implemented by subclass');
+    }
+
+    /**
+     * Count users matching search query
+     *
+     * @param {string} query - Search query string
+     * @returns {Promise<number>} Number of matching users
+     * @abstract
+     */
+    async countUsersBySearchQuery(query) {
+        throw new Error(
+            'Method countUsersBySearchQuery must be implemented by subclass'
+        );
+    }
 }
 
 module.exports = { UserRepositoryInterface };

@@ -4,11 +4,8 @@ const { get } = require('../assertions');
 class Options {
     constructor(params) {
         this.module = get(params, 'module');
-        this.isMany = Boolean(get(params, 'isMany', false));
+        this.modules = params.modules || {}; // Store modules for requiredEntities extraction
         this.hasUserConfig = Boolean(get(params, 'hasUserConfig', false));
-        this.requiresNewEntity = Boolean(
-            get(params, 'requiresNewEntity', false)
-        );
         if (!params.display) {
             throw new RequiredPropertyError({
                 parent: this,
@@ -24,28 +21,23 @@ class Options {
     }
 
     get() {
+        // Extract module names from the modules object to determine required entities
+        const requiredEntities = this.modules
+            ? Object.keys(this.modules)
+            : [];
+
         return {
             type: this.module.definition.getName(),
 
             // Flag for if the User can configure any settings
             hasUserConfig: this.hasUserConfig,
 
-            // if this integration can be used multiple times with the same integration pair. For example I want to
-            // connect two different Etsy shops to the same Freshbooks account.
-            isMany: this.isMany,
-
-            // if this is true it means we need to create a new entity for every integration pair and not use an
-            // existing one. This would be true for scenarios where the client wishes to have individual control over
-            // the integerations it has connected to its app. They would want this to let their users only delete
-            // single integrations without notifying our server.
-            requiresNewEntity: this.requiresNewEntity,
+            // Array of module/entity type names required for this integration (e.g., ['nagaris', 'creditorwatch'])
+            // UI uses this to check if user has connected the necessary accounts before creating integration
+            requiredEntities: requiredEntities,
 
             // this is information required for the display side of things on the front end
             display: this.display,
-
-            // this is information for post-authentication config, using jsonSchema and uiSchema for display on the frontend
-            // Maybe include but probably not, I like making someone make a follow-on request
-            // configOptions: this.configOptions,
         };
     }
 }

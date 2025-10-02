@@ -3,6 +3,7 @@ const router = express.Router();
 const { createAppHandler } = require('./../app-handler-helpers');
 const { requireAdmin } = require('./middleware/requireAdmin');
 const catchAsyncError = require('express-async-handler');
+const bcrypt = require('bcryptjs');
 const {
     createUserRepository,
 } = require('../../user/repositories/user-repository-factory');
@@ -11,6 +12,7 @@ const { createModuleRepository } = require('../../modules/repositories/module-re
 const { GetModuleEntityById } = require('../../modules/use-cases/get-module-entity-by-id');
 const { UpdateModuleEntity } = require('../../modules/use-cases/update-module-entity');
 const { DeleteModuleEntity } = require('../../modules/use-cases/delete-module-entity');
+const { CreateTokenForUserId } = require('../../user/use-cases/create-token-for-user-id');
 
 // Initialize repositories and use cases
 const { userConfig } = loadAppDefinition();
@@ -21,6 +23,7 @@ const moduleRepository = createModuleRepository();
 const getModuleEntityById = new GetModuleEntityById({ moduleRepository });
 const updateModuleEntity = new UpdateModuleEntity({ moduleRepository });
 const deleteModuleEntity = new DeleteModuleEntity({ moduleRepository });
+const createTokenForUserId = new CreateTokenForUserId({ userRepository });
 
 // Debug logging
 router.use((req, res, next) => {
@@ -39,7 +42,7 @@ router.use(requireAdmin);
  * GET /api/admin/users
  * List all users with pagination
  */
-router.get('/users', catchAsyncError(async (req, res) => {
+router.get('/api/admin/users', catchAsyncError(async (req, res) => {
     const { page = 1, limit = 50, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
@@ -72,7 +75,7 @@ router.get('/users', catchAsyncError(async (req, res) => {
  * GET /api/admin/users/search
  * Search users by username or email
  */
-router.get('/users/search', catchAsyncError(async (req, res) => {
+router.get('/api/admin/users/search', catchAsyncError(async (req, res) => {
     const {
         q,
         page = 1,
@@ -117,10 +120,82 @@ router.get('/users/search', catchAsyncError(async (req, res) => {
 }));
 
 /**
+ * POST /api/admin/users
+ * Create a new user (admin only)
+ * Admin-specific features:
+ * - Can create users with custom roles
+ * - Can set verified status
+ * - Can assign to organizations
+ * - No email verification required
+ */
+router.post('/api/admin/users', catchAsyncError(async (req, res) => {
+    const {
+        username,
+        email,
+        password,
+        type = 'INDIVIDUAL',
+        appUserId,
+        organizationId,
+        verified = true // Admins can create pre-verified users
+    } = req.body;
+
+    // Validate required fields
+    if (!username || !email || !password) {
+        return res.status(400).json({
+            status: 'error',
+            message: 'Username, email, and password are required'
+        });
+    }
+
+    // Check if user already exists
+    const existingUser = await userRepository.findIndividualUserByUsername(username);
+    if (existingUser) {
+        return res.status(409).json({
+            status: 'error',
+            message: 'User with this username already exists'
+        });
+    }
+
+    const existingEmail = await userRepository.findIndividualUserByEmail(email);
+    if (existingEmail) {
+        return res.status(409).json({
+            status: 'error',
+            message: 'User with this email already exists'
+        });
+    }
+
+    // Hash password (using bcryptjs which is already imported)
+    const hashword = await bcrypt.hash(password, 10);
+
+    // Create user with admin-specified attributes
+    const userData = {
+        username,
+        email,
+        hashword,
+        type
+    };
+
+    // Add optional fields if provided
+    if (appUserId) userData.appUserId = appUserId;
+    if (organizationId) userData.organizationId = organizationId;
+
+    const user = await userRepository.createIndividualUser(userData);
+
+    // Remove sensitive fields
+    const userObj = user.toObject ? user.toObject() : user;
+    delete userObj.hashword;
+
+    res.status(201).json({
+        user: userObj,
+        message: 'User created successfully by admin'
+    });
+}));
+
+/**
  * GET /api/admin/users/:userId
  * Get a specific user by ID
  */
-router.get('/users/:userId', catchAsyncError(async (req, res) => {
+router.get('/api/admin/users/:userId', catchAsyncError(async (req, res) => {
     const { userId } = req.params;
 
     const user = await userRepository.findUserById(userId);
@@ -140,6 +215,35 @@ router.get('/users/:userId', catchAsyncError(async (req, res) => {
 }));
 
 /**
+ * POST /api/admin/users/:userId/impersonate
+ * Generate a token for a user without requiring password (admin impersonation)
+ * Allows admins to login as any user for support/testing purposes
+ */
+router.post('/api/admin/users/:userId/impersonate', catchAsyncError(async (req, res) => {
+    const { userId } = req.params;
+    const { expiresInMinutes = 120 } = req.body;
+
+    // Find the user
+    const user = await userRepository.findUserById(userId);
+
+    if (!user) {
+        return res.status(404).json({
+            status: 'error',
+            message: 'User not found'
+        });
+    }
+
+    // Generate token without password verification
+    const token = await createTokenForUserId.execute(userId, expiresInMinutes);
+
+    res.json({
+        token,
+        message: `Impersonating user: ${user.username || user.email}`,
+        expiresInMinutes
+    });
+}));
+
+/**
  * GLOBAL ENTITY MANAGEMENT ENDPOINTS
  */
 
@@ -147,7 +251,7 @@ router.get('/users/:userId', catchAsyncError(async (req, res) => {
  * GET /api/admin/entities
  * List all global entities
  */
-router.get('/entities', catchAsyncError(async (req, res) => {
+router.get('/api/admin/entities', catchAsyncError(async (req, res) => {
     const { type, status } = req.query;
 
     const query = { isGlobal: true };
@@ -163,7 +267,7 @@ router.get('/entities', catchAsyncError(async (req, res) => {
  * GET /api/admin/entities/:entityId
  * Get a specific global entity
  */
-router.get('/entities/:entityId', catchAsyncError(async (req, res) => {
+router.get('/api/admin/entities/:entityId', catchAsyncError(async (req, res) => {
     const { entityId } = req.params;
 
     const entity = await getModuleEntityById.execute(entityId);
@@ -182,7 +286,7 @@ router.get('/entities/:entityId', catchAsyncError(async (req, res) => {
  * POST /api/admin/entities
  * Create a new global entity
  */
-router.post('/entities', catchAsyncError(async (req, res) => {
+router.post('/api/admin/entities', catchAsyncError(async (req, res) => {
     const { type, ...entityData } = req.body;
 
     if (!type) {
@@ -207,7 +311,7 @@ router.post('/entities', catchAsyncError(async (req, res) => {
  * PUT /api/admin/entities/:entityId
  * Update a global entity
  */
-router.put('/entities/:entityId', catchAsyncError(async (req, res) => {
+router.put('/api/admin/entities/:entityId', catchAsyncError(async (req, res) => {
     const { entityId } = req.params;
 
     const entity = await updateModuleEntity.execute(entityId, req.body);
@@ -226,7 +330,7 @@ router.put('/entities/:entityId', catchAsyncError(async (req, res) => {
  * DELETE /api/admin/entities/:entityId
  * Delete a global entity
  */
-router.delete('/entities/:entityId', catchAsyncError(async (req, res) => {
+router.delete('/api/admin/entities/:entityId', catchAsyncError(async (req, res) => {
     const { entityId } = req.params;
 
     await deleteModuleEntity.execute(entityId);
@@ -238,7 +342,7 @@ router.delete('/entities/:entityId', catchAsyncError(async (req, res) => {
  * POST /api/admin/entities/:entityId/test
  * Test connection for a global entity
  */
-router.post('/entities/:entityId/test', catchAsyncError(async (req, res) => {
+router.post('/api/admin/entities/:entityId/test', catchAsyncError(async (req, res) => {
     const { entityId } = req.params;
 
     const entity = await getModuleEntityById.execute(entityId);
