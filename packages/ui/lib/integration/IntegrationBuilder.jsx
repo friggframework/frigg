@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback } from "react";
 import API from "../api/api";
 import { Button } from "../components/button.jsx";
 import { LoadingSpinner } from "../components/LoadingSpinner.jsx";
-import { ArrowRight, Check, X } from "lucide-react";
+import { ArrowRight, Check, X, Plus } from "lucide-react";
+import { useIntegrationData } from "./context/IntegrationDataContext";
 
 /**
  * IntegrationBuilder - Build integrations from connected entities
@@ -13,26 +14,31 @@ import { ArrowRight, Check, X } from "lucide-react";
  * - Configure integration settings
  * - Confirm and create the integration
  *
- * @param {string} props.friggBaseUrl - Base URL for Frigg backend
- * @param {string} props.authToken - JWT token for authenticated user
  * @param {object} props.preselectedEntity - Entity to pre-select (optional)
+ * @param {object} props.preselectedIntegrationType - Integration type to pre-select when starting from gallery (optional)
  * @param {function} props.onIntegrationCreated - Callback when integration is created
  * @param {function} props.onCancel - Navigate back to entity manager
  * @returns {JSX.Element} The rendered component
  */
 export default function IntegrationBuilder(props) {
+  const { baseUrl, authToken } = useIntegrationData();
+
+  // Determine if we're starting from gallery (integration type pre-selected) or entity manager (entity pre-selected)
+  const startFromGallery = !!props.preselectedIntegrationType;
+
   const [step, setStep] = useState(1); // 1: Select Entities, 2: Select Type, 3: Configure, 4: Confirm
   const [entities, setEntities] = useState([]);
   const [integrationOptions, setIntegrationOptions] = useState([]);
   const [selectedEntities, setSelectedEntities] = useState({});
-  const [selectedIntegrationType, setSelectedIntegrationType] = useState(null);
+  const [selectedIntegrationType, setSelectedIntegrationType] = useState(props.preselectedIntegrationType || null);
   const [config, setConfig] = useState({});
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
 
-  const api = new API(props.friggBaseUrl, props.authToken);
+  const api = new API(baseUrl, authToken);
 
+  // Handle preselected entity (from entity manager flow)
   useEffect(() => {
     if (props.preselectedEntity) {
       setSelectedEntities({
@@ -40,6 +46,18 @@ export default function IntegrationBuilder(props) {
       });
     }
   }, [props.preselectedEntity]);
+
+  // Handle preselected integration type (from gallery install flow)
+  useEffect(() => {
+    if (props.preselectedIntegrationType) {
+      setSelectedIntegrationType(props.preselectedIntegrationType);
+      // Pre-populate config type
+      setConfig(prev => ({
+        ...prev,
+        type: props.preselectedIntegrationType.type
+      }));
+    }
+  }, [props.preselectedIntegrationType]);
 
   const loadData = useCallback(async () => {
     try {
@@ -62,15 +80,15 @@ export default function IntegrationBuilder(props) {
     } finally {
       setLoading(false);
     }
-  }, [props.authToken, props.friggBaseUrl]);
+  }, [authToken, baseUrl]);
 
   useEffect(() => {
-    if (!props.authToken) {
+    if (!authToken) {
       setError("Authentication token is required");
       return;
     }
     loadData();
-  }, [loadData, props.authToken]);
+  }, [loadData, authToken]);
 
   const handleSelectEntity = (entityType, entityId) => {
     setSelectedEntities(prev => ({
@@ -116,8 +134,11 @@ export default function IntegrationBuilder(props) {
         ...config
       };
 
+      // Convert selected entities object to array of entity IDs
+      const entityIds = Object.values(selectedEntities);
+
       const result = await api.createIntegration(
-        Object.values(selectedEntities),
+        entityIds,
         integrationConfig
       );
 
@@ -183,50 +204,89 @@ export default function IntegrationBuilder(props) {
         <div className="space-y-4">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-blue-800">
             <p className="text-sm">
-              Select at least 2 accounts to integrate. For example, connect your
-              Salesforce CRM with your Slack workspace.
+              {startFromGallery && selectedIntegrationType ? (
+                <>
+                  Select accounts to connect with <strong>{selectedIntegrationType.display?.name || selectedIntegrationType.displayName || selectedIntegrationType.type}</strong>.
+                  {selectedIntegrationType.requiredEntities?.length > 0 && (
+                    <> Required: {selectedIntegrationType.requiredEntities.join(', ')}</>
+                  )}
+                </>
+              ) : (
+                <>
+                  Select at least 2 accounts to integrate. For example, connect your
+                  Salesforce CRM with your Slack workspace.
+                </>
+              )}
             </p>
           </div>
 
           {entities.length === 0 ? (
-            <div className="text-center py-8 bg-gray-50 rounded-lg">
-              <p className="text-gray-600">
-                No connected accounts found. Please connect accounts first.
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+              <h3 className="font-semibold mb-2">No Connected Accounts</h3>
+              <p className="text-gray-600 mb-4">
+                You need to connect accounts before creating integrations.
+                {startFromGallery && selectedIntegrationType?.requiredEntities && (
+                  <> This integration requires: <strong>{selectedIntegrationType.requiredEntities.join(', ')}</strong></>
+                )}
               </p>
+              <Button onClick={() => {
+                alert('OAuth flow not yet implemented. This would redirect to connect accounts.');
+              }}>
+                Connect Accounts
+              </Button>
             </div>
           ) : (
-            <div className="grid gap-3">
-              {entities.map((entity) => {
-                const isSelected = selectedEntities[entity.type] === entity.id;
-                return (
-                  <div
-                    key={entity.id}
-                    onClick={() =>
-                      isSelected
-                        ? handleDeselectEntity(entity.type)
-                        : handleSelectEntity(entity.type, entity.id)
-                    }
-                    className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                      isSelected
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-gray-300 hover:border-gray-400"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-medium">{entity.name}</h4>
-                        <p className="text-sm text-gray-600 capitalize">
-                          {entity.type}
-                        </p>
+            <>
+              <div className="grid gap-3">
+                {entities.map((entity) => {
+                  const isSelected = selectedEntities[entity.type] === entity.id;
+                  return (
+                    <div
+                      key={entity.id}
+                      onClick={() =>
+                        isSelected
+                          ? handleDeselectEntity(entity.type)
+                          : handleSelectEntity(entity.type, entity.id)
+                      }
+                      className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                        isSelected
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-gray-300 hover:border-gray-400"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-medium">{entity.name}</h4>
+                          <p className="text-sm text-gray-600 capitalize">
+                            {entity.type}
+                          </p>
+                        </div>
+                        {isSelected && (
+                          <Check className="w-5 h-5 text-blue-600" />
+                        )}
                       </div>
-                      {isSelected && (
-                        <Check className="w-5 h-5 text-blue-600" />
-                      )}
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+
+              {/* Show connect more accounts option */}
+              <div className="border border-dashed border-gray-300 rounded-lg p-4 text-center">
+                <p className="text-sm text-gray-600 mb-2">
+                  Don't see the account you need?
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    alert('OAuth flow not yet implemented. This would redirect to connect a new account.');
+                  }}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Connect New Account
+                </Button>
+              </div>
+            </>
           )}
 
           <div className="flex justify-between pt-4">
@@ -244,65 +304,106 @@ export default function IntegrationBuilder(props) {
         </div>
       )}
 
-      {/* Step 2: Select Integration Type */}
+      {/* Step 2: Select Integration Type (or show pre-selected from gallery) */}
       {step === 2 && (
         <div className="space-y-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-blue-800">
-            <p className="text-sm">
-              Choose the integration type that connects your selected accounts.
-            </p>
-          </div>
+          {startFromGallery && selectedIntegrationType ? (
+            // Integration type already selected from gallery - show it and allow next
+            <>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-blue-800">
+                <p className="text-sm">
+                  You selected <strong>{selectedIntegrationType.display?.name || selectedIntegrationType.displayName || selectedIntegrationType.type}</strong> from the gallery.
+                  Click Next to configure the integration.
+                </p>
+              </div>
 
-          {getCompatibleIntegrations().length === 0 ? (
-            <div className="text-center py-8 bg-gray-50 rounded-lg">
-              <p className="text-gray-600">
-                No compatible integrations found for the selected accounts.
-                Try selecting different accounts.
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-3">
-              {getCompatibleIntegrations().map((option) => {
-                const isSelected = selectedIntegrationType?.type === option.type;
-                return (
-                  <div
-                    key={option.type}
-                    onClick={() => setSelectedIntegrationType(option)}
-                    className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                      isSelected
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-gray-300 hover:border-gray-400"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-medium">{option.displayName}</h4>
-                        <p className="text-sm text-gray-600">
-                          {option.description}
-                        </p>
-                      </div>
-                      {isSelected && (
-                        <Check className="w-5 h-5 text-blue-600" />
-                      )}
-                    </div>
+              <div className="border border-blue-500 bg-blue-50 rounded-lg p-6">
+                <div className="flex items-center gap-4">
+                  {selectedIntegrationType.display?.icon && (
+                    <img src={selectedIntegrationType.display.icon} alt="" className="w-16 h-16 rounded" />
+                  )}
+                  <div>
+                    <h4 className="font-semibold text-lg">
+                      {selectedIntegrationType.display?.name || selectedIntegrationType.displayName || selectedIntegrationType.type}
+                    </h4>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {selectedIntegrationType.display?.description || selectedIntegrationType.description}
+                    </p>
                   </div>
-                );
-              })}
-            </div>
-          )}
+                </div>
+              </div>
 
-          <div className="flex justify-between pt-4">
-            <Button variant="outline" onClick={() => setStep(1)}>
-              Back
-            </Button>
-            <Button
-              onClick={() => setStep(3)}
-              disabled={!selectedIntegrationType}
-            >
-              Next
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </div>
+              <div className="flex justify-between pt-4">
+                <Button variant="outline" onClick={() => setStep(1)}>
+                  Back to Entity Selection
+                </Button>
+                <Button onClick={() => setStep(3)}>
+                  Next: Configure
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            </>
+          ) : (
+            // Standard flow - select from compatible integrations
+            <>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-blue-800">
+                <p className="text-sm">
+                  Choose the integration type that connects your selected accounts.
+                </p>
+              </div>
+
+              {getCompatibleIntegrations().length === 0 ? (
+                <div className="text-center py-8 bg-gray-50 rounded-lg">
+                  <p className="text-gray-600">
+                    No compatible integrations found for the selected accounts.
+                    Try selecting different accounts.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {getCompatibleIntegrations().map((option) => {
+                    const isSelected = selectedIntegrationType?.type === option.type;
+                    return (
+                      <div
+                        key={option.type}
+                        onClick={() => setSelectedIntegrationType(option)}
+                        className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                          isSelected
+                            ? "border-blue-500 bg-blue-50"
+                            : "border-gray-300 hover:border-gray-400"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-medium">{option.display?.name || option.displayName}</h4>
+                            <p className="text-sm text-gray-600">
+                              {option.display?.description || option.description}
+                            </p>
+                          </div>
+                          {isSelected && (
+                            <Check className="w-5 h-5 text-blue-600" />
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="flex justify-between pt-4">
+                <Button variant="outline" onClick={() => setStep(1)}>
+                  Back
+                </Button>
+                <Button
+                  onClick={() => setStep(3)}
+                  disabled={!selectedIntegrationType}
+                >
+                  Next
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       )}
 

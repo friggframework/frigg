@@ -152,10 +152,11 @@ export default class API {
   }
 
   // create integration. on success returns the integration id along with its configuration
-  async createIntegration(entity1, entity2, config) {
+  // entities: array of 0-N entity IDs to connect
+  async createIntegration(entities, config) {
     const url = `${this.endpointIntegrations}`;
     const params = {
-      entities: [entity1, entity2],
+      entities,
       config,
     };
     return this._post(url, params);
