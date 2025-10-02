@@ -88,76 +88,382 @@ frigg init --backend-only       # Backend only, no prompts
 
 ---
 
-#### `frigg create`
-**Purpose**: Create new resources (integrations, API modules, credentials, deploy strategies)
+#### `frigg create integration`
 
-**Subcommands**:
+Create a new integration in the current Frigg app. An integration represents a business workflow that connects one or more API modules together.
 
-##### `frigg create integration`
-Create a new integration in the current Frigg app
+**Command Syntax**:
+```bash
+frigg create integration [name] [options]
+```
 
+**Interactive Flow** (7 Steps):
+
+##### Step 1: Basic Information
 ```bash
 frigg create integration
 
 ? Integration name: salesforce-sync
-? Integration display name: Salesforce Sync
+  ↳ Validates: kebab-case, unique, 2-100 chars
+  ↳ Auto-suggests based on common patterns
+
+? Display name: (Salesforce Sync)
+  ↳ Human-readable name for UI
+  ↳ Auto-generated from integration name if empty
+
 ? Description: Synchronize contacts with Salesforce
+  ↳ 1-1000 characters
+  ↳ Used in UI and documentation
+```
+
+##### Step 2: Integration Type & Configuration
+```bash
+? Integration type:
+  > API (REST/GraphQL API integration)
+  > Webhook (Event-driven integration)
+  > Sync (Bidirectional data sync)
+  > Transform (Data transformation pipeline)
+  > Custom
+
+? Category:
+  > CRM
+  > Marketing
+  > Communication
+  > ECommerce
+  > Finance
+  > Analytics
+  > Storage
+  > Development
+  > Productivity
+  > Social
+  > Other
+
+? Tags (comma-separated): crm, salesforce, contacts
+  ↳ Used for filtering and discovery
+```
+
+##### Step 3: Entity Configuration
+```bash
+? Configure entities for this integration?
+  > Yes - Interactive setup
+  > Yes - Import from template
+  > No - I'll configure later
+
+# If "Yes - Interactive":
+? How many entities will this integration use? 2
+
+=== Entity 1 ===
+? Entity type: salesforce
+? Entity label: Salesforce Account
+? Is this a global entity (managed by app owner)? No
+? Can this entity be auto-provisioned? Yes
+? Is this entity required? Yes
+
+=== Entity 2 ===
+? Entity type: stripe
+? Entity label: Stripe Account
+? Is this a global entity? Yes
+? Can this entity be auto-provisioned? No
+? Is this entity required? Yes
+```
+
+##### Step 4: Capabilities
+```bash
+? Authentication methods (space to select):
+  [x] OAuth2
+  [ ] API Key
+  [ ] Basic Auth
+  [ ] Token
+  [ ] Custom
+
+? Does this integration support webhooks? Yes
+
+? Does this integration support real-time updates? No
+
+? Data sync capabilities:
+  [x] Bidirectional sync
+  [x] Incremental sync
+  ? Batch size: 100
+```
+
+##### Step 5: API Module Selection
+```bash
 ? Add API modules now?
   > Yes - from API module library (npm)
   > Yes - create new local API module
   > No - I'll add them later
 
 # If "from library":
-? Search API modules: (type to search)
-  > @frigg/salesforce-contacts
-  > @frigg/salesforce-leads
-  > @custom/salesforce-utils
+? Search API modules: salesforce
+
+  Available modules:
+  [x] @friggframework/api-module-salesforce (v1.2.0)
+      ↳ Official Salesforce API module
+  [ ] @friggframework/api-module-salesforce-marketing (v1.0.0)
+      ↳ Salesforce Marketing Cloud
+  [ ] @custom/salesforce-utils (v0.5.0)
+      ↳ Custom Salesforce utilities
 
 ? Select modules: (space to select, enter to continue)
-  [x] @frigg/salesforce-contacts
-  [ ] @frigg/salesforce-leads
-  [x] @custom/salesforce-utils
+  [x] @friggframework/api-module-salesforce
 
 # If "create new":
-[Flows into frigg create api-module]
-
-✓ Integration 'salesforce-sync' created
-✓ Integration.js created at integrations/salesforce-sync/
-✓ Added to app definition
-? Run frigg ui to configure? (Y/n)
+[Flows to frigg create api-module with context]
 ```
 
-**Flags**:
+##### Step 6: Environment Variables
 ```bash
-frigg create integration <name>           # Skip name prompt
-frigg create integration --no-modules     # Don't prompt for modules
-frigg create integration --template <id>  # Use integration template
+? Configure required environment variables?
+  > Yes - Interactive setup
+  > Yes - Use .env.example
+  > No - I'll configure later
+
+# If "Yes - Interactive":
+Required environment variables for this integration:
+
+? SALESFORCE_CLIENT_ID: (your-client-id)
+  ↳ Description: Salesforce OAuth client ID
+  ↳ Required: Yes
+
+? SALESFORCE_CLIENT_SECRET: (your-client-secret)
+  ↳ Description: Salesforce OAuth client secret
+  ↳ Required: Yes
+
+? SALESFORCE_REDIRECT_URI: (${process.env.REDIRECT_URI}/salesforce)
+  ↳ Description: OAuth callback URL
+  ↳ Required: Yes
+
+✓ .env.example updated with required variables
+✓ See documentation for how to obtain credentials
+```
+
+##### Step 7: Generation
+```bash
+Creating integration 'salesforce-sync'...
+
+✓ Validating configuration
+✓ Checking for naming conflicts
+✓ Creating directory structure
+✓ Generating Integration.js
+✓ Creating definition.js
+✓ Generating integration-definition.json
+✓ Installing API modules (@friggframework/api-module-salesforce)
+✓ Updating app-definition.json
+✓ Creating .env.example entries
+✓ Generating README.md
+✓ Running validation tests
+
+Integration 'salesforce-sync' created successfully!
+
+Location: integrations/salesforce-sync/
+
+Next steps:
+  1. Configure environment variables in .env
+  2. Review Integration.js implementation
+  3. Run 'frigg ui' to test the integration
+  4. Run 'frigg start' to start local development
+
+? Open Integration.js in editor? (Y/n)
+? Run frigg ui now? (Y/n)
+```
+
+**Flags & Options**:
+
+```bash
+# Basic flags
+frigg create integration <name>              # Skip name prompt
+frigg create integration --name <name>       # Explicit name flag
+
+# Configuration flags
+frigg create integration --type <type>       # Specify type (api|webhook|sync|transform|custom)
+frigg create integration --category <cat>    # Specify category
+frigg create integration --tags <tags>       # Comma-separated tags
+
+# Template flags
+frigg create integration --template <id>     # Use integration template
+frigg create integration --from-example      # Copy from examples
+
+# Module flags
+frigg create integration --no-modules        # Don't prompt for modules
+frigg create integration --modules <list>    # Add specific modules
+
+# Entity flags
+frigg create integration --entities <json>   # Provide entity config as JSON
+frigg create integration --no-entities       # Skip entity configuration
+
+# Behavior flags
+frigg create integration --force             # Overwrite existing
+frigg create integration --dry-run           # Preview without creating
+frigg create integration --no-env            # Skip environment variable setup
+frigg create integration --no-edit           # Don't open in editor
+
+# Output flags
+frigg create integration --quiet             # Minimal output
+frigg create integration --verbose           # Detailed output
+frigg create integration --json              # JSON output for scripting
+```
+
+**Generated File Structure**:
+
+```
+integrations/salesforce-sync/
+├── Integration.js              # Main integration class (extends IntegrationBase)
+├── definition.js               # Integration definition metadata
+├── integration-definition.json # JSON schema-compliant definition
+├── config.json                 # Integration configuration
+├── README.md                   # Documentation
+├── .env.example               # Environment variable template
+├── tests/                     # Integration tests
+│   ├── integration.test.js
+│   └── fixtures/
+└── docs/                      # Additional documentation
+    ├── setup.md
+    └── api-reference.md
 ```
 
 ---
 
-##### `frigg create api-module`
-Create a new API module locally
+#### `frigg create api-module`
 
+Create a new API module locally within the Frigg app. API modules encapsulate interactions with external APIs and can be reused across integrations.
+
+**Command Syntax**:
+```bash
+frigg create api-module [name] [options]
+```
+
+**Interactive Flow** (7 Steps):
+
+##### Step 1: Basic Information
 ```bash
 frigg create api-module
 
 ? API module name: custom-webhook-handler
-? Display name: Custom Webhook Handler
+  ↳ Validates: kebab-case, unique, 2-100 chars
+  ↳ Prefix with @scope/ for scoped packages
+
+? Display name: (Custom Webhook Handler)
+  ↳ Human-readable name
+
 ? Description: Handle webhooks from external systems
+  ↳ 1-500 characters
+
+? Author: (Sean Matthews)
+  ↳ From git config or prompted
+
+? License: (MIT)
+  ↳ Common choices: MIT, Apache-2.0, ISC, BSD-3-Clause
+```
+
+##### Step 2: Module Type & Configuration
+```bash
 ? Module type:
-  > Entity (CRUD operations)
-  > Action (Business logic)
-  > Utility (Helper functions)
-  > Webhook (Event handling)
+  > Entity (CRUD operations for a resource)
+    ↳ Creates: Entity class, Manager class, CRUD methods
+  > Action (Business logic or workflow)
+    ↳ Creates: Action handlers, workflow methods
+  > Utility (Helper functions and tools)
+    ↳ Creates: Utility functions, helpers
+  > Webhook (Event handling and webhooks)
+    ↳ Creates: Webhook handlers, event processors
+  > API (Full API client)
+    ↳ Creates: API class, auth, endpoints
 
-? Generate boilerplate?
-  > Yes - Full (routes, handlers, tests)
-  > Yes - Minimal
-  > No - Empty structure
+? Primary API pattern:
+  > REST API
+  > GraphQL
+  > SOAP/XML
+  > Custom
 
+? Authentication type:
+  > OAuth2
+  > API Key
+  > Basic Auth
+  > Token Bearer
+  > Custom
+  > None
+```
+
+##### Step 3: Boilerplate Generation
+```bash
+? Generate boilerplate code?
+  > Yes - Full (routes, handlers, tests, docs)
+  > Yes - Minimal (basic structure only)
+  > No - Empty structure (manual implementation)
+
+# If "Yes - Full":
+? Include example implementations? Yes
+? Generate TypeScript definitions? Yes
+? Include JSDoc comments? Yes
+
+# If module type is "Entity":
+? Entity name (singular): Contact
+? Entity name (plural): Contacts
+? Generate CRUD methods?
+  [x] Create
+  [x] Read
+  [x] Update
+  [x] Delete
+  [x] List
+
+# If module type is "Webhook":
+? Webhook event types (comma-separated): contact.created, contact.updated, contact.deleted
+? Include signature verification? Yes
+? Queue webhooks for processing? Yes
+```
+
+##### Step 4: API Module Definition
+```bash
+? Configure API module definition?
+  > Yes - Interactive setup
+  > Yes - Import from existing
+  > No - Minimal defaults
+
+# If "Yes - Interactive":
+? Module name (for registration): custom-webhook-handler
+? Model name: CustomWebhook
+? Required auth methods:
+  [x] getToken
+  [x] getEntityDetails
+  [ ] getCredentialDetails
+  [x] testAuthRequest
+
+? API properties to persist:
+  Credential properties (comma-separated): access_token, refresh_token
+  Entity properties (comma-separated): webhook_id, webhook_secret
+
+? Environment variables needed:
+  ? Variable name: WEBHOOK_SECRET
+  ? Description: Secret for webhook signature verification
+  ? Required: Yes
+  ? Example value: your-webhook-secret
+
+  Add another? No
+```
+
+##### Step 5: Dependencies
+```bash
+? Additional dependencies to install?
+  > Yes - Search npm
+  > Yes - Enter manually
+  > No
+
+# If "Yes - Enter manually":
+? Dependency name: axios
+? Version: (latest)
+
+? Install dev dependencies?
+  > Jest (testing)
+  > SuperTest (API testing)
+  > Nock (HTTP mocking)
+  > ESLint (linting)
+  > Prettier (formatting)
+```
+
+##### Step 6: Integration Association
+```bash
 ? Add to existing integration?
-  > Yes
+  > Yes - Select from list
   > No - I'll add it later
 
 # If "Yes":
@@ -166,82 +472,124 @@ frigg create api-module
   > docusign-integration
   > Create new integration
 
-✓ API module 'custom-webhook-handler' created
-✓ Files created in /api-modules/custom-webhook-handler/
-✓ Added to integration 'salesforce-sync'
-✓ Run 'npm test' to verify setup
+# If "Create new integration":
+[Flows to frigg create integration with this module pre-selected]
 ```
 
-**Flags**:
+##### Step 7: Generation
 ```bash
-frigg create api-module <name>              # Skip name prompt
-frigg create api-module --type entity       # Specify type
-frigg create api-module --no-boilerplate    # Minimal structure
-frigg create api-module --integration <id>  # Add to specific integration
+Creating API module 'custom-webhook-handler'...
+
+✓ Validating configuration
+✓ Checking for naming conflicts
+✓ Creating directory structure
+✓ Generating api.js
+✓ Generating definition.js
+✓ Creating index.js
+✓ Generating package.json
+✓ Installing dependencies (axios, @friggframework/core)
+✓ Installing dev dependencies (jest, eslint, prettier)
+✓ Generating tests
+✓ Creating README.md
+✓ Generating TypeScript definitions
+✓ Creating .env.example entries
+✓ Adding to integration 'salesforce-sync'
+✓ Running linter
+✓ Running initial tests
+
+API module 'custom-webhook-handler' created successfully!
+
+Location: api-modules/custom-webhook-handler/
+
+Files created:
+  - index.js (module exports)
+  - api.js (API class with methods)
+  - definition.js (module definition)
+  - package.json (dependencies and scripts)
+  - README.md (documentation)
+  - tests/ (test suite)
+
+Next steps:
+  1. Review api.js and implement custom logic
+  2. Update tests in tests/
+  3. Configure environment variables
+  4. Run 'npm test' to verify setup
+  5. Use module in integration
+
+? Open api.js in editor? (Y/n)
+? Run tests now? (Y/n)
+```
+
+**Flags & Options**:
+
+```bash
+# Basic flags
+frigg create api-module <name>               # Skip name prompt
+frigg create api-module --name <name>        # Explicit name flag
+
+# Type flags
+frigg create api-module --type <type>        # Module type (entity|action|utility|webhook|api)
+frigg create api-module --auth <type>        # Auth type (oauth2|api-key|basic|token|custom|none)
+
+# Generation flags
+frigg create api-module --boilerplate <level># full|minimal|none
+frigg create api-module --no-boilerplate     # Empty structure
+frigg create api-module --typescript         # Generate TypeScript
+frigg create api-module --javascript         # Generate JavaScript (default)
+
+# Template flags
+frigg create api-module --template <id>      # Use module template
+frigg create api-module --from <source>      # Copy from existing module
+
+# Dependency flags
+frigg create api-module --deps <list>        # Install dependencies
+frigg create api-module --dev-deps <list>    # Install dev dependencies
+frigg create api-module --no-install         # Skip npm install
+
+# Integration flags
+frigg create api-module --integration <id>   # Add to specific integration
+frigg create api-module --no-integration     # Don't prompt for integration
+
+# Behavior flags
+frigg create api-module --force              # Overwrite existing
+frigg create api-module --dry-run            # Preview without creating
+frigg create api-module --no-tests           # Skip test generation
+frigg create api-module --no-docs            # Skip documentation
+
+# Output flags
+frigg create api-module --quiet              # Minimal output
+frigg create api-module --verbose            # Detailed output
+frigg create api-module --json               # JSON output for scripting
+```
+
+**Generated File Structure**:
+
+```
+# Full Boilerplate (Entity Type)
+api-modules/custom-webhook-handler/
+├── index.js                    # Module exports (Api, Definition)
+├── api.js                      # API class extending ModuleAPIBase
+├── definition.js               # Module definition and auth methods
+├── defaultConfig.json          # Default configuration
+├── package.json                # Module metadata and dependencies
+├── README.md                   # Documentation
+├── .env.example               # Environment variables template
+├── types/                     # TypeScript definitions
+│   └── index.d.ts
+├── tests/                     # Test suite
+│   ├── api.test.js
+│   ├── definition.test.js
+│   └── fixtures/
+│       └── sample-data.json
+└── docs/                      # Additional documentation
+    ├── api-reference.md
+    └── examples.md
 ```
 
 ---
 
-##### `frigg create credentials` (Future)
-Generate deployment credentials from template
+#### `frigg add api-module`
 
-```bash
-frigg create credentials
-
-? Credential type:
-  > IAM User (programmatic access)
-  > IAM Role (assume role)
-  > Service Account (GCP)
-
-? Based on app definition requirements:
-  - VPC access: Yes
-  - KMS encryption: Yes
-  - SSM parameters: Yes
-  - S3 buckets: Yes
-
-? Generate narrowed permissions?
-  > Yes - Minimal required (recommended)
-  > No - Full admin (not recommended)
-
-✓ Credentials policy generated
-✓ Saved to deploy/iam-policy.json
-? Apply to AWS now? (Y/n)
-```
-
----
-
-##### `frigg create deploy-strategy` (Future)
-Create deployment configuration
-
-```bash
-frigg create deploy-strategy
-
-? Environment:
-  > Development
-  > Staging
-  > Production
-
-? Deployment type:
-  > Serverless Framework
-  > AWS CDK
-  > Terraform
-  > Custom
-
-? Region:
-  > us-east-1
-  > eu-west-1
-  > ap-southeast-1
-
-✓ Deploy strategy created: deploy/production.yml
-✓ Run 'frigg deploy --env production' when ready
-```
-
----
-
-#### `frigg add`
-**Purpose**: Add components to existing resources (additive operations)
-
-##### `frigg add api-module`
 Add API module to existing integration
 
 ```bash
@@ -294,32 +642,6 @@ frigg add api-module <package>              # Add specific package
 frigg add api-module --integration <id>     # Skip integration prompt
 frigg add api-module --local                # Only show local modules
 frigg add api-module --create               # Force create new module
-```
-
----
-
-##### `frigg add extension` (Future)
-Add extension to integration or core
-
-```bash
-frigg add extension
-
-? Extension type:
-  > Core extension (modifies Frigg core functionality)
-  > Integration extension (extends integration capabilities)
-  > API module extension (adds to existing module)
-
-? Select extension:
-  > @frigg/auth-extension-oauth2
-  > @frigg/logging-extension-datadog
-  > @custom/custom-middleware
-
-? Add to:
-  > Core (affects all integrations)
-  > Specific integration: salesforce-sync
-
-✓ Extension added
-✓ Configuration required - see docs/extensions/
 ```
 
 ---
@@ -521,170 +843,6 @@ frigg list extensions         # List extensions
 
 ---
 
-#### `frigg projects` (Future)
-**Purpose**: Manage multiple Frigg projects
-
-```bash
-frigg projects
-
-? Select action:
-  > List all projects
-  > Switch project
-  > Add project
-  > Remove project
-
-# List:
-Frigg Projects:
-  ├── my-app (/Users/sean/projects/my-app) [current]
-  ├── client-integration (/Users/sean/clients/acme)
-  └── demo-app (/Users/sean/demos/frigg-demo)
-
-# Switch:
-? Switch to:
-  > my-app
-  > client-integration
-  > demo-app
-
-✓ Switched to 'client-integration'
-```
-
----
-
-#### `frigg instance` (Future)
-**Purpose**: Manage local Frigg instances
-
-```bash
-frigg instance
-
-? Select action:
-  > Status (show running instances)
-  > Start instance
-  > Stop instance
-  > Restart instance
-  > Logs
-
-# Status:
-Running Instances:
-  ├── my-app (PID: 12345, Port: 3000)
-  └── client-integration (PID: 12346, Port: 3001)
-
-# Logs:
-? Select instance:
-  > my-app
-  > client-integration
-
-[Streaming logs from my-app...]
-```
-
----
-
-### 🔮 Future Commands
-
-#### `frigg mcp` (Future - High Priority)
-**Purpose**: Configure MCP server integration
-
-**Note**: MCP server will automatically run with Frigg backend. This command configures additional MCP types.
-
-```bash
-frigg mcp
-
-? Select MCP server type:
-  > Docs (AI documentation assistance) - runs separately
-  > Local (personal workflows) - auto-runs with backend ✓
-  > Hosted (deploy with app) - deployment configuration
-
-# Docs:
-? Install Frigg Docs MCP server?
-  > Yes - Install globally
-  > Yes - Install for this project
-  > No
-
-# Local (already running):
-✓ Local MCP server running on port 3002
-? Configure:
-  > View endpoints
-  > Update configuration
-  > Restart server
-
-# Hosted:
-? Deploy MCP server with app?
-  > Yes - Same infrastructure
-  > Yes - Separate service
-  > No - Manual deployment
-
-✓ MCP configuration saved
-? Start local MCP server now? (Y/n)
-```
-
----
-
-#### `frigg add core-module` (Future)
-**Purpose**: Add/switch core modules (host provider, auth, database, etc.)
-
-```bash
-frigg add core-module
-
-? Select core module type:
-  > Host Provider (AWS/GCP/Azure)
-  > Authentication Provider
-  > Database Provider
-  > Queue Provider
-  > Storage Provider
-
-? Select AWS Host Provider:
-  Current: Serverless Framework
-  > Serverless Framework (keep)
-  > AWS CDK
-  > Terraform
-
-? Configure AWS CDK:
-  > Use default configuration
-  > Custom configuration
-
-✓ Core module 'AWS CDK' added
-✓ Infrastructure code generated
-? Migrate existing resources? (Y/n)
-```
-
----
-
-#### `frigg submit` (Future - Marketplace)
-**Purpose**: Submit module to Frigg marketplace
-
-```bash
-frigg submit
-
-? What would you like to submit?
-  > API module
-  > Integration template
-  > Extension
-
-? Select API module:
-  > custom-webhook-handler
-  > custom-auth-provider
-
-? Package details:
-  Name: @yourorg/webhook-handler
-  Version: 1.0.0
-  License: MIT
-
-? Include documentation?
-  > Yes - Auto-generate from code
-  > Yes - Use existing README
-  > No
-
-? Publish to:
-  > Frigg marketplace
-  > npm registry
-  > Both
-
-✓ Package prepared
-✓ Published to Frigg marketplace
-✓ Published to npm as @yourorg/webhook-handler@1.0.0
-```
-
----
-
 ## Contextual Intelligence Layer
 
 ### Smart Recommendations
@@ -750,57 +908,6 @@ The CLI automatically detects:
 - Suggests logical next steps based on project state
 - Pre-fills forms with intelligent defaults
 - Validates inputs against project constraints
-
----
-
-## Command Hierarchy
-
-```
-frigg
-├── init                      # Initialize/reconfigure project
-├── create                    # Create new resources
-│   ├── integration          # Create integration
-│   ├── api-module           # Create API module
-│   ├── credentials          # Generate credentials (future)
-│   └── deploy-strategy      # Create deploy config (future)
-├── add                       # Add to existing resources
-│   ├── api-module           # Add module to integration
-│   ├── extension            # Add extension (future)
-│   └── core-module          # Add/switch core module (future)
-├── config                    # Configure resources
-│   ├── app                  # Configure app definition
-│   ├── integration          # Configure integration
-│   ├── core                 # Configure core modules
-│   └── deploy               # Configure deployment
-├── start                     # Start local development
-├── deploy                    # Deploy to cloud
-├── ui                        # Launch management UI
-├── list                      # List resources
-│   ├── integrations
-│   ├── api-modules
-│   ├── local
-│   ├── core
-│   └── extensions
-├── projects                  # Manage projects (future)
-│   ├── list
-│   ├── switch
-│   ├── add
-│   └── remove
-├── instance                  # Manage instances (future)
-│   ├── status
-│   ├── start
-│   ├── stop
-│   ├── restart
-│   └── logs
-├── mcp                       # MCP server config (future)
-│   ├── docs
-│   ├── local
-│   └── hosted
-└── submit                    # Submit to marketplace (future)
-    ├── api-module
-    ├── integration
-    └── extension
-```
 
 ---
 
@@ -931,79 +1038,6 @@ frigg init
 # Done! Frontend added
 frigg start
 ```
-
----
-
-## CLI Output Style
-
-### Success Messages
-```
-✓ Integration 'salesforce-sync' created
-✓ API module added to integration
-✓ Configuration updated
-```
-
-### Error Messages
-```
-✗ Integration name already exists
-  Try: salesforce-sync-v2
-
-✗ API module not found: @frigg/invalid-module
-  Search available modules: frigg list api-modules
-```
-
-### Progress Indicators
-```
-Creating integration...
-  ✓ Generating Integration.js
-  ✓ Updating app definition
-  ✓ Installing dependencies
-  ⠋ Running validation...
-```
-
-### Interactive Prompts
-```
-? Integration name: (salesforce-sync)
-? Description: Synchronize contacts with Salesforce
-? Add API modules now? (Y/n)
-```
-
----
-
-## Technical Notes
-
-### App Definition Management
-- CLI reads from `app-definition.json` or `app-definition.yml`
-- Commands update app definition atomically
-- Validation before writing
-- Backup created on modification
-
-### Integration Structure
-```
-integrations/
-├── salesforce-sync/
-│   ├── Integration.js        # Main integration file
-│   ├── config.json           # Integration config
-│   └── README.md             # Documentation
-```
-
-### API Module Structure (Local)
-```
-api-modules/
-├── custom-webhook-handler/
-│   ├── index.js              # Main module export
-│   ├── routes.js             # Route definitions
-│   ├── handlers.js           # Business logic
-│   ├── tests/                # Tests
-│   │   └── handler.test.js
-│   └── package.json          # Module metadata
-```
-
-### Configuration Files
-- `frigg.config.js` - CLI configuration
-- `app-definition.json` - App structure
-- `deploy/*.yml` - Deployment configs
-- `.friggrc` - User preferences
 
 ---
 
