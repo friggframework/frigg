@@ -1,3 +1,4 @@
+const { prisma } = require('../prisma');
 const { mongoose } = require('../mongoose');
 const {
     HealthCheckRepositoryInterface,
@@ -13,18 +14,20 @@ const {
  * - Used by Application Layer (Use Cases)
  *
  * Works identically for both MongoDB and PostgreSQL:
- * - MongoDB: Uses native mongoose connection state checking
- * - PostgreSQL: Would use similar Prisma connection state APIs
- * - Both use same query patterns (no many-to-many differences)
+ * - Uses Prisma for database operations
+ * - Encryption happens transparently via Prisma extension
+ * - Both MongoDB and PostgreSQL use same Prisma API
  *
- * Migration from Mongoose:
- * - Constructor injection for testing support
+ * Migration from Mongoose to Prisma:
+ * - Replaced Mongoose models with Prisma client
+ * - Uses Credential model for encryption testing
  * - Maintains same method signatures for compatibility
  */
 class HealthCheckRepository extends HealthCheckRepositoryInterface {
     constructor() {
         super();
     }
+
     /**
      * Get database connection state
      * @returns {Object} Object with readyState, stateName, and isConnected
@@ -58,74 +61,47 @@ class HealthCheckRepository extends HealthCheckRepositoryInterface {
     }
 
     /**
-     * Create a test encryption model
-     * @returns {Model} Mongoose model with encryption plugin
+     * Create a test credential for encryption testing
+     * @param {Object} credentialData - Credential data to create
+     * @returns {Promise<Object>} Created credential
      */
-    createEncryptionTestModel() {
-        const { Encrypt } = require('../../encrypt');
-
-        const testSchema = new mongoose.Schema(
-            {
-                testSecret: { type: String, lhEncrypt: true },
-                normalField: { type: String },
-                nestedSecret: {
-                    value: { type: String, lhEncrypt: true },
-                },
-            },
-            { timestamps: false }
-        );
-
-        testSchema.plugin(Encrypt);
-
-        return (
-            mongoose.models.TestEncryption ||
-            mongoose.model('TestEncryption', testSchema)
-        );
+    async createCredential(credentialData) {
+        return await prisma.credential.create({
+            data: credentialData,
+        });
     }
 
     /**
-     * Save a test document to the database
-     * @param {Model} TestModel - Mongoose model
-     * @param {Object} data - Data to save
-     * @returns {Promise<Document>} Saved document
+     * Find a credential by ID
+     * @param {string} id - Credential ID
+     * @returns {Promise<Object|null>} Found credential or null
      */
-    async saveTestDocument(TestModel, data) {
-        const testDoc = new TestModel(data);
-        await testDoc.save();
-        return testDoc;
+    async findCredentialById(id) {
+        return await prisma.credential.findUnique({
+            where: { id },
+        });
     }
 
     /**
-     * Find a test document by ID
-     * @param {Model} TestModel - Mongoose model
-     * @param {string} id - Document ID
-     * @returns {Promise<Document>} Found document
+     * Get raw credential from database bypassing Prisma encryption extension
+     * @param {string} id - Credential ID
+     * @returns {Promise<Object|null>} Raw credential from database
      */
-    async findTestDocumentById(TestModel, id) {
-        return await TestModel.findById(id);
-    }
-
-    /**
-     * Get raw document from collection (bypassing Mongoose)
-     * Used for verifying encryption at the database level
-     * @param {string} collectionName - Collection name
-     * @param {Object} filter - Query filter
-     * @returns {Promise<Object>} Raw document from database
-     */
-    async getRawDocumentFromCollection(collectionName, filter) {
+    async getRawCredentialById(id) {
         return await mongoose.connection.db
-            .collection(collectionName)
-            .findOne(filter);
+            .collection('credentials')
+            .findOne({ _id: id });
     }
 
     /**
-     * Delete a test document
-     * @param {Model} TestModel - Mongoose model
-     * @param {string} id - Document ID
-     * @returns {Promise<Object>} Deletion result
+     * Delete a credential by ID
+     * @param {string} id - Credential ID
+     * @returns {Promise<void>}
      */
-    async deleteTestDocument(TestModel, id) {
-        return await TestModel.deleteOne({ _id: id });
+    async deleteCredential(id) {
+        await prisma.credential.delete({
+            where: { id },
+        });
     }
 }
 

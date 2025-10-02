@@ -38,7 +38,7 @@ const {
 const {
     IntegrationMappingRepository,
 } = require('./integrations/repositories/integration-mapping-repository');
-const { Encrypt, Cryptor } = require('./encrypt/encrypt');
+const { Cryptor } = require('./encrypt');
 const {
     BaseError,
     FetchError,
@@ -107,8 +107,6 @@ module.exports = {
     CredentialRepository,
     ModuleRepository,
     IntegrationMappingRepository,
-    // encrypt
-    Encrypt,
     Cryptor,
 
     // errors

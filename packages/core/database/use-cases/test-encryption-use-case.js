@@ -17,12 +17,10 @@ class TestEncryptionUseCase {
 
     /**
      * Execute encryption test
-     * Orchestrates the full encryption test workflow
+     * Orchestrates the full encryption test workflow using Prisma
      * @returns {Promise<Object>} Test results with status and details
      */
     async execute() {
-        const TestModel = this.repository.createEncryptionTestModel();
-
         const testData = {
             testSecret: 'This is a secret value that should be encrypted',
             normalField: 'This is a normal field that should not be encrypted',
@@ -31,35 +29,37 @@ class TestEncryptionUseCase {
             },
         };
 
-        const testDoc = await this._withTimeout(
-            this.repository.saveTestDocument(TestModel, testData),
+        const credentialData = this._mapTestDataToCredential(testData);
+
+        const credential = await this._withTimeout(
+            this.repository.createCredential(credentialData),
             5000,
             'Save operation timed out'
         );
 
         try {
-            const retrievedDoc = await this._withTimeout(
-                this.repository.findTestDocumentById(TestModel, testDoc._id),
+            const retrievedCredential = await this._withTimeout(
+                this.repository.findCredentialById(credential.id),
                 5000,
                 'Find operation timed out'
             );
 
+            const retrievedTestData =
+                this._mapCredentialToTestData(retrievedCredential);
             const decryptionWorks = this._verifyDecryption(
-                retrievedDoc,
+                retrievedTestData,
                 testData
             );
 
-            const rawDoc = await this._withTimeout(
-                this.repository.getRawDocumentFromCollection(
-                    TestModel.collection.name,
-                    { _id: testDoc._id }
-                ),
+            const rawCredential = await this._withTimeout(
+                this.repository.getRawCredentialById(credential.id),
                 5000,
                 'Database verification timed out'
             );
 
+            const rawTestData = this._mapRawCredentialToTestData(rawCredential);
             const encryptionResults = this._verifyEncryptionInDatabase(
-                rawDoc,
+                rawTestData,
                 testData
             );
 
@@ -69,11 +69,70 @@ class TestEncryptionUseCase {
             );
         } finally {
             await this._withTimeout(
-                this.repository.deleteTestDocument(TestModel, testDoc._id),
+                this.repository.deleteCredential(credential.id),
                 5000,
                 'Delete operation timed out'
             );
         }
+    }
+
+    /**
+     * Map test data format to Credential model format
+     * @param {Object} testData - Test data with testSecret, normalField, nestedSecret
+     * @returns {Object} Credential data structure
+     * @private
+     */
+    _mapTestDataToCredential(testData) {
+        return {
+            user_id: 'test-encryption-user',
+            entity_id: 'test-encryption-entity',
+            data: {
+                access_token: testData.testSecret,
+                refresh_token: testData.nestedSecret?.value,
+                domain: testData.normalField,
+            },
+        };
+    }
+
+    /**
+     * Map Credential model format to test data format
+     * @param {Object} credential - Credential from database
+     * @returns {Object} Test data format
+     * @private
+     */
+    _mapCredentialToTestData(credential) {
+        if (!credential) {
+            return null;
+        }
+
+        return {
+            id: credential.id,
+            testSecret: credential.data.access_token,
+            normalField: credential.data.domain,
+            nestedSecret: {
+                value: credential.data.refresh_token,
+            },
+        };
+    }
+
+    /**
+     * Map raw Credential data to test data format
+     * @param {Object} rawCredential - Raw credential from database
+     * @returns {Object} Test data format with raw encrypted values
+     * @private
+     */
+    _mapRawCredentialToTestData(rawCredential) {
+        if (!rawCredential) {
+            return null;
+        }
+
+        return {
+            testSecret: rawCredential.data?.access_token,
+            normalField: rawCredential.data?.domain,
+            nestedSecret: {
+                value: rawCredential.data?.refresh_token,
+            },
+        };
     }
 
     /**

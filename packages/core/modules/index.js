@@ -1,4 +1,3 @@
-const { Credential } = require('./credential');
 const { Entity } = require('./entity');
 const { ApiKeyRequester } = require('./requester/api-key');
 const { BasicAuthRequester } = require('./requester/basic');
@@ -8,7 +7,6 @@ const { ModuleConstants } = require('./ModuleConstants');
 const { ModuleFactory } = require('./module-factory');
 
 module.exports = {
-    Credential,
     Entity,
     ApiKeyRequester,
     BasicAuthRequester,

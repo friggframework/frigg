@@ -1,17 +1,24 @@
 const { Router } = require('express');
-const https = require('https');
-const http = require('http');
 const { moduleFactory, integrationFactory } = require('./../backend-utils');
 const { createAppHandler } = require('./../app-handler-helpers');
 const {
     createHealthCheckRepository,
-} = require('../../database/health-check-repository-factory');
+} = require('../../database/repositories/health-check-repository-factory');
 const {
     TestEncryptionUseCase,
 } = require('../../database/use-cases/test-encryption-use-case');
 const {
     CheckDatabaseHealthUseCase,
 } = require('../../database/use-cases/check-database-health-use-case');
+const {
+    CheckEncryptionHealthUseCase,
+} = require('../../database/use-cases/check-encryption-health-use-case');
+const {
+    CheckExternalApisHealthUseCase,
+} = require('../use-cases/check-external-apis-health-use-case');
+const {
+    CheckIntegrationsHealthUseCase,
+} = require('../use-cases/check-integrations-health-use-case');
 
 const router = Router();
 const healthCheckRepository = createHealthCheckRepository();
@@ -20,6 +27,14 @@ const testEncryptionUseCase = new TestEncryptionUseCase({
 });
 const checkDatabaseHealthUseCase = new CheckDatabaseHealthUseCase({
     healthCheckRepository,
+});
+const checkEncryptionHealthUseCase = new CheckEncryptionHealthUseCase({
+    testEncryptionUseCase,
+});
+const checkExternalApisHealthUseCase = new CheckExternalApisHealthUseCase();
+const checkIntegrationsHealthUseCase = new CheckIntegrationsHealthUseCase({
+    moduleFactory,
+    integrationFactory,
 });
 
 const validateApiKey = (req, res, next) => {
@@ -41,204 +56,6 @@ const validateApiKey = (req, res, next) => {
 };
 
 router.use(validateApiKey);
-
-const checkExternalAPI = (url, timeout = 5000) => {
-    return new Promise((resolve) => {
-        const protocol = url.startsWith('https:') ? https : http;
-        const startTime = Date.now();
-
-        try {
-            const request = protocol.get(url, { timeout }, (res) => {
-                const responseTime = Date.now() - startTime;
-                resolve({
-                    status: 'healthy',
-                    statusCode: res.statusCode,
-                    responseTime,
-                    reachable: res.statusCode < 500,
-                });
-            });
-
-            request.on('error', (error) => {
-                resolve({
-                    status: 'unhealthy',
-                    error: error.message,
-                    responseTime: Date.now() - startTime,
-                    reachable: false,
-                });
-            });
-
-            request.on('timeout', () => {
-                request.destroy();
-                resolve({
-                    status: 'timeout',
-                    error: 'Request timeout',
-                    responseTime: timeout,
-                    reachable: false,
-                });
-            });
-        } catch (error) {
-            resolve({
-                status: 'error',
-                error: error.message,
-                responseTime: Date.now() - startTime,
-                reachable: false,
-            });
-        }
-    });
-};
-
-const getDatabaseState = () => {
-    return healthCheckRepository.getDatabaseConnectionState();
-};
-
-const checkDatabaseHealth = async () => {
-    return await checkDatabaseHealthUseCase.execute();
-};
-
-const getEncryptionConfiguration = () => {
-    const { STAGE, BYPASS_ENCRYPTION_STAGE, KMS_KEY_ARN, AES_KEY_ID } =
-        process.env;
-
-    const defaultBypassStages = ['dev', 'test', 'local'];
-    const useEnv = BYPASS_ENCRYPTION_STAGE !== undefined;
-    const bypassStages = useEnv
-        ? BYPASS_ENCRYPTION_STAGE.split(',').map((s) => s.trim())
-        : defaultBypassStages;
-
-    const isBypassed = bypassStages.includes(STAGE);
-    const hasAES = AES_KEY_ID && AES_KEY_ID.trim() !== '';
-    const hasKMS = KMS_KEY_ARN && KMS_KEY_ARN.trim() !== '' && !hasAES;
-    const mode = hasAES ? 'aes' : hasKMS ? 'kms' : 'none';
-
-    return {
-        stage: STAGE || null,
-        isBypassed,
-        hasAES,
-        hasKMS,
-        mode,
-    };
-};
-
-const checkEncryptionHealth = async () => {
-    const config = getEncryptionConfiguration();
-
-    if (config.isBypassed || config.mode === 'none') {
-        // eslint-disable-next-line no-console
-        console.log('Encryption check bypassed:', {
-            stage: config.stage,
-            mode: config.mode,
-        });
-
-        const testResult = config.isBypassed
-            ? 'Encryption bypassed for this stage'
-            : 'No encryption keys configured';
-
-        return {
-            status: 'disabled',
-            mode: config.mode,
-            bypassed: config.isBypassed,
-            stage: config.stage,
-            testResult,
-            encryptionWorks: false,
-            debug: {
-                hasKMS: config.hasKMS,
-                hasAES: config.hasAES,
-            },
-        };
-    }
-
-    try {
-        // eslint-disable-next-line no-console
-        console.log('Starting encryption test');
-        const testResults = await testEncryptionUseCase.execute();
-        // eslint-disable-next-line no-console
-        console.log('Encryption test completed');
-
-        return {
-            ...testResults,
-            mode: config.mode,
-            bypassed: config.isBypassed,
-            stage: config.stage,
-            debug: {
-                hasKMS: config.hasKMS,
-                hasAES: config.hasAES,
-            },
-        };
-    } catch (error) {
-        return {
-            status: 'unhealthy',
-            mode: config.mode,
-            bypassed: config.isBypassed,
-            stage: config.stage,
-            testResult: `Encryption test failed: ${error.message}`,
-            encryptionWorks: false,
-            debug: {
-                hasKMS: config.hasKMS,
-                hasAES: config.hasAES,
-            },
-        };
-    }
-};
-
-const checkExternalAPIs = async () => {
-    const apis = [
-        { name: 'github', url: 'https://api.github.com/status' },
-        { name: 'npm', url: 'https://registry.npmjs.org' },
-    ];
-
-    const results = await Promise.all(
-        apis.map((api) =>
-            checkExternalAPI(api.url).then((result) => ({
-                name: api.name,
-                ...result,
-            }))
-        )
-    );
-
-    const apiStatuses = {};
-    let allReachable = true;
-
-    results.forEach(({ name, ...checkResult }) => {
-        apiStatuses[name] = checkResult;
-        if (!checkResult.reachable) {
-            allReachable = false;
-        }
-    });
-
-    return { apiStatuses, allReachable };
-};
-
-const checkIntegrations = () => {
-    const moduleTypes = Array.isArray(moduleFactory.moduleTypes)
-        ? moduleFactory.moduleTypes
-        : [];
-
-    const integrationTypes = Array.isArray(integrationFactory.integrationTypes)
-        ? integrationFactory.integrationTypes
-        : [];
-
-    return {
-        status: 'healthy',
-        modules: {
-            count: moduleTypes.length,
-            available: moduleTypes,
-        },
-        integrations: {
-            count: integrationTypes.length,
-            available: integrationTypes,
-        },
-    };
-};
-
-const buildHealthCheckResponse = (startTime) => {
-    return {
-        service: 'frigg-core-api',
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        checks: {},
-        calculateResponseTime: () => Date.now() - startTime,
-    };
-};
 
 // Helper to detect VPC configuration
 const detectVpcConfiguration = async () => {
@@ -500,12 +317,16 @@ router.get('/health', async (_req, res) => {
 });
 
 router.get('/health/detailed', async (_req, res) => {
-    // eslint-disable-next-line no-console
     console.log('Starting detailed health check');
     const startTime = Date.now();
-    const response = buildHealthCheckResponse(startTime);
 
-    // Log environment before any async operations
+    const response = {
+        service: 'frigg-core-api',
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        checks: {},
+    };
+
     console.log('Health Check Environment:', {
         hasKmsKeyArn: !!process.env.KMS_KEY_ARN,
         awsRegion: process.env.AWS_REGION,
@@ -514,7 +335,6 @@ router.get('/health/detailed', async (_req, res) => {
         stage: process.env.STAGE,
     });
 
-    // 1. Network diagnostics (run first to understand connectivity)
     try {
         console.log('Running network diagnostics...');
         const networkStart = Date.now();
@@ -537,10 +357,8 @@ router.get('/health/detailed', async (_req, res) => {
         console.log('Network diagnostics error:', error.message);
     }
 
-    // 2. KMS decrypt capability (must succeed before DB assumed healthy if encryption depends on KMS)
     try {
         console.log('About to check KMS capability...');
-        // Wrap the entire KMS check in a timeout (allow up to 25 seconds for slow VPC)
         const kmsCheckPromise = checkKmsDecryptCapability();
         const kmsTimeoutPromise = new Promise((_, reject) =>
             setTimeout(
@@ -556,21 +374,18 @@ router.get('/health/detailed', async (_req, res) => {
         if (response.checks.kms.status === 'unhealthy') {
             response.status = 'unhealthy';
         }
-        // eslint-disable-next-line no-console
         console.log('KMS check completed:', response.checks.kms);
     } catch (error) {
         response.checks.kms = { status: 'unhealthy', error: error.message };
         response.status = 'unhealthy';
-        // eslint-disable-next-line no-console
         console.log('KMS check error:', error.message);
     }
 
     try {
-        response.checks.database = await checkDatabaseHealth();
+        response.checks.database = await checkDatabaseHealthUseCase.execute();
         if (response.checks.database.status === 'unhealthy') {
             response.status = 'unhealthy';
         }
-        // eslint-disable-next-line no-console
         console.log('Database check completed:', response.checks.database);
     } catch (error) {
         response.checks.database = {
@@ -578,16 +393,14 @@ router.get('/health/detailed', async (_req, res) => {
             error: error.message,
         };
         response.status = 'unhealthy';
-        // eslint-disable-next-line no-console
         console.log('Database check error:', error.message);
     }
 
     try {
-        response.checks.encryption = await checkEncryptionHealth();
+        response.checks.encryption = await checkEncryptionHealthUseCase.execute();
         if (response.checks.encryption.status === 'unhealthy') {
             response.status = 'unhealthy';
         }
-        // eslint-disable-next-line no-console
         console.log('Encryption check completed:', response.checks.encryption);
     } catch (error) {
         response.checks.encryption = {
@@ -595,42 +408,42 @@ router.get('/health/detailed', async (_req, res) => {
             error: error.message,
         };
         response.status = 'unhealthy';
-        // eslint-disable-next-line no-console
         console.log('Encryption check error:', error.message);
     }
 
-    const { apiStatuses, allReachable } = await checkExternalAPIs();
-    response.checks.externalApis = apiStatuses;
-    if (!allReachable) {
+    try {
+        const { apiStatuses, allReachable } = await checkExternalApisHealthUseCase.execute();
+        response.checks.externalApis = apiStatuses;
+        if (!allReachable) {
+            response.status = 'unhealthy';
+        }
+        console.log('External APIs check completed:', response.checks.externalApis);
+    } catch (error) {
+        response.checks.externalApis = {
+            status: 'unhealthy',
+            error: error.message,
+        };
         response.status = 'unhealthy';
+        console.log('External APIs check error:', error.message);
     }
-    // eslint-disable-next-line no-console
-    console.log('External APIs check completed:', response.checks.externalApis);
 
     try {
-        response.checks.integrations = checkIntegrations();
-        // eslint-disable-next-line no-console
-        console.log(
-            'Integrations check completed:',
-            response.checks.integrations
-        );
+        response.checks.integrations = checkIntegrationsHealthUseCase.execute();
+        console.log('Integrations check completed:', response.checks.integrations);
     } catch (error) {
         response.checks.integrations = {
             status: 'unhealthy',
             error: error.message,
         };
         response.status = 'unhealthy';
-        // eslint-disable-next-line no-console
         console.log('Integrations check error:', error.message);
     }
 
-    response.responseTime = response.calculateResponseTime();
-    delete response.calculateResponseTime;
+    response.responseTime = Date.now() - startTime;
 
     const statusCode = response.status === 'healthy' ? 200 : 503;
     res.status(statusCode).json(response);
 
-    // eslint-disable-next-line no-console
     console.log(
         'Final health status:',
         response.status,
@@ -647,18 +460,11 @@ router.get('/health/live', (_req, res) => {
 });
 
 router.get('/health/ready', async (_req, res) => {
-    const dbHealth = await checkDatabaseHealth();
+    const dbHealth = await checkDatabaseHealthUseCase.execute();
     const isDbReady = dbHealth.status === 'healthy';
 
-    let areModulesReady = false;
-    try {
-        const moduleTypes = Array.isArray(moduleFactory.moduleTypes)
-            ? moduleFactory.moduleTypes
-            : [];
-        areModulesReady = moduleTypes.length > 0;
-    } catch (error) {
-        areModulesReady = false;
-    }
+    const integrationsHealth = checkIntegrationsHealthUseCase.execute();
+    const areModulesReady = integrationsHealth.modules.count > 0;
 
     const isReady = isDbReady && areModulesReady;
 
