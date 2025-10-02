@@ -59,6 +59,18 @@ const {
 const {
     ProcessAuthorizationCallback,
 } = require('../modules/use-cases/process-authorization-callback');
+const {
+    createAuthorizationSessionRepository,
+} = require('../modules/repositories/authorization-session-repository-factory');
+const {
+    StartAuthorizationSessionUseCase,
+} = require('../modules/use-cases/start-authorization-session');
+const {
+    ProcessAuthorizationStepUseCase,
+} = require('../modules/use-cases/process-authorization-step');
+const {
+    GetAuthorizationRequirementsUseCase,
+} = require('../modules/use-cases/get-authorization-requirements');
 
 function createIntegrationRouter() {
     const { integrations: integrationClasses, userConfig } =
@@ -66,7 +78,8 @@ function createIntegrationRouter() {
     const moduleRepository = createModuleRepository();
     const integrationRepository = createIntegrationRepository();
     const credentialRepository = createCredentialRepository();
-    const userRepository = createUserRepository();
+    const userRepository = createUserRepository({ userConfig });
+    const authSessionRepository = createAuthorizationSessionRepository();
 
     const getUserFromBearerToken = new GetUserFromBearerToken({
         userRepository,
@@ -163,6 +176,22 @@ function createIntegrationRouter() {
             getModulesDefinitionFromIntegrationClasses(integrationClasses),
     });
 
+    const moduleDefinitions =
+        getModulesDefinitionFromIntegrationClasses(integrationClasses);
+
+    const startAuthorizationSession = new StartAuthorizationSessionUseCase({
+        authSessionRepository,
+    });
+
+    const processAuthorizationStep = new ProcessAuthorizationStepUseCase({
+        authSessionRepository,
+        moduleDefinitions,
+    });
+
+    const getAuthorizationRequirements = new GetAuthorizationRequirementsUseCase({
+        moduleDefinitions,
+    });
+
     const router = express();
 
     setIntegrationRoutes(router, getUserFromBearerToken, {
@@ -183,6 +212,10 @@ function createIntegrationRouter() {
         getEntityOptionsById,
         refreshEntityOptions,
         processAuthorizationCallback,
+        moduleDefinitions,
+        startAuthorizationSession,
+        processAuthorizationStep,
+        getAuthorizationRequirements,
     });
     return router;
 }
@@ -201,10 +234,8 @@ function checkRequiredParams(params, requiredKeys) {
 
     if (missingKeys.length > 0) {
         throw Boom.badRequest(
-            `Missing Parameter${
-                missingKeys.length === 1 ? '' : 's'
-            }: ${missingKeys.join(', ')} ${
-                missingKeys.length === 1 ? 'is' : 'are'
+            `Missing Parameter${missingKeys.length === 1 ? '' : 's'
+            }: ${missingKeys.join(', ')} ${missingKeys.length === 1 ? 'is' : 'are'
             } required.`
         );
     }
@@ -505,8 +536,13 @@ function setEntityRoutes(router, getUserFromBearerToken, useCases) {
         getEntityOptionsById,
         refreshEntityOptions,
         processAuthorizationCallback,
+        moduleDefinitions,
+        startAuthorizationSession,
+        processAuthorizationStep,
+        getAuthorizationRequirements,
     } = useCases;
 
+    // GET /api/authorize - Get authorization requirements (supports multi-step)
     router.route('/api/authorize').get(
         catchAsyncError(async (req, res) => {
             const user = await getUserFromBearerToken.execute(
@@ -514,22 +550,48 @@ function setEntityRoutes(router, getUserFromBearerToken, useCases) {
             );
             const userId = user.getId();
             const params = checkRequiredParams(req.query, ['entityType']);
-            const module = await getModuleInstanceFromType.execute(
-                userId,
-                params.entityType
-            );
-            const areRequirementsValid =
-                module.validateAuthorizationRequirements();
-            if (!areRequirementsValid) {
-                throw new Error(
-                    `Error: Entity of type ${params.entityType} requires a valid url`
-                );
+            const step = parseInt(req.query.step || '1', 10);
+            const sessionId = req.query.sessionId;
+
+            // Validate session if step > 1
+            if (step > 1 && !sessionId) {
+                throw Boom.badRequest('sessionId required for step > 1');
             }
 
-            res.json(module.getAuthorizationRequirements());
+            // Check if module supports multi-step auth
+            const requirements = await getAuthorizationRequirements.execute(
+                params.entityType,
+                step
+            );
+
+            // Generate session ID for multi-step flows on step 1
+            if (requirements.isMultiStep && step === 1) {
+                const crypto = require('crypto');
+                requirements.sessionId = crypto.randomUUID();
+            } else if (sessionId) {
+                requirements.sessionId = sessionId;
+            }
+
+            // Validate requirements for backward compatibility
+            if (!requirements.isMultiStep) {
+                const module = await getModuleInstanceFromType.execute(
+                    userId,
+                    params.entityType
+                );
+                const areRequirementsValid =
+                    module.validateAuthorizationRequirements();
+                if (!areRequirementsValid) {
+                    throw new Error(
+                        `Error: Entity of type ${params.entityType} requires a valid url`
+                    );
+                }
+            }
+
+            res.json(requirements);
         })
     );
 
+    // POST /api/authorize - Process authorization (supports multi-step)
     router.route('/api/authorize').post(
         catchAsyncError(async (req, res) => {
             const user = await getUserFromBearerToken.execute(
@@ -540,14 +602,87 @@ function setEntityRoutes(router, getUserFromBearerToken, useCases) {
                 'entityType',
                 'data',
             ]);
+            const step = parseInt(req.body.step || '1', 10);
+            const sessionId = req.body.sessionId;
 
-            const entityDetails = await processAuthorizationCallback.execute(
+            // Find module definition to check step count
+            const moduleDefinition = moduleDefinitions.find(
+                (def) => def.moduleName === params.entityType
+            );
+
+            if (!moduleDefinition) {
+                throw Boom.badRequest(
+                    `Unknown entity type: ${params.entityType}`
+                );
+            }
+
+            const ModuleDefinition = moduleDefinition.definition;
+            const stepCount = ModuleDefinition.getAuthStepCount
+                ? ModuleDefinition.getAuthStepCount()
+                : 1;
+
+            // Single-step flow - use existing ProcessAuthorizationCallback
+            if (stepCount === 1) {
+                const entityDetails =
+                    await processAuthorizationCallback.execute(
+                        userId,
+                        params.entityType,
+                        params.data
+                    );
+
+                return res.json(entityDetails);
+            }
+
+            // Multi-step flow
+            if (!sessionId) {
+                throw Boom.badRequest(
+                    'sessionId required for multi-step authorization'
+                );
+            }
+
+            let session;
+
+            if (step === 1) {
+                // Create new session for step 1
+                session = await startAuthorizationSession.execute(
+                    userId,
+                    params.entityType,
+                    stepCount
+                );
+
+                // Override with client-provided sessionId
+                session.sessionId = sessionId;
+                await useCases.authSessionRepository?.update(session);
+            }
+
+            // Process this step
+            const result = await processAuthorizationStep.execute(
+                sessionId,
                 userId,
-                params.entityType,
+                step,
                 params.data
             );
 
-            res.json(entityDetails);
+            if (result.completed) {
+                // Final step - create entity using standard flow
+                const entityDetails =
+                    await processAuthorizationCallback.execute(
+                        userId,
+                        params.entityType,
+                        result.authData
+                    );
+
+                return res.json(entityDetails);
+            }
+
+            // Return next step requirements
+            res.json({
+                step: result.nextStep,
+                totalSteps: result.totalSteps,
+                sessionId: result.sessionId,
+                requirements: result.requirements,
+                message: result.message,
+            });
         })
     );
 
