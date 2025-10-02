@@ -136,9 +136,13 @@ export default class API {
   }
 
   // get authorize url with the following params:
-  // ?entityType=Freshbooks&connectingEntityType=Saleforce
-  async getAuthorizeRequirements(entityType, connectingEntityType) {
-    const url = `${this.endpointAuthorize}?entityType=${entityType}&connectingEntityType=${connectingEntityType}`;
+  // ?entityType=Freshbooks&connectingEntityType=Saleforce&step=1&sessionId=xxx
+  // Supports multi-step auth (step defaults to 1 for backward compatibility)
+  async getAuthorizeRequirements(entityType, connectingEntityType = '', step = 1, sessionId = null) {
+    let url = `${this.endpointAuthorize}?entityType=${entityType}&connectingEntityType=${connectingEntityType}&step=${step}`;
+    if (sessionId) {
+      url += `&sessionId=${sessionId}`;
+    }
     return this._get(url);
   }
 
@@ -149,12 +153,18 @@ export default class API {
     return this._get(url);
   }
 
-  async authorize(entityType, authData) {
+  // Submit authorization step
+  // Supports multi-step auth (step defaults to 1 for single-step flows)
+  async authorize(entityType, authData, step = 1, sessionId = null) {
     const url = `${this.endpointAuthorize}`;
     const params = {
       entityType,
       data: authData,
+      step,
     };
+    if (sessionId) {
+      params.sessionId = sessionId;
+    }
     return this._post(url, params);
   }
 

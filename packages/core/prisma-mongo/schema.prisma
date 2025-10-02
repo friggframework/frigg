@@ -79,6 +79,27 @@ model Token {
   @@map("Token")
 }
 
+/// Multi-step authorization session tracking
+/// Supports OTP flows and multi-stage authentication (e.g., Nagaris)
+model AuthorizationSession {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId   String   @unique
+  userId      String
+  entityType  String
+  currentStep Int      @default(1)
+  maxSteps    Int
+  stepData    Json     @default("{}")
+  expiresAt   DateTime
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([sessionId])
+  @@index([userId, entityType])
+  @@index([expiresAt])
+  @@map("AuthorizationSession")
+}
+
 // ============================================================================
 // CREDENTIAL & ENTITY MODELS
 // ============================================================================
