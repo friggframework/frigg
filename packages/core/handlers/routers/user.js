@@ -74,8 +74,6 @@ router.route('/users').post(
     })
 );
 
-// Admin endpoints moved to /api/admin/users in admin.js router
-
 const handler = createAppHandler('HTTP Event: User', router);
 
 module.exports = { handler, router };

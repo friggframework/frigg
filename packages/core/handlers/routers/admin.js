@@ -122,10 +122,82 @@ router.get('/api/admin/users/search', catchAsyncError(async (req, res) => {
 }));
 
 /**
+ * POST /api/admin/users
+ * Create a new user (admin only)
+ * Admin-specific features:
+ * - Can create users with custom roles
+ * - Can set verified status
+ * - Can assign to organizations
+ * - No email verification required
+ */
+router.post('/api/admin/users', catchAsyncError(async (req, res) => {
+    const {
+        username,
+        email,
+        password,
+        type = 'INDIVIDUAL',
+        appUserId,
+        organizationId,
+        verified = true // Admins can create pre-verified users
+    } = req.body;
+
+    // Validate required fields
+    if (!username || !email || !password) {
+        return res.status(400).json({
+            status: 'error',
+            message: 'Username, email, and password are required'
+        });
+    }
+
+    // Check if user already exists
+    const existingUser = await userRepository.findIndividualUserByUsername(username);
+    if (existingUser) {
+        return res.status(409).json({
+            status: 'error',
+            message: 'User with this username already exists'
+        });
+    }
+
+    const existingEmail = await userRepository.findIndividualUserByEmail(email);
+    if (existingEmail) {
+        return res.status(409).json({
+            status: 'error',
+            message: 'User with this email already exists'
+        });
+    }
+
+    // Hash password (using bcryptjs which is already imported)
+    const hashword = await bcrypt.hash(password, 10);
+
+    // Create user with admin-specified attributes
+    const userData = {
+        username,
+        email,
+        hashword,
+        type
+    };
+
+    // Add optional fields if provided
+    if (appUserId) userData.appUserId = appUserId;
+    if (organizationId) userData.organizationId = organizationId;
+
+    const user = await userRepository.createIndividualUser(userData);
+
+    // Remove sensitive fields
+    const userObj = user.toObject ? user.toObject() : user;
+    delete userObj.hashword;
+
+    res.status(201).json({
+        user: userObj,
+        message: 'User created successfully by admin'
+    });
+}));
+
+/**
  * GET /api/admin/users/:userId
  * Get a specific user by ID
  */
-router.get('/users/:userId', catchAsyncError(async (req, res) => {
+router.get('/api/admin/users/:userId', catchAsyncError(async (req, res) => {
     const { userId } = req.params;
 
     const user = await userRepository.findUserById(userId);

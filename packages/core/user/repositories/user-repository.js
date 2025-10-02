@@ -1,0 +1,378 @@
+const { prisma } = require('../../database/prisma');
+const {
+    TokenRepository,
+} = require('../../token/repositories/token-repository');
+const { UserRepositoryInterface } = require('./user-repository-interface');
+
+/**
+ * Prisma-based User Repository
+ * Handles user operations with discriminator pattern support
+ *
+ * Works identically for both MongoDB and PostgreSQL:
+ * - MongoDB: String IDs with @db.ObjectId
+ * - PostgreSQL: Integer IDs with auto-increment
+ * - Both use same query patterns (no scalar arrays vs relations issue)
+ *
+ * Migration from Mongoose:
+ * - IndividualUser/OrganizationUser discriminators → User model with type field
+ * - type: INDIVIDUAL for IndividualUser, ORGANIZATION for OrganizationUser
+ * - Discriminator-specific fields are nullable in schema
+ * - TokenRepository dependency injected
+ */
+class UserRepository extends UserRepositoryInterface {
+    /**
+     * @param {Object} config - Configuration object
+     * @param {Object} config.userConfig - The user config in the app definition
+     * @param {Object} [config.prismaClient] - Optional Prisma client for testing
+     * @param {Object} [config.tokenRepository] - Optional token repository for testing
+     */
+    constructor({ userConfig, prismaClient = prisma, tokenRepository = null }) {
+        super();
+        this.prisma = prismaClient;
+        this.tokenRepository =
+            tokenRepository || new TokenRepository(prismaClient);
+        this.userConfig = userConfig;
+    }
+
+    /**
+     * Get session token from base64 buffer token
+     * Delegates to TokenRepository
+     *
+     * @param {string} token - Base64 buffer token
+     * @returns {Promise<Object>} Session token object
+     */
+    async getSessionToken(token) {
+        const jsonToken =
+            this.tokenRepository.getJSONTokenFromBase64BufferToken(token);
+        const sessionToken = await this.tokenRepository.validateAndGetToken(
+            jsonToken
+        );
+        return sessionToken;
+    }
+
+    /**
+     * Find organization user by ID
+     * Replaces: OrganizationUser.findById(userId)
+     *
+     * @param {string} userId - User ID
+     * @returns {Promise<Object|null>} User object or null
+     */
+    async findOrganizationUserById(userId) {
+        return await this.prisma.user.findFirst({
+            where: {
+                id: userId,
+                type: 'ORGANIZATION',
+            },
+        });
+    }
+
+    /**
+     * Find individual user by ID
+     * Replaces: IndividualUser.findById(userId)
+     *
+     * @param {string} userId - User ID
+     * @returns {Promise<Object|null>} User object or null
+     */
+    async findIndividualUserById(userId) {
+        return await this.prisma.user.findFirst({
+            where: {
+                id: userId,
+                type: 'INDIVIDUAL',
+            },
+        });
+    }
+
+    /**
+     * Create token with expiration
+     * Delegates to TokenRepository
+     *
+     * @param {string} userId - User ID
+     * @param {string} rawToken - Raw unhashed token
+     * @param {number} minutes - Minutes until expiration (default 120)
+     * @returns {Promise<string>} Base64 buffer token
+     */
+    async createToken(userId, rawToken, minutes = 120) {
+        const createdToken = await this.tokenRepository.createTokenWithExpire(
+            userId,
+            rawToken,
+            minutes
+        );
+        return this.tokenRepository.createBase64BufferToken(
+            createdToken,
+            rawToken
+        );
+    }
+
+    /**
+     * Create individual user
+     * Replaces: IndividualUser.create(params)
+     *
+     * @param {Object} params - User creation parameters
+     * @returns {Promise<Object>} Created user object
+     */
+    async createIndividualUser(params) {
+        return await this.prisma.user.create({
+            data: {
+                type: 'INDIVIDUAL',
+                email: params.email,
+                username: params.username,
+                hashword: params.hashword,
+                appUserId: params.appUserId,
+                organizationId: params.organization || params.organizationId,
+            },
+        });
+    }
+
+    /**
+     * Create organization user
+     * Replaces: OrganizationUser.create(params)
+     *
+     * @param {Object} params - Organization creation parameters
+     * @returns {Promise<Object>} Created organization object
+     */
+    async createOrganizationUser(params) {
+        return await this.prisma.user.create({
+            data: {
+                type: 'ORGANIZATION',
+                appOrgId: params.appOrgId,
+                name: params.name,
+            },
+        });
+    }
+
+    /**
+     * Find individual user by username
+     * Replaces: IndividualUser.findOne({ username })
+     *
+     * @param {string} username - Username to search for
+     * @returns {Promise<Object|null>} User object or null
+     */
+    async findIndividualUserByUsername(username) {
+        return await this.prisma.user.findFirst({
+            where: {
+                type: 'INDIVIDUAL',
+                username,
+            },
+        });
+    }
+
+    /**
+     * Find individual user by app user ID
+     * Replaces: IndividualUser.getUserByAppUserId(appUserId)
+     *
+     * @param {string} appUserId - App user ID to search for
+     * @returns {Promise<Object|null>} User object or null
+     */
+    async findIndividualUserByAppUserId(appUserId) {
+        return await this.prisma.user.findFirst({
+            where: {
+                type: 'INDIVIDUAL',
+                appUserId,
+            },
+        });
+    }
+
+    /**
+     * Find organization user by app org ID
+     * Replaces: OrganizationUser.getUserByAppOrgId(appOrgId)
+     *
+     * @param {string} appOrgId - App organization ID to search for
+     * @returns {Promise<Object|null>} User object or null
+     */
+    async findOrganizationUserByAppOrgId(appOrgId) {
+        return await this.prisma.user.findFirst({
+            where: {
+                type: 'ORGANIZATION',
+                appOrgId,
+            },
+        });
+    }
+
+    /**
+     * Find user by ID (any type)
+     * @param {string} userId - User ID
+     * @returns {Promise<Object|null>} User object or null
+     */
+    async findUserById(userId) {
+        return await this.prisma.user.findUnique({
+            where: { id: userId },
+        });
+    }
+
+    /**
+     * Find individual user by email
+     * @param {string} email - Email to search for
+     * @returns {Promise<Object|null>} User object or null
+     */
+    async findIndividualUserByEmail(email) {
+        return await this.prisma.user.findFirst({
+            where: {
+                type: 'INDIVIDUAL',
+                email,
+            },
+        });
+    }
+
+    /**
+     * Update individual user
+     * @param {string} userId - User ID
+     * @param {Object} updates - Fields to update
+     * @returns {Promise<Object>} Updated user object
+     */
+    async updateIndividualUser(userId, updates) {
+        return await this.prisma.user.update({
+            where: { id: userId },
+            data: updates,
+        });
+    }
+
+    /**
+     * Update organization user
+     * @param {string} userId - User ID
+     * @param {Object} updates - Fields to update
+     * @returns {Promise<Object>} Updated user object
+     */
+    async updateOrganizationUser(userId, updates) {
+        return await this.prisma.user.update({
+            where: { id: userId },
+            data: updates,
+        });
+    }
+
+    /**
+     * Delete user by ID
+     * @param {string} userId - User ID to delete
+     * @returns {Promise<boolean>} True if deleted successfully
+     */
+    async deleteUser(userId) {
+        try {
+            await this.prisma.user.delete({
+                where: { id: userId },
+            });
+            return true;
+        } catch (error) {
+            if (error.code === 'P2025') {
+                // Record not found
+                return false;
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * Find all users with pagination
+     * Converts Mongoose-style sort syntax to Prisma
+     *
+     * @param {Object} options - Query options
+     * @param {number} [options.skip] - Number of records to skip
+     * @param {number} [options.limit] - Maximum number of records to return
+     * @param {Object} [options.sort] - Sort criteria (e.g., { createdAt: -1 })
+     * @param {Array<string>} [options.excludeFields] - Fields to exclude (e.g., ['-hashword'])
+     * @returns {Promise<Array<Object>>} Array of user objects
+     */
+    async findAllUsers(options = {}) {
+        const { skip, limit, sort, excludeFields = [] } = options;
+
+        // Build select object - exclude password by default
+        const select = {};
+        const shouldExcludePassword =
+            excludeFields.includes('-hashword') ||
+            excludeFields.includes('hashword');
+
+        if (shouldExcludePassword) {
+            select.hashword = false;
+        }
+
+        // Convert Mongoose-style sort to Prisma orderBy
+        let orderBy = undefined;
+        if (sort) {
+            orderBy = {};
+            for (const [field, direction] of Object.entries(sort)) {
+                orderBy[field] = direction === -1 ? 'desc' : 'asc';
+            }
+        }
+
+        return await this.prisma.user.findMany({
+            skip,
+            take: limit,
+            orderBy,
+            select: Object.keys(select).length > 0 ? select : undefined,
+        });
+    }
+
+    /**
+     * Get total user count
+     *
+     * @returns {Promise<number>} Total number of users
+     */
+    async countUsers() {
+        return await this.prisma.user.count();
+    }
+
+    /**
+     * Search users by username or email (case-insensitive)
+     * Uses Prisma's contains mode for case-insensitive search
+     *
+     * @param {Object} options - Search options
+     * @param {string} options.query - Search query string
+     * @param {number} [options.skip] - Number of records to skip
+     * @param {number} [options.limit] - Maximum number of records to return
+     * @param {Object} [options.sort] - Sort criteria (e.g., { createdAt: -1 })
+     * @param {Array<string>} [options.excludeFields] - Fields to exclude (e.g., ['-hashword'])
+     * @returns {Promise<Array<Object>>} Array of matching user objects
+     */
+    async searchUsers(options = {}) {
+        const { query, skip, limit, sort, excludeFields = [] } = options;
+
+        // Build select object - exclude password by default
+        const select = {};
+        const shouldExcludePassword =
+            excludeFields.includes('-hashword') ||
+            excludeFields.includes('hashword');
+
+        if (shouldExcludePassword) {
+            select.hashword = false;
+        }
+
+        // Convert Mongoose-style sort to Prisma orderBy
+        let orderBy = undefined;
+        if (sort) {
+            orderBy = {};
+            for (const [field, direction] of Object.entries(sort)) {
+                orderBy[field] = direction === -1 ? 'desc' : 'asc';
+            }
+        }
+
+        return await this.prisma.user.findMany({
+            where: {
+                OR: [
+                    { username: { contains: query, mode: 'insensitive' } },
+                    { email: { contains: query, mode: 'insensitive' } },
+                ],
+            },
+            skip,
+            take: limit,
+            orderBy,
+            select: Object.keys(select).length > 0 ? select : undefined,
+        });
+    }
+
+    /**
+     * Count users matching search query (case-insensitive)
+     *
+     * @param {string} query - Search query string
+     * @returns {Promise<number>} Number of matching users
+     */
+    async countUsersBySearchQuery(query) {
+        return await this.prisma.user.count({
+            where: {
+                OR: [
+                    { username: { contains: query, mode: 'insensitive' } },
+                    { email: { contains: query, mode: 'insensitive' } },
+                ],
+            },
+        });
+    }
+}
+
+module.exports = { UserRepository };
