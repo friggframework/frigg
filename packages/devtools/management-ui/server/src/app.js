@@ -4,7 +4,6 @@ import { Server } from 'socket.io'
 import cors from 'cors'
 import { Container } from './container.js'
 import { createProjectRoutes } from './presentation/routes/projectRoutes.js'
-import { createAPIModuleRoutes } from './presentation/routes/apiModuleRoutes.js'
 import { createGitRoutes } from './presentation/routes/gitRoutes.js'
 import { createTestAreaRoutes } from './presentation/routes/testAreaRoutes.js'
 
@@ -48,12 +47,14 @@ export function createApp({ projectPath = process.cwd() } = {}) {
   })
 
   // API Routes (Clean Architecture)
-  // All routes now nested under /api/projects for clarity
-  // Projects include: definitions, git ops, IDE, frigg executions
+  // Projects - management of local Frigg projects
   app.use('/api/projects', createProjectRoutes(container.getProjectController()))
 
-  // API Module Library for discovering @friggframework modules
-  app.use('/api/api-module-library', createAPIModuleRoutes(container.getAPIModuleController()))
+  // Git operations for project branches
+  app.use('/api/git', createGitRoutes(container.getGitController()))
+
+  // Test Area - start/stop Frigg for testing with @friggframework/ui
+  app.use('/api/test-area', createTestAreaRoutes(container))
 
   // Health check
   app.get('/api/health', (req, res) => {

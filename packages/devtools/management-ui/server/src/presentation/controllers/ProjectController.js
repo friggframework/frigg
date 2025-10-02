@@ -784,11 +784,14 @@ export class ProjectController {
           ? Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)
           : 0
 
+        // Check if project is running - runtimeInfo exists only when running
+        const isRunning = !!status.runtimeInfo && status.runtimeInfo.pid != null
+
         res.json({
           success: true,
           data: {
             executionId,
-            running: status.isRunning || false,
+            running: isRunning,
             startedAt,
             uptimeSeconds,
             pid: runtimeInfo.pid,

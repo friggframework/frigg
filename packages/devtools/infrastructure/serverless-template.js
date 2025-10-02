@@ -573,19 +573,30 @@ const createBaseDefinition = (AppDefinition, appEnvironmentVars, discoveredResou
                 handler: 'node_modules/@friggframework/core/handlers/routers/auth.handler',
                 events: [
                     { httpApi: { path: '/api/integrations', method: 'ANY' } },
+                    { httpApi: { path: '/api/integrations/options', method: 'GET' } },
                     { httpApi: { path: '/api/integrations/{proxy+}', method: 'ANY' } },
+                    { httpApi: { path: '/api/entities', method: 'GET' } },
                     { httpApi: { path: '/api/authorize', method: 'ANY' } },
                 ],
             },
             user: {
                 handler: 'node_modules/@friggframework/core/handlers/routers/user.handler',
-                events: [{ httpApi: { path: '/user/{proxy+}', method: 'ANY' } }],
+                events: [
+                    { httpApi: { path: '/users', method: 'POST' } },
+                    { httpApi: { path: '/users/login', method: 'POST' } },
+                ],
             },
             health: {
                 handler: 'node_modules/@friggframework/core/handlers/routers/health.handler',
                 events: [
                     { httpApi: { path: '/health', method: 'GET' } },
                     { httpApi: { path: '/health/{proxy+}', method: 'GET' } },
+                ],
+            },
+            admin: {
+                handler: 'node_modules/@friggframework/core/handlers/routers/admin.handler',
+                events: [
+                    { httpApi: { path: '/api/admin/{proxy+}', method: 'ANY' } },
                 ],
             },
         },
