@@ -1,6 +1,8 @@
 const catchAsyncError = require('express-async-handler');
 const { GetUserFromBearerToken } = require('../../../user/use-cases/get-user-from-bearer-token');
-const { createUserRepository } = require('../../../user/user-repository-factory');
+const {
+    createUserRepository,
+} = require('../../../user/repositories/user-repository-factory');
 const { loadAppDefinition } = require('@friggframework/core');
 
 /**

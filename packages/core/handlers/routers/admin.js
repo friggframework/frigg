@@ -3,7 +3,9 @@ const router = express.Router();
 const { createAppHandler } = require('./../app-handler-helpers');
 const { requireAdmin } = require('./middleware/requireAdmin');
 const catchAsyncError = require('express-async-handler');
-const { createUserRepository } = require('../../user/user-repository-factory');
+const {
+    createUserRepository,
+} = require('../../user/repositories/user-repository-factory');
 const { loadAppDefinition } = require('../app-definition-loader');
 const { createModuleRepository } = require('../../modules/repositories/module-repository-factory');
 const { GetModuleEntityById } = require('../../modules/use-cases/get-module-entity-by-id');
