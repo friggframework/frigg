@@ -3,6 +3,7 @@ import API from "../api/api";
 import { Button } from "../components/button.jsx";
 import { LoadingSpinner } from "../components/LoadingSpinner.jsx";
 import { Trash2, Plus, RefreshCw } from "lucide-react";
+import { useIntegrationData } from "./context/IntegrationDataContext";
 
 /**
  * EntityManager - Manage connected accounts/entities
@@ -14,19 +15,18 @@ import { Trash2, Plus, RefreshCw } from "lucide-react";
  * - Disconnect existing accounts
  * - Navigate to integration builder to create integrations
  *
- * @param {string} props.friggBaseUrl - Base URL for Frigg backend
- * @param {string} props.authToken - JWT token for authenticated user
  * @param {function} props.onBuildIntegration - Navigate to integration builder with entity
  * @param {function} props.onConnectNewEntity - Navigate to OAuth flow for entity type
  * @returns {JSX.Element} The rendered component
  */
 export default function EntityManager(props) {
+  const { baseUrl, authToken } = useIntegrationData();
   const [entities, setEntities] = useState([]);
   const [entitiesByType, setEntitiesByType] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const api = new API(props.friggBaseUrl, props.authToken);
+  const api = new API(baseUrl, authToken);
 
   const loadEntities = useCallback(async () => {
     try {
@@ -57,15 +57,15 @@ export default function EntityManager(props) {
     } finally {
       setLoading(false);
     }
-  }, [props.authToken, props.friggBaseUrl]);
+  }, [authToken, baseUrl]);
 
   useEffect(() => {
-    if (!props.authToken) {
+    if (!authToken) {
       setError("Authentication token is required");
       return;
     }
     loadEntities();
-  }, [loadEntities, props.authToken]);
+  }, [loadEntities, authToken]);
 
   const handleDisconnect = async (entityId) => {
     if (!confirm("Are you sure you want to disconnect this account? This will remove any integrations using this account.")) {
