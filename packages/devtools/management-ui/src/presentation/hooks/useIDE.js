@@ -119,7 +119,7 @@ export const useIDE = () => {
     }, [])
 
     // Open file in IDE with enhanced error handling
-    const openInIDE = useCallback(async (filePath, customCommand = null) => {
+    const openInIDE = useCallback(async (filePath, projectId = null, customCommand = null) => {
         if (!filePath) {
             throw new Error('File path is required')
         }
@@ -141,7 +141,14 @@ export const useIDE = () => {
                 throw new Error('No IDE configured. Please select an IDE in settings.')
             }
 
-            const response = await fetch('/api/projects/open-in-ide', {
+            // Use project-specific route (projectId is required)
+            if (!projectId) {
+                throw new Error('Project ID is required to open in IDE. Please ensure a project is selected.')
+            }
+
+            const url = `/api/projects/${projectId}/ide-sessions`
+
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(requestBody)
