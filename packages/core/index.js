@@ -117,7 +117,6 @@ module.exports = {
     CredentialRepository,
     ModuleRepository,
     IntegrationMappingRepository,
-    PrismaIntegrationRepository,
 
     // encrypt
     Encrypt,
