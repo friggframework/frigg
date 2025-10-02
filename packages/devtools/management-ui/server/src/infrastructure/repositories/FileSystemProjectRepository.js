@@ -115,11 +115,21 @@ export class FileSystemProjectRepository {
       }
 
       // Use require to load the backend definition
-      delete require.cache[require.resolve(backendFilePath)]
-      const backendJsFile = require(backendFilePath)
-      const appDefinition = backendJsFile.Definition || backendJsFile
+      let backendJsFile, appDefinition
+
+      try {
+        delete require.cache[require.resolve(backendFilePath)]
+        backendJsFile = require(backendFilePath)
+        appDefinition = backendJsFile.Definition || backendJsFile
+      } catch (requireError) {
+        console.error(`Could not load backend app definition: ${requireError.message}`)
+        console.error(`  File: ${backendFilePath}`)
+        console.error(`  This is often caused by syntax errors or missing dependencies in the user's project`)
+        return []
+      }
 
       if (!appDefinition || !appDefinition.integrations) {
+        console.log(`App definition loaded but no integrations found at ${backendFilePath}`)
         return []
       }
 

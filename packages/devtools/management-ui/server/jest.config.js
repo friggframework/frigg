@@ -1,6 +1,9 @@
 export default {
   testEnvironment: 'node',
   transform: {},
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1'
+  },
   testMatch: ['**/tests/**/*.test.js'],
   setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
   collectCoverageFrom: [
@@ -11,5 +14,9 @@ export default {
   coverageReporters: ['text', 'json', 'html'],
   coverageDirectory: 'coverage',
   testTimeout: 10000,
-  forceExit: true
+  forceExit: true,
+  clearMocks: true,
+  resetMocks: true,
+  restoreMocks: true,
+  verbose: true
 }

@@ -84,11 +84,11 @@ async function uiCommand(options) {
                 AVAILABLE_REPOSITORIES: targetRepo.isMultiRepo ? JSON.stringify(targetRepo.availableRepos) : null
             };
 
-            // Start backend server
+            // Start backend server with nodemon for auto-restart
             processManager.spawnProcess(
                 'backend',
                 'npm',
-                ['run', 'server'],
+                ['run', 'server:dev'],
                 { cwd: managementUiPath, env }
             );
 
@@ -100,8 +100,27 @@ async function uiCommand(options) {
                 { cwd: managementUiPath, env }
             );
 
-            // Wait for servers to start
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            // Wait for backend to be ready by polling health endpoint
+            const maxAttempts = 20;
+            const delayMs = 250;
+            let backendReady = false;
+
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                try {
+                    const response = await fetch(`http://localhost:${port}/api/health`);
+                    if (response.ok) {
+                        backendReady = true;
+                        break;
+                    }
+                } catch (err) {
+                    // Backend not ready yet, wait and retry
+                }
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
+
+            if (!backendReady) {
+                console.warn('⚠️  Backend health check timed out, but continuing anyway...');
+            }
 
             // Display clean status
             processManager.printStatus(

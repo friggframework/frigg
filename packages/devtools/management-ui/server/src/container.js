@@ -4,19 +4,9 @@
  */
 
 // Domain
-import { Integration } from './domain/entities/Integration.js'
-import { APIModule } from './domain/entities/APIModule.js'
 import { AppDefinition } from './domain/entities/AppDefinition.js'
 
 // Application - Use Cases
-import { ListAPIModulesUseCase } from './application/use-cases/ListAPIModulesUseCase.js'
-import { InstallAPIModuleUseCase } from './application/use-cases/InstallAPIModuleUseCase.js'
-import { UpdateAPIModuleUseCase } from './application/use-cases/UpdateAPIModuleUseCase.js'
-import { DiscoverModulesUseCase } from './application/use-cases/DiscoverModulesUseCase.js'
-import { CreateIntegrationUseCase } from './application/use-cases/CreateIntegrationUseCase.js'
-import { UpdateIntegrationUseCase } from './application/use-cases/UpdateIntegrationUseCase.js'
-import { ListIntegrationsUseCase } from './application/use-cases/ListIntegrationsUseCase.js'
-import { DeleteIntegrationUseCase } from './application/use-cases/DeleteIntegrationUseCase.js'
 import { StartProjectUseCase } from './application/use-cases/StartProjectUseCase.js'
 import { StopProjectUseCase } from './application/use-cases/StopProjectUseCase.js'
 import { GetProjectStatusUseCase } from './application/use-cases/GetProjectStatusUseCase.js'
@@ -31,14 +21,10 @@ import { DeleteBranchUseCase } from './application/use-cases/git/DeleteBranchUse
 import { SyncBranchUseCase } from './application/use-cases/git/SyncBranchUseCase.js'
 
 // Application - Services
-import { IntegrationService } from './application/services/IntegrationService.js'
 import { ProjectService } from './application/services/ProjectService.js'
-import { APIModuleService } from './application/services/APIModuleService.js'
 import { GitService } from './application/services/GitService.js'
 
 // Infrastructure - Repositories
-import { FileSystemIntegrationRepository } from './infrastructure/repositories/FileSystemIntegrationRepository.js'
-import { FileSystemAPIModuleRepository } from './infrastructure/repositories/FileSystemAPIModuleRepository.js'
 import { FileSystemProjectRepository } from './infrastructure/repositories/FileSystemProjectRepository.js'
 
 // Infrastructure - Adapters
@@ -52,9 +38,7 @@ import { ProcessManager } from './domain/services/ProcessManager.js'
 import { GitService as DomainGitService } from './domain/services/GitService.js'
 
 // Presentation - Controllers
-import { IntegrationController } from './presentation/controllers/IntegrationController.js'
 import { ProjectController } from './presentation/controllers/ProjectController.js'
-import { APIModuleController } from './presentation/controllers/APIModuleController.js'
 import { GitController } from './presentation/controllers/GitController.js'
 
 export class Container {
@@ -109,95 +93,9 @@ export class Container {
   }
 
   // Repositories
-  getIntegrationRepository() {
-    return this.singleton('integrationRepository', () =>
-      new FileSystemIntegrationRepository({ projectPath: this.projectPath })
-    )
-  }
-
-  getAPIModuleRepository() {
-    return this.singleton('apiModuleRepository', () =>
-      new FileSystemAPIModuleRepository({ projectPath: this.projectPath })
-    )
-  }
-
   getProjectRepository() {
     return this.singleton('projectRepository', () =>
       new FileSystemProjectRepository({ projectPath: this.projectPath })
-    )
-  }
-
-  // Use Cases - Integration
-  getCreateIntegrationUseCase() {
-    return this.singleton('createIntegrationUseCase', () =>
-      new CreateIntegrationUseCase({
-        integrationRepository: this.getIntegrationRepository(),
-        apiModuleRepository: this.getAPIModuleRepository(),
-        friggCliAdapter: this.getFriggCliAdapter()
-      })
-    )
-  }
-
-  getUpdateIntegrationUseCase() {
-    return this.singleton('updateIntegrationUseCase', () =>
-      new UpdateIntegrationUseCase({
-        integrationRepository: this.getIntegrationRepository(),
-        friggCliAdapter: this.getFriggCliAdapter()
-      })
-    )
-  }
-
-  getListIntegrationsUseCase() {
-    return this.singleton('listIntegrationsUseCase', () =>
-      new ListIntegrationsUseCase({
-        integrationRepository: this.getIntegrationRepository()
-      })
-    )
-  }
-
-  getDeleteIntegrationUseCase() {
-    return this.singleton('deleteIntegrationUseCase', () =>
-      new DeleteIntegrationUseCase({
-        integrationRepository: this.getIntegrationRepository(),
-        friggCliAdapter: this.getFriggCliAdapter()
-      })
-    )
-  }
-
-  // Use Cases - API Module
-  getListAPIModulesUseCase() {
-    return this.singleton('listAPIModulesUseCase', () =>
-      new ListAPIModulesUseCase({
-        apiModuleRepository: this.getAPIModuleRepository(),
-        npmAdapter: this.getFriggCliAdapter() // FriggCliAdapter handles NPM operations
-      })
-    )
-  }
-
-  getInstallAPIModuleUseCase() {
-    return this.singleton('installAPIModuleUseCase', () =>
-      new InstallAPIModuleUseCase({
-        apiModuleRepository: this.getAPIModuleRepository(),
-        friggCliAdapter: this.getFriggCliAdapter()
-      })
-    )
-  }
-
-  getUpdateAPIModuleUseCase() {
-    return this.singleton('updateAPIModuleUseCase', () =>
-      new UpdateAPIModuleUseCase({
-        apiModuleRepository: this.getAPIModuleRepository(),
-        friggCliAdapter: this.getFriggCliAdapter()
-      })
-    )
-  }
-
-  getDiscoverModulesUseCase() {
-    return this.singleton('discoverModulesUseCase', () =>
-      new DiscoverModulesUseCase({
-        apiModuleRepository: this.getAPIModuleRepository(),
-        friggCliAdapter: this.getFriggCliAdapter()
-      })
     )
   }
 
@@ -244,25 +142,12 @@ export class Container {
     return this.singleton('inspectProjectUseCase', () =>
       new InspectProjectUseCase({
         fileSystemProjectRepository: this.getProjectRepository(),
-        fileSystemIntegrationRepository: this.getIntegrationRepository(),
-        fileSystemAPIModuleRepository: this.getAPIModuleRepository(),
         gitAdapter: this.getGitAdapter()
       })
     )
   }
 
   // Application Services
-  getIntegrationService() {
-    return this.singleton('integrationService', () =>
-      new IntegrationService({
-        createIntegrationUseCase: this.getCreateIntegrationUseCase(),
-        updateIntegrationUseCase: this.getUpdateIntegrationUseCase(),
-        listIntegrationsUseCase: this.getListIntegrationsUseCase(),
-        deleteIntegrationUseCase: this.getDeleteIntegrationUseCase()
-      })
-    )
-  }
-
   getProjectService() {
     return this.singleton('projectService', () =>
       new ProjectService({
@@ -270,17 +155,6 @@ export class Container {
         stopProjectUseCase: this.getStopProjectUseCase(),
         getProjectStatusUseCase: this.getGetProjectStatusUseCase(),
         initializeProjectUseCase: this.getInitializeProjectUseCase()
-      })
-    )
-  }
-
-  getAPIModuleService() {
-    return this.singleton('apiModuleService', () =>
-      new APIModuleService({
-        listAPIModulesUseCase: this.getListAPIModulesUseCase(),
-        installAPIModuleUseCase: this.getInstallAPIModuleUseCase(),
-        updateAPIModuleUseCase: this.getUpdateAPIModuleUseCase(),
-        discoverModulesUseCase: this.getDiscoverModulesUseCase()
       })
     )
   }
@@ -340,28 +214,12 @@ export class Container {
   }
 
   // Controllers
-  getIntegrationController() {
-    return this.singleton('integrationController', () =>
-      new IntegrationController({
-        integrationService: this.getIntegrationService()
-      })
-    )
-  }
-
   getProjectController() {
     return this.singleton('projectController', () =>
       new ProjectController({
         projectService: this.getProjectService(),
         inspectProjectUseCase: this.getInspectProjectUseCase(),
         gitService: this.getDomainGitService()
-      })
-    )
-  }
-
-  getAPIModuleController() {
-    return this.singleton('apiModuleController', () =>
-      new APIModuleController({
-        apiModuleService: this.getAPIModuleService()
       })
     )
   }

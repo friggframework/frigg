@@ -11,13 +11,9 @@ const require = createRequire(import.meta.url)
 export class InspectProjectUseCase {
   constructor({
     fileSystemProjectRepository,
-    fileSystemIntegrationRepository,
-    fileSystemAPIModuleRepository,
     gitAdapter
   }) {
     this.projectRepo = fileSystemProjectRepository
-    this.integrationRepo = fileSystemIntegrationRepository
-    this.moduleRepo = fileSystemAPIModuleRepository
     this.gitAdapter = gitAdapter
   }
 
@@ -43,9 +39,11 @@ export class InspectProjectUseCase {
         description: appDefinition.description,
         path: projectPath,
         status: appDefinition.status?.value || 'stopped',
-        config
+        config,
+        // IMPORTANT: Include integrations in appDefinition for frontend compatibility
+        integrations: appDefinition.modules || []
       },
-      // Use integrations from the repository (which now includes modules)
+      // ALSO include at top level for direct access
       integrations: appDefinition.modules || [],
       modules: await this.loadAllModules(projectPath),
       git: await this.loadGitStatus(projectPath),
@@ -55,7 +53,8 @@ export class InspectProjectUseCase {
 
     console.log('📊 Inspection result - integrations:', inspection.integrations.length)
     if (inspection.integrations.length > 0) {
-      console.log('   First integration modules:', inspection.integrations[0].modules)
+      console.log('   First integration:', inspection.integrations[0].name)
+      console.log('   First integration modules:', Object.keys(inspection.integrations[0].modules || {}))
     }
 
     return inspection
