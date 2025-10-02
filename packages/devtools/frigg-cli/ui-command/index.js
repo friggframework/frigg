@@ -84,10 +84,17 @@ async function uiCommand(options) {
                 AVAILABLE_REPOSITORIES: targetRepo.isMultiRepo ? JSON.stringify(targetRepo.availableRepos) : null
             };
 
-            // Start both backend and frontend with a single dev command
-            // The dev script already runs both server:dev and vite concurrently
+            // Start backend server
             processManager.spawnProcess(
-                'dev',
+                'backend',
+                'npm',
+                ['run', 'server'],
+                { cwd: managementUiPath, env }
+            );
+
+            // Start frontend dev server
+            processManager.spawnProcess(
+                'frontend',
                 'npm',
                 ['run', 'dev'],
                 { cwd: managementUiPath, env }
