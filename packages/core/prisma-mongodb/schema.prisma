@@ -19,8 +19,8 @@ datasource db {
 /// User model with discriminator pattern support
 /// Replaces Mongoose discriminators (IndividualUser, OrganizationUser)
 model User {
-  id    String   @id @default(auto()) @map("_id") @db.ObjectId
-  type  UserType
+  id   String   @id @default(auto()) @map("_id") @db.ObjectId
+  type UserType
 
   // Timestamps
   createdAt DateTime @default(now())
@@ -89,7 +89,7 @@ model AuthorizationSession {
   currentStep Int      @default(1)
   maxSteps    Int
   stepData    Json     @default("{}")
-  oauthState  String?  // Indexed field for OAuth state lookup (from stepData.oauthState)
+  oauthState  String? // Indexed field for OAuth state lookup (from stepData.oauthState)
   expiresAt   DateTime
   completed   Boolean  @default(false)
   createdAt   DateTime @default(now())
@@ -108,12 +108,12 @@ model AuthorizationSession {
 /// OAuth credentials and API tokens
 /// All sensitive data encrypted with KMS at rest
 model Credential {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId     String?  @db.ObjectId
-  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  subType    String?
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String?  @db.ObjectId
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subType     String?
   authIsValid Boolean?
-  externalId String?
+  externalId  String?
 
   // Dynamic OAuth fields stored as JSON (encrypted via Prisma middleware)
   // Contains: access_token, refresh_token, domain, expires_in, token_type, etc.
@@ -146,11 +146,11 @@ model Entity {
   updatedAt DateTime @updatedAt
 
   // Relations - many-to-many with scalar lists
-  integrations    Integration[] @relation("IntegrationEntities", fields: [integrationIds], references: [id])
-  integrationIds  String[]      @db.ObjectId
+  integrations   Integration[] @relation("IntegrationEntities", fields: [integrationIds], references: [id])
+  integrationIds String[]      @db.ObjectId
 
-  syncs           Sync[]        @relation("SyncEntities", fields: [syncIds], references: [id])
-  syncIds         String[]      @db.ObjectId
+  syncs   Sync[]   @relation("SyncEntities", fields: [syncIds], references: [id])
+  syncIds String[] @db.ObjectId
 
   dataIdentifiers    DataIdentifier[]
   associationObjects AssociationObject[]
@@ -174,7 +174,7 @@ model Integration {
   status IntegrationStatus @default(ENABLED)
 
   // Configuration and version
-  config  Json?   // Integration configuration object
+  config  Json? // Integration configuration object
   version String?
 
   // Entity references (many-to-many via explicit scalar list)
@@ -301,11 +301,11 @@ model Association {
 /// Association object entry
 /// Replaces nested array structure in Mongoose
 model AssociationObject {
-  id            String       @id @default(auto()) @map("_id") @db.ObjectId
-  associationId String       @db.ObjectId
-  association   Association  @relation(fields: [associationId], references: [id], onDelete: Cascade)
-  entityId      String       @db.ObjectId
-  entity        Entity       @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  associationId String      @db.ObjectId
+  association   Association @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  entityId      String      @db.ObjectId
+  entity        Entity      @relation(fields: [entityId], references: [id], onDelete: Cascade)
   objectType    String
   objId         String
   metadata      Json? // Optional metadata
