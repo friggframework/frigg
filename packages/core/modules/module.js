@@ -42,7 +42,7 @@ class Module extends Delegate {
         const apiParams = {
             ...this.definition.env,
             delegate: this,
-            ...this.apiParamsFromCredential(this.credential.data), // todo: check if this works for mongo as well
+            ...(this.credential ? this.apiParamsFromCredential(this.credential.data) : {}),
             ...this.apiParamsFromEntity(this.entity),
         };
         this.api = new this.apiClass(apiParams);
@@ -176,7 +176,7 @@ class Module extends Delegate {
         } else {
             if (
                 definition.API.requesterType ===
-                    ModuleConstants.authType.oauth2 &&
+                ModuleConstants.authType.oauth2 &&
                 !definition.requiredAuthMethods.getToken
             ) {
                 throw new Error(

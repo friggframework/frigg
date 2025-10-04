@@ -7,7 +7,7 @@ import { useToast } from "../../components/use-toast.js";
 function FormBasedAuthModal({
   closeAuthModal,
   name,
-  entityType,
+  moduleType,
   refreshIntegrations,
   friggBaseUrl,
   authToken,
@@ -24,7 +24,7 @@ function FormBasedAuthModal({
 
   useEffect(() => {
     getAuthorizationRequirements({
-      entityType,
+      moduleType,
       name,
       api,
       closeAuthModal,
@@ -36,7 +36,7 @@ function FormBasedAuthModal({
         }
       })
       .finally(() => setIsLoading(false));
-  }, [api, closeAuthModal, entityType, name]);
+  }, [api, closeAuthModal, moduleType, name]);
 
   const onChange = (formData) => {
     setFormData(formData.data);
@@ -44,17 +44,17 @@ function FormBasedAuthModal({
 
   async function onSubmit() {
     setIsLoading(true);
-    const res = await authorize({ api, entityType, authData: formData });
+    const res = await authorize({ api, moduleType, authData: formData });
 
     if (!res) {
-      alert(`failed to POST /api/authorize ${this.props.targetEntityType} `);
+      alert(`failed to POST /api/modules/${moduleType}/authorization`);
       setIsLoading(false);
       return; // skip login
     }
 
     if (res.error) {
       alert(
-        `'failed to POST /api/authorize ${entityType} ...  authorizeData: ${JSON.stringify(
+        `'failed to POST /api/modules/${moduleType}/authorization ...  authorizeData: ${JSON.stringify(
           res
         )}`
       );
@@ -66,7 +66,7 @@ function FormBasedAuthModal({
     const integration = await this.api.createIntegration(
       res.entity_id,
       res.entity_id,
-      { entity: entityType }
+      { entity: moduleType }
     );
 
     await refreshIntegrations();
@@ -136,12 +136,12 @@ function FormBasedAuthModal({
 export default FormBasedAuthModal;
 
 async function getAuthorizationRequirements({
-  entityType,
+  moduleType,
   name,
   api,
   closeAuthModal,
 }) {
-  const authorizeData = await api.getAuthorizeRequirements(entityType, name);
+  const authorizeData = await api.getModuleAuthorizationRequirements(moduleType);
 
   if (authorizeData.type === "oauth2") {
     window.open(authorizeData.url, "_blank");
@@ -162,9 +162,9 @@ async function getAuthorizationRequirements({
   };
 }
 
-async function authorize({ api, entityType, authData }) {
+async function authorize({ api, moduleType, authData }) {
   try {
-    return await api.authorize(entityType, authData);
+    return await api.submitModuleAuthorization(moduleType, authData);
   } catch (e) {
     console.error(e);
     alert("Authorization failed. Incorrect username or password");

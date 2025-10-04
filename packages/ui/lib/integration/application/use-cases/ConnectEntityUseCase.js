@@ -11,16 +11,16 @@ export class ConnectEntityUseCase {
 
     /**
      * Start OAuth connection flow
-     * @param {string} entityType - The entity type to connect
+     * @param {string} entityType - The module type to connect (v2 API uses moduleType)
      * @param {object} context - Context to preserve (e.g., integration type, return URL)
      * @returns {Promise<object>} Authorization requirements with URL
      */
     async startOAuthFlow(entityType, context = {}) {
-        // Get authorization requirements
+        // Get authorization requirements (v2 API)
         const authReqs = await this.entityService.getAuthorizationRequirements(entityType);
 
         if (authReqs.type !== 'oauth2') {
-            throw new Error(`Entity type ${entityType} does not use OAuth`);
+            throw new Error(`Module type ${entityType} does not use OAuth`);
         }
 
         // Generate state and store context
@@ -69,17 +69,17 @@ export class ConnectEntityUseCase {
 
     /**
      * Connect entity with form-based credentials
-     * @param {string} entityType - The entity type to connect
+     * @param {string} entityType - The module type to connect (v2 API uses moduleType)
      * @param {object} credentials - Credentials data
      * @param {object} entityData - Additional entity data (name, etc.)
      * @returns {Promise<Entity>} The created entity
      */
     async connectWithCredentials(entityType, credentials, entityData = {}) {
-        // Validate entity type supports form auth
+        // Validate module type supports form auth (v2 API)
         const authReqs = await this.entityService.getAuthorizationRequirements(entityType);
 
         if (authReqs.type === 'oauth2') {
-            throw new Error(`Entity type ${entityType} requires OAuth, not form credentials`);
+            throw new Error(`Module type ${entityType} requires OAuth, not form credentials`);
         }
 
         // Create entity
@@ -111,7 +111,8 @@ export class ConnectEntityUseCase {
     }
 
     /**
-     * Check if entity type requires OAuth or form auth
+     * Check if module type requires OAuth or form auth
+     * @param {string} entityType - The module type (v2 API uses moduleType)
      */
     async getAuthType(entityType) {
         const authReqs = await this.entityService.getAuthorizationRequirements(entityType);

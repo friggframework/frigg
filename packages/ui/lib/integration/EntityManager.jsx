@@ -1,32 +1,43 @@
 import { useEffect, useState, useCallback } from "react";
-import API from "../api/api";
 import { Button } from "../components/button.jsx";
 import { LoadingSpinner } from "../components/LoadingSpinner.jsx";
-import { Trash2, Plus, RefreshCw } from "lucide-react";
+import { Trash2, Plus, RefreshCw, TestTube, AlertCircle, CheckCircle2, WifiOff } from "lucide-react";
 import { useIntegrationData } from "./context/IntegrationDataContext";
+import { useEntityTest } from "./hooks/useEntityTest.js";
 
 /**
  * EntityManager - Manage connected accounts/entities
  *
  * Displays all connected entities grouped by type.
  * Users can:
- * - View all connected accounts
+ * - View all connected accounts with health status
+ * - Test entity connections
+ * - Re-authenticate failed entities
  * - Connect new accounts
  * - Disconnect existing accounts
  * - Navigate to integration builder to create integrations
  *
+ * v2 Features:
+ * - Entity health indicators
+ * - Connection testing
+ * - Re-authentication flow
+ * - Better error handling
+ *
  * @param {function} props.onBuildIntegration - Navigate to integration builder with entity
  * @param {function} props.onConnectNewEntity - Navigate to OAuth flow for entity type
+ * @param {function} props.onReauthorizeEntity - Navigate to re-auth flow for entity
  * @returns {JSX.Element} The rendered component
  */
 export default function EntityManager(props) {
-  const { baseUrl, authToken } = useIntegrationData();
+  const { api } = useIntegrationData();
   const [entities, setEntities] = useState([]);
   const [entitiesByType, setEntitiesByType] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [deletingEntity, setDeletingEntity] = useState(null);
+  const [reauthorizingEntity, setReauthorizingEntity] = useState(null);
 
-  const api = new API(baseUrl, authToken);
+  const { testEntity, testing, results } = useEntityTest(api);
 
   const loadEntities = useCallback(async () => {
     try {
@@ -57,37 +68,115 @@ export default function EntityManager(props) {
     } finally {
       setLoading(false);
     }
-  }, [authToken, baseUrl]);
+  }, [api]);
 
   useEffect(() => {
-    if (!authToken) {
-      setError("Authentication token is required");
+    if (!api) {
+      setError("API instance is required");
       return;
     }
     loadEntities();
-  }, [loadEntities, authToken]);
+  }, [loadEntities, api]);
 
-  const handleDisconnect = async (entityId) => {
+  const handleDelete = async (entityId) => {
     if (!confirm("Are you sure you want to disconnect this account? This will remove any integrations using this account.")) {
       return;
     }
 
+    setDeletingEntity(entityId);
     try {
-      // TODO: Add API method to delete entity
-      // await api.deleteEntity(entityId);
+      await api.deleteEntity(entityId);
       await loadEntities();
     } catch (err) {
       alert(`Failed to disconnect: ${err.message}`);
+    } finally {
+      setDeletingEntity(null);
     }
   };
 
-  const handleTestConnection = async (entityId) => {
+  const handleTest = async (entityId) => {
     try {
-      // TODO: Use the /api/entities/:entityId/test-auth endpoint
-      alert("Connection test successful!");
+      await testEntity(entityId);
     } catch (err) {
-      alert(`Connection test failed: ${err.message}`);
+      // Error already stored in results by hook
+      console.error('Test failed:', err);
     }
+  };
+
+  const handleReauthorize = async (entity) => {
+    setReauthorizingEntity(entity.id);
+    try {
+      const reauth = await api.initiateEntityReauthorization(entity.id);
+
+      // Store re-auth session info for recovery
+      localStorage.setItem('reauth_session_id', reauth.sessionId);
+      localStorage.setItem('reauth_entity_id', entity.id);
+      localStorage.setItem('reauth_module_type', entity.type);
+
+      // If OAuth, redirect
+      if (reauth.requirements.type === 'oauth2') {
+        const url = reauth.requirements.url;
+        window.location.href = url;
+      } else {
+        // For form-based, trigger callback with entity and session
+        props.onReauthorizeEntity?.(entity, reauth);
+      }
+    } catch (error) {
+      console.error('Failed to start re-authorization:', error);
+      alert(`Failed to start re-authorization: ${error.message}`);
+      setReauthorizingEntity(null);
+    }
+  };
+
+  const getEntityStatus = (entity) => {
+    const testResult = results[entity.id];
+
+    if (testResult) {
+      return {
+        valid: testResult.valid,
+        message: testResult.message,
+        canReauthorize: testResult.canReauthorize,
+        tested: true
+      };
+    }
+
+    // Default based on entity data
+    return {
+      valid: entity.isValid !== false,
+      message: entity.status || 'Unknown',
+      canReauthorize: true,
+      tested: false
+    };
+  };
+
+  const EntityHealthBadge = ({ entity }) => {
+    const status = getEntityStatus(entity);
+    const isTesting = testing[entity.id];
+
+    if (isTesting) {
+      return (
+        <span className="inline-flex items-center px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+          <LoadingSpinner />
+          <span className="ml-1">Testing...</span>
+        </span>
+      );
+    }
+
+    if (status.valid) {
+      return (
+        <span className="inline-flex items-center px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
+          <CheckCircle2 className="w-3 h-3 mr-1" />
+          {status.message}
+        </span>
+      );
+    }
+
+    return (
+      <span className="inline-flex items-center px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">
+        <WifiOff className="w-3 h-3 mr-1" />
+        {status.message}
+      </span>
+    );
   };
 
   if (loading) {
@@ -151,62 +240,107 @@ export default function EntityManager(props) {
                 </div>
               </div>
               <div className="divide-y">
-                {typeEntities.map((entity) => (
-                  <div
-                    key={entity.id}
-                    className="p-4 hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3">
-                          <h4 className="font-medium">{entity.name}</h4>
-                          <span
-                            className={`px-2 py-1 text-xs rounded-full ${
-                              entity.status === "connected"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-yellow-100 text-yellow-800"
-                            }`}
-                          >
-                            {entity.status}
-                          </span>
+                {typeEntities.map((entity) => {
+                  const status = getEntityStatus(entity);
+                  const isDeleting = deletingEntity === entity.id;
+                  const isReauthorizing = reauthorizingEntity === entity.id;
+
+                  return (
+                    <div
+                      key={entity.id}
+                      className="p-4 hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h4 className="font-medium">{entity.name}</h4>
+                            <EntityHealthBadge entity={entity} />
+                          </div>
+
+                          {entity.externalId && (
+                            <p className="text-sm text-gray-600">
+                              ID: {entity.externalId}
+                            </p>
+                          )}
+
+                          {!status.valid && status.tested && (
+                            <div className="mt-2 flex items-start gap-2 bg-red-50 border border-red-200 rounded p-2">
+                              <AlertCircle className="w-4 h-4 text-red-600 mt-0.5" />
+                              <div className="flex-1">
+                                <p className="text-sm text-red-800">
+                                  Connection failed. Please reconnect this account.
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
+                          {entity.compatibleIntegrations?.length > 0 && (
+                            <p className="text-sm text-gray-600 mt-1">
+                              Can be used with: {entity.compatibleIntegrations.map(i => i.displayName).join(", ")}
+                            </p>
+                          )}
                         </div>
-                        {entity.externalId && (
-                          <p className="text-sm text-gray-600 mt-1">
-                            ID: {entity.externalId}
-                          </p>
-                        )}
-                        {entity.compatibleIntegrations?.length > 0 && (
-                          <p className="text-sm text-gray-600 mt-1">
-                            Can be used with: {entity.compatibleIntegrations.map(i => i.displayName).join(", ")}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleTestConnection(entity.id)}
-                        >
-                          Test
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => props.onBuildIntegration?.(entity)}
-                        >
-                          <Plus className="w-4 h-4 mr-1" />
-                          Build Integration
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDisconnect(entity.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleTest(entity.id)}
+                            disabled={testing[entity.id]}
+                            title="Test connection"
+                          >
+                            <TestTube className="w-4 h-4" />
+                          </Button>
+
+                          {!status.valid && status.canReauthorize && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleReauthorize(entity)}
+                              disabled={isReauthorizing}
+                              title="Reconnect account"
+                            >
+                              {isReauthorizing ? (
+                                <>
+                                  <LoadingSpinner />
+                                  <span className="ml-2">Starting...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <RefreshCw className="w-4 h-4 mr-1" />
+                                  Reconnect
+                                </>
+                              )}
+                            </Button>
+                          )}
+
+                          {status.valid && (
+                            <Button
+                              size="sm"
+                              onClick={() => props.onBuildIntegration?.(entity)}
+                            >
+                              <Plus className="w-4 h-4 mr-1" />
+                              Build Integration
+                            </Button>
+                          )}
+
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDelete(entity.id)}
+                            disabled={isDeleting}
+                            title="Delete account"
+                          >
+                            {isDeleting ? (
+                              <LoadingSpinner />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <div className="bg-gray-50 px-4 py-3 border-t">
                 <Button

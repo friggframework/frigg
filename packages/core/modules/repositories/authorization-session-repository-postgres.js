@@ -106,6 +106,24 @@ class AuthorizationSessionRepositoryPostgres extends AuthorizationSessionReposit
     }
 
     /**
+     * Find session by OAuth state parameter
+     * Used for OAuth2 callback processing
+     *
+     * @param {string} oauthState - OAuth state parameter from callback
+     * @returns {Promise<AuthorizationSession|null>} Session entity or null
+     */
+    async findByOAuthState(oauthState) {
+        const record = await this.prisma.authorizationSession.findFirst({
+            where: {
+                oauthState,
+                expiresAt: { gt: new Date() },
+            },
+        });
+
+        return record ? this._toEntity(record) : null;
+    }
+
+    /**
      * Update existing session
      *
      * @param {AuthorizationSession} session - Session entity with updated data

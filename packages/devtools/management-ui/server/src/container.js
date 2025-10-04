@@ -60,7 +60,8 @@ export class Container {
   }
 
   getProcessManager() {
-    return this.singleton('processManager', () => new ProcessManager())
+    // Use the same instance as test area to ensure consistency
+    return this.getTestAreaProcessManager()
   }
 
   getWebSocketService() {

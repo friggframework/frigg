@@ -9,6 +9,25 @@ const serverlessHttp = require('serverless-http');
 const createApp = (applyMiddleware) => {
     const app = express();
 
+    // 🔥 UNIVERSAL REQUEST LOGGER - LOGS EVERY SINGLE REQUEST
+    app.use((req, res, next) => {
+        const timestamp = new Date().toISOString();
+        console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log(`🌐 [${timestamp}] INCOMING REQUEST`);
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log(`   Method:       ${req.method}`);
+        console.log(`   Path:         ${req.path}`);
+        console.log(`   Original URL: ${req.originalUrl}`);
+        console.log(`   Query Params: ${JSON.stringify(req.query)}`);
+        console.log(`   Headers:      ${JSON.stringify({
+            host: req.headers.host,
+            referer: req.headers.referer,
+            'user-agent': req.headers['user-agent']
+        })}`);
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+        next();
+    });
+
     app.use(bodyParser.json({ limit: '10mb' }));
     app.use(bodyParser.urlencoded({ extended: true }));
     app.use(

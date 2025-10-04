@@ -1,5 +1,6 @@
 const { Module } = require('../module');
 const { ModuleConstants } = require('../ModuleConstants');
+const { OAuthParamsAdapterFactory } = require('../adapters/oauth-params-adapter');
 
 class ProcessAuthorizationCallback {
     /**
@@ -7,22 +8,50 @@ class ProcessAuthorizationCallback {
      * @param {import('../repositories/module-repository-factory').ModuleRepositoryInterface} params.moduleRepository - Repository for module data operations.
      * @param {import('../../credential/repositories/credential-repository-factory').CredentialRepositoryInterface} params.credentialRepository - Repository for credential data operations.
      * @param {Array<Object>} params.moduleDefinitions - Array of module definitions.
+     * @param {import('../adapters/oauth-params-adapter').OAuthParamsAdapterInterface} params.oauthParamsAdapter - Optional adapter for transforming OAuth params (defaults to v1).
      */
-    constructor({ moduleRepository, credentialRepository, moduleDefinitions }) {
+    constructor({ moduleRepository, credentialRepository, moduleDefinitions, oauthParamsAdapter = null }) {
         this.moduleRepository = moduleRepository;
         this.credentialRepository = credentialRepository;
         this.moduleDefinitions = moduleDefinitions;
+        // ✅ Dependency Injection: Use provided adapter or create default
+        this.oauthParamsAdapter = oauthParamsAdapter || OAuthParamsAdapterFactory.create('v1');
     }
 
     async execute(userId, entityType, params) {
-        const moduleDefinition = this.moduleDefinitions.find((def) => {
+        console.log('[ProcessAuthorizationCallback] Received params:', {
+            userId,
+            entityType,
+            paramsType: typeof params,
+            paramsKeys: params ? Object.keys(params) : 'NULL',
+            paramsValues: params
+        });
+
+        const moduleDefWrapper = this.moduleDefinitions.find((def) => {
             return entityType === def.moduleName;
         });
 
-        if (!moduleDefinition) {
+        if (!moduleDefWrapper) {
             throw new Error(
                 `Module definition not found for entity type: ${entityType}`
             );
+        }
+
+        // Unwrap the actual definition from {moduleName, definition} structure
+        const moduleDefinition = moduleDefWrapper.definition || moduleDefWrapper;
+
+        // Fix redirect_uri if REDIRECT_URI env var is not set
+        // This prevents "undefined/modulename" in the redirect URI
+        if (moduleDefinition.env && moduleDefinition.env.redirect_uri) {
+            const redirectUri = moduleDefinition.env.redirect_uri;
+            // Check if redirect_uri contains "undefined" (happens when env var is not set)
+            if (redirectUri.includes('undefined')) {
+                const baseUrl = process.env.BASE_URL || process.env.BACKEND_URL || 'http://localhost:3001';
+                // Extract the module-specific suffix (e.g., "/hubspot" from "undefined/hubspot")
+                const suffix = redirectUri.replace('undefined', '');
+                moduleDefinition.env.redirect_uri = `${baseUrl}/api/oauth/callback`;
+                console.log(`[DEBUG] Fixed redirect_uri from "${redirectUri}" to "${moduleDefinition.env.redirect_uri}"`);
+            }
         }
 
         // todo: check if we need to pass entity to Module, right now it's null
@@ -36,10 +65,24 @@ class ProcessAuthorizationCallback {
 
         let tokenResponse;
         if (module.apiClass.requesterType === ModuleConstants.authType.oauth2) {
+            // ✅ HEXAGONAL ARCHITECTURE: Use adapter to transform params
+            // Adapter handles module-specific param structure expectations
+            const adaptedParams = this.oauthParamsAdapter.transform(params);
+
+            console.log('[ProcessAuthorizationCallback] About to call getToken with adapted params:', {
+                originalParams: params,
+                adaptedParams,
+                adapterType: this.oauthParamsAdapter.constructor.name
+            });
+
             tokenResponse = await moduleDefinition.requiredAuthMethods.getToken(
                 module.api,
-                params
+                adaptedParams
             );
+
+            console.log('[ProcessAuthorizationCallback] getToken returned:', {
+                tokenResponseKeys: tokenResponse ? Object.keys(tokenResponse) : 'NULL'
+            });
         } else {
             tokenResponse =
                 await moduleDefinition.requiredAuthMethods.setAuthParams(

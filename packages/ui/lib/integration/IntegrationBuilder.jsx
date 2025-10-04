@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from "react";
-import API from "../api/api";
 import { Button } from "../components/button.jsx";
 import { LoadingSpinner } from "../components/LoadingSpinner.jsx";
 import { ArrowRight, Check, X, Plus } from "lucide-react";
@@ -22,7 +21,15 @@ import AuthModal from "./AuthModal.jsx";
  * @returns {JSX.Element} The rendered component
  */
 export default function IntegrationBuilder(props) {
-  const { baseUrl, authToken } = useIntegrationData();
+  // Get shared API and redirectContext from context
+  const { api, redirectContext } = useIntegrationData();
+
+  // Debug: Track component instance
+  const [instanceId] = useState(() => {
+    const id = Math.random().toString(36).substr(2, 9);
+    console.log(`🟢 [IntegrationBuilder ${id}] Component mounted`);
+    return id;
+  });
 
   // Determine if we're starting from gallery (integration type pre-selected) or entity manager (entity pre-selected)
   const startFromGallery = !!props.preselectedIntegrationType;
@@ -39,10 +46,7 @@ export default function IntegrationBuilder(props) {
 
   // Auth modal state
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authRequirements, setAuthRequirements] = useState(null);
-  const [connectingEntityType, setConnectingEntityType] = useState(null);
-
-  const api = new API(baseUrl, authToken);
+  const [connectingEntityType, setConnectingEntityType] = useState(null); // Note: renamed to moduleType in v2
 
   // Handle preselected entity (from entity manager flow)
   useEffect(() => {
@@ -86,15 +90,15 @@ export default function IntegrationBuilder(props) {
     } finally {
       setLoading(false);
     }
-  }, [authToken, baseUrl]);
+  }, [api]);
 
   useEffect(() => {
-    if (!authToken) {
-      setError("Authentication token is required");
+    if (!api) {
+      setError("API instance is required");
       return;
     }
     loadData();
-  }, [loadData, authToken]);
+  }, [loadData, api]);
 
   const handleSelectEntity = (entityType, entityId) => {
     setSelectedEntities(prev => ({
@@ -111,22 +115,19 @@ export default function IntegrationBuilder(props) {
     });
   };
 
-  const handleConnectAccount = async (entityType) => {
-    try {
-      // Get authorization requirements for this module type
-      const authReqs = await api.getAuthorizationRequirements(entityType);
-      setAuthRequirements(authReqs);
-      setConnectingEntityType(entityType);
-      setAuthModalOpen(true);
-    } catch (err) {
-      alert('Failed to get authorization requirements: ' + err.message);
-    }
+  const handleConnectAccount = (moduleType) => {
+    console.log(`🔵 [IntegrationBuilder ${instanceId}] handleConnectAccount called for ${moduleType}`);
+    console.log(`🔵 [IntegrationBuilder ${instanceId}] redirectContext:`, redirectContext);
+    // MultiStepAuthWizard will fetch authorization requirements when it mounts
+    // No need to pre-fetch here (was causing duplicate OAuth sessions)
+    setConnectingEntityType(moduleType);
+    setAuthModalOpen(true);
   };
 
   const handleAuthSubmit = async (formData) => {
     try {
       // Submit form-based auth data to authorize endpoint
-      const result = await api.authorize(connectingEntityType, formData);
+      const result = await api.submitModuleAuthorization(connectingEntityType, formData);
 
       if (result?.error) {
         throw new Error(result.error);
@@ -225,9 +226,9 @@ export default function IntegrationBuilder(props) {
           <p className="text-gray-600 mt-1">
             Step {step} of 4: {
               step === 1 ? "Select Accounts" :
-              step === 2 ? "Choose Integration Type" :
-              step === 3 ? "Configure Settings" :
-              "Confirm & Create"
+                step === 2 ? "Choose Integration Type" :
+                  step === 3 ? "Configure Settings" :
+                    "Confirm & Create"
             }
           </p>
         </div>
@@ -401,11 +402,10 @@ export default function IntegrationBuilder(props) {
                       <div
                         key={option.type}
                         onClick={() => setSelectedIntegrationType(option)}
-                        className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                          isSelected
-                            ? "border-blue-500 bg-blue-50"
-                            : "border-gray-300 hover:border-gray-400"
-                        }`}
+                        className={`border rounded-lg p-4 cursor-pointer transition-all ${isSelected
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-gray-300 hover:border-gray-400"
+                          }`}
                       >
                         <div className="flex items-center justify-between">
                           <div>
@@ -521,14 +521,15 @@ export default function IntegrationBuilder(props) {
       {/* Auth Modal for connecting accounts */}
       <AuthModal
         isOpen={authModalOpen}
-        authRequirements={authRequirements}
-        entityType={connectingEntityType}
+        api={api}
+        moduleType={connectingEntityType}
         onSubmit={handleAuthSubmit}
         onCancel={() => {
           setAuthModalOpen(false);
           setAuthRequirements(null);
           setConnectingEntityType(null);
         }}
+        redirectContext={redirectContext}
       />
     </div>
   );

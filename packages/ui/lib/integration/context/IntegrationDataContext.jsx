@@ -8,7 +8,14 @@ import API from '../../api/api.js';
 
 const IntegrationDataContext = createContext(null);
 
-export const IntegrationDataProvider = ({ children, friggBaseUrl, authToken, onError }) => {
+export const IntegrationDataProvider = ({
+    children,
+    friggBaseUrl,
+    authToken,
+    source = 'frigg-ui-library',  // Source identifier for analytics and OAuth tracking
+    redirectContext = null,  // OAuth redirect context
+    onError
+}) => {
     const [integrationOptions, setIntegrationOptions] = useState([]);
     const [installedIntegrations, setInstalledIntegrations] = useState([]);
     const [entities, setEntities] = useState([]);
@@ -99,11 +106,11 @@ export const IntegrationDataProvider = ({ children, friggBaseUrl, authToken, onE
         }
     }, [api, refreshData, onError]);
 
-    // Authorize entity
-    const authorizeEntity = useCallback(async (entityType, authData) => {
+    // Authorize entity (using v2 API)
+    const authorizeEntity = useCallback(async (moduleType, authData, step = null, sessionId = null, credentialId = null) => {
         try {
             setLoading(true);
-            const result = await api.authorize(entityType, authData);
+            const result = await api.submitModuleAuthorization(moduleType, authData, step, sessionId, credentialId);
             await refreshData(); // Refresh to get new entity
             return result;
         } catch (error) {
@@ -155,6 +162,8 @@ export const IntegrationDataProvider = ({ children, friggBaseUrl, authToken, onE
         // Base URL and auth
         baseUrl: friggBaseUrl,
         authToken,
+        source,  // Expose source for OAuth and analytics
+        redirectContext,  // OAuth redirect context for authorization flows
 
         // Data
         integrationOptions,

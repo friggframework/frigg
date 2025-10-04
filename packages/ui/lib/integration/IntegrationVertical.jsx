@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { CircleAlert } from "lucide-react";
-import Api from "./../api/api";
+import { useIntegrationData } from "./context/IntegrationDataContext";
 import IntegrationDropdown from "./IntegrationDropdown";
 import { Button } from "../components/button.jsx";
 import { LoadingSpinner } from "../components/LoadingSpinner.jsx";
@@ -25,17 +25,18 @@ import { LoadingSpinner } from "../components/LoadingSpinner.jsx";
 function IntegrationVertical(props) {
   const { name, description, category, icon } = props.data.display;
   const { hasUserConfig, type } = props.data;
-  const { authToken, refreshIntegrations, onInstallClick } = props;
+  const { refreshIntegrations, onInstallClick } = props;
+
+  // Get shared API and redirectContext from context
+  const { api, redirectContext } = useIntegrationData();
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState("");
   const [installed, setInstalled] = useState([]);
 
-  const api = new Api(props.friggBaseUrl, authToken);
-
   const getAuthorizeRequirements = async () => {
     setIsProcessing(true);
-    const authorizeData = await api.getAuthorizeRequirements(type, "");
+    const authorizeData = await api.getModuleAuthorizationRequirements(type, 1, null, redirectContext);
     if (authorizeData.type === "oauth2") {
       window.location.href = authorizeData.url;
     }
@@ -127,17 +128,10 @@ function IntegrationVertical(props) {
                 </button>
               ))}
 
-            {/* Not installed - show install button if handler provided, otherwise connect button */}
+            {/* Not installed - show install button */}
             {!status && onInstallClick && (
               <Button onClick={() => onInstallClick(props.data)}>
                 {isProcessing ? <LoadingSpinner /> : "Install"}
-              </Button>
-            )}
-
-            {/* Not installed and no install handler - show connect for OAuth */}
-            {!status && !onInstallClick && (
-              <Button onClick={getAuthorizeRequirements}>
-                {isProcessing ? <LoadingSpinner /> : "Connect"}
               </Button>
             )}
           </div>

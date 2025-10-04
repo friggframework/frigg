@@ -43,9 +43,6 @@ const {
 const {
     IntegrationMappingRepository,
 } = require('./integrations/repositories/integration-mapping-repository');
-const {
-    PrismaIntegrationRepository,
-} = require('./integrations/repositories/prisma-integration-repository');
 const { Cryptor, Encrypt } = require('./encrypt');
 const {
     BaseError,

@@ -9,12 +9,12 @@
  * This eliminates conditional logic and provides a consistent UX.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Form } from '../../Form';
 
 export const AuthorizationWizard = ({
     api,
-    entityType,
+    moduleType,
     onSuccess,
     onCancel,
     onError
@@ -32,18 +32,18 @@ export const AuthorizationWizard = ({
     // Initialize: Load requirements for step 1
     useEffect(() => {
         initializeAuth();
-    }, [entityType]);
+    }, [moduleType]);
 
     /**
      * Load initial authorization requirements
      */
-    const initializeAuth = async () => {
+    const initializeAuth = useCallback(async () => {
         try {
             setLoading(true);
             setError(null);
 
             // Get requirements for step 1
-            const reqs = await api.getAuthorizeRequirements(entityType, '', 1, null);
+            const reqs = await api.getModuleAuthorizationRequirements(moduleType, 1, null);
 
             setCurrentStep(reqs.step || 1);
             setTotalSteps(reqs.totalSteps || 1);
@@ -58,7 +58,7 @@ export const AuthorizationWizard = ({
         } finally {
             setLoading(false);
         }
-    };
+    }, [moduleType]);
 
     /**
      * Handle form data changes
@@ -76,8 +76,8 @@ export const AuthorizationWizard = ({
             setError(null);
 
             // Submit current step with accumulated data
-            const result = await api.authorize(
-                entityType,
+            const result = await api.submitModuleAuthorization(
+                moduleType,
                 formData,
                 currentStep,
                 sessionId

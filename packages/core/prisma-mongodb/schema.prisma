@@ -89,13 +89,14 @@ model AuthorizationSession {
   currentStep Int      @default(1)
   maxSteps    Int
   stepData    Json     @default("{}")
+  oauthState  String?  // Indexed field for OAuth state lookup (from stepData.oauthState)
   expiresAt   DateTime
   completed   Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@index([sessionId])
   @@index([userId, entityType])
+  @@index([oauthState])
   @@index([expiresAt])
   @@map("AuthorizationSession")
 }

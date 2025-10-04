@@ -20,17 +20,23 @@ function mapIntegrationClassToIntegrationDTO(integration) {
 
 
 const getModulesDefinitionFromIntegrationClasses = (integrationClasses) => {
-    return [
-        ...new Set(
-            integrationClasses
-                .map((integration) =>
-                    Object.values(integration.Definition.modules).map(
-                        (module) => module.definition
-                    )
-                )
-                .flat()
-        ),
-    ];
+    const moduleDefinitions = [];
+
+    integrationClasses.forEach((integration) => {
+        Object.entries(integration.Definition.modules).forEach(([moduleName, module]) => {
+            moduleDefinitions.push({
+                moduleName,
+                definition: module.definition
+            });
+        });
+    });
+
+    // Remove duplicates based on moduleName
+    const uniqueModules = moduleDefinitions.filter((module, index, self) =>
+        index === self.findIndex(m => m.moduleName === module.moduleName)
+    );
+
+    return uniqueModules;
 };
 
 module.exports = { mapIntegrationClassToIntegrationDTO, getModulesDefinitionFromIntegrationClasses }; 

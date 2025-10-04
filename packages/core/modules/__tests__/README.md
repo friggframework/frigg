@@ -1,502 +1,264 @@
-# Multi-Step Authentication Test Suite
+# Multi-Step Authorization Testing Documentation
 
-Comprehensive TDD test suite for the multi-step authentication implementation in Frigg Framework.
-
-## Overview
-
-This test suite covers all aspects of the multi-step authentication feature, from individual entity validation to complete end-to-end workflows. The tests follow Test-Driven Development principles and maintain >80% code coverage.
+This directory contains comprehensive tests for the Frigg API v2 multi-step authorization implementation.
 
 ## Test Structure
 
 ```
 __tests__/
-├── unit/                          # Unit tests (isolated, mocked dependencies)
-│   ├── entities/
-│   │   └── authorization-session.test.js    # Session entity validation & behavior
-│   ├── repositories/
-│   │   ├── authorization-session-repository-mongo.test.js     # MongoDB adapter
-│   │   └── authorization-session-repository-postgres.test.js  # PostgreSQL adapter
-│   └── use-cases/
-│       ├── start-authorization-session.test.js        # Session initialization
-│       ├── process-authorization-step.test.js         # Step processing logic
-│       └── get-authorization-requirements.test.js     # Requirement retrieval
-└── integration/                   # Integration tests (end-to-end workflows)
-    ├── multi-step-auth-flow.test.js           # Complete auth flows
-    └── session-expiry-and-errors.test.js      # Error scenarios & edge cases
+├── unit/
+│   ├── domain/
+│   │   └── authorization-session.test.js       # Domain entity tests
+│   ├── use-cases/
+│   │   ├── start-authorization-session.test.js # Session creation tests
+│   │   ├── process-authorization-step.test.js  # Step processing tests
+│   │   └── get-authorization-requirements.test.js # Requirements tests
+│   └── repositories/
+│       ├── authorization-session-repository-mongo.test.js
+│       └── authorization-session-repository-postgres.test.js
+├── integration/
+│   ├── multi-step-auth.test.js                 # Complete auth flow tests
+│   ├── credential-management.test.js           # Credential CRUD tests (TODO)
+│   └── entity-reauth.test.js                   # Re-authorization tests (TODO)
+└── helpers/
+    └── auth-test-helpers.js                    # Shared test utilities
 ```
-
-## Unit Tests
-
-### AuthorizationSession Entity Tests
-**File**: `unit/entities/authorization-session.test.js`
-
-Tests the domain entity's validation, state transitions, and business logic:
-
-- **Constructor & Validation**
-  - Required field validation (sessionId, userId, entityType)
-  - Step number validation (must be >= 1, cannot exceed maxSteps)
-  - Expiration validation
-  - Custom stepData handling
-
-- **State Transitions**
-  - `advanceStep()` - Incrementing currentStep and merging stepData
-  - `markComplete()` - Marking session as complete
-  - `isExpired()` - Checking expiration status
-  - `canAdvance()` - Determining if more steps are available
-
-- **Edge Cases**
-  - Single-step flows (maxSteps = 1)
-  - Multi-step flows (2-10 steps)
-  - Empty and complex stepData
-  - Special characters in identifiers
-
-**Coverage**: 100% of entity logic
-
-### Repository Tests
-
-#### MongoDB Repository
-**File**: `unit/repositories/authorization-session-repository-mongo.test.js`
-
-Tests MongoDB/Mongoose implementation:
-
-- **CRUD Operations**
-  - `create()` - Creating new sessions
-  - `findBySessionId()` - Retrieving by ID with expiration filtering
-  - `findActiveSession()` - Finding active session for user/entity type
-  - `update()` - Updating session state
-  - `deleteExpired()` - Cleanup of expired sessions
-
-- **Filtering & Queries**
-  - Automatic expiration filtering (`expiresAt > now`)
-  - User and entity type filtering
-  - Completion status filtering
-  - Sort by createdAt for most recent
-
-- **Edge Cases**
-  - Large stepData objects
-  - Concurrent updates
-  - Special characters in IDs
-  - Error handling (connection failures, update conflicts)
-
-**Coverage**: 100% of repository methods
-
-#### PostgreSQL Repository
-**File**: `unit/repositories/authorization-session-repository-postgres.test.js`
-
-Tests PostgreSQL/Prisma implementation:
-
-- Same test coverage as MongoDB repository
-- PostgreSQL-specific tests:
-  - JSON column handling for stepData
-  - Prisma unique constraint violations
-  - Transaction rollback handling
-  - Optimistic locking for concurrent updates
-  - JSONB data size limits
-
-**Coverage**: 100% of repository methods
-
-### Use Case Tests
-
-#### StartAuthorizationSessionUseCase
-**File**: `unit/use-cases/start-authorization-session.test.js`
-
-Tests session initialization logic:
-
-- **Session Creation**
-  - Unique UUID generation (RFC 4122 format)
-  - 15-minute expiration window
-  - Initial state setup (currentStep = 1, completed = false)
-  - Empty stepData initialization
-
-- **Validation**
-  - Required parameters (userId, entityType, maxSteps)
-  - Support for various maxSteps values (1, 2, 3+)
-  - Different entity types
-
-- **Repository Integration**
-  - Proper session object passed to repository
-  - Handling enriched responses from repository
-  - Error propagation
-
-**Coverage**: 100% of use case logic
-
-#### ProcessAuthorizationStepUseCase
-**File**: `unit/use-cases/process-authorization-step.test.js`
-
-Tests step processing orchestration:
-
-- **Session Validation**
-  - Session existence check
-  - User ownership verification
-  - Expiration check
-  - Step sequence validation
-
-- **Module Integration**
-  - Module definition lookup
-  - API instance creation
-  - Step processing delegation
-  - Result handling (intermediate vs completion)
-
-- **Intermediate Steps**
-  - Session advancement
-  - StepData accumulation
-  - Next requirement retrieval
-  - Message propagation
-
-- **Completion**
-  - Session completion marking
-  - AuthData return
-  - No further requirement fetching
-
-- **Error Handling**
-  - Repository errors
-  - Module processing errors
-  - Update failures
-  - Missing requirements
-
-- **Workflows**
-  - 2-step Nagaris OTP flow
-  - 3-step complex flows
-  - StepData merging across steps
-
-**Coverage**: 100% of use case logic
-
-#### GetAuthorizationRequirementsUseCase
-**File**: `unit/use-cases/get-authorization-requirements.test.js`
-
-Tests requirement retrieval logic:
-
-- **Basic Functionality**
-  - Single-step module requirements
-  - Multi-step module requirements
-  - Step parameter defaulting to 1
-  - Module not found errors
-
-- **Multi-Step Support**
-  - Step-specific requirements
-  - isMultiStep flag calculation
-  - totalSteps metadata
-  - Step progression
-
-- **Legacy Support**
-  - Fallback to `getAuthorizationRequirements()`
-  - Default to single-step for legacy modules
-  - Hybrid module support
-
-- **Data Structures**
-  - Field preservation
-  - Metadata addition
-  - OAuth2 requirements
-  - Form-based requirements
-  - Nested objects
-
-**Coverage**: 100% of use case logic
-
-## Integration Tests
-
-### Multi-Step Auth Flow
-**File**: `integration/multi-step-auth-flow.test.js`
-
-Tests complete authentication workflows end-to-end:
-
-- **Complete 2-Step Nagaris OTP Flow**
-  - Get requirements → Start session → Email submission → OTP verification → Entity creation
-  - StepData accumulation verification
-  - Session state tracking
-  - Invalid OTP rejection
-
-- **Single-Step Backward Compatibility**
-  - OAuth2 single-step flow
-  - Immediate completion
-  - No intermediate states
-
-- **Session State Management**
-  - Completed session prevention
-  - User isolation between sessions
-  - Multiple concurrent sessions per user
-  - Session independence
-
-- **Error Recovery**
-  - Retry after failed steps
-  - State preservation after errors
-  - Session cleanup
-
-- **Step Sequence Validation**
-  - Step skipping prevention
-  - Correct order enforcement
-  - Step 1 restart handling
-
-**Coverage**: All critical user paths and workflows
-
-### Session Expiry and Errors
-**File**: `integration/session-expiry-and-errors.test.js`
-
-Tests edge cases, expiration, and error conditions:
-
-- **Session Expiration**
-  - Expired session rejection
-  - Repository null return for expired sessions
-  - Cleanup of expired sessions
-  - Mid-flow expiration handling
-  - 15-minute window enforcement
-
-- **Invalid Step Sequences**
-  - Wrong step number rejection
-  - Negative step numbers
-  - Steps beyond maxSteps
-  - Out-of-order steps
-
-- **Wrong User Access**
-  - Cross-user session access prevention
-  - Session ownership enforcement
-  - Isolation across different entities
-
-- **Nonexistent Sessions**
-  - Invalid session ID rejection
-  - Malformed session IDs
-  - Null/undefined IDs
-
-- **Module Definition Errors**
-  - Unknown entity type handling
-  - Module processing errors
-  - Invalid configurations
-
-- **Concurrent Session Management**
-  - Multiple active sessions per user
-  - State isolation between sessions
-  - Race condition handling
-  - Concurrent update safety
-
-- **Repository Errors**
-  - Database connection failures
-  - Update failures
-  - Transaction rollbacks
-
-**Coverage**: All error paths and edge cases
 
 ## Running Tests
 
-### All Tests
+### Run All Tests
 ```bash
-cd packages/core
+cd /Users/sean/Documents/GitHub/frigg/packages/core
 npm test
 ```
 
-### Unit Tests Only
+### Run Specific Test Suites
+
 ```bash
-npm test -- unit
+# Run only multi-step auth tests
+npm test -- modules/__tests__
+
+# Run only unit tests
+npm test -- modules/__tests__/unit
+
+# Run only integration tests
+npm test -- modules/__tests__/integration
+
+# Run specific test file
+npm test -- modules/__tests__/unit/use-cases/start-authorization-session.test.js
+
+# Run with coverage
+npm test -- --coverage modules/__tests__
 ```
 
-### Integration Tests Only
+### Watch Mode (for development)
 ```bash
-npm test -- integration
+npm test -- --watch modules/__tests__
 ```
 
-### With Coverage
-```bash
-npm test -- --coverage
-```
+## Test Coverage Summary
 
-### Watch Mode
-```bash
-npm test -- --watch
-```
+### ✅ Implemented Tests
 
-### Specific Test File
-```bash
-npm test authorization-session.test.js
-```
+#### Unit Tests (Domain Layer)
+- **AuthorizationSession Entity** - 25+ test cases
+  - Constructor validation
+  - Step advancement logic  
+  - Completion marking
+  - Expiration checking
+  - Edge cases
 
-## Test Characteristics
+#### Unit Tests (Use Cases)
+- **StartAuthorizationSessionUseCase** - 20+ test cases
+  - Session creation and UUID generation
+  - Expiration handling
+  - Input validation
+  - Multiple concurrent sessions
 
-### Fast
-- Unit tests run in <50ms each
-- Integration tests run in <200ms each
-- No live API calls or database connections
-- All dependencies mocked
+- **ProcessAuthorizationStepUseCase** - 15+ test cases  
+  - Multi-step flow processing
+  - Single-step flow processing
+  - Step validation and sequencing
+  - Session ownership verification
+  - Error handling
 
-### Isolated
-- No test interdependencies
-- Each test can run independently
-- Clean state before each test
-- No shared mutable state
+- **GetAuthorizationRequirementsUseCase** - 10+ test cases
+  - Multi-step vs single-step detection
+  - Requirements retrieval
+  - Input validation
 
-### Repeatable
-- Same result every time
-- No time-dependent tests (except expiry logic with controlled dates)
-- No network dependencies
-- Deterministic mock data
+#### Integration Tests
+- **Multi-Step Authentication Flow** - 15+ scenarios
+  - Nagaris 2-step OTP (email → OTP)
+  - HubSpot single-step OAuth
+  - Slack 2-step OAuth + selection
+  - Session lifecycle management
+  - Concurrent sessions
+  - Error recovery
 
-### Self-Validating
-- Clear pass/fail criteria
-- Descriptive test names
-- Meaningful assertions
-- Error messages guide debugging
+### ⬜ TODO Tests
 
-### Maintainable
-- Clear test structure (Arrange-Act-Assert)
-- Descriptive names explain what and why
-- One assertion focus per test
-- Well-organized by feature
+- **ReauthorizeEntity Use Case** (unit)
+- **Credential Management** (integration)
+- **Entity Re-authentication** (integration)
 
-## Coverage Goals
+## Test Helpers
 
-- **Statements**: >80% ✅
-- **Branches**: >75% ✅
-- **Functions**: >80% ✅
-- **Lines**: >80% ✅
+Located in `helpers/auth-test-helpers.js`:
 
-## Test Data
+### Mock Module Definitions
+- `MockNagarisDefinition` - 2-step OTP flow
+- `MockHubSpotDefinition` - Single-step OAuth
+- `MockSlackDefinition` - 2-step OAuth + selection
 
-All tests use mock data with no live API calls:
+### Test Repositories
+- `TestAuthorizationSessionRepository`
+- `TestModuleRepository`  
+- `TestCredentialRepository`
 
-### Sample Session
+### Helper Functions
 ```javascript
-{
-  sessionId: 'test-session-123',
-  userId: 'user-123',
-  entityType: 'nagaris',
-  currentStep: 1,
-  maxSteps: 2,
-  stepData: {},
-  expiresAt: new Date(Date.now() + 15 * 60 * 1000),
-  completed: false
-}
+createTestSession({ userId, entityType, maxSteps, ... })
+createExpiredSession({ userId, ... })
+createTestEntity({ moduleName, user, ... })
+createTestCredential({ user, ... })
+getTestModuleDefinitions()
 ```
 
-### Sample Nagaris OTP Flow
-```javascript
-// Step 1: Email submission
-{ email: 'test@example.com' }
-
-// Step 2: OTP verification
-{ otp: '123456' }
-
-// Result: AuthData
-{
-  access_token: 'nagaris_token_123',
-  refresh_token: 'nagaris_refresh_456',
-  user: { id: 'nagaris_user_789', email: 'test@example.com' }
-}
-```
-
-## Best Practices
-
-1. **Write Tests First**: Follow TDD - tests written before implementation
-2. **One Behavior Per Test**: Each test validates one specific behavior
-3. **Descriptive Names**: Test names explain what is tested and expected outcome
-4. **Arrange-Act-Assert**: Clear three-part structure
-5. **Mock External Dependencies**: Keep tests isolated and fast
-6. **Test Edge Cases**: Include boundary conditions and error paths
-7. **Avoid Test Interdependence**: Each test stands alone
-
-## CI/CD Integration
-
-Tests run automatically on:
-- Every commit (via Git hooks)
-- Pull request creation
-- Merge to main branch
-
-Required for:
-- Pull request approval (all tests must pass)
-- Deployment to staging/production
-
-## Contributing
-
-When adding new features to multi-step auth:
-
-1. Write tests first (TDD)
-2. Add tests to appropriate category (unit/integration)
-3. Ensure all existing tests still pass
-4. Maintain >80% coverage
-5. Follow existing test patterns
-6. Update this README if adding new test files
-
-## Common Test Patterns
+## Example Usage
 
 ### Unit Test Pattern
 ```javascript
-describe('FeatureName', () => {
-  let mockDependency;
-  let systemUnderTest;
+const { YourUseCase } = require('../../use-cases/your-use-case');
+const { TestAuthorizationSessionRepository } = require('../helpers/auth-test-helpers');
 
-  beforeEach(() => {
-    mockDependency = { method: jest.fn() };
-    systemUnderTest = new Feature({ dependency: mockDependency });
-  });
+describe('YourUseCase', () => {
+    let useCase;
+    let repository;
 
-  it('should perform expected behavior', () => {
-    // Arrange
-    const input = 'test-input';
-    mockDependency.method.mockReturnValue('mocked-output');
+    beforeEach(() => {
+        repository = new TestAuthorizationSessionRepository();
+        useCase = new YourUseCase({ repository });
+    });
 
-    // Act
-    const result = systemUnderTest.execute(input);
+    afterEach(() => {
+        repository.clear();
+    });
 
-    // Assert
-    expect(result).toBe('expected-output');
-    expect(mockDependency.method).toHaveBeenCalledWith(input);
-  });
+    it('should do something', async () => {
+        const result = await useCase.execute('param');
+        expect(result).toBeDefined();
+    });
 });
 ```
 
 ### Integration Test Pattern
 ```javascript
-describe('Complete User Flow', () => {
-  let repository;
-  let useCase1;
-  let useCase2;
+const { StartAuthorizationSessionUseCase } = require('../../use-cases/start-authorization-session');
+const { ProcessAuthorizationStepUseCase } = require('../../use-cases/process-authorization-step');
+const {
+    TestAuthorizationSessionRepository,
+    getTestModuleDefinitions,
+} = require('../helpers/auth-test-helpers');
 
-  beforeEach(() => {
-    repository = new InMemoryRepository();
-    useCase1 = new UseCase1({ repository });
-    useCase2 = new UseCase2({ repository });
-  });
+describe('Complete Flow Test', () => {
+    let authSessionRepository;
+    let startAuthSession;
+    let processAuthStep;
 
-  it('should complete full workflow', async () => {
-    // Step 1
-    const step1Result = await useCase1.execute(input1);
-    expect(step1Result.status).toBe('intermediate');
+    beforeEach(() => {
+        authSessionRepository = new TestAuthorizationSessionRepository();
+        startAuthSession = new StartAuthorizationSessionUseCase({
+            authSessionRepository,
+        });
+        processAuthStep = new ProcessAuthorizationStepUseCase({
+            authSessionRepository,
+            moduleDefinitions: getTestModuleDefinitions(),
+        });
+    });
 
-    // Step 2
-    const step2Result = await useCase2.execute(step1Result.id, input2);
-    expect(step2Result.status).toBe('completed');
-
-    // Verify final state
-    const finalState = await repository.findById(step2Result.id);
-    expect(finalState.completed).toBe(true);
-  });
+    it('should complete Nagaris OTP flow', async () => {
+        const session = await startAuthSession.execute('user-123', 'nagaris', 2);
+        
+        // Step 1: Email
+        const step1 = await processAuthStep.execute(
+            session.sessionId,
+            'user-123',
+            1,
+            { email: 'test@example.com' }
+        );
+        expect(step1.nextStep).toBe(2);
+        
+        // Step 2: OTP
+        const step2 = await processAuthStep.execute(
+            session.sessionId,
+            'user-123',
+            2,
+            { email: 'test@example.com', otp: '123456' }
+        );
+        expect(step2.completed).toBe(true);
+    });
 });
 ```
 
+## Key Test Scenarios
+
+### Multi-Step Flows Tested
+✅ 2-step OTP (email → OTP)
+✅ 2-step OAuth + selection (OAuth → workspace)
+✅ Single-step OAuth
+✅ Session lifecycle (creation → steps → completion)
+✅ Session expiration (15 min)
+✅ Session restart from step 1
+✅ User ownership enforcement
+✅ Step sequence validation
+✅ Data preservation between steps
+✅ Error recovery and retry
+
+### Edge Cases Covered
+✅ Concurrent session creation
+✅ Multiple sessions per user
+✅ Multiple users simultaneously
+✅ Large stepData objects
+✅ Special characters in IDs
+✅ Very large step counts
+✅ Invalid/expired sessions
+
+## Performance Targets
+
+- Unit tests: < 100ms each
+- Integration tests: < 1s each
+- Total test suite: < 30s
+
+## CI/CD Integration
+
+Tests run automatically on:
+- Pre-commit (via git hooks)
+- Pull requests (via GitHub Actions)
+- Pre-deployment (staging/production)
+
 ## Troubleshooting
 
-### Tests Failing Locally
+**"Cannot find module" errors**
+→ Run `npm install` in `/Users/sean/Documents/GitHub/frigg/packages/core`
 
-1. Check Node.js version (should be >=18)
-2. Clear node_modules and reinstall: `rm -rf node_modules && npm install`
-3. Clear Jest cache: `npm test -- --clearCache`
+**Timeout errors**
+→ Add `jest.setTimeout(10000);` at top of test file
 
-### Intermittent Test Failures
+**Mock data issues**
+→ Ensure `repository.clear()` in `afterEach` hooks
 
-- Check for time-dependent tests
-- Look for shared mutable state
-- Verify test isolation with `--runInBand`
+## Contributing
 
-### Coverage Below Threshold
-
-- Run with coverage: `npm test -- --coverage`
-- Review coverage report in `coverage/lcov-report/index.html`
-- Add tests for uncovered branches
+When adding tests:
+1. Write tests BEFORE implementation (TDD)
+2. Aim for >80% code coverage
+3. Include both unit and integration tests
+4. Document new patterns in this README
+5. Use existing test helpers when possible
 
 ## Related Documentation
 
-- [Multi-Step Auth Specification](../../../../docs/MULTI_STEP_AUTH_AND_SHARED_ENTITIES_SPEC.md)
-- [DDD Architecture](../../../../docs/CLI_DDD_ARCHITECTURE.md)
-- [Contributing Guidelines](../../../../CONTRIBUTING.md)
-
----
-
-**Test Suite Version**: 1.0.0
-**Last Updated**: 2025-10-02
-**Maintained By**: Tester Agent (Hive Mind Swarm)
+- [SPARC Methodology](https://github.com/ruvnet/claude-flow)
+- [Frigg DDD Architecture](/Users/sean/Documents/GitHub/frigg/CLAUDE.md)
+- [Multi-Step Auth Spec](/Users/sean/Documents/GitHub/frigg/docs/MULTI_STEP_AUTH_AND_SHARED_ENTITIES_SPEC.md)

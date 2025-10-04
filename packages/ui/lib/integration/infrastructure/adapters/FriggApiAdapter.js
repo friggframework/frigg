@@ -140,22 +140,55 @@ export class FriggApiAdapter {
     }
 
     /**
-     * GET /api/authorize?entityType=X - Get authorization requirements
+     * GET /api/modules/:moduleType/authorization - Get authorization requirements
+     * @param {string} moduleType - Module type to authorize
+     * @param {number} step - Step number for multi-step flows
+     * @param {string|null} sessionId - Session ID for multi-step flows
+     * @param {Object} redirectContext - OAuth redirect context
+     * @param {string} redirectContext.returnUrl - URL to return to after OAuth
+     * @param {string} redirectContext.source - Source UI identifier
      */
-    async getAuthorizationRequirements(entityType) {
-        return await this.fetch(`/authorize?entityType=${encodeURIComponent(entityType)}`);
+    async getAuthorizationRequirements(moduleType, step = 1, sessionId = null, redirectContext = null) {
+        const params = new URLSearchParams({ step: step.toString() });
+
+        if (sessionId) {
+            params.append('sessionId', sessionId);
+        }
+
+        // Add redirect context for OAuth session tracking
+        if (redirectContext) {
+            if (redirectContext.source) {
+                params.append('source', redirectContext.source);
+            }
+            if (redirectContext.returnUrl) {
+                params.append('returnUrl', redirectContext.returnUrl);
+            }
+            if (redirectContext.frontendBaseUrl) {
+                params.append('frontendBaseUrl', redirectContext.frontendBaseUrl);
+            }
+        } else {
+            // Default context for frigg-ui-library
+            params.append('source', 'frigg-ui-library');
+            params.append('returnUrl', window.location.pathname || '/');
+            // Always include frontend base URL so backend knows where to redirect after OAuth
+            params.append('frontendBaseUrl', window.location.origin);
+        }
+
+        return await this.fetch(`/modules/${moduleType}/authorization?${params.toString()}`);
     }
 
     /**
-     * POST /api/authorize - Complete authorization (OAuth or form-based)
+     * POST /api/modules/:moduleType/authorization - Complete authorization (OAuth or form-based)
      */
-    async authorizeEntity(entityType, data) {
-        return await this.fetch('/authorize', {
+    async authorizeEntity(moduleType, data, step = null, sessionId = null, credentialId = null) {
+        const params = { data };
+        if (step) params.step = step;
+        if (sessionId) params.sessionId = sessionId;
+        if (credentialId) params.credentialId = credentialId;
+
+        return await this.fetch(`/modules/${moduleType}/authorization`, {
             method: 'POST',
-            body: JSON.stringify({
-                entityType,
-                ...data
-            })
+            body: JSON.stringify(params)
         });
     }
 

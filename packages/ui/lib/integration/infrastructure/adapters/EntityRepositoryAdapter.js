@@ -77,26 +77,25 @@ export class EntityRepositoryAdapter {
     }
 
     /**
-     * Get authorization requirements for an entity type
+     * Get authorization requirements for a module type (v2 API)
      */
-    async getAuthorizationRequirements(entityType, connectingEntityType = '') {
-        return await this.api.getAuthorizeRequirements(entityType, connectingEntityType);
+    async getAuthorizationRequirements(moduleType, step = 1, sessionId = null) {
+        return await this.api.getModuleAuthorizationRequirements(moduleType, step, sessionId);
     }
 
     /**
-     * Create entity with OAuth flow
+     * Create entity with OAuth flow (v2 API)
      */
-    async completeOAuthFlow(entityType, code, state) {
-        // This would call an OAuth completion endpoint
-        // For now, assuming the authorize endpoint handles it
-        return await this.api.authorize(entityType, { code, state });
+    async completeOAuthFlow(moduleType, code, state) {
+        // Use v2 API to complete OAuth
+        return await this.api.submitModuleAuthorization(moduleType, { code, state });
     }
 
     /**
-     * Create entity with form credentials
+     * Create entity with form credentials (v2 API)
      */
-    async createEntityWithCredentials(entityType, credentials, entityData = {}) {
-        const result = await this.api.authorize(entityType, credentials);
+    async createEntityWithCredentials(moduleType, credentials, step = null, sessionId = null, credentialId = null) {
+        const result = await this.api.submitModuleAuthorization(moduleType, credentials, step, sessionId, credentialId);
 
         if (!result || result.error) {
             throw new Error(result?.error || 'Authorization failed');

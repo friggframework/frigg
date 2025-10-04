@@ -5,7 +5,7 @@ import { IntegrationHorizontal, IntegrationVertical } from "../integration";
 
 /**
  * IntegrationList with Search and Filter
- * @param props.integrationType - Type of integration to filter by (legacy)
+ * @param props.integrationType - Type of integration to filter by
  * @param props.componentLayout - Layout for displaying integrations - either 'default-horizontal' or 'default-vertical'
  * @param props.showSearch - Show search input (default: true)
  * @param props.showCategoryFilter - Show category filter (default: true)
@@ -17,7 +17,8 @@ const IntegrationList = (props) => {
   const {
     showSearch = true,
     showCategoryFilter = true,
-    componentLayout = "default-vertical"
+    componentLayout = "default-vertical",
+    redirectContext
   } = props;
 
   const {
@@ -54,7 +55,7 @@ const IntegrationList = (props) => {
       combined.push(installed || option);
     });
 
-    // Legacy filter by type if specified
+    // Filter by type if specified
     if (props.integrationType && props.integrationType !== "Recently added") {
       return combined.filter(
         integration => integration.display?.category === props.integrationType
@@ -75,8 +76,6 @@ const IntegrationList = (props) => {
       <Component
         data={integration}
         key={`integration-${integration.type || integration.id}`}
-        friggBaseUrl={baseUrl}
-        authToken={authToken}
         navigateToSampleDataFn={props.navigateToSampleDataFn}
         onInstallClick={isInstalled ? undefined : props.onInstallClick}
       />

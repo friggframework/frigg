@@ -3,7 +3,7 @@
  * @description Tab orchestration for integration management
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import IntegrationList from './IntegrationList';
 import EntityManager from './EntityManager';
 import IntegrationBuilder from './IntegrationBuilder';
@@ -20,6 +20,9 @@ import UserActionTester from './UserActionTester';
  * @param {boolean} props.showViewModeToggle - Show grid/list view toggle (default: true)
  * @param {string} props.defaultComponentLayout - Default layout for integrations (default: 'default-vertical')
  * @param {boolean} props.enableUserActionTester - Enable user action tester tab (dev mode, default: false)
+ * @param {Object} props.createdEntity - Entity created from OAuth callback
+ * @param {Error} props.oauthError - Error from OAuth callback
+ * @param {string} props.oauthModuleType - Module type for OAuth error
  * @returns {JSX.Element}
  */
 const IntegrationTabs = ({
@@ -32,11 +35,67 @@ const IntegrationTabs = ({
   defaultComponentLayout = 'default-vertical',
   enableUserActionTester = false,
   navigateToSampleDataFn,
+  redirectContext = null,
+  createdEntity = null,
+  oauthError = null,
+  oauthModuleType = null,
+  wizardState = null,
+  onWizardStateChange = null,
   ...props
 }) => {
-  const [activeTab, setActiveTab] = useState(defaultTab);
-  const [builderConfig, setBuilderConfig] = useState(null);
-  const [componentLayout, setComponentLayout] = useState(defaultComponentLayout);
+  // Use wizard state from IntegrationHub if provided, otherwise use local state
+  const [localActiveTab, setLocalActiveTab] = useState(wizardState?.activeTab || defaultTab);
+  const [localBuilderConfig, setLocalBuilderConfig] = useState(wizardState?.builderConfig || null);
+  const [localComponentLayout, setLocalComponentLayout] = useState(wizardState?.componentLayout || defaultComponentLayout);
+
+  const activeTab = wizardState ? wizardState.activeTab : localActiveTab;
+  const builderConfig = wizardState ? wizardState.builderConfig : localBuilderConfig;
+  const componentLayout = wizardState ? wizardState.componentLayout : localComponentLayout;
+
+  const setActiveTab = (tab) => {
+    if (onWizardStateChange) {
+      onWizardStateChange({ activeTab: tab });
+    } else {
+      setLocalActiveTab(tab);
+    }
+  };
+
+  const setBuilderConfig = (config) => {
+    if (onWizardStateChange) {
+      onWizardStateChange({ builderConfig: config });
+    } else {
+      setLocalBuilderConfig(config);
+    }
+  };
+
+  const setComponentLayout = (layout) => {
+    if (onWizardStateChange) {
+      onWizardStateChange({ componentLayout: layout });
+    } else {
+      setLocalComponentLayout(layout);
+    }
+  };
+
+  // Handle OAuth success - open builder with newly created entity
+  useEffect(() => {
+    if (createdEntity) {
+      console.log('🔥 IntegrationTabs - OAuth entity created, opening builder:', createdEntity);
+      setBuilderConfig({ preselectedEntity: createdEntity });
+      setActiveTab('builder');
+    }
+  }, [createdEntity]);
+
+  // Handle OAuth error - open builder to show error
+  useEffect(() => {
+    if (oauthError && oauthModuleType) {
+      console.log('🔥 IntegrationTabs - OAuth error, opening builder to show error:', { oauthError, oauthModuleType });
+      setBuilderConfig({
+        preselectedIntegrationType: { type: oauthModuleType },
+        oauthError: oauthError
+      });
+      setActiveTab('builder');
+    }
+  }, [oauthError, oauthModuleType]);
 
   const handleInstallClick = (integration) => {
     // When installing from gallery, pass as preselectedIntegrationType
@@ -139,11 +198,10 @@ const IntegrationTabs = ({
                   <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
                     <button
                       onClick={() => setComponentLayout('default-vertical')}
-                      className={`p-2 rounded transition-colors ${
-                        componentLayout === 'default-vertical'
+                      className={`p-2 rounded transition-colors ${componentLayout === 'default-vertical'
                           ? 'bg-white text-blue-600 shadow-sm'
                           : 'text-gray-600 hover:text-gray-900'
-                      }`}
+                        }`}
                       title="Grid view"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -155,11 +213,10 @@ const IntegrationTabs = ({
                     </button>
                     <button
                       onClick={() => setComponentLayout('default-horizontal')}
-                      className={`p-2 rounded transition-colors ${
-                        componentLayout === 'default-horizontal'
+                      className={`p-2 rounded transition-colors ${componentLayout === 'default-horizontal'
                           ? 'bg-white text-blue-600 shadow-sm'
                           : 'text-gray-600 hover:text-gray-900'
-                      }`}
+                        }`}
                       title="List view"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -178,6 +235,7 @@ const IntegrationTabs = ({
               componentLayout={componentLayout}
               navigateToSampleDataFn={navigateToSampleDataFn}
               onInstallClick={handleInstallClick}
+              redirectContext={redirectContext}
             />
           </div>
         )}
@@ -185,10 +243,11 @@ const IntegrationTabs = ({
         {activeTab === 'accounts' && (
           <EntityManager
             onBuildIntegration={handleBuildIntegration}
-            onConnectNewEntity={(entityType) => {
+            onConnectNewEntity={(moduleType) => {
               // TODO: Implement OAuth flow navigation
-              alert(`OAuth flow for ${entityType || 'new entity'} not yet implemented. This would redirect to authorization URL.`);
+              alert(`OAuth flow for ${moduleType || 'new module'} not yet implemented. This would redirect to authorization URL.`);
             }}
+            redirectContext={redirectContext}
             {...props}
           />
         )}
@@ -197,8 +256,10 @@ const IntegrationTabs = ({
           <IntegrationBuilder
             preselectedEntity={builderConfig?.preselectedEntity}
             preselectedIntegrationType={builderConfig?.preselectedIntegrationType}
+            oauthError={builderConfig?.oauthError}
             onIntegrationCreated={handleIntegrationComplete}
             onCancel={handleCancel}
+            redirectContext={redirectContext}
             {...props}
           />
         )}

@@ -576,7 +576,12 @@ const createBaseDefinition = (AppDefinition, appEnvironmentVars, discoveredResou
                     { httpApi: { path: '/api/integrations/options', method: 'GET' } },
                     { httpApi: { path: '/api/integrations/{proxy+}', method: 'ANY' } },
                     { httpApi: { path: '/api/entities', method: 'GET' } },
-                    { httpApi: { path: '/api/authorize', method: 'ANY' } },
+                    { httpApi: { path: '/api/entities/{proxy+}', method: 'ANY' } },
+                    { httpApi: { path: '/api/modules', method: 'GET' } },
+                    { httpApi: { path: '/api/modules/{proxy+}', method: 'ANY' } },
+                    { httpApi: { path: '/api/credentials', method: 'GET' } },
+                    { httpApi: { path: '/api/credentials/{proxy+}', method: 'ANY' } },
+                    { httpApi: { path: '/api/oauth/callback', method: 'GET' } },
                 ],
             },
             user: {
@@ -695,7 +700,7 @@ const applyKmsConfiguration = (definition, AppDefinition, discoveredResources) =
         if (AppDefinition.encryption?.createResourceIfNoneFound !== true) {
             throw new Error(
                 'KMS field-level encryption is enabled but no KMS key was found. ' +
-                    'Either provide an existing KMS key or set encryption.createResourceIfNoneFound to true to create a new key.'
+                'Either provide an existing KMS key or set encryption.createResourceIfNoneFound to true to create a new key.'
             );
         }
 
@@ -1094,8 +1099,8 @@ const configureVpc = (definition, AppDefinition, discoveredResources) => {
             AppDefinition.vpc.subnets?.ids?.length > 0
                 ? AppDefinition.vpc.subnets.ids
                 : discoveredResources.privateSubnetId1 && discoveredResources.privateSubnetId2
-                ? [discoveredResources.privateSubnetId1, discoveredResources.privateSubnetId2]
-                : [];
+                    ? [discoveredResources.privateSubnetId1, discoveredResources.privateSubnetId2]
+                    : [];
 
         if (vpcConfig.subnetIds.length < 2) {
             if (AppDefinition.vpc.selfHeal) {

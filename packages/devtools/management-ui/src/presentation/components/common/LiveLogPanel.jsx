@@ -22,19 +22,33 @@ import {
 } from 'lucide-react'
 
 const LiveLogPanel = ({
-  logs = [],
+  logsRef,
+  onSubscribe,
   onClear,
   onDownload,
   isStreaming = false,
   onToggleStreaming,
   className
 }) => {
+  const [logs, setLogs] = useState(logsRef?.current || [])
   const [isPaused, setIsPaused] = useState(false)
   const [selectedLevel, setSelectedLevel] = useState('all')
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [autoScroll, setAutoScroll] = useState(true)
   const [copied, setCopied] = useState(false)
   const logContainerRef = useRef(null)
+
+  // Subscribe to log updates without causing parent re-renders
+  useEffect(() => {
+    if (!onSubscribe) return
+
+    const handleLogUpdate = (newLogs) => {
+      setLogs([...newLogs]) // Only LiveLogPanel re-renders
+    }
+
+    const unsubscribe = onSubscribe(handleLogUpdate)
+    return unsubscribe
+  }, [onSubscribe])
 
   const logLevels = [
     { id: 'all', label: 'All', color: 'bg-gray-500' },

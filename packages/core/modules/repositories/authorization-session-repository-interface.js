@@ -48,6 +48,18 @@ class AuthorizationSessionRepositoryInterface {
     }
 
     /**
+     * Find session by OAuth state parameter
+     * Used for OAuth2 callback processing
+     *
+     * @param {string} oauthState - OAuth state parameter
+     * @returns {Promise<import('../domain/entities/AuthorizationSession').AuthorizationSession|null>} Session entity or null if not found/expired
+     * @abstract
+     */
+    async findByOAuthState(oauthState) {
+        throw new Error('Method findByOAuthState must be implemented by subclass');
+    }
+
+    /**
      * Update existing session
      *
      * @param {import('../domain/entities/AuthorizationSession').AuthorizationSession} session - Session entity with updated data

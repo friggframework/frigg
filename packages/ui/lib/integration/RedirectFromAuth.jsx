@@ -4,7 +4,7 @@ import API from "../api/api";
 import { LoadingSpinner } from "../components/LoadingSpinner.jsx";
 
 /**
- * @param {string} props.app - The name of the app being authorized
+ * @param {string} props.app - The name of the module being authorized
  * @param {string} props.friggBaseUrl - The base URL for the Frigg service
  * @param {string} props.authToken - JWT token for authenticated user in Frigg
  * @param {string} props.primaryEntityName - The name of the primary entity in the app
@@ -19,7 +19,7 @@ const RedirectFromAuth = (props) => {
       const params = qString.parse(window.location.search);
 
       if (params.code) {
-        const targetEntity = await api.authorize(props.app, {
+        const targetEntity = await api.submitModuleAuthorization(props.app, {
           code: params.code,
         });
 

@@ -54,6 +54,7 @@ export default function AppRouter() {
     return <Settings />
   }
 
+
   // Main application with zone-based architecture (PRD requirement)
   return (
     <Layout activeZone={activeZone} onZoneChange={switchZone}>

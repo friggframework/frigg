@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Settings } from "lucide-react";
-import Api from "./../api/api";
+import { useIntegrationData } from "./context/IntegrationDataContext";
 import QuickActionsMenu from "./QuickActionsMenu";
 import { FormBasedAuthModal, IntegrationConfigurationModal } from "./modals";
 import { Switch } from "../components/switch";
@@ -28,21 +28,21 @@ import { LoadingSpinner } from "../components/LoadingSpinner";
  */
 function IntegrationHorizontal(props) {
   const {
-    authToken,
     refreshIntegrations,
-    friggBaseUrl,
     navigateToSampleDataFn,
+    onInstallClick,
   } = props;
   const { name, description, icon } = props.data.display;
   const { type, status: initialStatus, id: integrationId } = props.data;
+
+  // Get shared API and redirectContext from context
+  const { api, redirectContext } = useIntegrationData();
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState(initialStatus);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [userActions, setUserActions] = useState([]);
-
-  const api = new Api(friggBaseUrl, authToken);
 
   useEffect(() => {
     if (props.data.id) {
@@ -69,7 +69,7 @@ function IntegrationHorizontal(props) {
 
   const getAuthorizeRequirements = async () => {
     setIsProcessing(true);
-    const authorizeData = await api.getAuthorizeRequirements(type, "");
+    const authorizeData = await api.getModuleAuthorizationRequirements(type, 1, null, redirectContext);
     if (authorizeData.type === "oauth2") {
       window.location.href = authorizeData.url;
     }
@@ -162,9 +162,11 @@ function IntegrationHorizontal(props) {
                 </div>
               </>
             ) : (
-              <Button onClick={getAuthorizeRequirements}>
-                {isProcessing ? <LoadingSpinner /> : "Connect"}
-              </Button>
+              onInstallClick && (
+                <Button onClick={() => onInstallClick(props.data)}>
+                  {isProcessing ? <LoadingSpinner /> : "Install"}
+                </Button>
+              )
             )}
           </div>
         </div>

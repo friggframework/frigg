@@ -50,20 +50,20 @@ export class EntityService {
     }
 
     /**
-     * Get authorization requirements for an entity type
+     * Get authorization requirements for a module type
      */
-    async getAuthorizationRequirements(entityType) {
-        return await this.apiAdapter.getAuthorizationRequirements(entityType);
+    async getAuthorizationRequirements(moduleType, step = 1, sessionId = null) {
+        return await this.apiAdapter.getAuthorizationRequirements(moduleType, step, sessionId);
     }
 
     /**
-     * Start OAuth flow for entity type
+     * Start OAuth flow for module type
      */
-    async initiateOAuthFlow(entityType, config = {}) {
-        const authReqs = await this.getAuthorizationRequirements(entityType);
+    async initiateOAuthFlow(moduleType, config = {}) {
+        const authReqs = await this.getAuthorizationRequirements(moduleType);
 
         if (authReqs.type !== 'oauth2') {
-            throw new Error(`Entity type ${entityType} does not support OAuth`);
+            throw new Error(`Module type ${moduleType} does not support OAuth`);
         }
 
         return authReqs;
@@ -72,8 +72,8 @@ export class EntityService {
     /**
      * Complete OAuth flow with authorization code
      */
-    async completeOAuthFlow(entityType, code, state) {
-        const entity = await this.apiAdapter.authorizeEntity(entityType, {
+    async completeOAuthFlow(moduleType, code, state) {
+        const entity = await this.apiAdapter.authorizeEntity(moduleType, {
             code,
             state
         });
@@ -83,8 +83,8 @@ export class EntityService {
     /**
      * Create entity with form-based credentials
      */
-    async createEntityWithCredentials(entityType, credentials, entityData = {}) {
-        const entity = await this.apiAdapter.authorizeEntity(entityType, {
+    async createEntityWithCredentials(moduleType, credentials, entityData = {}) {
+        const entity = await this.apiAdapter.authorizeEntity(moduleType, {
             data: credentials,
             ...entityData
         });

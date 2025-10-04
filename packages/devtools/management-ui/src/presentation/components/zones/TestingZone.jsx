@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useFrigg } from '../../hooks/useFrigg'
 import { useSocket } from '../../hooks/useSocket'
 import TestAreaWelcome from './TestAreaWelcome'
@@ -52,6 +53,7 @@ import axios from 'axios'
  * - User View: Full Frigg UI library integration testing
  */
 const TestingZone = ({ className }) => {
+  const [searchParams, setSearchParams] = useSearchParams()
   const {
     switchZone,
     currentRepository,
@@ -62,22 +64,174 @@ const TestingZone = ({ className }) => {
 
   const socket = useSocket()
 
-  // Test Area State Machine
-  const [testAreaState, setTestAreaState] = useState('not_started')
-  const [viewMode, setViewMode] = useState(null) // 'admin' or 'user'
-  const [friggStatus, setFriggStatus] = useState(null)
-  const [selectedUser, setSelectedUser] = useState(null)
+  // 🔥 ESCAPE HATCH 1: URL parameter to force reset (?reset=true)
+  const forceReset = searchParams.get('reset') === 'true'
+
+  // Use React's lazy initializer pattern to avoid re-computing on every render
+  const [initialState] = useState(() => {
+    try {
+      // 🔥 ESCAPE HATCH 1: Check for force reset
+      if (forceReset) {
+        console.log('🔄 Force reset requested via URL parameter')
+        localStorage.removeItem('frigg-test-area-session')
+        localStorage.removeItem('frigg-oauth-redirect-state')
+        // Remove URL param after reading it
+        searchParams.delete('reset')
+        setSearchParams(searchParams)
+        return {
+          testAreaState: 'not_started',
+          viewMode: null,
+          friggStatus: null,
+          selectedUser: null,
+          logs: [],
+          fromOAuth: false
+        }
+      }
+
+      // First check for OAuth redirect state (highest priority)
+      const oauthState = localStorage.getItem('frigg-oauth-redirect-state')
+      if (oauthState) {
+        const parsed = JSON.parse(oauthState)
+        const stateAge = Date.now() - new Date(parsed.timestamp).getTime()
+
+        // 🔥 ESCAPE HATCH 2: OAuth state timeout (5 minutes)
+        if (stateAge < 300000 && parsed.isOAuthRedirect) {
+          console.log('🔄 Initializing from OAuth redirect state')
+          return {
+            testAreaState: parsed.testAreaState || 'not_started',
+            viewMode: parsed.viewMode || null,
+            friggStatus: parsed.friggStatus || null,
+            selectedUser: parsed.selectedUser || null,
+            logs: parsed.logs || [],
+            fromOAuth: true
+          }
+        } else if (stateAge >= 300000) {
+          console.log('⏰ OAuth redirect state expired, clearing...')
+          localStorage.removeItem('frigg-oauth-redirect-state')
+        }
+      }
+
+      // Check for regular session state
+      const savedSession = localStorage.getItem('frigg-test-area-session')
+      if (savedSession) {
+        const session = JSON.parse(savedSession)
+        const sessionAge = Date.now() - new Date(session.timestamp).getTime()
+
+        // 🔥 ESCAPE HATCH 3: Session timeout (15 minutes instead of 1 hour for stuck states)
+        const maxAge = session.testAreaState === 'starting' || session.testAreaState === 'stopping' ? 900000 : 3600000
+
+        if (sessionAge < maxAge) {
+          // 🔥 ESCAPE HATCH 4: Detect stuck states and reset them
+          if ((session.testAreaState === 'starting' || session.testAreaState === 'stopping') && sessionAge > 30000) {
+            console.log(`⚠️ Detected stuck state '${session.testAreaState}' (${Math.round(sessionAge/1000)}s old), resetting to not_started`)
+            return {
+              testAreaState: 'not_started',
+              viewMode: null,
+              friggStatus: null,
+              selectedUser: null,
+              logs: [],
+              fromOAuth: false
+            }
+          }
+
+          console.log('🔄 Initializing from saved session')
+          return {
+            testAreaState: session.testAreaState || 'not_started',
+            viewMode: session.viewMode || null,
+            friggStatus: session.friggStatus || null,
+            selectedUser: session.selectedUser || null,
+            logs: session.logs || [],
+            fromOAuth: false
+          }
+        } else {
+          console.log('⏰ Session expired, starting fresh')
+          localStorage.removeItem('frigg-test-area-session')
+        }
+      }
+    } catch (err) {
+      console.error('Error loading initial state:', err)
+    }
+
+    // Default state
+    console.log('🔄 Initializing with default state')
+    return {
+      testAreaState: 'not_started',
+      viewMode: null,
+      friggStatus: null,
+      selectedUser: null,
+      logs: [],
+      fromOAuth: false
+    }
+  })
+
+  // Test Area State Machine - initialized from localStorage (lazy initialization above)
+  const [testAreaState, setTestAreaState] = useState(initialState.testAreaState)
+  const [viewMode, setViewMode] = useState(initialState.viewMode)
+  const [friggStatus, setFriggStatus] = useState(initialState.friggStatus)
+  const [selectedUser, setSelectedUser] = useState(initialState.selectedUser)
   const [allUsers, setAllUsers] = useState([])
   const [error, setError] = useState(null)
-  const [logs, setLogs] = useState([])
   const [isStopping, setIsStopping] = useState(false)
   const [existingProcess, setExistingProcess] = useState(null)
 
-  // Load Frigg status and restore from localStorage on mount
-  useEffect(() => {
-    loadFriggStatus()
-    restoreSessionState()
+  // Store logs in ref to avoid re-renders - logs are presentation-only
+  const logsRef = useRef(initialState.logs)
+  const logSubscribersRef = useRef(new Set())
+
+  // Notify log subscribers when logs change (for LiveLogPanel only)
+  const notifyLogSubscribers = useCallback(() => {
+    logSubscribersRef.current.forEach(callback => callback(logsRef.current))
   }, [])
+
+  // DEBUG: Track what causes re-renders
+  const prevPropsRef = useRef({ testAreaState, viewMode, friggStatus, selectedUser, allUsers })
+  useEffect(() => {
+    const prev = prevPropsRef.current
+    const changes = []
+    if (prev.testAreaState !== testAreaState) changes.push(`testAreaState: ${prev.testAreaState} → ${testAreaState}`)
+    if (prev.viewMode !== viewMode) changes.push(`viewMode: ${prev.viewMode} → ${viewMode}`)
+    if (prev.friggStatus !== friggStatus) changes.push('friggStatus changed')
+    if (prev.selectedUser !== selectedUser) changes.push('selectedUser changed')
+    if (prev.allUsers !== allUsers) changes.push(`allUsers: ${prev.allUsers.length} → ${allUsers.length}`)
+
+    if (changes.length > 0) {
+      console.log('🔍 TestingZone re-render caused by:', changes.join(', '))
+    }
+
+    prevPropsRef.current = { testAreaState, viewMode, friggStatus, selectedUser, allUsers }
+  })
+
+  // Post-initialization cleanup and status check
+  useEffect(() => {
+    // If state was initialized from OAuth redirect, clear the one-time storage
+    if (initialState.fromOAuth) {
+      console.log('🧹 Clearing used OAuth redirect state')
+      localStorage.removeItem('frigg-oauth-redirect-state')
+
+      // Update regular session storage with OAuth-restored state
+      const sessionState = {
+        testAreaState: initialState.testAreaState,
+        viewMode: initialState.viewMode,
+        friggStatus: initialState.friggStatus,
+        selectedUser: initialState.selectedUser,
+        timestamp: new Date().toISOString()
+      }
+      localStorage.setItem('frigg-test-area-session', JSON.stringify(sessionState))
+    } else if (testAreaState === 'not_started') {
+      // Only check Frigg status if we started with default state
+      loadFriggStatus()
+    }
+  }, [])
+
+  // Debug: Log current state
+  useEffect(() => {
+    console.log('🔥 Current testAreaState:', testAreaState, 'viewMode:', viewMode, 'selectedUser:', selectedUser?.username || selectedUser?.email)
+  }, [testAreaState, viewMode, selectedUser])
+
+  // Handle OAuth callback after state is restored
+  useEffect(() => {
+    handleOAuthCallback()
+  }, [testAreaState, friggStatus])
 
   // Save session state to localStorage whenever it changes
   useEffect(() => {
@@ -103,24 +257,8 @@ const TestingZone = ({ className }) => {
   }, [testAreaState, viewMode, friggStatus, selectedUser])
 
   const restoreSessionState = () => {
-    try {
-      const savedState = localStorage.getItem('frigg-test-area-session')
-      if (savedState) {
-        const session = JSON.parse(savedState)
-        // Only restore if session is less than 1 hour old
-        const sessionAge = Date.now() - new Date(session.timestamp).getTime()
-        if (sessionAge < 3600000) { // 1 hour
-          console.log('Restoring session state from localStorage:', session)
-          // Will be validated by loadFriggStatus()
-        } else {
-          console.log('Session too old, clearing localStorage')
-          localStorage.removeItem('frigg-test-area-session')
-        }
-      }
-    } catch (err) {
-      console.error('Error restoring session state:', err)
-      localStorage.removeItem('frigg-test-area-session')
-    }
+    // NOTE: This is now handled by restoreOAuthRedirectState and loadFriggStatus
+    // Keeping this function for backwards compatibility but it doesn't do anything
   }
 
   // Subscribe to WebSocket logs and detect "Server ready"
@@ -128,7 +266,8 @@ const TestingZone = ({ className }) => {
     if (!socket || !socket.socket) return
 
     const handleLog = (log) => {
-      setLogs(prev => [...prev, log])
+      logsRef.current = [...logsRef.current, log]
+      notifyLogSubscribers()
 
       // Detect when Frigg is fully ready (Server ready message)
       if (log.message && log.message.includes('Server ready:')) {
@@ -161,7 +300,7 @@ const TestingZone = ({ className }) => {
         socket.socket.off('frigg:log', handleLog)
       }
     }
-  }, [socket, testAreaState])
+  }, [socket, testAreaState, notifyLogSubscribers])
 
   // Load users when entering user_view
   useEffect(() => {
@@ -359,6 +498,126 @@ const TestingZone = ({ className }) => {
     }
   }
 
+  const handleOAuthCallback = () => {
+    // Check for OAuth callback parameters
+    const success = searchParams.get('success')
+    const error = searchParams.get('error')
+    const code = searchParams.get('code')
+    const state = searchParams.get('state')
+    const module = searchParams.get('module')
+    const entityId = searchParams.get('entityId')
+
+    // Check if we're in a state where we can handle OAuth (user_view with selected user)
+    if (testAreaState !== 'user_view' || !selectedUser) {
+      // Not ready yet - OAuth handling will run again when state is restored
+      return
+    }
+
+    if (success === 'true') {
+      if (code && state) {
+        // OAuth callback with code and state - this is a successful OAuth flow
+        addLog('success', `✅ OAuth authorization successful! Code: ${code.substring(0, 20)}...`)
+
+        // Call the IntegrationHub's OAuth redirect handler via redirectContext
+        // This is saved before redirect and should trigger the UI library's flow
+        addLog('info', `🔄 Processing OAuth callback via IntegrationHub...`)
+
+        // NOTE: The IntegrationHub should detect URL params and process automatically
+        // We just need to ensure state is restored so it has the right context
+
+        // Clear the URL parameters after a short delay to let IntegrationHub process them
+        setTimeout(() => {
+          setSearchParams({})
+          addLog('success', `✅ OAuth flow completed successfully!`)
+        }, 1000)
+      } else if (module && entityId) {
+        // Direct success with module and entity ID
+        addLog('success', `✅ Successfully connected to ${module}! Entity ID: ${entityId}`)
+        // Clear the URL parameters
+        setSearchParams({})
+      }
+    } else if (error) {
+      addLog('error', `❌ OAuth error: ${error}`)
+      // Clear the URL parameters
+      setSearchParams({})
+    }
+  }
+
+  const saveOAuthRedirectState = useCallback(() => {
+    // Save current state before OAuth redirect
+    const oauthState = {
+      testAreaState,
+      viewMode,
+      friggStatus,
+      selectedUser,
+      logs: logsRef.current.slice(-50), // Save last 50 logs via ref
+      timestamp: new Date().toISOString(),
+      isOAuthRedirect: true
+    }
+    console.log('🔥 SAVING OAuth redirect state:', oauthState)
+    localStorage.setItem('frigg-oauth-redirect-state', JSON.stringify(oauthState))
+  }, [testAreaState, viewMode, friggStatus, selectedUser])
+
+  const restoreOAuthRedirectState = () => {
+    try {
+      const savedState = localStorage.getItem('frigg-oauth-redirect-state')
+      console.log('Checking for OAuth redirect state:', savedState)
+
+      if (savedState) {
+        const oauthState = JSON.parse(savedState)
+        const stateAge = Date.now() - new Date(oauthState.timestamp).getTime()
+
+        console.log('OAuth state age:', stateAge, 'ms')
+
+        // Restore state if less than 5 minutes old (OAuth redirects should be quick)
+        if (stateAge < 300000 && oauthState.isOAuthRedirect) {
+          console.log('✅ Restoring OAuth redirect state:', oauthState)
+
+          // Restore ALL state in a single batch
+          setTestAreaState(oauthState.testAreaState)
+          setViewMode(oauthState.viewMode)
+          setFriggStatus(oauthState.friggStatus)
+          setSelectedUser(oauthState.selectedUser)
+          setLogs([
+            ...oauthState.logs || [],
+            {
+              level: 'success',
+              message: '✅ Restored session after OAuth redirect',
+              timestamp: new Date().toISOString(),
+              source: 'test-area'
+            }
+          ])
+
+          // Update the regular session state to match the OAuth-restored state
+          // This keeps both storage locations in sync
+          const updatedSessionState = {
+            testAreaState: oauthState.testAreaState,
+            viewMode: oauthState.viewMode,
+            friggStatus: oauthState.friggStatus,
+            selectedUser: oauthState.selectedUser,
+            timestamp: new Date().toISOString()
+          }
+          localStorage.setItem('frigg-test-area-session', JSON.stringify(updatedSessionState))
+
+          // Clear only the OAuth redirect state (one-time use)
+          localStorage.removeItem('frigg-oauth-redirect-state')
+
+          return true // Indicate that OAuth state was restored
+        } else {
+          // State too old, clear it
+          console.log('OAuth state too old, clearing')
+          localStorage.removeItem('frigg-oauth-redirect-state')
+        }
+      } else {
+        console.log('No OAuth redirect state found')
+      }
+    } catch (err) {
+      console.error('Error restoring OAuth redirect state:', err)
+      localStorage.removeItem('frigg-oauth-redirect-state')
+    }
+    return false // OAuth state was NOT restored
+  }
+
   const handleAttachToExisting = async () => {
     if (!existingProcess) return
 
@@ -501,21 +760,24 @@ const TestingZone = ({ className }) => {
     setTestAreaState('running')
   }
 
-  const addLog = (level, message) => {
-    setLogs(prev => [...prev, {
+  const addLog = useCallback((level, message) => {
+    const newLog = {
       level,
       message,
       timestamp: new Date().toISOString(),
       source: 'test-area'
-    }])
-  }
+    }
+    logsRef.current = [...logsRef.current, newLog]
+    notifyLogSubscribers()
+  }, [notifyLogSubscribers])
 
-  const clearLogs = () => {
-    setLogs([])
-  }
+  const clearLogs = useCallback(() => {
+    logsRef.current = []
+    notifyLogSubscribers()
+  }, [notifyLogSubscribers])
 
-  const downloadLogs = () => {
-    const logData = logs.map(log =>
+  const downloadLogs = useCallback(() => {
+    const logData = logsRef.current.map(log =>
       `[${log.timestamp}] ${log.level.toUpperCase()} [${log.source}] ${log.message}`
     ).join('\n')
 
@@ -528,7 +790,7 @@ const TestingZone = ({ className }) => {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-  }
+  }, [])
 
   // Render view mode selection
   const renderViewModeSelection = () => {
@@ -725,6 +987,7 @@ const TestingZone = ({ className }) => {
         )
 
       case 'user_view':
+        console.log('🔥 RENDERING user_view case');
         return (
           <div className="h-full flex flex-col">
             {/* Header with back button and user info */}
@@ -779,14 +1042,20 @@ const TestingZone = ({ className }) => {
               )}
             </div>
             <div className="flex-1 overflow-auto">
-              <TestAreaContainer
-                friggBaseUrl={friggStatus?.friggBaseUrl || `http://localhost:${friggStatus?.port || 3000}`}
-                authToken={selectedUser?.token}
-                selectedUser={selectedUser}
-                allUsers={allUsers}
-                onUserSwitch={handleUserSwitch}
-                onBackToUserSelection={handleBackToViewSelection}
-              />
+              {(() => {
+                console.log('🔥 RENDERING TestAreaContainer with onOAuthRedirect:', saveOAuthRedirectState ? 'provided' : 'missing');
+                return (
+                  <TestAreaContainer
+                    friggBaseUrl={friggStatus?.friggBaseUrl || `http://localhost:${friggStatus?.port || 3000}`}
+                    authToken={selectedUser?.token}
+                    selectedUser={selectedUser}
+                    allUsers={allUsers}
+                    onUserSwitch={handleUserSwitch}
+                    onBackToUserSelection={handleBackToViewSelection}
+                    onOAuthRedirect={saveOAuthRedirectState}
+                  />
+                );
+              })()}
             </div>
           </div>
         )
@@ -808,8 +1077,36 @@ const TestingZone = ({ className }) => {
     }
   }
 
+  // 🔥 ESCAPE HATCH 5: Manual reset function
+  const handleManualReset = () => {
+    console.log('🔄 Manual reset triggered')
+    localStorage.removeItem('frigg-test-area-session')
+    localStorage.removeItem('frigg-oauth-redirect-state')
+    localStorage.removeItem('frigg-wizard-state')
+    sessionStorage.removeItem('frigg-execution-id')
+    window.location.href = window.location.pathname // Hard reload to apply reset
+  }
+
   return (
     <div className={cn('h-full flex flex-col', className)}>
+      {/* 🔥 ESCAPE HATCH 5: Manual Reset Button (shown when stuck) */}
+      {(testAreaState === 'starting' || testAreaState === 'stopping') && (
+        <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm text-yellow-800">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>State: {testAreaState}... (if stuck, use reset)</span>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleManualReset}
+            className="h-7 text-xs"
+          >
+            Reset State
+          </Button>
+        </div>
+      )}
+
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="flex-1 min-h-0">
@@ -821,7 +1118,11 @@ const TestingZone = ({ className }) => {
         {/* Live Log Panel - Always visible at bottom */}
         <div className="flex-shrink-0">
           <LiveLogPanel
-            logs={logs}
+            logsRef={logsRef}
+            onSubscribe={(callback) => {
+              logSubscribersRef.current.add(callback)
+              return () => logSubscribersRef.current.delete(callback)
+            }}
             onClear={clearLogs}
             onDownload={downloadLogs}
             isStreaming={testAreaState !== 'not_started'}
