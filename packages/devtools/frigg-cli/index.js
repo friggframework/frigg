@@ -8,6 +8,7 @@ const { buildCommand } = require('./build-command');
 const { deployCommand } = require('./deploy-command');
 const { generateIamCommand } = require('./generate-iam-command');
 const { uiCommand } = require('./ui-command');
+const { dbSetupCommand } = require('./db-setup-command');
 
 const program = new Command();
 
@@ -61,6 +62,13 @@ program
     .option('--no-open', 'do not open browser automatically')
     .action(uiCommand);
 
+program
+    .command('db:setup')
+    .description('Set up database schema and generate Prisma client')
+    .option('-s, --stage <stage>', 'deployment stage', 'development')
+    .option('-v, --verbose', 'enable verbose output')
+    .action(dbSetupCommand);
+
 program.parse(process.argv);
 
-module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, generateIamCommand, uiCommand };
+module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, generateIamCommand, uiCommand, dbSetupCommand };

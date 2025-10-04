@@ -1,12 +1,44 @@
 const { spawn } = require('node:child_process');
 const path = require('node:path');
+const dotenv = require('dotenv');
+const chalk = require('chalk');
+const {
+    validateDatabaseUrl,
+    getDatabaseType,
+    testDatabaseConnection,
+    checkPrismaClientGenerated
+} = require('../utils/database-validator');
+const {
+    getDatabaseUrlMissingError,
+    getDatabaseTypeNotConfiguredError,
+    getDatabaseConnectionError,
+    getPrismaClientNotGeneratedError
+} = require('../utils/error-messages');
 
-function startCommand(options) {
+async function startCommand(options) {
     if (options.verbose) {
         console.log('Verbose mode enabled');
         console.log('Options:', options);
     }
+
+    console.log(chalk.blue('🚀 Starting Frigg application...\n'));
+
+    // Load environment variables from .env file
+    const envPath = path.join(process.cwd(), '.env');
+    dotenv.config({ path: envPath });
+
+    // Pre-flight database checks
+    try {
+        await performDatabaseChecks(options.verbose);
+    } catch (error) {
+        console.error(chalk.red('\n❌ Pre-flight checks failed'));
+        console.error(chalk.gray('Fix the issues above before starting the application.\n'));
+        process.exit(1);
+    }
+
+    console.log(chalk.green('✓ Database checks passed\n'));
     console.log('Starting backend and optional frontend...');
+
     // Suppress AWS SDK warning message about maintenance mode
     process.env.AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE = 1;
     // Skip AWS discovery for local development
@@ -51,6 +83,80 @@ function startCommand(options) {
             console.log(`Child process exited with code ${code}`);
         }
     });
+}
+
+/**
+ * Performs pre-flight database validation checks
+ * @param {boolean} verbose - Enable verbose output
+ * @throws {Error} If any validation check fails
+ */
+async function performDatabaseChecks(verbose) {
+    // Check 1: Validate DATABASE_URL exists
+    if (verbose) {
+        console.log(chalk.gray('Checking DATABASE_URL...'));
+    }
+
+    const urlValidation = validateDatabaseUrl();
+    if (!urlValidation.valid) {
+        console.error(getDatabaseUrlMissingError());
+        throw new Error('DATABASE_URL validation failed');
+    }
+
+    if (verbose) {
+        console.log(chalk.green('✓ DATABASE_URL found'));
+    }
+
+    // Check 2: Determine database type
+    if (verbose) {
+        console.log(chalk.gray('Determining database type...'));
+    }
+
+    const dbTypeResult = getDatabaseType();
+    if (dbTypeResult.error) {
+        console.error(chalk.red('❌ ' + dbTypeResult.error));
+        console.error(getDatabaseTypeNotConfiguredError());
+        throw new Error('Database type determination failed');
+    }
+
+    const dbType = dbTypeResult.dbType;
+
+    if (verbose) {
+        console.log(chalk.green(`✓ Database type: ${dbType}`));
+    }
+
+    // Check 3: Test database connection
+    if (verbose) {
+        console.log(chalk.gray('Testing database connection...'));
+    }
+
+    const connectionTest = await testDatabaseConnection(urlValidation.url, dbType, 5000);
+
+    if (!connectionTest.connected) {
+        console.error(getDatabaseConnectionError(connectionTest.error, dbType));
+        throw new Error('Database connection failed');
+    }
+
+    if (verbose) {
+        console.log(chalk.green('✓ Database connection verified'));
+    }
+
+    // Check 4: Verify Prisma client is generated
+    if (verbose) {
+        console.log(chalk.gray('Checking Prisma client...'));
+    }
+
+    const clientCheck = checkPrismaClientGenerated(dbType);
+
+    if (!clientCheck.generated) {
+        console.error(getPrismaClientNotGeneratedError(dbType));
+        console.error(chalk.yellow('\nRun this command to generate the Prisma client:'));
+        console.error(chalk.cyan('  frigg db:setup\n'));
+        throw new Error('Prisma client not generated');
+    }
+
+    if (verbose) {
+        console.log(chalk.green('✓ Prisma client generated'));
+    }
 }
 
 module.exports = { startCommand };
