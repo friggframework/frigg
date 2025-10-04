@@ -322,7 +322,7 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             subType: entityData.type || entityData.subType,
             name: entityData.name,
             moduleName: entityData.moduleName,
-            externalId: entityData.externalId,
+            externalId: this._toString(entityData.externalId),
             accountId: entityData.accountId,
         };
 
@@ -368,7 +368,7 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
         if (updates.moduleName !== undefined)
             data.moduleName = updates.moduleName;
         if (updates.externalId !== undefined)
-            data.externalId = updates.externalId;
+            data.externalId = this._toString(updates.externalId);
         if (updates.accountId !== undefined) data.accountId = updates.accountId;
 
         try {
