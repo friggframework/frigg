@@ -67,11 +67,13 @@ class Module extends Delegate {
     }
 
     apiParamsFromCredential(credential) {
-        return _.pick(credential, ...this.apiPropertiesToPersist?.credential);
+        if (!this.apiPropertiesToPersist?.credential) return {};
+        return _.pick(credential, ...this.apiPropertiesToPersist.credential);
     }
 
     apiParamsFromEntity(entity) {
-        return _.pick(entity, ...this.apiPropertiesToPersist?.entity);
+        if (!this.apiPropertiesToPersist?.entity) return {};
+        return _.pick(entity, ...this.apiPropertiesToPersist.entity);
     }
 
     validateAuthorizationRequirements() {
