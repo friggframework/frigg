@@ -37,15 +37,20 @@ class Module extends Delegate {
         this.credentialRepository = createCredentialRepository();
         this.moduleRepository = createModuleRepository();
 
-        Object.assign(this, this.definition.requiredAuthMethods);
+        // Only initialize API if we have the required components
+        if (this.definition.requiredAuthMethods) {
+            Object.assign(this, this.definition.requiredAuthMethods);
+        }
 
-        const apiParams = {
-            ...this.definition.env,
-            delegate: this,
-            ...(this.credential ? this.apiParamsFromCredential(this.credential.data) : {}),
-            ...this.apiParamsFromEntity(this.entity),
-        };
-        this.api = new this.apiClass(apiParams);
+        if (this.apiClass) {
+            const apiParams = {
+                ...this.definition.env,
+                delegate: this,
+                ...(this.credential ? this.apiParamsFromCredential(this.credential.data) : {}),
+                ...this.apiParamsFromEntity(this.entity),
+            };
+            this.api = new this.apiClass(apiParams);
+        }
     }
 
     getName() {
@@ -168,13 +173,11 @@ class Module extends Delegate {
         if (!definition.moduleName) {
             throw new Error('Module definition requires moduleName');
         }
-        if (!definition.API) {
-            throw new Error('Module definition requires API class');
-        }
-        if (!definition.requiredAuthMethods) {
-            throw new Error('Module definition requires requiredAuthMethods');
-        } else {
+        // API class and requiredAuthMethods are optional for read-only operations (e.g., listing entities)
+        // They're only required when actually making API calls
+        if (definition.requiredAuthMethods) {
             if (
+                definition.API &&
                 definition.API.requesterType ===
                 ModuleConstants.authType.oauth2 &&
                 !definition.requiredAuthMethods.getToken
