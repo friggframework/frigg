@@ -362,13 +362,140 @@ export default class API {
     return this._get(`${this.endpointIntegrations}/options`);
   }
 
-  /**
-   * Test integration
-   * @param {string} integrationId - Integration ID
-   * @returns {Promise<{valid: boolean, error?: string}>}
-   */
-  async testIntegration(integrationId) {
-    return this._get(`${this.endpointIntegration(integrationId)}/test`);
+  // Get user's authorized entities/connected accounts
+  async listEntities() {
+    return this._get('/api/entities');
+  }
+
+  // =========================================================================
+  // MODULE ENDPOINTS (NEW v2 API)
+  // =========================================================================
+
+  // Get available modules
+  async listModules() {
+    return this._get('/api/modules');
+  }
+
+  // Get authorization requirements for module (NEW v2 API)
+  async getModuleAuthorizationRequirements(moduleType, step = 1, sessionId = null) {
+    let url = `/api/modules/${moduleType}/authorization?step=${step}`;
+    if (sessionId) {
+      url += `&sessionId=${sessionId}`;
+    }
+    return this._get(url);
+  }
+
+  // Submit authorization step (NEW v2 API)
+  async submitModuleAuthorization(moduleType, data, step = null, sessionId = null, credentialId = null) {
+    const params = { data };
+    if (step) params.step = step;
+    if (sessionId) params.sessionId = sessionId;
+    if (credentialId) params.credentialId = credentialId;
+
+    return this._post(`/api/modules/${moduleType}/authorization`, params);
+  }
+
+  // =========================================================================
+  // CREDENTIAL ENDPOINTS (NEW)
+  // =========================================================================
+
+  async listCredentials(filters = {}) {
+    let url = '/api/credentials';
+    const params = new URLSearchParams();
+    if (filters.status) params.append('status', filters.status);
+    if (filters.moduleType) params.append('moduleType', filters.moduleType);
+
+    if (params.toString()) url += '?' + params.toString();
+    return this._get(url);
+  }
+
+  async getCredential(credentialId) {
+    return this._get(`/api/credentials/${credentialId}`);
+  }
+
+  async deleteCredential(credentialId, cascade = false) {
+    const url = `/api/credentials/${credentialId}${cascade ? '?cascade=true' : ''}`;
+    return this._delete(url, {});
+  }
+
+  async testCredential(credentialId) {
+    return this._get(`/api/credentials/${credentialId}/test`);
+  }
+
+  async resumeFromCredential(credentialId) {
+    return this._post(`/api/credentials/${credentialId}/resume`, {});
+  }
+
+  async getCredentialOptions(credentialId) {
+    return this._get(`/api/credentials/${credentialId}/options`);
+  }
+
+  // =========================================================================
+  // ENTITY ENDPOINTS (UPDATED)
+  // =========================================================================
+
+  // Get user's authorized entities/connected accounts
+  async listEntities(filters = {}) {
+    let url = '/api/entities';
+    if (filters.moduleType) {
+      url += `?moduleType=${filters.moduleType}`;
+    }
+    return this._get(url);
+  }
+
+  async getEntity(entityId) {
+    return this._get(`/api/entities/${entityId}`);
+  }
+
+  async deleteEntity(entityId, deleteCredential = false) {
+    const url = `/api/entities/${entityId}${deleteCredential ? '?deleteCredential=true' : ''}`;
+    return this._delete(url, {});
+  }
+
+  // UPDATED: Renamed from testEntityAuth
+  async testEntity(entityId) {
+    return this._get(`/api/entities/${entityId}/test`);
+  }
+
+  // NEW: Re-authentication flow
+  async initiateEntityReauthorization(entityId) {
+    return this._post(`/api/entities/${entityId}/reauthorize`, {});
+  }
+
+  async completeEntityReauthorization(entityId, data) {
+    return this._post(`/api/entities/${entityId}/reauthorize/complete`, data);
+  }
+
+  async getEntityOptions(entityId, optionType = null) {
+    const data = optionType ? { optionType } : {};
+    return this._post(`/api/entities/${entityId}/options`, data);
+  }
+
+  async refreshEntityOptions(entityId, optionType = null) {
+    const data = optionType ? { optionType } : {};
+    return this._post(`/api/entities/${entityId}/options/refresh`, data);
+  }
+
+  // =========================================================================
+  // LEGACY ENDPOINTS (BACKWARD COMPATIBILITY)
+  // =========================================================================
+
+  // get authorize url with the following params:
+  // ?entityType=Freshbooks&connectingEntityType=Saleforce&step=1&sessionId=xxx
+  // Supports multi-step auth (step defaults to 1 for backward compatibility)
+  async getAuthorizeRequirements(entityType, connectingEntityType = '', step = 1, sessionId = null) {
+    let url = `${this.endpointAuthorize}?entityType=${entityType}&connectingEntityType=${connectingEntityType}&step=${step}`;
+    if (sessionId) {
+      url += `&sessionId=${sessionId}`;
+    }
+    return this._get(url);
+  }
+
+  // Simplified method for getting authorization requirements for a single entity type
+  // Used when connecting a new account during integration builder flow
+  async getAuthorizationRequirements(entityType) {
+    const url = `${this.endpointAuthorize}?entityType=${entityType}`;
+    return this._get(url);
   }
 
   /**

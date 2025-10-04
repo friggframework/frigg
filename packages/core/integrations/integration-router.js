@@ -719,225 +719,39 @@ function setEntityRoutes(router, getUserFromBearerToken, useCases) {
         })
     );
 
-    // ========================================
-    // CREDENTIAL MANAGEMENT ROUTES (API v2)
-    // ========================================
+    // =========================================================================
+    // MODULE ENDPOINTS (NEW v2 API)
+    // =========================================================================
 
-    // GET /api/credentials - List user's credentials with filters
-    router.route('/api/credentials').get(
-        catchAsyncError(async (req, res) => {
-            const user = await getUserFromBearerToken.execute(
-                req.headers.authorization
-            );
-            const userId = user.getId();
-
-            const filters = {
-                status: req.query.status,
-                moduleType: req.query.moduleType,
-            };
-
-            const credentials = await listCredentialsForUser.execute(userId, filters);
-
-            res.json({ credentials });
-        })
-    );
-
-    // GET /api/credentials/:credentialId - Get credential details
-    router.route('/api/credentials/:credentialId').get(
-        catchAsyncError(async (req, res) => {
-            const user = await getUserFromBearerToken.execute(
-                req.headers.authorization
-            );
-            const userId = user.getId();
-            const params = checkRequiredParams(req.params, ['credentialId']);
-
-            const credential = await credentialRepository.findCredentialById(
-                params.credentialId
-            );
-
-            if (!credential) {
-                throw Boom.notFound('Credential not found');
-            }
-
-            if (credential.userId !== userId) {
-                throw Boom.forbidden('Credential does not belong to user');
-            }
-
-            // Get entities using this credential
-            const entities = await moduleRepository.findEntities({
-                user: userId,
-                credential: params.credentialId
-            });
-
-            // Sanitize credential (remove secrets)
-            res.json({
-                id: credential.id,
-                userId: credential.userId,
-                externalId: credential.externalId,
-                authIsValid: credential.auth_is_valid,
-                subType: credential.subType,
-                hasEntity: entities.length > 0,
-                entities: entities.map(e => ({
-                    id: e.id,
-                    moduleName: e.moduleName,
-                    name: e.name
-                }))
-                // NOTE: NO access_token, refresh_token, or secrets
-            });
-        })
-    );
-
-    // DELETE /api/credentials/:credentialId - Delete credential
-    router.route('/api/credentials/:credentialId').delete(
-        catchAsyncError(async (req, res) => {
-            const user = await getUserFromBearerToken.execute(
-                req.headers.authorization
-            );
-            const userId = user.getId();
-            const params = checkRequiredParams(req.params, ['credentialId']);
-
-            const credential = await credentialRepository.findCredentialById(
-                params.credentialId
-            );
-
-            if (!credential) {
-                throw Boom.notFound('Credential not found');
-            }
-
-            if (credential.userId !== userId) {
-                throw Boom.forbidden('Credential does not belong to user');
-            }
-
-            // Check for dependent entities
-            const entities = await moduleRepository.findEntities({
-                user: userId,
-                credential: params.credentialId
-            });
-
-            if (entities.length > 0 && req.query.cascade !== 'true') {
-                throw Boom.badRequest(
-                    `Cannot delete credential. ${entities.length} entities depend on it. Use ?cascade=true to delete entities.`,
-                    {
-                        entities: entities.map(e => ({
-                            id: e.id,
-                            name: e.name
-                        }))
-                    }
-                );
-            }
-
-            // Delete dependent entities if cascade
-            if (req.query.cascade === 'true') {
-                for (const entity of entities) {
-                    await moduleRepository.deleteEntity(entity.id);
-                }
-            }
-
-            // Delete credential
-            await credentialRepository.deleteCredentialById(params.credentialId);
-
-            res.status(204).send();
-        })
-    );
-
-    // ========================================
-    // ENTITY RE-AUTHENTICATION ROUTES (API v2)
-    // ========================================
-
-    // POST /api/entities/:entityId/reauthorize - Initiate re-authorization
-    router.route('/api/entities/:entityId/reauthorize').post(
-        catchAsyncError(async (req, res) => {
-            const user = await getUserFromBearerToken.execute(
-                req.headers.authorization
-            );
-            const userId = user.getId();
-            const params = checkRequiredParams(req.params, ['entityId']);
-
-            const result = await reauthorizeEntity.initiateReauthorization(
-                params.entityId,
-                userId
-            );
-
-            res.json(result);
-        })
-    );
-
-    // POST /api/entities/:entityId/reauthorize/complete - Complete re-authorization
-    router.route('/api/entities/:entityId/reauthorize/complete').post(
-        catchAsyncError(async (req, res) => {
-            const user = await getUserFromBearerToken.execute(
-                req.headers.authorization
-            );
-            const userId = user.getId();
-            const params = checkRequiredParams(req.params, ['entityId']);
-            const bodyParams = checkRequiredParams(req.body, ['sessionId', 'data']);
-
-            const entity = await reauthorizeEntity.completeReauthorization(
-                params.entityId,
-                userId,
-                bodyParams.sessionId,
-                bodyParams.data
-            );
-
-            res.json({
-                completed: true,
-                entity
-            });
-        })
-    );
-
-    // ========================================
-    // MISSING CREDENTIAL ROUTES (Use Cases Not Yet Implemented)
-    // ========================================
-    // TODO: Implement these routes when use cases are created:
-    //
-    // GET /api/credentials/:credentialId/test
-    //   - Test credential validity
-    //   - Use case: TestCredentialUseCase (not yet implemented)
-    //
-    // POST /api/credentials/:credentialId/resume
-    //   - Resume authorization from existing credential
-    //   - Use case: ResumeAuthorizationFromCredentialUseCase (not yet implemented)
-    //
-    // GET /api/credentials/:credentialId/options
-    //   - Get entity options using credential (e.g., workspaces, orgs)
-    //   - Use case: GetEntityOptionsByCredentialUseCase (not yet implemented)
-    // ========================================
-
-    // ========================================
-    // MODULE-LEVEL AUTHORIZATION ROUTES (API v2 RESTful)
-    // ========================================
-
-    // GET /api/modules - List available modules
+    /**
+     * GET /api/modules - List available module types
+     * 
+     * Returns all available modules with their capabilities and auth requirements
+     */
     router.route('/api/modules').get(
         catchAsyncError(async (req, res) => {
+            const user = await getUserFromBearerToken.execute(
+                req.headers.authorization
+            );
+            const userId = user.getId();
+
+            // Get module definitions from integration classes
+            const moduleDefinitions = getModulesDefinitionFromIntegrationClasses(integrationClasses);
+
+            // Transform to API response format
             const modules = moduleDefinitions.map(def => {
                 const ModuleDefinition = def.definition;
-
-                // Determine step count safely (default to single-step if method doesn't exist)
-                let stepCount = 1;
-                if (ModuleDefinition.getAuthStepCount && typeof ModuleDefinition.getAuthStepCount === 'function') {
-                    try {
-                        stepCount = ModuleDefinition.getAuthStepCount();
-                    } catch (error) {
-                        console.warn(`Error calling getAuthStepCount for ${def.moduleName}:`, error.message);
-                        stepCount = 1; // Fallback to single-step
-                    }
-                } else if (def.apiClass && def.apiClass.getAuthStepCount && typeof def.apiClass.getAuthStepCount === 'function') {
-                    try {
-                        stepCount = def.apiClass.getAuthStepCount();
-                    } catch (error) {
-                        console.warn(`Error calling getAuthStepCount on API class for ${def.moduleName}:`, error.message);
-                        stepCount = 1; // Fallback to single-step
-                    }
-                }
+                const stepCount = ModuleDefinition.getAuthStepCount ? ModuleDefinition.getAuthStepCount() : 1;
 
                 return {
                     moduleType: def.moduleName,
-                    name: ModuleDefinition.getName ? ModuleDefinition.getName() : def.moduleName,
+                    name: ModuleDefinition.getDisplayName ? ModuleDefinition.getDisplayName() : def.moduleName,
+                    description: ModuleDefinition.getDescription ? ModuleDefinition.getDescription() : `Connect to ${def.moduleName}`,
+                    authType: ModuleDefinition.getAuthType ? ModuleDefinition.getAuthType() : 'oauth2',
                     isMultiStep: stepCount > 1,
-                    stepCount: stepCount,
-                    // Add more metadata as needed from module definition
+                    stepCount,
+                    capabilities: ModuleDefinition.getCapabilities ? ModuleDefinition.getCapabilities() : [],
+                    requiredScopes: ModuleDefinition.getRequiredScopes ? ModuleDefinition.getRequiredScopes() : []
                 };
             });
 
@@ -945,34 +759,36 @@ function setEntityRoutes(router, getUserFromBearerToken, useCases) {
         })
     );
 
-    // GET /api/modules/:moduleType/authorization - Get authorization requirements
+    /**
+     * GET /api/modules/:moduleType/authorization - Get authorization requirements
+     * 
+     * Supports both single-step and multi-step authentication flows
+     */
     router.route('/api/modules/:moduleType/authorization').get(
         catchAsyncError(async (req, res) => {
             const user = await getUserFromBearerToken.execute(
                 req.headers.authorization
             );
             const userId = user.getId();
+
             const params = checkRequiredParams(req.params, ['moduleType']);
             const step = parseInt(req.query.step || '1', 10);
             const sessionId = req.query.sessionId;
+
+            // Validate inputs
+            if (step < 1) {
+                throw Boom.badRequest('step must be >= 1');
+            }
 
             // Validate session if step > 1
             if (step > 1 && !sessionId) {
                 throw Boom.badRequest('sessionId required for step > 1');
             }
 
-            // Extract redirect context from query parameters
-            const redirectContext = req.query.source ? {
-                source: req.query.source, // 'management-ui' | 'frigg-ui-library'
-                returnUrl: req.query.returnUrl || '/',
-                frontendBaseUrl: req.query.frontendBaseUrl || null, // Frontend origin for OAuth redirects
-                userId: userId
-            } : null;
-
+            // Get requirements using use case
             const requirements = await getAuthorizationRequirements.execute(
                 params.moduleType,
-                step,
-                redirectContext
+                step
             );
 
             // Generate session ID for multi-step flows on step 1
@@ -987,67 +803,54 @@ function setEntityRoutes(router, getUserFromBearerToken, useCases) {
         })
     );
 
-    // POST /api/modules/:moduleType/authorization - Submit authorization
+    /**
+     * POST /api/modules/:moduleType/authorization - Submit authorization data
+     * 
+     * Handles both single-step and multi-step authorization flows
+     */
     router.route('/api/modules/:moduleType/authorization').post(
         catchAsyncError(async (req, res) => {
             const user = await getUserFromBearerToken.execute(
                 req.headers.authorization
             );
             const userId = user.getId();
-            const params = checkRequiredParams(req.params, ['moduleType']);
-            const bodyParams = checkRequiredParams(req.body, ['data']);
-            const step = parseInt(req.body.step || '1', 10);
-            const sessionId = req.body.sessionId;
 
-            // Find module definition to check step count
-            const moduleDefinition = moduleDefinitions.find(
+            const params = checkRequiredParams(req.params, ['moduleType']);
+            const { data, step = 1, sessionId, credentialId } = req.body;
+
+            // Validate inputs
+            if (!data || typeof data !== 'object') {
+                throw Boom.badRequest('data object is required');
+            }
+
+            const stepNumber = parseInt(step, 10);
+            if (stepNumber < 1) {
+                throw Boom.badRequest('step must be >= 1');
+            }
+
+            // Find module definition
+            const moduleDefinition = getModulesDefinitionFromIntegrationClasses(integrationClasses).find(
                 (def) => def.moduleName === params.moduleType
             );
 
             if (!moduleDefinition) {
-                throw Boom.badRequest(
-                    `Unknown module type: ${params.moduleType}`
-                );
+                throw Boom.badRequest(`Unknown module type: ${params.moduleType}`);
             }
 
             const ModuleDefinition = moduleDefinition.definition;
+            const stepCount = ModuleDefinition.getAuthStepCount
+                ? ModuleDefinition.getAuthStepCount()
+                : 1;
 
-            // Determine step count safely (default to single-step if method doesn't exist)
-            let stepCount = 1;
-            if (ModuleDefinition.getAuthStepCount && typeof ModuleDefinition.getAuthStepCount === 'function') {
-                try {
-                    stepCount = ModuleDefinition.getAuthStepCount();
-                } catch (error) {
-                    console.warn(`Error calling getAuthStepCount for ${params.moduleType}:`, error.message);
-                    stepCount = 1; // Fallback to single-step
-                }
-            } else if (ModuleDefinition.API && ModuleDefinition.API.getAuthStepCount && typeof ModuleDefinition.API.getAuthStepCount === 'function') {
-                try {
-                    stepCount = ModuleDefinition.API.getAuthStepCount();
-                } catch (error) {
-                    console.warn(`Error calling getAuthStepCount on API class for ${params.moduleType}:`, error.message);
-                    stepCount = 1; // Fallback to single-step
-                }
-            }
-
-            // Single-step flow
+            // Single-step flow - use existing ProcessAuthorizationCallback
             if (stepCount === 1) {
-                // Pass the full bodyParams - let the API module decide what structure it expects
                 const entityDetails = await processAuthorizationCallback.execute(
                     userId,
                     params.moduleType,
-                    bodyParams
+                    data
                 );
 
-                return res.json({
-                    completed: true,
-                    entity: {
-                        id: entityDetails.entity_id,
-                        moduleType: params.moduleType,
-                        credentialId: entityDetails.credential_id,
-                        type: entityDetails.type
-                    }
-                });
+                return res.json(entityDetails);
             }
 
             // Multi-step flow
@@ -1057,45 +860,27 @@ function setEntityRoutes(router, getUserFromBearerToken, useCases) {
                 );
             }
 
-            let session;
-            if (step === 1) {
-                session = await startAuthorizationSession.execute(
-                    userId,
-                    params.moduleType,
-                    stepCount
-                );
-                session.sessionId = sessionId;
-                await useCases.authSessionRepository?.update(session);
-            }
-
-            // Pass the full bodyParams - let the API module decide what structure it expects
+            // Process step using use case
             const result = await processAuthorizationStep.execute(
                 sessionId,
                 userId,
-                step,
-                bodyParams
+                stepNumber,
+                data
             );
 
             if (result.completed) {
+                // Final step - create entity using standard flow
                 const entityDetails = await processAuthorizationCallback.execute(
                     userId,
                     params.moduleType,
                     result.authData
                 );
 
-                return res.json({
-                    completed: true,
-                    entity: {
-                        id: entityDetails.entity_id,
-                        moduleType: params.moduleType,
-                        credentialId: entityDetails.credential_id,
-                        type: entityDetails.type
-                    }
-                });
+                return res.json(entityDetails);
             }
 
+            // Return next step requirements
             res.json({
-                completed: false,
                 step: result.nextStep,
                 totalSteps: result.totalSteps,
                 sessionId: result.sessionId,
@@ -1105,6 +890,26 @@ function setEntityRoutes(router, getUserFromBearerToken, useCases) {
         })
     );
 
+    /**
+     * GET /api/modules/:moduleType/test - Test module authentication
+     * 
+     * Tests if a module's authentication is working correctly
+     */
+    router.route('/api/modules/:moduleType/test').get(
+        catchAsyncError(async (req, res) => {
+            const user = await getUserFromBearerToken.execute(
+                req.headers.authorization
+            );
+            const userId = user.getId();
+
+            const params = checkRequiredParams(req.params, ['moduleType']);
+
+            // Test module auth using existing use case
+            const result = await testModuleAuth.execute(userId, params.moduleType);
+
+            res.json(result);
+        })
+    );
 }
 
 module.exports = { createIntegrationRouter, checkRequiredParams };
