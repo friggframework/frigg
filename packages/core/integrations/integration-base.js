@@ -83,7 +83,18 @@ class IntegrationBase {
         this._isHydrated = false;
 
         if (params && Object.keys(params).length > 0) {
-            this.setIntegrationRecord(params);
+            this.setIntegrationRecord({
+                record: {
+                    id: params.id,
+                    userId: params.userId,
+                    entities: params.entities,
+                    config: params.config,
+                    status: params.status,
+                    version: params.version,
+                    messages: params.messages,
+                },
+                modules: params.modules || [],
+            });
         }
 
         this.defaultEvents = {
@@ -122,6 +133,7 @@ class IntegrationBase {
         };
     }
 
+    // todo: debate wether we want to keep this pattern to set the record or not.
     /**
      * Persist the database record and module instances onto this integration instance.
      * Accepts either a plain object containing the persisted fields or an object with

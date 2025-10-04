@@ -75,8 +75,10 @@ describe('Module Hydration', () => {
                 moduleName: 'testmodule',
                 domain: 'test.domain.com',
                 credential: {
-                    access_token: 'test_access_token',
-                    refresh_token: 'test_refresh_token',
+                    data: {
+                        access_token: 'test_access_token',
+                        refresh_token: 'test_refresh_token',
+                    },
                 },
             };
 
@@ -105,8 +107,10 @@ describe('Module Hydration', () => {
                 id: 'entity-1',
                 moduleName: 'testmodule',
                 credential: {
-                    access_token: 'valid_token',
-                    refresh_token: 'valid_refresh_token',
+                    data: {
+                        access_token: 'valid_token',
+                        refresh_token: 'valid_refresh_token',
+                    },
                 },
             };
 
@@ -128,7 +132,11 @@ describe('Module Hydration', () => {
             const entity = {
                 id: 'entity-1',
                 moduleName: 'testmodule',
-                // No credential property
+                credential: {
+                    data: {
+                        // Empty credential data - no access_token
+                    },
+                },
             };
 
             const module = new Module({
@@ -151,7 +159,9 @@ describe('Module Hydration', () => {
                 moduleName: 'testmodule',
                 userId: 'user-1',
                 credential: {
-                    access_token: 'factory_token',
+                    data: {
+                        access_token: 'factory_token',
+                    },
                 },
             };
 

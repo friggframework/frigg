@@ -160,8 +160,10 @@ describe('LoadIntegrationContextUseCase - Full Rounded Test', () => {
                 moduleName: 'asana',
                 userId: 'user-789',
                 credential: {
-                    access_token: 'asana_access_token_xyz',
-                    refresh_token: 'asana_refresh_token_abc',
+                    data: {
+                        access_token: 'asana_access_token_xyz',
+                        refresh_token: 'asana_refresh_token_abc',
+                    },
                 },
             },
             {
@@ -170,8 +172,10 @@ describe('LoadIntegrationContextUseCase - Full Rounded Test', () => {
                 userId: 'user-789',
                 domain: 'customer.frontify.com',
                 credential: {
-                    access_token: 'frontify_access_token_uvw',
-                    refresh_token: 'frontify_refresh_token_def',
+                    data: {
+                        access_token: 'frontify_access_token_uvw',
+                        refresh_token: 'frontify_refresh_token_def',
+                    },
                 },
             },
         ];
@@ -279,7 +283,11 @@ describe('LoadIntegrationContextUseCase - Full Rounded Test', () => {
                 id: 'entity-no-creds',
                 moduleName: 'asana',
                 userId: 'user-123',
-                // No credential property
+                credential: {
+                    data: {
+                        // Empty credential data - no access_token
+                    },
+                },
             },
         ];
 
