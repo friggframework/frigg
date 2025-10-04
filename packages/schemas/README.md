@@ -273,7 +273,7 @@ const coreModels = {
         _id: "507f1f77bcf86cd799439012",
         userId: "507f1f77bcf86cd799439011",
         subType: "hubspot",
-        auth_is_valid: true,
+        authIsValid: true,
         authData: {
             access_token: "encrypted_token",
             token_type: "Bearer"

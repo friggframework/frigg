@@ -90,7 +90,7 @@ model Credential {
   userId     String?  @db.ObjectId
   user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   subType    String?
-  authIsValid Boolean? @map("auth_is_valid")
+  authIsValid Boolean?
   externalId String?
 
   // Dynamic OAuth fields stored as JSON (encrypted via Prisma middleware)

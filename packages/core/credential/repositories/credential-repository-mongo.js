@@ -43,7 +43,7 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
             user: credential.userId,
             userId: credential.userId,
             externalId: credential.externalId,
-            auth_is_valid: credential.authIsValid,
+            authIsValid: credential.authIsValid,
             subType: credential.subType,
             ...data, // Spread OAuth tokens from JSON field
         };
@@ -51,7 +51,7 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
 
     /**
      * Update authentication status
-     * Replaces: Credential.updateOne({ _id: credentialId }, { $set: { auth_is_valid: authIsValid } })
+     * Replaces: Credential.updateOne({ _id: credentialId }, { $set: { authIsValid } })
      *
      * @param {string} credentialId - Credential ID
      * @param {boolean} authIsValid - Authentication validity status
@@ -108,7 +108,6 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
             user,
             userId,
             externalId,
-            auth_is_valid,
             authIsValid,
             subType,
             ...oauthData
@@ -132,8 +131,6 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
                     authIsValid:
                         authIsValid !== undefined
                             ? authIsValid
-                            : auth_is_valid !== undefined
-                            ? auth_is_valid
                             : existing.authIsValid,
                     subType: subType !== undefined ? subType : existing.subType,
                     data: mergedData,
@@ -144,7 +141,7 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
                 id: updated.id,
                 externalId: updated.externalId,
                 userId: updated.userId,
-                auth_is_valid: updated.authIsValid,
+                authIsValid: updated.authIsValid,
                 ...(updated.data || {}),
             };
         }
@@ -154,8 +151,7 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
             data: {
                 userId: userId || user,
                 externalId,
-                authIsValid:
-                    authIsValid !== undefined ? authIsValid : auth_is_valid,
+                authIsValid: authIsValid,
                 subType,
                 data: oauthData,
             },
@@ -165,7 +161,7 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
             id: created.id,
             externalId: created.externalId,
             userId: created.userId,
-            auth_is_valid: created.authIsValid,
+            authIsValid: created.authIsValid,
             ...(created.data || {}),
         };
     }
@@ -197,7 +193,7 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
             id: credential.id,
             userId: credential.userId,
             externalId: credential.externalId,
-            auth_is_valid: credential.authIsValid,
+            authIsValid: credential.authIsValid,
             access_token: data.access_token,
             refresh_token: data.refresh_token,
             domain: data.domain,
@@ -228,7 +224,6 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
             user,
             userId,
             externalId,
-            auth_is_valid,
             authIsValid,
             subType,
             ...oauthData
@@ -244,11 +239,7 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
                 externalId:
                     externalId !== undefined ? externalId : existing.externalId,
                 authIsValid:
-                    authIsValid !== undefined
-                        ? authIsValid
-                        : auth_is_valid !== undefined
-                        ? auth_is_valid
-                        : existing.authIsValid,
+                    authIsValid !== undefined ? authIsValid : existing.authIsValid,
                 subType: subType !== undefined ? subType : existing.subType,
                 data: mergedData,
             },
@@ -260,7 +251,7 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
             id: updated.id,
             userId: updated.userId,
             externalId: updated.externalId,
-            auth_is_valid: updated.authIsValid,
+            authIsValid: updated.authIsValid,
             access_token: data.access_token,
             refresh_token: data.refresh_token,
             domain: data.domain,

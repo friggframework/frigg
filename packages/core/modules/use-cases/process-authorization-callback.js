@@ -91,7 +91,7 @@ class ProcessAuthorizationCallback {
             credentialDetails.details,
             module.apiParamsFromCredential(module.api)
         );
-        credentialDetails.details.auth_is_valid = true;
+        credentialDetails.details.authIsValid = true;
 
         await this.credentialRepository.upsertCredential(credentialDetails);
     }

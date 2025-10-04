@@ -60,7 +60,7 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
             user: credential.userId?.toString(),
             userId: credential.userId?.toString(),
             externalId: credential.externalId,
-            auth_is_valid: credential.authIsValid,
+            authIsValid: credential.authIsValid,
             subType: credential.subType,
             ...data, // Spread OAuth tokens from JSON field
         };
@@ -68,7 +68,7 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
 
     /**
      * Update authentication status
-     * Replaces: Credential.updateOne({ _id: credentialId }, { $set: { auth_is_valid: authIsValid } })
+     * Replaces: Credential.updateOne({ _id: credentialId }, { $set: { authIsValid } })
      *
      * @param {string} credentialId - Credential ID (string from application layer)
      * @param {boolean} authIsValid - Authentication validity status
@@ -124,7 +124,7 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
         const { user, externalId } = identifiers;
 
         // Separate schema fields from dynamic OAuth data
-        const { auth_is_valid, authIsValid, subType, ...oauthData } = details;
+        const { authIsValid, subType, ...oauthData } = details;
 
         const existing = await this.prisma.credential.findFirst({ where });
 
@@ -142,8 +142,6 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
                     authIsValid:
                         authIsValid !== undefined
                             ? authIsValid
-                            : auth_is_valid !== undefined
-                            ? auth_is_valid
                             : existing.authIsValid,
                     subType: subType !== undefined ? subType : existing.subType,
                     data: mergedData,
@@ -154,7 +152,7 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
                 id: updated.id.toString(),
                 externalId: updated.externalId,
                 userId: updated.userId?.toString(),
-                auth_is_valid: updated.authIsValid,
+                authIsValid: updated.authIsValid,
                 ...(updated.data || {}),
             };
         }
@@ -163,8 +161,7 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
             data: {
                 userId: this._convertId(user),
                 externalId,
-                authIsValid:
-                    authIsValid !== undefined ? authIsValid : auth_is_valid,
+                authIsValid: authIsValid,
                 subType,
                 data: oauthData,
             },
@@ -174,7 +171,7 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
             id: created.id.toString(),
             externalId: created.externalId,
             userId: created.userId?.toString(),
-            auth_is_valid: created.authIsValid,
+            authIsValid: created.authIsValid,
             ...(created.data || {}),
         };
     }
@@ -206,7 +203,7 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
             id: credential.id.toString(),
             userId: credential.userId?.toString(),
             externalId: credential.externalId,
-            auth_is_valid: credential.authIsValid,
+            authIsValid: credential.authIsValid,
             access_token: data.access_token,
             refresh_token: data.refresh_token,
             domain: data.domain,
@@ -234,7 +231,7 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
         }
 
         // Separate schema fields from OAuth data
-        const { user, auth_is_valid, authIsValid, subType, ...oauthData } =
+        const { user, authIsValid, subType, ...oauthData } =
             updates;
 
         // Merge OAuth data with existing
@@ -247,11 +244,7 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
                 externalId:
                     externalId !== undefined ? externalId : existing.externalId,
                 authIsValid:
-                    authIsValid !== undefined
-                        ? authIsValid
-                        : auth_is_valid !== undefined
-                        ? auth_is_valid
-                        : existing.authIsValid,
+                    authIsValid !== undefined ? authIsValid : existing.authIsValid,
                 subType: subType !== undefined ? subType : existing.subType,
                 data: mergedData,
             },
@@ -263,7 +256,7 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
             id: updated.id.toString(),
             userId: updated.userId?.toString(),
             externalId: updated.externalId,
-            auth_is_valid: updated.authIsValid,
+            authIsValid: updated.authIsValid,
             access_token: data.access_token,
             refresh_token: data.refresh_token,
             domain: data.domain,

@@ -35,7 +35,7 @@ function createCredentialCommands() {
          * @param {string} params.access_token - OAuth access token
          * @param {string} [params.refresh_token] - OAuth refresh token
          * @param {string} [params.domain] - Domain for the credential
-         * @param {boolean} [params.auth_is_valid=true] - Whether authentication is valid
+         * @param {boolean} [params.authIsValid=true] - Whether authentication is valid
          * @returns {Promise<Object>} Created credential object
          */
         async createCredential({
@@ -44,7 +44,7 @@ function createCredentialCommands() {
             access_token,
             refresh_token,
             domain,
-            auth_is_valid = true,
+            authIsValid = true,
         } = {}) {
             try {
                 if (!userId || !externalId || !access_token) {
@@ -59,7 +59,7 @@ function createCredentialCommands() {
                     identifiers: { user: userId, externalId },
                     details: {
                         access_token,
-                        auth_is_valid,
+                        authIsValid,
                     },
                 };
 
@@ -80,7 +80,7 @@ function createCredentialCommands() {
                     externalId: credential.externalId,
                     access_token: credential.access_token,
                     refresh_token: credential.refresh_token,
-                    auth_is_valid: credential.auth_is_valid,
+                    authIsValid: credential.authIsValid,
                 };
             } catch (error) {
                 return mapErrorToResponse(error);
@@ -121,7 +121,7 @@ function createCredentialCommands() {
                     externalId: credential.externalId,
                     access_token: credential.access_token,
                     refresh_token: credential.refresh_token,
-                    auth_is_valid: credential.auth_is_valid,
+                    authIsValid: credential.authIsValid,
                     domain: credential.domain,
                 };
             } catch (error) {
@@ -162,7 +162,7 @@ function createCredentialCommands() {
                     externalId: credential.externalId,
                     access_token: credential.access_token,
                     refresh_token: credential.refresh_token,
-                    auth_is_valid: credential.auth_is_valid,
+                    authIsValid: credential.authIsValid,
                     domain: credential.domain,
                 };
             } catch (error) {

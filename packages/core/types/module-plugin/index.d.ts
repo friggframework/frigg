@@ -4,7 +4,7 @@ declare module "@friggframework/module-plugin" {
 
   export class Credential extends Model {
     userId: string;
-    auth_is_valid: boolean;
+    authIsValid: boolean;
     subType: string;
     externalId: string;
   }

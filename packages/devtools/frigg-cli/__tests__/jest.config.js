@@ -57,6 +57,30 @@ module.exports = {
       functions: 90,
       lines: 90,
       statements: 90
+    },
+    '../db-setup-command/index.js': {
+      branches: 90,
+      functions: 90,
+      lines: 90,
+      statements: 90
+    },
+    '../utils/database-validator.js': {
+      branches: 85,
+      functions: 85,
+      lines: 85,
+      statements: 85
+    },
+    '../utils/prisma-runner.js': {
+      branches: 85,
+      functions: 85,
+      lines: 85,
+      statements: 85
+    },
+    '../utils/error-messages.js': {
+      branches: 85,
+      functions: 85,
+      lines: 85,
+      statements: 85
     }
   },
   setupFilesAfterEnv: [

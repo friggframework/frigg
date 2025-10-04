@@ -104,7 +104,7 @@ class Module extends Delegate {
             credentialDetails.details,
             this.apiParamsFromCredential(this.api)
         );
-        credentialDetails.details.auth_is_valid = true;
+        credentialDetails.details.authIsValid = true;
 
         const persisted = await this.credentialRepository.upsertCredential(
             credentialDetails
@@ -134,7 +134,7 @@ class Module extends Delegate {
 
         // Keep the in-memory snapshot consistent so that callers can read the
         // updated state without another fetch.
-        this.credential.auth_is_valid = false;
+        this.credential.authIsValid = false;
     }
 
     async deauthorize() {

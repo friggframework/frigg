@@ -14,6 +14,7 @@ function createMockPrismaClient() {
         $disconnect: jest.fn().mockResolvedValue(undefined),
         $queryRaw: jest.fn().mockResolvedValue([{ result: 1 }]),
         $executeRaw: jest.fn().mockResolvedValue(1),
+        $runCommandRaw: jest.fn().mockResolvedValue({ ok: 1 }), // MongoDB command support
         $transaction: jest.fn().mockImplementation(async (fn) => fn(createMockPrismaClient())),
         // Common model operations
         user: {

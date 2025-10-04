@@ -148,7 +148,7 @@ const credential = await commands.createCredential({
     refresh_token: 'refresh_token_value',
     expires_at: new Date('2024-12-31'),
     moduleName: 'asana',
-    auth_is_valid: true
+    authIsValid: true
 });
 
 // Find credential
