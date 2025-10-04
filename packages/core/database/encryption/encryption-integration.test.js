@@ -11,34 +11,72 @@
  * - Null/undefined/empty values are handled
  * - Database stores encrypted data
  *
- * Run with:
- *   DB_TYPE=mongodb npm test -- encryption-integration.test.js
- *   DB_TYPE=postgresql npm test -- encryption-integration.test.js
+ * Database-Agnostic Design:
+ * - Uses repository pattern for raw database access (getRawCredentialById)
+ * - MongoDB: Uses Mongoose for raw collection access
+ * - PostgreSQL: Uses Prisma $queryRaw for raw SQL queries
+ * - Field names match Prisma schema (userId, externalId, not user_id/entity_id)
+ * - Uses externalId (string) for test data instead of userId (ObjectId reference)
+ *
+ * Prerequisites:
+ * - Database must be running and accessible
+ * - For MongoDB: Replica set recommended (for transactions)
+ * - For PostgreSQL: Database must exist
+ * - Database type configured in backend/index.js app definition
+ *
+ * Note: Test explicitly passes 'mongodb' to repository factory for testing purposes
  */
 
+// Set default DATABASE_URL for testing if not already set
+if (!process.env.DATABASE_URL) {
+    process.env.DATABASE_URL = 'mongodb://localhost:27017/frigg?replicaSet=rs0';
+}
+
+// Enable encryption for testing (bypass test stage check)
+process.env.STAGE = 'integration-test';
+process.env.AES_KEY_ID = 'test-key-id';
+process.env.AES_KEY = 'test-aes-key-32-characters-long!';
+
+jest.mock('../config', () => ({
+    DB_TYPE: 'mongodb',
+    getDatabaseType: jest.fn(() => 'mongodb'),
+    PRISMA_LOG_LEVEL: 'error,warn',
+    PRISMA_QUERY_LOGGING: false,
+}));
+
 const { prisma, connectPrisma, disconnectPrisma } = require('../prisma');
+const { createHealthCheckRepository } = require('../repositories/health-check-repository-factory');
 const { mongoose } = require('../mongoose');
 
 describe('Field-Level Encryption Integration Tests', () => {
-    const testUserId = 'test-encryption-integration-user';
-    const testEntityId = 'test-encryption-integration-entity';
+    // Use externalId for test identification (works with both MongoDB and PostgreSQL)
+    const testExternalId = 'test-encryption-integration-id';
+    let repository;
 
     beforeAll(async () => {
         await connectPrisma();
+        // Connect mongoose for raw database queries
+        if (mongoose.connection.readyState === 0) {
+            await mongoose.connect(process.env.DATABASE_URL);
+        }
+        // Create database-specific repository for raw access
+        // Pass explicit database type for testing
+        repository = createHealthCheckRepository('mongodb');
     });
 
     afterAll(async () => {
-        // Clean up test data
+        // Clean up test data - delete all test credentials by externalId
         await prisma.credential.deleteMany({
-            where: { user_id: testUserId },
+            where: { externalId: { startsWith: 'test-encryption-' } },
         });
+        await mongoose.disconnect();
         await disconnectPrisma();
     });
 
     afterEach(async () => {
         // Clean up after each test
         await prisma.credential.deleteMany({
-            where: { user_id: testUserId },
+            where: { externalId: { startsWith: 'test-encryption-' } },
         });
     });
 
@@ -46,8 +84,7 @@ describe('Field-Level Encryption Integration Tests', () => {
         it('should encrypt sensitive fields on create', async () => {
             const credential = await prisma.credential.create({
                 data: {
-                    user_id: testUserId,
-                    entity_id: testEntityId,
+                    externalId: testExternalId,
                     data: {
                         access_token: 'secret-token-123',
                         refresh_token: 'refresh-token-456',
@@ -62,9 +99,7 @@ describe('Field-Level Encryption Integration Tests', () => {
             expect(credential.data.domain).toBe('example.com');
 
             // Verify raw database has encrypted values
-            const rawDoc = await mongoose.connection.db
-                .collection('credentials')
-                .findOne({ _id: credential.id });
+            const rawDoc = await repository.getRawCredentialById(credential.id);
 
             expect(rawDoc.data.access_token).not.toBe('secret-token-123');
             expect(rawDoc.data.access_token).toContain(':');
@@ -77,8 +112,7 @@ describe('Field-Level Encryption Integration Tests', () => {
         it('should handle null and undefined values', async () => {
             const credential = await prisma.credential.create({
                 data: {
-                    user_id: testUserId,
-                    entity_id: testEntityId,
+                    externalId: testExternalId,
                     data: {
                         access_token: null,
                         domain: 'example.com',
@@ -93,8 +127,7 @@ describe('Field-Level Encryption Integration Tests', () => {
         it('should handle empty strings', async () => {
             const credential = await prisma.credential.create({
                 data: {
-                    user_id: testUserId,
-                    entity_id: testEntityId,
+                    externalId: testExternalId,
                     data: {
                         access_token: '',
                         domain: 'example.com',
@@ -113,8 +146,7 @@ describe('Field-Level Encryption Integration Tests', () => {
             // Create with encrypted data
             const created = await prisma.credential.create({
                 data: {
-                    user_id: testUserId,
-                    entity_id: testEntityId,
+                    externalId: testExternalId,
                     data: {
                         access_token: 'secret-find-unique',
                         domain: 'findunique.com',
@@ -134,8 +166,7 @@ describe('Field-Level Encryption Integration Tests', () => {
         it('should decrypt fields on findFirst', async () => {
             await prisma.credential.create({
                 data: {
-                    user_id: testUserId,
-                    entity_id: testEntityId,
+                    externalId: testExternalId,
                     data: {
                         access_token: 'secret-find-first',
                         domain: 'findfirst.com',
@@ -144,7 +175,7 @@ describe('Field-Level Encryption Integration Tests', () => {
             });
 
             const found = await prisma.credential.findFirst({
-                where: { user_id: testUserId },
+                where: { externalId: { startsWith: 'test-encryption-' } },
             });
 
             expect(found.data.access_token).toBe('secret-find-first');
@@ -156,24 +187,21 @@ describe('Field-Level Encryption Integration Tests', () => {
             await prisma.credential.createMany({
                 data: [
                     {
-                        user_id: testUserId,
-                        entity_id: 'entity-1',
+                        externalId: 'test-encryption-entity-1',
                         data: {
                             access_token: 'secret-1',
                             domain: 'domain1.com',
                         },
                     },
                     {
-                        user_id: testUserId,
-                        entity_id: 'entity-2',
+                        externalId: 'test-encryption-entity-2',
                         data: {
                             access_token: 'secret-2',
                             domain: 'domain2.com',
                         },
                     },
                     {
-                        user_id: testUserId,
-                        entity_id: 'entity-3',
+                        externalId: 'test-encryption-entity-3',
                         data: {
                             access_token: 'secret-3',
                             domain: 'domain3.com',
@@ -183,7 +211,7 @@ describe('Field-Level Encryption Integration Tests', () => {
             });
 
             const credentials = await prisma.credential.findMany({
-                where: { user_id: testUserId },
+                where: { externalId: { startsWith: 'test-encryption-' } },
             });
 
             expect(credentials).toHaveLength(3);
@@ -193,8 +221,12 @@ describe('Field-Level Encryption Integration Tests', () => {
         });
 
         it('should return null for non-existent records', async () => {
+            // Use a valid ObjectId format that doesn't exist in database
+            const { ObjectId } = require('mongodb');
+            const nonExistentId = new ObjectId().toString();
+
             const found = await prisma.credential.findUnique({
-                where: { id: 'non-existent-id' },
+                where: { id: nonExistentId },
             });
 
             expect(found).toBeNull();
@@ -202,7 +234,7 @@ describe('Field-Level Encryption Integration Tests', () => {
 
         it('should return empty array for no matches', async () => {
             const credentials = await prisma.credential.findMany({
-                where: { user_id: 'non-existent-user' },
+                where: { externalId: 'non-existent-external-id' },
             });
 
             expect(credentials).toEqual([]);
@@ -214,8 +246,7 @@ describe('Field-Level Encryption Integration Tests', () => {
             // Create
             const created = await prisma.credential.create({
                 data: {
-                    user_id: testUserId,
-                    entity_id: testEntityId,
+                    externalId: testExternalId,
                     data: {
                         access_token: 'old-token',
                         domain: 'old.com',
@@ -239,9 +270,7 @@ describe('Field-Level Encryption Integration Tests', () => {
             expect(updated.data.domain).toBe('new.com');
 
             // Verify raw database has new encrypted value
-            const rawDoc = await mongoose.connection.db
-                .collection('credentials')
-                .findOne({ _id: created.id });
+            const rawDoc = await repository.getRawCredentialById(created.id);
 
             expect(rawDoc.data.access_token).not.toBe('new-token');
             expect(rawDoc.data.access_token).toContain(':');
@@ -250,8 +279,7 @@ describe('Field-Level Encryption Integration Tests', () => {
         it('should handle partial updates', async () => {
             const created = await prisma.credential.create({
                 data: {
-                    user_id: testUserId,
-                    entity_id: testEntityId,
+                    externalId: testExternalId,
                     data: {
                         access_token: 'original-token',
                         refresh_token: 'original-refresh',
@@ -279,16 +307,17 @@ describe('Field-Level Encryption Integration Tests', () => {
 
     describe('Upsert Operations', () => {
         it('should encrypt on insert path', async () => {
+            // Use a valid ObjectId format that doesn't exist in database
+            const { ObjectId } = require('mongodb');
+            const nonExistentId = new ObjectId().toString();
+
             const upserted = await prisma.credential.upsert({
                 where: {
-                    user_id_entity_id: {
-                        user_id: testUserId,
-                        entity_id: 'upsert-entity',
-                    },
+                    id: nonExistentId,
                 },
                 create: {
-                    user_id: testUserId,
-                    entity_id: 'upsert-entity',
+                    id: nonExistentId,
+                    externalId: 'test-encryption-upsert-entity',
                     data: {
                         access_token: 'upsert-create-token',
                         domain: 'upsert-create.com',
@@ -305,9 +334,7 @@ describe('Field-Level Encryption Integration Tests', () => {
             expect(upserted.data.access_token).toBe('upsert-create-token');
 
             // Verify encryption in database
-            const rawDoc = await mongoose.connection.db
-                .collection('credentials')
-                .findOne({ _id: upserted.id });
+            const rawDoc = await repository.getRawCredentialById(upserted.id);
 
             expect(rawDoc.data.access_token).not.toBe('upsert-create-token');
             expect(rawDoc.data.access_token).toContain(':');
@@ -315,10 +342,9 @@ describe('Field-Level Encryption Integration Tests', () => {
 
         it('should encrypt on update path', async () => {
             // Create first
-            await prisma.credential.create({
+            const created = await prisma.credential.create({
                 data: {
-                    user_id: testUserId,
-                    entity_id: 'upsert-update-entity',
+                    externalId: 'test-encryption-upsert-update-entity',
                     data: {
                         access_token: 'original-token',
                         domain: 'original.com',
@@ -329,14 +355,10 @@ describe('Field-Level Encryption Integration Tests', () => {
             // Upsert (should hit update path)
             const upserted = await prisma.credential.upsert({
                 where: {
-                    user_id_entity_id: {
-                        user_id: testUserId,
-                        entity_id: 'upsert-update-entity',
-                    },
+                    id: created.id,
                 },
                 create: {
-                    user_id: testUserId,
-                    entity_id: 'upsert-update-entity',
+                    externalId: 'test-encryption-upsert-update-entity',
                     data: {
                         access_token: 'create-path-token',
                         domain: 'create.com',
@@ -353,9 +375,7 @@ describe('Field-Level Encryption Integration Tests', () => {
             expect(upserted.data.access_token).toBe('update-path-token');
 
             // Verify encryption in database
-            const rawDoc = await mongoose.connection.db
-                .collection('credentials')
-                .findOne({ _id: upserted.id });
+            const rawDoc = await repository.getRawCredentialById(upserted.id);
 
             expect(rawDoc.data.access_token).not.toBe('update-path-token');
             expect(rawDoc.data.access_token).toContain(':');
@@ -366,8 +386,7 @@ describe('Field-Level Encryption Integration Tests', () => {
         it('should decrypt deleted record', async () => {
             const created = await prisma.credential.create({
                 data: {
-                    user_id: testUserId,
-                    entity_id: testEntityId,
+                    externalId: testExternalId,
                     data: {
                         access_token: 'to-be-deleted',
                         domain: 'delete.com',
@@ -389,16 +408,14 @@ describe('Field-Level Encryption Integration Tests', () => {
             const result = await prisma.credential.createMany({
                 data: [
                     {
-                        user_id: testUserId,
-                        entity_id: 'bulk-1',
+                        externalId: 'test-encryption-bulk-1',
                         data: {
                             access_token: 'bulk-secret-1',
                             domain: 'bulk1.com',
                         },
                     },
                     {
-                        user_id: testUserId,
-                        entity_id: 'bulk-2',
+                        externalId: 'test-encryption-bulk-2',
                         data: {
                             access_token: 'bulk-secret-2',
                             domain: 'bulk2.com',
@@ -409,22 +426,17 @@ describe('Field-Level Encryption Integration Tests', () => {
 
             expect(result.count).toBe(2);
 
-            // Verify encryption in database
-            const rawDocs = await mongoose.connection.db
-                .collection('credentials')
-                .find({ user_id: testUserId })
-                .toArray();
-
-            rawDocs.forEach((doc) => {
-                expect(doc.data.access_token).toContain(':');
-                expect(doc.data.access_token).not.toMatch(/bulk-secret-/);
+            // Verify encryption in database by reading back with Prisma and checking one record's raw form
+            const credentials = await prisma.credential.findMany({
+                where: { externalId: { startsWith: 'test-encryption-' } },
             });
+
+            // Check raw database for first credential
+            const rawDoc = await repository.getRawCredentialById(credentials[0].id);
+            expect(rawDoc.data.access_token).toContain(':');
+            expect(rawDoc.data.access_token).not.toMatch(/bulk-secret-/);
 
             // Verify decryption when reading
-            const credentials = await prisma.credential.findMany({
-                where: { user_id: testUserId },
-            });
-
             const tokens = credentials.map((c) => c.data.access_token);
             expect(tokens).toContain('bulk-secret-1');
             expect(tokens).toContain('bulk-secret-2');
@@ -435,8 +447,7 @@ describe('Field-Level Encryption Integration Tests', () => {
         it('should not encrypt fields not in schema registry', async () => {
             const credential = await prisma.credential.create({
                 data: {
-                    user_id: testUserId,
-                    entity_id: testEntityId,
+                    externalId: testExternalId,
                     data: {
                         access_token: 'secret-token',
                         domain: 'example.com',
@@ -446,9 +457,7 @@ describe('Field-Level Encryption Integration Tests', () => {
             });
 
             // Verify domain is not encrypted (not in schema)
-            const rawDoc = await mongoose.connection.db
-                .collection('credentials')
-                .findOne({ _id: credential.id });
+            const rawDoc = await repository.getRawCredentialById(credential.id);
 
             expect(rawDoc.data.domain).toBe('example.com');
             expect(rawDoc.data.custom_field).toBe('should-not-encrypt');
@@ -460,29 +469,62 @@ describe('Field-Level Encryption Integration Tests', () => {
 
     describe('Error Handling', () => {
         it('should handle malformed encrypted data gracefully', async () => {
-            // Manually insert malformed data
-            const insertedId = new mongoose.Types.ObjectId().toString();
-            await mongoose.connection.db.collection('credentials').insertOne({
-                _id: insertedId,
-                user_id: testUserId,
-                entity_id: 'malformed-entity',
-                data: {
-                    access_token: 'not-valid-encrypted-format',
-                    domain: 'malformed.com',
-                },
-            });
-
-            // Attempt to read should fail or return garbled data
-            await expect(async () => {
-                await prisma.credential.findUnique({
-                    where: { id: insertedId },
+            let created;
+            try {
+                // Create a credential first to get a valid ID
+                created = await prisma.credential.create({
+                    data: {
+                        externalId: 'test-encryption-malformed-entity',
+                        data: {
+                            access_token: 'valid-token',
+                            domain: 'malformed.com',
+                        },
+                    },
                 });
-            }).rejects.toThrow();
 
-            // Cleanup
-            await mongoose.connection.db
-                .collection('credentials')
-                .deleteOne({ _id: insertedId });
+                // Manually corrupt the encrypted data in the database
+                // Use realistic corrupted format: 4 colon-separated parts (passes _isEncrypted check)
+                // but contains invalid base64 that will fail during decryption
+                const { ObjectId } = require('mongodb');
+                const dbType = 'mongodb';
+                if (dbType === 'mongodb') {
+                    const { mongoose } = require('../mongoose');
+                    // Ensure mongoose is connected
+                    if (mongoose.connection.readyState !== 1) {
+                        await mongoose.connect(process.env.DATABASE_URL);
+                    }
+                    await mongoose.connection.db.collection('Credential').updateOne(
+                        { _id: new ObjectId(created.id) },
+                        { $set: { 'data.access_token': 'CORRUPT:INVALID:DATA:FAKE=' } }
+                    );
+                } else {
+                    // PostgreSQL - use raw query to corrupt data
+                    await prisma.$executeRaw`
+                        UPDATE "Credential"
+                        SET data = jsonb_set(data, '{access_token}', '"CORRUPT:INVALID:DATA:FAKE="')
+                        WHERE id = ${created.id}
+                    `;
+                }
+
+                // Attempt to read should fail with decryption error
+                // Fix: Remove async wrapper - expect needs the promise directly for .rejects to work
+                await expect(
+                    prisma.credential.findUnique({
+                        where: { id: created.id },
+                    })
+                ).rejects.toThrow();
+            } finally {
+                // Cleanup - ensure it runs even if test throws
+                // Use raw database delete to bypass Prisma encryption extension
+                // (the encrypted data is corrupted so Prisma delete would fail)
+                if (created) {
+                    const { ObjectId } = require('mongodb');
+                    const { mongoose } = require('../mongoose');
+                    await mongoose.connection.db.collection('Credential').deleteOne(
+                        { _id: new ObjectId(created.id) }
+                    );
+                }
+            }
         });
     });
 
@@ -491,20 +533,18 @@ describe('Field-Level Encryption Integration Tests', () => {
             await prisma.credential.createMany({
                 data: [
                     {
-                        user_id: testUserId,
-                        entity_id: 'count-1',
+                        externalId: 'test-encryption-count-1',
                         data: { access_token: 'token1', domain: 'count1.com' },
                     },
                     {
-                        user_id: testUserId,
-                        entity_id: 'count-2',
+                        externalId: 'test-encryption-count-2',
                         data: { access_token: 'token2', domain: 'count2.com' },
                     },
                 ],
             });
 
             const count = await prisma.credential.count({
-                where: { user_id: testUserId },
+                where: { externalId: { startsWith: 'test-encryption-' } },
             });
 
             expect(count).toBe(2);

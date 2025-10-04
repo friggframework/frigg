@@ -1,5 +1,6 @@
 const { UserRepositoryMongo } = require('./user-repository-mongo');
 const { UserRepositoryPostgres } = require('./user-repository-postgres');
+const databaseConfig = require('../../database/config');
 
 /**
  * User Repository Factory
@@ -14,25 +15,21 @@ const { UserRepositoryPostgres } = require('./user-repository-postgres');
  *
  * Usage:
  * ```javascript
- * const repository = createUserRepository({ userConfig: {} });
+ * const repository = createUserRepository();
  * const user = await repository.findUserById(id); // ID is string
  * ```
  *
- * @param {Object} config - Repository configuration
- * @param {Object} config.userConfig - The user config in the app definition
- * @param {Object} [config.prismaClient] - Optional Prisma client for testing
- * @param {Object} [config.tokenRepository] - Optional token repository for testing
  * @returns {UserRepositoryInterface} Configured repository adapter
  */
-function createUserRepository(config) {
-    const dbType = process.env.DB_TYPE || 'mongodb';
+function createUserRepository() {
+    const dbType = databaseConfig.DB_TYPE;
 
     switch (dbType) {
         case 'mongodb':
-            return new UserRepositoryMongo(config);
+            return new UserRepositoryMongo();
 
         case 'postgresql':
-            return new UserRepositoryPostgres(config);
+            return new UserRepositoryPostgres();
 
         default:
             throw new Error(

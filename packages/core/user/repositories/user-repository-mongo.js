@@ -1,3 +1,4 @@
+//todo: this repository is tightly coupled to the token repository.
 const { prisma } = require('../../database/prisma');
 const {
     createTokenRepository,
@@ -14,18 +15,10 @@ const { UserRepositoryInterface } = require('./user-repository-interface');
  * - IndividualUser/OrganizationUser discriminators → User model with type field
  */
 class UserRepositoryMongo extends UserRepositoryInterface {
-    /**
-     * @param {Object} config - Configuration object
-     * @param {Object} config.userConfig - The user config in the app definition
-     * @param {Object} [config.prismaClient] - Optional Prisma client for testing
-     * @param {Object} [config.tokenRepository] - Optional token repository for testing
-     */
-    constructor({ userConfig, prismaClient = prisma, tokenRepository = null }) {
+    constructor() {
         super();
-        this.prisma = prismaClient;
-        this.tokenRepository =
-            tokenRepository || createTokenRepository(prismaClient);
-        this.userConfig = userConfig;
+        this.prisma = prisma;
+        this.tokenRepository = createTokenRepository();
     }
 
     /**

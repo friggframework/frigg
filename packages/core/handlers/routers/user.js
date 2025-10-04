@@ -14,7 +14,7 @@ const { loadAppDefinition } = require('../app-definition-loader');
 
 const router = express();
 const { userConfig } = loadAppDefinition();
-const userRepository = createUserRepository({ userConfig });
+const userRepository = createUserRepository();
 const createIndividualUser = new CreateIndividualUser({
     userRepository,
     userConfig,

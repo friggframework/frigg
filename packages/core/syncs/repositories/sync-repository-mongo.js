@@ -16,9 +16,9 @@ const { SyncRepositoryInterface } = require('./sync-repository-interface');
  * - Nested arrays → Separate DataIdentifier model
  */
 class SyncRepositoryMongo extends SyncRepositoryInterface {
-    constructor(prismaClient = prisma) {
+    constructor() {
         super();
-        this.prisma = prismaClient; // Allow injection for testing
+        this.prisma = prisma;
     }
 
     /**

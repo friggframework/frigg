@@ -2,6 +2,7 @@ const { CredentialRepositoryMongo } = require('./credential-repository-mongo');
 const {
     CredentialRepositoryPostgres,
 } = require('./credential-repository-postgres');
+const config = require('../../database/config');
 
 /**
  * Credential Repository Factory
@@ -17,25 +18,23 @@ const {
  * Usage:
  * ```javascript
  * const repository = createCredentialRepository();
- * const credential = await repository.findCredentialById(id); // ID is string
  * ```
  *
- * @param {Object} [prismaClient] - Optional Prisma client for testing
  * @returns {CredentialRepositoryInterface} Configured repository adapter
  */
-function createCredentialRepository(prismaClient) {
-    const dbType = process.env.DB_TYPE || 'mongodb';
+function createCredentialRepository() {
+    const dbType = config.DB_TYPE;
 
     switch (dbType) {
         case 'mongodb':
-            return new CredentialRepositoryMongo(prismaClient);
+            return new CredentialRepositoryMongo();
 
         case 'postgresql':
-            return new CredentialRepositoryPostgres(prismaClient);
+            return new CredentialRepositoryPostgres();
 
         default:
             throw new Error(
-                `Unsupported DB_TYPE: ${dbType}. Supported values: 'mongodb', 'postgresql'`
+                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'postgresql'`
             );
     }
 }

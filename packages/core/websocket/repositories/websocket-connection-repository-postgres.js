@@ -14,9 +14,9 @@ const {
  * - All returned IDs are converted to strings for application layer consistency
  */
 class WebsocketConnectionRepositoryPostgres extends WebsocketConnectionRepositoryInterface {
-    constructor(prismaClient = prisma) {
+    constructor() {
         super();
-        this.prisma = prismaClient; // Allow injection for testing
+        this.prisma = prisma;
     }
 
     /**

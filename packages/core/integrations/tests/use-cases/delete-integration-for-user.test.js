@@ -1,3 +1,10 @@
+jest.mock('../../../database/config', () => ({
+    DB_TYPE: 'mongodb',
+    getDatabaseType: jest.fn(() => 'mongodb'),
+    PRISMA_LOG_LEVEL: 'error,warn',
+    PRISMA_QUERY_LOGGING: false,
+}));
+
 const { DeleteIntegrationForUser } = require('../../use-cases/delete-integration-for-user');
 const { TestIntegrationRepository } = require('../doubles/test-integration-repository');
 const { DummyIntegration } = require('../doubles/dummy-integration-class');

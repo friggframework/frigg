@@ -1,3 +1,10 @@
+jest.mock('../../../database/config', () => ({
+    DB_TYPE: 'mongodb',
+    getDatabaseType: jest.fn(() => 'mongodb'),
+    PRISMA_LOG_LEVEL: 'error,warn',
+    PRISMA_QUERY_LOGGING: false,
+}));
+
 const { GetIntegrationInstance } = require('../../use-cases/get-integration-instance');
 const { TestIntegrationRepository } = require('../doubles/test-integration-repository');
 const { TestModuleFactory } = require('../../../modules/tests/doubles/test-module-factory');

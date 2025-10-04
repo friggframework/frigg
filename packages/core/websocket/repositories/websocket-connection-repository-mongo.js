@@ -14,9 +14,9 @@ const {
  * - AWS API Gateway Management API integration preserved
  */
 class WebsocketConnectionRepositoryMongo extends WebsocketConnectionRepositoryInterface {
-    constructor(prismaClient = prisma) {
+    constructor() {
         super();
-        this.prisma = prismaClient; // Allow injection for testing
+        this.prisma = prisma;
     }
 
     /**

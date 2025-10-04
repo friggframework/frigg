@@ -552,15 +552,21 @@ class DatabaseAdapter {
     }
 }
 
-// Configuration
+// Configuration (defined in backend/index.js app definition)
 database: {
-    type: process.env.DB_TYPE || 'mongodb',
-    connectionString: process.env.DB_CONNECTION,
-    options: {
-        poolSize: 10,
-        ssl: true
+    mongoDB: {
+        enable: true,    // Use MongoDB
+    },
+    documentDB: {
+        enable: false,   // Use DocumentDB (MongoDB-compatible)
+        tlsCAFile: './security/global-bundle.pem',
+    },
+    postgres: {
+        enable: false,   // Use PostgreSQL
     }
 }
+
+// Database type determined automatically from app definition
 ```
 
 ### 3. Prisma ORM Integration

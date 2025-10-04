@@ -1,31 +1,17 @@
 /**
  * Encryption Schema Registry
  *
- * Infrastructure Layer - Configuration
- *
  * Centralized registry defining which fields require encryption for each Prisma model.
- * This is database-agnostic and works identically for MongoDB and PostgreSQL.
+ * Database-agnostic, works identically for MongoDB and PostgreSQL.
+ * Extensible by integration developers via appDefinition.
  *
- * Purpose:
- * - Single source of truth for encrypted fields
- * - Security audit trail (compliance)
- * - Easy to extend with metadata (rotation policy, algorithm version)
- * - Testable (validate coverage, ensure no plaintext leaks)
- * - Extensible by integration developers via appDefinition
- *
- * Replaces Mongoose `lhEncrypt: true` schema option with explicit configuration.
- *
- * Field Path Format:
- * - Top-level fields: 'fieldName'
- * - Nested JSON fields: 'parent.child.field'
- * - Example: 'data.access_token' for Credential.data.access_token
+ * Field path format: 'fieldName' or 'parent.child.field' for nested JSON.
  */
 
+const { logger } = require('./logger');
+
 /**
- * Core encryption schema (immutable)
- * These fields are always encrypted and cannot be overridden
- *
- * @type {Object.<string, {fields: string[]}>}
+ * Core encryption schema (immutable - cannot be overridden by custom schemas)
  */
 const CORE_ENCRYPTION_SCHEMA = {
     Credential: {
@@ -49,16 +35,11 @@ const CORE_ENCRYPTION_SCHEMA = {
     },
 };
 
-/**
- * Custom encryption schema registered by integration developers
- * @type {Object.<string, {fields: string[]}>}
- */
 let customSchema = {};
 
 /**
  * Validates a custom encryption schema
- * @param {Object.<string, {fields: string[]}>} schema - Custom schema to validate
- * @returns {{valid: boolean, errors: string[]}} Validation result
+ * @returns {{valid: boolean, errors: string[]}}
  */
 function validateCustomSchema(schema) {
     const errors = [];
@@ -106,10 +87,8 @@ function validateCustomSchema(schema) {
 }
 
 /**
- * Registers a custom encryption schema from integration developer
- * Merges with core schema, but prevents overriding core fields
- *
- * @param {Object.<string, {fields: string[]}>} schema - Custom encryption schema
+ * Registers a custom encryption schema from integration developer.
+ * Merges with core schema, prevents overriding core fields.
  * @throws {Error} If schema validation fails
  */
 function registerCustomSchema(schema) {
@@ -125,48 +104,28 @@ function registerCustomSchema(schema) {
     }
 
     customSchema = { ...schema };
-    console.log(
-        `[Frigg] Registered custom encryption schema for models: ${Object.keys(customSchema).join(', ')}`
+    logger.info(
+        `Registered custom encryption schema for models: ${Object.keys(customSchema).join(', ')}`
     );
 }
 
-/**
- * Gets all encrypted field paths for a model (core + custom)
- * @param {string} modelName - Prisma model name
- * @returns {string[]} Array of field paths to encrypt
- */
 function getEncryptedFields(modelName) {
     const coreFields = CORE_ENCRYPTION_SCHEMA[modelName]?.fields || [];
     const customFields = customSchema[modelName]?.fields || [];
-
-    // Merge and deduplicate
     const allFields = [...coreFields, ...customFields];
     return [...new Set(allFields)];
 }
 
-/**
- * Checks if a model has any encrypted fields
- * @param {string} modelName - Prisma model name
- * @returns {boolean}
- */
 function hasEncryptedFields(modelName) {
     return getEncryptedFields(modelName).length > 0;
 }
 
-/**
- * Gets all model names that have encrypted fields
- * @returns {string[]} Array of model names
- */
 function getEncryptedModels() {
     const coreModels = Object.keys(CORE_ENCRYPTION_SCHEMA);
     const customModels = Object.keys(customSchema);
     return [...new Set([...coreModels, ...customModels])];
 }
 
-/**
- * Resets custom schema (for testing)
- * @private
- */
 function resetCustomSchema() {
     customSchema = {};
 }

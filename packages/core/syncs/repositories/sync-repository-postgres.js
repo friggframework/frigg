@@ -13,9 +13,9 @@ const { SyncRepositoryInterface } = require('./sync-repository-interface');
  * - Uses connect/disconnect syntax for relations
  */
 class SyncRepositoryPostgres extends SyncRepositoryInterface {
-    constructor(prismaClient = prisma) {
+    constructor() {
         super();
-        this.prisma = prismaClient; // Allow injection for testing
+        this.prisma = prisma;
     }
 
     /**

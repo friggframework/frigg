@@ -11,9 +11,9 @@ const { ModuleRepositoryInterface } = require('./module-repository-interface');
  * - entity.__t (discriminator) → entity.subType
  */
 class ModuleRepositoryMongo extends ModuleRepositoryInterface {
-    constructor(prismaClient = prisma) {
+    constructor() {
         super();
-        this.prisma = prismaClient; // Allow injection for testing
+        this.prisma = prisma;
     }
 
     /**

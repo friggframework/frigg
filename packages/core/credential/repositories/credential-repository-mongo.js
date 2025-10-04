@@ -13,9 +13,9 @@ const {
  * - Dynamic schema support via JSON field
  */
 class CredentialRepositoryMongo extends CredentialRepositoryInterface {
-    constructor(prismaClient = prisma) {
+    constructor() {
         super();
-        this.prisma = prismaClient; // Allow injection for testing
+        this.prisma = prisma;
     }
 
     /**

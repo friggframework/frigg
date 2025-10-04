@@ -1,33 +1,10 @@
 /**
  * Field Encryption Service
  *
- * Infrastructure Layer - Encryption Orchestration
- *
- * Orchestrates field-level encryption/decryption using Cryptor adapter.
- * Handles nested JSON paths, bulk operations, and field detection.
- *
- * Purpose:
- * - Encrypt/decrypt specific fields in documents
- * - Handle nested JSON paths (e.g., 'data.access_token')
- * - Support bulk operations (arrays of documents)
- * - Integrate with Cryptor for actual encryption
- *
- * Hexagonal Architecture:
- * - Infrastructure Layer (adapter pattern)
- * - Uses Cryptor (external encryption service adapter)
- * - Used by Prisma Extension (database adapter)
- */
-
-/**
- * Field Encryption Service
- * Handles encryption and decryption of specific fields in documents
+ * Infrastructure layer service that orchestrates field-level encryption/decryption.
+ * Handles nested JSON paths (e.g., 'data.access_token') and bulk operations.
  */
 class FieldEncryptionService {
-    /**
-     * @param {Object} params
-     * @param {import('../../encrypt/Cryptor').Cryptor} params.cryptor - Encryption adapter
-     * @param {Object} params.schema - Schema registry with getEncryptedFields method
-     */
     constructor({ cryptor, schema }) {
         if (!cryptor) {
             throw new Error('Cryptor instance required');
@@ -52,12 +29,23 @@ class FieldEncryptionService {
 
         const encrypted = this._deepClone(document);
 
-        for (const fieldPath of fields) {
+        // Parallelize encryption of multiple fields
+        const encryptionPromises = fields.map(async (fieldPath) => {
             const value = this._getNestedValue(encrypted, fieldPath);
 
             if (this._shouldEncrypt(value)) {
                 const encryptedValue = await this.cryptor.encrypt(String(value));
-                this._setNestedValue(encrypted, fieldPath, encryptedValue);
+                return { fieldPath, encryptedValue };
+            }
+            return null;
+        });
+
+        const results = await Promise.all(encryptionPromises);
+
+        // Apply encrypted values
+        for (const result of results) {
+            if (result) {
+                this._setNestedValue(encrypted, result.fieldPath, result.encryptedValue);
             }
         }
 
@@ -76,12 +64,23 @@ class FieldEncryptionService {
 
         const decrypted = this._deepClone(document);
 
-        for (const fieldPath of fields) {
+        // Parallelize decryption of multiple fields
+        const decryptionPromises = fields.map(async (fieldPath) => {
             const value = this._getNestedValue(decrypted, fieldPath);
 
             if (this._isEncrypted(value)) {
                 const decryptedValue = await this.cryptor.decrypt(value);
-                this._setNestedValue(decrypted, fieldPath, decryptedValue);
+                return { fieldPath, decryptedValue };
+            }
+            return null;
+        });
+
+        const results = await Promise.all(decryptionPromises);
+
+        // Apply decrypted values
+        for (const result of results) {
+            if (result) {
+                this._setNestedValue(decrypted, result.fieldPath, result.decryptedValue);
             }
         }
 
@@ -155,6 +154,17 @@ class FieldEncryptionService {
     }
 
     _deepClone(obj) {
+        // Use structuredClone (Node.js 17+) for better performance
+        // Falls back to custom implementation for older Node versions
+        if (typeof structuredClone !== 'undefined') {
+            try {
+                return structuredClone(obj);
+            } catch {
+                // Fall through to custom implementation
+            }
+        }
+
+        // Custom fallback for older environments
         if (obj === null || typeof obj !== 'object') {
             return obj;
         }

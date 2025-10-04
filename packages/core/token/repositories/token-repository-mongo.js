@@ -14,9 +14,9 @@ const BCRYPT_ROUNDS = 10;
  * - Bcrypt hashing handled in repository layer
  */
 class TokenRepositoryMongo extends TokenRepositoryInterface {
-    constructor(prismaClient = prisma) {
+    constructor() {
         super();
-        this.prisma = prismaClient; // Allow injection for testing
+        this.prisma = prisma;
     }
 
     /**

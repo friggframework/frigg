@@ -11,9 +11,9 @@ const { ModuleRepositoryInterface } = require('./module-repository-interface');
  * - All returned IDs are converted to strings for application layer consistency
  */
 class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
-    constructor(prismaClient = prisma) {
+    constructor() {
         super();
-        this.prisma = prismaClient; // Allow injection for testing
+        this.prisma = prisma;
     }
 
     /**

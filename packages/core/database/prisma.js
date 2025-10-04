@@ -2,9 +2,9 @@ const {
     createEncryptionExtension,
 } = require('./encryption/prisma-encryption-extension');
 const { registerCustomSchema } = require('./encryption/encryption-schema-registry');
+const { logger } = require('./encryption/logger');
 const { Cryptor } = require('../encrypt/Cryptor');
-
-const DB_TYPE = process.env.DB_TYPE || 'mongodb';
+const config = require('./config');
 
 function getEncryptionConfig() {
     const STAGE = process.env.STAGE || process.env.NODE_ENV || 'development';
@@ -20,8 +20,8 @@ function getEncryptionConfig() {
         process.env.AES_KEY_ID && process.env.AES_KEY_ID.trim() !== '';
 
     if (!hasKMS && !hasAES) {
-        console.warn(
-            '[Frigg] No encryption keys configured (KMS_KEY_ARN or AES_KEY_ID). ' +
+        logger.warn(
+            'No encryption keys configured (KMS_KEY_ARN or AES_KEY_ID). ' +
                 'Field-level encryption disabled. Set STAGE=production and configure keys to enable.'
         );
         return { enabled: false };
@@ -69,22 +69,20 @@ function loadCustomEncryptionSchema() {
         // - Backend package.json not found (tests, standalone usage)
         // - No appDefinition defined
         // - No custom encryption schema specified
-        if (process.env.FRIGG_DEBUG) {
-            console.log('[Frigg Debug] Could not load custom encryption schema:', error.message);
-        }
+        logger.debug('Could not load custom encryption schema:', error.message);
     }
 }
 
 const prismaClientSingleton = () => {
     let PrismaClient;
 
-    if (DB_TYPE === 'mongodb') {
+    if (config.DB_TYPE === 'mongodb') {
         PrismaClient = require('@prisma-mongo/client').PrismaClient;
-    } else if (DB_TYPE === 'postgresql') {
+    } else if (config.DB_TYPE === 'postgresql') {
         PrismaClient = require('@prisma-postgres/client').PrismaClient;
     } else {
         throw new Error(
-            `Unsupported DB_TYPE: ${DB_TYPE}. Supported values: 'mongodb', 'postgresql'`
+            `Unsupported database type: ${config.DB_TYPE}. Supported values: 'mongodb', 'postgresql'`
         );
     }
 
@@ -113,18 +111,18 @@ const prismaClientSingleton = () => {
                 })
             );
 
-            console.log(
-                `[Frigg] Field-level encryption enabled using ${encryptionConfig.method.toUpperCase()}`
+            logger.info(
+                `Field-level encryption enabled using ${encryptionConfig.method.toUpperCase()}`
             );
         } catch (error) {
-            console.error(
-                '[Frigg] Failed to initialize encryption extension:',
-                error.message
+            logger.error(
+                'Failed to initialize encryption extension:',
+                error
             );
-            console.warn('[Frigg] Continuing without encryption...');
+            logger.warn('Continuing without encryption...');
         }
     } else {
-        console.log('[Frigg] Field-level encryption disabled');
+        logger.info('Field-level encryption disabled');
     }
 
     return client;

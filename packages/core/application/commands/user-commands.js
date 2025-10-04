@@ -25,7 +25,7 @@ function mapErrorToResponse(error) {
  * @returns {Object} User command object with CRUD operations
  */
 function createUserCommands() {
-    const userRepository = createUserRepository({ userConfig: {} });
+    const userRepository = createUserRepository();
 
     return {
         /**

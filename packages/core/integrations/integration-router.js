@@ -66,7 +66,7 @@ function createIntegrationRouter() {
     const moduleRepository = createModuleRepository();
     const integrationRepository = createIntegrationRepository();
     const credentialRepository = createCredentialRepository();
-    const userRepository = createUserRepository({ userConfig });
+    const userRepository = createUserRepository();
 
     const getUserFromBearerToken = new GetUserFromBearerToken({
         userRepository,

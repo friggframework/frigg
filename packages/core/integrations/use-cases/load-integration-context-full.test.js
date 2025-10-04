@@ -1,9 +1,16 @@
+jest.mock('../../database/config', () => ({
+    DB_TYPE: 'mongodb',
+    getDatabaseType: jest.fn(() => 'mongodb'),
+    PRISMA_LOG_LEVEL: 'error,warn',
+    PRISMA_QUERY_LOGGING: false,
+}));
+
 const { LoadIntegrationContextUseCase } = require('./load-integration-context');
 const { IntegrationBase } = require('../integration-base');
-const { createIntegrationRepository } = require('../integration-repository-factory');
+const { createIntegrationRepository } = require('../repositories/integration-repository-factory');
 const { Module } = require('../../modules/module');
 const { ModuleFactory } = require('../../modules/module-factory');
-const { ModuleRepository } = require('../../modules/module-repository');
+const { ModuleRepository } = require('../../modules/repositories/module-repository');
 
 // Mock OAuth2 API class that extends requester pattern
 class MockAsanaApi {

@@ -4,6 +4,7 @@ const {
 const {
     IntegrationMappingRepositoryPostgres,
 } = require('./integration-mapping-repository-postgres');
+const config = require('../../database/config');
 
 /**
  * Integration Mapping Repository Factory
@@ -19,25 +20,24 @@ const {
  * Usage:
  * ```javascript
  * const repository = createIntegrationMappingRepository();
- * const mapping = await repository.findMappingBy(integrationId, sourceId); // integrationId is string
+ * const mapping = await repository.findMappingBy(integrationId, sourceId);
  * ```
  *
- * @param {Object} [prismaClient] - Optional Prisma client for testing
  * @returns {IntegrationMappingRepositoryInterface} Configured repository adapter
  */
-function createIntegrationMappingRepository(prismaClient) {
-    const dbType = process.env.DB_TYPE || 'mongodb';
+function createIntegrationMappingRepository() {
+    const dbType = config.DB_TYPE;
 
     switch (dbType) {
         case 'mongodb':
-            return new IntegrationMappingRepositoryMongo(prismaClient);
+            return new IntegrationMappingRepositoryMongo();
 
         case 'postgresql':
-            return new IntegrationMappingRepositoryPostgres(prismaClient);
+            return new IntegrationMappingRepositoryPostgres();
 
         default:
             throw new Error(
-                `Unsupported DB_TYPE: ${dbType}. Supported values: 'mongodb', 'postgresql'`
+                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'postgresql'`
             );
     }
 }

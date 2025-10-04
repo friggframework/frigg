@@ -13,9 +13,9 @@ const {
  * - All returned IDs are converted to strings for application layer consistency
  */
 class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
-    constructor(prismaClient = prisma) {
+    constructor() {
         super();
-        this.prisma = prismaClient; // Allow injection for testing
+        this.prisma = prisma;
     }
 
     /**

@@ -41,7 +41,34 @@ External Systems (AWS KMS, Database)
 
 ## Configuration
 
-### App Definition
+### Database Selection
+
+Database type is configured in `backend/index.js` app definition:
+
+```javascript
+const appDefinition = {
+    database: {
+        mongoDB: {
+            enable: true,    // Use MongoDB
+        },
+        documentDB: {
+            enable: false,   // Use DocumentDB (MongoDB-compatible)
+            tlsCAFile: './security/global-bundle.pem',
+        },
+        postgres: {
+            enable: false,   // Use PostgreSQL
+        },
+    },
+    // ... other config
+};
+```
+
+**Important**: Only enable ONE database at a time. The framework will use the first enabled database in this priority order:
+1. PostgreSQL (`postgres.enable = true`)
+2. MongoDB (`mongoDB.enable = true`)
+3. DocumentDB (`documentDB.enable = true`)
+
+### Encryption Configuration
 
 In `backend/index.js`:
 
@@ -371,13 +398,78 @@ npm test -- database/encryption/
 
 ### Integration Tests
 
-```bash
-# Test with MongoDB
-DB_TYPE=mongodb npm test -- database/encryption/
+Database type is determined from your app definition in `backend/index.js`:
 
-# Test with PostgreSQL
-DB_TYPE=postgresql npm test -- database/encryption/
+```javascript
+// backend/index.js
+database: {
+    mongoDB: { enable: true },   // For MongoDB tests
+    postgres: { enable: false }
+}
 ```
+
+```bash
+# Run encryption tests
+npm test -- database/encryption/
+
+# Tests use explicit database type parameter for testing:
+# createHealthCheckRepository('mongodb')
+```
+
+## Error Handling & Logging
+
+### Error Handling Strategy
+
+The encryption system uses **fail-fast error handling**:
+
+- **Encryption failures**: Throw errors immediately (don't save corrupted/unencrypted sensitive data)
+- **Decryption failures**: Throw errors immediately (prevents exposing invalid data)
+- **Configuration errors**: Warn and disable encryption (graceful degradation for development)
+- **Validation errors**: Throw errors on startup (catch issues before production)
+
+**Why fail-fast?**
+- Security-critical operations must not silently fail
+- Better to expose issues during development than risk data breaches
+- Prevents inconsistent database state (partially encrypted data)
+
+### Logging Configuration
+
+Configure log verbosity with `FRIGG_LOG_LEVEL`:
+
+```bash
+# Production (minimal logging)
+FRIGG_LOG_LEVEL=WARN
+
+# Development (detailed logging)
+FRIGG_LOG_LEVEL=DEBUG
+
+# Default
+FRIGG_LOG_LEVEL=INFO
+```
+
+**Log Levels:**
+- `DEBUG`: Detailed encryption operations (includes schema loading, key checks)
+- `INFO`: High-level status (encryption enabled/disabled, custom schema registration)
+- `WARN`: Configuration issues (missing keys, bypassed encryption)
+- `ERROR`: Operation failures (encryption/decryption errors)
+
+**Production Safety:**
+- Sensitive data automatically sanitized in logs
+- Long base64 strings truncated (prevents key leakage)
+- Stack traces omitted in production (`STAGE=production`)
+- Key IDs never logged
+
+### Performance Optimizations
+
+**Parallel field encryption:**
+- Multiple fields encrypted concurrently using `Promise.all()`
+- Significantly faster for models with many encrypted fields
+- Example: 3 fields encrypted in ~30ms vs ~90ms (3x speedup)
+
+**Deep cloning:**
+- Uses native `structuredClone()` on Node.js 17+ (2-5x faster)
+- Falls back to custom implementation for compatibility
+- No external dependencies required
 
 ## Troubleshooting
 

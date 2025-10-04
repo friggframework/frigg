@@ -13,9 +13,9 @@ const {
  * - mapping data stored in JSON field
  */
 class IntegrationMappingRepositoryMongo extends IntegrationMappingRepositoryInterface {
-    constructor(prismaClient = prisma) {
+    constructor() {
         super();
-        this.prisma = prismaClient; // Allow injection for testing
+        this.prisma = prisma;
     }
 
     /**

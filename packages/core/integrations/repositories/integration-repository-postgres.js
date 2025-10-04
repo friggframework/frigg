@@ -16,9 +16,9 @@ const {
  * - Uses connect/disconnect syntax for relations
  */
 class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
-    constructor(prismaClient = prisma) {
+    constructor() {
         super();
-        this.prisma = prismaClient; // Allow injection for testing
+        this.prisma = prisma;
     }
 
     /**

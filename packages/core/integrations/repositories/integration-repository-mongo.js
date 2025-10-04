@@ -19,9 +19,9 @@ const {
  * - toString() conversions → Done automatically by Prisma
  */
 class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
-    constructor(prismaClient = prisma) {
+    constructor() {
         super();
-        this.prisma = prismaClient; // Allow injection for testing
+        this.prisma = prisma;
     }
 
     /**

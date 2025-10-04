@@ -1,44 +1,38 @@
-const { HealthCheckRepository } = require('./health-check-repository');
+const { HealthCheckRepositoryMongoDB } = require('./health-check-repository-mongodb');
+const { HealthCheckRepositoryPostgreSQL } = require('./health-check-repository-postgres');
+const config = require('../config');
 
 /**
  * Health Check Repository Factory
  * Creates the appropriate repository adapter based on database type
  *
- * Note: Currently, HealthCheck operations have identical structure across MongoDB and PostgreSQL,
- * so this factory always returns HealthCheckRepository. This pattern is maintained for:
- * - Consistency with other repository factories
- * - Future-proofing if database-specific implementations become needed
- * - Unified API for repository instantiation across the codebase
- *
  * Usage:
  * ```javascript
  * const repository = createHealthCheckRepository();
- * const responseTime = await repository.pingDatabase(2000);
  * ```
  *
  * @returns {HealthCheckRepositoryInterface} Configured repository adapter
  */
 function createHealthCheckRepository() {
-    const dbType = process.env.DB_TYPE || 'mongodb';
+    const dbType = config.DB_TYPE;
 
-    // Currently, HealthCheckRepository works identically for both databases
-    // If database-specific logic is needed in the future, add cases here:
     switch (dbType) {
         case 'mongodb':
-            return new HealthCheckRepository();
+            return new HealthCheckRepositoryMongoDB();
 
         case 'postgresql':
-            return new HealthCheckRepository();
+            return new HealthCheckRepositoryPostgreSQL();
 
         default:
             throw new Error(
-                `Unsupported DB_TYPE: ${dbType}. Supported values: 'mongodb', 'postgresql'`
+                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'postgresql'`
             );
     }
 }
 
 module.exports = {
     createHealthCheckRepository,
-    // Export adapter for direct testing
-    HealthCheckRepository,
+    // Export adapters for direct testing
+    HealthCheckRepositoryMongoDB,
+    HealthCheckRepositoryPostgreSQL,
 };
