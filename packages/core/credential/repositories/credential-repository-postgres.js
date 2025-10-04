@@ -137,7 +137,7 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
                     userId: this._convertId(user || existing.userId),
                     externalId:
                         externalId !== undefined
-                            ? externalId
+                            ? String(externalId)
                             : existing.externalId,
                     authIsValid:
                         authIsValid !== undefined
@@ -160,8 +160,9 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
         const created = await this.prisma.credential.create({
             data: {
                 userId: this._convertId(user),
-                externalId,
-                authIsValid: authIsValid,
+                externalId: externalId !== undefined ? String(externalId) : undefined,
+                authIsValid:
+                    authIsValid !== undefined ? authIsValid : auth_is_valid,
                 subType,
                 data: oauthData,
             },
@@ -231,7 +232,7 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
         }
 
         // Separate schema fields from OAuth data
-        const { user, authIsValid, subType, ...oauthData } =
+        const { user, externalId, auth_is_valid, authIsValid, subType, ...oauthData } =
             updates;
 
         // Merge OAuth data with existing
@@ -242,7 +243,7 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
             data: {
                 userId: this._convertId(userId || user || existing.userId),
                 externalId:
-                    externalId !== undefined ? externalId : existing.externalId,
+                    externalId !== undefined ? String(externalId) : existing.externalId,
                 authIsValid:
                     authIsValid !== undefined ? authIsValid : existing.authIsValid,
                 subType: subType !== undefined ? subType : existing.subType,
@@ -277,7 +278,7 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
         if (identifiers.user) where.userId = this._convertId(identifiers.user);
         if (identifiers.userId)
             where.userId = this._convertId(identifiers.userId);
-        if (identifiers.externalId) where.externalId = identifiers.externalId;
+        if (identifiers.externalId) where.externalId = String(identifiers.externalId);
         if (identifiers.subType) where.subType = identifiers.subType;
 
         return where;
@@ -297,7 +298,7 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
         if (filter.id) where.id = this._convertId(filter.id);
         if (filter.user) where.userId = this._convertId(filter.user);
         if (filter.userId) where.userId = this._convertId(filter.userId);
-        if (filter.externalId) where.externalId = filter.externalId;
+        if (filter.externalId) where.externalId = String(filter.externalId);
         if (filter.subType) where.subType = filter.subType;
 
         return where;

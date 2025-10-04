@@ -29,9 +29,66 @@ const TestAreaUserSelection = ({
 
   // Load users when component mounts AND friggBaseUrl is available
   useEffect(() => {
-    if (friggBaseUrl) {
-      console.log('TestAreaUserSelection mounted, loading users from:', friggBaseUrl)
-      loadUsers()
+    if (!friggBaseUrl) return
+
+    const abortController = new AbortController()
+
+    const loadUsers = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        // Call the Frigg app's admin API directly
+        const usersUrl = `${friggBaseUrl}/api/admin/users`
+
+        const response = await fetch(usersUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          signal: abortController.signal
+        })
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(`Failed to load users: ${response.status}`)
+        }
+
+        const data = await response.json()
+
+        // Admin API returns { users: [...], pagination: {...} }
+        const usersData = data?.users || []
+
+        // Populate users with org info if available
+        const usersWithOrg = usersData.map((user) => {
+          // If user has organizationUser reference, include it
+          if (user.organizationUser) {
+            return {
+              ...user,
+              orgId: user.organizationUser,
+              orgName: null // Will be populated when we add org fetch
+            }
+          }
+          return user
+        })
+
+        setUsers(usersWithOrg)
+      } catch (err) {
+        // Ignore abort errors
+        if (err.name === 'AbortError') {
+          return
+        }
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadUsers()
+
+    // Cleanup: abort in-flight request when component unmounts
+    return () => {
+      abortController.abort()
     }
   }, [friggBaseUrl])
 
@@ -51,16 +108,12 @@ const TestAreaUserSelection = ({
         }
       })
 
-      console.log('Admin users response status:', response.status)
-
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('Failed to load users:', response.status, errorText)
         throw new Error(`Failed to load users: ${response.status}`)
       }
 
       const data = await response.json()
-      console.log('Admin users response:', data)
 
       // Admin API returns { users: [...], pagination: {...} }
       const usersData = data?.users || []
@@ -80,7 +133,6 @@ const TestAreaUserSelection = ({
 
       setUsers(usersWithOrg)
     } catch (err) {
-      console.error('Error loading users:', err)
       setError(err.message)
     } finally {
       setLoading(false)
@@ -92,11 +144,8 @@ const TestAreaUserSelection = ({
       setLoggingIn(true)
       setError(null)
 
-      console.log('Impersonating user:', user.username || user.email)
-
       // Use admin impersonation API to get token without password
       const impersonateUrl = `${friggBaseUrl}/api/admin/users/${user.id}/impersonate`
-      console.log('Impersonation URL:', impersonateUrl)
 
       const response = await fetch(impersonateUrl, {
         method: 'POST',
@@ -108,17 +157,13 @@ const TestAreaUserSelection = ({
         })
       })
 
-      console.log('Impersonation response status:', response.status)
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => null)
         const errorMessage = errorData?.message || `Impersonation failed: ${response.status}`
-        console.error('Impersonation failed:', errorMessage)
         throw new Error(errorMessage)
       }
 
       const data = await response.json()
-      console.log('Impersonation successful, token received:', data.token ? 'Yes' : 'No')
 
       // Pass user and token to parent
       onUserSelected({
@@ -126,7 +171,6 @@ const TestAreaUserSelection = ({
         token: data.token
       })
     } catch (err) {
-      console.error('Error impersonating user:', err)
       setError(err.message)
     } finally {
       setLoggingIn(false)
@@ -173,7 +217,6 @@ const TestAreaUserSelection = ({
       setNewUser({ email: '', username: '' })
       setShowCreateForm(false)
     } catch (err) {
-      console.error('Error creating user:', err)
       setError(err.message)
     } finally {
       setCreating(false)

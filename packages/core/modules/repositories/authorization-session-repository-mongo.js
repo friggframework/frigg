@@ -48,6 +48,8 @@ class AuthorizationSessionRepositoryMongo extends AuthorizationSessionRepository
      * @returns {Promise<AuthorizationSession>} Created session entity
      */
     async create(session) {
+        const oauthState = session.stepData?.oauthState || null;
+
         const doc = await this.prisma.authorizationSession.create({
             data: {
                 sessionId: session.sessionId,
@@ -56,6 +58,7 @@ class AuthorizationSessionRepositoryMongo extends AuthorizationSessionRepository
                 currentStep: session.currentStep,
                 maxSteps: session.maxSteps,
                 stepData: session.stepData,
+                oauthState,
                 expiresAt: session.expiresAt,
                 completed: session.completed,
             },
@@ -99,6 +102,24 @@ class AuthorizationSessionRepositoryMongo extends AuthorizationSessionRepository
                 expiresAt: { gt: new Date() },
             },
             orderBy: { createdAt: 'desc' },
+        });
+
+        return doc ? this._toEntity(doc) : null;
+    }
+
+    /**
+     * Find session by OAuth state parameter
+     * Used for OAuth2 callback processing
+     *
+     * @param {string} oauthState - OAuth state parameter from callback
+     * @returns {Promise<AuthorizationSession|null>} Session entity or null
+     */
+    async findByOAuthState(oauthState) {
+        const doc = await this.prisma.authorizationSession.findFirst({
+            where: {
+                oauthState,
+                expiresAt: { gt: new Date() },
+            },
         });
 
         return doc ? this._toEntity(doc) : null;

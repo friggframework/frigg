@@ -126,7 +126,7 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
                     userId: userId || user || existing.userId,
                     externalId:
                         externalId !== undefined
-                            ? externalId
+                            ? String(externalId)
                             : existing.externalId,
                     authIsValid:
                         authIsValid !== undefined
@@ -150,8 +150,9 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
         const created = await this.prisma.credential.create({
             data: {
                 userId: userId || user,
-                externalId,
-                authIsValid: authIsValid,
+                externalId: externalId !== undefined ? String(externalId) : undefined,
+                authIsValid:
+                    authIsValid !== undefined ? authIsValid : auth_is_valid,
                 subType,
                 data: oauthData,
             },
@@ -237,7 +238,7 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
             data: {
                 userId: userId || user || existing.userId,
                 externalId:
-                    externalId !== undefined ? externalId : existing.externalId,
+                    externalId !== undefined ? String(externalId) : existing.externalId,
                 authIsValid:
                     authIsValid !== undefined ? authIsValid : existing.authIsValid,
                 subType: subType !== undefined ? subType : existing.subType,
@@ -272,7 +273,7 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
         if (identifiers.id) where.id = identifiers.id;
         if (identifiers.user) where.userId = identifiers.user;
         if (identifiers.userId) where.userId = identifiers.userId;
-        if (identifiers.externalId) where.externalId = identifiers.externalId;
+        if (identifiers.externalId) where.externalId = String(identifiers.externalId);
         if (identifiers.subType) where.subType = identifiers.subType;
 
         return where;
@@ -291,7 +292,7 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
         if (filter.id) where.id = filter.id;
         if (filter.user) where.userId = filter.user;
         if (filter.userId) where.userId = filter.userId;
-        if (filter.externalId) where.externalId = filter.externalId;
+        if (filter.externalId) where.externalId = String(filter.externalId);
         if (filter.subType) where.subType = filter.subType;
 
         return where;

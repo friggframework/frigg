@@ -68,9 +68,9 @@ export function useIntegrationLogic(props) {
         }
     };
 
-    // Legacy: Get authorization requirements (kept for backward compatibility)
+    // Get authorization requirements - redirects to install wizard
     const getAuthorizeRequirements = async () => {
-        // Now just opens the install wizard instead
+        // Opens the install wizard for authorization
         openInstallWizard();
     };
 
@@ -104,7 +104,6 @@ export function useIntegrationLogic(props) {
     // Get sample data (placeholder implementation)
     const getSampleData = async () => {
         // This could be implemented based on specific requirements
-        console.log("Sample data functionality not yet implemented");
     };
 
     return {
