@@ -14,7 +14,7 @@ import { Form } from '../../Form';
 
 export const AuthorizationWizard = ({
     api,
-    entityType,
+    moduleType,
     onSuccess,
     onCancel,
     onError
@@ -32,7 +32,7 @@ export const AuthorizationWizard = ({
     // Initialize: Load requirements for step 1
     useEffect(() => {
         initializeAuth();
-    }, [entityType]);
+    }, [moduleType]);
 
     /**
      * Load initial authorization requirements
@@ -42,8 +42,8 @@ export const AuthorizationWizard = ({
             setLoading(true);
             setError(null);
 
-            // Get requirements for step 1
-            const reqs = await api.getAuthorizeRequirements(entityType, '', 1, null);
+            // Get requirements for step 1 using new API
+            const reqs = await api.getModuleAuthorizationRequirements(moduleType, 1, null);
 
             setCurrentStep(reqs.step || 1);
             setTotalSteps(reqs.totalSteps || 1);
@@ -75,9 +75,9 @@ export const AuthorizationWizard = ({
             setSubmitting(true);
             setError(null);
 
-            // Submit current step with accumulated data
-            const result = await api.authorize(
-                entityType,
+            // Submit current step with accumulated data using new API
+            const result = await api.submitModuleAuthorization(
+                moduleType,
                 formData,
                 currentStep,
                 sessionId

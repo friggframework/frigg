@@ -12,7 +12,7 @@ import API from '../../../api/api.js';
 
 export const EntityConnectionModal = ({
     isOpen,
-    entityType,
+    moduleType,
     friggBaseUrl,
     authToken,
     onSuccess,
@@ -28,7 +28,7 @@ export const EntityConnectionModal = ({
             {/* Header */}
             <div className="space-y-1">
                 <h2 className="text-xl font-semibold text-foreground">
-                    Connect {entityType}
+                    Connect {moduleType}
                 </h2>
                 <p className="text-sm text-muted-foreground">
                     Complete the authorization process to connect your account
@@ -38,7 +38,7 @@ export const EntityConnectionModal = ({
             {/* Unified Authorization Wizard */}
             <AuthorizationWizard
                 api={api}
-                entityType={entityType}
+                moduleType={moduleType}
                 onSuccess={onSuccess}
                 onCancel={onCancel}
             />

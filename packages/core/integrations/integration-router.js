@@ -826,6 +826,198 @@ function setEntityRoutes(router, getUserFromBearerToken, useCases) {
             res.json(updatedOptions);
         })
     );
+
+    // =========================================================================
+    // MODULE ENDPOINTS (NEW v2 API)
+    // =========================================================================
+
+    /**
+     * GET /api/modules - List available module types
+     * 
+     * Returns all available modules with their capabilities and auth requirements
+     */
+    router.route('/api/modules').get(
+        catchAsyncError(async (req, res) => {
+            const user = await getUserFromBearerToken.execute(
+                req.headers.authorization
+            );
+            const userId = user.getId();
+
+            // Get module definitions from integration classes
+            const moduleDefinitions = getModulesDefinitionFromIntegrationClasses(integrationClasses);
+            
+            // Transform to API response format
+            const modules = moduleDefinitions.map(def => {
+                const ModuleDefinition = def.definition;
+                const stepCount = ModuleDefinition.getAuthStepCount ? ModuleDefinition.getAuthStepCount() : 1;
+                
+                return {
+                    moduleType: def.moduleName,
+                    name: ModuleDefinition.getDisplayName ? ModuleDefinition.getDisplayName() : def.moduleName,
+                    description: ModuleDefinition.getDescription ? ModuleDefinition.getDescription() : `Connect to ${def.moduleName}`,
+                    authType: ModuleDefinition.getAuthType ? ModuleDefinition.getAuthType() : 'oauth2',
+                    isMultiStep: stepCount > 1,
+                    stepCount,
+                    capabilities: ModuleDefinition.getCapabilities ? ModuleDefinition.getCapabilities() : [],
+                    requiredScopes: ModuleDefinition.getRequiredScopes ? ModuleDefinition.getRequiredScopes() : []
+                };
+            });
+
+            res.json({ modules });
+        })
+    );
+
+    /**
+     * GET /api/modules/:moduleType/authorization - Get authorization requirements
+     * 
+     * Supports both single-step and multi-step authentication flows
+     */
+    router.route('/api/modules/:moduleType/authorization').get(
+        catchAsyncError(async (req, res) => {
+            const user = await getUserFromBearerToken.execute(
+                req.headers.authorization
+            );
+            const userId = user.getId();
+            
+            const params = checkRequiredParams(req.params, ['moduleType']);
+            const step = parseInt(req.query.step || '1', 10);
+            const sessionId = req.query.sessionId;
+
+            // Validate inputs
+            if (step < 1) {
+                throw Boom.badRequest('step must be >= 1');
+            }
+
+            // Validate session if step > 1
+            if (step > 1 && !sessionId) {
+                throw Boom.badRequest('sessionId required for step > 1');
+            }
+
+            // Get requirements using use case
+            const requirements = await getAuthorizationRequirements.execute(
+                params.moduleType,
+                step
+            );
+
+            // Generate session ID for multi-step flows on step 1
+            if (requirements.isMultiStep && step === 1) {
+                const crypto = require('crypto');
+                requirements.sessionId = crypto.randomUUID();
+            } else if (sessionId) {
+                requirements.sessionId = sessionId;
+            }
+
+            res.json(requirements);
+        })
+    );
+
+    /**
+     * POST /api/modules/:moduleType/authorization - Submit authorization data
+     * 
+     * Handles both single-step and multi-step authorization flows
+     */
+    router.route('/api/modules/:moduleType/authorization').post(
+        catchAsyncError(async (req, res) => {
+            const user = await getUserFromBearerToken.execute(
+                req.headers.authorization
+            );
+            const userId = user.getId();
+            
+            const params = checkRequiredParams(req.params, ['moduleType']);
+            const { data, step = 1, sessionId, credentialId } = req.body;
+
+            // Validate inputs
+            if (!data || typeof data !== 'object') {
+                throw Boom.badRequest('data object is required');
+            }
+
+            const stepNumber = parseInt(step, 10);
+            if (stepNumber < 1) {
+                throw Boom.badRequest('step must be >= 1');
+            }
+
+            // Find module definition
+            const moduleDefinition = getModulesDefinitionFromIntegrationClasses(integrationClasses).find(
+                (def) => def.moduleName === params.moduleType
+            );
+
+            if (!moduleDefinition) {
+                throw Boom.badRequest(`Unknown module type: ${params.moduleType}`);
+            }
+
+            const ModuleDefinition = moduleDefinition.definition;
+            const stepCount = ModuleDefinition.getAuthStepCount
+                ? ModuleDefinition.getAuthStepCount()
+                : 1;
+
+            // Single-step flow - use existing ProcessAuthorizationCallback
+            if (stepCount === 1) {
+                const entityDetails = await processAuthorizationCallback.execute(
+                    userId,
+                    params.moduleType,
+                    data
+                );
+
+                return res.json(entityDetails);
+            }
+
+            // Multi-step flow
+            if (!sessionId) {
+                throw Boom.badRequest(
+                    'sessionId required for multi-step authorization'
+                );
+            }
+
+            // Process step using use case
+            const result = await processAuthorizationStep.execute(
+                sessionId,
+                userId,
+                stepNumber,
+                data
+            );
+
+            if (result.completed) {
+                // Final step - create entity using standard flow
+                const entityDetails = await processAuthorizationCallback.execute(
+                    userId,
+                    params.moduleType,
+                    result.authData
+                );
+
+                return res.json(entityDetails);
+            }
+
+            // Return next step requirements
+            res.json({
+                step: result.nextStep,
+                totalSteps: result.totalSteps,
+                sessionId: result.sessionId,
+                requirements: result.requirements,
+                message: result.message,
+            });
+        })
+    );
+
+    /**
+     * GET /api/modules/:moduleType/test - Test module authentication
+     * 
+     * Tests if a module's authentication is working correctly
+     */
+    router.route('/api/modules/:moduleType/test').get(
+        catchAsyncError(async (req, res) => {
+            const user = await getUserFromBearerToken.execute(
+                req.headers.authorization
+            );
+            const userId = user.getId();
+            
+            const params = checkRequiredParams(req.params, ['moduleType']);
+
+            // Test module auth using existing use case
+            const result = await testModuleAuth.execute(userId, params.moduleType);
+
+            res.json(result);
+        })
+    );
 }
 
 module.exports = { createIntegrationRouter, checkRequiredParams };
