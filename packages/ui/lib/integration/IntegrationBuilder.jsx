@@ -19,10 +19,15 @@ import AuthModal from "./AuthModal.jsx";
  * @param {object} props.preselectedIntegrationType - Integration type to pre-select when starting from gallery (optional)
  * @param {function} props.onIntegrationCreated - Callback when integration is created
  * @param {function} props.onCancel - Navigate back to entity manager
+ * @param {function} props.onCreateEntity - Callback when entity creation is needed (optional)
  * @returns {JSX.Element} The rendered component
  */
 export default function IntegrationBuilder(props) {
   const { baseUrl, authToken } = useIntegrationData();
+  
+  // Use props if provided (for modal usage), otherwise use context
+  const effectiveBaseUrl = props.baseUrl || baseUrl;
+  const effectiveAuthToken = props.authToken || authToken;
 
   // Determine if we're starting from gallery (integration type pre-selected) or entity manager (entity pre-selected)
   const startFromGallery = !!props.preselectedIntegrationType;
@@ -42,7 +47,7 @@ export default function IntegrationBuilder(props) {
   const [authRequirements, setAuthRequirements] = useState(null);
   const [connectingEntityType, setConnectingEntityType] = useState(null);
 
-  const api = new API(baseUrl, authToken);
+  const api = new API(effectiveBaseUrl, effectiveAuthToken);
 
   // Calculate total steps dynamically based on integration requirements
   const getTotalSteps = () => {
@@ -116,15 +121,15 @@ export default function IntegrationBuilder(props) {
     } finally {
       setLoading(false);
     }
-  }, [authToken, baseUrl]);
+  }, [effectiveAuthToken, effectiveBaseUrl]);
 
   useEffect(() => {
-    if (!authToken) {
+    if (!effectiveAuthToken) {
       setError("Authentication token is required");
       return;
     }
     loadData();
-  }, [loadData, authToken]);
+  }, [loadData, effectiveAuthToken]);
 
   const handleSelectEntity = (entityType, entityId) => {
     setSelectedEntities(prev => ({
@@ -142,6 +147,12 @@ export default function IntegrationBuilder(props) {
   };
 
   const handleConnectAccount = async (entityType) => {
+    // If onCreateEntity callback is provided, use it instead of the modal
+    if (props.onCreateEntity) {
+      props.onCreateEntity(entityType, selectedIntegrationType?.type);
+      return;
+    }
+
     try {
       // Get authorization requirements for this module type
       const authReqs = await api.getAuthorizationRequirements(entityType);
