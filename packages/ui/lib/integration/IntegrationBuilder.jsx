@@ -27,7 +27,7 @@ export default function IntegrationBuilder(props) {
   // Determine if we're starting from gallery (integration type pre-selected) or entity manager (entity pre-selected)
   const startFromGallery = !!props.preselectedIntegrationType;
 
-  const [step, setStep] = useState(1); // 1: Select Entities, 2: Select Type, 3: Configure, 4: Confirm
+  const [step, setStep] = useState(1); // Dynamic steps based on integration requirements
   const [entities, setEntities] = useState([]);
   const [integrationOptions, setIntegrationOptions] = useState([]);
   const [selectedEntities, setSelectedEntities] = useState({});
@@ -43,6 +43,36 @@ export default function IntegrationBuilder(props) {
   const [connectingEntityType, setConnectingEntityType] = useState(null);
 
   const api = new API(baseUrl, authToken);
+
+  // Calculate total steps dynamically based on integration requirements
+  const getTotalSteps = () => {
+    if (startFromGallery && selectedIntegrationType) {
+      // Gallery flow: 1. Select Entities, 2. Configure (if needed), 3. Confirm
+      return selectedIntegrationType.hasUserConfig ? 3 : 2;
+    } else {
+      // Standard flow: 1. Select Entities, 2. Select Type, 3. Configure (if needed), 4. Confirm
+      return 4; // Always 4 steps for standard flow
+    }
+  };
+
+  const getStepTitle = (stepNumber) => {
+    if (startFromGallery && selectedIntegrationType) {
+      switch (stepNumber) {
+        case 1: return "Select Accounts";
+        case 2: return selectedIntegrationType.hasUserConfig ? "Configure Settings" : "Confirm & Create";
+        case 3: return "Confirm & Create";
+        default: return "Unknown Step";
+      }
+    } else {
+      switch (stepNumber) {
+        case 1: return "Select Accounts";
+        case 2: return "Choose Integration Type";
+        case 3: return "Configure Settings";
+        case 4: return "Confirm & Create";
+        default: return "Unknown Step";
+      }
+    }
+  };
 
   // Handle preselected entity (from entity manager flow)
   useEffect(() => {
@@ -159,8 +189,13 @@ export default function IntegrationBuilder(props) {
       return;
     }
 
-    if (Object.keys(selectedEntities).length < 2) {
-      alert("Please select at least 2 entities to integrate");
+    // Validate based on integration requirements instead of hardcoded "2 entities"
+    const requiredEntityTypes = selectedIntegrationType.requiredEntities || [];
+    const selectedEntityTypes = Object.keys(selectedEntities);
+    const missingRequiredTypes = requiredEntityTypes.filter(type => !selectedEntityTypes.includes(type));
+    
+    if (missingRequiredTypes.length > 0) {
+      alert(`Please select entities for required types: ${missingRequiredTypes.join(', ')}`);
       return;
     }
 
@@ -223,12 +258,7 @@ export default function IntegrationBuilder(props) {
         <div>
           <h2 className="text-2xl font-bold">Build Integration</h2>
           <p className="text-gray-600 mt-1">
-            Step {step} of 4: {
-              step === 1 ? "Select Accounts" :
-              step === 2 ? "Choose Integration Type" :
-              step === 3 ? "Configure Settings" :
-              "Confirm & Create"
-            }
+            Step {step} of {getTotalSteps()}: {getStepTitle(step)}
           </p>
         </div>
         <Button variant="outline" onClick={props.onCancel}>
@@ -329,7 +359,17 @@ export default function IntegrationBuilder(props) {
             </div>
             <Button
               onClick={() => setStep(2)}
-              disabled={Object.keys(selectedEntities).length < (startFromGallery && selectedIntegrationType?.requiredEntities ? selectedIntegrationType.requiredEntities.length : 2)}
+              disabled={(() => {
+                if (startFromGallery && selectedIntegrationType?.requiredEntities) {
+                  // If starting from gallery, check if all required entities are selected
+                  const requiredTypes = selectedIntegrationType.requiredEntities;
+                  const selectedTypes = Object.keys(selectedEntities);
+                  return !requiredTypes.every(type => selectedTypes.includes(type));
+                } else {
+                  // If not starting from gallery, require at least one entity to proceed
+                  return Object.keys(selectedEntities).length === 0;
+                }
+              })()}
             >
               Next
               <ArrowRight className="w-4 h-4 ml-2" />
@@ -371,8 +411,12 @@ export default function IntegrationBuilder(props) {
                 <Button variant="outline" onClick={() => setStep(1)}>
                   Back to Entity Selection
                 </Button>
-                <Button onClick={() => setStep(3)}>
-                  Next: Configure
+                <Button onClick={() => {
+                  // Skip configuration step if no user config needed
+                  const nextStep = selectedIntegrationType.hasUserConfig ? 3 : getTotalSteps();
+                  setStep(nextStep);
+                }}>
+                  Next: {selectedIntegrationType.hasUserConfig ? 'Configure' : 'Confirm & Create'}
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </div>
@@ -452,19 +496,23 @@ export default function IntegrationBuilder(props) {
           </div>
 
           <div className="flex justify-between pt-4">
-            <Button variant="outline" onClick={() => setStep(2)}>
+            <Button variant="outline" onClick={() => {
+              // Go back to appropriate step based on flow
+              const prevStep = startFromGallery ? 2 : 2;
+              setStep(prevStep);
+            }}>
               Back
             </Button>
-            <Button onClick={() => setStep(4)}>
-              Next
+            <Button onClick={() => setStep(getTotalSteps())}>
+              Next: Confirm & Create
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </div>
         </div>
       )}
 
-      {/* Step 4: Confirm */}
-      {step === 4 && (
+      {/* Final Step: Confirm */}
+      {step === getTotalSteps() && (
         <div className="space-y-4">
           <div className="border rounded-lg p-6 space-y-4">
             <h3 className="font-semibold text-lg">Review & Confirm</h3>
@@ -498,7 +546,11 @@ export default function IntegrationBuilder(props) {
           </div>
 
           <div className="flex justify-between pt-4">
-            <Button variant="outline" onClick={() => setStep(3)}>
+            <Button variant="outline" onClick={() => {
+              // Go back to configuration step if it exists, otherwise to previous step
+              const prevStep = selectedIntegrationType?.hasUserConfig ? 3 : (startFromGallery ? 2 : 3);
+              setStep(prevStep);
+            }}>
               Back
             </Button>
             <Button onClick={handleCreateIntegration} disabled={creating}>
