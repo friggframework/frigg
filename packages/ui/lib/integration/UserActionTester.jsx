@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback } from "react";
 import API from "../api/api";
 import { Button } from "../components/button.jsx";
 import { LoadingSpinner } from "../components/LoadingSpinner.jsx";
-import { ChevronRight, Play, RefreshCw } from "lucide-react";
+import { ChevronRight, Play, RefreshCw, Settings, Eye, Code } from "lucide-react";
+import { Form } from "./Form";
 
 /**
  * UserActionTester - Dev mode component for testing integration user actions
@@ -25,10 +26,13 @@ export default function UserActionTester(props) {
   const [actionOptions, setActionOptions] = useState(null);
   const [inputData, setInputData] = useState({});
   const [result, setResult] = useState(null);
-  const [displayMode, setDisplayMode] = useState('json'); // 'json', 'card', 'table'
+  const [displayMode, setDisplayMode] = useState('json'); // 'json', 'card', 'table', 'form'
   const [loading, setLoading] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [error, setError] = useState(null);
+  const [useFormRenderer, setUseFormRenderer] = useState(true);
+  const [formSchema, setFormSchema] = useState({});
+  const [uiSchema, setUiSchema] = useState({});
 
   const api = new API(props.friggBaseUrl, props.authToken);
 
@@ -92,6 +96,8 @@ export default function UserActionTester(props) {
       setError(null);
       setActionOptions(null);
       setInputData({});
+      setFormSchema({});
+      setUiSchema({});
 
       const result = await api.getUserActionOptions(integrationId, actionId, {});
 
@@ -100,6 +106,13 @@ export default function UserActionTester(props) {
       }
 
       setActionOptions(result);
+      
+      // If the result contains JSONForms schema, set it up
+      if (result.jsonSchema) {
+        setFormSchema(result.jsonSchema);
+        setUiSchema(result.uiSchema || {});
+        setInputData(result.data || {});
+      }
     } catch (err) {
       console.error("Failed to load action options:", err);
       setError(err.message);
@@ -209,6 +222,40 @@ export default function UserActionTester(props) {
             </table>
           </div>
         );
+
+      case 'form':
+        // Try to render result as a form if it has schema information
+        if (result.jsonSchema) {
+          return (
+            <div className="border border-gray-300 rounded-lg p-4 bg-white">
+              <Form
+                schema={result.jsonSchema}
+                uiSchema={result.uiSchema || {}}
+                data={result.data || result}
+                onChange={() => {}} // Read-only display
+              />
+            </div>
+          );
+        } else {
+          // Fallback to card view if no schema
+          return (
+            <div className="bg-white border rounded-lg p-6 shadow-sm">
+              <h4 className="font-semibold text-lg mb-4">Result</h4>
+              {Object.entries(result).map(([key, value]) => (
+                <div key={key} className="mb-3 pb-3 border-b last:border-b-0">
+                  <div className="text-sm font-medium text-gray-600 mb-1">
+                    {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </div>
+                  <div className="text-sm text-gray-900">
+                    {typeof value === 'object'
+                      ? JSON.stringify(value, null, 2)
+                      : String(value)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        }
 
       default:
         return null;
@@ -320,24 +367,69 @@ export default function UserActionTester(props) {
             <p className="text-sm text-gray-600">Select an action first</p>
           ) : (
             <div className="space-y-4">
-              {/* Input Form - Basic JSON editor for now */}
+              {/* Form Renderer Toggle */}
+              {Object.keys(formSchema).length > 0 && (
+                <div className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
+                  <div className="flex items-center">
+                    <Settings className="w-4 h-4 mr-2 text-gray-600" />
+                    <span className="text-sm font-medium">Form Renderer</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setUseFormRenderer(true)}
+                      className={`px-3 py-1 text-xs rounded transition-colors ${
+                        useFormRenderer
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                    >
+                      <Eye className="w-3 h-3 mr-1 inline" />
+                      Form
+                    </button>
+                    <button
+                      onClick={() => setUseFormRenderer(false)}
+                      className={`px-3 py-1 text-xs rounded transition-colors ${
+                        !useFormRenderer
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                    >
+                      <Code className="w-3 h-3 mr-1 inline" />
+                      JSON
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Input Form - JSONForms or JSON editor */}
               <div>
                 <label className="block text-sm font-medium mb-2">
-                  Input Data (JSON)
+                  Input Data
                 </label>
-                <textarea
-                  value={JSON.stringify(inputData, null, 2)}
-                  onChange={(e) => {
-                    try {
-                      setInputData(JSON.parse(e.target.value || '{}'));
-                    } catch (err) {
-                      // Invalid JSON, ignore
-                    }
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm"
-                  rows={6}
-                  placeholder="{}"
-                />
+                {useFormRenderer && Object.keys(formSchema).length > 0 ? (
+                  <div className="border border-gray-300 rounded-lg p-4 bg-white">
+                    <Form
+                      schema={formSchema}
+                      uiSchema={uiSchema}
+                      data={inputData}
+                      onChange={(formData) => setInputData(formData.data)}
+                    />
+                  </div>
+                ) : (
+                  <textarea
+                    value={JSON.stringify(inputData, null, 2)}
+                    onChange={(e) => {
+                      try {
+                        setInputData(JSON.parse(e.target.value || '{}'));
+                      } catch (err) {
+                        // Invalid JSON, ignore
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm"
+                    rows={6}
+                    placeholder="{}"
+                  />
+                )}
               </div>
 
               {/* Execute Button */}
@@ -363,7 +455,7 @@ export default function UserActionTester(props) {
               {actionOptions && (
                 <div className="text-xs text-gray-600 bg-gray-50 rounded p-2">
                   <div className="font-medium mb-1">Available Options:</div>
-                  <pre className="overflow-auto">
+                  <pre className="overflow-auto max-h-32">
                     {JSON.stringify(actionOptions, null, 2)}
                   </pre>
                 </div>
@@ -410,6 +502,16 @@ export default function UserActionTester(props) {
                 }`}
               >
                 Table
+              </button>
+              <button
+                onClick={() => setDisplayMode('form')}
+                className={`px-3 py-1 text-xs rounded transition-colors ${
+                  displayMode === 'form'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Form
               </button>
             </div>
           </div>

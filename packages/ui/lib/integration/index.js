@@ -17,6 +17,12 @@ export { default as IntegrationList } from './IntegrationList';
 export { default as RedirectFromAuth } from './RedirectFromAuth';
 export { UserActionModal } from './modals';
 
+// Export testing components
+export { default as UserActionTester } from './UserActionTester';
+export { default as SystemActionsTester } from './SystemActionsTester';
+export { default as TestingDashboard } from './TestingDashboard';
+export { default as TestingDemo } from './TestingDemo';
+
 // Export presentation components
 export { EntityCard } from './presentation/components/EntityCard';
 export { EntityConnectionModal } from './presentation/components/EntityConnectionModal';

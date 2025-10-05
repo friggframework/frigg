@@ -347,4 +347,53 @@ export default class API {
   async refreshOptions({ endpoint, data }) {
     return this._post(endpoint, data);
   }
+
+  // =========================================================================
+  // SYSTEM ACTIONS ENDPOINTS (DEV MODE)
+  // =========================================================================
+
+  // Get available system actions for an integration
+  async getSystemActions(integrationId) {
+    return this._get(`/api/integrations/${integrationId}/system-actions`);
+  }
+
+  // Execute a system action (webhook, polling, queue worker, etc.)
+  async executeSystemAction(integrationId, actionType, config) {
+    return this._post(`/api/integrations/${integrationId}/system-actions/${actionType}`, config);
+  }
+
+  // Trigger a webhook event
+  async triggerWebhook(integrationId, webhookConfig) {
+    return this._post(`/api/integrations/${integrationId}/webhooks/trigger`, webhookConfig);
+  }
+
+  // Start/stop polling for an integration
+  async togglePolling(integrationId, enabled, config = {}) {
+    return this._post(`/api/integrations/${integrationId}/polling`, {
+      enabled,
+      config
+    });
+  }
+
+  // Execute a queue worker job
+  async executeQueueWorker(integrationId, jobConfig) {
+    return this._post(`/api/integrations/${integrationId}/queue-worker`, jobConfig);
+  }
+
+  // Trigger a lifecycle event
+  async triggerLifecycleEvent(integrationId, event, data = {}) {
+    return this._post(`/api/integrations/${integrationId}/lifecycle-events`, {
+      event,
+      data
+    });
+  }
+
+  // Get system action logs
+  async getSystemActionLogs(integrationId, actionType = null, limit = 100) {
+    let url = `/api/integrations/${integrationId}/system-actions/logs?limit=${limit}`;
+    if (actionType) {
+      url += `&actionType=${actionType}`;
+    }
+    return this._get(url);
+  }
 }
