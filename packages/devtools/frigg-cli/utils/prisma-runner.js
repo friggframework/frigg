@@ -16,23 +16,25 @@ const chalk = require('chalk');
  * @throws {Error} If schema file doesn't exist
  */
 function getPrismaSchemaPath(dbType, projectRoot = process.cwd()) {
-    const schemaPath = path.join(
-        projectRoot,
-        'node_modules',
-        '@friggframework',
-        'core',
-        `prisma-${dbType}`,
-        'schema.prisma'
-    );
+    // Try multiple locations for the schema file
+    // 1. Local node_modules (standard install)
+    // 2. Parent node_modules (workspace/monorepo setup)
+    const possiblePaths = [
+        path.join(projectRoot, 'node_modules', '@friggframework', 'core', `prisma-${dbType}`, 'schema.prisma'),
+        path.join(projectRoot, '..', 'node_modules', '@friggframework', 'core', `prisma-${dbType}`, 'schema.prisma')
+    ];
 
-    if (!fs.existsSync(schemaPath)) {
-        throw new Error(
-            `Prisma schema not found at ${schemaPath}. ` +
-            'Ensure @friggframework/core is installed.'
-        );
+    for (const schemaPath of possiblePaths) {
+        if (fs.existsSync(schemaPath)) {
+            return schemaPath;
+        }
     }
 
-    return schemaPath;
+    // If not found in any location, throw error
+    throw new Error(
+        `Prisma schema not found at:\n${possiblePaths.join('\n')}\n\n` +
+        'Ensure @friggframework/core is installed.'
+    );
 }
 
 /**

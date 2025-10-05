@@ -1,14 +1,14 @@
-// Frigg Framework - Prisma Schema (PostgreSQL)
-// PostgreSQL database schema for enterprise integration platform
-// Converted from MongoDB schema for relational database support
+// Frigg Framework - Prisma Schema
+// MongoDB database schema for enterprise integration platform
+// Migration from Mongoose ODM to Prisma ORM
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../node_modules/@prisma-postgres/client"
+  output   = "../node_modules/@prisma-mongodb/client"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
@@ -19,7 +19,7 @@ datasource db {
 /// User model with discriminator pattern support
 /// Replaces Mongoose discriminators (IndividualUser, OrganizationUser)
 model User {
-  id    Int      @id @default(autoincrement())
+  id    String   @id @default(auto()) @map("_id") @db.ObjectId
   type  UserType
 
   // Timestamps
@@ -31,7 +31,7 @@ model User {
   username       String?
   hashword       String? // Bcrypt hashed password (handled in application layer)
   appUserId      String?
-  organizationId Int?
+  organizationId String? @db.ObjectId
 
   // Self-referential relation for organization membership
   organization User?  @relation("OrgMembers", fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -52,6 +52,7 @@ model User {
   @@unique([appOrgId])
   @@index([type])
   @@index([appUserId])
+  @@map("User")
 }
 
 enum UserType {
@@ -66,15 +67,16 @@ enum UserType {
 /// Authentication tokens with expiration
 /// Bcrypt hashed tokens stored (handled in application layer)
 model Token {
-  id      Int       @id @default(autoincrement())
+  id      String    @id @default(auto()) @map("_id") @db.ObjectId
   token   String // Bcrypt hashed
   created DateTime  @default(now())
   expires DateTime?
-  userId  Int
+  userId  String    @db.ObjectId
   user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expires])
+  @@map("Token")
 }
 
 // ============================================================================
@@ -84,8 +86,8 @@ model Token {
 /// OAuth credentials and API tokens
 /// All sensitive data encrypted with KMS at rest
 model Credential {
-  id         Int      @id @default(autoincrement())
-  userId     Int?
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String?  @db.ObjectId
   user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   subType    String?
   authIsValid Boolean?
@@ -103,15 +105,16 @@ model Credential {
 
   @@index([userId])
   @@index([externalId])
+  @@map("Credential")
 }
 
 /// External service entities (API connections)
 model Entity {
-  id           Int         @id @default(autoincrement())
-  credentialId Int?
+  id           String      @id @default(auto()) @map("_id") @db.ObjectId
+  credentialId String?     @db.ObjectId
   credential   Credential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
   subType      String?
-  userId       Int?
+  userId       String?     @db.ObjectId
   user         User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
   name         String?
   moduleName   String?
@@ -120,9 +123,12 @@ model Entity {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations - many-to-many with implicit join tables
-  integrations Integration[]
-  syncs        Sync[]
+  // Relations - many-to-many with scalar lists
+  integrations    Integration[] @relation("IntegrationEntities", fields: [integrationIds], references: [id])
+  integrationIds  String[]      @db.ObjectId
+
+  syncs           Sync[]        @relation("SyncEntities", fields: [syncIds], references: [id])
+  syncIds         String[]      @db.ObjectId
 
   dataIdentifiers    DataIdentifier[]
   associationObjects AssociationObject[]
@@ -131,6 +137,7 @@ model Entity {
   @@index([externalId])
   @@index([moduleName])
   @@index([credentialId])
+  @@map("Entity")
 }
 
 // ============================================================================
@@ -139,8 +146,8 @@ model Entity {
 
 /// Main integration configuration and state
 model Integration {
-  id     Int               @id @default(autoincrement())
-  userId Int?
+  id     String            @id @default(auto()) @map("_id") @db.ObjectId
+  userId String?           @db.ObjectId
   user   User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
   status IntegrationStatus @default(ENABLED)
 
@@ -148,8 +155,9 @@ model Integration {
   config  Json?   // Integration configuration object
   version String?
 
-  // Entity references (many-to-many via implicit join table)
-  entities Entity[]
+  // Entity references (many-to-many via explicit scalar list)
+  entities  Entity[] @relation("IntegrationEntities", fields: [entityIds], references: [id])
+  entityIds String[] @db.ObjectId
 
   // Entity reference map (Map<String, String> stored as JSON)
   entityReferenceMap Json? @default("{}")
@@ -170,6 +178,7 @@ model Integration {
 
   @@index([userId])
   @@index([status])
+  @@map("Integration")
 }
 
 enum IntegrationStatus {
@@ -183,8 +192,8 @@ enum IntegrationStatus {
 /// Integration-specific data mappings
 /// All mapping data encrypted with KMS
 model IntegrationMapping {
-  id            Int         @id @default(autoincrement())
-  integrationId Int
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  integrationId String      @db.ObjectId
   integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
   sourceId      String?
 
@@ -197,6 +206,7 @@ model IntegrationMapping {
   @@unique([integrationId, sourceId])
   @@index([integrationId])
   @@index([sourceId])
+  @@map("IntegrationMapping")
 }
 
 // ============================================================================
@@ -205,12 +215,13 @@ model IntegrationMapping {
 
 /// Bidirectional data synchronization tracking
 model Sync {
-  id            Int          @id @default(autoincrement())
-  integrationId Int?
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  integrationId String?      @db.ObjectId
   integration   Integration? @relation(fields: [integrationId], references: [id], onDelete: Cascade)
 
-  // Entity references (many-to-many via implicit join table)
-  entities Entity[]
+  // Entity references (many-to-many via explicit scalar list)
+  entities  Entity[] @relation("SyncEntities", fields: [entityIds], references: [id])
+  entityIds String[] @db.ObjectId
 
   hash String
   name String
@@ -221,15 +232,16 @@ model Sync {
   @@index([integrationId])
   @@index([hash])
   @@index([name])
+  @@map("Sync")
 }
 
 /// Data identifier for sync operations
 /// Replaces nested array structure in Mongoose
 model DataIdentifier {
-  id       Int     @id @default(autoincrement())
-  syncId   Int?
+  id       String  @id @default(auto()) @map("_id") @db.ObjectId
+  syncId   String? @db.ObjectId
   sync     Sync?   @relation(fields: [syncId], references: [id], onDelete: Cascade)
-  entityId Int
+  entityId String  @db.ObjectId
   entity   Entity  @relation(fields: [entityId], references: [id], onDelete: Cascade)
 
   // Identifier data (can be any structure)
@@ -240,6 +252,7 @@ model DataIdentifier {
   @@index([syncId])
   @@index([entityId])
   @@index([hash])
+  @@map("DataIdentifier")
 }
 
 // ============================================================================
@@ -248,8 +261,8 @@ model DataIdentifier {
 
 /// Entity associations with cardinality tracking
 model Association {
-  id            Int             @id @default(autoincrement())
-  integrationId Int
+  id            String          @id @default(auto()) @map("_id") @db.ObjectId
+  integrationId String          @db.ObjectId
   integration   Integration     @relation(fields: [integrationId], references: [id], onDelete: Cascade)
   name          String
   type          AssociationType
@@ -260,22 +273,24 @@ model Association {
 
   @@index([integrationId])
   @@index([name])
+  @@map("Association")
 }
 
 /// Association object entry
 /// Replaces nested array structure in Mongoose
 model AssociationObject {
-  id            Int         @id @default(autoincrement())
-  associationId Int
-  association   Association @relation(fields: [associationId], references: [id], onDelete: Cascade)
-  entityId      Int
-  entity        Entity      @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  associationId String       @db.ObjectId
+  association   Association  @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  entityId      String       @db.ObjectId
+  entity        Entity       @relation(fields: [entityId], references: [id], onDelete: Cascade)
   objectType    String
   objId         String
   metadata      Json? // Optional metadata
 
   @@index([associationId])
   @@index([entityId])
+  @@map("AssociationObject")
 }
 
 enum AssociationType {
@@ -290,14 +305,17 @@ enum AssociationType {
 
 /// Generic state storage
 model State {
-  id    Int  @id @default(autoincrement())
+  id    String @id @default(auto()) @map("_id") @db.ObjectId
   state Json?
+
+  @@map("State")
 }
 
 /// AWS API Gateway WebSocket connection tracking
 model WebsocketConnection {
-  id           Int     @id @default(autoincrement())
+  id           String  @id @default(auto()) @map("_id") @db.ObjectId
   connectionId String?
 
   @@index([connectionId])
+  @@map("WebsocketConnection")
 }

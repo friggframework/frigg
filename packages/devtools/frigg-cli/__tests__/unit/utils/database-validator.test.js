@@ -308,7 +308,7 @@ describe('Database Validator Utility', () => {
             const result = checkPrismaClientGenerated('mongodb', '/nonexistent/path');
 
             expect(result.generated).toBe(false);
-            expect(result.error).toContain('@prisma-mongo/client');
+            expect(result.error).toContain('@prisma-mongodb/client');
         });
 
         it('should use correct package name for PostgreSQL', () => {
@@ -316,7 +316,7 @@ describe('Database Validator Utility', () => {
             const result = checkPrismaClientGenerated('postgresql', '/nonexistent/path');
 
             expect(result.generated).toBe(false);
-            expect(result.error).toContain('@prisma-postgres/client');
+            expect(result.error).toContain('@prisma-postgresql/client');
         });
 
         it('should return error when MongoDB client not found', () => {
@@ -325,7 +325,7 @@ describe('Database Validator Utility', () => {
             expect(result.generated).toBe(false);
             expect(result.error).toBeDefined();
             expect(result.error).toContain('not found');
-            expect(result.error).toContain('@prisma-mongo/client');
+            expect(result.error).toContain('@prisma-mongodb/client');
             expect(result.error).toContain('frigg db:setup');
         });
 
@@ -335,7 +335,7 @@ describe('Database Validator Utility', () => {
             expect(result.generated).toBe(false);
             expect(result.error).toBeDefined();
             expect(result.error).toContain('not found');
-            expect(result.error).toContain('@prisma-postgres/client');
+            expect(result.error).toContain('@prisma-postgresql/client');
             expect(result.error).toContain('frigg db:setup');
         });
 

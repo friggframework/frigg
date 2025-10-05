@@ -184,13 +184,13 @@ describe('Error Messages Utility', () => {
         it('should include correct client package name for MongoDB', () => {
             const message = getPrismaClientNotGeneratedError('mongodb');
 
-            expect(message).toContain('@prisma-mongo/client');
+            expect(message).toContain('@prisma-mongodb/client');
         });
 
         it('should include correct client package name for PostgreSQL', () => {
             const message = getPrismaClientNotGeneratedError('postgresql');
 
-            expect(message).toContain('@prisma-postgres/client');
+            expect(message).toContain('@prisma-postgresql/client');
         });
 
         it('should suggest running frigg db:setup', () => {

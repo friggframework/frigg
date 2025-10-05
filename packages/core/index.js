@@ -28,7 +28,12 @@ const {
     TokenRepository,
     WebsocketConnectionRepository,
 } = require('./database/index');
-const { UserRepository } = require('./user/repositories/user-repository');
+const {
+    createUserRepository,
+    UserRepositoryMongo,
+    UserRepositoryPostgres,
+} = require('./user/repositories/user-repository-factory');
+
 const {
     CredentialRepository,
 } = require('./credential/repositories/credential-repository');
@@ -103,7 +108,9 @@ module.exports = {
     prisma,
     TokenRepository,
     WebsocketConnectionRepository,
-    UserRepository,
+    createUserRepository,
+    UserRepositoryMongo,
+    UserRepositoryPostgres,
     CredentialRepository,
     ModuleRepository,
     IntegrationMappingRepository,

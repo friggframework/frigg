@@ -161,7 +161,7 @@ ${chalk.gray('5.')} Verify network/firewall settings
  * @returns {string} Formatted error message
  */
 function getPrismaClientNotGeneratedError(dbType) {
-    const clientName = dbType === 'mongodb' ? '@prisma-mongo/client' : '@prisma-postgres/client';
+    const clientName = `@prisma-${dbType}/client`;
 
     return `
 ${chalk.red(`❌ Prisma client not generated for ${dbType}`)}

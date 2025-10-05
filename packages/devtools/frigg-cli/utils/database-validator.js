@@ -111,7 +111,7 @@ async function testDatabaseConnection(databaseUrl, dbType, timeout = 5000) {
  * @returns {Object} { generated: boolean, path?: string, error?: string }
  */
 function checkPrismaClientGenerated(dbType, projectRoot = process.cwd()) {
-    const clientPackageName = dbType === 'mongodb' ? '@prisma-mongo/client' : '@prisma-postgres/client';
+    const clientPackageName = `@prisma-${dbType}/client`;
 
     try {
         // Use require.resolve to locate the client package

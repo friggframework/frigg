@@ -77,9 +77,9 @@ const prismaClientSingleton = () => {
     let PrismaClient;
 
     if (config.DB_TYPE === 'mongodb') {
-        PrismaClient = require('@prisma-mongo/client').PrismaClient;
+        PrismaClient = require('@prisma-mongodb/client').PrismaClient;
     } else if (config.DB_TYPE === 'postgresql') {
-        PrismaClient = require('@prisma-postgres/client').PrismaClient;
+        PrismaClient = require('@prisma-postgresql/client').PrismaClient;
     } else {
         throw new Error(
             `Unsupported database type: ${config.DB_TYPE}. Supported values: 'mongodb', 'postgresql'`
