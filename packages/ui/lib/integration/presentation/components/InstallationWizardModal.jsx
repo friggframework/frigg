@@ -5,14 +5,10 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { IntegrationInstallFlow } from '../flows/IntegrationInstallFlow.jsx';
+import IntegrationBuilder from '../../IntegrationBuilder.jsx';
 import { EntityConnectionModal } from './EntityConnectionModal.jsx';
-import { InstallIntegrationUseCase } from '../../application/use-cases/InstallIntegrationUseCase.js';
-import { SelectEntitiesUseCase } from '../../application/use-cases/SelectEntitiesUseCase.js';
 import { ConnectEntityUseCase } from '../../application/use-cases/ConnectEntityUseCase.js';
-import { IntegrationService } from '../../application/services/IntegrationService.js';
 import { EntityService } from '../../application/services/EntityService.js';
-import { IntegrationRepositoryAdapter } from '../../infrastructure/adapters/IntegrationRepositoryAdapter.js';
 import { EntityRepositoryAdapter } from '../../infrastructure/adapters/EntityRepositoryAdapter.js';
 import API from '../../../api/api.js';
 import { X } from 'lucide-react';
@@ -31,22 +27,16 @@ export const InstallationWizardModal = ({
     const [showEntityConnection, setShowEntityConnection] = useState(false);
     const [pendingEntityType, setPendingEntityType] = useState(null);
 
-    // Initialize services and use cases
-    const { installUseCase, selectUseCase, connectUseCase } = useMemo(() => {
+    // Initialize entity connection services
+    const { connectUseCase } = useMemo(() => {
         const api = new API(friggBaseUrl, authToken);
-
-        const integrationRepo = new IntegrationRepositoryAdapter(api, cachedIntegrationOptions);
         const entityRepo = new EntityRepositoryAdapter(api, cachedEntities);
-
-        const integrationService = new IntegrationService(integrationRepo);
         const entityService = new EntityService(entityRepo);
 
         return {
-            installUseCase: new InstallIntegrationUseCase(integrationService, entityService),
-            selectUseCase: new SelectEntitiesUseCase(integrationService, entityService),
             connectUseCase: new ConnectEntityUseCase(entityService)
         };
-    }, [friggBaseUrl, authToken, cachedIntegrationOptions, cachedEntities]);
+    }, [friggBaseUrl, authToken, cachedEntities]);
 
     const handleCreateEntity = (entityType, forIntegrationType) => {
         setPendingEntityType(entityType);
@@ -56,7 +46,7 @@ export const InstallationWizardModal = ({
     const handleEntityConnected = async (entity) => {
         setShowEntityConnection(false);
         setPendingEntityType(null);
-        // The entity selection flow will automatically refresh and show the new entity
+        // The integration builder will handle refreshing the entity list
     };
 
     const handleCancelEntityConnection = () => {
@@ -107,14 +97,13 @@ export const InstallationWizardModal = ({
                             onCancel={handleCancelEntityConnection}
                         />
                     ) : (
-                        <IntegrationInstallFlow
-                            integrationType={integrationType}
-                            installIntegrationUseCase={installUseCase}
-                            selectEntitiesUseCase={selectUseCase}
-                            connectEntityUseCase={connectUseCase}
-                            onComplete={handleInstallComplete}
+                        <IntegrationBuilder
+                            preselectedIntegrationType={integrationType}
+                            onIntegrationCreated={handleInstallComplete}
                             onCancel={onClose}
                             onCreateEntity={handleCreateEntity}
+                            baseUrl={friggBaseUrl}
+                            authToken={authToken}
                         />
                     )}
                 </div>

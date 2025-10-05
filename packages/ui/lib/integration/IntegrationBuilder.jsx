@@ -18,6 +18,7 @@ import AuthModal from "./AuthModal.jsx";
  * @param {object} props.preselectedIntegrationType - Integration type to pre-select when starting from gallery (optional)
  * @param {function} props.onIntegrationCreated - Callback when integration is created
  * @param {function} props.onCancel - Navigate back to entity manager
+ * @param {function} props.onCreateEntity - Callback when entity creation is needed (optional)
  * @returns {JSX.Element} The rendered component
  */
 export default function IntegrationBuilder(props) {
@@ -49,7 +50,7 @@ export default function IntegrationBuilder(props) {
   const [authRequirements, setAuthRequirements] = useState(null);
   const [connectingEntityType, setConnectingEntityType] = useState(null);
 
-  const api = new API(baseUrl, authToken);
+  const api = new API(effectiveBaseUrl, effectiveAuthToken);
 
   // Calculate total steps dynamically based on integration requirements
   const getTotalSteps = () => {
