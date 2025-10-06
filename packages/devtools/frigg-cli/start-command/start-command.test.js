@@ -15,7 +15,6 @@
 const mockValidator = {
     validateDatabaseUrl: jest.fn(),
     getDatabaseType: jest.fn(),
-    testDatabaseConnection: jest.fn(),
     checkPrismaClientGenerated: jest.fn()
 };
 
@@ -55,7 +54,6 @@ describe('startCommand', () => {
         const defaultValidator = createMockDatabaseValidator();
         mockValidator.validateDatabaseUrl.mockReturnValue(defaultValidator.validateDatabaseUrl());
         mockValidator.getDatabaseType.mockReturnValue(defaultValidator.getDatabaseType());
-        mockValidator.testDatabaseConnection.mockResolvedValue(defaultValidator.testDatabaseConnection());
         mockValidator.checkPrismaClientGenerated.mockReturnValue(defaultValidator.checkPrismaClientGenerated());
 
         // Mock dotenv
@@ -213,7 +211,6 @@ describe('startCommand', () => {
 
             expect(mockValidator.validateDatabaseUrl).toHaveBeenCalled();
             expect(mockValidator.getDatabaseType).toHaveBeenCalled();
-            expect(mockValidator.testDatabaseConnection).toHaveBeenCalled();
             expect(mockValidator.checkPrismaClientGenerated).toHaveBeenCalled();
             expect(mockProcessExit).not.toHaveBeenCalled();
             expect(spawn).toHaveBeenCalled();
@@ -235,19 +232,6 @@ describe('startCommand', () => {
         it('should fail when database type not configured', async () => {
             mockValidator.getDatabaseType.mockReturnValue({
                 error: 'Database not configured'
-            });
-
-            await expect(startCommand({})).rejects.toThrow('process.exit called');
-
-            expect(mockConsoleError).toHaveBeenCalled();
-            expect(mockProcessExit).toHaveBeenCalledWith(1);
-            expect(spawn).not.toHaveBeenCalled();
-        });
-
-        it('should fail when database connection fails', async () => {
-            mockValidator.testDatabaseConnection.mockResolvedValue({
-                connected: false,
-                error: 'Connection failed'
             });
 
             await expect(startCommand({})).rejects.toThrow('process.exit called');

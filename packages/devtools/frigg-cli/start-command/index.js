@@ -5,13 +5,11 @@ const chalk = require('chalk');
 const {
     validateDatabaseUrl,
     getDatabaseType,
-    testDatabaseConnection,
     checkPrismaClientGenerated
 } = require('../utils/database-validator');
 const {
     getDatabaseUrlMissingError,
     getDatabaseTypeNotConfiguredError,
-    getDatabaseConnectionError,
     getPrismaClientNotGeneratedError
 } = require('../utils/error-messages');
 
@@ -142,21 +140,10 @@ async function performDatabaseChecks(verbose) {
         console.log(chalk.green('✓ Prisma client generated'));
     }
 
-    // Check 4: Test database connection (only after confirming client exists)
-    if (verbose) {
-        console.log(chalk.gray('Testing database connection...'));
-    }
-
-    const connectionTest = await testDatabaseConnection(urlValidation.url, dbType, 5000);
-
-    if (!connectionTest.connected) {
-        console.error(getDatabaseConnectionError(connectionTest.error, dbType));
-        throw new Error('Database connection failed');
-    }
-
-    if (verbose) {
-        console.log(chalk.green('✓ Database connection verified'));
-    }
+    // Note: We skip connection testing in the start command because when using frigg:local,
+    // the CLI code runs from tmp/frigg but the client is in backend/node_modules,
+    // causing module resolution mismatches. The backend will test its own database
+    // connection when it starts.
 }
 
 module.exports = { startCommand };

@@ -28,6 +28,53 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
     }
 
     /**
+     * Fetch credential by ID separately to ensure encryption extension processes it
+     * This fixes the bug where credentials fetched via include bypass decryption
+     * @private
+     * @param {string|null|undefined} credentialId - Credential ID
+     * @returns {Promise<Object|null>} Decrypted credential or null
+     */
+    async _fetchCredential(credentialId) {
+        if (!credentialId) return null;
+
+        const credential = await this.prisma.credential.findUnique({
+            where: { id: credentialId },
+        });
+
+        return credential;
+    }
+
+    /**
+     * Fetch multiple credentials in bulk separately to ensure decryption
+     * More efficient than fetching one-by-one for arrays of entities
+     * @private
+     * @param {Array<string>} credentialIds - Array of credential IDs
+     * @returns {Promise<Map<string, Object>>} Map of credentialId -> credential object
+     */
+    async _fetchCredentialsBulk(credentialIds) {
+        if (!credentialIds || credentialIds.length === 0) {
+            return new Map();
+        }
+
+        const validIds = credentialIds.filter(id => id !== null && id !== undefined);
+
+        if (validIds.length === 0) {
+            return new Map();
+        }
+
+        const credentials = await this.prisma.credential.findMany({
+            where: { id: { in: validIds } },
+        });
+
+        const credentialMap = new Map();
+        for (const credential of credentials) {
+            credentialMap.set(credential.id, credential);
+        }
+
+        return credentialMap;
+    }
+
+    /**
      * Find entity by ID with credential
      * Replaces: Entity.findById(entityId).populate('credential')
      *
@@ -38,17 +85,18 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
     async findEntityById(entityId) {
         const entity = await this.prisma.entity.findUnique({
             where: { id: entityId },
-            include: { credential: true },
         });
 
         if (!entity) {
             throw new Error(`Entity ${entityId} not found`);
         }
 
+        const credential = await this._fetchCredential(entity.credentialId);
+
         return {
             id: entity.id,
             accountId: entity.accountId,
-            credential: entity.credential,
+            credential,
             userId: entity.userId,
             name: entity.name,
             externalId: entity.externalId,
@@ -67,13 +115,15 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
     async findEntitiesByUserId(userId) {
         const entities = await this.prisma.entity.findMany({
             where: { userId },
-            include: { credential: true },
         });
+
+        const credentialIds = entities.map(e => e.credentialId).filter(Boolean);
+        const credentialMap = await this._fetchCredentialsBulk(credentialIds);
 
         return entities.map((e) => ({
             id: e.id,
             accountId: e.accountId,
-            credential: e.credential,
+            credential: credentialMap.get(e.credentialId) || null,
             userId: e.userId,
             name: e.name,
             externalId: e.externalId,
@@ -92,13 +142,15 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
     async findEntitiesByIds(entitiesIds) {
         const entities = await this.prisma.entity.findMany({
             where: { id: { in: entitiesIds } },
-            include: { credential: true },
         });
+
+        const credentialIds = entities.map(e => e.credentialId).filter(Boolean);
+        const credentialMap = await this._fetchCredentialsBulk(credentialIds);
 
         return entities.map((e) => ({
             id: e.id,
             accountId: e.accountId,
-            credential: e.credential,
+            credential: credentialMap.get(e.credentialId) || null,
             userId: e.userId,
             name: e.name,
             externalId: e.externalId,
@@ -121,13 +173,15 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
                 userId,
                 moduleName,
             },
-            include: { credential: true },
         });
+
+        const credentialIds = entities.map(e => e.credentialId).filter(Boolean);
+        const credentialMap = await this._fetchCredentialsBulk(credentialIds);
 
         return entities.map((e) => ({
             id: e.id,
             accountId: e.accountId,
-            credential: e.credential,
+            credential: credentialMap.get(e.credentialId) || null,
             userId: e.userId,
             name: e.name,
             externalId: e.externalId,
@@ -163,17 +217,18 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
         const where = this._convertFilterToWhere(filter);
         const entity = await this.prisma.entity.findFirst({
             where,
-            include: { credential: true },
         });
 
         if (!entity) {
             return null;
         }
 
+        const credential = await this._fetchCredential(entity.credentialId);
+
         return {
             id: entity.id,
             accountId: entity.accountId,
-            credential: entity.credential,
+            credential,
             userId: entity.userId,
             name: entity.name,
             externalId: entity.externalId,
@@ -190,7 +245,6 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
      * @returns {Promise<Object>} Created entity object with string IDs
      */
     async createEntity(entityData) {
-        // Convert Mongoose-style fields to Prisma
         const data = {
             userId: entityData.user || entityData.userId,
             credentialId: entityData.credential || entityData.credentialId,
@@ -203,13 +257,14 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
 
         const entity = await this.prisma.entity.create({
             data,
-            include: { credential: true },
         });
+
+        const credential = await this._fetchCredential(entity.credentialId);
 
         return {
             id: entity.id,
             accountId: entity.accountId,
-            credential: entity.credential,
+            credential,
             userId: entity.userId,
             name: entity.name,
             externalId: entity.externalId,
@@ -227,7 +282,6 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
      * @returns {Promise<Object|null>} Updated entity object with string IDs or null if not found
      */
     async updateEntity(entityId, updates) {
-        // Convert Mongoose-style fields to Prisma
         const data = {};
         if (updates.user !== undefined) data.userId = updates.user;
         if (updates.userId !== undefined) data.userId = updates.userId;
@@ -248,13 +302,14 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
             const entity = await this.prisma.entity.update({
                 where: { id: entityId },
                 data,
-                include: { credential: true },
             });
+
+            const credential = await this._fetchCredential(entity.credentialId);
 
             return {
                 id: entity.id,
                 accountId: entity.accountId,
-                credential: entity.credential,
+                credential,
                 userId: entity.userId,
                 name: entity.name,
                 externalId: entity.externalId,
@@ -263,7 +318,6 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
             };
         } catch (error) {
             if (error.code === 'P2025') {
-                // Record not found
                 return null;
             }
             throw error;

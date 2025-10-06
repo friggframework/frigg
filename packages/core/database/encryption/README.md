@@ -314,6 +314,89 @@ Example: "base64KeyId:iv:ciphertext:base64EncryptedDataKey"
 - Enables key rotation without re-encrypting all data
 - Better performance at scale
 
+### Known Limitations
+
+#### Prisma Relations with `include` Bypass Decryption
+
+**⚠️ Critical**: When using Prisma's `include` option to fetch related models, the encryption extension **cannot decrypt** nested relation data.
+
+**Problem:**
+
+```javascript
+// ❌ WRONG: Credential will NOT be decrypted
+const entity = await prisma.entity.findUnique({
+    where: { id: entityId },
+    include: { credential: true }  // Nested credential stays encrypted!
+});
+
+// entity.credential.data.access_token will be encrypted:
+// "keyId:iv:ciphertext:encKey" instead of plain text
+```
+
+**Root Cause:**
+
+The Prisma encryption extension hooks into top-level model queries via `$allModels`. When you use `include`, Prisma internally fetches the nested relation, but the extension only sees the parent model name (`Entity`), not the nested model (`Credential`). Therefore, the `Credential` data bypasses the decryption logic.
+
+**Solution:**
+
+Always fetch relations with **separate queries**:
+
+```javascript
+// ✅ CORRECT: Fetch entity and credential separately
+const entity = await prisma.entity.findUnique({
+    where: { id: entityId }
+});
+
+// Separate query ensures decryption
+const credential = await prisma.credential.findUnique({
+    where: { id: entity.credentialId }
+});
+
+// Combine in application layer
+return {
+    ...entity,
+    credential  // Now properly decrypted
+};
+```
+
+**Best Practice (Bulk Operations):**
+
+For fetching multiple entities with credentials, use bulk fetching to avoid N+1 queries:
+
+```javascript
+// Fetch all entities
+const entities = await prisma.entity.findMany({
+    where: { userId }
+});
+
+// Bulk fetch credentials (single query)
+const credentialIds = entities.map(e => e.credentialId).filter(Boolean);
+const credentials = await prisma.credential.findMany({
+    where: { id: { in: credentialIds } }
+});
+
+// Create lookup map
+const credentialMap = new Map(
+    credentials.map(c => [c.id, c])
+);
+
+// Combine in application layer
+return entities.map(e => ({
+    ...e,
+    credential: credentialMap.get(e.credentialId) || null
+}));
+```
+
+**Verified:**
+
+- ✅ `postgres-relation-decryption.test.js` - Proves the bug exists
+- ✅ `postgres-decryption-fix-verification.test.js` - Verifies separate queries work
+- ✅ `mongo-decryption-fix-verification.test.js` - Verifies fix for MongoDB
+
+**Implementation Examples:**
+
+See `modules/repositories/module-repository-postgres.js` and `module-repository-mongo.js` for complete implementation examples using `_fetchCredential()` and `_fetchCredentialsBulk()` helper methods.
+
 ## Usage Examples
 
 ### Repository Code (No Changes Needed!)

@@ -59,6 +59,56 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
     }
 
     /**
+     * Fetch credential by ID separately to ensure encryption extension processes it
+     * This fixes the bug where credentials fetched via include bypass decryption
+     * @private
+     * @param {number|null|undefined} credentialId - Credential ID (integer for PostgreSQL)
+     * @returns {Promise<Object|null>} Decrypted credential with string IDs or null
+     */
+    async _fetchCredential(credentialId) {
+        if (!credentialId) return null;
+
+        const credential = await this.prisma.credential.findUnique({
+            where: { id: credentialId },
+        });
+
+        return this._convertCredentialIds(credential);
+    }
+
+    /**
+     * Fetch multiple credentials in bulk separately to ensure decryption
+     * More efficient than fetching one-by-one for arrays of entities
+     * @private
+     * @param {Array<number>} credentialIds - Array of credential IDs (integers for PostgreSQL)
+     * @returns {Promise<Map<number, Object>>} Map of credentialId -> credential object
+     */
+    async _fetchCredentialsBulk(credentialIds) {
+        if (!credentialIds || credentialIds.length === 0) {
+            return new Map();
+        }
+
+        const validIds = credentialIds.filter(id => id !== null && id !== undefined);
+
+        if (validIds.length === 0) {
+            return new Map();
+        }
+
+        const credentials = await this.prisma.credential.findMany({
+            where: { id: { in: validIds } },
+        });
+
+        const credentialMap = new Map();
+        for (const credential of credentials) {
+            credentialMap.set(
+                credential.id,
+                this._convertCredentialIds(credential)
+            );
+        }
+
+        return credentialMap;
+    }
+
+    /**
      * Find entity by ID with credential
      * Replaces: Entity.findById(entityId).populate('credential')
      *
@@ -68,19 +118,21 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
      */
     async findEntityById(entityId) {
         const intId = this._convertId(entityId);
+
         const entity = await this.prisma.entity.findUnique({
             where: { id: intId },
-            include: { credential: true },
         });
 
         if (!entity) {
             throw new Error(`Entity ${entityId} not found`);
         }
 
+        const credential = await this._fetchCredential(entity.credentialId);
+
         return {
             id: entity.id.toString(),
             accountId: entity.accountId,
-            credential: this._convertCredentialIds(entity.credential),
+            credential,
             userId: entity.userId?.toString(),
             name: entity.name,
             externalId: entity.externalId,
@@ -98,15 +150,18 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
      */
     async findEntitiesByUserId(userId) {
         const intUserId = this._convertId(userId);
+
         const entities = await this.prisma.entity.findMany({
             where: { userId: intUserId },
-            include: { credential: true },
         });
+
+        const credentialIds = entities.map(e => e.credentialId).filter(Boolean);
+        const credentialMap = await this._fetchCredentialsBulk(credentialIds);
 
         return entities.map((e) => ({
             id: e.id.toString(),
             accountId: e.accountId,
-            credential: this._convertCredentialIds(e.credential),
+            credential: credentialMap.get(e.credentialId) || null,
             userId: e.userId?.toString(),
             name: e.name,
             externalId: e.externalId,
@@ -124,15 +179,18 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
      */
     async findEntitiesByIds(entitiesIds) {
         const intIds = entitiesIds.map((id) => this._convertId(id));
+
         const entities = await this.prisma.entity.findMany({
             where: { id: { in: intIds } },
-            include: { credential: true },
         });
+
+        const credentialIds = entities.map(e => e.credentialId).filter(Boolean);
+        const credentialMap = await this._fetchCredentialsBulk(credentialIds);
 
         return entities.map((e) => ({
             id: e.id.toString(),
             accountId: e.accountId,
-            credential: this._convertCredentialIds(e.credential),
+            credential: credentialMap.get(e.credentialId) || null,
             userId: e.userId?.toString(),
             name: e.name,
             externalId: e.externalId,
@@ -151,18 +209,21 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
      */
     async findEntitiesByUserIdAndModuleName(userId, moduleName) {
         const intUserId = this._convertId(userId);
+
         const entities = await this.prisma.entity.findMany({
             where: {
                 userId: intUserId,
                 moduleName,
             },
-            include: { credential: true },
         });
+
+        const credentialIds = entities.map(e => e.credentialId).filter(Boolean);
+        const credentialMap = await this._fetchCredentialsBulk(credentialIds);
 
         return entities.map((e) => ({
             id: e.id.toString(),
             accountId: e.accountId,
-            credential: this._convertCredentialIds(e.credential),
+            credential: credentialMap.get(e.credentialId) || null,
             userId: e.userId?.toString(),
             name: e.name,
             externalId: e.externalId,
@@ -196,19 +257,21 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
      */
     async findEntity(filter) {
         const where = this._convertFilterToWhere(filter);
+
         const entity = await this.prisma.entity.findFirst({
             where,
-            include: { credential: true },
         });
 
         if (!entity) {
             return null;
         }
 
+        const credential = await this._fetchCredential(entity.credentialId);
+
         return {
             id: entity.id.toString(),
             accountId: entity.accountId,
-            credential: this._convertCredentialIds(entity.credential),
+            credential,
             userId: entity.userId?.toString(),
             name: entity.name,
             externalId: entity.externalId,
@@ -225,7 +288,6 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
      * @returns {Promise<Object>} Created entity object with string IDs
      */
     async createEntity(entityData) {
-        // Convert Mongoose-style fields to Prisma with ID conversion
         const data = {
             userId: this._convertId(entityData.user || entityData.userId),
             credentialId: this._convertId(
@@ -240,13 +302,14 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
 
         const entity = await this.prisma.entity.create({
             data,
-            include: { credential: true },
         });
+
+        const credential = await this._fetchCredential(entity.credentialId);
 
         return {
             id: entity.id.toString(),
             accountId: entity.accountId,
-            credential: this._convertCredentialIds(entity.credential),
+            credential,
             userId: entity.userId?.toString(),
             name: entity.name,
             externalId: entity.externalId,
@@ -264,7 +327,6 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
      * @returns {Promise<Object|null>} Updated entity object with string IDs or null if not found
      */
     async updateEntity(entityId, updates) {
-        // Convert Mongoose-style fields to Prisma with ID conversion
         const data = {};
         if (updates.user !== undefined)
             data.userId = this._convertId(updates.user);
@@ -285,16 +347,18 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
 
         try {
             const intId = this._convertId(entityId);
+
             const entity = await this.prisma.entity.update({
                 where: { id: intId },
                 data,
-                include: { credential: true },
             });
+
+            const credential = await this._fetchCredential(entity.credentialId);
 
             return {
                 id: entity.id.toString(),
                 accountId: entity.accountId,
-                credential: this._convertCredentialIds(entity.credential),
+                credential,
                 userId: entity.userId?.toString(),
                 name: entity.name,
                 externalId: entity.externalId,
@@ -303,7 +367,6 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             };
         } catch (error) {
             if (error.code === 'P2025') {
-                // Record not found
                 return null;
             }
             throw error;
