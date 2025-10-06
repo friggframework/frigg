@@ -40,7 +40,7 @@ async function startCommand(options) {
     console.log('Starting backend and optional frontend...');
 
     // Suppress AWS SDK warning message about maintenance mode
-    process.env.AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE = 1;
+    process.env.AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE = '1';
     // Skip AWS discovery for local development
     process.env.FRIGG_SKIP_AWS_DISCOVERY = 'true';
     const backendPath = path.resolve(process.cwd());

@@ -1,52 +1,31 @@
 const path = require('path');
 
 /**
- * Generate IAM CloudFormation template based on AppDefinition
- * @param {Object} appDefinition - Application definition object
+ * Generate IAM CloudFormation template
  * @param {Object} options - Generation options
- * @param {string} [options.deploymentUserName='frigg-deployment-user'] - IAM user name
+ * @param {string} [options.appName='Frigg'] - Application name
+ * @param {Object} [options.features={}] - Enabled features { vpc, kms, ssm, websockets }
+ * @param {string} [options.userPrefix='frigg-deployment-user'] - IAM user name prefix
  * @param {string} [options.stackName='frigg-deployment-iam'] - CloudFormation stack name
- * @param {string} [options.mode='auto'] - Policy mode: 'basic', 'full', or 'auto' (auto-detect from appDefinition)
  * @returns {string} CloudFormation YAML template
  */
-function generateIAMCloudFormation(appDefinition, options = {}) {
-    const { deploymentUserName = 'frigg-deployment-user', mode = 'auto' } =
-        options;
+function generateIAMCloudFormation(options = {}) {
+    const {
+        appName = 'Frigg',
+        features = {},
+        userPrefix = 'frigg-deployment-user',
+        stackName = 'frigg-deployment-iam'
+    } = options;
 
-    // Determine which features are enabled based on mode
-    let features;
-    if (mode === 'basic') {
-        features = {
-            vpc: false,
-            kms: false,
-            ssm: false,
-            websockets: appDefinition.websockets?.enable === true,
-        };
-    } else if (mode === 'full') {
-        features = {
-            vpc: true,
-            kms: true,
-            ssm: true,
-            websockets: appDefinition.websockets?.enable === true,
-        };
-    } else {
-        // mode === 'auto'
-        features = {
-            vpc: appDefinition.vpc?.enable === true,
-            kms:
-                appDefinition.encryption
-                    ?.fieldLevelEncryptionMethod === 'kms',
-            ssm: appDefinition.ssm?.enable === true,
-            websockets: appDefinition.websockets?.enable === true,
-        };
-    }
+    const deploymentUserName = userPrefix;
+
+    // Features are already analyzed by caller (use getFeatureSummary to extract features from appDefinition)
+    // Expected features: { vpc, kms, ssm, websockets }
 
     // Build the CloudFormation template
     const template = {
         AWSTemplateFormatVersion: '2010-09-09',
-        Description: `IAM roles and policies for ${
-            appDefinition.name || 'Frigg'
-        } application deployment pipeline`,
+        Description: `IAM roles and policies for ${appName} application deployment pipeline`,
 
         Parameters: {
             DeploymentUserName: {
@@ -829,6 +808,7 @@ function generateIAMPolicy(mode = 'basic') {
 
 module.exports = {
     generateIAMCloudFormation,
+    generateCloudFormationTemplate: generateIAMCloudFormation, // Alias for generate-command/index.js compatibility
     getFeatureSummary,
     generateBasicIAMPolicy,
     generateFullIAMPolicy,

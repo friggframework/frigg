@@ -1,3 +1,16 @@
+// Mock dependencies BEFORE requiring modules
+jest.mock('child_process', () => ({
+    execSync: jest.fn(),
+    spawn: jest.fn()
+}));
+jest.mock('fs', () => ({
+    existsSync: jest.fn(),
+    readFileSync: jest.fn(),
+    writeFileSync: jest.fn()
+}));
+
+const { execSync, spawn } = require('child_process');
+const fs = require('fs');
 const {
     getPrismaSchemaPath,
     runPrismaGenerate,
@@ -6,13 +19,6 @@ const {
     runPrismaDbPush,
     getMigrationCommand
 } = require('../../../utils/prisma-runner');
-
-// Mock dependencies
-jest.mock('child_process');
-jest.mock('fs');
-
-const { execSync, spawn } = require('child_process');
-const fs = require('fs');
 
 describe('Prisma Runner Utility', () => {
     beforeEach(() => {

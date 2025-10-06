@@ -1,483 +1,251 @@
+/**
+ * Test suite for build command
+ *
+ * Tests the serverless package build functionality including:
+ * - Command execution with spawnSync
+ * - Stage option handling
+ * - Verbose flag support
+ * - Environment variable setup
+ * - Error handling and process exit
+ */
+
+// Mock dependencies BEFORE requiring modules
+jest.mock('child_process', () => ({
+  spawnSync: jest.fn()
+}));
+
+// Require after mocks
+const { spawnSync } = require('child_process');
 const { buildCommand } = require('../../../build-command');
-const { CommandTester } = require('../../utils/command-tester');
-const { MockFactory } = require('../../utils/mock-factory');
-const { TestFixtures } = require('../../utils/test-fixtures');
 
 describe('CLI Command: build', () => {
-  let commandTester;
-  let mocks;
-  
+  let consoleLogSpy;
+  let consoleErrorSpy;
+  let processExitSpy;
+  let originalCwd;
+
   beforeEach(() => {
-    mocks = MockFactory.createMockEnvironment();
-    commandTester = new CommandTester({
-      name: 'build',
-      description: 'Build the serverless application',
-      action: buildCommand,
-      options: [
-        { flags: '-s, --stage <stage>', description: 'deployment stage', defaultValue: 'dev' },
-        { flags: '-v, --verbose', description: 'enable verbose output' },
-        { flags: '--app-path <path>', description: 'path to Frigg application directory' },
-        { flags: '--config <path>', description: 'path to Frigg configuration file' },
-        { flags: '--app <path>', description: 'alias for --app-path' }
-      ]
-    });
+    jest.clearAllMocks();
+
+    // Mock console methods
+    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+    // Mock process.exit to prevent actual exit
+    processExitSpy = jest.spyOn(process, 'exit').mockImplementation();
+
+    // Mock successful serverless execution by default
+    spawnSync.mockReturnValue({ status: 0 });
+
+    // Store original cwd for restoration
+    originalCwd = process.cwd();
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
-    commandTester.reset();
+    consoleLogSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+    processExitSpy.mockRestore();
   });
 
   describe('Success Cases', () => {
-    it('should successfully build with default stage', async () => {
-      // Arrange
-      commandTester
-        .mock('@friggframework/core', {
-          findNearestBackendPackageJson: jest.fn().mockReturnValue('/mock/backend/package.json'),
-          validateBackendPath: jest.fn().mockReturnValue(true)
-        })
-        .mock('./build-command/builder', {
-          buildApplication: jest.fn().mockResolvedValue({
-            success: true,
-            artifacts: ['backend.zip', 'frontend.zip'],
-            duration: 30000
-          })
-        })
-        .mock('./build-command/logger', mocks.logger);
+    it('should spawn serverless with default stage', async () => {
+      await buildCommand({ stage: 'dev' });
 
-      // Act
-      const result = await commandTester.execute([]);
-
-      // Assert
-      expect(result.success).toBe(true);
-      expect(result.exitCode).toBe(0);
+      expect(spawnSync).toHaveBeenCalledWith(
+        'serverless',
+        ['package', '--config', 'infrastructure.js', '--stage', 'dev'],
+        expect.objectContaining({
+          cwd: expect.any(String),
+          stdio: 'inherit',
+          shell: true
+        })
+      );
     });
 
-    it('should successfully build with production stage', async () => {
-      // Arrange
-      commandTester
-        .mock('@friggframework/core', {
-          findNearestBackendPackageJson: jest.fn().mockReturnValue('/mock/backend/package.json'),
-          validateBackendPath: jest.fn().mockReturnValue(true)
-        })
-        .mock('./build-command/builder', {
-          buildApplication: jest.fn().mockResolvedValue({
-            success: true,
-            artifacts: ['backend.zip', 'frontend.zip'],
-            duration: 45000
-          })
-        })
-        .mock('./build-command/logger', mocks.logger);
+    it('should spawn serverless with production stage', async () => {
+      await buildCommand({ stage: 'production' });
 
-      // Act
-      const result = await commandTester.execute(['--stage', 'production']);
-
-      // Assert
-      expect(result.success).toBe(true);
-      expect(result.exitCode).toBe(0);
+      expect(spawnSync).toHaveBeenCalledWith(
+        'serverless',
+        expect.arrayContaining(['--stage', 'production']),
+        expect.any(Object)
+      );
     });
 
-    it('should successfully build with verbose output', async () => {
-      // Arrange
-      commandTester
-        .mock('@friggframework/core', {
-          findNearestBackendPackageJson: jest.fn().mockReturnValue('/mock/backend/package.json'),
-          validateBackendPath: jest.fn().mockReturnValue(true)
-        })
-        .mock('./build-command/builder', {
-          buildApplication: jest.fn().mockResolvedValue({
-            success: true,
-            artifacts: ['backend.zip', 'frontend.zip'],
-            duration: 30000,
-            verbose: true
-          })
-        })
-        .mock('./build-command/logger', mocks.logger);
+    it('should spawn serverless with staging stage', async () => {
+      await buildCommand({ stage: 'staging' });
 
-      // Act
-      const result = await commandTester.execute(['--verbose']);
-
-      // Assert
-      expect(result.success).toBe(true);
-      expect(result.exitCode).toBe(0);
+      expect(spawnSync).toHaveBeenCalledWith(
+        'serverless',
+        expect.arrayContaining(['--stage', 'staging']),
+        expect.any(Object)
+      );
     });
 
-    it('should successfully build with custom app path', async () => {
-      // Arrange
-      const customPath = '/custom/app/path';
-      
-      commandTester
-        .mock('@friggframework/core', {
-          findNearestBackendPackageJson: jest.fn().mockReturnValue('/custom/backend/package.json'),
-          validateBackendPath: jest.fn().mockReturnValue(true)
-        })
-        .mock('./build-command/builder', {
-          buildApplication: jest.fn().mockResolvedValue({
-            success: true,
-            artifacts: ['backend.zip', 'frontend.zip'],
-            duration: 30000
-          })
-        })
-        .mock('./build-command/logger', mocks.logger);
+    it('should append verbose flag when verbose option is true', async () => {
+      await buildCommand({ stage: 'dev', verbose: true });
 
-      // Act
-      const result = await commandTester.execute(['--app-path', customPath]);
-
-      // Assert
-      expect(result.success).toBe(true);
-      expect(result.exitCode).toBe(0);
+      expect(spawnSync).toHaveBeenCalledWith(
+        'serverless',
+        expect.arrayContaining(['--verbose']),
+        expect.any(Object)
+      );
     });
 
-    it('should handle backend-only build', async () => {
-      // Arrange
-      commandTester
-        .mock('@friggframework/core', {
-          findNearestBackendPackageJson: jest.fn().mockReturnValue('/mock/backend/package.json'),
-          validateBackendPath: jest.fn().mockReturnValue(true)
-        })
-        .mock('./build-command/builder', {
-          buildApplication: jest.fn().mockResolvedValue({
-            success: true,
-            artifacts: ['backend.zip'],
-            duration: 20000,
-            frontendSkipped: true
-          })
-        })
-        .mock('./build-command/logger', mocks.logger);
+    it('should NOT append verbose flag when verbose option is false', async () => {
+      await buildCommand({ stage: 'dev', verbose: false });
 
-      // Act
-      const result = await commandTester.execute([]);
+      const call = spawnSync.mock.calls[0];
+      const args = call[1];
 
-      // Assert
-      expect(result.success).toBe(true);
-      expect(result.exitCode).toBe(0);
-    });
-  });
-
-  describe('Error Cases', () => {
-    it('should handle invalid app path', async () => {
-      // Arrange
-      commandTester
-        .mock('@friggframework/core', {
-          findNearestBackendPackageJson: jest.fn().mockReturnValue(null),
-          validateBackendPath: jest.fn().mockImplementation(() => {
-            throw new Error('Invalid backend path');
-          })
-        })
-        .mock('./build-command/logger', mocks.logger);
-
-      // Act
-      const result = await commandTester.execute([]);
-
-      // Assert
-      expect(result.success).toBe(false);
-      expect(result.exitCode).toBe(1);
+      expect(args).not.toContain('--verbose');
     });
 
-    it('should handle build failure', async () => {
-      // Arrange
-      commandTester
-        .mock('@friggframework/core', {
-          findNearestBackendPackageJson: jest.fn().mockReturnValue('/mock/backend/package.json'),
-          validateBackendPath: jest.fn().mockReturnValue(true)
-        })
-        .mock('./build-command/builder', {
-          buildApplication: jest.fn().mockRejectedValue(new Error('Build failed: compilation error'))
-        })
-        .mock('./build-command/logger', mocks.logger);
+    it('should use process.cwd() as working directory', async () => {
+      await buildCommand({ stage: 'dev' });
 
-      // Act
-      const result = await commandTester.execute([]);
+      const call = spawnSync.mock.calls[0];
+      const options = call[2];
 
-      // Assert
-      expect(result.success).toBe(false);
-      expect(result.exitCode).toBe(1);
+      // Verify ACTUAL cwd value, not generic check
+      expect(options.cwd).toBe(process.cwd());
     });
 
-    it('should handle missing dependencies', async () => {
-      // Arrange
-      commandTester
-        .mock('@friggframework/core', {
-          findNearestBackendPackageJson: jest.fn().mockReturnValue('/mock/backend/package.json'),
-          validateBackendPath: jest.fn().mockReturnValue(true)
-        })
-        .mock('./build-command/builder', {
-          buildApplication: jest.fn().mockRejectedValue(new Error('Missing dependencies: webpack'))
-        })
-        .mock('./build-command/logger', mocks.logger);
+    it('should use stdio inherit for output streaming', async () => {
+      await buildCommand({ stage: 'dev' });
 
-      // Act
-      const result = await commandTester.execute([]);
+      const call = spawnSync.mock.calls[0];
+      const options = call[2];
 
-      // Assert
-      expect(result.success).toBe(false);
-      expect(result.exitCode).toBe(1);
+      expect(options.stdio).toBe('inherit');
     });
 
-    it('should handle insufficient disk space', async () => {
-      // Arrange
-      commandTester
-        .mock('@friggframework/core', {
-          findNearestBackendPackageJson: jest.fn().mockReturnValue('/mock/backend/package.json'),
-          validateBackendPath: jest.fn().mockReturnValue(true)
-        })
-        .mock('./build-command/builder', {
-          buildApplication: jest.fn().mockRejectedValue(new Error('ENOSPC: no space left on device'))
-        })
-        .mock('./build-command/logger', mocks.logger);
+    it('should use shell mode for execution', async () => {
+      await buildCommand({ stage: 'dev' });
 
-      // Act
-      const result = await commandTester.execute([]);
+      const call = spawnSync.mock.calls[0];
+      const options = call[2];
 
-      // Assert
-      expect(result.success).toBe(false);
-      expect(result.exitCode).toBe(1);
+      expect(options.shell).toBe(true);
     });
 
-    it('should handle configuration loading error', async () => {
-      // Arrange
-      commandTester
-        .mock('@friggframework/core', {
-          findNearestBackendPackageJson: jest.fn().mockReturnValue('/mock/backend/package.json'),
-          validateBackendPath: jest.fn().mockReturnValue(true)
-        })
-        .mock('./build-command/builder', {
-          buildApplication: jest.fn().mockRejectedValue(new Error('Invalid configuration: missing stage'))
-        })
-        .mock('./build-command/logger', mocks.logger);
+    it('should set NODE_PATH environment variable with actual resolved path', async () => {
+      await buildCommand({ stage: 'dev' });
 
-      // Act
-      const result = await commandTester.execute(['--stage', 'invalid-stage']);
+      const call = spawnSync.mock.calls[0];
+      const options = call[2];
 
-      // Assert
-      expect(result.success).toBe(false);
-      expect(result.exitCode).toBe(1);
+      // Verify ACTUAL resolved path, not just "contains node_modules"
+      const path = require('path');
+      const expectedNodePath = path.resolve(process.cwd(), 'node_modules');
+
+      expect(options.env.NODE_PATH).toBe(expectedNodePath);
+    });
+
+    it('should pass through all process.env variables', async () => {
+      // Set a test env var
+      process.env.TEST_VAR = 'test-value';
+
+      await buildCommand({ stage: 'dev' });
+
+      const call = spawnSync.mock.calls[0];
+      const options = call[2];
+
+      // Verify parent env vars are passed through
+      expect(options.env.TEST_VAR).toBe('test-value');
+
+      delete process.env.TEST_VAR;
+    });
+
+    it('should use infrastructure.js as config file', async () => {
+      await buildCommand({ stage: 'dev' });
+
+      expect(spawnSync).toHaveBeenCalledWith(
+        'serverless',
+        expect.arrayContaining(['--config', 'infrastructure.js']),
+        expect.any(Object)
+      );
+    });
+
+    it('should NOT call process.exit when build succeeds', async () => {
+      spawnSync.mockReturnValue({ status: 0 });
+
+      await buildCommand({ stage: 'dev' });
+
+      expect(processExitSpy).not.toHaveBeenCalled();
+    });
+
+    it('should log build start messages', async () => {
+      await buildCommand({ stage: 'dev' });
+
+      expect(consoleLogSpy).toHaveBeenCalledWith('Building the serverless application...');
+      expect(consoleLogSpy).toHaveBeenCalledWith('📦 Packaging serverless application...');
+    });
+
+    it('should construct complete valid serverless command', async () => {
+      await buildCommand({ stage: 'production', verbose: true });
+
+      const [cmd, args, opts] = spawnSync.mock.calls[0];
+
+      // Verify complete command structure
+      expect(cmd).toBe('serverless');
+      expect(args).toEqual([
+        'package',
+        '--config',
+        'infrastructure.js',
+        '--stage',
+        'production',
+        '--verbose'
+      ]);
+
+      // Verify all required options present
+      expect(opts.cwd).toBeDefined();
+      expect(opts.stdio).toBe('inherit');
+      expect(opts.shell).toBe(true);
+      expect(opts.env).toBeDefined();
+      expect(opts.env.NODE_PATH).toBeDefined();
+    });
+
+    it('should build command without verbose when verbose=false', async () => {
+      await buildCommand({ stage: 'dev', verbose: false });
+
+      const [, args] = spawnSync.mock.calls[0];
+
+      // Verify exact args without verbose
+      expect(args).toEqual([
+        'package',
+        '--config',
+        'infrastructure.js',
+        '--stage',
+        'dev'
+      ]);
     });
   });
 
-  describe('Edge Cases', () => {
-    it('should handle empty project directory', async () => {
-      // Arrange
-      commandTester
-        .mock('@friggframework/core', {
-          findNearestBackendPackageJson: jest.fn().mockReturnValue(null),
-          validateBackendPath: jest.fn().mockImplementation(() => {
-            throw new Error('No backend directory found');
-          })
-        })
-        .mock('./build-command/logger', mocks.logger);
+  describe('Error Handling', () => {
+    it('should exit with code 1 when serverless fails', async () => {
+      spawnSync.mockReturnValue({ status: 1 });
 
-      // Act
-      const result = await commandTester.execute([]);
+      await buildCommand({ stage: 'dev' });
 
-      // Assert
-      expect(result.success).toBe(false);
-      expect(result.exitCode).toBe(1);
+      expect(processExitSpy).toHaveBeenCalledWith(1);
     });
 
-    it('should handle build timeout', async () => {
-      // Arrange
-      commandTester
-        .mock('@friggframework/core', {
-          findNearestBackendPackageJson: jest.fn().mockReturnValue('/mock/backend/package.json'),
-          validateBackendPath: jest.fn().mockReturnValue(true)
-        })
-        .mock('./build-command/builder', {
-          buildApplication: jest.fn().mockRejectedValue(new Error('Build timeout after 300 seconds'))
-        })
-        .mock('./build-command/logger', mocks.logger);
+    it('should log error message when build fails', async () => {
+      spawnSync.mockReturnValue({ status: 2 });
 
-      // Act
-      const result = await commandTester.execute([]);
+      await buildCommand({ stage: 'dev' });
 
-      // Assert
-      expect(result.success).toBe(false);
-      expect(result.exitCode).toBe(1);
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Serverless build failed with code 2');
     });
 
-    it('should handle partial build success', async () => {
-      // Arrange
-      commandTester
-        .mock('@friggframework/core', {
-          findNearestBackendPackageJson: jest.fn().mockReturnValue('/mock/backend/package.json'),
-          validateBackendPath: jest.fn().mockReturnValue(true)
-        })
-        .mock('./build-command/builder', {
-          buildApplication: jest.fn().mockResolvedValue({
-            success: false,
-            artifacts: ['backend.zip'],
-            duration: 30000,
-            errors: ['Frontend build failed'],
-            warnings: ['Some dependencies are deprecated']
-          })
-        })
-        .mock('./build-command/logger', mocks.logger);
+    it('should exit with code 1 for any non-zero status', async () => {
+      spawnSync.mockReturnValue({ status: 127 });
 
-      // Act
-      const result = await commandTester.execute([]);
+      await buildCommand({ stage: 'dev' });
 
-      // Assert
-      expect(result.success).toBe(false);
-      expect(result.exitCode).toBe(1);
-    });
-
-    it('should handle very large project build', async () => {
-      // Arrange
-      commandTester
-        .mock('@friggframework/core', {
-          findNearestBackendPackageJson: jest.fn().mockReturnValue('/mock/backend/package.json'),
-          validateBackendPath: jest.fn().mockReturnValue(true)
-        })
-        .mock('./build-command/builder', {
-          buildApplication: jest.fn().mockResolvedValue({
-            success: true,
-            artifacts: ['backend.zip', 'frontend.zip'],
-            duration: 300000, // 5 minutes
-            size: '250MB'
-          })
-        })
-        .mock('./build-command/logger', mocks.logger);
-
-      // Act
-      const result = await commandTester.execute([]);
-
-      // Assert
-      expect(result.success).toBe(true);
-      expect(result.exitCode).toBe(0);
-    });
-  });
-
-  describe('Option Validation', () => {
-    it('should validate stage option values', async () => {
-      // Arrange
-      const validStages = ['dev', 'staging', 'production'];
-      
-      for (const stage of validStages) {
-        commandTester
-          .mock('@friggframework/core', {
-            findNearestBackendPackageJson: jest.fn().mockReturnValue('/mock/backend/package.json'),
-            validateBackendPath: jest.fn().mockReturnValue(true)
-          })
-          .mock('./build-command/builder', {
-            buildApplication: jest.fn().mockResolvedValue({
-              success: true,
-              artifacts: ['backend.zip', 'frontend.zip'],
-              duration: 30000,
-              stage
-            })
-          })
-          .mock('./build-command/logger', mocks.logger);
-
-        // Act
-        const result = await commandTester.execute(['--stage', stage]);
-
-        // Assert
-        expect(result.success).toBe(true);
-        expect(result.exitCode).toBe(0);
-      }
-    });
-
-    it('should handle short stage option (-s)', async () => {
-      // Arrange
-      commandTester
-        .mock('@friggframework/core', {
-          findNearestBackendPackageJson: jest.fn().mockReturnValue('/mock/backend/package.json'),
-          validateBackendPath: jest.fn().mockReturnValue(true)
-        })
-        .mock('./build-command/builder', {
-          buildApplication: jest.fn().mockResolvedValue({
-            success: true,
-            artifacts: ['backend.zip', 'frontend.zip'],
-            duration: 30000
-          })
-        })
-        .mock('./build-command/logger', mocks.logger);
-
-      // Act
-      const result = await commandTester.execute(['-s', 'production']);
-
-      // Assert
-      expect(result.success).toBe(true);
-      expect(result.exitCode).toBe(0);
-    });
-
-    it('should handle short verbose option (-v)', async () => {
-      // Arrange
-      commandTester
-        .mock('@friggframework/core', {
-          findNearestBackendPackageJson: jest.fn().mockReturnValue('/mock/backend/package.json'),
-          validateBackendPath: jest.fn().mockReturnValue(true)
-        })
-        .mock('./build-command/builder', {
-          buildApplication: jest.fn().mockResolvedValue({
-            success: true,
-            artifacts: ['backend.zip', 'frontend.zip'],
-            duration: 30000,
-            verbose: true
-          })
-        })
-        .mock('./build-command/logger', mocks.logger);
-
-      // Act
-      const result = await commandTester.execute(['-v']);
-
-      // Assert
-      expect(result.success).toBe(true);
-      expect(result.exitCode).toBe(0);
-    });
-
-    it('should handle combined short options', async () => {
-      // Arrange
-      commandTester
-        .mock('@friggframework/core', {
-          findNearestBackendPackageJson: jest.fn().mockReturnValue('/mock/backend/package.json'),
-          validateBackendPath: jest.fn().mockReturnValue(true)
-        })
-        .mock('./build-command/builder', {
-          buildApplication: jest.fn().mockResolvedValue({
-            success: true,
-            artifacts: ['backend.zip', 'frontend.zip'],
-            duration: 30000,
-            verbose: true
-          })
-        })
-        .mock('./build-command/logger', mocks.logger);
-
-      // Act
-      const result = await commandTester.execute(['-s', 'production', '-v']);
-
-      // Assert
-      expect(result.success).toBe(true);
-      expect(result.exitCode).toBe(0);
-    });
-  });
-
-  describe('Performance Tests', () => {
-    it('should complete build within reasonable time', async () => {
-      // Arrange
-      const startTime = Date.now();
-      
-      commandTester
-        .mock('@friggframework/core', {
-          findNearestBackendPackageJson: jest.fn().mockReturnValue('/mock/backend/package.json'),
-          validateBackendPath: jest.fn().mockReturnValue(true)
-        })
-        .mock('./build-command/builder', {
-          buildApplication: jest.fn().mockResolvedValue({
-            success: true,
-            artifacts: ['backend.zip', 'frontend.zip'],
-            duration: 30000
-          })
-        })
-        .mock('./build-command/logger', mocks.logger);
-
-      // Act
-      const result = await commandTester.execute([]);
-      const endTime = Date.now();
-
-      // Assert
-      expect(result.success).toBe(true);
-      expect(endTime - startTime).toBeLessThan(5000); // Should complete within 5 seconds
+      expect(processExitSpy).toHaveBeenCalledWith(1);
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Serverless build failed with code 127');
     });
   });
 });

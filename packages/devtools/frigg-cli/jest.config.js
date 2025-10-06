@@ -2,16 +2,25 @@ module.exports = {
   displayName: 'Frigg CLI Tests',
   testMatch: [
     '<rootDir>/__tests__/**/*.test.js',
-    '<rootDir>/__tests__/**/*.spec.js'
+    '<rootDir>/__tests__/**/*.spec.js',
+    '<rootDir>/**/start-command.test.js',
+    '<rootDir>/**/__tests__/**/*.test.js'
+  ],
+  // Exclude utility files and config from being treated as tests
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/__tests__/utils/',
+    '/__tests__/jest.config.js',
+    '/test-setup.js'
   ],
   testEnvironment: 'node',
   collectCoverageFrom: [
-    '../**/*.js',
-    '!../**/*.test.js',
-    '!../**/*.spec.js',
-    '!../node_modules/**',
-    '!../__tests__/**',
-    '!../coverage/**'
+    '**/*.js',
+    '!**/*.test.js',
+    '!**/*.spec.js',
+    '!**/node_modules/**',
+    '!**/__tests__/**',
+    '!**/coverage/**'
   ],
   coverageDirectory: 'coverage',
   coverageReporters: [
@@ -28,55 +37,55 @@ module.exports = {
       lines: 85,
       statements: 85
     },
-    '../install-command/index.js': {
+    './install-command/index.js': {
       branches: 90,
       functions: 90,
       lines: 90,
       statements: 90
     },
-    '../build-command/index.js': {
+    './build-command/index.js': {
       branches: 90,
       functions: 90,
       lines: 90,
       statements: 90
     },
-    '../deploy-command/index.js': {
+    './deploy-command/index.js': {
       branches: 90,
       functions: 90,
       lines: 90,
       statements: 90
     },
-    '../ui-command/index.js': {
+    './ui-command/index.js': {
       branches: 90,
       functions: 90,
       lines: 90,
       statements: 90
     },
-    '../generate-command/index.js': {
+    './generate-command/index.js': {
       branches: 90,
       functions: 90,
       lines: 90,
       statements: 90
     },
-    '../db-setup-command/index.js': {
+    './db-setup-command/index.js': {
       branches: 90,
       functions: 90,
       lines: 90,
       statements: 90
     },
-    '../utils/database-validator.js': {
+    './utils/database-validator.js': {
       branches: 85,
       functions: 85,
       lines: 85,
       statements: 85
     },
-    '../utils/prisma-runner.js': {
+    './utils/prisma-runner.js': {
       branches: 85,
       functions: 85,
       lines: 85,
       statements: 85
     },
-    '../utils/error-messages.js': {
+    './utils/error-messages.js': {
       branches: 85,
       functions: 85,
       lines: 85,
@@ -84,7 +93,7 @@ module.exports = {
     }
   },
   setupFilesAfterEnv: [
-    '<rootDir>/utils/test-setup.js'
+    '<rootDir>/__tests__/utils/test-setup.js'
   ],
   testTimeout: 10000,
   maxWorkers: '50%',
@@ -103,21 +112,10 @@ module.exports = {
     'node'
   ],
   transform: {},
-  testResultsProcessor: 'jest-sonar-reporter',
+  // testResultsProcessor: 'jest-sonar-reporter', // Optional dependency
   reporters: [
-    'default',
-    [
-      'jest-junit',
-      {
-        outputDirectory: 'coverage',
-        outputName: 'junit.xml',
-        ancestorSeparator: ' › ',
-        uniqueOutputName: 'false',
-        suiteNameTemplate: '{filepath}',
-        classNameTemplate: '{classname}',
-        titleTemplate: '{title}'
-      }
-    ]
+    'default'
+    // jest-junit reporter removed - optional dependency
   ],
   watchman: false,
   forceExit: true,

@@ -55,12 +55,15 @@ async function generateIamCommand(options = {}) {
 
         // Generate the CloudFormation template
         console.log('\\n🏗️  Generating IAM CloudFormation template...');
-        
+
         const deploymentUserName = options.user || 'frigg-deployment-user';
         const stackName = options.stackName || 'frigg-deployment-iam';
-        
-        const cloudFormationYaml = generateIAMCloudFormation(appDefinition, {
-            deploymentUserName,
+
+        // Use the summary already extracted above (line 44)
+        const cloudFormationYaml = generateIAMCloudFormation({
+            appName: summary.appName,
+            features: summary.features,
+            userPrefix: deploymentUserName,
             stackName
         });
 

@@ -83,27 +83,45 @@ aws cloudformation update-stack \
 For custom policy generation based on your app definition:
 
 ```javascript
-const { generateIAMPolicy, generateIAMCloudFormation } = require('./iam-generator');
+const { generateIAMPolicy, generateIAMCloudFormation, getFeatureSummary } = require('./iam-generator');
 
 // Generate basic JSON policy
 const basicPolicy = generateIAMPolicy('basic');
 
-// Generate full JSON policy  
+// Generate full JSON policy
 const fullPolicy = generateIAMPolicy('full');
 
-// Generate CloudFormation template with auto-detection
-const autoTemplate = generateIAMCloudFormation(appDefinition, { mode: 'auto' });
+// Generate CloudFormation template with auto-detected features
+const summary = getFeatureSummary(appDefinition);
+const template = generateIAMCloudFormation({
+    appName: summary.appName,
+    features: summary.features,
+    userPrefix: 'frigg-deployment-user',
+    stackName: 'frigg-deployment-iam'
+});
 
-// Generate CloudFormation template with specific mode
-const basicTemplate = generateIAMCloudFormation(appDefinition, { mode: 'basic' });
-const fullTemplate = generateIAMCloudFormation(appDefinition, { mode: 'full' });
+// Or manually specify features
+const customTemplate = generateIAMCloudFormation({
+    appName: 'my-app',
+    features: {
+        vpc: true,
+        kms: true,
+        ssm: true,
+        websockets: false
+    },
+    userPrefix: 'my-deployment-user',
+    stackName: 'my-deployment-stack'
+});
 ```
 
-### Generator Modes
+### Feature Detection
 
-- **`basic`** - Core permissions only, ignores app definition features
-- **`full`** - All features enabled, ignores app definition features  
-- **`auto`** - Analyzes app definition and enables features as needed (default)
+Use `getFeatureSummary(appDefinition)` to automatically detect features from your app definition:
+
+```javascript
+const summary = getFeatureSummary(appDefinition);
+// Returns: { appName, features: { core, vpc, kms, ssm, websockets }, integrationCount }
+```
 
 ## Security Best Practices
 

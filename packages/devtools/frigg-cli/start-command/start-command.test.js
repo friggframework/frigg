@@ -36,21 +36,27 @@ describe('startCommand', () => {
     let mockProcessExit;
 
     beforeEach(() => {
-        // Mock process.exit BEFORE clearAllMocks to prevent actual exits
-        mockProcessExit = jest.spyOn(process, 'exit').mockImplementation(() => {});
+        // Mock process.exit to throw error and stop execution (prevents actual exits)
+        const exitError = new Error('process.exit called');
+        exitError.code = 'PROCESS_EXIT';
+        mockProcessExit = jest.spyOn(process, 'exit').mockImplementation(() => {
+            throw exitError;
+        });
 
         // Reset mocks
         jest.clearAllMocks();
 
         // Re-apply process.exit mock after clearAllMocks
-        mockProcessExit = jest.spyOn(process, 'exit').mockImplementation(() => {});
+        mockProcessExit = jest.spyOn(process, 'exit').mockImplementation(() => {
+            throw exitError;
+        });
 
         // Set up default database validator mocks for all tests
         const defaultValidator = createMockDatabaseValidator();
-        mockValidator.validateDatabaseUrl.mockImplementation(defaultValidator.validateDatabaseUrl);
-        mockValidator.getDatabaseType.mockImplementation(defaultValidator.getDatabaseType);
-        mockValidator.testDatabaseConnection.mockImplementation(defaultValidator.testDatabaseConnection);
-        mockValidator.checkPrismaClientGenerated.mockImplementation(defaultValidator.checkPrismaClientGenerated);
+        mockValidator.validateDatabaseUrl.mockReturnValue(defaultValidator.validateDatabaseUrl());
+        mockValidator.getDatabaseType.mockReturnValue(defaultValidator.getDatabaseType());
+        mockValidator.testDatabaseConnection.mockResolvedValue(defaultValidator.testDatabaseConnection());
+        mockValidator.checkPrismaClientGenerated.mockReturnValue(defaultValidator.checkPrismaClientGenerated());
 
         // Mock dotenv
         dotenv.config = jest.fn();
@@ -219,7 +225,7 @@ describe('startCommand', () => {
                 error: 'DATABASE_URL not found'
             });
 
-            await startCommand({});
+            await expect(startCommand({})).rejects.toThrow('process.exit called');
 
             expect(mockConsoleError).toHaveBeenCalled();
             expect(mockProcessExit).toHaveBeenCalledWith(1);
@@ -231,7 +237,7 @@ describe('startCommand', () => {
                 error: 'Database not configured'
             });
 
-            await startCommand({});
+            await expect(startCommand({})).rejects.toThrow('process.exit called');
 
             expect(mockConsoleError).toHaveBeenCalled();
             expect(mockProcessExit).toHaveBeenCalledWith(1);
@@ -244,7 +250,7 @@ describe('startCommand', () => {
                 error: 'Connection failed'
             });
 
-            await startCommand({});
+            await expect(startCommand({})).rejects.toThrow('process.exit called');
 
             expect(mockConsoleError).toHaveBeenCalled();
             expect(mockProcessExit).toHaveBeenCalledWith(1);
@@ -257,7 +263,7 @@ describe('startCommand', () => {
                 error: 'Client not found'
             });
 
-            await startCommand({});
+            await expect(startCommand({})).rejects.toThrow('process.exit called');
 
             expect(mockConsoleError).toHaveBeenCalled();
             expect(mockConsoleError).toHaveBeenCalledWith(expect.stringContaining('frigg db:setup'));
@@ -271,7 +277,7 @@ describe('startCommand', () => {
                 error: 'Client not generated'
             });
 
-            await startCommand({});
+            await expect(startCommand({})).rejects.toThrow('process.exit called');
 
             expect(mockConsoleError).toHaveBeenCalledWith(expect.stringContaining('frigg db:setup'));
         });
@@ -281,7 +287,7 @@ describe('startCommand', () => {
                 valid: false
             });
 
-            await startCommand({});
+            await expect(startCommand({})).rejects.toThrow('process.exit called');
 
             expect(mockProcessExit).toHaveBeenCalledWith(1);
         });

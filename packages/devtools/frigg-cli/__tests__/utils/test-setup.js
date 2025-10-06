@@ -6,7 +6,9 @@
 // Store original environment
 const originalEnv = process.env;
 const originalConsole = { ...console };
-const originalProcess = { ...process };
+// Store original process methods (not entire object due to read-only properties)
+const originalProcessExit = process.exit;
+const originalProcessCwd = process.cwd;
 
 // Mock console to prevent noisy output during tests
 global.console = {
@@ -37,14 +39,10 @@ beforeEach(() => {
   
   // Reset modules
   jest.resetModules();
-  
-  // Restore original process methods
-  process.exit = originalProcess.exit;
-  process.cwd = originalProcess.cwd;
-  
+
   // Mock process.exit to prevent actual exit
   process.exit = jest.fn();
-  
+
   // Mock process.cwd to return predictable path
   process.cwd = jest.fn().mockReturnValue('/mock/cwd');
   
@@ -60,14 +58,14 @@ beforeEach(() => {
 afterEach(() => {
   // Restore environment
   process.env = { ...originalEnv };
-  
+
   // Restore process methods
-  process.exit = originalProcess.exit;
-  process.cwd = originalProcess.cwd;
-  
+  process.exit = originalProcessExit;
+  process.cwd = originalProcessCwd;
+
   // Clear any remaining timers
   jest.clearAllTimers();
-  
+
   // Unmock all modules
   jest.restoreAllMocks();
 });
@@ -76,12 +74,13 @@ afterEach(() => {
 afterAll(() => {
   // Restore original environment completely
   process.env = originalEnv;
-  
+
   // Restore original console
   global.console = originalConsole;
-  
-  // Restore original process
-  Object.assign(process, originalProcess);
+
+  // Restore original process methods
+  process.exit = originalProcessExit;
+  process.cwd = originalProcessCwd;
 });
 
 // Custom matchers for CLI testing
@@ -274,13 +273,15 @@ global.TestHelpers = {
 jest.setTimeout(30000);
 
 // Suppress specific warnings during tests
-const originalWarn = console.warn;
-console.warn = (...args) => {
+// Note: console.warn is already mocked above, so we keep the mock
+// and just suppress certain warnings in the implementation
+const originalWarnMock = global.console.warn;
+global.console.warn = jest.fn((...args) => {
   // Suppress specific warnings that are expected during testing
   const message = args.join(' ');
-  if (message.includes('ExperimentalWarning') || 
+  if (message.includes('ExperimentalWarning') ||
       message.includes('DeprecationWarning')) {
     return;
   }
-  originalWarn.apply(console, args);
-};
+  // Still track the call in the mock
+});

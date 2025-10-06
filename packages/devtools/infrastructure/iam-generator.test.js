@@ -51,7 +51,11 @@ describe('IAM Generator', () => {
                 websockets: { enable: false }
             };
 
-            const yaml = generateIAMCloudFormation(appDefinition);
+            const summary = getFeatureSummary(appDefinition);
+            const yaml = generateIAMCloudFormation({
+                appName: summary.appName,
+                features: summary.features
+            });
 
             expect(yaml).toContain('AWSTemplateFormatVersion');
             expect(yaml).toContain('FriggDeploymentUser');
@@ -66,7 +70,11 @@ describe('IAM Generator', () => {
                 vpc: { enable: true }
             };
 
-            const yaml = generateIAMCloudFormation(appDefinition);
+            const summary = getFeatureSummary(appDefinition);
+            const yaml = generateIAMCloudFormation({
+                appName: summary.appName,
+                features: summary.features
+            });
 
             expect(yaml).toContain('FriggVPCPolicy');
             expect(yaml).toContain('CreateVPCPermissions');
@@ -81,7 +89,11 @@ describe('IAM Generator', () => {
                 encryption: { fieldLevelEncryptionMethod: 'kms' }
             };
 
-            const yaml = generateIAMCloudFormation(appDefinition);
+            const summary = getFeatureSummary(appDefinition);
+            const yaml = generateIAMCloudFormation({
+                appName: summary.appName,
+                features: summary.features
+            });
 
             expect(yaml).toContain('FriggKMSPolicy');
             expect(yaml).toContain('CreateKMSPermissions');
@@ -97,7 +109,11 @@ describe('IAM Generator', () => {
                 ssm: { enable: true }
             };
 
-            const yaml = generateIAMCloudFormation(appDefinition);
+            const summary = getFeatureSummary(appDefinition);
+            const yaml = generateIAMCloudFormation({
+                appName: summary.appName,
+                features: summary.features
+            });
 
             expect(yaml).toContain('FriggSSMPolicy');
             expect(yaml).toContain('CreateSSMPermissions');
@@ -113,7 +129,11 @@ describe('IAM Generator', () => {
                 ssm: { enable: true }
             };
 
-            const yaml = generateIAMCloudFormation(appDefinition);
+            const summary = getFeatureSummary(appDefinition);
+            const yaml = generateIAMCloudFormation({
+                appName: summary.appName,
+                features: summary.features
+            });
 
             // Check parameter defaults match the enabled features
             expect(yaml).toContain("Default: 'true'"); // VPC enabled
@@ -127,7 +147,11 @@ describe('IAM Generator', () => {
                 integrations: []
             };
 
-            const yaml = generateIAMCloudFormation(appDefinition);
+            const summary = getFeatureSummary(appDefinition);
+            const yaml = generateIAMCloudFormation({
+                appName: summary.appName,
+                features: summary.features
+            });
 
             // Check for core permissions
             expect(yaml).toContain('cloudformation:CreateStack');
@@ -149,7 +173,11 @@ describe('IAM Generator', () => {
                 integrations: []
             };
 
-            const yaml = generateIAMCloudFormation(appDefinition);
+            const summary = getFeatureSummary(appDefinition);
+            const yaml = generateIAMCloudFormation({
+                appName: summary.appName,
+                features: summary.features
+            });
 
             expect(yaml).toContain('internal-error-queue-*');
         });
@@ -160,7 +188,11 @@ describe('IAM Generator', () => {
                 integrations: []
             };
 
-            const yaml = generateIAMCloudFormation(appDefinition);
+            const summary = getFeatureSummary(appDefinition);
+            const yaml = generateIAMCloudFormation({
+                appName: summary.appName,
+                features: summary.features
+            });
 
             expect(yaml).toContain('Outputs:');
             expect(yaml).toContain('DeploymentUserArn:');
