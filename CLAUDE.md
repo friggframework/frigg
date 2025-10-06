@@ -114,8 +114,8 @@ class MyIntegration extends IntegrationBase {
 ### Encryption & Security
 
 - **Field-Level Encryption**: Transparent database-agnostic encryption via Prisma Client Extensions
-- **AWS KMS Integration**: Enterprise-grade encryption with envelope encryption pattern
-- **Local AES Fallback**: Development mode encryption for testing
+- **AWS KMS Integration**: Enterprise-grade encryption with envelope encryption pattern (recommended for production)
+- **AES Encryption**: Alternative encryption method for any environment including production
 - **Environment-Based**: Auto-bypass in dev/test/local stages
 - **OAuth2 Standardization**: Framework handles OAuth flows across API modules
 - **Signature Validation**: HMAC signature validation for webhook security
@@ -183,14 +183,14 @@ if (encryptionConfig.enabled) {
 **Environment Variables**:
 
 ```bash
-# Production (AWS KMS)
+# Production (AWS KMS - recommended)
 KMS_KEY_ARN=arn:aws:kms:...      # AWS KMS key (auto-discovered)
 STAGE=production
 
-# Development (Local AES)
+# AES Encryption (valid for any environment)
 AES_KEY_ID=local-dev-key
 AES_KEY=your-32-char-key
-STAGE=development                 # Auto-bypasses encryption
+STAGE=production                  # Can be used in production
 
 # Stages that bypass: dev, test, local
 ```

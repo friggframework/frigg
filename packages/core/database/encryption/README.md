@@ -8,13 +8,13 @@ This module provides **transparent field-level encryption** for sensitive data i
 
 ### Key Features
 
-- ✅ **Database-agnostic**: Works with MongoDB, PostgreSQL, and future databases
-- ✅ **Transparent**: Repositories and use cases work with plain data
-- ✅ **Hexagonal architecture**: Clean separation of concerns
-- ✅ **AWS KMS support**: Enterprise-grade encryption with AWS Key Management Service
-- ✅ **Local AES fallback**: Development mode using local encryption keys
-- ✅ **Environment-based**: Automatic bypass in dev/test/local environments
-- ✅ **Envelope encryption**: Secure key management pattern
+-   ✅ **Database-agnostic**: Works with MongoDB, PostgreSQL, and future databases
+-   ✅ **Transparent**: Repositories and use cases work with plain data
+-   ✅ **Hexagonal architecture**: Clean separation of concerns
+-   ✅ **AWS KMS support**: Enterprise-grade encryption with AWS Key Management Service
+-   ✅ **Local AES fallback**: Development mode using local encryption keys
+-   ✅ **Environment-based**: Automatic bypass in dev/test/local environments
+-   ✅ **Envelope encryption**: Secure key management pattern
 
 ## Architecture
 
@@ -49,14 +49,14 @@ Database type is configured in `backend/index.js` app definition:
 const appDefinition = {
     database: {
         mongoDB: {
-            enable: true,    // Use MongoDB
+            enable: true, // Use MongoDB
         },
         documentDB: {
-            enable: false,   // Use DocumentDB (MongoDB-compatible)
+            enable: false, // Use DocumentDB (MongoDB-compatible)
             tlsCAFile: './security/global-bundle.pem',
         },
         postgres: {
-            enable: false,   // Use PostgreSQL
+            enable: false, // Use PostgreSQL
         },
     },
     // ... other config
@@ -64,6 +64,7 @@ const appDefinition = {
 ```
 
 **Important**: Only enable ONE database at a time. The framework will use the first enabled database in this priority order:
+
 1. PostgreSQL (`postgres.enable = true`)
 2. MongoDB (`mongoDB.enable = true`)
 3. DocumentDB (`documentDB.enable = true`)
@@ -75,8 +76,8 @@ In `backend/index.js`:
 ```javascript
 const appDefinition = {
     encryption: {
-        fieldLevelEncryptionMethod: 'kms',  // or 'aes'
-        createResourceIfNoneFound: true,    // Auto-create KMS key if missing
+        fieldLevelEncryptionMethod: 'kms', // or 'aes'
+        createResourceIfNoneFound: true, // Auto-create KMS key if missing
     },
     // ... other config
 };
@@ -93,16 +94,17 @@ STAGE=production
 ```
 
 The `KMS_KEY_ARN` is usually auto-discovered by Frigg infrastructure:
-- Set by AWS discovery: `AWS_DISCOVERY_KMS_KEY_ARN`
-- Copied to `KMS_KEY_ARN` during deployment
 
-#### Development (Local AES)
+-   Set by AWS discovery: `AWS_DISCOVERY_KMS_KEY_ARN`
+-   Copied to `KMS_KEY_ARN` during deployment
+
+#### AES Encryption
 
 ```bash
-# Local AES encryption (development/testing only)
+# AES encryption (can be used in any environment including production)
 AES_KEY_ID=local-dev-key
 AES_KEY=your-32-character-secret-key-here
-STAGE=development  # or dev, test, local
+STAGE=production  # or development, staging, etc.
 ```
 
 **⚠️ Important**: Encryption is automatically **disabled** when `STAGE` is set to `dev`, `test`, or `local`, regardless of key configuration.
@@ -116,7 +118,7 @@ To explicitly disable encryption:
 STAGE=development  # or dev, test, local
 ```
 
-Or simply don't configure any encryption keys.
+Or simply don't configure any encryption keys. In Production field level encryption **must** be enabled.
 
 ## Encrypted Fields
 
@@ -126,20 +128,20 @@ Fields are defined in `encryption-schema-registry.js`:
 const ENCRYPTION_SCHEMA = {
     Credential: {
         fields: [
-            'data.access_token',     // OAuth access token
-            'data.refresh_token',    // OAuth refresh token
-            'data.domain',           // Service domain
-            'data.id_token',         // OpenID Connect ID token
+            'data.access_token', // OAuth access token
+            'data.refresh_token', // OAuth refresh token
+            'data.domain', // Service domain
+            'data.id_token', // OpenID Connect ID token
         ],
     },
     IntegrationMapping: {
-        fields: ['mapping'],         // Complete mapping object
+        fields: ['mapping'], // Complete mapping object
     },
     User: {
-        fields: ['hashword'],        // Password hash
+        fields: ['hashword'], // Password hash
     },
     Token: {
-        fields: ['token'],           // Authentication token
+        fields: ['token'], // Authentication token
     },
 };
 ```
@@ -162,14 +164,14 @@ const appDefinition = {
         schema: {
             // Your custom models
             MyCustomModel: {
-                fields: ['secretData', 'data.apiKey']
+                fields: ['secretData', 'data.apiKey'],
             },
 
             // Extend core models with additional fields
             Credential: {
-                fields: ['data.customToken'] // Merged with core fields
-            }
-        }
+                fields: ['data.customToken'], // Merged with core fields
+            },
+        },
     },
     integrations: [MyIntegration],
     // ... rest of config
@@ -177,11 +179,12 @@ const appDefinition = {
 ```
 
 **Features:**
-- ✅ No framework file modifications needed
-- ✅ Encryption for custom Prisma models
-- ✅ Extends core models with additional fields
-- ✅ Automatic validation on startup
-- ✅ Protects against overriding core encrypted fields
+
+-   ✅ No framework file modifications needed
+-   ✅ Encryption for custom Prisma models
+-   ✅ Extends core models with additional fields
+-   ✅ Automatic validation on startup
+-   ✅ Protects against overriding core encrypted fields
 
 **Example with Custom Model:**
 
@@ -220,11 +223,13 @@ await prisma.asanaTaskMapping.create({
 ```
 
 **Validation:**
-- Invalid field paths → Error on startup with clear message
-- Attempting to override core fields → Error on startup
-- Empty/null schema → Silently ignored
+
+-   Invalid field paths → Error on startup with clear message
+-   Attempting to override core fields → Error on startup
+-   Empty/null schema → Silently ignored
 
 **Debug:**
+
 ```bash
 # Enable debug logging to see custom schema loading
 FRIGG_DEBUG=1 npm run frigg:start
@@ -243,7 +248,7 @@ const CORE_ENCRYPTION_SCHEMA = {
         fields: [
             'data.access_token',
             'data.refresh_token',
-            'data.new_core_field',  // New core field
+            'data.new_core_field', // New core field
         ],
     },
 };
@@ -252,13 +257,15 @@ const CORE_ENCRYPTION_SCHEMA = {
 3. Deploy - encryption applied automatically to all integrations
 
 **When to use:**
-- Adding encryption for new framework-level sensitive fields
-- Adding new core models (User, Token, etc.)
-- Security baseline changes affecting all integrations
+
+-   Adding encryption for new framework-level sensitive fields
+-   Adding new core models (User, Token, etc.)
+-   Security baseline changes affecting all integrations
 
 **When NOT to use:**
-- Integration-specific sensitive data (use custom schema instead)
-- Temporary/experimental encryption (use custom schema instead)
+
+-   Integration-specific sensitive data (use custom schema instead)
+-   Temporary/experimental encryption (use custom schema instead)
 
 ## How It Works
 
@@ -268,8 +275,8 @@ const CORE_ENCRYPTION_SCHEMA = {
 // Application code (use case or repository)
 await prisma.credential.create({
     data: {
-        data: { access_token: 'secret123' }
-    }
+        data: { access_token: 'secret123' },
+    },
 });
 
 // What happens:
@@ -287,7 +294,7 @@ await prisma.credential.create({
 ```javascript
 // Application code
 const credential = await prisma.credential.findUnique({
-    where: { id: credentialId }
+    where: { id: credentialId },
 });
 
 // What happens:
@@ -309,10 +316,11 @@ Example: "base64KeyId:iv:ciphertext:base64EncryptedDataKey"
 ```
 
 **Why Envelope Encryption?**
-- Reduces KMS API calls (one DEK per field, cached)
-- Master key never leaves KMS
-- Enables key rotation without re-encrypting all data
-- Better performance at scale
+
+-   Reduces KMS API calls (one DEK per field, cached)
+-   Master key never leaves KMS
+-   Enables key rotation without re-encrypting all data
+-   Better performance at scale
 
 ### Known Limitations
 
@@ -326,7 +334,7 @@ Example: "base64KeyId:iv:ciphertext:base64EncryptedDataKey"
 // ❌ WRONG: Credential will NOT be decrypted
 const entity = await prisma.entity.findUnique({
     where: { id: entityId },
-    include: { credential: true }  // Nested credential stays encrypted!
+    include: { credential: true }, // Nested credential stays encrypted!
 });
 
 // entity.credential.data.access_token will be encrypted:
@@ -344,18 +352,18 @@ Always fetch relations with **separate queries**:
 ```javascript
 // ✅ CORRECT: Fetch entity and credential separately
 const entity = await prisma.entity.findUnique({
-    where: { id: entityId }
+    where: { id: entityId },
 });
 
 // Separate query ensures decryption
 const credential = await prisma.credential.findUnique({
-    where: { id: entity.credentialId }
+    where: { id: entity.credentialId },
 });
 
 // Combine in application layer
 return {
     ...entity,
-    credential  // Now properly decrypted
+    credential, // Now properly decrypted
 };
 ```
 
@@ -366,32 +374,30 @@ For fetching multiple entities with credentials, use bulk fetching to avoid N+1 
 ```javascript
 // Fetch all entities
 const entities = await prisma.entity.findMany({
-    where: { userId }
+    where: { userId },
 });
 
 // Bulk fetch credentials (single query)
-const credentialIds = entities.map(e => e.credentialId).filter(Boolean);
+const credentialIds = entities.map((e) => e.credentialId).filter(Boolean);
 const credentials = await prisma.credential.findMany({
-    where: { id: { in: credentialIds } }
+    where: { id: { in: credentialIds } },
 });
 
 // Create lookup map
-const credentialMap = new Map(
-    credentials.map(c => [c.id, c])
-);
+const credentialMap = new Map(credentials.map((c) => [c.id, c]));
 
 // Combine in application layer
-return entities.map(e => ({
+return entities.map((e) => ({
     ...e,
-    credential: credentialMap.get(e.credentialId) || null
+    credential: credentialMap.get(e.credentialId) || null,
 }));
 ```
 
 **Verified:**
 
-- ✅ `postgres-relation-decryption.test.js` - Proves the bug exists
-- ✅ `postgres-decryption-fix-verification.test.js` - Verifies separate queries work
-- ✅ `mongo-decryption-fix-verification.test.js` - Verifies fix for MongoDB
+-   ✅ `postgres-relation-decryption.test.js` - Proves the bug exists
+-   ✅ `postgres-decryption-fix-verification.test.js` - Verifies separate queries work
+-   ✅ `mongo-decryption-fix-verification.test.js` - Verifies fix for MongoDB
 
 **Implementation Examples:**
 
@@ -429,9 +435,9 @@ class AuthenticateUserUseCase {
             identifiers: { userId },
             details: {
                 data: {
-                    access_token: accessToken // Plain text
-                }
-            }
+                    access_token: accessToken, // Plain text
+                },
+            },
         });
 
         // Stored as encrypted, but we work with plain text
@@ -505,15 +511,16 @@ npm test -- database/encryption/
 
 The encryption system uses **fail-fast error handling**:
 
-- **Encryption failures**: Throw errors immediately (don't save corrupted/unencrypted sensitive data)
-- **Decryption failures**: Throw errors immediately (prevents exposing invalid data)
-- **Configuration errors**: Warn and disable encryption (graceful degradation for development)
-- **Validation errors**: Throw errors on startup (catch issues before production)
+-   **Encryption failures**: Throw errors immediately (don't save corrupted/unencrypted sensitive data)
+-   **Decryption failures**: Throw errors immediately (prevents exposing invalid data)
+-   **Configuration errors**: Warn and disable encryption (graceful degradation for development)
+-   **Validation errors**: Throw errors on startup (catch issues before production)
 
 **Why fail-fast?**
-- Security-critical operations must not silently fail
-- Better to expose issues during development than risk data breaches
-- Prevents inconsistent database state (partially encrypted data)
+
+-   Security-critical operations must not silently fail
+-   Better to expose issues during development than risk data breaches
+-   Prevents inconsistent database state (partially encrypted data)
 
 ### Logging Configuration
 
@@ -531,34 +538,39 @@ FRIGG_LOG_LEVEL=INFO
 ```
 
 **Log Levels:**
-- `DEBUG`: Detailed encryption operations (includes schema loading, key checks)
-- `INFO`: High-level status (encryption enabled/disabled, custom schema registration)
-- `WARN`: Configuration issues (missing keys, bypassed encryption)
-- `ERROR`: Operation failures (encryption/decryption errors)
+
+-   `DEBUG`: Detailed encryption operations (includes schema loading, key checks)
+-   `INFO`: High-level status (encryption enabled/disabled, custom schema registration)
+-   `WARN`: Configuration issues (missing keys, bypassed encryption)
+-   `ERROR`: Operation failures (encryption/decryption errors)
 
 **Production Safety:**
-- Sensitive data automatically sanitized in logs
-- Long base64 strings truncated (prevents key leakage)
-- Stack traces omitted in production (`STAGE=production`)
-- Key IDs never logged
+
+-   Sensitive data automatically sanitized in logs
+-   Long base64 strings truncated (prevents key leakage)
+-   Stack traces omitted in production (`STAGE=production`)
+-   Key IDs never logged
 
 ### Performance Optimizations
 
 **Parallel field encryption:**
-- Multiple fields encrypted concurrently using `Promise.all()`
-- Significantly faster for models with many encrypted fields
-- Example: 3 fields encrypted in ~30ms vs ~90ms (3x speedup)
+
+-   Multiple fields encrypted concurrently using `Promise.all()`
+-   Significantly faster for models with many encrypted fields
+-   Example: 3 fields encrypted in ~30ms vs ~90ms (3x speedup)
 
 **Deep cloning:**
-- Uses native `structuredClone()` on Node.js 17+ (2-5x faster)
-- Falls back to custom implementation for compatibility
-- No external dependencies required
+
+-   Uses native `structuredClone()` on Node.js 17+ (2-5x faster)
+-   Falls back to custom implementation for compatibility
+-   No external dependencies required
 
 ## Troubleshooting
 
 ### Encryption Not Working
 
 **Check environment variables:**
+
 ```bash
 echo $STAGE              # Should be 'production' (not dev/test/local)
 echo $KMS_KEY_ARN        # Should be set (for KMS)
@@ -566,6 +578,7 @@ echo $AES_KEY_ID         # Should be set (for AES)
 ```
 
 **Check console logs:**
+
 ```
 [Frigg] Field-level encryption enabled using KMS
 ```
@@ -581,13 +594,11 @@ or
 **Error: "User is not authorized to perform: kms:GenerateDataKey"**
 
 Solution: Add KMS permissions to Lambda execution role:
+
 ```json
 {
     "Effect": "Allow",
-    "Action": [
-        "kms:GenerateDataKey",
-        "kms:Decrypt"
-    ],
+    "Action": ["kms:GenerateDataKey", "kms:Decrypt"],
     "Resource": "arn:aws:kms:*:*:key/*"
 }
 ```
@@ -595,6 +606,7 @@ Solution: Add KMS permissions to Lambda execution role:
 **Error: "KMS key not found"**
 
 Solution: Check `KMS_KEY_ARN` environment variable:
+
 ```bash
 aws kms describe-key --key-id $KMS_KEY_ARN
 ```
@@ -604,6 +616,7 @@ aws kms describe-key --key-id $KMS_KEY_ARN
 **Error: "No encryption key found with ID"**
 
 Solution: Set both `AES_KEY_ID` and `AES_KEY`:
+
 ```bash
 export AES_KEY_ID=local-dev-key
 export AES_KEY=$(openssl rand -hex 16)  # Generate 32-char key
@@ -613,9 +626,9 @@ export AES_KEY=$(openssl rand -hex 16)  # Generate 32-char key
 
 **Symptom: Slow queries with encryption**
 
-- Check KMS API throttling (CloudWatch metrics)
-- Consider data key caching (future enhancement)
-- Verify proper field selection (don't encrypt unnecessary fields)
+-   Check KMS API throttling (CloudWatch metrics)
+-   Consider data key caching (future enhancement)
+-   Verify proper field selection (don't encrypt unnecessary fields)
 
 ### Data Migration
 
@@ -630,7 +643,7 @@ export AES_KEY=$(openssl rand -hex 16)  # Generate 32-char key
 
 ### DO
 
-✅ Use AWS KMS in production
+✅ Use AWS KMS for production (recommended) or AES encryption (valid alternative)
 ✅ Rotate KMS keys regularly (AWS handles automatically)
 ✅ Restrict KMS key access to Lambda execution role only
 ✅ Use VPC endpoints for KMS (reduce NAT costs)
@@ -639,7 +652,6 @@ export AES_KEY=$(openssl rand -hex 16)  # Generate 32-char key
 
 ### DON'T
 
-❌ Use AES keys in production (development only)
 ❌ Store AES keys in code or git (use environment variables)
 ❌ Disable encryption in production
 ❌ Skip encryption for PII data
@@ -650,22 +662,22 @@ export AES_KEY=$(openssl rand -hex 16)  # Generate 32-char key
 
 ### Planned
 
-- [ ] Data key caching (reduce KMS API calls)
-- [ ] Key rotation automation
-- [ ] Encryption metrics (CloudWatch)
-- [ ] Field-level audit logging
-- [ ] Support for queryable encryption (MongoDB CSFLE)
+-   [ ] Data key caching (reduce KMS API calls)
+-   [ ] Key rotation automation
+-   [ ] Encryption metrics (CloudWatch)
+-   [ ] Field-level audit logging
+-   [ ] Support for queryable encryption (MongoDB CSFLE)
 
 ### Under Consideration
 
-- [ ] Multi-region KMS replication
-- [ ] Client-side field level encryption
-- [ ] Encryption at rest + in transit
-- [ ] Compliance reporting (GDPR, HIPAA)
+-   [ ] Multi-region KMS replication
+-   [ ] Client-side field level encryption
+-   [ ] Encryption at rest + in transit
+-   [ ] Compliance reporting (GDPR, HIPAA)
 
 ## Related Documentation
 
-- [Prisma Client Extensions](https://www.prisma.io/docs/orm/prisma-client/client-extensions)
-- [AWS KMS Envelope Encryption](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#enveloping)
-- [Frigg Infrastructure](../../../devtools/infrastructure/CLAUDE.md)
-- [Hexagonal Architecture](../../CLAUDE.md#dddhexagonal-architecture-patterns)
+-   [Prisma Client Extensions](https://www.prisma.io/docs/orm/prisma-client/client-extensions)
+-   [AWS KMS Envelope Encryption](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#enveloping)
+-   [Frigg Infrastructure](../../../devtools/infrastructure/CLAUDE.md)
+-   [Hexagonal Architecture](../../CLAUDE.md#dddhexagonal-architecture-patterns)
