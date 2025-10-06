@@ -34,7 +34,8 @@ class FieldEncryptionService {
             const value = this._getNestedValue(encrypted, fieldPath);
 
             if (this._shouldEncrypt(value)) {
-                const encryptedValue = await this.cryptor.encrypt(String(value));
+                const serializedValue = this._serializeForEncryption(value);
+                const encryptedValue = await this.cryptor.encrypt(serializedValue);
                 return { fieldPath, encryptedValue };
             }
             return null;
@@ -70,7 +71,8 @@ class FieldEncryptionService {
 
             if (this._isEncrypted(value)) {
                 const decryptedValue = await this.cryptor.decrypt(value);
-                return { fieldPath, decryptedValue };
+                const deserializedValue = this._deserializeAfterDecryption(decryptedValue);
+                return { fieldPath, decryptedValue: deserializedValue };
             }
             return null;
         });
@@ -185,6 +187,39 @@ class FieldEncryptionService {
         }
 
         return cloned;
+    }
+
+    /**
+     * Serialize a value for encryption
+     * Objects/arrays are JSON stringified, primitives are converted to strings
+     * @private
+     */
+    _serializeForEncryption(value) {
+        if (typeof value === 'object' && value !== null) {
+            // JSON.stringify for objects and arrays
+            return JSON.stringify(value);
+        }
+        // For primitives (string, number, boolean), convert to string
+        return String(value);
+    }
+
+    /**
+     * Deserialize a value after decryption
+     * Attempts to parse as JSON, returns string if parsing fails
+     * @private
+     */
+    _deserializeAfterDecryption(value) {
+        if (typeof value !== 'string') {
+            return value;
+        }
+
+        // Try to parse as JSON
+        try {
+            return JSON.parse(value);
+        } catch {
+            // Not valid JSON, return as-is (likely was a plain string field)
+            return value;
+        }
     }
 }
 
