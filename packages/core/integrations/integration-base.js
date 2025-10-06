@@ -1,5 +1,17 @@
-const { IntegrationMapping } = require('./integration-mapping');
+const {
+    createIntegrationMappingRepository,
+} = require('./repositories/integration-mapping-repository-factory');
 const { Options } = require('./options');
+const {
+    UpdateIntegrationStatus,
+} = require('./use-cases/update-integration-status');
+const {
+    createIntegrationRepository,
+} = require('./repositories/integration-repository-factory');
+const {
+    UpdateIntegrationMessages,
+} = require('./use-cases/update-integration-messages');
+
 const constantsToBeMigrated = {
     defaultEvents: {
         ON_CREATE: 'ON_CREATE',
@@ -19,6 +31,16 @@ const constantsToBeMigrated = {
 };
 
 class IntegrationBase {
+    // todo: maybe we can pass this as Dependency Injection in the sub-class constructor
+    integrationRepository = createIntegrationRepository();
+    integrationMappingRepository = createIntegrationMappingRepository();
+    updateIntegrationStatus = new UpdateIntegrationStatus({
+        integrationRepository: this.integrationRepository,
+    });
+    updateIntegrationMessages = new UpdateIntegrationMessages({
+        integrationRepository: this.integrationRepository,
+    });
+
     static getOptionDetails() {
         const options = new Options({
             module: Object.values(this.Definition.modules)[0], // This is a placeholder until we revamp the frontend
@@ -26,6 +48,7 @@ class IntegrationBase {
         });
         return options.get();
     }
+
     /**
      * CHILDREN SHOULD SPECIFY A DEFINITION FOR THE INTEGRATION
      */
@@ -50,29 +73,30 @@ class IntegrationBase {
     static getCurrentVersion() {
         return this.Definition.version;
     }
-    loadModules() {
-        // Load all the modules defined in Definition.modules
-        const moduleNames = Object.keys(this.constructor.Definition.modules);
-        for (const moduleName of moduleNames) {
-            const { definition } =
-                this.constructor.Definition.modules[moduleName];
-            if (typeof definition.API === 'function') {
-                this[moduleName] = { api: new definition.API() };
-            } else {
-                throw new Error(
-                    `Module ${moduleName} must be a function that extends IntegrationModule`
-                );
-            }
-        }
-    }
-    registerEventHandlers() {
-        this.on = {
-            ...this.defaultEvents,
-            ...this.events,
-        };
-    }
 
-    constructor(params) {
+    // REMOVED: registerEventHandlers() - Event handling is now done by IntegrationEventDispatcher
+
+    constructor(params = {}) {
+        this.modules = {};
+        this.events = this.events || {};
+        this.messages = { errors: [], warnings: [] };
+        this._isHydrated = false;
+
+        if (params && Object.keys(params).length > 0) {
+            this.setIntegrationRecord({
+                record: {
+                    id: params.id,
+                    userId: params.userId,
+                    entities: params.entities,
+                    config: params.config,
+                    status: params.status,
+                    version: params.version,
+                    messages: params.messages,
+                },
+                modules: params.modules || [],
+            });
+        }
+
         this.defaultEvents = {
             [constantsToBeMigrated.defaultEvents.ON_CREATE]: {
                 type: constantsToBeMigrated.types.LIFE_CYCLE_EVENT,
@@ -107,21 +131,90 @@ class IntegrationBase {
                 handler: this.refreshActionOptions,
             },
         };
-        this.loadModules();
     }
 
-    async send(event, object) {
-        if (!this.on[event]) {
-            throw new Error(
-                `Event ${event} is not defined in the Integration event object`
-            );
+    // todo: debate wether we want to keep this pattern to set the record or not.
+    /**
+     * Persist the database record and module instances onto this integration instance.
+     * Accepts either a plain object containing the persisted fields or an object with
+     * a `record` property plus a `modules` collection.
+     * @param {Object} payload
+     * @param {Object} [payload.record]
+     * @param {Array} [payload.modules]
+     */
+    setIntegrationRecord(payload = {}) {
+        if (!payload || Object.keys(payload).length === 0) {
+            throw new Error('setIntegrationRecord requires integration data');
         }
-        return this.on[event].handler.call(this, object);
+
+        const integrationRecord = payload.record;
+        const integrationModules = payload.modules ?? [];
+
+        if (!integrationRecord) {
+            throw new Error('Integration record not provided');
+        }
+
+        const { id, userId, entities, config, status, version, messages } =
+            integrationRecord;
+
+        this.id = id;
+        this.userId = userId;
+        this.entities = entities;
+        this.config = config;
+        this.status = status;
+        this.version = version;
+        this.messages = messages || { errors: [], warnings: [] };
+
+        this.modules = this._appendModules(integrationModules);
+
+        this.record = {
+            id: this.id,
+            userId: this.userId,
+            entities: this.entities,
+            config: this.config,
+            status: this.status,
+            version: this.version,
+            messages: this.messages,
+        };
+
+        this._isHydrated = Boolean(this.id);
+        return this;
+    }
+
+    get isHydrated() {
+        return this._isHydrated;
+    }
+
+    assertHydrated(message = 'Integration instance is not hydrated') {
+        if (!this.isHydrated) {
+            throw new Error(message);
+        }
+    }
+
+    /**
+     * Returns the modules as object with keys as module names.
+     * @private
+     * @param {Array} integrationModules - Array of module instances
+     * @returns {Object} The modules object
+     */
+    _appendModules(integrationModules) {
+        const modules = {};
+        for (const module of integrationModules) {
+            const key =
+                typeof module.getName === 'function'
+                    ? module.getName()
+                    : module.name;
+            if (key) {
+                modules[key] = module;
+                this[key] = module;
+            }
+        }
+        return modules;
     }
 
     async validateConfig() {
         const configOptions = await this.getConfigOptions();
-        const currentConfig = this.record.config;
+        const currentConfig = this.getConfig();
         let needsConfig = false;
         for (const option of configOptions) {
             if (option.required) {
@@ -133,56 +226,62 @@ class IntegrationBase {
                     )
                 ) {
                     needsConfig = true;
-                    this.record.messages.warnings.push({
-                        title: 'Config Validation Error',
-                        message: `Missing required field of ${option.label}`,
-                        timestamp: Date.now(),
-                    });
+                    await this.updateIntegrationMessages.execute(
+                        this.id,
+                        'warnings',
+                        'Config Validation Error',
+                        `Missing required field of ${option.label}`,
+                        Date.now()
+                    );
                 }
             }
         }
         if (needsConfig) {
-            this.record.status = 'NEEDS_CONFIG';
-            await this.record.save();
+            await this.updateIntegrationStatus.execute(this.id, 'NEEDS_CONFIG');
         }
     }
 
     async testAuth() {
         let didAuthPass = true;
 
-        for (const module of Object.keys(IntegrationBase.Definition.modules)) {
+        for (const module of Object.keys(this.constructor.Definition.modules)) {
             try {
                 await this[module].testAuth();
             } catch {
                 didAuthPass = false;
-                this.record.messages.errors.push({
-                    title: 'Authentication Error',
-                    message: `There was an error with your ${this[
+                await this.updateIntegrationMessages.execute(
+                    this.id,
+                    'errors',
+                    'Authentication Error',
+                    `There was an error with your ${this[
                         module
                     ].constructor.getName()} Entity.
                 Please reconnect/re-authenticate, or reach out to Support for assistance.`,
-                    timestamp: Date.now(),
-                });
+                    Date.now()
+                );
             }
         }
 
         if (!didAuthPass) {
-            this.record.status = 'ERROR';
-            this.record.markModified('messages.error');
-            await this.record.save();
+            await this.updateIntegrationStatus.execute(this.id, 'ERROR');
         }
     }
 
     async getMapping(sourceId) {
-        return IntegrationMapping.findBy(this.record.id, sourceId);
+        // todo: not sure we should call the repository directly from here
+        return this.integrationMappingRepository.findMappingBy(
+            this.id,
+            sourceId
+        );
     }
 
     async upsertMapping(sourceId, mapping) {
         if (!sourceId) {
             throw new Error(`sourceId must be set`);
         }
-        return await IntegrationMapping.upsert(
-            this.record.id,
+        // todo: not sure we should call the repository directly from here
+        return await this.integrationMappingRepository.upsertMapping(
+            this.id,
             sourceId,
             mapping
         );
@@ -191,10 +290,8 @@ class IntegrationBase {
     /**
      * CHILDREN CAN OVERRIDE THESE CONFIGURATION METHODS
      */
-    async onCreate(params) {
-        this.record.status = 'ENABLED';
-        await this.record.save();
-        return this.record;
+    async onCreate({ integrationId }) {
+        await this.updateIntegrationStatus.execute(integrationId, 'ENABLED');
     }
 
     async onUpdate(params) {}
@@ -258,6 +355,80 @@ class IntegrationBase {
             uiSchema: {},
         };
         return options;
+    }
+
+    // === Domain Methods (moved from Integration.js) ===
+
+    getConfig() {
+        return this.config;
+    }
+
+    getModule(key) {
+        return this.modules[key];
+    }
+
+    setModule(key, module) {
+        this.modules[key] = module;
+        this[key] = module;
+    }
+
+    addError(error) {
+        if (!this.messages.errors) {
+            this.messages.errors = [];
+        }
+        this.messages.errors.push(error);
+        this.status = 'ERROR';
+    }
+
+    addWarning(warning) {
+        if (!this.messages.warnings) {
+            this.messages.warnings = [];
+        }
+        this.messages.warnings.push(warning);
+    }
+
+    isActive() {
+        return this.status === 'ENABLED' || this.status === 'ACTIVE';
+    }
+
+    needsConfiguration() {
+        return this.status === 'NEEDS_CONFIG';
+    }
+
+    hasErrors() {
+        return this.status === 'ERROR';
+    }
+
+    belongsToUser(userId) {
+        return this.userId.toString() === userId.toString();
+    }
+
+    async initialize() {
+        // Load dynamic user actions
+        try {
+            const additionalUserActions = await this.loadDynamicUserActions();
+            this.events = { ...this.events, ...additionalUserActions };
+        } catch (e) {
+            this.addError(e);
+        }
+
+        // Event handlers are no longer registered here - handled by IntegrationEventDispatcher
+    }
+
+    getOptionDetails() {
+        const options = new Options({
+            module: Object.values(this.constructor.Definition.modules)[0],
+            ...this.constructor.Definition,
+        });
+        return options.get();
+    }
+
+    // Legacy method for backward compatibility
+    async loadModules() {
+        // This method was used in the old architecture for loading modules
+        // In the new architecture, modules are injected via constructor
+        // For backward compatibility, this is a no-op
+        return;
     }
 }
 

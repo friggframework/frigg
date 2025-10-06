@@ -4,26 +4,12 @@ declare module "@friggframework/module-plugin" {
 
   export class Credential extends Model {
     userId: string;
-    auth_is_valid: boolean;
+    authIsValid: boolean;
     subType: string;
     externalId: string;
   }
 
-  export class EntityManager implements IFriggEntityManager {
-    static primaryEntityClass: any;
-    static entityManagerClasses: any[];
-    static entityTypes: string[];
-    static getEntitiesForUser(userId: string): Promise<any[]>;
-    static checkIsValidType(entityType: string): boolean;
-    static getEntityManagerClass(entityType?: string): any;
-
-    static getEntityManagerInstanceFromEntityId(
-      entityId: string,
-      userId: string
-    ): Promise<any>;
-  }
-
-  interface IFriggEntityManager {}
+  interface IFriggEntityManager { }
 
   export class Entity extends Model {
     credentialId: string;
@@ -34,42 +20,7 @@ declare module "@friggframework/module-plugin" {
   }
 
   export type MappedEntity = Entity & { id: string; type: any };
-  export class ModuleManager extends Delegate implements IFriggModuleManager {
-    static Entity: Entity;
-    static Credential: Credential;
 
-    constructor(params: { userId: string });
-
-    static getName(): any;
-    static getInstance(params: any): Promise<any>;
-    static getEntitiesForUserId(userId: string): Promise<MappedEntity[]>;
-
-    batchCreateSyncObjects(syncObjects: any, syncManager: any): Promise<any>;
-    batchUpdateSyncObjects(syncObjects: any, syncManager: any): Promise<any>;
-    findOrCreateEntity(params: any): Promise<any>;
-    getAllSyncObjects(SyncClass: any): Promise<any>;
-    getAuthorizationRequirements(params: any): Promise<any>;
-    getEntityId(): Promise<string>;
-    getEntityOptions(): Promise<any>;
-    markCredentialsInvalid(): Promise<Credential>;
-    processAuthorizationCallback(params: any): Promise<any>;
-    testAuth(params: any): Promise<any>;
-    validateAuthorizationRequirements(): Promise<boolean>;
-  }
-
-  interface IFriggModuleManager extends IFriggDelegate {
-    getEntityId(): Promise<string>;
-    validateAuthorizationRequirements(): Promise<boolean>;
-    getAuthorizationRequirements(params: any): Promise<any>;
-    testAuth(params: any): Promise<any>;
-    processAuthorizationCallback(params: any): Promise<any>;
-    getEntityOptions(): Promise<any>;
-    findOrCreateEntity(params: any): Promise<any>;
-    getAllSyncObjects(SyncClass: any): Promise<any>;
-    batchCreateSyncObjects(syncObjects: any, syncManager: any): Promise<any>;
-    batchUpdateSyncObjects(syncObjects: any, syncManager: any): Promise<any>;
-    markCredentialsInvalid(): Promise<Credential>;
-  }
 
   export class Requester implements IFriggRequester {
     DLGT_INVALID_AUTH: string;
@@ -138,8 +89,7 @@ declare module "@friggframework/module-plugin" {
 
   export class ApiKeyRequester
     extends Requester
-    implements IFriggApiKeyRequester
-  {
+    implements IFriggApiKeyRequester {
     API_KEY_NAME: string;
     API_KEY_VALUE: any;
 
@@ -160,8 +110,7 @@ declare module "@friggframework/module-plugin" {
 
   export class BasicAuthRequester
     extends Requester
-    implements IFriggBasicAuthRequester
-  {
+    implements IFriggBasicAuthRequester {
     password: string;
     username: string;
 
@@ -189,8 +138,7 @@ declare module "@friggframework/module-plugin" {
 
   export class OAuth2Requester
     extends Requester
-    implements IFriggOAuth2Requester
-  {
+    implements IFriggOAuth2Requester {
     DLGT_TOKEN_DEAUTHORIZED: string;
     DLGT_TOKEN_UPDATE: string;
     accessTokenExpire: any;

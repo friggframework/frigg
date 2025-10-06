@@ -24,8 +24,26 @@ const {
     Token,
     UserModel,
     WebsocketConnection,
+    prisma,
+    TokenRepository,
+    WebsocketConnectionRepository,
 } = require('./database/index');
-const { Encrypt, Cryptor } = require('./encrypt/encrypt');
+const {
+    createUserRepository,
+    UserRepositoryMongo,
+    UserRepositoryPostgres,
+} = require('./user/repositories/user-repository-factory');
+
+const {
+    CredentialRepository,
+} = require('./credential/repositories/credential-repository');
+const {
+    ModuleRepository,
+} = require('./modules/repositories/module-repository');
+const {
+    IntegrationMappingRepository,
+} = require('./integrations/repositories/integration-mapping-repository');
+const { Cryptor } = require('./encrypt');
 const {
     BaseError,
     FetchError,
@@ -35,30 +53,25 @@ const {
 } = require('./errors/index');
 const {
     IntegrationBase,
-    IntegrationModel,
     Options,
-    IntegrationMapping,
-    IntegrationFactory,
-    IntegrationHelper,
     createIntegrationRouter,
     checkRequiredParams,
-    createFriggBackend,
+    getModulesDefinitionFromIntegrationClasses,
+    LoadIntegrationContextUseCase,
 } = require('./integrations/index');
 const { TimeoutCatcher } = require('./lambda/index');
 const { debug, initDebugLog, flushDebugLog } = require('./logs/index');
 const {
     Credential,
-    EntityManager,
     Entity,
-    ModuleManager,
     ApiKeyRequester,
     BasicAuthRequester,
     OAuth2Requester,
     Requester,
     ModuleConstants,
     ModuleFactory,
-    Auther,
-} = require('./module-plugin/index');
+} = require('./modules/index');
+const application = require('./application');
 const utils = require('./utils');
 
 // const {Sync } = require('./syncs/model');
@@ -92,9 +105,15 @@ module.exports = {
     Token,
     UserModel,
     WebsocketConnection,
-
-    // encrypt
-    Encrypt,
+    prisma,
+    TokenRepository,
+    WebsocketConnectionRepository,
+    createUserRepository,
+    UserRepositoryMongo,
+    UserRepositoryPostgres,
+    CredentialRepository,
+    ModuleRepository,
+    IntegrationMappingRepository,
     Cryptor,
 
     // errors
@@ -106,14 +125,22 @@ module.exports = {
 
     // integrations
     IntegrationBase,
-    IntegrationModel,
     Options,
-    IntegrationMapping,
-    IntegrationFactory,
-    IntegrationHelper,
     checkRequiredParams,
     createIntegrationRouter,
-    createFriggBackend,
+    getModulesDefinitionFromIntegrationClasses,
+    LoadIntegrationContextUseCase,
+
+    // application - Command factories for integration developers
+    application,
+    createFriggCommands: application.createFriggCommands,
+    createIntegrationCommands: application.createIntegrationCommands,
+    createUserCommands: application.createUserCommands,
+    createEntityCommands: application.createEntityCommands,
+    createCredentialCommands: application.createCredentialCommands,
+    findIntegrationContextByExternalEntityId:
+        application.findIntegrationContextByExternalEntityId,
+    integrationCommands: application.integrationCommands,
 
     // lambda
     TimeoutCatcher,
@@ -125,17 +152,13 @@ module.exports = {
 
     // module plugin
     Credential,
-    EntityManager,
     Entity,
-    ModuleManager,
     ApiKeyRequester,
     BasicAuthRequester,
     OAuth2Requester,
     Requester,
     ModuleConstants,
     ModuleFactory,
-    Auther,
-
     // queues
     QueuerUtil,
 

@@ -1,5 +1,5 @@
 const { RequiredPropertyError } = require('../errors');
-const { get, getAndVerifyType } = require('../assertions');
+const { get } = require('../assertions');
 
 class Options {
     constructor(params) {

@@ -1,5 +1,12 @@
 process.env.HEALTH_API_KEY = 'test-api-key';
 
+jest.mock('../../database/config', () => ({
+    DB_TYPE: 'mongodb',
+    getDatabaseType: jest.fn(() => 'mongodb'),
+    PRISMA_LOG_LEVEL: 'error,warn',
+    PRISMA_QUERY_LOGGING: false,
+}));
+
 jest.mock('mongoose', () => ({
     set: jest.fn(),
     connection: {

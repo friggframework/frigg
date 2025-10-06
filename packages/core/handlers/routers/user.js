@@ -1,10 +1,29 @@
 const express = require('express');
 const { createAppHandler } = require('../app-handler-helpers');
 const { checkRequiredParams } = require('@friggframework/core');
-const { User } = require('../backend-utils');
+const { createUserRepository } = require('../../user/user-repository-factory');
+const {
+    CreateIndividualUser,
+} = require('../../user/use-cases/create-individual-user');
+const { LoginUser } = require('../../user/use-cases/login-user');
+const {
+    CreateTokenForUserId,
+} = require('../../user/use-cases/create-token-for-user-id');
 const catchAsyncError = require('express-async-handler');
+const { loadAppDefinition } = require('../app-definition-loader');
 
 const router = express();
+const { userConfig } = loadAppDefinition();
+const userRepository = createUserRepository();
+const createIndividualUser = new CreateIndividualUser({
+    userRepository,
+    userConfig,
+});
+const loginUser = new LoginUser({
+    userRepository,
+    userConfig,
+});
+const createTokenForUserId = new CreateTokenForUserId({ userRepository });
 
 // define the login endpoint
 router.route('/user/login').post(
@@ -13,8 +32,8 @@ router.route('/user/login').post(
             'username',
             'password',
         ]);
-        const user = await User.loginUser({ username, password });
-        const token = await user.createUserToken(120);
+        const user = await loginUser.execute({ username, password });
+        const token = await createTokenForUserId.execute(user.getId(), 120);
         res.status(201);
         res.json({ token });
     })
@@ -26,11 +45,12 @@ router.route('/user/create').post(
             'username',
             'password',
         ]);
-        const user = await User.createIndividualUser({
+
+        const user = await createIndividualUser.execute({
             username,
             password,
         });
-        const token = await user.createUserToken(120);
+        const token = await createTokenForUserId.execute(user.getId(), 120);
         res.status(201);
         res.json({ token });
     })
