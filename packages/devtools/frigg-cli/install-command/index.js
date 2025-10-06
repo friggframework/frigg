@@ -9,7 +9,7 @@ const {
     validatePackageExists,
     searchAndSelectPackage,
 } = require('./validate-package');
-const { findNearestBackendPackageJson, validateBackendPath } = require('@friggframework/core');
+const { findNearestBackendPackageJson, validateBackendPath } = require('@friggframework/core/utils');
 
 const installCommand = async (apiModuleName) => {
     try {

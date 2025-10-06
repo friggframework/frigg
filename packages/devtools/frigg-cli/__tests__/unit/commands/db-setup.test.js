@@ -83,12 +83,16 @@ describe('DB Setup Command', () => {
     describe('Success Cases', () => {
         it('should complete setup successfully for MongoDB', async () => {
             mockValidator.getDatabaseType.mockReturnValue({ dbType: 'mongodb' });
+            mockValidator.checkPrismaClientGenerated.mockReturnValue({
+                generated: false // Client doesn't exist, will generate
+            });
             mockRunner.checkDatabaseState.mockResolvedValue({ upToDate: false });
 
             await dbSetupCommand({ verbose: false, stage: 'development' });
 
             expect(mockValidator.validateDatabaseUrl).toHaveBeenCalled();
             expect(mockValidator.getDatabaseType).toHaveBeenCalled();
+            expect(mockValidator.checkPrismaClientGenerated).toHaveBeenCalledWith('mongodb');
             expect(mockValidator.testDatabaseConnection).toHaveBeenCalled();
             expect(mockRunner.runPrismaGenerate).toHaveBeenCalledWith('mongodb', false);
             expect(mockRunner.runPrismaDbPush).toHaveBeenCalled();
@@ -97,10 +101,14 @@ describe('DB Setup Command', () => {
 
         it('should complete setup successfully for PostgreSQL', async () => {
             mockValidator.getDatabaseType.mockReturnValue({ dbType: 'postgresql' });
+            mockValidator.checkPrismaClientGenerated.mockReturnValue({
+                generated: false // Client doesn't exist, will generate
+            });
             mockRunner.checkDatabaseState.mockResolvedValue({ upToDate: false });
 
             await dbSetupCommand({ verbose: false, stage: 'development' });
 
+            expect(mockValidator.checkPrismaClientGenerated).toHaveBeenCalledWith('postgresql');
             expect(mockRunner.runPrismaGenerate).toHaveBeenCalledWith('postgresql', false);
             expect(mockRunner.runPrismaMigrate).toHaveBeenCalled();
             expect(mockProcessExit).not.toHaveBeenCalled();
@@ -140,6 +148,10 @@ describe('DB Setup Command', () => {
         });
 
         it('should respect --verbose flag', async () => {
+            mockValidator.checkPrismaClientGenerated.mockReturnValue({
+                generated: false // Client doesn't exist, will generate
+            });
+
             await dbSetupCommand({ verbose: true, stage: 'development' });
 
             expect(mockRunner.runPrismaGenerate).toHaveBeenCalledWith('mongodb', true);
@@ -151,6 +163,89 @@ describe('DB Setup Command', () => {
             expect(dotenv.config).toHaveBeenCalledWith(expect.objectContaining({
                 path: expect.stringContaining('.env')
             }));
+        });
+    });
+
+    describe('Conditional Client Generation', () => {
+        it('should skip generation when client already exists', async () => {
+            // Client exists
+            mockValidator.checkPrismaClientGenerated.mockReturnValue({
+                generated: true,
+                path: '/path/to/client'
+            });
+
+            await dbSetupCommand({ verbose: false, stage: 'development' });
+
+            // Should check if client exists
+            expect(mockValidator.checkPrismaClientGenerated).toHaveBeenCalledWith('mongodb');
+            // Should NOT call generate
+            expect(mockRunner.runPrismaGenerate).not.toHaveBeenCalled();
+            // Should still test connection and complete setup
+            expect(mockValidator.testDatabaseConnection).toHaveBeenCalled();
+            expect(mockProcessExit).not.toHaveBeenCalled();
+        });
+
+        it('should generate client when it does not exist', async () => {
+            // Client does NOT exist
+            mockValidator.checkPrismaClientGenerated.mockReturnValue({
+                generated: false,
+                error: 'Client not found'
+            });
+
+            await dbSetupCommand({ verbose: false, stage: 'development' });
+
+            // Should check if client exists
+            expect(mockValidator.checkPrismaClientGenerated).toHaveBeenCalledWith('mongodb');
+            // Should call generate
+            expect(mockRunner.runPrismaGenerate).toHaveBeenCalledWith('mongodb', false);
+            // Should complete setup
+            expect(mockProcessExit).not.toHaveBeenCalled();
+        });
+
+        it('should regenerate client when --force flag is provided', async () => {
+            // Client exists
+            mockValidator.checkPrismaClientGenerated.mockReturnValue({
+                generated: true,
+                path: '/path/to/client'
+            });
+
+            await dbSetupCommand({ verbose: false, stage: 'development', force: true });
+
+            // Should check if client exists
+            expect(mockValidator.checkPrismaClientGenerated).toHaveBeenCalledWith('mongodb');
+            // Should STILL call generate because of --force
+            expect(mockRunner.runPrismaGenerate).toHaveBeenCalledWith('mongodb', false);
+            // Should complete setup
+            expect(mockProcessExit).not.toHaveBeenCalled();
+        });
+
+        it('should show client location in verbose mode when skipping generation', async () => {
+            mockValidator.checkPrismaClientGenerated.mockReturnValue({
+                generated: true,
+                path: '/path/to/prisma/client'
+            });
+
+            await dbSetupCommand({ verbose: true, stage: 'development' });
+
+            // Should log the client path
+            expect(mockConsoleLog).toHaveBeenCalledWith(
+                expect.stringContaining('/path/to/prisma/client')
+            );
+            expect(mockRunner.runPrismaGenerate).not.toHaveBeenCalled();
+        });
+
+        it('should generate for different database types', async () => {
+            // Test PostgreSQL
+            mockValidator.getDatabaseType.mockReturnValue({ dbType: 'postgresql' });
+            mockValidator.checkPrismaClientGenerated.mockReturnValue({
+                generated: false
+            });
+            mockRunner.checkDatabaseState.mockResolvedValue({ upToDate: false });
+
+            await dbSetupCommand({ verbose: false, stage: 'development' });
+
+            expect(mockValidator.checkPrismaClientGenerated).toHaveBeenCalledWith('postgresql');
+            expect(mockRunner.runPrismaGenerate).toHaveBeenCalledWith('postgresql', false);
         });
     });
 
@@ -242,6 +337,9 @@ describe('DB Setup Command', () => {
 
     describe('Failure Cases - Prisma Operations', () => {
         it('should fail when prisma generate fails', async () => {
+            mockValidator.checkPrismaClientGenerated.mockReturnValue({
+                generated: false // Client doesn't exist, will attempt generation
+            });
             mockRunner.runPrismaGenerate.mockResolvedValue({
                 success: false,
                 error: 'Generation failed'
@@ -304,6 +402,9 @@ describe('DB Setup Command', () => {
         });
 
         it('should fail when schema file missing', async () => {
+            mockValidator.checkPrismaClientGenerated.mockReturnValue({
+                generated: false // Client doesn't exist, will attempt generation
+            });
             mockRunner.runPrismaGenerate.mockResolvedValue({
                 success: false,
                 error: 'Schema not found'
@@ -342,6 +443,9 @@ describe('DB Setup Command', () => {
         });
 
         it('should display helpful error for Prisma failures', async () => {
+            mockValidator.checkPrismaClientGenerated.mockReturnValue({
+                generated: false // Client doesn't exist, will attempt generation
+            });
             mockRunner.runPrismaGenerate.mockResolvedValue({
                 success: false,
                 error: 'Some error',
@@ -392,6 +496,10 @@ describe('DB Setup Command', () => {
         });
 
         it('should pass verbose flag to Prisma commands', async () => {
+            mockValidator.checkPrismaClientGenerated.mockReturnValue({
+                generated: false // Client doesn't exist, will generate
+            });
+
             await dbSetupCommand({ verbose: true });
 
             expect(mockRunner.runPrismaGenerate).toHaveBeenCalledWith('mongodb', true);
@@ -399,6 +507,10 @@ describe('DB Setup Command', () => {
         });
 
         it('should not show verbose output when flag disabled', async () => {
+            mockValidator.checkPrismaClientGenerated.mockReturnValue({
+                generated: false // Client doesn't exist, will generate
+            });
+
             await dbSetupCommand({ verbose: false });
 
             expect(mockRunner.runPrismaGenerate).toHaveBeenCalledWith('mongodb', false);

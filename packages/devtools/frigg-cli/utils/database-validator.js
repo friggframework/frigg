@@ -104,7 +104,7 @@ async function testDatabaseConnection(databaseUrl, dbType, timeout = 5000) {
 
 /**
  * Checks if Prisma client is generated for the database type
- * Uses require.resolve() to find the client regardless of package manager hoisting
+ * Uses require.resolve to find the client in node_modules
  *
  * @param {'mongodb'|'postgresql'} dbType - Database type
  * @param {string} projectRoot - Project root directory (used for require.resolve context)

@@ -4,7 +4,7 @@ const dotenv = require('dotenv');
 const {
     validateDatabaseUrl,
     getDatabaseType,
-    testDatabaseConnection
+    checkPrismaClientGenerated
 } = require('../utils/database-validator');
 const {
     runPrismaGenerate,
@@ -16,7 +16,6 @@ const {
 const {
     getDatabaseUrlMissingError,
     getDatabaseTypeNotConfiguredError,
-    getDatabaseConnectionError,
     getPrismaCommandError,
     getDatabaseSetupSuccess
 } = require('../utils/error-messages');
@@ -75,44 +74,52 @@ async function dbSetupCommand(options = {}) {
             console.log(chalk.green(`✓ Using ${dbType}\n`));
         }
 
-        // Step 3: Test database connection
+        // Step 3: Check if Prisma client exists, generate if needed
         if (verbose) {
-            console.log(chalk.gray('Step 3: Testing database connection...'));
+            console.log(chalk.gray('Step 3: Checking Prisma client...'));
         }
 
-        console.log(chalk.gray('Connecting to database...'));
-        const connectionTest = await testDatabaseConnection(urlValidation.url, dbType);
+        const clientCheck = checkPrismaClientGenerated(dbType);
+        const forceRegenerate = options.force || false;
 
-        if (!connectionTest.connected) {
-            console.error(getDatabaseConnectionError(connectionTest.error, dbType));
-            process.exit(1);
-        }
-
-        console.log(chalk.green('✓ Database connection verified\n'));
-
-        // Step 4: Generate Prisma client
-        console.log(chalk.cyan('Generating Prisma client...'));
-
-        const generateResult = await runPrismaGenerate(dbType, verbose);
-
-        if (!generateResult.success) {
-            console.error(getPrismaCommandError('generate', generateResult.error));
-            if (generateResult.output) {
-                console.error(chalk.gray(generateResult.output));
+        if (clientCheck.generated && !forceRegenerate) {
+            // Client already exists and --force not specified
+            console.log(chalk.green('✓ Prisma client already exists (skipping generation)\n'));
+            if (verbose) {
+                console.log(chalk.gray(`  Client location: ${clientCheck.path}\n`));
             }
-            process.exit(1);
+        } else {
+            // Client doesn't exist OR --force specified - generate it
+            if (forceRegenerate && clientCheck.generated) {
+                console.log(chalk.yellow('⚠️  Forcing Prisma client regeneration...'));
+            } else {
+                console.log(chalk.cyan('Generating Prisma client...'));
+            }
+
+            const generateResult = await runPrismaGenerate(dbType, verbose);
+
+            if (!generateResult.success) {
+                console.error(getPrismaCommandError('generate', generateResult.error));
+                if (generateResult.output) {
+                    console.error(chalk.gray(generateResult.output));
+                }
+                process.exit(1);
+            }
+
+            console.log(chalk.green('✓ Prisma client generated\n'));
         }
 
-        console.log(chalk.green('✓ Prisma client generated\n'));
-
-        // Step 5: Check database state
+        // Step 4: Check database state
+        // Note: We skip connection testing in db:setup because when using frigg:local,
+        // the CLI code runs from tmp/frigg but the client is in backend/node_modules,
+        // causing module resolution mismatches. Connection testing happens in frigg start.
         if (verbose) {
-            console.log(chalk.gray('Step 5: Checking database state...'));
+            console.log(chalk.gray('Step 4: Checking database state...'));
         }
 
         const stateCheck = await checkDatabaseState(dbType);
 
-        // Step 6: Run migrations or db push
+        // Step 5: Run migrations or db push
         if (dbType === 'postgresql') {
             console.log(chalk.cyan('Running database migrations...'));
 
