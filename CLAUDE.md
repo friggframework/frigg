@@ -702,40 +702,30 @@ test("GET /health/ready returns 503 when database unhealthy", async () => {
 When working on the Frigg Framework, always prioritize finding the **best solution** over quick fixes:
 
 ✅ **Do the right thing, not the fast thing**
+
 - Investigate root causes before implementing fixes
 - Prefer defensive coding patterns that handle edge cases
 - Consider both current and future implications of changes
-- Test thoroughly across MongoDB AND PostgreSQL to ensure no regressions
 
 ✅ **Think holistically**
+
 - Understand how different parts of the framework interact
 - Check for similar patterns elsewhere in the codebase (packages/core, packages/devtools, api-modules)
 - Maintain consistency with hexagonal architecture patterns
 - Update tests, documentation, type definitions, and related code together
 
 ✅ **Avoid potentially breaking actions**
-- Never assume data structures are always consistent between MongoDB and PostgreSQL
+
+- Never assume data structures are always consistent
 - Add null/undefined checks for optional properties
-- Handle both wrapped and unwrapped data formats (e.g., `obj.mapping || obj`)
-- Remember that MongoDB uses String IDs, PostgreSQL uses Int IDs - always handle both
 
 ✅ **Be thorough, not lazy**
+
 - Search the entire monorepo for related occurrences
 - Update ALL affected files across all packages, not just the obvious ones
 - Check core package, devtools, API modules, tests, documentation, type definitions, and examples
 - Run the full test suite for both databases to catch unexpected issues
-
-**Example from recent work**: When converting `auth_is_valid` → `authIsValid`:
-- ✅ 2 Prisma schemas (MongoDB + PostgreSQL with different ID types)
-- ✅ 3 repository implementations (mongo, postgres, and base)
-- ✅ Multiple use cases across the framework
-- ✅ Command factory files
-- ✅ TypeScript type definition files
-- ✅ Documentation and README files across packages
-- ✅ Test files and test helpers
-- ✅ Application integration files
-
-**Not just the first file we found.** This thoroughness prevented 24+ test failures and production bugs.
+- Review changes carefully to ensure no unintended side effects
 
 ## Anti-Patterns to Avoid
 

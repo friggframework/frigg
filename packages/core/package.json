@@ -42,11 +42,11 @@
   "scripts": {
     "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
     "test": "jest --passWithNoTests # TODO",
-    "prisma:generate:mongo": "npx prisma generate --schema ./prisma-mongo/schema.prisma",
-    "prisma:generate:postgres": "npx prisma generate --schema ./prisma-postgres/schema.prisma",
+    "prisma:generate:mongo": "npx prisma generate --schema ./prisma-mongodb/schema.prisma",
+    "prisma:generate:postgres": "npx prisma generate --schema ./prisma-postgresql/schema.prisma",
     "prisma:generate": "npm run prisma:generate:mongo && npm run prisma:generate:postgres",
-    "prisma:push:mongo": "npx prisma db push --schema ./prisma-mongo/schema.prisma",
-    "prisma:migrate:postgres": "npx prisma migrate dev --schema ./prisma-postgres/schema.prisma",
+    "prisma:push:mongo": "npx prisma db push --schema ./prisma-mongodb/schema.prisma",
+    "prisma:migrate:postgres": "npx prisma migrate dev --schema ./prisma-postgresql/schema.prisma",
     "postinstall": "npm run prisma:generate"
   },
   "author": "",

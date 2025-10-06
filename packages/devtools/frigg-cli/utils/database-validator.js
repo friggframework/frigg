@@ -114,14 +114,18 @@ function checkPrismaClientGenerated(dbType, projectRoot = process.cwd()) {
     const clientPackageName = `@prisma-${dbType}/client`;
 
     try {
-        // Use require.resolve to locate the client package
-        // This works with any package manager (npm, yarn, pnpm) and hoisting strategy
+        // First, resolve where @friggframework/core actually is
+        // This handles file: dependencies and symlinks correctly
+        const corePackagePath = require.resolve('@friggframework/core', {
+            paths: [projectRoot]
+        });
+        const corePackageDir = path.dirname(corePackagePath);
+
+        // Now look for the Prisma client within the resolved core package
         const clientPath = require.resolve(clientPackageName, {
             paths: [
-                // Try from @friggframework/core first (most likely location)
-                path.join(projectRoot, 'node_modules', '@friggframework', 'core'),
-                // Fallback to project root (in case of different hoisting)
-                projectRoot
+                corePackageDir,  // Look in the actual core package location
+                projectRoot      // Fallback to project root
             ]
         });
 

@@ -124,23 +124,7 @@ async function performDatabaseChecks(verbose) {
         console.log(chalk.green(`✓ Database type: ${dbType}`));
     }
 
-    // Check 3: Test database connection
-    if (verbose) {
-        console.log(chalk.gray('Testing database connection...'));
-    }
-
-    const connectionTest = await testDatabaseConnection(urlValidation.url, dbType, 5000);
-
-    if (!connectionTest.connected) {
-        console.error(getDatabaseConnectionError(connectionTest.error, dbType));
-        throw new Error('Database connection failed');
-    }
-
-    if (verbose) {
-        console.log(chalk.green('✓ Database connection verified'));
-    }
-
-    // Check 4: Verify Prisma client is generated
+    // Check 3: Verify Prisma client is generated (BEFORE connection test to prevent auto-generation)
     if (verbose) {
         console.log(chalk.gray('Checking Prisma client...'));
     }
@@ -156,6 +140,22 @@ async function performDatabaseChecks(verbose) {
 
     if (verbose) {
         console.log(chalk.green('✓ Prisma client generated'));
+    }
+
+    // Check 4: Test database connection (only after confirming client exists)
+    if (verbose) {
+        console.log(chalk.gray('Testing database connection...'));
+    }
+
+    const connectionTest = await testDatabaseConnection(urlValidation.url, dbType, 5000);
+
+    if (!connectionTest.connected) {
+        console.error(getDatabaseConnectionError(connectionTest.error, dbType));
+        throw new Error('Database connection failed');
+    }
+
+    if (verbose) {
+        console.log(chalk.green('✓ Database connection verified'));
     }
 }
 
