@@ -37,7 +37,35 @@ function getDatabaseType() {
             );
         }
 
-        const backendModule = require(backendIndexPath);
+        let backendModule;
+        try {
+            backendModule = require(backendIndexPath);
+        } catch (requireError) {
+            // Extract the actual file with the error from the stack trace
+            // Skip internal Node.js files (node:internal/*) and find first user file
+            let errorFile = 'unknown file';
+            const stackLines = requireError.stack?.split('\n') || [];
+
+            for (const line of stackLines) {
+                // Match file paths in stack trace, excluding node:internal
+                const match = line.match(/\(([^)]+\.js):\d+:\d+\)/) || line.match(/at ([^(]+\.js):\d+:\d+/);
+                if (match && match[1] && !match[1].includes('node:internal')) {
+                    errorFile = match[1];
+                    break;
+                }
+            }
+
+            // Provide better error context for syntax/runtime errors
+            throw new Error(
+                `[Frigg] Failed to load app definition from ${backendIndexPath}\n` +
+                `Error: ${requireError.message}\n` +
+                `File with error: ${errorFile}\n` +
+                `\nFull stack trace:\n${requireError.stack}\n\n` +
+                'This error occurred while loading your app definition or its dependencies. ' +
+                'Check the file listed above for syntax errors (trailing commas, missing brackets, etc.)'
+            );
+        }
+
         database = backendModule?.Definition?.database;
 
         if (!database) {
