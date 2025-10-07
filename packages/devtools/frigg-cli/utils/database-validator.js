@@ -50,7 +50,10 @@ function getDatabaseType() {
         // Convert thrown errors to error object format for CLI
         // Strip [Frigg] prefix from error messages for cleaner CLI output
         const errorMessage = error.message.replace(/^\[Frigg\]\s*/, '');
-        return { error: errorMessage };
+        return {
+            error: errorMessage,
+            stack: error.stack // Include stack trace for debugging
+        };
     }
 }
 

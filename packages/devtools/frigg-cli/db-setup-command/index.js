@@ -63,6 +63,13 @@ async function dbSetupCommand(options = {}) {
         const dbTypeResult = getDatabaseType();
         if (dbTypeResult.error) {
             console.error(chalk.red('❌ ' + dbTypeResult.error));
+
+            // Show stack trace in verbose mode for debugging
+            if (verbose && dbTypeResult.stack) {
+                console.error(chalk.gray('\nStack trace:'));
+                console.error(chalk.gray(dbTypeResult.stack));
+            }
+
             console.error(getDatabaseTypeNotConfiguredError());
             process.exit(1);
         }
