@@ -8,6 +8,8 @@ let EC2Client,
     DescribeInternetGatewaysCommand;
 let KMSClient, ListKeysCommand, DescribeKeyCommand;
 let STSClient, GetCallerIdentityCommand;
+let RDSClient, DescribeDBClustersCommand, DescribeDBSubnetGroupsCommand;
+let SecretsManagerClient, ListSecretsCommand, DescribeSecretCommand;
 
 function loadEC2() {
     if (!EC2Client) {
@@ -30,6 +32,7 @@ function loadKMS() {
             KMSClient,
             ListKeysCommand,
             DescribeKeyCommand,
+            ListAliasesCommand,
         } = require('@aws-sdk/client-kms'));
     }
 }
@@ -43,15 +46,121 @@ function loadSTS() {
     }
 }
 
+function loadRDS() {
+    if (!RDSClient) {
+        ({
+            RDSClient,
+            DescribeDBClustersCommand,
+            DescribeDBSubnetGroupsCommand,
+        } = require('@aws-sdk/client-rds'));
+    }
+}
+
+function loadSecretsManager() {
+    if (!SecretsManagerClient) {
+        ({
+            SecretsManagerClient,
+            ListSecretsCommand,
+            DescribeSecretCommand,
+        } = require('@aws-sdk/client-secrets-manager'));
+    }
+}
+
 class AWSDiscovery {
     constructor(region = 'us-east-1') {
+        console.log('[AWSDiscovery] Initializing AWSDiscovery...');
+        console.log('[AWSDiscovery] Region:', region);
+        console.log('[AWSDiscovery] System time:', new Date().toISOString());
+        console.log('[AWSDiscovery] AWS_PROFILE:', process.env.AWS_PROFILE);
+        console.log('[AWSDiscovery] AWS_ACCESS_KEY_ID:', process.env.AWS_ACCESS_KEY_ID ? 'SET (hidden)' : 'NOT SET');
+        console.log('[AWSDiscovery] AWS_SECRET_ACCESS_KEY:', process.env.AWS_SECRET_ACCESS_KEY ? 'SET (hidden)' : 'NOT SET');
+        console.log('[AWSDiscovery] NODE_TLS_REJECT_UNAUTHORIZED:', process.env.NODE_TLS_REJECT_UNAUTHORIZED);
+
         this.region = region;
         loadEC2();
         loadKMS();
         loadSTS();
+        loadRDS();
+        loadSecretsManager();
         this.ec2Client = new EC2Client({ region });
         this.kmsClient = new KMSClient({ region });
         this.stsClient = new STSClient({ region });
+        this.rdsClient = new RDSClient({ region });
+        this.secretsManagerClient = new SecretsManagerClient({ region });
+
+        console.log('[AWSDiscovery] AWS clients initialized successfully');
+    }
+
+    async validateCredentials() {
+        console.log('[AWSDiscovery] Validating AWS credentials...');
+
+        try {
+            const command = new GetCallerIdentityCommand({});
+            const startTime = Date.now();
+            const response = await this.stsClient.send(command);
+            const duration = Date.now() - startTime;
+
+            console.log('[AWSDiscovery] ✅ Credentials are VALID');
+            console.log('[AWSDiscovery]   Account ID:', response.Account);
+            console.log('[AWSDiscovery]   User ARN:', response.Arn);
+            console.log('[AWSDiscovery]   User ID:', response.UserId);
+            console.log('[AWSDiscovery]   Validation took', duration, 'ms');
+
+            return {
+                valid: true,
+                accountId: response.Account,
+                arn: response.Arn,
+                userId: response.UserId
+            };
+        } catch (error) {
+            console.error('[AWSDiscovery] ❌ CREDENTIAL VALIDATION FAILED');
+            console.error('[AWSDiscovery]   Error:', error.message);
+            console.error('[AWSDiscovery]   Error Code:', error.Code || error.code);
+
+            // Provide specific guidance based on error type
+            if (error.Code === 'RequestExpired' || error.message.includes('expired')) {
+                console.error('\n[AWSDiscovery] 🔍 DIAGNOSIS: Expired Credentials');
+                console.error('[AWSDiscovery]   Your AWS credentials have expired.');
+                console.error('[AWSDiscovery]   This commonly happens with:');
+                console.error('[AWSDiscovery]     - Temporary STS credentials (AWS_ACCESS_KEY_ID starting with "ASIA")');
+                console.error('[AWSDiscovery]     - AWS SSO sessions that have timed out');
+                console.error('[AWSDiscovery]     - Hardcoded credentials in .env files');
+                console.error('\n[AWSDiscovery] 💡 SOLUTIONS:');
+                if (process.env.AWS_ACCESS_KEY_ID?.startsWith('ASIA')) {
+                    console.error('[AWSDiscovery]   1. Comment out AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in your .env file');
+                    console.error('[AWSDiscovery]   2. Use AWS_PROFILE instead: AWS_PROFILE=your-profile npm run deploy');
+                } else if (process.env.AWS_PROFILE) {
+                    console.error('[AWSDiscovery]   1. Refresh your AWS SSO login: aws sso login --profile', process.env.AWS_PROFILE);
+                    console.error('[AWSDiscovery]   2. Or regenerate credentials if using IAM user');
+                } else {
+                    console.error('[AWSDiscovery]   1. Set up AWS profile: aws configure --profile your-profile');
+                    console.error('[AWSDiscovery]   2. Or use AWS SSO: aws sso login');
+                }
+            } else if (error.Code === 'InvalidClientTokenId' || error.Code === 'SignatureDoesNotMatch') {
+                console.error('\n[AWSDiscovery] 🔍 DIAGNOSIS: Invalid Credentials');
+                console.error('[AWSDiscovery]   Your AWS credentials are not recognized or incorrect.');
+                console.error('\n[AWSDiscovery] 💡 SOLUTIONS:');
+                console.error('[AWSDiscovery]   1. Check AWS credentials file: cat ~/.aws/credentials');
+                console.error('[AWSDiscovery]   2. Verify profile exists: aws configure list-profiles');
+                console.error('[AWSDiscovery]   3. Test credentials: aws sts get-caller-identity --profile', process.env.AWS_PROFILE || 'default');
+            } else if (error.message.includes('Could not load credentials')) {
+                console.error('\n[AWSDiscovery] 🔍 DIAGNOSIS: No Credentials Found');
+                console.error('[AWSDiscovery]   AWS SDK cannot find any credentials.');
+                console.error('\n[AWSDiscovery] 💡 SOLUTIONS:');
+                console.error('[AWSDiscovery]   1. Set AWS_PROFILE: export AWS_PROFILE=your-profile');
+                console.error('[AWSDiscovery]   2. Or configure default profile: aws configure');
+                console.error('[AWSDiscovery]   3. Or use AWS SSO: aws sso login');
+            } else {
+                console.error('\n[AWSDiscovery] 💡 GENERAL TROUBLESHOOTING:');
+                console.error('[AWSDiscovery]   1. Test credentials manually: aws sts get-caller-identity');
+                console.error('[AWSDiscovery]   2. Check ~/.aws/credentials file exists');
+                console.error('[AWSDiscovery]   3. Verify network connectivity to AWS');
+            }
+
+            console.error('\n[AWSDiscovery] ⛔ Cannot proceed with AWS discovery until credentials are valid.\n');
+
+            throw new Error(`AWS credential validation failed: ${error.message}. See detailed guidance above.`);
+        }
     }
 
     async getAccountId() {
@@ -67,6 +176,10 @@ class AWSDiscovery {
 
     async findDefaultVpc() {
         try {
+            console.log('[AWSDiscovery.findDefaultVpc] Starting VPC discovery...');
+            console.log('[AWSDiscovery.findDefaultVpc] Request timestamp:', new Date().toISOString());
+            console.log('[AWSDiscovery.findDefaultVpc] Region:', this.region);
+
             const command = new DescribeVpcsCommand({
                 Filters: [
                     {
@@ -76,23 +189,54 @@ class AWSDiscovery {
                 ],
             });
 
+            console.log('[AWSDiscovery.findDefaultVpc] Sending DescribeVpcsCommand (default VPC)...');
+            console.log('[AWSDiscovery.findDefaultVpc] Request time before send:', new Date().toISOString());
+
+            const requestStart = Date.now();
             const response = await this.ec2Client.send(command);
+            const requestDuration = Date.now() - requestStart;
+
+            console.log('[AWSDiscovery.findDefaultVpc] Request completed in', requestDuration, 'ms');
+            console.log('[AWSDiscovery.findDefaultVpc] Response time:', new Date().toISOString());
+            console.log('[AWSDiscovery.findDefaultVpc] Found', response.Vpcs?.length || 0, 'default VPC(s)');
 
             if (response.Vpcs && response.Vpcs.length > 0) {
+                console.log('[AWSDiscovery.findDefaultVpc] Using default VPC:', response.Vpcs[0].VpcId);
                 return response.Vpcs[0];
             }
 
+            console.log('[AWSDiscovery.findDefaultVpc] No default VPC found, fetching all VPCs...');
             const allVpcsCommand = new DescribeVpcsCommand({});
+
+            console.log('[AWSDiscovery.findDefaultVpc] Sending DescribeVpcsCommand (all VPCs)...');
+            const allVpcsRequestStart = Date.now();
             const allVpcsResponse = await this.ec2Client.send(allVpcsCommand);
+            const allVpcsRequestDuration = Date.now() - allVpcsRequestStart;
+
+            console.log('[AWSDiscovery.findDefaultVpc] All VPCs request completed in', allVpcsRequestDuration, 'ms');
+            console.log('[AWSDiscovery.findDefaultVpc] Found', allVpcsResponse.Vpcs?.length || 0, 'VPC(s)');
 
             if (allVpcsResponse.Vpcs && allVpcsResponse.Vpcs.length > 0) {
                 console.log('No default VPC found, using first available VPC');
+                console.log('[AWSDiscovery.findDefaultVpc] Using VPC:', allVpcsResponse.Vpcs[0].VpcId);
                 return allVpcsResponse.Vpcs[0];
             }
 
             throw new Error('No VPC found in the account');
         } catch (error) {
-            console.error('Error finding default VPC:', error.message);
+            console.error('[AWSDiscovery.findDefaultVpc] ERROR occurred at:', new Date().toISOString());
+            console.error('[AWSDiscovery.findDefaultVpc] Error type:', error.constructor.name);
+            console.error('[AWSDiscovery.findDefaultVpc] Error code:', error.Code || error.code);
+            console.error('[AWSDiscovery.findDefaultVpc] Error message:', error.message);
+            console.error('[AWSDiscovery.findDefaultVpc] Error $fault:', error.$fault);
+            console.error('[AWSDiscovery.findDefaultVpc] Error $metadata:', JSON.stringify(error.$metadata, null, 2));
+
+            if (error.$response) {
+                console.error('[AWSDiscovery.findDefaultVpc] Response status:', error.$response.statusCode);
+                console.error('[AWSDiscovery.findDefaultVpc] Response headers:', JSON.stringify(error.$response.headers, null, 2));
+            }
+
+            console.error('[AWSDiscovery.findDefaultVpc] Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
             throw error;
         }
     }
@@ -510,6 +654,338 @@ class AWSDiscovery {
         }
     }
 
+    async findKmsAlias(aliasName) {
+        try {
+            console.log(`[KMS Alias Discovery] Checking for alias: ${aliasName}`);
+            const command = new ListAliasesCommand({});
+            const response = await this.kmsClient.send(command);
+
+            if (!response.Aliases || response.Aliases.length === 0) {
+                console.log('[KMS Alias Discovery] No aliases found in account');
+                return null;
+            }
+
+            const targetAlias = response.Aliases.find(
+                alias => alias.AliasName === aliasName
+            );
+
+            if (targetAlias) {
+                console.log(`[KMS Alias Discovery] ✅ Found existing alias: ${aliasName}`);
+                console.log(`[KMS Alias Discovery]    Target Key: ${targetAlias.TargetKeyId}`);
+                return targetAlias;
+            }
+
+            console.log(`[KMS Alias Discovery] Alias ${aliasName} does not exist`);
+            return null;
+        } catch (error) {
+            console.warn(
+                `[KMS Alias Discovery] Error checking for alias ${aliasName}:`,
+                error.message
+            );
+            return null;
+        }
+    }
+
+    async findAuroraCluster(clusterIdentifier = null, serviceName = null, stage = null) {
+        try {
+            console.log('[AWSDiscovery.findAuroraCluster] Starting Aurora cluster discovery...');
+
+            const command = new DescribeDBClustersCommand({});
+            const response = await this.rdsClient.send(command);
+
+            if (!response.DBClusters || response.DBClusters.length === 0) {
+                console.log('[AWSDiscovery.findAuroraCluster] No Aurora clusters found');
+                return null;
+            }
+
+            console.log(`[AWSDiscovery.findAuroraCluster] Found ${response.DBClusters.length} Aurora cluster(s)`);
+
+            // Filter for Aurora PostgreSQL clusters
+            const postgresClusters = response.DBClusters.filter(
+                cluster => cluster.Engine === 'aurora-postgresql' && cluster.Status === 'available'
+            );
+
+            if (postgresClusters.length === 0) {
+                console.log('[AWSDiscovery.findAuroraCluster] No available Aurora PostgreSQL clusters found');
+                return null;
+            }
+
+            // Priority 1: User-specified cluster identifier
+            if (clusterIdentifier) {
+                const targetCluster = postgresClusters.find(
+                    cluster => cluster.DBClusterIdentifier === clusterIdentifier
+                );
+                if (targetCluster) {
+                    console.log(`[AWSDiscovery.findAuroraCluster] Found specified cluster: ${clusterIdentifier}`);
+                    return this._formatAuroraCluster(targetCluster);
+                }
+                console.warn(`[AWSDiscovery.findAuroraCluster] Specified cluster ${clusterIdentifier} not found`);
+                return null;
+            }
+
+            // Priority 2: Frigg-managed cluster with matching service and stage tags
+            if (serviceName && stage) {
+                const friggCluster = postgresClusters.find(cluster => {
+                    const tags = cluster.TagList || [];
+                    const isFrigg = this._isFriggManaged(tags);
+                    const matchesService = tags.some(tag => tag.Key === 'Service' && tag.Value === serviceName);
+                    const matchesStage = tags.some(tag => tag.Key === 'Stage' && tag.Value === stage);
+                    return isFrigg && matchesService && matchesStage;
+                });
+
+                if (friggCluster) {
+                    console.log(`[AWSDiscovery.findAuroraCluster] Found Frigg-managed cluster: ${friggCluster.DBClusterIdentifier}`);
+                    return this._formatAuroraCluster(friggCluster);
+                }
+            }
+
+            // Priority 3: Any Frigg-managed cluster
+            const anyFriggCluster = postgresClusters.find(cluster =>
+                this._isFriggManaged(cluster.TagList || [])
+            );
+
+            if (anyFriggCluster) {
+                console.log(`[AWSDiscovery.findAuroraCluster] Found Frigg-managed cluster: ${anyFriggCluster.DBClusterIdentifier}`);
+                return this._formatAuroraCluster(anyFriggCluster);
+            }
+
+            // Priority 4: First available cluster
+            console.log(`[AWSDiscovery.findAuroraCluster] Using first available cluster: ${postgresClusters[0].DBClusterIdentifier}`);
+            return this._formatAuroraCluster(postgresClusters[0]);
+
+        } catch (error) {
+            console.error('[AWSDiscovery.findAuroraCluster] Error finding Aurora cluster:', error.message);
+            return null;
+        }
+    }
+
+    async findDBSubnetGroup(vpcId) {
+        try {
+            console.log(`[AWSDiscovery.findDBSubnetGroup] Looking for DB subnet groups in VPC ${vpcId}...`);
+
+            const command = new DescribeDBSubnetGroupsCommand({});
+            const response = await this.rdsClient.send(command);
+
+            if (!response.DBSubnetGroups || response.DBSubnetGroups.length === 0) {
+                console.log('[AWSDiscovery.findDBSubnetGroup] No DB subnet groups found');
+                return null;
+            }
+
+            // Filter by VPC ID
+            const vpcSubnetGroups = response.DBSubnetGroups.filter(
+                group => group.VpcId === vpcId
+            );
+
+            if (vpcSubnetGroups.length === 0) {
+                console.log(`[AWSDiscovery.findDBSubnetGroup] No DB subnet groups found in VPC ${vpcId}`);
+                return null;
+            }
+
+            // Priority 1: Frigg-managed subnet group
+            const friggSubnetGroup = vpcSubnetGroups.find(group =>
+                this._isFriggManaged(group.Tags || [])
+            );
+
+            if (friggSubnetGroup) {
+                console.log(`[AWSDiscovery.findDBSubnetGroup] Found Frigg-managed subnet group: ${friggSubnetGroup.DBSubnetGroupName}`);
+                return {
+                    name: friggSubnetGroup.DBSubnetGroupName,
+                    vpcId: friggSubnetGroup.VpcId,
+                    subnets: friggSubnetGroup.Subnets.map(s => s.SubnetIdentifier),
+                    description: friggSubnetGroup.DBSubnetGroupDescription
+                };
+            }
+
+            // Priority 2: First available subnet group
+            const subnetGroup = vpcSubnetGroups[0];
+            console.log(`[AWSDiscovery.findDBSubnetGroup] Found subnet group: ${subnetGroup.DBSubnetGroupName}`);
+            return {
+                name: subnetGroup.DBSubnetGroupName,
+                vpcId: subnetGroup.VpcId,
+                subnets: subnetGroup.Subnets.map(s => s.SubnetIdentifier),
+                description: subnetGroup.DBSubnetGroupDescription
+            };
+
+        } catch (error) {
+            console.error('[AWSDiscovery.findDBSubnetGroup] Error finding DB subnet group:', error.message);
+            return null;
+        }
+    }
+
+    async findDatabaseSecret(serviceName, stage) {
+        try {
+            console.log(`[AWSDiscovery.findDatabaseSecret] Looking for database secret (service: ${serviceName}, stage: ${stage})...`);
+
+            const command = new ListSecretsCommand({
+                Filters: [
+                    {
+                        Key: 'tag-key',
+                        Values: ['ManagedBy']
+                    }
+                ]
+            });
+            const response = await this.secretsManagerClient.send(command);
+
+            if (!response.SecretList || response.SecretList.length === 0) {
+                console.log('[AWSDiscovery.findDatabaseSecret] No secrets found');
+                return null;
+            }
+
+            // Filter for Frigg-managed database secrets
+            const friggSecrets = response.SecretList.filter(secret => {
+                const tags = secret.Tags || [];
+                const isFrigg = this._isFriggManaged(tags);
+                const isDatabase = secret.Name?.includes('aurora') || secret.Name?.includes('database');
+                return isFrigg && isDatabase;
+            });
+
+            if (friggSecrets.length === 0) {
+                console.log('[AWSDiscovery.findDatabaseSecret] No Frigg-managed database secrets found');
+                return null;
+            }
+
+            // Priority 1: Secret with matching service and stage tags
+            if (serviceName && stage) {
+                const matchingSecret = friggSecrets.find(secret => {
+                    const tags = secret.Tags || [];
+                    const matchesService = tags.some(tag => tag.Key === 'Service' && tag.Value === serviceName);
+                    const matchesStage = tags.some(tag => tag.Key === 'Stage' && tag.Value === stage);
+                    return matchesService && matchesStage;
+                });
+
+                if (matchingSecret) {
+                    console.log(`[AWSDiscovery.findDatabaseSecret] Found matching secret: ${matchingSecret.Name}`);
+                    return {
+                        arn: matchingSecret.ARN,
+                        name: matchingSecret.Name
+                    };
+                }
+            }
+
+            // Priority 2: First Frigg-managed database secret
+            const secret = friggSecrets[0];
+            console.log(`[AWSDiscovery.findDatabaseSecret] Found Frigg-managed secret: ${secret.Name}`);
+            return {
+                arn: secret.ARN,
+                name: secret.Name
+            };
+
+        } catch (error) {
+            console.error('[AWSDiscovery.findDatabaseSecret] Error finding database secret:', error.message);
+            return null;
+        }
+    }
+
+    async discoverAuroraResources(options = {}) {
+        try {
+            console.log('\n🔍 Discovering Aurora PostgreSQL resources...');
+            console.log('═'.repeat(60));
+
+            const {
+                vpcId,
+                serviceName,
+                stage,
+                management = 'discover',
+                clusterIdentifier = null
+            } = options;
+
+            const result = {
+                clusterIdentifier: null,
+                endpoint: null,
+                port: null,
+                engine: null,
+                engineVersion: null,
+                status: null,
+                dbSubnetGroupName: null,
+                secretArn: null,
+                secretName: null,
+                needsCreation: false
+            };
+
+            // For 'use-existing' mode, cluster identifier is required
+            if (management === 'use-existing' && !clusterIdentifier) {
+                throw new Error('clusterIdentifier is required when management mode is "use-existing"');
+            }
+
+            // For 'create-new' mode, skip discovery
+            if (management === 'create-new') {
+                console.log('💡 Management mode is "create-new" - will provision new Aurora cluster');
+                result.needsCreation = true;
+                return result;
+            }
+
+            // Discover Aurora cluster
+            const cluster = await this.findAuroraCluster(clusterIdentifier, serviceName, stage);
+
+            if (!cluster) {
+                if (management === 'discover') {
+                    console.log('⚠️  No Aurora cluster found - will provision new cluster');
+                    result.needsCreation = true;
+                    return result;
+                }
+                throw new Error(`No Aurora cluster found with identifier: ${clusterIdentifier}`);
+            }
+
+            result.clusterIdentifier = cluster.identifier;
+            result.endpoint = cluster.endpoint;
+            result.port = cluster.port;
+            result.engine = cluster.engine;
+            result.engineVersion = cluster.engineVersion;
+            result.status = cluster.status;
+
+            console.log(`\n✅ Found Aurora Cluster: ${cluster.identifier}`);
+            console.log(`   Endpoint: ${cluster.endpoint}:${cluster.port}`);
+            console.log(`   Engine: ${cluster.engine} ${cluster.engineVersion}`);
+            console.log(`   Status: ${cluster.status}`);
+
+            // Discover DB subnet group
+            const subnetGroup = await this.findDBSubnetGroup(vpcId);
+            if (subnetGroup) {
+                result.dbSubnetGroupName = subnetGroup.name;
+                console.log(`\n✅ Found DB Subnet Group: ${subnetGroup.name}`);
+                console.log(`   Subnets: ${subnetGroup.subnets.join(', ')}`);
+            }
+
+            // Discover database secret
+            const secret = await this.findDatabaseSecret(serviceName, stage);
+            if (secret) {
+                result.secretArn = secret.arn;
+                result.secretName = secret.name;
+                console.log(`\n✅ Found Database Secret: ${secret.name}`);
+            }
+
+            console.log(`\n${'═'.repeat(60)}`);
+            console.log('📋 Aurora Discovery Summary:');
+            console.log(`  Cluster: ${result.clusterIdentifier || 'Not found'}`);
+            console.log(`  Subnet Group: ${result.dbSubnetGroupName || 'Not found'}`);
+            console.log(`  Secret: ${result.secretName || 'Not found'}`);
+            console.log(`${'═'.repeat(60)}\n`);
+
+            return result;
+
+        } catch (error) {
+            console.error('❌ Aurora resource discovery failed:', error.message);
+            throw error;
+        }
+    }
+
+    _formatAuroraCluster(cluster) {
+        return {
+            identifier: cluster.DBClusterIdentifier,
+            endpoint: cluster.Endpoint,
+            readerEndpoint: cluster.ReaderEndpoint,
+            port: cluster.Port,
+            engine: cluster.Engine,
+            engineVersion: cluster.EngineVersion,
+            status: cluster.Status,
+            masterUsername: cluster.MasterUsername,
+            databaseName: cluster.DatabaseName,
+            vpcSecurityGroups: (cluster.VpcSecurityGroups || []).map(sg => sg.VpcSecurityGroupId),
+            dbSubnetGroup: cluster.DBSubnetGroup,
+            arn: cluster.DBClusterArn
+        };
+    }
+
     async detectMisconfiguredResources(vpcId) {
         try {
             const misconfigurations = {
@@ -649,10 +1125,14 @@ class AWSDiscovery {
             );
             console.log('═'.repeat(60));
 
+            // Validate credentials before attempting any AWS operations
+            await this.validateCredentials();
+            console.log(''); // Add spacing after validation
+
             const vpc = await this.findDefaultVpc();
             console.log(`\n✅ Found VPC: ${vpc.VpcId}`);
 
-            const autoConvert = options.selfHeal || false;
+            const autoConvert = options.vpc?.selfHeal || false;
 
             const privateSubnets = await this.findPrivateSubnets(
                 vpc.VpcId,
@@ -688,6 +1168,26 @@ class AWSDiscovery {
                 console.log(`✅ Found KMS key: ${kmsKeyArn}`);
             } else {
                 console.log('ℹ️  No KMS key found');
+            }
+
+            // Check if KMS alias already exists
+            let kmsAliasExists = false;
+            if (options.serviceName && options.stage) {
+                const aliasName = `alias/${options.serviceName}-${options.stage}-frigg-kms`;
+                const existingAlias = await this.findKmsAlias(aliasName);
+                kmsAliasExists = existingAlias !== null;
+            }
+
+            // Discover Aurora PostgreSQL resources if enabled
+            let auroraResources = {};
+            if (options.database?.postgres?.enable) {
+                auroraResources = await this.discoverAuroraResources({
+                    vpcId: vpc.VpcId,
+                    serviceName: options.serviceName,
+                    stage: options.stage,
+                    management: options.database.postgres.management,
+                    clusterIdentifier: options.database.postgres.clusterIdentifier,
+                });
             }
 
             const existingNatGateway = await this.findExistingNatGateway(
@@ -789,6 +1289,7 @@ class AWSDiscovery {
                 publicSubnetId: publicSubnet?.SubnetId || null,
                 privateRouteTableId: routeTable.RouteTableId,
                 defaultKmsKeyId: kmsKeyArn,
+                kmsAliasExists: kmsAliasExists,
                 existingNatGatewayId: natGatewayId,
                 existingElasticIpAllocationId: elasticIpAllocationId,
                 natGatewayInPrivateSubnet: natGatewayInPrivateSubnet,
@@ -809,6 +1310,7 @@ class AWSDiscovery {
                     }
                     return wrongRoutes;
                 })(),
+                aurora: auroraResources,
             };
         } catch (error) {
             console.error('Error discovering AWS resources:', error);

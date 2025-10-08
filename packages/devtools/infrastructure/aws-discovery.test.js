@@ -21,11 +21,23 @@ const {
     STSClient,
     GetCallerIdentityCommand
 } = require('@aws-sdk/client-sts');
+const {
+    RDSClient,
+    DescribeDBClustersCommand,
+    DescribeDBSubnetGroupsCommand
+} = require('@aws-sdk/client-rds');
+const {
+    SecretsManagerClient,
+    ListSecretsCommand,
+    DescribeSecretCommand
+} = require('@aws-sdk/client-secrets-manager');
 
 // Create mock clients
 const ec2Mock = mockClient(EC2Client);
 const kmsMock = mockClient(KMSClient);
 const stsMock = mockClient(STSClient);
+const rdsMock = mockClient(RDSClient);
+const secretsManagerMock = mockClient(SecretsManagerClient);
 
 describe('AWSDiscovery', () => {
     let discovery;
@@ -35,8 +47,69 @@ describe('AWSDiscovery', () => {
         ec2Mock.reset();
         kmsMock.reset();
         stsMock.reset();
+        rdsMock.reset();
+        secretsManagerMock.reset();
+
+        // Set up default STS mock for credential validation
+        // This is needed because validateCredentials() is now called in discoverResources()
+        stsMock.on(GetCallerIdentityCommand).resolves({
+            Account: '123456789012',
+            Arn: 'arn:aws:iam::123456789012:user/test-user',
+            UserId: 'AIDAI1234567890EXAMPLE'
+        });
 
         discovery = new AWSDiscovery('us-east-1');
+    });
+
+    describe('validateCredentials', () => {
+        it('should return valid credentials info when credentials are valid', async () => {
+            const mockResponse = {
+                Account: '123456789012',
+                Arn: 'arn:aws:iam::123456789012:user/test-user',
+                UserId: 'AIDAI1234567890EXAMPLE'
+            };
+
+            stsMock.reset();
+            stsMock.on(GetCallerIdentityCommand).resolves(mockResponse);
+
+            const result = await discovery.validateCredentials();
+
+            expect(result).toEqual({
+                valid: true,
+                accountId: '123456789012',
+                arn: 'arn:aws:iam::123456789012:user/test-user',
+                userId: 'AIDAI1234567890EXAMPLE'
+            });
+        });
+
+        it('should throw descriptive error for expired credentials', async () => {
+            stsMock.reset();
+            const expiredError = new Error('Request has expired.');
+            expiredError.Code = 'RequestExpired';
+            stsMock.on(GetCallerIdentityCommand).rejects(expiredError);
+
+            await expect(discovery.validateCredentials())
+                .rejects.toThrow('AWS credential validation failed: Request has expired.');
+        });
+
+        it('should throw descriptive error for invalid credentials', async () => {
+            stsMock.reset();
+            const invalidError = new Error('The security token included in the request is invalid');
+            invalidError.Code = 'InvalidClientTokenId';
+            stsMock.on(GetCallerIdentityCommand).rejects(invalidError);
+
+            await expect(discovery.validateCredentials())
+                .rejects.toThrow('AWS credential validation failed');
+        });
+
+        it('should throw descriptive error when credentials cannot be loaded', async () => {
+            stsMock.reset();
+            const noCredsError = new Error('Could not load credentials from any providers');
+            stsMock.on(GetCallerIdentityCommand).rejects(noCredsError);
+
+            await expect(discovery.validateCredentials())
+                .rejects.toThrow('AWS credential validation failed');
+        });
     });
 
     describe('getAccountId', () => {
@@ -1100,7 +1173,7 @@ describe('AWSDiscovery', () => {
             jest.spyOn(discovery, 'isSubnetPrivate')
                 .mockResolvedValue(false); // All subnets are public
 
-            const result = await discovery.discoverResources({ selfHeal: true });
+            const result = await discovery.discoverResources({ vpc: { selfHeal: true } });
 
             // Verify that findPrivateSubnets was called with autoConvert=true
             expect(discovery.findPrivateSubnets).toHaveBeenCalledWith('vpc-12345678', true);
@@ -1215,6 +1288,379 @@ describe('AWSDiscovery', () => {
         it('should initialize with custom region', () => {
             const customDiscovery = new AWSDiscovery('us-west-2');
             expect(customDiscovery.region).toBe('us-west-2');
+        });
+    });
+
+    describe('Aurora PostgreSQL Discovery', () => {
+        describe('findAuroraCluster', () => {
+            it('should return cluster matching specific clusterIdentifier', async () => {
+                const mockClusters = {
+                    DBClusters: [
+                        {
+                            DBClusterIdentifier: 'target-cluster',
+                            Engine: 'aurora-postgresql',
+                            Status: 'available',
+                            Endpoint: 'target.cluster.us-east-1.rds.amazonaws.com',
+                            Port: 5432,
+                            EngineVersion: '15.3',
+                            MasterUsername: 'admin',
+                            DatabaseName: 'mydb',
+                            TagList: []
+                        },
+                        {
+                            DBClusterIdentifier: 'other-cluster',
+                            Engine: 'aurora-postgresql',
+                            Status: 'available',
+                            Endpoint: 'other.cluster.us-east-1.rds.amazonaws.com',
+                            Port: 5432,
+                            TagList: []
+                        }
+                    ]
+                };
+
+                rdsMock.on(DescribeDBClustersCommand).resolves(mockClusters);
+
+                const result = await discovery.findAuroraCluster('target-cluster');
+
+                expect(result).toBeDefined();
+                expect(result.identifier).toBe('target-cluster');
+                expect(result.endpoint).toBe('target.cluster.us-east-1.rds.amazonaws.com');
+                expect(result.port).toBe(5432);
+            });
+
+            it('should prioritize Frigg-managed cluster with matching service+stage tags', async () => {
+                const mockClusters = {
+                    DBClusters: [
+                        {
+                            DBClusterIdentifier: 'generic-frigg-cluster',
+                            Engine: 'aurora-postgresql',
+                            Status: 'available',
+                            TagList: [
+                                { Key: 'ManagedBy', Value: 'Frigg' }
+                            ]
+                        },
+                        {
+                            DBClusterIdentifier: 'matching-cluster',
+                            Engine: 'aurora-postgresql',
+                            Status: 'available',
+                            Endpoint: 'matching.cluster.us-east-1.rds.amazonaws.com',
+                            Port: 5432,
+                            TagList: [
+                                { Key: 'ManagedBy', Value: 'Frigg' },
+                                { Key: 'Service', Value: 'test-service' },
+                                { Key: 'Stage', Value: 'dev' }
+                            ]
+                        },
+                        {
+                            DBClusterIdentifier: 'non-frigg-cluster',
+                            Engine: 'aurora-postgresql',
+                            Status: 'available',
+                            TagList: []
+                        }
+                    ]
+                };
+
+                rdsMock.on(DescribeDBClustersCommand).resolves(mockClusters);
+
+                const result = await discovery.findAuroraCluster(null, 'test-service', 'dev');
+
+                expect(result).toBeDefined();
+                expect(result.identifier).toBe('matching-cluster');
+            });
+
+            it('should fall back to any Frigg-managed cluster', async () => {
+                const mockClusters = {
+                    DBClusters: [
+                        {
+                            DBClusterIdentifier: 'non-frigg-cluster',
+                            Engine: 'aurora-postgresql',
+                            Status: 'available',
+                            TagList: []
+                        },
+                        {
+                            DBClusterIdentifier: 'frigg-cluster',
+                            Engine: 'aurora-postgresql',
+                            Status: 'available',
+                            Endpoint: 'frigg.cluster.us-east-1.rds.amazonaws.com',
+                            Port: 5432,
+                            TagList: [
+                                { Key: 'ManagedBy', Value: 'Frigg' }
+                            ]
+                        }
+                    ]
+                };
+
+                rdsMock.on(DescribeDBClustersCommand).resolves(mockClusters);
+
+                const result = await discovery.findAuroraCluster(null, 'different-service', 'prod');
+
+                expect(result).toBeDefined();
+                expect(result.identifier).toBe('frigg-cluster');
+            });
+
+            it('should return first available cluster as last fallback', async () => {
+                const mockClusters = {
+                    DBClusters: [
+                        {
+                            DBClusterIdentifier: 'first-cluster',
+                            Engine: 'aurora-postgresql',
+                            Status: 'available',
+                            Endpoint: 'first.cluster.us-east-1.rds.amazonaws.com',
+                            Port: 5432,
+                            TagList: []
+                        },
+                        {
+                            DBClusterIdentifier: 'second-cluster',
+                            Engine: 'aurora-postgresql',
+                            Status: 'available',
+                            TagList: []
+                        }
+                    ]
+                };
+
+                rdsMock.on(DescribeDBClustersCommand).resolves(mockClusters);
+
+                const result = await discovery.findAuroraCluster();
+
+                expect(result).toBeDefined();
+                expect(result.identifier).toBe('first-cluster');
+            });
+
+            it('should return null when no clusters found', async () => {
+                rdsMock.on(DescribeDBClustersCommand).resolves({ DBClusters: [] });
+
+                const result = await discovery.findAuroraCluster();
+
+                expect(result).toBeNull();
+            });
+        });
+
+        describe('findDBSubnetGroup', () => {
+            it('should return Frigg-managed subnet group in VPC', async () => {
+                const mockSubnetGroups = {
+                    DBSubnetGroups: [
+                        {
+                            DBSubnetGroupName: 'other-subnet-group',
+                            VpcId: 'vpc-12345',
+                            Subnets: [{ SubnetIdentifier: 'subnet-1' }],
+                            Tags: []
+                        },
+                        {
+                            DBSubnetGroupName: 'frigg-subnet-group',
+                            VpcId: 'vpc-12345',
+                            Subnets: [
+                                { SubnetIdentifier: 'subnet-1' },
+                                { SubnetIdentifier: 'subnet-2' }
+                            ],
+                            DBSubnetGroupDescription: 'Frigg managed',
+                            Tags: [
+                                { Key: 'ManagedBy', Value: 'Frigg' }
+                            ]
+                        }
+                    ]
+                };
+
+                rdsMock.on(DescribeDBSubnetGroupsCommand).resolves(mockSubnetGroups);
+
+                const result = await discovery.findDBSubnetGroup('vpc-12345');
+
+                expect(result).toBeDefined();
+                expect(result.name).toBe('frigg-subnet-group');
+                expect(result.vpcId).toBe('vpc-12345');
+                expect(result.subnets).toEqual(['subnet-1', 'subnet-2']);
+            });
+
+            it('should return first available subnet group as fallback', async () => {
+                const mockSubnetGroups = {
+                    DBSubnetGroups: [
+                        {
+                            DBSubnetGroupName: 'first-subnet-group',
+                            VpcId: 'vpc-12345',
+                            Subnets: [{ SubnetIdentifier: 'subnet-a' }],
+                            DBSubnetGroupDescription: 'First group',
+                            Tags: []
+                        }
+                    ]
+                };
+
+                rdsMock.on(DescribeDBSubnetGroupsCommand).resolves(mockSubnetGroups);
+
+                const result = await discovery.findDBSubnetGroup('vpc-12345');
+
+                expect(result).toBeDefined();
+                expect(result.name).toBe('first-subnet-group');
+            });
+
+            it('should return null when no subnet groups found in VPC', async () => {
+                const mockSubnetGroups = {
+                    DBSubnetGroups: [
+                        {
+                            DBSubnetGroupName: 'wrong-vpc-group',
+                            VpcId: 'vpc-wrong',
+                            Subnets: [{ SubnetIdentifier: 'subnet-x' }],
+                            Tags: []
+                        }
+                    ]
+                };
+
+                rdsMock.on(DescribeDBSubnetGroupsCommand).resolves(mockSubnetGroups);
+
+                const result = await discovery.findDBSubnetGroup('vpc-12345');
+
+                expect(result).toBeNull();
+            });
+        });
+
+        describe('findDatabaseSecret', () => {
+            it('should return secret with matching service+stage tags', async () => {
+                const mockSecrets = {
+                    SecretList: [
+                        {
+                            ARN: 'arn:aws:secretsmanager:us-east-1:123:secret:generic-secret',
+                            Name: 'generic-aurora-secret',
+                            Tags: [
+                                { Key: 'ManagedBy', Value: 'Frigg' }
+                            ]
+                        },
+                        {
+                            ARN: 'arn:aws:secretsmanager:us-east-1:123:secret:matching-secret',
+                            Name: 'test-service-dev-aurora-credentials',
+                            Tags: [
+                                { Key: 'ManagedBy', Value: 'Frigg' },
+                                { Key: 'Service', Value: 'test-service' },
+                                { Key: 'Stage', Value: 'dev' }
+                            ]
+                        }
+                    ]
+                };
+
+                secretsManagerMock.on(ListSecretsCommand).resolves(mockSecrets);
+
+                const result = await discovery.findDatabaseSecret('test-service', 'dev');
+
+                expect(result).toBeDefined();
+                expect(result.name).toBe('test-service-dev-aurora-credentials');
+                expect(result.arn).toBe('arn:aws:secretsmanager:us-east-1:123:secret:matching-secret');
+            });
+
+            it('should return any Frigg-managed database secret as fallback', async () => {
+                const mockSecrets = {
+                    SecretList: [
+                        {
+                            ARN: 'arn:aws:secretsmanager:us-east-1:123:secret:frigg-secret',
+                            Name: 'frigg-database-credentials',
+                            Tags: [
+                                { Key: 'ManagedBy', Value: 'Frigg' }
+                            ]
+                        }
+                    ]
+                };
+
+                secretsManagerMock.on(ListSecretsCommand).resolves(mockSecrets);
+
+                const result = await discovery.findDatabaseSecret('different-service', 'staging');
+
+                expect(result).toBeDefined();
+                expect(result.name).toBe('frigg-database-credentials');
+            });
+
+            it('should return null when no Frigg database secrets found', async () => {
+                const mockSecrets = {
+                    SecretList: [
+                        {
+                            ARN: 'arn:aws:secretsmanager:us-east-1:123:secret:other',
+                            Name: 'other-secret',
+                            Tags: []
+                        }
+                    ]
+                };
+
+                secretsManagerMock.on(ListSecretsCommand).resolves(mockSecrets);
+
+                const result = await discovery.findDatabaseSecret('test-service', 'dev');
+
+                expect(result).toBeNull();
+            });
+        });
+
+        describe('discoverAuroraResources', () => {
+            it('should return needsCreation=true in create-new mode', async () => {
+                const result = await discovery.discoverAuroraResources({
+                    vpcId: 'vpc-123',
+                    management: 'create-new'
+                });
+
+                expect(result.needsCreation).toBe(true);
+                expect(result.clusterIdentifier).toBeNull();
+            });
+
+            it('should discover all resources in discover mode', async () => {
+                const mockClusters = {
+                    DBClusters: [{
+                        DBClusterIdentifier: 'discovered-cluster',
+                        Engine: 'aurora-postgresql',
+                        Status: 'available',
+                        Endpoint: 'discovered.cluster.us-east-1.rds.amazonaws.com',
+                        Port: 5432,
+                        EngineVersion: '15.3',
+                        TagList: []
+                    }]
+                };
+
+                const mockSubnetGroups = {
+                    DBSubnetGroups: [{
+                        DBSubnetGroupName: 'discovered-subnet-group',
+                        VpcId: 'vpc-123',
+                        Subnets: [{ SubnetIdentifier: 'subnet-1' }, { SubnetIdentifier: 'subnet-2' }],
+                        Tags: []
+                    }]
+                };
+
+                const mockSecrets = {
+                    SecretList: [{
+                        ARN: 'arn:aws:secretsmanager:us-east-1:123:secret:discovered-secret',
+                        Name: 'discovered-aurora-credentials',
+                        Tags: [{ Key: 'ManagedBy', Value: 'Frigg' }]
+                    }]
+                };
+
+                rdsMock.on(DescribeDBClustersCommand).resolves(mockClusters);
+                rdsMock.on(DescribeDBSubnetGroupsCommand).resolves(mockSubnetGroups);
+                secretsManagerMock.on(ListSecretsCommand).resolves(mockSecrets);
+
+                const result = await discovery.discoverAuroraResources({
+                    vpcId: 'vpc-123',
+                    management: 'discover'
+                });
+
+                expect(result.needsCreation).toBe(false);
+                expect(result.clusterIdentifier).toBe('discovered-cluster');
+                expect(result.endpoint).toBe('discovered.cluster.us-east-1.rds.amazonaws.com');
+                expect(result.port).toBe(5432);
+                expect(result.dbSubnetGroupName).toBe('discovered-subnet-group');
+                expect(result.secretArn).toBe('arn:aws:secretsmanager:us-east-1:123:secret:discovered-secret');
+            });
+
+            it('should require clusterIdentifier in use-existing mode and throw error if missing', async () => {
+                await expect(
+                    discovery.discoverAuroraResources({
+                        vpcId: 'vpc-123',
+                        management: 'use-existing'
+                    })
+                ).rejects.toThrow('clusterIdentifier is required');
+            });
+
+            it('should return needsCreation=true when no cluster found in discover mode', async () => {
+                rdsMock.on(DescribeDBClustersCommand).resolves({ DBClusters: [] });
+
+                const result = await discovery.discoverAuroraResources({
+                    vpcId: 'vpc-123',
+                    management: 'discover'
+                });
+
+                expect(result.needsCreation).toBe(true);
+                expect(result.clusterIdentifier).toBeNull();
+            });
         });
     });
 });

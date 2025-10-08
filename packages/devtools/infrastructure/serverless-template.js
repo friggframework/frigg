@@ -17,7 +17,8 @@ const shouldRunDiscovery = (AppDefinition) => {
     return (
         AppDefinition.vpc?.enable === true ||
         AppDefinition.encryption?.fieldLevelEncryptionMethod === 'kms' ||
-        AppDefinition.ssm?.enable === true
+        AppDefinition.ssm?.enable === true ||
+        AppDefinition.database?.postgres?.enable === true
     );
 };
 
@@ -543,10 +544,17 @@ const gatherDiscoveredResources = async (AppDefinition) => {
     try {
         const region = process.env.AWS_REGION || 'us-east-1';
         const discovery = new AWSDiscovery(region);
+        // Use Serverless Framework's stage resolution (opt:stage with 'dev' as default)
+        // This matches how serverless.yml resolves ${opt:stage, "dev"}
+        // IMPORTANT: Use SLS_STAGE (not STAGE) to match actual deployment stage
+        const stage = process.env.SLS_STAGE || 'dev';
+
         const config = {
             vpc: AppDefinition.vpc || {},
             encryption: AppDefinition.encryption || {},
             ssm: AppDefinition.ssm || {},
+            serviceName: AppDefinition.name || 'create-frigg-app',
+            stage: stage,
         };
 
         const discoveredResources = await discovery.discoverResources(config);
@@ -602,6 +610,22 @@ const buildEnvironment = (appEnvironmentVars, discoveredResources) => {
         }
     }
 
+    // Add Aurora discovery mappings
+    if (discoveredResources.aurora) {
+        if (discoveredResources.aurora.clusterIdentifier) {
+            environment.AWS_DISCOVERY_AURORA_CLUSTER_ID = discoveredResources.aurora.clusterIdentifier;
+        }
+        if (discoveredResources.aurora.endpoint) {
+            environment.AWS_DISCOVERY_AURORA_ENDPOINT = discoveredResources.aurora.endpoint;
+        }
+        if (discoveredResources.aurora.port) {
+            environment.AWS_DISCOVERY_AURORA_PORT = discoveredResources.aurora.port.toString();
+        }
+        if (discoveredResources.aurora.secretArn) {
+            environment.AWS_DISCOVERY_AURORA_SECRET_ARN = discoveredResources.aurora.secretArn;
+        }
+    }
+
     return environment;
 };
 
@@ -626,6 +650,7 @@ const createBaseDefinition = (
         useDotenv: true,
         provider: {
             name: AppDefinition.provider || 'aws',
+            ...(process.env.AWS_PROFILE && { profile: process.env.AWS_PROFILE }),
             runtime: 'nodejs20.x',
             timeout: 30,
             region,
@@ -829,18 +854,22 @@ const applyKmsConfiguration = (
     }
 
     if (discoveredResources.defaultKmsKeyId) {
-        console.log(
-            `Using existing KMS key: ${discoveredResources.defaultKmsKeyId}`
-        );
-        definition.resources.Resources.FriggKMSKeyAlias = {
-            Type: 'AWS::KMS::Alias',
-            DeletionPolicy: 'Retain',
-            Properties: {
-                AliasName:
-                    'alias/${self:service}-${self:provider.stage}-frigg-kms',
-                TargetKeyId: discoveredResources.defaultKmsKeyId,
-            },
-        };
+        console.log(`Using existing KMS key: ${discoveredResources.defaultKmsKeyId}`);
+
+        // Only create alias if it doesn't already exist
+        if (!discoveredResources.kmsAliasExists) {
+            console.log('Creating KMS alias for discovered key...');
+            definition.resources.Resources.FriggKMSKeyAlias = {
+                Type: 'AWS::KMS::Alias',
+                DeletionPolicy: 'Retain',
+                Properties: {
+                    AliasName: 'alias/${self:service}-${self:provider.stage}-frigg-kms',
+                    TargetKeyId: discoveredResources.defaultKmsKeyId,
+                },
+            };
+        } else {
+            console.log('KMS alias already exists, skipping alias creation');
+        }
 
         definition.provider.iamRoleStatements.push({
             Effect: 'Allow',
@@ -1894,7 +1923,9 @@ const configureVpc = (definition, AppDefinition, discoveredResources) => {
                 },
             };
 
-            if (AppDefinition.secretsManager?.enable === true) {
+            // Create Secrets Manager VPC Endpoint if explicitly enabled OR if Aurora is enabled
+            // (Aurora requires Secrets Manager access for credential retrieval)
+            if (AppDefinition.secretsManager?.enable === true || AppDefinition.database?.postgres?.enable === true) {
                 definition.resources.Resources.VPCEndpointSecretsManager = {
                     Type: 'AWS::EC2::VPCEndpoint',
                     Properties: {
@@ -1908,6 +1939,283 @@ const configureVpc = (definition, AppDefinition, discoveredResources) => {
                     },
                 };
             }
+        }
+    }
+};
+
+const createAuroraInfrastructure = (definition, AppDefinition, discoveredResources) => {
+    const dbConfig = AppDefinition.database.postgres;
+
+    console.log('🔧 Creating Aurora Serverless v2 infrastructure...');
+
+    // 1. DB Subnet Group (using Lambda private subnets)
+    definition.resources.Resources.FriggDBSubnetGroup = {
+        Type: 'AWS::RDS::DBSubnetGroup',
+        Properties: {
+            DBSubnetGroupDescription: 'Subnet group for Frigg Aurora cluster',
+            SubnetIds: [
+                discoveredResources.privateSubnetId1,
+                discoveredResources.privateSubnetId2
+            ],
+            Tags: [
+                { Key: 'Name', Value: '${self:service}-${self:provider.stage}-db-subnet-group' },
+                { Key: 'ManagedBy', Value: 'Frigg' },
+                { Key: 'Service', Value: '${self:service}' },
+                { Key: 'Stage', Value: '${self:provider.stage}' },
+            ]
+        }
+    };
+
+    // 2. Security Group (allow Lambda SG to access 5432)
+    // In create-new VPC mode, Lambda uses FriggLambdaSecurityGroup
+    // In other modes, use discovered default security group
+    const lambdaSecurityGroupId = AppDefinition.vpc?.management === 'create-new'
+        ? { Ref: 'FriggLambdaSecurityGroup' }
+        : discoveredResources.defaultSecurityGroupId;
+
+    definition.resources.Resources.FriggAuroraSecurityGroup = {
+        Type: 'AWS::EC2::SecurityGroup',
+        Properties: {
+            GroupDescription: 'Security group for Frigg Aurora PostgreSQL',
+            VpcId: discoveredResources.defaultVpcId,
+            SecurityGroupIngress: [
+                {
+                    IpProtocol: 'tcp',
+                    FromPort: 5432,
+                    ToPort: 5432,
+                    SourceSecurityGroupId: lambdaSecurityGroupId,
+                    Description: 'PostgreSQL access from Lambda functions'
+                }
+            ],
+            Tags: [
+                { Key: 'Name', Value: '${self:service}-${self:provider.stage}-aurora-sg' },
+                { Key: 'ManagedBy', Value: 'Frigg' },
+                { Key: 'Service', Value: '${self:service}' },
+                { Key: 'Stage', Value: '${self:provider.stage}' },
+            ]
+        }
+    };
+
+    // 3. Secrets Manager Secret (database credentials)
+    definition.resources.Resources.FriggDatabaseSecret = {
+        Type: 'AWS::SecretsManager::Secret',
+        Properties: {
+            Name: '${self:service}-${self:provider.stage}-aurora-credentials',
+            Description: 'Aurora PostgreSQL credentials for Frigg application',
+            GenerateSecretString: {
+                SecretStringTemplate: JSON.stringify({
+                    username: dbConfig.masterUsername || 'frigg_admin'
+                }),
+                GenerateStringKey: 'password',
+                PasswordLength: 32,
+                ExcludeCharacters: '"@/\\'
+            },
+            Tags: [
+                { Key: 'ManagedBy', Value: 'Frigg' },
+                { Key: 'Service', Value: '${self:service}' },
+                { Key: 'Stage', Value: '${self:provider.stage}' },
+            ]
+        }
+    };
+
+    // 4. Aurora Serverless v2 Cluster
+    definition.resources.Resources.FriggAuroraCluster = {
+        Type: 'AWS::RDS::DBCluster',
+        DeletionPolicy: 'Snapshot',
+        UpdateReplacePolicy: 'Snapshot',
+        Properties: {
+            Engine: 'aurora-postgresql',
+            EngineVersion: dbConfig.engineVersion || '15.3',
+            EngineMode: 'provisioned',  // Required for Serverless v2
+            DatabaseName: dbConfig.databaseName || 'frigg_db',
+            MasterUsername: { 'Fn::Sub': '{{resolve:secretsmanager:${FriggDatabaseSecret}:SecretString:username}}' },
+            MasterUserPassword: { 'Fn::Sub': '{{resolve:secretsmanager:${FriggDatabaseSecret}:SecretString:password}}' },
+            DBSubnetGroupName: { Ref: 'FriggDBSubnetGroup' },
+            VpcSecurityGroupIds: [{ Ref: 'FriggAuroraSecurityGroup' }],
+            ServerlessV2ScalingConfiguration: {
+                MinCapacity: dbConfig.scaling?.minCapacity || 0.5,
+                MaxCapacity: dbConfig.scaling?.maxCapacity || 1.0
+            },
+            BackupRetentionPeriod: dbConfig.backupRetentionDays || 7,
+            PreferredBackupWindow: dbConfig.preferredBackupWindow || '03:00-04:00',
+            DeletionProtection: dbConfig.deletionProtection !== false,
+            EnableCloudwatchLogsExports: ['postgresql'],
+            Tags: [
+                { Key: 'Name', Value: '${self:service}-${self:provider.stage}-aurora-cluster' },
+                { Key: 'ManagedBy', Value: 'Frigg' },
+                { Key: 'Service', Value: '${self:service}' },
+                { Key: 'Stage', Value: '${self:provider.stage}' },
+            ]
+        }
+    };
+
+    // 5. Aurora Serverless v2 Instance
+    definition.resources.Resources.FriggAuroraInstance = {
+        Type: 'AWS::RDS::DBInstance',
+        Properties: {
+            Engine: 'aurora-postgresql',
+            DBInstanceClass: 'db.serverless',
+            DBClusterIdentifier: { Ref: 'FriggAuroraCluster' },
+            PubliclyAccessible: false,
+            EnablePerformanceInsights: dbConfig.enablePerformanceInsights || false,
+            Tags: [
+                { Key: 'Name', Value: '${self:service}-${self:provider.stage}-aurora-instance' },
+                { Key: 'ManagedBy', Value: 'Frigg' },
+                { Key: 'Service', Value: '${self:service}' },
+                { Key: 'Stage', Value: '${self:provider.stage}' },
+            ]
+        }
+    };
+
+    // 6. Secret Attachment (links cluster to secret)
+    definition.resources.Resources.FriggSecretAttachment = {
+        Type: 'AWS::SecretsManager::SecretTargetAttachment',
+        Properties: {
+            SecretId: { Ref: 'FriggDatabaseSecret' },
+            TargetId: { Ref: 'FriggAuroraCluster' },
+            TargetType: 'AWS::RDS::DBCluster'
+        }
+    };
+
+    // 7. Add IAM permissions for Secrets Manager
+    definition.provider.iamRoleStatements.push({
+        Effect: 'Allow',
+        Action: [
+            'secretsmanager:GetSecretValue',
+            'secretsmanager:DescribeSecret'
+        ],
+        Resource: { Ref: 'FriggDatabaseSecret' }
+    });
+
+    // 8. Set DATABASE_URL environment variable
+    definition.provider.environment.DATABASE_URL = {
+        'Fn::Sub': [
+            'postgresql://${Username}:${Password}@${Endpoint}:${Port}/${DatabaseName}',
+            {
+                Username: { 'Fn::Sub': '{{resolve:secretsmanager:${FriggDatabaseSecret}:SecretString:username}}' },
+                Password: { 'Fn::Sub': '{{resolve:secretsmanager:${FriggDatabaseSecret}:SecretString:password}}' },
+                Endpoint: { 'Fn::GetAtt': ['FriggAuroraCluster', 'Endpoint'] },
+                Port: { 'Fn::GetAtt': ['FriggAuroraCluster', 'Port'] },
+                DatabaseName: dbConfig.databaseName || 'frigg_db'
+            }
+        ]
+    };
+
+    // 9. Set DB_TYPE for Prisma client selection
+    definition.provider.environment.DB_TYPE = 'postgresql';
+
+    console.log('✅ Aurora infrastructure resources created');
+};
+
+const useExistingAurora = (definition, AppDefinition, discoveredResources) => {
+    const dbConfig = AppDefinition.database.postgres;
+
+    console.log(`🔗 Using existing Aurora cluster: ${discoveredResources.aurora.clusterIdentifier}`);
+
+    // Add IAM permissions for Secrets Manager if secret exists
+    if (discoveredResources.aurora.secretArn) {
+        definition.provider.iamRoleStatements.push({
+            Effect: 'Allow',
+            Action: [
+                'secretsmanager:GetSecretValue',
+                'secretsmanager:DescribeSecret'
+            ],
+            Resource: discoveredResources.aurora.secretArn
+        });
+
+        // Set DATABASE_URL from discovered secret
+        definition.provider.environment.DATABASE_URL = {
+            'Fn::Sub': [
+                'postgresql://${Username}:${Password}@${Endpoint}:${Port}/${DatabaseName}',
+                {
+                    Username: { 'Fn::Sub': `{{resolve:secretsmanager:${discoveredResources.aurora.secretArn}:SecretString:username}}` },
+                    Password: { 'Fn::Sub': `{{resolve:secretsmanager:${discoveredResources.aurora.secretArn}:SecretString:password}}` },
+                    Endpoint: discoveredResources.aurora.endpoint,
+                    Port: discoveredResources.aurora.port,
+                    DatabaseName: dbConfig.databaseName || 'frigg_db'
+                }
+            ]
+        };
+    } else if (dbConfig.secretArn) {
+        // Use user-provided secret ARN
+        definition.provider.iamRoleStatements.push({
+            Effect: 'Allow',
+            Action: [
+                'secretsmanager:GetSecretValue',
+                'secretsmanager:DescribeSecret'
+            ],
+            Resource: dbConfig.secretArn
+        });
+
+        definition.provider.environment.DATABASE_URL = {
+            'Fn::Sub': [
+                'postgresql://${Username}:${Password}@${Endpoint}:${Port}/${DatabaseName}',
+                {
+                    Username: { 'Fn::Sub': `{{resolve:secretsmanager:${dbConfig.secretArn}:SecretString:username}}` },
+                    Password: { 'Fn::Sub': `{{resolve:secretsmanager:${dbConfig.secretArn}:SecretString:password}}` },
+                    Endpoint: discoveredResources.aurora.endpoint,
+                    Port: discoveredResources.aurora.port,
+                    DatabaseName: dbConfig.databaseName || 'frigg_db'
+                }
+            ]
+        };
+    } else {
+        throw new Error('No database secret found. Provide secretArn in database.postgres configuration or ensure Secrets Manager secret exists.');
+    }
+
+    // Set DB_TYPE for Prisma client selection
+    definition.provider.environment.DB_TYPE = 'postgresql';
+
+    console.log('✅ Existing Aurora cluster configured');
+};
+
+const useDiscoveredAurora = (definition, AppDefinition, discoveredResources) => {
+    console.log(`🔍 Using discovered Aurora cluster: ${discoveredResources.aurora.clusterIdentifier}`);
+    useExistingAurora(definition, AppDefinition, discoveredResources);
+};
+
+const configurePostgres = (definition, AppDefinition, discoveredResources) => {
+    if (!AppDefinition.database?.postgres?.enable) {
+        return;
+    }
+
+    // Validate VPC is enabled (required for Aurora deployment)
+    if (!AppDefinition.vpc?.enable) {
+        throw new Error(
+            'Aurora PostgreSQL requires VPC deployment. ' +
+            'Set vpc.enable to true in your app definition.'
+        );
+    }
+
+    // Validate private subnets exist (Aurora requires at least 2 subnets in different AZs)
+    // Skip validation if VPC management is 'create-new' (subnets will be created)
+    const vpcManagement = AppDefinition.vpc?.management || 'discover';
+    if (vpcManagement !== 'create-new' && (!discoveredResources.privateSubnetId1 || !discoveredResources.privateSubnetId2)) {
+        throw new Error(
+            'Aurora PostgreSQL requires at least 2 private subnets in different availability zones. ' +
+            'No private subnets were discovered in your VPC. ' +
+            'Please create private subnets or use VPC management mode "create-new".'
+        );
+    }
+
+    const dbConfig = AppDefinition.database.postgres;
+    const management = dbConfig.management || 'discover';
+
+    console.log(`\n🐘 PostgreSQL Management Mode: ${management}`);
+
+    if (management === 'create-new' || discoveredResources.aurora?.needsCreation) {
+        createAuroraInfrastructure(definition, AppDefinition, discoveredResources);
+    } else if (management === 'use-existing') {
+        if (!discoveredResources.aurora?.clusterIdentifier && !dbConfig.clusterIdentifier) {
+            throw new Error('PostgreSQL management is set to "use-existing" but no clusterIdentifier was found or provided');
+        }
+        useExistingAurora(definition, AppDefinition, discoveredResources);
+    } else {
+        // discover mode
+        if (discoveredResources.aurora?.clusterIdentifier) {
+            useDiscoveredAurora(definition, AppDefinition, discoveredResources);
+        } else {
+            throw new Error('No Aurora cluster found in discovery mode. Set management to "create-new" or provide clusterIdentifier with "use-existing".');
         }
     }
 };
@@ -2076,6 +2384,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
     if (!isLocalBuild) {
         applyKmsConfiguration(definition, AppDefinition, discoveredResources);
         configureVpc(definition, AppDefinition, discoveredResources);
+        configurePostgres(definition, AppDefinition, discoveredResources);
         configureSsm(definition, AppDefinition);
     } else {
         console.log(
