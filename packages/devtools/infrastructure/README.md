@@ -207,6 +207,54 @@ STAGE=production
 SERVICE_NAME=my-frigg-app
 ```
 
+## Lambda Layers
+
+### Prisma Layer
+
+The Frigg infrastructure uses a Lambda Layer to optimize Prisma deployment, reducing function sizes by ~60%.
+
+**What's included:**
+- `@prisma/client` - Prisma Client runtime
+- `@prisma-mongodb/client` - MongoDB Prisma Client
+- `@prisma-postgresql/client` - PostgreSQL Prisma Client
+- `prisma` - Prisma CLI (for migrations)
+
+**Benefits:**
+- ✅ **Reduces function sizes**: From ~120MB → ~45MB per function (60% reduction)
+- ✅ **Faster deployments**: Layer cached between deployments
+- ✅ **Shared resources**: Prisma uploaded once (~70MB layer), shared by all functions
+- ✅ **Improved cold starts**: Smaller packages = faster initialization
+
+**Building the layer:**
+
+```bash
+cd packages/devtools
+npm run build:prisma-layer
+```
+
+**Expected output:**
+```
+Building Prisma Lambda Layer...
+✓ Layer built successfully (70MB)
+Layer location: infrastructure/layers/prisma
+```
+
+**Automatic deployment:**
+
+The layer is automatically deployed when you run `frigg deploy`. All Lambda functions reference the layer via CloudFormation.
+
+**Troubleshooting:**
+
+If you encounter "Module not found" errors after deployment:
+```bash
+# Verify layer is attached to function
+aws lambda get-function-configuration \
+  --function-name your-app-dev-auth \
+  --query 'Layers[*].Arn'
+```
+
+**See also:** [LAMBDA-LAYER-PRISMA.md](./LAMBDA-LAYER-PRISMA.md) for complete documentation.
+
 ## Usage Examples
 
 ### Basic Deployment
@@ -435,6 +483,7 @@ npm run test:debug
 
 ## Related Documentation
 
+-   [Lambda Layer for Prisma](./LAMBDA-LAYER-PRISMA.md) - Complete guide to Prisma Lambda Layer optimization
 -   [Phase 3 Deployment Guide](./PHASE3-DEPLOYMENT-GUIDE.md)
 -   [Testing Strategy](./README-TESTING.md)
 -   [AWS Discovery Troubleshooting](./AWS-DISCOVERY-TROUBLESHOOTING.md)
