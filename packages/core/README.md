@@ -62,6 +62,34 @@ npm install @friggframework/core
 yarn add @friggframework/core
 ```
 
+### Prisma Support (Optional)
+
+`@friggframework/core` supports both MongoDB and PostgreSQL via Prisma ORM. **Prisma is an optional peer dependency** - you only need to install it if you're using database features that require migrations or schema generation.
+
+**When you need Prisma:**
+- Running database migrations (`prisma migrate`, `prisma db push`)
+- Generating Prisma clients for your application
+- Using the migration Lambda function (`dbMigrate`)
+
+**Installation:**
+```bash
+# Install Prisma CLI and Client as dev dependencies
+npm install --save-dev prisma @prisma/client
+
+# Or with yarn
+yarn add -D prisma @prisma/client
+```
+
+**Generate Prisma Clients:**
+```bash
+# From @friggframework/core directory
+npm run prisma:generate:mongo      # MongoDB only
+npm run prisma:generate:postgres   # PostgreSQL only
+npm run prisma:generate            # Both databases
+```
+
+**Note:** The published npm package includes pre-generated Prisma clients, so you don't need to install Prisma just to use `@friggframework/core` in production. Prisma is only required if you're actively developing migrations or running the migration Lambda function.
+
 ### Prerequisites
 
 - Node.js 16+ 

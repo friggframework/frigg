@@ -641,10 +641,27 @@ const createBaseDefinition = (
         service: AppDefinition.name || 'create-frigg-app',
         package: {
             individually: true,
-            exclude: [
+            patterns: [
+                // Existing AWS SDK exclusions
                 '!**/node_modules/aws-sdk/**',
                 '!**/node_modules/@aws-sdk/**',
                 '!package.json',
+
+                // Exclude non-Lambda Prisma engine binaries (keep only rhel-openssl)
+                // Note: Don't use wildcards - they prevent re-inclusion in function-specific patterns
+                '!node_modules/.prisma/client/libquery_engine-darwin*',
+                '!node_modules/.prisma/client/libquery_engine-debian*',
+                '!node_modules/.prisma/client/libquery_engine-linux-*',
+                '!node_modules/.prisma/client/libquery_engine-windows*',
+                '!node_modules/@prisma-mongodb/client/libquery_engine-darwin*',
+                '!node_modules/@prisma-mongodb/client/libquery_engine-debian*',
+                '!node_modules/@prisma-mongodb/client/libquery_engine-linux-*',
+                '!node_modules/@prisma-mongodb/client/libquery_engine-windows*',
+                '!node_modules/@prisma-postgresql/client/libquery_engine-darwin*',
+                '!node_modules/@prisma-postgresql/client/libquery_engine-debian*',
+                '!node_modules/@prisma-postgresql/client/libquery_engine-linux-*',
+                '!node_modules/@prisma-postgresql/client/libquery_engine-windows*',
+                // rhel-openssl binaries are kept (not excluded)
             ],
         },
         useDotenv: true,
@@ -740,13 +757,24 @@ const createBaseDefinition = (
                     },
                     { httpApi: { path: '/api/authorize', method: 'ANY' } },
                 ],
+                // Exclude Prisma CLI - not needed for auth endpoints
+                package: {
+                    patterns: [
+                        '!node_modules/prisma/**',
+                        '!node_modules/@prisma/engines/**',
+                    ],
+                },
             },
             user: {
-                handler:
-                    'node_modules/@friggframework/core/handlers/routers/user.handler',
-                events: [
-                    { httpApi: { path: '/user/{proxy+}', method: 'ANY' } },
-                ],
+                handler: 'node_modules/@friggframework/core/handlers/routers/user.handler',
+                events: [{ httpApi: { path: '/user/{proxy+}', method: 'ANY' } }],
+                // Exclude Prisma CLI - not needed for user endpoints
+                package: {
+                    patterns: [
+                        '!node_modules/prisma/**',
+                        '!node_modules/@prisma/engines/**',
+                    ],
+                },
             },
             health: {
                 handler:
@@ -755,6 +783,13 @@ const createBaseDefinition = (
                     { httpApi: { path: '/health', method: 'GET' } },
                     { httpApi: { path: '/health/{proxy+}', method: 'GET' } },
                 ],
+                // Exclude Prisma CLI - not needed for health checks
+                package: {
+                    patterns: [
+                        '!node_modules/prisma/**',
+                        '!node_modules/@prisma/engines/**',
+                    ],
+                },
             },
             dbMigrate: {
                 handler: 'node_modules/@friggframework/core/handlers/workers/db-migration.handler',
@@ -768,6 +803,30 @@ const createBaseDefinition = (
                 tags: {
                     Purpose: 'DatabaseMigration',
                     ManagedBy: 'Frigg',
+                },
+                // Environment variables for non-interactive Prisma CLI operation
+                environment: {
+                    CI: '1',  // Forces Prisma to non-interactive mode
+                    PRISMA_HIDE_UPDATE_MESSAGE: '1',  // Suppress update messages
+                    PRISMA_MIGRATE_SKIP_SEED: '1',  // Skip seeding during migrations
+                },
+                // Function-specific packaging: Include Prisma CLI for this function only
+                package: {
+                    patterns: [
+                        // Include Prisma CLI (required for prisma generate, migrate, db push)
+                        'node_modules/prisma/**',
+                        'node_modules/@prisma/engines/libquery_engine-rhel-*',
+                        'node_modules/@prisma/engines/schema-engine-rhel-*',
+                        'node_modules/@prisma/engines/migration-engine-rhel-*',
+
+                        // Include Prisma schemas from @friggframework/core
+                        'node_modules/@friggframework/core/prisma-mongodb/**',
+                        'node_modules/@friggframework/core/prisma-postgresql/**',
+
+                        // Include generated Prisma clients
+                        'node_modules/@prisma-mongodb/client/**',
+                        'node_modules/@prisma-postgresql/client/**',
+                    ],
                 },
             },
         },
