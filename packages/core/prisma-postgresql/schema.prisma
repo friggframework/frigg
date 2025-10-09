@@ -5,8 +5,7 @@
 generator client {
   provider      = "prisma-client-js"
   output        = "../node_modules/@prisma-postgresql/client"
-  binaryTargets = ["native", "rhel-openssl-3.0.x"] // native for local dev, rhel for Lambda deployment
-  engineType    = "binary"                          // Use binary engines (smaller size)
+  binaryTargets = [env("PRISMA_BINARY_TARGET")] //rhel for Lambda deployment                      // Use binary engines (smaller size)
 }
 
 datasource db {
@@ -21,8 +20,8 @@ datasource db {
 /// User model with discriminator pattern support
 /// Replaces Mongoose discriminators (IndividualUser, OrganizationUser)
 model User {
-  id    Int      @id @default(autoincrement())
-  type  UserType
+  id   Int      @id @default(autoincrement())
+  type UserType
 
   // Timestamps
   createdAt DateTime @default(now())
@@ -87,12 +86,12 @@ model Token {
 /// OAuth credentials and API tokens
 /// All sensitive data encrypted with KMS at rest
 model Credential {
-  id         Int      @id @default(autoincrement())
-  userId     Int?
-  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  subType    String?
+  id          Int      @id @default(autoincrement())
+  userId      Int?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subType     String?
   authIsValid Boolean?
-  externalId String?
+  externalId  String?
 
   // Dynamic OAuth fields stored as JSON (encrypted via Prisma middleware)
   // Contains: access_token, refresh_token, domain, expires_in, token_type, etc.
@@ -148,7 +147,7 @@ model Integration {
   status IntegrationStatus @default(ENABLED)
 
   // Configuration and version
-  config  Json?   // Integration configuration object
+  config  Json? // Integration configuration object
   version String?
 
   // Entity references (many-to-many via implicit join table)
@@ -227,11 +226,11 @@ model Sync {
 /// Data identifier for sync operations
 /// Replaces nested array structure in Mongoose
 model DataIdentifier {
-  id       Int     @id @default(autoincrement())
+  id       Int    @id @default(autoincrement())
   syncId   Int?
-  sync     Sync?   @relation(fields: [syncId], references: [id], onDelete: Cascade)
+  sync     Sync?  @relation(fields: [syncId], references: [id], onDelete: Cascade)
   entityId Int
-  entity   Entity  @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  entity   Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
 
   // Identifier data (can be any structure)
   idData Json
@@ -334,7 +333,7 @@ model Process {
 
 /// Generic state storage
 model State {
-  id    Int  @id @default(autoincrement())
+  id    Int   @id @default(autoincrement())
   state Json?
 }
 
