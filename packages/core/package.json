@@ -4,6 +4,7 @@
     "version": "2.0.0-next.0",
     "dependencies": {
         "@hapi/boom": "^10.0.1",
+        "@prisma/client": "^6.16.3",
         "aws-sdk": "^2.1200.0",
         "bcryptjs": "^2.4.3",
         "body-parser": "^1.20.2",
@@ -19,12 +20,11 @@
         "lodash.get": "^4.4.2",
         "mongoose": "6.11.6",
         "node-fetch": "^2.6.7",
+        "prisma": "^6.16.3",
         "serverless-http": "^2.7.0",
         "uuid": "^9.0.1"
     },
     "devDependencies": {
-        "@prisma/client": "^6.16.3",
-        "prisma": "^6.16.3",
         "@friggframework/eslint-config": "^2.0.0-next.0",
         "@friggframework/prettier-config": "^2.0.0-next.0",
         "@friggframework/test": "^2.0.0-next.0",
