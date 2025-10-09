@@ -4,7 +4,7 @@
 
 generator client {
   provider      = "prisma-client-js"
-  output        = "../node_modules/@prisma-mongodb/client"
+  output        = "../generated/prisma-mongodb"
   binaryTargets = ["native", "rhel-openssl-3.0.x"] // native for local dev, rhel for Lambda deployment
   engineType    = "binary" // Use binary engines (smaller size)
 }
