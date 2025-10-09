@@ -34,10 +34,10 @@ const LAYER_NODE_MODULES = path.join(LAYER_OUTPUT_PATH, 'nodejs/node_modules');
 
 // Packages to include in the layer
 const PRISMA_PACKAGES = [
-    '@prisma/client',
-    '@prisma-mongodb/client',
-    '@prisma-postgresql/client',
-    'prisma',  // CLI for migrations
+    '@prisma/client',                 // From project node_modules
+    'generated/prisma-mongodb',       // From @friggframework/core package
+    'generated/prisma-postgresql',    // From @friggframework/core package
+    'prisma',                         // CLI from project node_modules
 ];
 
 // Binary patterns to remove (non-rhel)
@@ -123,13 +123,14 @@ async function createLayerStructure() {
 async function copyPrismaPackages() {
     logStep(3, 'Copying Prisma packages from @friggframework/core');
 
-    // Prisma packages can be in:
-    // 1. node_modules/@friggframework/core/node_modules/ (if core has its own)
-    // 2. node_modules/ (if hoisted by npm/yarn to project root)
-    const coreNodeModules = path.join(CORE_PACKAGE_PATH, 'node_modules');
-    const projectNodeModules = path.join(PROJECT_ROOT, 'node_modules');
-
-    const nodeModulesPaths = [coreNodeModules, projectNodeModules];
+    // Prisma packages can be in different locations:
+    // 1. Standard npm packages (@prisma/client, prisma): in node_modules
+    // 2. Generated clients (generated/*): in @friggframework/core package itself
+    const searchPaths = [
+        path.join(CORE_PACKAGE_PATH, 'node_modules'),  // Core's own node_modules
+        path.join(PROJECT_ROOT, 'node_modules'),        // Project root node_modules
+        CORE_PACKAGE_PATH,                              // Core package itself (for generated/ dirs)
+    ];
 
     let copiedCount = 0;
     let missingPackages = [];
@@ -137,9 +138,9 @@ async function copyPrismaPackages() {
     for (const pkg of PRISMA_PACKAGES) {
         let sourcePath = null;
 
-        // Try to find package in core or root node_modules
-        for (const nodeModulesPath of nodeModulesPaths) {
-            const candidatePath = path.join(nodeModulesPath, pkg);
+        // Try to find package in search paths
+        for (const searchPath of searchPaths) {
+            const candidatePath = path.join(searchPath, pkg);
             if (await fs.pathExists(candidatePath)) {
                 sourcePath = candidatePath;
                 break;
@@ -155,8 +156,10 @@ async function copyPrismaPackages() {
                     return !src.includes('/node_modules/node_modules/');
                 }
             });
-            const fromLocation = sourcePath.includes('@friggframework/core/node_modules')
-                ? 'core package'
+            const fromLocation = sourcePath.includes('@friggframework/core/generated')
+                ? 'core package (generated)'
+                : sourcePath.includes('@friggframework/core/node_modules')
+                ? 'core node_modules'
                 : 'project root';
             logSuccess(`Copied ${pkg} (from ${fromLocation})`);
             copiedCount++;
@@ -254,8 +257,8 @@ async function verifyLayerStructure() {
     const requiredPaths = [
         '@prisma/client/runtime',
         '@prisma/client/index.d.ts',
-        '@prisma-mongodb/client/schema.prisma',
-        '@prisma-postgresql/client/schema.prisma',
+        'generated/prisma-mongodb/schema.prisma',
+        'generated/prisma-postgresql/schema.prisma',
         'prisma/build',
     ];
 
