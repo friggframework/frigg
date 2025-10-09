@@ -756,6 +756,20 @@ const createBaseDefinition = (
                     { httpApi: { path: '/health/{proxy+}', method: 'GET' } },
                 ],
             },
+            dbMigrate: {
+                handler: 'node_modules/@friggframework/core/handlers/workers/db-migration.handler',
+                timeout: 300,  // 5 minutes for long-running migrations
+                memorySize: 512,  // Extra memory for Prisma CLI operations
+                reservedConcurrency: 1,  // Prevent concurrent migrations
+                description: 'Runs database migrations via Prisma (invoke manually from CI/CD)',
+                // No events - this function is invoked manually via AWS CLI
+                maximumEventAge: 60,  // Don't retry old migration requests (60 seconds)
+                maximumRetryAttempts: 0,  // Don't auto-retry failed migrations
+                tags: {
+                    Purpose: 'DatabaseMigration',
+                    ManagedBy: 'Frigg',
+                },
+            },
         },
         resources: {
             Resources: {

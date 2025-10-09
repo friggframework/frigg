@@ -191,11 +191,11 @@ async function runPrismaMigrate(command = 'dev', verbose = false) {
 
 /**
  * Runs Prisma db push for MongoDB
- * Interactive - will prompt user if data loss detected
  * @param {boolean} verbose - Enable verbose output
+ * @param {boolean} nonInteractive - Run in non-interactive mode (accepts data loss, for Lambda/CI)
  * @returns {Promise<Object>} { success: boolean, output?: string, error?: string }
  */
-async function runPrismaDbPush(verbose = false) {
+async function runPrismaDbPush(verbose = false, nonInteractive = false) {
     return new Promise((resolve) => {
         try {
             const schemaPath = getPrismaSchemaPath('mongodb');
@@ -209,19 +209,51 @@ async function runPrismaDbPush(verbose = false) {
                 '--skip-generate' // We generate separately
             ];
 
+            // Add non-interactive flag for Lambda/CI environments
+            if (nonInteractive) {
+                args.push('--accept-data-loss');
+            }
+
             if (verbose) {
                 console.log(chalk.gray(`Running: npx ${args.join(' ')}`));
             }
 
-            console.log(chalk.yellow('⚠️  Interactive mode: You may be prompted if schema changes cause data loss'));
+            if (nonInteractive) {
+                console.log(chalk.yellow('⚠️  Non-interactive mode: Data loss will be automatically accepted'));
+            } else {
+                console.log(chalk.yellow('⚠️  Interactive mode: You may be prompted if schema changes cause data loss'));
+            }
 
             const proc = spawn('npx', args, {
-                stdio: 'inherit', // Interactive mode - user can respond to prompts
+                stdio: nonInteractive ? 'pipe' : 'inherit', // Use pipe for non-interactive to capture output
                 env: {
                     ...process.env,
                     PRISMA_HIDE_UPDATE_MESSAGE: '1'
                 }
             });
+
+            let stdout = '';
+            let stderr = '';
+
+            // Capture output in non-interactive mode
+            if (nonInteractive) {
+                if (proc.stdout) {
+                    proc.stdout.on('data', (data) => {
+                        stdout += data.toString();
+                        if (verbose) {
+                            process.stdout.write(data);
+                        }
+                    });
+                }
+                if (proc.stderr) {
+                    proc.stderr.on('data', (data) => {
+                        stderr += data.toString();
+                        if (verbose) {
+                            process.stderr.write(data);
+                        }
+                    });
+                }
+            }
 
             proc.on('error', (error) => {
                 resolve({
@@ -234,12 +266,13 @@ async function runPrismaDbPush(verbose = false) {
                 if (code === 0) {
                     resolve({
                         success: true,
-                        output: 'Database push completed successfully'
+                        output: nonInteractive ? stdout || 'Database push completed successfully' : 'Database push completed successfully'
                     });
                 } else {
                     resolve({
                         success: false,
-                        error: `Database push process exited with code ${code}`
+                        error: `Database push process exited with code ${code}`,
+                        output: stderr || stdout
                     });
                 }
             });
