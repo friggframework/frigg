@@ -3,8 +3,10 @@
 // Migration from Mongoose ODM to Prisma ORM
 
 generator client {
-  provider = "prisma-client-js"
-  output   = "../node_modules/@prisma-mongodb/client"
+  provider      = "prisma-client-js"
+  output        = "../node_modules/@prisma-mongodb/client"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"] // native for local dev, rhel for Lambda deployment
+  engineType    = "binary"                          // Use binary engines (smaller size)
 }
 
 datasource db {

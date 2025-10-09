@@ -22,6 +22,18 @@
         "serverless-http": "^2.7.0",
         "uuid": "^9.0.1"
     },
+    "peerDependencies": {
+        "@prisma/client": "^6.16.3",
+        "prisma": "^6.16.3"
+    },
+    "peerDependenciesMeta": {
+        "@prisma/client": {
+            "optional": true
+        },
+        "prisma": {
+            "optional": true
+        }
+    },
     "devDependencies": {
         "@friggframework/eslint-config": "^2.0.0-next.0",
         "@friggframework/prettier-config": "^2.0.0-next.0",
@@ -47,7 +59,8 @@
         "prisma:generate:postgres": "npx prisma generate --schema ./prisma-postgresql/schema.prisma",
         "prisma:generate": "npm run prisma:generate:mongo && npm run prisma:generate:postgres",
         "prisma:push:mongo": "npx prisma db push --schema ./prisma-mongodb/schema.prisma",
-        "prisma:migrate:postgres": "npx prisma migrate dev --schema ./prisma-postgresql/schema.prisma"
+        "prisma:migrate:postgres": "npx prisma migrate dev --schema ./prisma-postgresql/schema.prisma",
+        "prepublishOnly": "npm run prisma:generate"
     },
     "author": "",
     "license": "MIT",

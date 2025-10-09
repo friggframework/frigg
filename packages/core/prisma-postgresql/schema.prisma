@@ -3,8 +3,10 @@
 // Converted from MongoDB schema for relational database support
 
 generator client {
-  provider = "prisma-client-js"
-  output   = "../node_modules/@prisma-postgresql/client"
+  provider      = "prisma-client-js"
+  output        = "../node_modules/@prisma-postgresql/client"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"] // native for local dev, rhel for Lambda deployment
+  engineType    = "binary"                          // Use binary engines (smaller size)
 }
 
 datasource db {
