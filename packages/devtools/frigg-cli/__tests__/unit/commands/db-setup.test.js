@@ -23,7 +23,7 @@ const mockErrorMessages = {
 };
 
 jest.mock('../../../utils/database-validator', () => mockValidator);
-jest.mock('../../../utils/prisma-runner', () => mockRunner);
+jest.mock('@friggframework/core/database/utils/prisma-runner', () => mockRunner);
 jest.mock('../../../utils/error-messages', () => mockErrorMessages);
 jest.mock('dotenv');
 

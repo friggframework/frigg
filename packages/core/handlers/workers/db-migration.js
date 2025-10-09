@@ -4,7 +4,7 @@
  * Lambda function that runs Prisma database migrations from within the VPC,
  * enabling CI/CD pipelines to migrate databases without requiring public access.
  *
- * This handler reuses the existing prisma-runner utilities from the Frigg CLI,
+ * This handler uses the prisma-runner utilities from @friggframework/core,
  * ensuring consistency with the `frigg db:setup` command.
  *
  * Environment Variables Required:
@@ -48,7 +48,7 @@ const {
 } = require('../../database/use-cases/run-database-migration-use-case');
 
 // Inject prisma-runner as dependency
-const prismaRunner = require('../../../devtools/frigg-cli/utils/prisma-runner');
+const prismaRunner = require('../../database/utils/prisma-runner');
 
 /**
  * Sanitizes error messages to prevent credential leaks

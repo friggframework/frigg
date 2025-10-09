@@ -7,6 +7,7 @@
         "aws-sdk": "^2.1200.0",
         "bcryptjs": "^2.4.3",
         "body-parser": "^1.20.2",
+        "chalk": "^4.1.2",
         "common-tags": "^1.8.2",
         "cors": "^2.8.5",
         "dotenv": "^16.4.7",

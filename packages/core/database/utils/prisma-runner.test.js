@@ -18,7 +18,7 @@ const {
     runPrismaMigrate,
     runPrismaDbPush,
     getMigrationCommand
-} = require('../../../utils/prisma-runner');
+} = require('./prisma-runner');
 
 describe('Prisma Runner Utility', () => {
     beforeEach(() => {

@@ -12,7 +12,7 @@ const {
     runPrismaMigrate,
     runPrismaDbPush,
     getMigrationCommand
-} = require('../utils/prisma-runner');
+} = require('@friggframework/core/database/utils/prisma-runner');
 const {
     getDatabaseUrlMissingError,
     getDatabaseTypeNotConfiguredError,
