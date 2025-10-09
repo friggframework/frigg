@@ -5,7 +5,8 @@
 generator client {
   provider      = "prisma-client-js"
   output        = "../node_modules/@prisma-postgresql/client"
-  binaryTargets = [env("PRISMA_BINARY_TARGET")] //rhel for Lambda deployment                      // Use binary engines (smaller size)
+  binaryTargets = ["native", "rhel-openssl-3.0.x"] // native for local dev, rhel for Lambda deployment
+  engineType    = "binary" // Use binary engines (smaller size)
 }
 
 datasource db {
