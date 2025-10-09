@@ -24,11 +24,33 @@ const fs = require('fs-extra');
 const path = require('path');
 const { execSync } = require('child_process');
 
+/**
+ * Find @friggframework/core package, handling workspace hoisting
+ * Searches up the directory tree to find node_modules/@friggframework/core
+ */
+function findCorePackage(startDir) {
+    let currentDir = startDir;
+    const root = path.parse(currentDir).root;
+
+    while (currentDir !== root) {
+        const candidatePath = path.join(currentDir, 'node_modules/@friggframework/core');
+        if (fs.existsSync(candidatePath)) {
+            return candidatePath;
+        }
+        currentDir = path.dirname(currentDir);
+    }
+
+    throw new Error(
+        '@friggframework/core not found in node_modules.\n' +
+        'Run "npm install" to install dependencies.'
+    );
+}
+
 // Configuration
 // Script runs from integration project root (e.g., backend/)
 // and reads Prisma packages from @friggframework/core
 const PROJECT_ROOT = process.cwd();
-const CORE_PACKAGE_PATH = path.join(PROJECT_ROOT, 'node_modules/@friggframework/core');
+const CORE_PACKAGE_PATH = findCorePackage(PROJECT_ROOT);
 const LAYER_OUTPUT_PATH = path.join(PROJECT_ROOT, 'layers/prisma');
 const LAYER_NODE_MODULES = path.join(LAYER_OUTPUT_PATH, 'nodejs/node_modules');
 
@@ -123,13 +145,18 @@ async function createLayerStructure() {
 async function copyPrismaPackages() {
     logStep(3, 'Copying Prisma packages from @friggframework/core');
 
-    // Prisma packages can be in different locations:
-    // 1. Standard npm packages (@prisma/client, prisma): in node_modules
-    // 2. Generated clients (generated/*): in @friggframework/core package itself
+    // Build search paths, handling workspace hoisting
+    // Packages can be in:
+    // 1. Core's own node_modules (if not hoisted)
+    // 2. Project root node_modules (if hoisted from project)
+    // 3. Workspace root node_modules (where core is located - handles hoisting)
+    // 4. Core package itself (for generated/ directories)
+    const workspaceNodeModules = path.join(path.dirname(CORE_PACKAGE_PATH), '..');
     const searchPaths = [
         path.join(CORE_PACKAGE_PATH, 'node_modules'),  // Core's own node_modules
-        path.join(PROJECT_ROOT, 'node_modules'),        // Project root node_modules
-        CORE_PACKAGE_PATH,                              // Core package itself (for generated/ dirs)
+        path.join(PROJECT_ROOT, 'node_modules'),        // Project node_modules
+        workspaceNodeModules,                           // Workspace root node_modules
+        CORE_PACKAGE_PATH,                              // Core package itself (for generated/)
     ];
 
     let copiedCount = 0;
@@ -160,7 +187,7 @@ async function copyPrismaPackages() {
                 ? 'core package (generated)'
                 : sourcePath.includes('@friggframework/core/node_modules')
                 ? 'core node_modules'
-                : 'project root';
+                : 'workspace';
             logSuccess(`Copied ${pkg} (from ${fromLocation})`);
             copiedCount++;
         } else {
