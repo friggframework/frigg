@@ -1762,6 +1762,97 @@ describe('composeServerlessDefinition', () => {
         });
     });
 
+    describe('Database Migration Lambda', () => {
+        it('should include dbMigrate function in all deployments', async () => {
+            const appDefinition = {
+                name: 'test-app',
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            // Check dbMigrate function exists
+            expect(result.functions.dbMigrate).toBeDefined();
+            expect(result.functions.dbMigrate.handler).toBe(
+                'node_modules/@friggframework/core/handlers/workers/db-migration.handler'
+            );
+        });
+
+        it('should configure dbMigrate with correct settings', async () => {
+            const appDefinition = {
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            const dbMigrate = result.functions.dbMigrate;
+
+            // Check timeout (5 minutes for long migrations)
+            expect(dbMigrate.timeout).toBe(300);
+
+            // Check memory allocation (extra for Prisma CLI)
+            expect(dbMigrate.memorySize).toBe(512);
+
+            // Check description
+            expect(dbMigrate.description).toContain('database migrations');
+            expect(dbMigrate.description).toContain('Prisma');
+        });
+
+        it('should not have HTTP events (manual invocation only)', async () => {
+            const appDefinition = {
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            const dbMigrate = result.functions.dbMigrate;
+
+            // Should have no events (manually invoked via AWS CLI)
+            expect(dbMigrate.events).toBeUndefined();
+        });
+
+        it('should include dbMigrate even with VPC enabled', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'discover'
+                },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            // dbMigrate should exist with VPC configuration
+            expect(result.functions.dbMigrate).toBeDefined();
+
+            // Should have same VPC access as other functions
+            expect(result.provider.vpc).toBeDefined();
+        });
+
+        it('should include dbMigrate with database configuration', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'discover'
+                },
+                database: {
+                    postgres: {
+                        enable: true,
+                        management: 'discover'
+                    }
+                },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            // dbMigrate should exist alongside database configuration
+            expect(result.functions.dbMigrate).toBeDefined();
+            expect(result.provider.environment.DB_TYPE).toBe('postgresql');
+            expect(result.provider.environment.DATABASE_URL).toBeDefined();
+        });
+    });
+
     describe('Edge Cases', () => {
         it('should handle empty app definition', async () => {
             const appDefinition = {};
