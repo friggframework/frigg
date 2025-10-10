@@ -48,6 +48,7 @@ model User {
   credentials  Credential[]
   entities     Entity[]
   integrations Integration[]
+  processes    Process[]
 
   @@unique([email])
   @@unique([username])
@@ -177,6 +178,7 @@ model Integration {
   associations Association[]
   syncs        Sync[]
   mappings     IntegrationMapping[]
+  processes    Process[]
 
   @@index([userId])
   @@index([status])
@@ -209,6 +211,48 @@ model IntegrationMapping {
   @@index([integrationId])
   @@index([sourceId])
   @@map("IntegrationMapping")
+}
+
+// ============================================================================
+// PROCESS MODELS
+// ============================================================================
+
+/// Generic Process Model - tracks any long-running operation
+/// Used for: CRM syncs, data migrations, bulk operations, etc.
+model Process {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  // Core references
+  userId        String      @db.ObjectId
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  integrationId String      @db.ObjectId
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  // Process identification
+  name String // e.g., "zoho-crm-contact-sync", "pipedrive-lead-sync"
+  type String // e.g., "CRM_SYNC", "DATA_MIGRATION", "BULK_OPERATION"
+
+  // State machine
+  state String // Current state (integration-defined states)
+
+  // Flexible storage
+  context Json @default("{}") // Process-specific data (pagination, metadata, etc.)
+  results Json @default("{}") // Process results and metrics
+
+  // Hierarchy support
+  childProcesses  String[] @db.ObjectId
+  parentProcessId String?  @db.ObjectId
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([integrationId])
+  @@index([type])
+  @@index([state])
+  @@index([name])
+  @@map("Process")
 }
 
 // ============================================================================
