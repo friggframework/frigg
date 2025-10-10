@@ -3,7 +3,12 @@ const path = require('path');
 
 async function buildCommand(options) {
     console.log('Building the serverless application...');
-    
+
+    // Suppress AWS SDK warning message about maintenance mode
+    process.env.AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE = '1';
+    // Skip AWS discovery for local builds
+    process.env.FRIGG_SKIP_AWS_DISCOVERY = 'true';
+
     // AWS discovery is now handled directly in serverless-template.js
     console.log('📦 Packaging serverless application...');
     const backendPath = path.resolve(process.cwd());
