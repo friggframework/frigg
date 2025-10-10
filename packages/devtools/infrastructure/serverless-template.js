@@ -643,20 +643,42 @@ const createBaseDefinition = (
         package: {
             individually: true,
             patterns: [
-                // Existing AWS SDK exclusions
+                // AWS SDK exclusions (already in Lambda runtime)
                 '!**/node_modules/aws-sdk/**',
                 '!**/node_modules/@aws-sdk/**',
-                '!package.json',
 
-                // GLOBAL Prisma exclusions - all Prisma packages moved to Lambda Layer
-                // This reduces each function from ~120MB to ~45MB (60% reduction)
-                '!node_modules/@prisma/**',
-                '!node_modules/.prisma/**',
-                '!node_modules/@prisma-mongodb/**',
-                '!node_modules/@prisma-postgresql/**',
-                '!node_modules/prisma/**',
-                // Prisma packages will be provided at runtime via Lambda Layer
-                // See: LAMBDA-LAYER-PRISMA.md for complete documentation
+                // Prisma exclusions (provided via Lambda Layer)
+                '!**/node_modules/@prisma/**',
+                '!**/node_modules/.prisma/**',
+                '!**/node_modules/@prisma-mongodb/**',
+                '!**/node_modules/@prisma-postgresql/**',
+                '!**/node_modules/prisma/**',
+
+                // Exclude Prisma generated clients from @friggframework/core
+                // These are 81MB and provided via Lambda Layer instead
+                '!**/node_modules/@friggframework/core/generated/**',
+
+                // Exclude development and test files
+                '!**/test/**',
+                '!**/tests/**',
+                '!**/*.test.js',
+                '!**/*.spec.js',
+                '!**/*.map',
+                '!**/jest.config.js',
+                '!**/jest.unit.config.js',
+                '!**/.eslintrc.json',
+                '!**/.prettierrc',
+                '!**/.prettierignore',
+                '!**/.markdownlintignore',
+                '!**/docker-compose.yml',
+                '!**/package.json',
+                '!**/README.md',
+                '!**/*.md',
+
+                // Exclude .DS_Store and other OS files
+                '!**/.DS_Store',
+                '!**/.git/**',
+                '!**/.claude-flow/**',
             ],
         },
         useDotenv: true,
@@ -711,8 +733,7 @@ const createBaseDefinition = (
             },
         },
         plugins: [
-            // Temporarily disabled Jetpack - it ignores package.patterns in dependency mode
-            // 'serverless-jetpack',
+            'serverless-jetpack',
             'serverless-dotenv-plugin',
             'serverless-offline-sqs',
             'serverless-offline',
