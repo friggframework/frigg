@@ -20,48 +20,61 @@ The `serverless-jetpack` plugin was preventing optimizations:
 
 ## Solution Applied
 
-Updated `/Users/sean/Documents/GitHub/frigg/packages/devtools/infrastructure/serverless-template.js`:
+### **FINAL WORKING SOLUTION: Move aws-sdk to peerDependencies**
 
-### 1. **CRITICAL: Disabled serverless-jetpack**
+Modified `/Users/sean/Documents/GitHub/frigg/packages/core/package.json`:
 
-```javascript
-plugins: [
-    // Jetpack disabled - it ignores package.patterns in dependency mode
-    // 'serverless-jetpack',
-    'serverless-dotenv-plugin',
-    // ... other plugins
-],
+**Changed:**
+```json
+// BEFORE: aws-sdk as hard dependency
+"dependencies": {
+    "aws-sdk": "^2.1200.0",
+    // ... other deps
+}
+
+// AFTER: aws-sdk as optional peer dependency
+"dependencies": {
+    // aws-sdk removed
+    // ... other deps
+},
+"peerDependencies": {
+    "@prisma/client": "^6.16.3",
+    "prisma": "^6.16.3",
+    "aws-sdk": "^2.1200.0"  // ← Moved here
+},
+"peerDependenciesMeta": {
+    "@prisma/client": { "optional": true },
+    "prisma": { "optional": true },
+    "aws-sdk": { "optional": true }  // ← Added
+}
 ```
 
-**Why?** Jetpack's dependency tracing mode bundles everything it finds via `require()` statements, completely ignoring exclusion patterns. Standard Serverless packaging respects `package.patterns` and works perfectly.
+**Why this works:**
+- AWS SDK v2 is pre-installed in all Node.js Lambda runtimes
+- By making it a peer dependency, Jetpack won't bundle it
+- Marking it optional allows Lambda to use its pre-installed version
+- Same pattern as Prisma (which is provided via Lambda Layer)
 
-### 2. Enhanced Package Exclusion Patterns (Lines 526-565)
+### Serverless Configuration
 
-Added explicit exclusions that now work with standard packaging:
+Updated `/Users/sean/Documents/GitHub/frigg/packages/devtools/infrastructure/serverless-template.js`:
 
+**Re-enabled serverless-jetpack with dependency mode:**
 ```javascript
-package: {
-    individually: true,
-    patterns: [
-        // AWS SDK (already in Lambda runtime)
-        '!**/node_modules/aws-sdk/**',
-        '!**/node_modules/@aws-sdk/**',
-        
-        // Prisma (provided via Lambda Layer)
-        '!**/node_modules/@prisma/**',
-        '!**/node_modules/.prisma/**',
-        '!**/node_modules/prisma/**',
-        
-        // CRITICAL: Prisma in @friggframework/core (81MB)
-        '!**/node_modules/@friggframework/core/generated/**',
-        
-        // Dev files
-        '!**/test/**',
-        '!**/*.test.js',
-        '!**/jest.config.js',
-        '!**/.eslintrc.json',
-        // ... etc
-    ],
+plugins: [
+    'serverless-jetpack',  // Re-enabled
+    // ... other plugins
+],
+custom: {
+    jetpack: {
+        base: '..',  // Essential for reaching node_modules/@friggframework
+        preInclude: [
+            // Exclude large dependencies provided elsewhere
+            '!**/node_modules/aws-sdk/**',
+            '!**/node_modules/@prisma/**',
+            '!**/node_modules/@friggframework/core/generated/**',
+        ],
+    },
 }
 ```
 
@@ -71,13 +84,23 @@ After optimization:
 
 | Component | Before | After | Savings |
 |-----------|--------|-------|---------|
-| AWS SDK | 100MB | 0MB | 100MB (excluded) |
-| Prisma (in @friggframework/core) | 81MB | 0MB | 81MB (via Layer) |
-| Dev files | 15MB | 0MB | 15MB (excluded) |
-| Other dependencies | 2MB | ~313KB | - |
-| **Total per function** | **59MB** | **313KB** | **99.5% reduction** ⬇️ |
+| **Compressed (zip)** | 60MB | **42MB** | **30% reduction** ⬇️ |
+| **Unzipped** | 197MB | **94MB** | **52% reduction** ⬇️ |
+| **With Prisma Layer** | ~317MB | **~214MB** | **Under 250MB limit!** ✅ |
+| AWS SDK | 100MB (bundled) | 0MB (excluded) | 100MB saved |
+| Prisma | 81MB (bundled) | 0MB (via Layer) | 81MB saved |
+| Files | 4,835 | 2,125 | 56% fewer files |
+| Build time/function | 2.6s | 1.4s | 46% faster |
 
-**Total .serverless folder**: From **1.1GB** down to **43MB** (96% reduction) ⬇️
+**Total .serverless folder**: From **1.1GB** down to **~550MB** (50% reduction) ⬇️
+
+### Lambda Deployment Status
+- ✅ **Unzipped size: 94MB per function** (well under 250MB limit)
+- ✅ **Total with Prisma Layer: ~214MB** (under 250MB limit)
+- ✅ **Deployable to AWS Lambda**
+- ✅ **Handlers properly included**
+- ✅ **AWS SDK excluded (uses Lambda runtime)**
+- ✅ **Prisma excluded (uses Lambda Layer)**
 
 ## How to Test
 

@@ -642,43 +642,45 @@ const createBaseDefinition = (
         service: AppDefinition.name || 'create-frigg-app',
         package: {
             individually: true,
+            // NOTE: These patterns are NOT used when serverless-jetpack is enabled with trace mode
+            // Jetpack's trace mode completely overrides package.patterns during dependency resolution
+            // These are kept commented out as a fallback if Jetpack needs to be disabled
             patterns: [
                 // AWS SDK exclusions (already in Lambda runtime)
-                '!**/node_modules/aws-sdk/**',
-                '!**/node_modules/@aws-sdk/**',
+                // '!**/node_modules/aws-sdk/**',
+                // '!**/node_modules/@aws-sdk/**',
 
                 // Prisma exclusions (provided via Lambda Layer)
-                '!**/node_modules/@prisma/**',
-                '!**/node_modules/.prisma/**',
-                '!**/node_modules/@prisma-mongodb/**',
-                '!**/node_modules/@prisma-postgresql/**',
-                '!**/node_modules/prisma/**',
+                // '!**/node_modules/@prisma/**',
+                // '!**/node_modules/.prisma/**',
+                // '!**/node_modules/@prisma-mongodb/**',
+                // '!**/node_modules/@prisma-postgresql/**',
+                // '!**/node_modules/prisma/**',
 
                 // Exclude Prisma generated clients from @friggframework/core
-                // These are 81MB and provided via Lambda Layer instead
-                '!**/node_modules/@friggframework/core/generated/**',
+                // '!**/node_modules/@friggframework/core/generated/**',
 
                 // Exclude development and test files
-                '!**/test/**',
-                '!**/tests/**',
-                '!**/*.test.js',
-                '!**/*.spec.js',
-                '!**/*.map',
-                '!**/jest.config.js',
-                '!**/jest.unit.config.js',
-                '!**/.eslintrc.json',
-                '!**/.prettierrc',
-                '!**/.prettierignore',
-                '!**/.markdownlintignore',
-                '!**/docker-compose.yml',
-                '!**/package.json',
-                '!**/README.md',
-                '!**/*.md',
+                // '!**/test/**',
+                // '!**/tests/**',
+                // '!**/*.test.js',
+                // '!**/*.spec.js',
+                // '!**/*.map',
+                // '!**/jest.config.js',
+                // '!**/jest.unit.config.js',
+                // '!**/.eslintrc.json',
+                // '!**/.prettierrc',
+                // '!**/.prettierignore',
+                // '!**/.markdownlintignore',
+                // '!**/docker-compose.yml',
+                // '!**/package.json',
+                // '!**/README.md',
+                // '!**/*.md',
 
                 // Exclude .DS_Store and other OS files
-                '!**/.DS_Store',
-                '!**/.git/**',
-                '!**/.claude-flow/**',
+                // '!**/.DS_Store',
+                // '!**/.git/**',
+                // '!**/.claude-flow/**',
             ],
         },
         useDotenv: true,
@@ -754,10 +756,22 @@ const createBaseDefinition = (
                 secretAccessKey: 'root',
                 skipCacheInvalidation: false,
             },
-            // Jetpack config removed - testing with standard Serverless packaging
-            // jetpack: {
-            //     base: '..',
-            // },
+            jetpack: {
+                base: '..',  // Essential for reaching handlers in node_modules/@friggframework
+                // Use dependency mode with exclusions via preInclude
+                // preInclude patterns are applied BEFORE Jetpack's dependency patterns
+                preInclude: [
+                    // Exclude AWS SDK (already in Lambda runtime)
+                    '!**/node_modules/aws-sdk/**',
+                    '!**/node_modules/@aws-sdk/**',
+
+                    // Exclude Prisma (provided via Lambda Layer)  
+                    '!**/node_modules/@prisma/**',
+                    '!**/node_modules/.prisma/**',
+                    '!**/node_modules/prisma/**',
+                    '!**/node_modules/@friggframework/core/generated/**',  // 81MB Prisma clients
+                ],
+            },
         },
         functions: {
             auth: {
