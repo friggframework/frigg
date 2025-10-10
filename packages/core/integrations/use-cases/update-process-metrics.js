@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /** 
  TODO:
  This implementation contains a race condition in the `execute` method. When multiple concurrent processes call this method on the same process record, they'll each read the current state, modify it independently, and then save - potentially overwriting each other's changes.
@@ -26,13 +27,25 @@ The current approach will lead to lost updates and inconsistent metrics during c
  * Updates process metrics, calculates aggregates, and computes estimated completion time.
  * Optionally broadcasts progress via WebSocket service if provided.
  *
+=======
+/**
+ * UpdateProcessMetrics Use Case
+ * 
+ * Updates process metrics, calculates aggregates, and computes estimated completion time.
+ * Optionally broadcasts progress via WebSocket service if provided.
+ * 
+>>>>>>> d3197741 (feat: add Process model and management infrastructure to Frigg Core)
  * Design Philosophy:
  * - Metrics are cumulative (add to existing counts)
  * - Performance metrics calculated automatically (duration, records/sec)
  * - ETA computed based on current progress
  * - Error history limited to last 100 entries
  * - WebSocket broadcasting is optional (DI pattern)
+<<<<<<< HEAD
  *
+=======
+ * 
+>>>>>>> d3197741 (feat: add Process model and management infrastructure to Frigg Core)
  * @example
  * const updateMetrics = new UpdateProcessMetrics({ processRepository, websocketService });
  * await updateMetrics.execute(processId, {
@@ -92,6 +105,7 @@ class UpdateProcessMetrics {
         }
 
         // Update context counters (cumulative)
+<<<<<<< HEAD
         context.processedRecords =
             (context.processedRecords || 0) + (metricsUpdate.processed || 0);
 
@@ -111,6 +125,19 @@ class UpdateProcessMetrics {
             results.aggregateData.errors = [
                 ...(results.aggregateData.errors || []),
                 ...metricsUpdate.errorDetails,
+=======
+        context.processedRecords = (context.processedRecords || 0) + (metricsUpdate.processed || 0);
+
+        // Update results aggregates (cumulative)
+        results.aggregateData.totalSynced = (results.aggregateData.totalSynced || 0) + (metricsUpdate.success || 0);
+        results.aggregateData.totalFailed = (results.aggregateData.totalFailed || 0) + (metricsUpdate.errors || 0);
+
+        // Append error details (limited to last 100)
+        if (metricsUpdate.errorDetails && metricsUpdate.errorDetails.length > 0) {
+            results.aggregateData.errors = [
+                ...(results.aggregateData.errors || []),
+                ...metricsUpdate.errorDetails
+>>>>>>> d3197741 (feat: add Process model and management infrastructure to Frigg Core)
             ].slice(-100); // Keep only last 100 errors
         }
 
@@ -120,8 +147,12 @@ class UpdateProcessMetrics {
         results.aggregateData.duration = elapsed;
 
         if (elapsed > 0 && context.processedRecords > 0) {
+<<<<<<< HEAD
             results.aggregateData.recordsPerSecond =
                 context.processedRecords / (elapsed / 1000);
+=======
+            results.aggregateData.recordsPerSecond = context.processedRecords / (elapsed / 1000);
+>>>>>>> d3197741 (feat: add Process model and management infrastructure to Frigg Core)
         } else {
             results.aggregateData.recordsPerSecond = 0;
         }
@@ -130,8 +161,12 @@ class UpdateProcessMetrics {
         if (context.totalRecords > 0 && context.processedRecords > 0) {
             const remaining = context.totalRecords - context.processedRecords;
             if (results.aggregateData.recordsPerSecond > 0) {
+<<<<<<< HEAD
                 const etaMs =
                     (remaining / results.aggregateData.recordsPerSecond) * 1000;
+=======
+                const etaMs = (remaining / results.aggregateData.recordsPerSecond) * 1000;
+>>>>>>> d3197741 (feat: add Process model and management infrastructure to Frigg Core)
                 const eta = new Date(Date.now() + etaMs);
                 context.estimatedCompletion = eta.toISOString();
             }
@@ -146,6 +181,7 @@ class UpdateProcessMetrics {
         // Persist updates
         let updatedProcess;
         try {
+<<<<<<< HEAD
             updatedProcess = await this.processRepository.update(
                 processId,
                 updates
@@ -154,6 +190,11 @@ class UpdateProcessMetrics {
             throw new Error(
                 `Failed to update process metrics: ${error.message}`
             );
+=======
+            updatedProcess = await this.processRepository.update(processId, updates);
+        } catch (error) {
+            throw new Error(`Failed to update process metrics: ${error.message}`);
+>>>>>>> d3197741 (feat: add Process model and management infrastructure to Frigg Core)
         }
 
         // Broadcast progress via WebSocket (if service provided)
@@ -189,7 +230,11 @@ class UpdateProcessMetrics {
                     recordsPerSecond: aggregateData.recordsPerSecond || 0,
                     estimatedCompletion: context.estimatedCompletion || null,
                     timestamp: new Date().toISOString(),
+<<<<<<< HEAD
                 },
+=======
+                }
+>>>>>>> d3197741 (feat: add Process model and management infrastructure to Frigg Core)
             });
         } catch (error) {
             // Log but don't fail the update if WebSocket broadcast fails
@@ -199,3 +244,7 @@ class UpdateProcessMetrics {
 }
 
 module.exports = { UpdateProcessMetrics };
+<<<<<<< HEAD
+=======
+
+>>>>>>> d3197741 (feat: add Process model and management infrastructure to Frigg Core)
