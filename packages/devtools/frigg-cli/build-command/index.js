@@ -6,8 +6,14 @@ async function buildCommand(options) {
 
     // Suppress AWS SDK warning message about maintenance mode
     process.env.AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE = '1';
-    // Skip AWS discovery for local builds
-    process.env.FRIGG_SKIP_AWS_DISCOVERY = 'true';
+
+    // Skip AWS discovery for local builds (unless --production flag is set)
+    if (!options.production) {
+        process.env.FRIGG_SKIP_AWS_DISCOVERY = 'true';
+        console.log('🏠 Building in local mode (use --production flag for production builds with AWS discovery)');
+    } else {
+        console.log('🚀 Building in production mode with AWS discovery enabled');
+    }
 
     // AWS discovery is now handled directly in serverless-template.js
     console.log('📦 Packaging serverless application...');

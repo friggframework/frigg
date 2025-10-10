@@ -526,20 +526,42 @@ const createBaseDefinition = (AppDefinition, appEnvironmentVars, discoveredResou
         package: {
             individually: true,
             patterns: [
-                // Existing AWS SDK exclusions
+                // AWS SDK exclusions (already in Lambda runtime)
                 '!**/node_modules/aws-sdk/**',
                 '!**/node_modules/@aws-sdk/**',
-                '!package.json',
 
-                // GLOBAL Prisma exclusions - all Prisma packages moved to Lambda Layer
-                // This reduces each function from ~120MB to ~45MB (60% reduction)
-                '!node_modules/@prisma/**',
-                '!node_modules/.prisma/**',
-                '!node_modules/@prisma-mongodb/**',
-                '!node_modules/@prisma-postgresql/**',
-                '!node_modules/prisma/**',
-                // Prisma packages will be provided at runtime via Lambda Layer
-                // See: LAMBDA-LAYER-PRISMA.md for complete documentation
+                // Prisma exclusions (provided via Lambda Layer)
+                '!**/node_modules/@prisma/**',
+                '!**/node_modules/.prisma/**',
+                '!**/node_modules/@prisma-mongodb/**',
+                '!**/node_modules/@prisma-postgresql/**',
+                '!**/node_modules/prisma/**',
+
+                // Exclude Prisma generated clients from @friggframework/core
+                // These are 81MB and provided via Lambda Layer instead
+                '!**/node_modules/@friggframework/core/generated/**',
+
+                // Exclude development and test files
+                '!**/test/**',
+                '!**/tests/**',
+                '!**/*.test.js',
+                '!**/*.spec.js',
+                '!**/*.map',
+                '!**/jest.config.js',
+                '!**/jest.unit.config.js',
+                '!**/.eslintrc.json',
+                '!**/.prettierrc',
+                '!**/.prettierignore',
+                '!**/.markdownlintignore',
+                '!**/docker-compose.yml',
+                '!**/package.json',
+                '!**/README.md',
+                '!**/*.md',
+
+                // Exclude .DS_Store and other OS files
+                '!**/.DS_Store',
+                '!**/.git/**',
+                '!**/.claude-flow/**',
             ],
         },
         useDotenv: true,
@@ -584,7 +606,8 @@ const createBaseDefinition = (AppDefinition, appEnvironmentVars, discoveredResou
             },
         },
         plugins: [
-            'serverless-jetpack',
+            // Temporarily disabled Jetpack - it ignores package.patterns in dependency mode
+            // 'serverless-jetpack',
             'serverless-dotenv-plugin',
             'serverless-offline-sqs',
             'serverless-offline',
@@ -605,9 +628,10 @@ const createBaseDefinition = (AppDefinition, appEnvironmentVars, discoveredResou
                 secretAccessKey: 'root',
                 skipCacheInvalidation: false,
             },
-            jetpack: {
-                base: '..',
-            },
+            // Jetpack config removed - testing with standard Serverless packaging
+            // jetpack: {
+            //     base: '..',
+            // },
         },
         functions: {
             auth: {
@@ -774,7 +798,7 @@ const applyKmsConfiguration = (definition, AppDefinition, discoveredResources) =
         if (AppDefinition.encryption?.createResourceIfNoneFound !== true) {
             throw new Error(
                 'KMS field-level encryption is enabled but no KMS key was found. ' +
-                    'Either provide an existing KMS key or set encryption.createResourceIfNoneFound to true to create a new key.'
+                'Either provide an existing KMS key or set encryption.createResourceIfNoneFound to true to create a new key.'
             );
         }
 
@@ -1173,8 +1197,8 @@ const configureVpc = (definition, AppDefinition, discoveredResources) => {
             AppDefinition.vpc.subnets?.ids?.length > 0
                 ? AppDefinition.vpc.subnets.ids
                 : discoveredResources.privateSubnetId1 && discoveredResources.privateSubnetId2
-                ? [discoveredResources.privateSubnetId1, discoveredResources.privateSubnetId2]
-                : [];
+                    ? [discoveredResources.privateSubnetId1, discoveredResources.privateSubnetId2]
+                    : [];
 
         if (vpcConfig.subnetIds.length < 2) {
             if (AppDefinition.vpc.selfHeal) {
@@ -2032,10 +2056,23 @@ const composeServerlessDefinition = async (AppDefinition) => {
     const appEnvironmentVars = getAppEnvironmentVars(AppDefinition);
     const definition = createBaseDefinition(AppDefinition, appEnvironmentVars, discoveredResources);
 
-    applyKmsConfiguration(definition, AppDefinition, discoveredResources);
-    configureVpc(definition, AppDefinition, discoveredResources);
-    configurePostgres(definition, AppDefinition, discoveredResources);
-    configureSsm(definition, AppDefinition);
+    // Check if we're in local build mode (AWS discovery was skipped)
+    const isLocalBuild = !shouldRunDiscovery(AppDefinition);
+
+    if (isLocalBuild) {
+        console.log('🏠 Local build mode detected - skipping AWS-dependent configurations');
+    }
+
+    // Apply configurations (skip AWS-dependent ones in local build mode)
+    if (!isLocalBuild) {
+        applyKmsConfiguration(definition, AppDefinition, discoveredResources);
+        configureVpc(definition, AppDefinition, discoveredResources);
+        configurePostgres(definition, AppDefinition, discoveredResources);
+        configureSsm(definition, AppDefinition);
+    } else {
+        console.log('   ⏭️  Skipping: KMS, VPC, PostgreSQL, SSM configurations');
+    }
+
     attachIntegrations(definition, AppDefinition);
     configureWebsockets(definition, AppDefinition);
 
