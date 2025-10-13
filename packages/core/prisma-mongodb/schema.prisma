@@ -159,9 +159,6 @@ model Integration {
   entities  Entity[] @relation("IntegrationEntities", fields: [entityIds], references: [id])
   entityIds String[] @db.ObjectId
 
-  // Entity reference map (Map<String, String> stored as JSON)
-  entityReferenceMap Json? @default("{}")
-
   // Message arrays (stored as JSON)
   errors   Json @default("[]")
   warnings Json @default("[]")

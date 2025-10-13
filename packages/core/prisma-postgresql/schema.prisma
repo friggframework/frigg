@@ -151,9 +151,6 @@ model Integration {
   // Entity references (many-to-many via implicit join table)
   entities Entity[]
 
-  // Entity reference map (Map<String, String> stored as JSON)
-  entityReferenceMap Json? @default("{}")
-
   // Message arrays (stored as JSON)
   errors   Json @default("[]")
   warnings Json @default("[]")
