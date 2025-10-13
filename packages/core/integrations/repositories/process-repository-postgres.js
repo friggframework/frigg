@@ -170,16 +170,20 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
      */
     _toPlainObject(process) {
         return {
-            id: process.id,
-            userId: process.userId,
-            integrationId: process.integrationId,
+            id: String(process.id),
+            userId: String(process.userId),
+            integrationId: String(process.integrationId),
             name: process.name,
             type: process.type,
             state: process.state,
             context: process.context,
             results: process.results,
-            childProcesses: process.childProcesses,
-            parentProcessId: process.parentProcessId,
+            childProcesses: Array.isArray(process.childProcesses)
+                ? (process.childProcesses.length > 0 && typeof process.childProcesses[0] === 'object' && process.childProcesses[0] !== null
+                    ? process.childProcesses.map(child => String(child.id))
+                    : process.childProcesses)
+                : [],
+            parentProcessId: process.parentProcessId !== null ? String(process.parentProcessId) : null,
             createdAt: process.createdAt,
             updatedAt: process.updatedAt,
         };
