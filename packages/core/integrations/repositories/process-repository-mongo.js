@@ -1,43 +1,25 @@
 const { prisma } = require('../../database/prisma');
-const {
-    ProcessRepositoryInterface,
-} = require('./process-repository-interface');
+const { ProcessRepositoryInterface } = require('./process-repository-interface');
 
 /**
- * PostgreSQL Process Repository Adapter
- * Handles process persistence using Prisma with PostgreSQL
+ * MongoDB Process Repository Adapter
+ * Handles process persistence using Prisma with MongoDB
  *
- * PostgreSQL-specific characteristics:
- * - Uses foreign key constraints for relations
- * - JSONB type for context and results (efficient querying)
- * - Array type for childProcesses references
- * - Transactional support available if needed
+ * MongoDB-specific characteristics:
+ * - Uses scalar fields for relations (userId, integrationId)
+ * - IDs are strings with @db.ObjectId
+ * - JSON fields for flexible context and results storage
+ * - Array field for childProcesses references
  *
  * Design Philosophy:
- * - Same interface as MongoDB repository
- * - Prisma abstracts away most database-specific details
- * - Minor differences in JSON handling internally managed by Prisma
+ * - Generic Process model supports any type of long-running operation
+ * - Context and results stored as JSON for maximum flexibility
+ * - Integration-specific logic lives in use cases and services
  */
-class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
+class ProcessRepositoryMongo extends ProcessRepositoryInterface {
     constructor() {
         super();
         this.prisma = prisma;
-    }
-
-    /**
-     * Convert string ID to integer for PostgreSQL queries
-     * @private
-     * @param {string|number|null|undefined} id - ID to convert
-     * @returns {number|null|undefined} Integer ID or null/undefined
-     * @throws {Error} If ID cannot be converted to integer
-     */
-    _convertId(id) {
-        if (id === null || id === undefined) return id;
-        const parsed = parseInt(id, 10);
-        if (isNaN(parsed)) {
-            throw new Error(`Invalid ID: ${id} cannot be converted to integer`);
-        }
-        return parsed;
     }
 
     /**
@@ -48,15 +30,15 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
     async create(processData) {
         const process = await this.prisma.process.create({
             data: {
-                userId: this._convertId(processData.userId),
-                integrationId: this._convertId(processData.integrationId),
+                userId: processData.userId,
+                integrationId: processData.integrationId,
                 name: processData.name,
                 type: processData.type,
                 state: processData.state || 'INITIALIZING',
                 context: processData.context || {},
                 results: processData.results || {},
                 childProcesses: processData.childProcesses || [],
-                parentProcessId: this._convertId(processData.parentProcessId),
+                parentProcessId: processData.parentProcessId || null,
             },
         });
 
@@ -70,7 +52,7 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
      */
     async findById(processId) {
         const process = await this.prisma.process.findUnique({
-            where: { id: this._convertId(processId) },
+            where: { id: processId },
         });
 
         return process ? this._toPlainObject(process) : null;
@@ -99,13 +81,11 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
             updateData.childProcesses = updates.childProcesses;
         }
         if (updates.parentProcessId !== undefined) {
-            updateData.parentProcessId = this._convertId(
-                updates.parentProcessId
-            );
+            updateData.parentProcessId = updates.parentProcessId;
         }
 
         const process = await this.prisma.process.update({
-            where: { id: this._convertId(processId) },
+            where: { id: processId },
             data: updateData,
         });
 
@@ -121,7 +101,7 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
     async findByIntegrationAndType(integrationId, type) {
         const processes = await this.prisma.process.findMany({
             where: {
-                integrationId: this._convertId(integrationId),
+                integrationId,
                 type,
             },
             orderBy: {
@@ -138,13 +118,10 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
      * @param {string[]} [excludeStates=['COMPLETED', 'ERROR']] - States to exclude
      * @returns {Promise<Array>} Array of active process records
      */
-    async findActiveProcesses(
-        integrationId,
-        excludeStates = ['COMPLETED', 'ERROR']
-    ) {
+    async findActiveProcesses(integrationId, excludeStates = ['COMPLETED', 'ERROR']) {
         const processes = await this.prisma.process.findMany({
             where: {
-                integrationId: this._convertId(integrationId),
+                integrationId,
                 state: {
                     notIn: excludeStates,
                 },
@@ -180,7 +157,7 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
      */
     async deleteById(processId) {
         await this.prisma.process.delete({
-            where: { id: this._convertId(processId) },
+            where: { id: processId },
         });
     }
 
@@ -193,29 +170,21 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
      */
     _toPlainObject(process) {
         return {
-            id: String(process.id),
-            userId: String(process.userId),
-            integrationId: String(process.integrationId),
+            id: process.id,
+            userId: process.userId,
+            integrationId: process.integrationId,
             name: process.name,
             type: process.type,
             state: process.state,
             context: process.context,
             results: process.results,
-            childProcesses: Array.isArray(process.childProcesses)
-                ? process.childProcesses.length > 0 &&
-                  typeof process.childProcesses[0] === 'object' &&
-                  process.childProcesses[0] !== null
-                    ? process.childProcesses.map((child) => String(child.id))
-                    : process.childProcesses
-                : [],
-            parentProcessId:
-                process.parentProcessId !== null
-                    ? String(process.parentProcessId)
-                    : null,
+            childProcesses: process.childProcesses,
+            parentProcessId: process.parentProcessId,
             createdAt: process.createdAt,
             updatedAt: process.updatedAt,
         };
     }
 }
 
-module.exports = { ProcessRepositoryPostgres };
+module.exports = { ProcessRepositoryMongo };
+

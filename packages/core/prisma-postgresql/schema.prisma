@@ -46,6 +46,7 @@ model User {
   credentials  Credential[]
   entities     Entity[]
   integrations Integration[]
+  processes    Process[]
 
   @@unique([email])
   @@unique([username])
@@ -151,9 +152,6 @@ model Integration {
   // Entity references (many-to-many via implicit join table)
   entities Entity[]
 
-  // Entity reference map (Map<String, String> stored as JSON)
-  entityReferenceMap Json? @default("{}")
-
   // Message arrays (stored as JSON)
   errors   Json @default("[]")
   warnings Json @default("[]")
@@ -167,6 +165,7 @@ model Integration {
   associations Association[]
   syncs        Sync[]
   mappings     IntegrationMapping[]
+  processes    Process[]
 
   @@index([userId])
   @@index([status])
@@ -282,6 +281,49 @@ enum AssociationType {
   ONE_TO_MANY
   ONE_TO_ONE
   MANY_TO_ONE
+}
+
+// ============================================================================
+// PROCESS MODELS
+// ============================================================================
+
+/// Generic Process Model - tracks any long-running operation
+/// Used for: CRM syncs, data migrations, bulk operations, etc.
+model Process {
+  id Int @id @default(autoincrement())
+
+  // Core references
+  userId        Int
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  integrationId Int
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  // Process identification
+  name String // e.g., "zoho-crm-contact-sync", "pipedrive-lead-sync"
+  type String // e.g., "CRM_SYNC", "DATA_MIGRATION", "BULK_OPERATION"
+
+  // State machine
+  state String // Current state (integration-defined states)
+
+  // Flexible storage
+  context Json @default("{}") // Process-specific data (pagination, metadata, etc.)
+  results Json @default("{}") // Process results and metrics
+
+  // Hierarchy support - self-referential relation
+  parentProcessId Int?
+  parentProcess   Process?  @relation("ProcessHierarchy", fields: [parentProcessId], references: [id], onDelete: SetNull)
+  childProcesses  Process[] @relation("ProcessHierarchy")
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([integrationId])
+  @@index([type])
+  @@index([state])
+  @@index([name])
+  @@index([parentProcessId])
 }
 
 // ============================================================================

@@ -93,7 +93,8 @@ class ProcessAuthorizationCallback {
         );
         credentialDetails.details.authIsValid = true;
 
-        await this.credentialRepository.upsertCredential(credentialDetails);
+        const persisted = await this.credentialRepository.upsertCredential(credentialDetails);
+        module.credential = persisted;
     }
 
     async findOrCreateEntity(entityDetails, moduleName, credentialId) {
