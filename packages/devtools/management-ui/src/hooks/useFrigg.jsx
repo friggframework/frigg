@@ -21,35 +21,11 @@ export const FriggProvider = ({ children }) => {
   const [users, setUsers] = useState([])
   const [connections, setConnections] = useState([])
   const [currentUser, setCurrentUser] = useState(null)
-<<<<<<< HEAD
-<<<<<<< HEAD
   const [repositories, setRepositories] = useState([])
   const [currentRepository, setCurrentRepository] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
-  const [repositories, setRepositories] = useState([])
-  const [currentRepository, setCurrentRepository] = useState(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-<<<<<<< HEAD
-=======
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 
   useEffect(() => {
     // Listen for status updates
@@ -123,114 +99,34 @@ export const FriggProvider = ({ children }) => {
 
   const fetchInitialData = async () => {
     try {
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
       setLoading(true)
       setError(null)
 
       const [statusRes, integrationsRes, envRes, usersRes, connectionsRes] = await Promise.all([
         api.get('/api/project/status'),
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
-      const [statusRes, integrationsRes, envRes, usersRes, connectionsRes] = await Promise.all([
-        api.get('/api/frigg/status'),
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-      setLoading(true)
-      setError(null)
-      
-      const [statusRes, integrationsRes, envRes, usersRes, connectionsRes] = await Promise.all([
-        api.get('/api/project/status'),
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
         api.get('/api/integrations'),
         api.get('/api/environment'),
         api.get('/api/users'),
         api.get('/api/connections'),
       ])
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
       setStatus(statusRes.data.data?.status || statusRes.data.status || 'stopped')
       setIntegrations(integrationsRes.data.data?.integrations || integrationsRes.data.integrations || [])
       setEnvVariables(envRes.data.data?.variables || envRes.data.variables || {})
       setUsers(usersRes.data.data?.users || usersRes.data.users || [])
       setConnections(connectionsRes.data.data?.connections || connectionsRes.data.connections || [])
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     } catch (error) {
       console.error('Error fetching initial data:', error)
       setError(error.message || 'Failed to fetch data')
     } finally {
       setLoading(false)
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
-      setStatus(statusRes.data.status)
-      setIntegrations(integrationsRes.data.integrations || [])
-      setEnvVariables(envRes.data.variables || {})
-      setUsers(usersRes.data.users || [])
-      setConnections(connectionsRes.data.connections || [])
-    } catch (error) {
-      console.error('Error fetching initial data:', error)
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-    } catch (error) {
-      console.error('Error fetching initial data:', error)
-      setError(error.message || 'Failed to fetch data')
-    } finally {
-      setLoading(false)
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     }
   }
 
   const startFrigg = async (options = {}) => {
     try {
       setStatus('starting')
-<<<<<<< HEAD
-<<<<<<< HEAD
       await api.post('/api/project/start', options)
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-      await api.post('/api/project/start', options)
-=======
-      await api.post('/api/frigg/start', options)
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-      await api.post('/api/project/start', options)
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-      await api.post('/api/project/start', options)
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     } catch (error) {
       console.error('Error starting Frigg:', error)
       setStatus('stopped')
@@ -239,23 +135,7 @@ export const FriggProvider = ({ children }) => {
 
   const stopFrigg = async (force = false) => {
     try {
-<<<<<<< HEAD
-<<<<<<< HEAD
       await api.post('/api/project/stop', { force })
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-      await api.post('/api/project/stop', { force })
-=======
-      await api.post('/api/frigg/stop', { force })
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-      await api.post('/api/project/stop', { force })
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-      await api.post('/api/project/stop', { force })
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
       setStatus('stopped')
     } catch (error) {
       console.error('Error stopping Frigg:', error)
@@ -264,23 +144,7 @@ export const FriggProvider = ({ children }) => {
 
   const restartFrigg = async (options = {}) => {
     try {
-<<<<<<< HEAD
-<<<<<<< HEAD
       await api.post('/api/project/restart', options)
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-      await api.post('/api/project/restart', options)
-=======
-      await api.post('/api/frigg/restart', options)
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-      await api.post('/api/project/restart', options)
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-      await api.post('/api/project/restart', options)
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     } catch (error) {
       console.error('Error restarting Frigg:', error)
     }
@@ -288,28 +152,8 @@ export const FriggProvider = ({ children }) => {
 
   const getLogs = async (limit = 100) => {
     try {
-<<<<<<< HEAD
-<<<<<<< HEAD
       const response = await api.get(`/api/project/logs?limit=${limit}`)
       return response.data.data?.logs || response.data.logs || []
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-      const response = await api.get(`/api/project/logs?limit=${limit}`)
-      return response.data.data?.logs || response.data.logs || []
-=======
-      const response = await api.get(`/api/frigg/logs?limit=${limit}`)
-      return response.data.logs || []
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-      const response = await api.get(`/api/project/logs?limit=${limit}`)
-      return response.data.data?.logs || response.data.logs || []
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-      const response = await api.get(`/api/project/logs?limit=${limit}`)
-      return response.data.data?.logs || response.data.logs || []
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     } catch (error) {
       console.error('Error fetching logs:', error)
       return []
@@ -318,48 +162,14 @@ export const FriggProvider = ({ children }) => {
 
   const getMetrics = async () => {
     try {
-<<<<<<< HEAD
-<<<<<<< HEAD
       const response = await api.get('/api/project/metrics')
       return response.data.data || response.data
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-      const response = await api.get('/api/project/metrics')
-      return response.data.data || response.data
-=======
-      const response = await api.get('/api/frigg/metrics')
-      return response.data
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-      const response = await api.get('/api/project/metrics')
-      return response.data.data || response.data
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-      const response = await api.get('/api/project/metrics')
-      return response.data.data || response.data
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     } catch (error) {
       console.error('Error fetching metrics:', error)
       return null
     }
   }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-
-=======
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
   const installIntegration = async (integrationName) => {
     try {
       const response = await api.post('/api/integrations/install', { name: integrationName })
@@ -539,35 +349,11 @@ export const FriggProvider = ({ children }) => {
     users,
     connections,
     currentUser,
-<<<<<<< HEAD
-<<<<<<< HEAD
     repositories,
     currentRepository,
     isLoading,
     loading,
     error,
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
-    repositories,
-    currentRepository,
-    isLoading,
-    loading,
-    error,
-<<<<<<< HEAD
-=======
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-    loading,
-    error,
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     startFrigg,
     stopFrigg,
     restartFrigg,
