@@ -1,4 +1,4 @@
-//todo: this repository is tightly coupled to the token repository.
+const bcrypt = require('bcryptjs');
 const { prisma } = require('../../database/prisma');
 const {
     createTokenRepository,
@@ -95,19 +95,38 @@ class UserRepositoryMongo extends UserRepositoryInterface {
      * Replaces: IndividualUser.create(params)
      *
      * @param {Object} params - User creation parameters
+     * @param {string} [params.hashword] - Plain text password (will be bcrypt hashed automatically)
      * @returns {Promise<Object>} Created user object with string IDs
      */
     async createIndividualUser(params) {
-        return await this.prisma.user.create({
-            data: {
-                type: 'INDIVIDUAL',
-                email: params.email,
-                username: params.username,
-                hashword: params.hashword,
-                appUserId: params.appUserId,
-                organizationId: params.organization || params.organizationId,
-            },
-        });
+        const data = {
+            type: 'INDIVIDUAL',
+            email: params.email,
+            username: params.username,
+            appUserId: params.appUserId,
+            organizationId: params.organization || params.organizationId,
+        };
+
+        if (
+            params.hashword !== undefined &&
+            params.hashword !== null &&
+            params.hashword !== ''
+        ) {
+            if (typeof params.hashword !== 'string') {
+                throw new Error('Password must be a string');
+            }
+
+            // Prevent double-hashing: bcrypt hashes start with $2a$ or $2b$
+            if (params.hashword.startsWith('$2')) {
+                throw new Error(
+                    'Password appears to be already hashed. Pass plain text password only.'
+                );
+            }
+
+            data.hashword = await bcrypt.hash(params.hashword, 10);
+        }
+
+        return await this.prisma.user.create({ data });
     }
 
     /**
@@ -204,12 +223,34 @@ class UserRepositoryMongo extends UserRepositoryInterface {
      * Update individual user
      * @param {string} userId - User ID
      * @param {Object} updates - Fields to update
+     * @param {string} [updates.hashword] - Plain text password (will be bcrypt hashed automatically)
      * @returns {Promise<Object>} Updated user object with string IDs
      */
     async updateIndividualUser(userId, updates) {
+        const data = { ...updates };
+
+        if (
+            data.hashword !== undefined &&
+            data.hashword !== null &&
+            data.hashword !== ''
+        ) {
+            if (typeof data.hashword !== 'string') {
+                throw new Error('Password must be a string');
+            }
+
+            // Prevent double-hashing: bcrypt hashes start with $2a$ or $2b$
+            if (data.hashword.startsWith('$2')) {
+                throw new Error(
+                    'Password appears to be already hashed. Pass plain text password only.'
+                );
+            }
+
+            data.hashword = await bcrypt.hash(data.hashword, 10);
+        }
+
         return await this.prisma.user.update({
             where: { id: userId },
-            data: updates,
+            data,
         });
     }
 

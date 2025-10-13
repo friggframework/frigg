@@ -137,4 +137,84 @@ describe('LoginUser Use Case', () => {
             ).rejects.toThrow('user not found');
         });
     });
+
+    describe('Bcrypt Hash Verification', () => {
+        beforeEach(() => {
+            userConfig = { usePassword: true, individualUserRequired: true, organizationUserRequired: false };
+            userRepository = new TestUserRepository({ userConfig });
+            loginUser = new LoginUser({ userRepository, userConfig });
+        });
+
+        it('should verify bcrypt.compareSync is called with plain password and hash', async () => {
+            const username = 'bcrypt-test-user';
+            const plainPassword = 'MyPlainPassword123';
+            const bcryptHash = '$2b$10$abcdefghijklmnopqrstuv';
+
+            await userRepository.createIndividualUser({
+                username,
+                hashword: bcryptHash,
+            });
+
+            bcrypt.compareSync.mockReturnValue(true);
+
+            await loginUser.execute({ username, password: plainPassword });
+
+            expect(bcrypt.compareSync).toHaveBeenCalledTimes(1);
+            expect(bcrypt.compareSync).toHaveBeenCalledWith(plainPassword, bcryptHash);
+
+            const [firstArg, secondArg] = bcrypt.compareSync.mock.calls[0];
+            expect(firstArg).toBe(plainPassword);
+            expect(secondArg).toBe(bcryptHash);
+        });
+
+        it('should verify stored password has bcrypt hash format', async () => {
+            const username = 'format-test-user';
+            const bcryptHash = '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
+
+            await userRepository.createIndividualUser({
+                username,
+                hashword: bcryptHash,
+            });
+
+            const user = await userRepository.findIndividualUserByUsername(username);
+
+            expect(user.hashword).toMatch(/^\$2[ab]\$/);
+            expect(user.hashword.length).toBeGreaterThan(50);
+            expect(user.hashword).not.toContain(':');
+        });
+
+        it('should reject passwords that look encrypted (have colon separators)', async () => {
+            const username = 'encrypted-format-user';
+            const encryptedLookingValue = 'kms:us-east-1:key:ciphertext';
+
+            await userRepository.createIndividualUser({
+                username,
+                hashword: encryptedLookingValue,
+            });
+
+            bcrypt.compareSync.mockReturnValue(false);
+
+            await expect(
+                loginUser.execute({ username, password: 'any-password' })
+            ).rejects.toThrow('Incorrect username or password');
+        });
+
+        it('should verify bcrypt.compareSync returns false for mismatched passwords', async () => {
+            const username = 'mismatch-test-user';
+            const correctHash = '$2b$10$correcthash';
+
+            await userRepository.createIndividualUser({
+                username,
+                hashword: correctHash,
+            });
+
+            bcrypt.compareSync.mockReturnValue(false);
+
+            await expect(
+                loginUser.execute({ username, password: 'wrong-password' })
+            ).rejects.toThrow('Incorrect username or password');
+
+            expect(bcrypt.compareSync).toHaveBeenCalledWith('wrong-password', correctHash);
+        });
+    });
 }); 

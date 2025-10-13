@@ -65,7 +65,7 @@ class LoginUser {
                     this.userConfig.organizationUserRequired
                 );
 
-                if (!individualUser.isPasswordValid(password)) {
+                if (!(await individualUser.isPasswordValid(password))) {
                     throw Boom.unauthorized('Incorrect username or password');
                 }
 

@@ -41,12 +41,12 @@ class User {
         return this.usePassword;
     }
 
-    isPasswordValid(password) {
+    async isPasswordValid(password) {
         if (!this.isPasswordRequired()) {
             return true;
         }
 
-        return bcrypt.compareSync(password, this.getPrimaryUser().hashword);
+        return await bcrypt.compare(password, this.getPrimaryUser().hashword);
     }
 
     setIndividualUser(individualUser) {

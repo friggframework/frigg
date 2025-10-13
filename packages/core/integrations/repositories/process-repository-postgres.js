@@ -55,7 +55,6 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
                 state: processData.state || 'INITIALIZING',
                 context: processData.context || {},
                 results: processData.results || {},
-                childProcesses: processData.childProcesses || [],
                 parentProcessId: this._convertId(processData.parentProcessId),
             },
         });
@@ -94,9 +93,6 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
         }
         if (updates.results !== undefined) {
             updateData.results = updates.results;
-        }
-        if (updates.childProcesses !== undefined) {
-            updateData.childProcesses = updates.childProcesses;
         }
         if (updates.parentProcessId !== undefined) {
             updateData.parentProcessId = this._convertId(
