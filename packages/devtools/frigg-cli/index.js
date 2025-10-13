@@ -37,6 +37,7 @@ program
     .description('Build the serverless application')
     .option('-s, --stage <stage>', 'deployment stage', 'dev')
     .option('-v, --verbose', 'enable verbose output')
+    .option('-p, --production', 'build for production (enables AWS discovery)')
     .action(buildCommand);
 
 program
