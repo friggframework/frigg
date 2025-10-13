@@ -43,6 +43,18 @@ const {
 const {
     IntegrationMappingRepository,
 } = require('./integrations/repositories/integration-mapping-repository');
+const {
+    CreateProcess,
+} = require('./integrations/use-cases/create-process');
+const {
+    UpdateProcessState,
+} = require('./integrations/use-cases/update-process-state');
+const {
+    UpdateProcessMetrics,
+} = require('./integrations/use-cases/update-process-metrics');
+const {
+    GetProcess,
+} = require('./integrations/use-cases/get-process');
 const { Cryptor } = require('./encrypt');
 const {
     BaseError,
@@ -130,6 +142,10 @@ module.exports = {
     createIntegrationRouter,
     getModulesDefinitionFromIntegrationClasses,
     LoadIntegrationContextUseCase,
+    CreateProcess,
+    UpdateProcessState,
+    UpdateProcessMetrics,
+    GetProcess,
 
     // application - Command factories for integration developers
     application,

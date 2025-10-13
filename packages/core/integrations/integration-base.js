@@ -403,6 +403,13 @@ class IntegrationBase {
         return this.userId.toString() === userId.toString();
     }
 
+    registerEventHandlers() {
+        this.on = {
+            ...this.defaultEvents,
+            ...this.events,
+        };
+    }
+
     async initialize() {
         // Load dynamic user actions
         try {
@@ -412,7 +419,17 @@ class IntegrationBase {
             this.addError(e);
         }
 
-        // Event handlers are no longer registered here - handled by IntegrationEventDispatcher
+        // Register event handlers (this.on) for the send() method
+        this.registerEventHandlers();
+    }
+
+    async send(event, object) {
+        if (!this.on[event]) {
+            throw new Error(
+                `Event ${event} is not defined in the Integration event object`
+            );
+        }
+        return this.on[event].handler.call(this, object);
     }
 
     getOptionDetails() {
