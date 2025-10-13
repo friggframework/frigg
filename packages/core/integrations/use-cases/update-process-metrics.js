@@ -1,16 +1,38 @@
+/** 
+ TODO:
+ This implementation contains a race condition in the `execute` method. When multiple concurrent processes call this method on the same process record, they'll each read the current state, modify it independently, and then save - potentially overwriting each other's changes.
+
+For example:
+```
+Thread 1: reads process with totalSynced=100
+Thread 2: reads process with totalSynced=100
+Thread 1: adds 50 → writes totalSynced=150
+Thread 2: adds 30 → writes totalSynced=130 (overwrites Thread 1's update!)
+```
+
+Consider implementing one of these patterns:
+1. Database transactions with row locking
+2. Optimistic concurrency control with version numbers
+3. Atomic update operations (e.g., `$inc` in MongoDB)
+4. A FIFO queue for process updates (as described in the PROCESS_MANAGEMENT_QUEUE_SPEC.md)
+
+The current approach will lead to lost updates and inconsistent metrics during concurrent processing.
+
+ */
+
 /**
  * UpdateProcessMetrics Use Case
- * 
+ *
  * Updates process metrics, calculates aggregates, and computes estimated completion time.
  * Optionally broadcasts progress via WebSocket service if provided.
- * 
+ *
  * Design Philosophy:
  * - Metrics are cumulative (add to existing counts)
  * - Performance metrics calculated automatically (duration, records/sec)
  * - ETA computed based on current progress
  * - Error history limited to last 100 entries
  * - WebSocket broadcasting is optional (DI pattern)
- * 
+ *
  * @example
  * const updateMetrics = new UpdateProcessMetrics({ processRepository, websocketService });
  * await updateMetrics.execute(processId, {
@@ -70,17 +92,25 @@ class UpdateProcessMetrics {
         }
 
         // Update context counters (cumulative)
-        context.processedRecords = (context.processedRecords || 0) + (metricsUpdate.processed || 0);
+        context.processedRecords =
+            (context.processedRecords || 0) + (metricsUpdate.processed || 0);
 
         // Update results aggregates (cumulative)
-        results.aggregateData.totalSynced = (results.aggregateData.totalSynced || 0) + (metricsUpdate.success || 0);
-        results.aggregateData.totalFailed = (results.aggregateData.totalFailed || 0) + (metricsUpdate.errors || 0);
+        results.aggregateData.totalSynced =
+            (results.aggregateData.totalSynced || 0) +
+            (metricsUpdate.success || 0);
+        results.aggregateData.totalFailed =
+            (results.aggregateData.totalFailed || 0) +
+            (metricsUpdate.errors || 0);
 
         // Append error details (limited to last 100)
-        if (metricsUpdate.errorDetails && metricsUpdate.errorDetails.length > 0) {
+        if (
+            metricsUpdate.errorDetails &&
+            metricsUpdate.errorDetails.length > 0
+        ) {
             results.aggregateData.errors = [
                 ...(results.aggregateData.errors || []),
-                ...metricsUpdate.errorDetails
+                ...metricsUpdate.errorDetails,
             ].slice(-100); // Keep only last 100 errors
         }
 
@@ -90,7 +120,8 @@ class UpdateProcessMetrics {
         results.aggregateData.duration = elapsed;
 
         if (elapsed > 0 && context.processedRecords > 0) {
-            results.aggregateData.recordsPerSecond = context.processedRecords / (elapsed / 1000);
+            results.aggregateData.recordsPerSecond =
+                context.processedRecords / (elapsed / 1000);
         } else {
             results.aggregateData.recordsPerSecond = 0;
         }
@@ -99,7 +130,8 @@ class UpdateProcessMetrics {
         if (context.totalRecords > 0 && context.processedRecords > 0) {
             const remaining = context.totalRecords - context.processedRecords;
             if (results.aggregateData.recordsPerSecond > 0) {
-                const etaMs = (remaining / results.aggregateData.recordsPerSecond) * 1000;
+                const etaMs =
+                    (remaining / results.aggregateData.recordsPerSecond) * 1000;
                 const eta = new Date(Date.now() + etaMs);
                 context.estimatedCompletion = eta.toISOString();
             }
@@ -114,9 +146,14 @@ class UpdateProcessMetrics {
         // Persist updates
         let updatedProcess;
         try {
-            updatedProcess = await this.processRepository.update(processId, updates);
+            updatedProcess = await this.processRepository.update(
+                processId,
+                updates
+            );
         } catch (error) {
-            throw new Error(`Failed to update process metrics: ${error.message}`);
+            throw new Error(
+                `Failed to update process metrics: ${error.message}`
+            );
         }
 
         // Broadcast progress via WebSocket (if service provided)
@@ -152,7 +189,7 @@ class UpdateProcessMetrics {
                     recordsPerSecond: aggregateData.recordsPerSecond || 0,
                     estimatedCompletion: context.estimatedCompletion || null,
                     timestamp: new Date().toISOString(),
-                }
+                },
             });
         } catch (error) {
             // Log but don't fail the update if WebSocket broadcast fails
@@ -162,4 +199,3 @@ class UpdateProcessMetrics {
 }
 
 module.exports = { UpdateProcessMetrics };
-
