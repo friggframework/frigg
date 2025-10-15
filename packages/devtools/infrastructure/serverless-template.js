@@ -554,6 +554,7 @@ const gatherDiscoveredResources = async (AppDefinition) => {
             vpc: AppDefinition.vpc || {},
             encryption: AppDefinition.encryption || {},
             ssm: AppDefinition.ssm || {},
+            database: AppDefinition.database || {},
             serviceName: AppDefinition.name || 'create-frigg-app',
             stage: stage,
         };
@@ -636,6 +637,22 @@ const createBaseDefinition = (
     discoveredResources
 ) => {
     const region = process.env.AWS_REGION || 'us-east-1';
+
+    // Function-level package config to exclude Prisma and AWS SDK
+    // Uses native Serverless package.exclude since jetpack function-level config isn't supported in v3
+    const functionPackageConfig = {
+        exclude: [
+            // Exclude AWS SDK (already in Lambda runtime)
+            'node_modules/aws-sdk/**',
+            'node_modules/@aws-sdk/**',
+
+            // Exclude Prisma (provided via Lambda Layer)
+            'node_modules/@prisma/**',
+            'node_modules/.prisma/**',
+            'node_modules/prisma/**',
+            'node_modules/@friggframework/core/generated/**',
+        ],
+    };
 
     return {
         frameworkVersion: '>=3.17.0',
@@ -758,25 +775,16 @@ const createBaseDefinition = (
             },
             jetpack: {
                 base: '..',  // Essential for reaching handlers in node_modules/@friggframework
-                // Use dependency mode with exclusions via preInclude
-                // preInclude patterns are applied BEFORE Jetpack's dependency patterns
-                preInclude: [
-                    // Exclude AWS SDK (already in Lambda runtime)
-                    '!**/node_modules/aws-sdk/**',
-                    '!**/node_modules/@aws-sdk/**',
-
-                    // Exclude Prisma (provided via Lambda Layer)  
-                    '!**/node_modules/@prisma/**',
-                    '!**/node_modules/.prisma/**',
-                    '!**/node_modules/prisma/**',
-                    '!**/node_modules/@friggframework/core/generated/**',  // 81MB Prisma clients
-                ],
+                // NOTE: Service-level preInclude applies to EVERYTHING (functions + layers)
+                // We need to ONLY exclude from functions, not from the Prisma layer
+                // Solution: Apply exclusions at function level instead
             },
         },
         functions: {
             auth: {
                 handler: 'node_modules/@friggframework/core/handlers/routers/auth.handler',
                 layers: [{ Ref: 'PrismaLambdaLayer' }],
+                package: functionPackageConfig,
                 events: [
                     { httpApi: { path: '/api/integrations', method: 'ANY' } },
                     {
@@ -791,11 +799,13 @@ const createBaseDefinition = (
             user: {
                 handler: 'node_modules/@friggframework/core/handlers/routers/user.handler',
                 layers: [{ Ref: 'PrismaLambdaLayer' }],
+                package: functionPackageConfig,
                 events: [{ httpApi: { path: '/user/{proxy+}', method: 'ANY' } }],
             },
             health: {
                 handler: 'node_modules/@friggframework/core/handlers/routers/health.handler',
                 layers: [{ Ref: 'PrismaLambdaLayer' }],
+                package: functionPackageConfig,
                 events: [
                     { httpApi: { path: '/health', method: 'GET' } },
                     { httpApi: { path: '/health/{proxy+}', method: 'GET' } },
@@ -803,11 +813,13 @@ const createBaseDefinition = (
             },
             dbMigrate: {
                 handler: 'node_modules/@friggframework/core/handlers/workers/db-migration.handler',
+                // Uses Prisma Layer (includes CLI) - simpler than standalone packaging
                 layers: [{ Ref: 'PrismaLambdaLayer' }],
                 timeout: 300,  // 5 minutes for long-running migrations
                 memorySize: 512,  // Extra memory for Prisma CLI operations
                 reservedConcurrency: 1,  // Prevent concurrent migrations
-                description: 'Runs database migrations via Prisma (invoke manually from CI/CD)',
+                description: 'Runs database migrations via Prisma (invoke manually from CI/CD). Uses Prisma layer with CLI.',
+                package: functionPackageConfig,  // Use same exclusions as other functions
                 // No events - this function is invoked manually via AWS CLI
                 maximumEventAge: 60,  // Don't retry old migration requests (60 seconds)
                 maximumRetryAttempts: 0,  // Don't auto-retry failed migrations
@@ -821,22 +833,13 @@ const createBaseDefinition = (
                     PRISMA_HIDE_UPDATE_MESSAGE: '1',  // Suppress update messages
                     PRISMA_MIGRATE_SKIP_SEED: '1',  // Skip seeding during migrations
                 },
-                // Function-specific packaging: Include Prisma schemas (CLI from layer)
-                package: {
-                    patterns: [
-                        // Include Prisma schemas from @friggframework/core
-                        // Note: Prisma CLI and clients come from Lambda Layer
-                        'node_modules/@friggframework/core/prisma-mongodb/**',
-                        'node_modules/@friggframework/core/prisma-postgresql/**',
-                    ],
-                },
             },
         },
         layers: {
             prisma: {
                 path: 'layers/prisma',
                 name: '${self:service}-prisma-${sls:stage}',
-                description: 'Prisma ORM clients for MongoDB and PostgreSQL with rhel-openssl-3.0.x binaries. Reduces function sizes by ~60% (120MB → 45MB). See LAMBDA-LAYER-PRISMA.md for details.',
+                description: 'Prisma ORM client with CLI and rhel-openssl-3.0.x binaries. Configured based on AppDefinition database settings. Used by all functions.',
                 compatibleRuntimes: ['nodejs18.x', 'nodejs20.x'],
                 retain: false,  // Don't retain old layer versions
             },
@@ -2193,8 +2196,13 @@ const createAuroraInfrastructure = (definition, AppDefinition, discoveredResourc
 
 const useExistingAurora = (definition, AppDefinition, discoveredResources) => {
     const dbConfig = AppDefinition.database.postgres;
+    const selfHeal = AppDefinition.database?.postgres?.selfHeal !== false; // Default to true
 
     console.log(`🔗 Using existing Aurora cluster: ${discoveredResources.aurora.clusterIdentifier}`);
+    console.log(`[DEBUG] discoveredResources.aurora.isFriggManaged: ${discoveredResources.aurora.isFriggManaged}`);
+    console.log(`[DEBUG] selfHeal: ${selfHeal}`);
+    console.log(`[DEBUG] discoveredResources.aurora.secretArn: ${discoveredResources.aurora.secretArn}`);
+    console.log(`[DEBUG] dbConfig.secretArn: ${dbConfig.secretArn}`);
 
     // Add IAM permissions for Secrets Manager if secret exists
     if (discoveredResources.aurora.secretArn) {
@@ -2243,8 +2251,84 @@ const useExistingAurora = (definition, AppDefinition, discoveredResources) => {
                 }
             ]
         };
+    } else if (selfHeal && discoveredResources.aurora?.isFriggManaged) {
+        // Self-healing mode: recreate missing secret for Frigg-managed cluster
+        console.log('⚠️  No database secret found for Frigg-managed cluster');
+        console.log('🔧 Self-healing enabled: Creating new database secret with automatic password rotation');
+
+        // Get the current master username from the cluster
+        const currentUsername = discoveredResources.aurora.masterUsername || dbConfig.masterUsername || 'frigg_admin';
+
+        // Create Secrets Manager Secret (database credentials)
+        // Note: We generate a NEW password, which will be synced to the cluster via SecretTargetAttachment
+        definition.resources.Resources.FriggDatabaseSecret = {
+            Type: 'AWS::SecretsManager::Secret',
+            Properties: {
+                Name: '${self:service}-${self:provider.stage}-aurora-credentials',
+                Description: 'Aurora PostgreSQL credentials for Frigg application (auto-healed)',
+                GenerateSecretString: {
+                    SecretStringTemplate: JSON.stringify({
+                        username: currentUsername
+                    }),
+                    GenerateStringKey: 'password',
+                    PasswordLength: 32,
+                    ExcludeCharacters: '"@/\\`\''
+                },
+                Tags: [
+                    { Key: 'ManagedBy', Value: 'Frigg' },
+                    { Key: 'Service', Value: '${self:service}' },
+                    { Key: 'Stage', Value: '${self:provider.stage}' },
+                    { Key: 'AutoHealed', Value: 'true' }
+                ]
+            }
+        };
+
+        // Create SecretTargetAttachment to link secret to existing cluster
+        // This will automatically rotate the cluster password to match the secret!
+        definition.resources.Resources.FriggSecretAttachment = {
+            Type: 'AWS::SecretsManager::SecretTargetAttachment',
+            Properties: {
+                SecretId: { Ref: 'FriggDatabaseSecret' },
+                TargetId: discoveredResources.aurora.clusterIdentifier,
+                TargetType: 'AWS::RDS::DBCluster'
+            }
+        };
+
+        // Add IAM permissions for the new secret
+        definition.provider.iamRoleStatements.push({
+            Effect: 'Allow',
+            Action: [
+                'secretsmanager:GetSecretValue',
+                'secretsmanager:DescribeSecret'
+            ],
+            Resource: { Ref: 'FriggDatabaseSecret' }
+        });
+
+        // Set DATABASE_URL from new secret
+        definition.provider.environment.DATABASE_URL = {
+            'Fn::Sub': [
+                'postgresql://${Username}:${Password}@${Endpoint}:${Port}/${DatabaseName}',
+                {
+                    Username: { 'Fn::Sub': '{{resolve:secretsmanager:${FriggDatabaseSecret}:SecretString:username}}' },
+                    Password: { 'Fn::Sub': '{{resolve:secretsmanager:${FriggDatabaseSecret}:SecretString:password}}' },
+                    Endpoint: discoveredResources.aurora.endpoint,
+                    Port: discoveredResources.aurora.port,
+                    DatabaseName: dbConfig.databaseName || 'frigg_db'
+                }
+            ]
+        };
+
+        console.log('✅ Self-healing configuration complete:');
+        console.log('   - New secret will be created with auto-generated password');
+        console.log('   - SecretTargetAttachment will automatically update cluster password');
+        console.log('   - No manual password sync required!');
     } else {
-        throw new Error('No database secret found. Provide secretArn in database.postgres configuration or ensure Secrets Manager secret exists.');
+        throw new Error(
+            'No database secret found. Options:\n' +
+            '  1. Provide secretArn in database.postgres configuration\n' +
+            '  2. Ensure Secrets Manager secret exists\n' +
+            '  3. Enable self-healing: set database.postgres.selfHeal to true (for Frigg-managed clusters only)'
+        );
     }
 
     // Set DB_TYPE for Prisma client selection
@@ -2341,6 +2425,18 @@ const attachIntegrations = (definition, AppDefinition) => {
         `Processing ${AppDefinition.integrations.length} integrations...`
     );
 
+    // Get the functionPackageConfig from the definition (defined in createBaseDefinition)
+    const functionPackageConfig = {
+        exclude: [
+            'node_modules/aws-sdk/**',
+            'node_modules/@aws-sdk/**',
+            'node_modules/@prisma/**',
+            'node_modules/.prisma/**',
+            'node_modules/prisma/**',
+            'node_modules/@friggframework/core/generated/**',
+        ],
+    };
+
     for (const integration of AppDefinition.integrations) {
         if (!integration?.Definition?.name) {
             throw new Error('Invalid integration: missing Definition or name');
@@ -2353,6 +2449,7 @@ const attachIntegrations = (definition, AppDefinition) => {
 
         definition.functions[integrationName] = {
             handler: `node_modules/@friggframework/core/handlers/routers/integration-defined-routers.handlers.${integrationName}.handler`,
+            package: functionPackageConfig,
             events: [
                 {
                     httpApi: {
@@ -2381,6 +2478,7 @@ const attachIntegrations = (definition, AppDefinition) => {
         const queueWorkerName = `${integrationName}QueueWorker`;
         definition.functions[queueWorkerName] = {
             handler: `node_modules/@friggframework/core/handlers/workers/integration-defined-workers.handlers.${integrationName}.queueWorker`,
+            package: functionPackageConfig,
             reservedConcurrency: 5,
             events: [
                 {
@@ -2447,8 +2545,9 @@ const configureWebsockets = (definition, AppDefinition) => {
 /**
  * Ensure Prisma Lambda Layer exists
  * Automatically builds the layer if it doesn't exist in the project root
+ * @param {Object} databaseConfig - Database configuration from AppDefinition.database
  */
-async function ensurePrismaLayerExists() {
+async function ensurePrismaLayerExists(databaseConfig = {}) {
     const projectRoot = process.cwd();
     const layerPath = path.join(projectRoot, 'layers/prisma');
 
@@ -2460,10 +2559,12 @@ async function ensurePrismaLayerExists() {
 
     // Layer doesn't exist - build it automatically
     console.log('📦 Prisma Lambda Layer not found - building automatically...');
+    console.log('   Building layer with CLI (used by all functions including dbMigrate)');
     console.log('   This may take a minute on first deployment.\n');
 
     try {
-        await buildPrismaLayer();
+        // Build layer WITH CLI (includeCLI = true) - all functions use same layer
+        await buildPrismaLayer(databaseConfig, true);
         console.log('✓ Prisma Lambda Layer built successfully\n');
     } catch (error) {
         console.error('✗ Failed to build Prisma Lambda Layer:', error.message);
@@ -2476,7 +2577,8 @@ const composeServerlessDefinition = async (AppDefinition) => {
     console.log('composeServerlessDefinition', AppDefinition);
 
     // Ensure Prisma layer exists before generating serverless config
-    await ensurePrismaLayerExists();
+    // Pass database config so layer only includes needed database clients
+    await ensurePrismaLayerExists(AppDefinition.database || {});
 
     const discoveredResources = await gatherDiscoveredResources(AppDefinition);
     const appEnvironmentVars = getAppEnvironmentVars(AppDefinition);

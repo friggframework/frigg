@@ -932,6 +932,8 @@ class AWSDiscovery {
             result.engine = cluster.engine;
             result.engineVersion = cluster.engineVersion;
             result.status = cluster.status;
+            result.masterUsername = cluster.masterUsername;
+            result.isFriggManaged = cluster.isFriggManaged;
 
             console.log(`\n✅ Found Aurora Cluster: ${cluster.identifier}`);
             console.log(`   Endpoint: ${cluster.endpoint}:${cluster.port}`);
@@ -982,7 +984,8 @@ class AWSDiscovery {
             databaseName: cluster.DatabaseName,
             vpcSecurityGroups: (cluster.VpcSecurityGroups || []).map(sg => sg.VpcSecurityGroupId),
             dbSubnetGroup: cluster.DBSubnetGroup,
-            arn: cluster.DBClusterArn
+            arn: cluster.DBClusterArn,
+            isFriggManaged: this._isFriggManaged(cluster.TagList || [])
         };
     }
 

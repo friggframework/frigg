@@ -49,6 +49,25 @@ async function runPrismaGenerate(dbType, verbose = false) {
     try {
         const schemaPath = getPrismaSchemaPath(dbType);
 
+        // Check if Prisma client already exists (e.g., in Lambda or pre-generated)
+        const generatedClientPath = path.join(path.dirname(path.dirname(schemaPath)), 'generated', `prisma-${dbType}`, 'client.js');
+        const isLambdaEnvironment = !!process.env.AWS_LAMBDA_FUNCTION_NAME || !!process.env.LAMBDA_TASK_ROOT;
+
+        if (fs.existsSync(generatedClientPath)) {
+            if (verbose) {
+                console.log(chalk.gray(`✓ Prisma client already generated at: ${generatedClientPath}`));
+            }
+            if (isLambdaEnvironment) {
+                if (verbose) {
+                    console.log(chalk.gray('Skipping generation in Lambda environment (using pre-generated client)'));
+                }
+                return {
+                    success: true,
+                    output: 'Using pre-generated Prisma client (Lambda environment)'
+                };
+            }
+        }
+
         if (verbose) {
             console.log(chalk.gray(`Running: npx prisma generate --schema=${schemaPath}`));
         }
@@ -129,6 +148,38 @@ async function checkDatabaseState(dbType) {
 }
 
 /**
+ * Get Prisma binary path for Lambda environment
+ * Checks multiple locations in priority order:
+ * 1. Function's bundled Prisma (/var/task/node_modules/.bin/prisma) - for standalone functions
+ * 2. Layer's Prisma (/opt/nodejs/node_modules/.bin/prisma) - for functions using Prisma layer with CLI
+ * 3. Fallback to npx for local development
+ */
+function getPrismaBinaryPath() {
+    const fs = require('fs');
+    const isLambdaEnvironment = !!process.env.AWS_LAMBDA_FUNCTION_NAME || !!process.env.LAMBDA_TASK_ROOT;
+
+    if (!isLambdaEnvironment) {
+        return 'npx';
+    }
+
+    // Check function's own node_modules first (standalone dbMigrate)
+    const functionPrisma = '/var/task/node_modules/.bin/prisma';
+    if (fs.existsSync(functionPrisma)) {
+        return functionPrisma;
+    }
+
+    // Fall back to layer path (functions using Prisma layer with CLI)
+    const layerPrisma = '/opt/nodejs/node_modules/.bin/prisma';
+    if (fs.existsSync(layerPrisma)) {
+        return layerPrisma;
+    }
+
+    // Should not reach here in Lambda, but provide fallback
+    console.warn('⚠️  Prisma binary not found in expected Lambda paths, using npx');
+    return 'npx';
+}
+
+/**
  * Runs Prisma migrate for PostgreSQL
  * @param {'dev'|'deploy'} command - Migration command (dev or deploy)
  * @param {boolean} verbose - Enable verbose output
@@ -139,19 +190,26 @@ async function runPrismaMigrate(command = 'dev', verbose = false) {
         try {
             const schemaPath = getPrismaSchemaPath('postgresql');
 
-            const args = [
-                'prisma',
-                'migrate',
-                command,
-                '--schema',
-                schemaPath
-            ];
+            // Get Prisma binary path (checks multiple locations)
+            const isLambdaEnvironment = !!process.env.AWS_LAMBDA_FUNCTION_NAME || !!process.env.LAMBDA_TASK_ROOT;
+            const prismaBin = getPrismaBinaryPath();
+
+            // Determine args based on whether we're using direct binary or npx
+            // Direct binary (e.g., /var/task/node_modules/.bin/prisma): ['migrate', command, ...]
+            // npx (local dev or fallback): ['prisma', 'migrate', command, ...]
+            const isDirectBinary = prismaBin !== 'npx';
+            const args = isDirectBinary
+                ? ['migrate', command, '--schema', schemaPath]
+                : ['prisma', 'migrate', command, '--schema', schemaPath];
 
             if (verbose) {
-                console.log(chalk.gray(`Running: npx ${args.join(' ')}`));
+                const displayCmd = isDirectBinary
+                    ? `${prismaBin} ${args.join(' ')}`
+                    : `npx ${args.join(' ')}`;
+                console.log(chalk.gray(`Running: ${displayCmd}`));
             }
 
-            const proc = spawn('npx', args, {
+            const proc = spawn(prismaBin, args, {
                 stdio: 'inherit',
                 env: {
                     ...process.env,
@@ -292,6 +350,12 @@ async function runPrismaDbPush(verbose = false, nonInteractive = false) {
  * @returns {'dev'|'deploy'}
  */
 function getMigrationCommand(stage) {
+    // Always use 'deploy' in Lambda environment (it's non-interactive and doesn't create migrations)
+    const isLambdaEnvironment = !!process.env.AWS_LAMBDA_FUNCTION_NAME || !!process.env.LAMBDA_TASK_ROOT;
+    if (isLambdaEnvironment) {
+        return 'deploy';
+    }
+
     const normalizedStage = (stage || process.env.STAGE || 'development').toLowerCase();
 
     const developmentStages = ['dev', 'local', 'test', 'development'];

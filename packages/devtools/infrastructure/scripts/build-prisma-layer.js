@@ -3,18 +3,24 @@
 /**
  * Build Prisma Lambda Layer
  *
- * Creates a Lambda Layer containing all Prisma packages and rhel-openssl-3.0.x binaries.
+ * Creates a Lambda Layer containing Prisma packages and rhel-openssl-3.0.x binaries.
  * This reduces individual Lambda function sizes by ~60% (120MB → 45MB).
  *
+ * The layer is configured based on AppDefinition database settings:
+ * - PostgreSQL: Includes PostgreSQL client + query engine
+ * - MongoDB: Includes MongoDB client + query engine (if needed)
+ * - Defaults to PostgreSQL only if not specified
+ *
  * Usage:
- *   node scripts/build-prisma-layer.js
+ *   node scripts/build-prisma-layer.js [--mongodb] [--postgresql]
  *   npm run build:prisma-layer
  *
  * Output:
  *   layers/prisma/nodejs/node_modules/
  *   ├── @prisma/client
- *   ├── @prisma-mongodb/client
- *   ├── @prisma-postgresql/client
+ *   ├── @prisma/engines
+ *   ├── generated/prisma-postgresql (if PostgreSQL enabled)
+ *   ├── generated/prisma-mongodb (if MongoDB enabled)
  *   └── prisma (CLI for migrations)
  *
  * See: LAMBDA-LAYER-PRISMA.md for complete documentation
@@ -46,6 +52,37 @@ function findCorePackage(startDir) {
     );
 }
 
+/**
+ * Determine which database clients to include based on configuration
+ * @param {Object} databaseConfig - Database configuration from AppDefinition
+ * @returns {Array} List of generated client packages to include
+ */
+function getGeneratedClientPackages(databaseConfig = {}) {
+    const packages = [];
+
+    // Check if MongoDB is enabled
+    const mongoEnabled = databaseConfig?.mongodb?.enable === true;
+    if (mongoEnabled) {
+        packages.push('generated/prisma-mongodb');
+        log('Including MongoDB client (based on AppDefinition)', 'blue');
+    }
+
+    // Check if PostgreSQL is enabled (default to true if not specified)
+    const postgresEnabled = databaseConfig?.postgres?.enable !== false;
+    if (postgresEnabled) {
+        packages.push('generated/prisma-postgresql');
+        log('Including PostgreSQL client (based on AppDefinition)', 'blue');
+    }
+
+    // If neither specified, default to PostgreSQL only
+    if (packages.length === 0) {
+        packages.push('generated/prisma-postgresql');
+        log('No database specified - defaulting to PostgreSQL', 'yellow');
+    }
+
+    return packages;
+}
+
 // Configuration
 // Script runs from integration project root (e.g., backend/)
 // and reads Prisma packages from @friggframework/core
@@ -54,14 +91,6 @@ const CORE_PACKAGE_PATH = findCorePackage(PROJECT_ROOT);
 const LAYER_OUTPUT_PATH = path.join(PROJECT_ROOT, 'layers/prisma');
 const LAYER_NODE_MODULES = path.join(LAYER_OUTPUT_PATH, 'nodejs/node_modules');
 
-// Packages to include in the layer
-const PRISMA_PACKAGES = [
-    '@prisma/client',                 // From project node_modules
-    'generated/prisma-mongodb',       // From @friggframework/core package
-    'generated/prisma-postgresql',    // From @friggframework/core package
-    'prisma',                         // CLI from project node_modules
-];
-
 // Binary patterns to remove (non-rhel)
 const BINARY_PATTERNS_TO_REMOVE = [
     '*darwin*',
@@ -69,6 +98,16 @@ const BINARY_PATTERNS_TO_REMOVE = [
     '*linux-arm*',
     '*linux-musl*',
     '*windows*',
+];
+
+// Files to remove for size optimization
+const FILES_TO_REMOVE = [
+    '*.map',        // Source maps (37MB savings)
+    '*.md',         // Markdown files  
+    'LICENSE*',     // License files
+    'CHANGELOG*',   // Changelog files
+    '*.test.js',    // Test files
+    '*.spec.js',    // Spec files
 ];
 
 // ANSI color codes for output
@@ -140,12 +179,58 @@ async function createLayerStructure() {
 }
 
 /**
- * Copy Prisma packages from core to layer
+ * Install Prisma CLI and client directly into layer
+ * @param {Boolean} includeCLI - Whether to include Prisma CLI (needed for migrations)
  */
-async function copyPrismaPackages() {
-    logStep(3, 'Copying Prisma packages from @friggframework/core');
+async function installPrismaPackages(includeCLI = false) {
+    logStep(3, `Installing Prisma packages (${includeCLI ? 'with CLI' : 'runtime only'})`);
 
-    // Build search paths, handling workspace hoisting
+    // Create a minimal package.json in the layer
+    const dependencies = {
+        '@prisma/client': '^6.16.3',
+        '@prisma/engines': '^6.16.3',
+    };
+
+    // Only include CLI if needed (saves 50MB + 32MB effect dependency)
+    if (includeCLI) {
+        dependencies['prisma'] = '^6.16.3';
+        log('  Including Prisma CLI for migrations', 'yellow');
+    } else {
+        log('  Runtime only - CLI excluded (saves ~82MB)', 'green');
+    }
+
+    const layerPackageJson = {
+        name: 'prisma-lambda-layer',
+        version: '1.0.0',
+        private: true,
+        dependencies,
+    };
+
+    const packageJsonPath = path.join(LAYER_OUTPUT_PATH, 'nodejs/package.json');
+    await fs.writeJson(packageJsonPath, layerPackageJson, { spaces: 2 });
+    logSuccess('Created layer package.json');
+
+    // Install Prisma packages
+    log('Installing prisma and @prisma/client...');
+    try {
+        execSync('npm install --production --no-package-lock', {
+            cwd: path.join(LAYER_OUTPUT_PATH, 'nodejs'),
+            stdio: 'inherit'
+        });
+        logSuccess('Prisma packages installed');
+    } catch (error) {
+        throw new Error(`Failed to install Prisma packages: ${error.message}`);
+    }
+}
+
+/**
+ * Copy generated Prisma clients from @friggframework/core to layer
+ * @param {Array} clientPackages - List of generated client packages to copy
+ */
+async function copyPrismaPackages(clientPackages) {
+    logStep(4, 'Copying generated Prisma clients from @friggframework/core');
+
+    // Copy the generated clients from core based on database config
     // Packages can be in:
     // 1. Core's own node_modules (if not hoisted)
     // 2. Project root node_modules (if hoisted from project)
@@ -162,7 +247,7 @@ async function copyPrismaPackages() {
     let copiedCount = 0;
     let missingPackages = [];
 
-    for (const pkg of PRISMA_PACKAGES) {
+    for (const pkg of clientPackages) {
         let sourcePath = null;
 
         // Try to find package in search paths
@@ -186,8 +271,8 @@ async function copyPrismaPackages() {
             const fromLocation = sourcePath.includes('@friggframework/core/generated')
                 ? 'core package (generated)'
                 : sourcePath.includes('@friggframework/core/node_modules')
-                ? 'core node_modules'
-                : 'workspace';
+                    ? 'core node_modules'
+                    : 'workspace';
             logSuccess(`Copied ${pkg} (from ${fromLocation})`);
             copiedCount++;
         } else {
@@ -198,19 +283,57 @@ async function copyPrismaPackages() {
 
     if (missingPackages.length > 0) {
         throw new Error(
-            `Missing Prisma packages: ${missingPackages.join(', ')}.\n` +
-            'Ensure @friggframework/core is installed with "npm install" and Prisma clients are generated.'
+            `Missing generated Prisma clients: ${missingPackages.join(', ')}.\n` +
+            'Ensure @friggframework/core has generated Prisma clients (run "npm run prisma:generate" in core package).'
         );
     }
 
-    log(`\nCopied ${copiedCount}/${PRISMA_PACKAGES.length} packages`);
+    logSuccess(`Copied ${copiedCount} generated client packages from @friggframework/core`);
+}
+
+/**
+ * Remove unnecessary files to reduce layer size
+ */
+async function removeUnnecessaryFiles() {
+    logStep(5, 'Removing unnecessary files (source maps, docs, tests)');
+
+    let removedCount = 0;
+    let totalSize = 0;
+
+    for (const pattern of FILES_TO_REMOVE) {
+        try {
+            // Find files matching the pattern
+            const findCmd = `find "${LAYER_NODE_MODULES}" -name "${pattern}" -type f 2>/dev/null || true`;
+            const files = execSync(findCmd, { encoding: 'utf8' })
+                .split('\n')
+                .filter(f => f.trim());
+
+            for (const file of files) {
+                if (await fs.pathExists(file)) {
+                    const stats = await fs.stat(file);
+                    totalSize += stats.size;
+                    await fs.remove(file);
+                    removedCount++;
+                }
+            }
+        } catch (error) {
+            logWarning(`Error removing ${pattern}: ${error.message}`);
+        }
+    }
+
+    if (removedCount > 0) {
+        const sizeMB = (totalSize / (1024 * 1024)).toFixed(2);
+        logSuccess(`Removed ${removedCount} unnecessary files (saved ${sizeMB} MB)`);
+    } else {
+        log('No unnecessary files found to remove');
+    }
 }
 
 /**
  * Remove non-rhel engine binaries to reduce layer size
  */
 async function removeNonRhelBinaries() {
-    logStep(4, 'Removing non-rhel engine binaries');
+    logStep(6, 'Removing non-rhel engine binaries');
 
     let removedCount = 0;
     let totalSize = 0;
@@ -246,9 +369,10 @@ async function removeNonRhelBinaries() {
 
 /**
  * Verify rhel binaries are present
+ * @param {Array} expectedClients - List of client packages that should have binaries
  */
-async function verifyRhelBinaries() {
-    logStep(5, 'Verifying rhel-openssl-3.0.x binaries are present');
+async function verifyRhelBinaries(expectedClients) {
+    logStep(7, 'Verifying rhel-openssl-3.0.x binaries are present');
 
     try {
         const findCmd = `find "${LAYER_NODE_MODULES}" -name "*rhel-openssl-3.0.x*" 2>/dev/null || true`;
@@ -263,7 +387,8 @@ async function verifyRhelBinaries() {
             );
         }
 
-        logSuccess(`Found ${rhelFiles.length} rhel-openssl-3.0.x binaries`);
+        const expectedCount = expectedClients.length;
+        logSuccess(`Found ${rhelFiles.length} rhel-openssl-3.0.x ${rhelFiles.length === 1 ? 'binary' : 'binaries'} (expected ${expectedCount})`);
 
         // Show the binaries found
         rhelFiles.forEach(file => {
@@ -277,17 +402,23 @@ async function verifyRhelBinaries() {
 
 /**
  * Verify required files exist
+ * @param {Boolean} includeCLI - Whether CLI files should be present
  */
-async function verifyLayerStructure() {
-    logStep(6, 'Verifying layer structure');
+async function verifyLayerStructure(includeCLI) {
+    logStep(8, 'Verifying layer structure');
 
     const requiredPaths = [
         '@prisma/client/runtime',
         '@prisma/client/index.d.ts',
-        'generated/prisma-mongodb/schema.prisma',
-        'generated/prisma-postgresql/schema.prisma',
-        'prisma/build',
+        '@prisma/engines',
+        'generated/prisma-postgresql/schema.prisma',  // PostgreSQL
     ];
+
+    // Only check for CLI files if CLI was included
+    if (includeCLI) {
+        requiredPaths.push('prisma/build');
+        requiredPaths.push('.bin/prisma');
+    }
 
     let allPresent = true;
 
@@ -312,7 +443,7 @@ async function verifyLayerStructure() {
  * Calculate and display final layer size
  */
 async function displayLayerSummary() {
-    logStep(7, 'Layer build summary');
+    logStep(9, 'Layer build summary');
 
     const layerSizeMB = getDirectorySize(LAYER_OUTPUT_PATH);
 
@@ -324,9 +455,11 @@ async function displayLayerSummary() {
     log(`Layer size: ~${layerSizeMB} MB`, 'green');
 
     log('\nPackages included:', 'bright');
-    PRISMA_PACKAGES.forEach(pkg => {
-        log(`  - ${pkg}`, 'reset');
-    });
+    log('  - prisma (CLI - installed)', 'reset');
+    log('  - @prisma/client (runtime - installed)', 'reset');
+    log('  - @prisma/engines (binaries - installed)', 'reset');
+    log('  - generated/prisma-postgresql (PostgreSQL only)', 'reset');
+    log('\nNote: MongoDB support excluded (not used in this project)', 'yellow');
 
     log('\nNext steps:', 'bright');
     log('  1. Verify layer structure: ls -lah layers/prisma/nodejs/node_modules/', 'reset');
@@ -339,12 +472,14 @@ async function displayLayerSummary() {
 
 /**
  * Main build function
+ * @param {Object} databaseConfig - Database configuration from AppDefinition.database
+ * @param {Boolean} includeCLI - Whether to include Prisma CLI (false = runtime only)
  */
-async function buildPrismaLayer() {
+async function buildPrismaLayer(databaseConfig = {}, includeCLI = false) {
     const startTime = Date.now();
 
     log('\n' + '='.repeat(60), 'bright');
-    log('  Building Prisma Lambda Layer', 'bright');
+    log(`  Building Prisma Lambda Layer ${includeCLI ? '(with CLI)' : '(runtime only)'}`, 'bright');
     log('='.repeat(60) + '\n', 'bright');
 
     // Log paths
@@ -352,13 +487,18 @@ async function buildPrismaLayer() {
     log(`Core package: ${CORE_PACKAGE_PATH}`, 'reset');
     log(`Layer output: ${LAYER_OUTPUT_PATH}\n`, 'reset');
 
+    // Determine which database clients to include
+    const clientPackages = getGeneratedClientPackages(databaseConfig);
+
     try {
         await cleanLayerDirectory();
         await createLayerStructure();
-        await copyPrismaPackages();
-        await removeNonRhelBinaries();
-        await verifyRhelBinaries();
-        await verifyLayerStructure();
+        await installPrismaPackages(includeCLI);    // Install Prisma packages (CLI optional)
+        await copyPrismaPackages(clientPackages);   // Copy generated clients from core
+        await removeUnnecessaryFiles();             // Remove source maps, docs, tests (37MB+)
+        await removeNonRhelBinaries();              // Remove non-Linux binaries
+        await verifyRhelBinaries(clientPackages);   // Verify query engines present
+        await verifyLayerStructure(includeCLI);     // Verify structure (conditional on CLI)
         await displayLayerSummary();
 
         const duration = ((Date.now() - startTime) / 1000).toFixed(2);
