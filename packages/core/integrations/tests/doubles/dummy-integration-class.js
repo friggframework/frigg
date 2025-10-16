@@ -47,23 +47,16 @@ class DummyIntegration extends IntegrationBase {
         this.updateIntegrationMessages = {
             execute: jest.fn().mockResolvedValue({})
         };
-
-        this.registerEventHandlers();
     }
 
     async loadDynamicUserActions() {
         return {};
     }
 
-    async registerEventHandlers() {
-        super.registerEventHandlers();
-        return;
-    }
-
     async send(event, data) {
         this.sendSpy(event, data);
         this.eventCallHistory.push({ event, data, timestamp: Date.now() });
-        return super.send(event, data);
+        return { event, data };
     }
 
     async initialize() {

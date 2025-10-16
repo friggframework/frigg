@@ -14,6 +14,16 @@ AWS.config.update(awsConfigOptions());
 const sqs = new AWS.SQS();
 
 const QueuerUtil = {
+    send: async (message, queueUrl) => {
+        console.log(`Enqueuing message to SQS queue ${queueUrl}`);
+        return sqs
+            .sendMessage({
+                MessageBody: JSON.stringify(message),
+                QueueUrl: queueUrl,
+            })
+            .promise();
+    },
+
     batchSend: async (entries = [], queueUrl) => {
         console.log(
             `Enqueuing ${entries.length} entries on SQS to queue ${queueUrl}`

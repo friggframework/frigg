@@ -37,7 +37,42 @@ const createQueueWorker = (integrationClass) => {
     class QueueWorker extends Worker {
         async _run(params, context) {
             try {
-                const integrationInstance = new integrationClass();
+                let integrationInstance;
+
+                // Check if this is a webhook with integrationId
+                if (params.event === 'ON_WEBHOOK' && params.data?.integrationId) {
+                    // Load hydrated integration instance
+                    const { GetIntegrationInstance } = require('../integrations/use-cases/get-integration-instance');
+                    const { createIntegrationRepository } = require('../integrations/repositories/integration-repository-factory');
+                    const { ModuleFactory } = require('../modules/module-factory');
+                    const { createModuleRepository } = require('../modules/repositories/module-repository-factory');
+                    const { loadAppDefinition } = require('./app-definition-loader');
+                    const { getModulesDefinitionFromIntegrationClasses } = require('../integrations/utils/map-integration-dto');
+
+                    const { integrations: integrationClasses } = loadAppDefinition();
+                    const integrationRepository = createIntegrationRepository();
+                    const moduleRepository = createModuleRepository();
+                    const moduleFactory = new ModuleFactory({
+                        moduleRepository,
+                        moduleDefinitions: getModulesDefinitionFromIntegrationClasses(integrationClasses),
+                    });
+
+                    const getIntegrationInstance = new GetIntegrationInstance({
+                        integrationRepository,
+                        integrationClasses,
+                        moduleFactory,
+                    });
+
+                    const integrationRecord = await integrationRepository.findIntegrationById(params.data.integrationId);
+                    integrationInstance = await getIntegrationInstance.execute(
+                        params.data.integrationId,
+                        integrationRecord.userId
+                    );
+                } else {
+                    // Standard flow - unhydrated instance
+                    integrationInstance = new integrationClass();
+                }
+
                 const dispatcher = new IntegrationEventDispatcher(
                     integrationInstance
                 );
