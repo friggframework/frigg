@@ -273,10 +273,16 @@ class SlackIntegration extends IntegrationBase {
         hmac.update(`v0:${timestamp}:${JSON.stringify(req.body)}`);
         const expected = `v0=${hmac.digest('hex')}`;
         
-        return crypto.timingSafeEqual(
-            Buffer.from(expected),
-            Buffer.from(signature)
-        );
+        // Check lengths first to avoid errors in timingSafeEqual
+        const expectedBuffer = Buffer.from(expected)
+        const signatureBuffer = Buffer.from(signature)
+        
+        if (expectedBuffer.length !== signatureBuffer.length) {
+            return false
+        }
+        
+        return crypto.timingSafeEqual(expectedBuffer, signatureBuffer)
+
     }
 }
 ```
