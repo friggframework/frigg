@@ -263,6 +263,12 @@ class SlackIntegration extends IntegrationBase {
         const signingSecret = process.env.SLACK_SIGNING_SECRET;
         const timestamp = req.headers['x-slack-request-timestamp'];
         
+        // Validate timestamp is recent (within 5 minutes)
+        const currentTime = Math.floor(Date.now() / 1000);
+        if (Math.abs(currentTime - parseInt(timestamp)) > 300) {
+            return false; // Request is older than 5 minutes
+        }
+        
         const hmac = crypto.createHmac('sha256', signingSecret);
         hmac.update(`v0:${timestamp}:${JSON.stringify(req.body)}`);
         const expected = `v0=${hmac.digest('hex')}`;
