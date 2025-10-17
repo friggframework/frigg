@@ -1283,9 +1283,14 @@ class AWSDiscovery {
                     .join(', ')}`
             );
             console.log(
-                `  NAT Subnet: ${publicSubnet?.SubnetId || 'None (needs creation)'
+                `  NAT Subnet: ${publicSubnets.primary?.SubnetId || 'None (needs creation)'
                 }`
             );
+            if (publicSubnets.secondary && publicSubnets.secondary.SubnetId !== publicSubnets.primary?.SubnetId) {
+                console.log(
+                    `  Aurora Public Subnet 2: ${publicSubnets.secondary.SubnetId}`
+                );
+            }
             console.log(
                 `  NAT Gateway: ${natGatewayId || 'None (will be created)'}`
             );
