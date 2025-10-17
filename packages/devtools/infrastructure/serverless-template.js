@@ -2341,12 +2341,11 @@ const createAuroraInfrastructure = (definition, AppDefinition, discoveredResourc
     // 8. Set DATABASE_URL environment variable
     definition.provider.environment.DATABASE_URL = {
         'Fn::Sub': [
-            'postgresql://${Username}:${Password}@${Endpoint}:${Port}/${DatabaseName}',
+            'postgresql://${Username}:${Password}@${Endpoint}:5432/${DatabaseName}',
             {
                 Username: { 'Fn::Sub': '{{resolve:secretsmanager:${FriggDatabaseSecret}:SecretString:username}}' },
                 Password: { 'Fn::Sub': '{{resolve:secretsmanager:${FriggDatabaseSecret}:SecretString:password}}' },
                 Endpoint: { 'Fn::GetAtt': ['FriggAuroraCluster', 'Endpoint'] },
-                Port: { 'Fn::GetAtt': ['FriggAuroraCluster', 'Port'] },
                 DatabaseName: dbConfig.databaseName || 'frigg_db'
             }
         ]
