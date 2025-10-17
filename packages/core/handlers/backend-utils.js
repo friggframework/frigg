@@ -132,6 +132,7 @@ const createQueueWorker = (integrationClass) => {
     class QueueWorker extends Worker {
         async _run(params, context) {
             try {
+                let integrationInstance;
                 if (
                     params.event === 'ON_WEBHOOK' &&
                     params.data?.integrationId
