@@ -2055,7 +2055,6 @@ const composeServerlessDefinition = async (AppDefinition) => {
     if (!isLocalBuild) {
         applyKmsConfiguration(definition, AppDefinition, discoveredResources);
         configureVpc(definition, AppDefinition, discoveredResources);
-        configurePostgres(definition, AppDefinition, discoveredResources);
         configureSsm(definition, AppDefinition);
     } else {
         console.log(

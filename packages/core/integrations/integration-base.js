@@ -294,7 +294,9 @@ class IntegrationBase {
         await this.updateIntegrationStatus.execute(integrationId, 'ENABLED');
     }
 
-    async onUpdate(params) {}
+    async onUpdate(params) {
+        return this.validateConfig();
+    }
 
     async onDelete(params) {}
 
