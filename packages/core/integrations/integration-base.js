@@ -467,7 +467,6 @@ class IntegrationBase {
     }
 
     async initialize() {
-        // Load dynamic user actions
         try {
             const additionalUserActions = await this.loadDynamicUserActions();
             this.events = { ...this.events, ...additionalUserActions };
@@ -475,7 +474,6 @@ class IntegrationBase {
             this.addError(e);
         }
 
-        // Register event handlers (this.on) for the send() method
         this.registerEventHandlers();
     }
 
