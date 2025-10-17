@@ -132,13 +132,10 @@ const createQueueWorker = (integrationClass) => {
     class QueueWorker extends Worker {
         async _run(params, context) {
             try {
-                if (params.event === 'ON_WEBHOOK') {
-                    if (!params.data?.integrationId) {
-                        throw new Error(
-                            'integrationId is required in data for ON_WEBHOOK event'
-                        );
-                    }
-
+                if (
+                    params.event === 'ON_WEBHOOK' &&
+                    params.data?.integrationId
+                ) {
                     integrationInstance = await loadIntegrationForWebhook(
                         params.data.integrationId
                     );
@@ -148,7 +145,10 @@ const createQueueWorker = (integrationClass) => {
                         integrationClass
                     );
                 } else {
-                    // Instantiates a DRY integration class without database records
+                    // Instantiates a DRY integration class without database records.
+                    // There will be cases where we need to use helpers that the api modules can export.
+                    // Like for HubSpot, the answer is to do a reverse lookup for the integration by the entity external ID (HubSpot Portal ID),
+                    // and then you'll have the integration ID available to hydrate from.
                     integrationInstance = new integrationClass();
                 }
 

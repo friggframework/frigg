@@ -3,7 +3,7 @@ const { LoginUser } = require('../../use-cases/login-user');
 const { TestUserRepository } = require('../doubles/test-user-repository');
 
 jest.mock('bcryptjs', () => ({
-    compareSync: jest.fn(),
+    compare: jest.fn(),
 }));
 
 describe('LoginUser Use Case', () => {
@@ -16,7 +16,7 @@ describe('LoginUser Use Case', () => {
         userRepository = new TestUserRepository({ userConfig });
         loginUser = new LoginUser({ userRepository, userConfig });
 
-        bcrypt.compareSync.mockClear();
+        bcrypt.compare.mockClear();
     });
 
     describe('With Password Authentication', () => {
@@ -28,11 +28,11 @@ describe('LoginUser Use Case', () => {
                 hashword: 'hashed-password',
             });
 
-            bcrypt.compareSync.mockReturnValue(true);
+            bcrypt.compare.mockResolvedValue(true);
 
             const user = await loginUser.execute({ username, password });
 
-            expect(bcrypt.compareSync).toHaveBeenCalledWith(
+            expect(bcrypt.compare).toHaveBeenCalledWith(
                 password,
                 'hashed-password'
             );
@@ -48,7 +48,7 @@ describe('LoginUser Use Case', () => {
                 hashword: 'hashed-password',
             });
 
-            bcrypt.compareSync.mockReturnValue(false);
+            bcrypt.compare.mockResolvedValue(false);
 
             await expect(
                 loginUser.execute({ username, password })
@@ -145,7 +145,7 @@ describe('LoginUser Use Case', () => {
             loginUser = new LoginUser({ userRepository, userConfig });
         });
 
-        it('should verify bcrypt.compareSync is called with plain password and hash', async () => {
+        it('should verify bcrypt.compare is called with plain password and hash', async () => {
             const username = 'bcrypt-test-user';
             const plainPassword = 'MyPlainPassword123';
             const bcryptHash = '$2b$10$abcdefghijklmnopqrstuv';
@@ -155,14 +155,14 @@ describe('LoginUser Use Case', () => {
                 hashword: bcryptHash,
             });
 
-            bcrypt.compareSync.mockReturnValue(true);
+            bcrypt.compare.mockResolvedValue(true);
 
             await loginUser.execute({ username, password: plainPassword });
 
-            expect(bcrypt.compareSync).toHaveBeenCalledTimes(1);
-            expect(bcrypt.compareSync).toHaveBeenCalledWith(plainPassword, bcryptHash);
+            expect(bcrypt.compare).toHaveBeenCalledTimes(1);
+            expect(bcrypt.compare).toHaveBeenCalledWith(plainPassword, bcryptHash);
 
-            const [firstArg, secondArg] = bcrypt.compareSync.mock.calls[0];
+            const [firstArg, secondArg] = bcrypt.compare.mock.calls[0];
             expect(firstArg).toBe(plainPassword);
             expect(secondArg).toBe(bcryptHash);
         });
@@ -192,14 +192,14 @@ describe('LoginUser Use Case', () => {
                 hashword: encryptedLookingValue,
             });
 
-            bcrypt.compareSync.mockReturnValue(false);
+            bcrypt.compare.mockResolvedValue(false);
 
             await expect(
                 loginUser.execute({ username, password: 'any-password' })
             ).rejects.toThrow('Incorrect username or password');
         });
 
-        it('should verify bcrypt.compareSync returns false for mismatched passwords', async () => {
+        it('should verify bcrypt.compare returns false for mismatched passwords', async () => {
             const username = 'mismatch-test-user';
             const correctHash = '$2b$10$correcthash';
 
@@ -208,13 +208,13 @@ describe('LoginUser Use Case', () => {
                 hashword: correctHash,
             });
 
-            bcrypt.compareSync.mockReturnValue(false);
+            bcrypt.compare.mockResolvedValue(false);
 
             await expect(
                 loginUser.execute({ username, password: 'wrong-password' })
             ).rejects.toThrow('Incorrect username or password');
 
-            expect(bcrypt.compareSync).toHaveBeenCalledWith('wrong-password', correctHash);
+            expect(bcrypt.compare).toHaveBeenCalledWith('wrong-password', correctHash);
         });
     });
 }); 
