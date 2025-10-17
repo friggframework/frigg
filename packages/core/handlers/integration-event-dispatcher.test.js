@@ -138,4 +138,72 @@ describe('IntegrationEventDispatcher', () => {
             expect(TestIntegration.latestInstance.isHydrated).toBe(false);
         });
     });
+
+    describe('Webhook Events', () => {
+        it('should dispatch WEBHOOK_RECEIVED without hydration', async () => {
+            const integration = new TestIntegration();
+            integration.events.WEBHOOK_RECEIVED = {
+                handler: jest.fn().mockResolvedValue({ received: true })
+            };
+
+            const dispatcher = new IntegrationEventDispatcher(integration);
+            const req = { body: { test: 'data' }, params: {} };
+            const res = {};
+
+            await dispatcher.dispatchHttp({
+                event: 'WEBHOOK_RECEIVED',
+                req,
+                res,
+                next: jest.fn()
+            });
+
+            expect(integration.events.WEBHOOK_RECEIVED.handler).toHaveBeenCalledWith({
+                req,
+                res,
+                next: expect.any(Function)
+            });
+        });
+
+        it('should dispatch ON_WEBHOOK with job context', async () => {
+            const integration = new TestIntegration({ id: '123', userId: 'user1' });
+            integration.events.ON_WEBHOOK = {
+                handler: jest.fn().mockResolvedValue({ processed: true })
+            };
+
+            const dispatcher = new IntegrationEventDispatcher(integration);
+            const data = { integrationId: '123', body: { event: 'test' } };
+
+            await dispatcher.dispatchJob({
+                event: 'ON_WEBHOOK',
+                data,
+                context: {}
+            });
+
+            expect(integration.events.ON_WEBHOOK.handler).toHaveBeenCalledWith({
+                data,
+                context: {}
+            });
+            expect(integration.isHydrated).toBe(true);
+        });
+
+        it('should use default WEBHOOK_RECEIVED handler if not overridden', async () => {
+            const integration = new TestIntegration();
+            const dispatcher = new IntegrationEventDispatcher(integration);
+
+            const req = { body: { test: 'data' }, params: {}, headers: {}, query: {} };
+            const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+
+            // Mock queueWebhook
+            integration.queueWebhook = jest.fn().mockResolvedValue('message-id');
+
+            const handler = dispatcher.findEventHandler(integration, 'WEBHOOK_RECEIVED');
+            expect(handler).toBeDefined();
+
+            await handler.call(integration, { req, res });
+
+            expect(integration.queueWebhook).toHaveBeenCalled();
+            expect(res.status).toHaveBeenCalledWith(200);
+            expect(res.json).toHaveBeenCalledWith({ received: true });
+        });
+    });
 });

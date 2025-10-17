@@ -22,6 +22,8 @@ const constantsToBeMigrated = {
         GET_USER_ACTIONS: 'GET_USER_ACTIONS',
         GET_USER_ACTION_OPTIONS: 'GET_USER_ACTION_OPTIONS',
         REFRESH_USER_ACTION_OPTIONS: 'REFRESH_USER_ACTION_OPTIONS',
+        WEBHOOK_RECEIVED: 'WEBHOOK_RECEIVED', // HTTP handler, no DB
+        ON_WEBHOOK: 'ON_WEBHOOK', // Queue worker, DB-connected
         // etc...
     },
     types: {
@@ -129,6 +131,14 @@ class IntegrationBase {
             [constantsToBeMigrated.defaultEvents.REFRESH_USER_ACTION_OPTIONS]: {
                 type: constantsToBeMigrated.types.LIFE_CYCLE_EVENT,
                 handler: this.refreshActionOptions,
+            },
+            [constantsToBeMigrated.defaultEvents.WEBHOOK_RECEIVED]: {
+                type: constantsToBeMigrated.types.LIFE_CYCLE_EVENT,
+                handler: this.onWebhookReceived,
+            },
+            [constantsToBeMigrated.defaultEvents.ON_WEBHOOK]: {
+                type: constantsToBeMigrated.types.LIFE_CYCLE_EVENT,
+                handler: this.onWebhook,
             },
         };
     }
@@ -357,6 +367,50 @@ class IntegrationBase {
             uiSchema: {},
         };
         return options;
+    }
+
+    /**
+     * WEBHOOK EVENT HANDLERS
+     */
+    async onWebhookReceived({ req, res }) {
+        // Default: queue webhook for processing
+        const body = req.body;
+        const integrationId = req.params.integrationId || null;
+
+        await this.queueWebhook({
+            integrationId,
+            body,
+            headers: req.headers,
+            query: req.query,
+        });
+
+        res.status(200).json({ received: true });
+    }
+
+    async onWebhook({ data }) {
+        // Default: no-op, integrations override this
+        console.log('Webhook received:', data);
+    }
+
+    async queueWebhook(data) {
+        const { QueuerUtil } = require('../queues');
+
+        const queueName = `${this.constructor.Definition.name
+            .toUpperCase()
+            .replace(/-/g, '_')}_QUEUE_URL`;
+        const queueUrl = process.env[queueName];
+
+        if (!queueUrl) {
+            throw new Error(`Queue URL not found for ${queueName}`);
+        }
+
+        return QueuerUtil.send(
+            {
+                event: 'ON_WEBHOOK',
+                data,
+            },
+            queueUrl
+        );
     }
 
     // === Domain Methods (moved from Integration.js) ===

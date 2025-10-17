@@ -68,8 +68,7 @@ const getAppEnvironmentVars = (AppDefinition) => {
     }
     if (skippedKeys.length > 0) {
         console.log(
-            `   ⚠️  Skipped ${
-                skippedKeys.length
+            `   ⚠️  Skipped ${skippedKeys.length
             } reserved AWS Lambda variables: ${skippedKeys.join(', ')}`
         );
     }
@@ -852,7 +851,7 @@ const applyKmsConfiguration = (
         if (AppDefinition.encryption?.createResourceIfNoneFound !== true) {
             throw new Error(
                 'KMS field-level encryption is enabled but no KMS key was found. ' +
-                    'Either provide an existing KMS key or set encryption.createResourceIfNoneFound to true to create a new key.'
+                'Either provide an existing KMS key or set encryption.createResourceIfNoneFound to true to create a new key.'
             );
         }
 
@@ -891,9 +890,8 @@ const applyKmsConfiguration = (
                             Resource: '*',
                             Condition: {
                                 StringEquals: {
-                                    'kms:ViaService': `lambda.${
-                                        process.env.AWS_REGION || 'us-east-1'
-                                    }.amazonaws.com`,
+                                    'kms:ViaService': `lambda.${process.env.AWS_REGION || 'us-east-1'
+                                        }.amazonaws.com`,
                                 },
                             },
                         },
@@ -1295,13 +1293,13 @@ const configureVpc = (definition, AppDefinition, discoveredResources) => {
             };
 
             definition.resources.Resources.FriggPublicSubnetRouteTableAssociation =
-                {
-                    Type: 'AWS::EC2::SubnetRouteTableAssociation',
-                    Properties: {
-                        SubnetId: { Ref: 'FriggPublicSubnet' },
-                        RouteTableId: { Ref: 'FriggPublicRouteTable' },
-                    },
-                };
+            {
+                Type: 'AWS::EC2::SubnetRouteTableAssociation',
+                Properties: {
+                    SubnetId: { Ref: 'FriggPublicSubnet' },
+                    RouteTableId: { Ref: 'FriggPublicRouteTable' },
+                },
+            };
 
             definition.resources.Resources.FriggLambdaRouteTable = {
                 Type: 'AWS::EC2::RouteTable',
@@ -1318,22 +1316,22 @@ const configureVpc = (definition, AppDefinition, discoveredResources) => {
             };
 
             definition.resources.Resources.FriggPrivateSubnet1RouteTableAssociation =
-                {
-                    Type: 'AWS::EC2::SubnetRouteTableAssociation',
-                    Properties: {
-                        SubnetId: { Ref: 'FriggPrivateSubnet1' },
-                        RouteTableId: { Ref: 'FriggLambdaRouteTable' },
-                    },
-                };
+            {
+                Type: 'AWS::EC2::SubnetRouteTableAssociation',
+                Properties: {
+                    SubnetId: { Ref: 'FriggPrivateSubnet1' },
+                    RouteTableId: { Ref: 'FriggLambdaRouteTable' },
+                },
+            };
 
             definition.resources.Resources.FriggPrivateSubnet2RouteTableAssociation =
-                {
-                    Type: 'AWS::EC2::SubnetRouteTableAssociation',
-                    Properties: {
-                        SubnetId: { Ref: 'FriggPrivateSubnet2' },
-                        RouteTableId: { Ref: 'FriggLambdaRouteTable' },
-                    },
-                };
+            {
+                Type: 'AWS::EC2::SubnetRouteTableAssociation',
+                Properties: {
+                    SubnetId: { Ref: 'FriggPrivateSubnet2' },
+                    RouteTableId: { Ref: 'FriggLambdaRouteTable' },
+                },
+            };
         }
     } else if (subnetManagement === 'use-existing') {
         if (
@@ -1350,12 +1348,12 @@ const configureVpc = (definition, AppDefinition, discoveredResources) => {
             AppDefinition.vpc.subnets?.ids?.length > 0
                 ? AppDefinition.vpc.subnets.ids
                 : discoveredResources.privateSubnetId1 &&
-                  discoveredResources.privateSubnetId2
-                ? [
-                      discoveredResources.privateSubnetId1,
-                      discoveredResources.privateSubnetId2,
-                  ]
-                : [];
+                    discoveredResources.privateSubnetId2
+                    ? [
+                        discoveredResources.privateSubnetId1,
+                        discoveredResources.privateSubnetId2,
+                    ]
+                    : [];
 
         if (vpcConfig.subnetIds.length < 2) {
             if (AppDefinition.vpc.selfHeal) {
@@ -1562,13 +1560,13 @@ const configureVpc = (definition, AppDefinition, discoveredResources) => {
                     };
 
                     definition.resources.Resources.FriggPublicSubnetRouteTableAssociation =
-                        {
-                            Type: 'AWS::EC2::SubnetRouteTableAssociation',
-                            Properties: {
-                                SubnetId: { Ref: 'FriggPublicSubnet' },
-                                RouteTableId: { Ref: 'FriggPublicRouteTable' },
-                            },
-                        };
+                    {
+                        Type: 'AWS::EC2::SubnetRouteTableAssociation',
+                        Properties: {
+                            SubnetId: { Ref: 'FriggPublicSubnet' },
+                            RouteTableId: { Ref: 'FriggPublicRouteTable' },
+                        },
+                    };
                 }
 
                 definition.resources.Resources.FriggNATGateway = {
@@ -1579,11 +1577,11 @@ const configureVpc = (definition, AppDefinition, discoveredResources) => {
                         AllocationId: useExistingEip
                             ? discoveredResources.existingElasticIpAllocationId
                             : {
-                                  'Fn::GetAtt': [
-                                      'FriggNATGatewayEIP',
-                                      'AllocationId',
-                                  ],
-                              },
+                                'Fn::GetAtt': [
+                                    'FriggNATGatewayEIP',
+                                    'AllocationId',
+                                ],
+                            },
                         SubnetId: discoveredResources.publicSubnetId || {
                             Ref: 'FriggPublicSubnet',
                         },
@@ -1957,9 +1955,8 @@ const attachIntegrations = (definition, AppDefinition) => {
         }
 
         const integrationName = integration.Definition.name;
-        const queueReference = `${
-            integrationName.charAt(0).toUpperCase() + integrationName.slice(1)
-        }Queue`;
+        const queueReference = `${integrationName.charAt(0).toUpperCase() + integrationName.slice(1)
+            }Queue`;
         const queueName = `\${self:service}--\${self:provider.stage}-${queueReference}`;
 
         definition.functions[integrationName] = {
@@ -2012,6 +2009,30 @@ const attachIntegrations = (definition, AppDefinition) => {
         };
 
         definition.custom[queueReference] = queueName;
+
+        // Add webhook handler if enabled
+        const webhookConfig = integration.Definition.webhooks;
+        if (webhookConfig && (webhookConfig === true || webhookConfig.enabled === true)) {
+            const webhookFunctionName = `${integrationName}Webhook`;
+
+            definition.functions[webhookFunctionName] = {
+                handler: `node_modules/@friggframework/core/handlers/routers/integration-webhook-routers.handlers.${integrationName}Webhook.handler`,
+                events: [
+                    {
+                        httpApi: {
+                            path: `/api/${integrationName}-integration/webhooks`,
+                            method: 'POST',
+                        },
+                    },
+                    {
+                        httpApi: {
+                            path: `/api/${integrationName}-integration/webhooks/{integrationId}`,
+                            method: 'POST',
+                        },
+                    },
+                ],
+            };
+        }
     }
 };
 
