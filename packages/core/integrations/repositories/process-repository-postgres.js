@@ -1,11 +1,7 @@
 const { prisma } = require('../../database/prisma');
-<<<<<<< HEAD
 const {
     ProcessRepositoryInterface,
 } = require('./process-repository-interface');
-=======
-const { ProcessRepositoryInterface } = require('./process-repository-interface');
->>>>>>> d3197741 (feat: add Process model and management infrastructure to Frigg Core)
 
 /**
  * PostgreSQL Process Repository Adapter
@@ -29,7 +25,6 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
     }
 
     /**
-<<<<<<< HEAD
      * Convert string ID to integer for PostgreSQL queries
      * @private
      * @param {string|number|null|undefined} id - ID to convert
@@ -46,8 +41,6 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
     }
 
     /**
-=======
->>>>>>> d3197741 (feat: add Process model and management infrastructure to Frigg Core)
      * Create a new process record
      * @param {Object} processData - Process data to create
      * @returns {Promise<Object>} Created process record
@@ -55,24 +48,14 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
     async create(processData) {
         const process = await this.prisma.process.create({
             data: {
-<<<<<<< HEAD
                 userId: this._convertId(processData.userId),
                 integrationId: this._convertId(processData.integrationId),
-=======
-                userId: processData.userId,
-                integrationId: processData.integrationId,
->>>>>>> d3197741 (feat: add Process model and management infrastructure to Frigg Core)
                 name: processData.name,
                 type: processData.type,
                 state: processData.state || 'INITIALIZING',
                 context: processData.context || {},
                 results: processData.results || {},
-<<<<<<< HEAD
                 parentProcessId: this._convertId(processData.parentProcessId),
-=======
-                childProcesses: processData.childProcesses || [],
-                parentProcessId: processData.parentProcessId || null,
->>>>>>> d3197741 (feat: add Process model and management infrastructure to Frigg Core)
             },
         });
 
@@ -86,11 +69,7 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
      */
     async findById(processId) {
         const process = await this.prisma.process.findUnique({
-<<<<<<< HEAD
             where: { id: this._convertId(processId) },
-=======
-            where: { id: processId },
->>>>>>> d3197741 (feat: add Process model and management infrastructure to Frigg Core)
         });
 
         return process ? this._toPlainObject(process) : null;
@@ -115,7 +94,6 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
         if (updates.results !== undefined) {
             updateData.results = updates.results;
         }
-<<<<<<< HEAD
         if (updates.parentProcessId !== undefined) {
             updateData.parentProcessId = this._convertId(
                 updates.parentProcessId
@@ -124,17 +102,6 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
 
         const process = await this.prisma.process.update({
             where: { id: this._convertId(processId) },
-=======
-        if (updates.childProcesses !== undefined) {
-            updateData.childProcesses = updates.childProcesses;
-        }
-        if (updates.parentProcessId !== undefined) {
-            updateData.parentProcessId = updates.parentProcessId;
-        }
-
-        const process = await this.prisma.process.update({
-            where: { id: processId },
->>>>>>> d3197741 (feat: add Process model and management infrastructure to Frigg Core)
             data: updateData,
         });
 
@@ -150,11 +117,7 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
     async findByIntegrationAndType(integrationId, type) {
         const processes = await this.prisma.process.findMany({
             where: {
-<<<<<<< HEAD
                 integrationId: this._convertId(integrationId),
-=======
-                integrationId,
->>>>>>> d3197741 (feat: add Process model and management infrastructure to Frigg Core)
                 type,
             },
             orderBy: {
@@ -171,7 +134,6 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
      * @param {string[]} [excludeStates=['COMPLETED', 'ERROR']] - States to exclude
      * @returns {Promise<Array>} Array of active process records
      */
-<<<<<<< HEAD
     async findActiveProcesses(
         integrationId,
         excludeStates = ['COMPLETED', 'ERROR']
@@ -179,12 +141,6 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
         const processes = await this.prisma.process.findMany({
             where: {
                 integrationId: this._convertId(integrationId),
-=======
-    async findActiveProcesses(integrationId, excludeStates = ['COMPLETED', 'ERROR']) {
-        const processes = await this.prisma.process.findMany({
-            where: {
-                integrationId,
->>>>>>> d3197741 (feat: add Process model and management infrastructure to Frigg Core)
                 state: {
                     notIn: excludeStates,
                 },
@@ -220,11 +176,7 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
      */
     async deleteById(processId) {
         await this.prisma.process.delete({
-<<<<<<< HEAD
             where: { id: this._convertId(processId) },
-=======
-            where: { id: processId },
->>>>>>> d3197741 (feat: add Process model and management infrastructure to Frigg Core)
         });
     }
 
@@ -237,21 +189,14 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
      */
     _toPlainObject(process) {
         return {
-<<<<<<< HEAD
             id: String(process.id),
             userId: String(process.userId),
             integrationId: String(process.integrationId),
-=======
-            id: process.id,
-            userId: process.userId,
-            integrationId: process.integrationId,
->>>>>>> d3197741 (feat: add Process model and management infrastructure to Frigg Core)
             name: process.name,
             type: process.type,
             state: process.state,
             context: process.context,
             results: process.results,
-<<<<<<< HEAD
             childProcesses: Array.isArray(process.childProcesses)
                 ? process.childProcesses.length > 0 &&
                   typeof process.childProcesses[0] === 'object' &&
@@ -263,10 +208,6 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
                 process.parentProcessId !== null
                     ? String(process.parentProcessId)
                     : null,
-=======
-            childProcesses: process.childProcesses,
-            parentProcessId: process.parentProcessId,
->>>>>>> d3197741 (feat: add Process model and management infrastructure to Frigg Core)
             createdAt: process.createdAt,
             updatedAt: process.updatedAt,
         };
@@ -274,7 +215,3 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
 }
 
 module.exports = { ProcessRepositoryPostgres };
-<<<<<<< HEAD
-=======
-
->>>>>>> d3197741 (feat: add Process model and management infrastructure to Frigg Core)
