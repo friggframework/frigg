@@ -1959,6 +1959,30 @@ const attachIntegrations = (definition, AppDefinition) => {
             }Queue`;
         const queueName = `\${self:service}--\${self:provider.stage}-${queueReference}`;
 
+        // Add webhook handler if enabled (BEFORE catch-all proxy route)
+        const webhookConfig = integration.Definition.webhooks;
+        if (webhookConfig && (webhookConfig === true || webhookConfig.enabled === true)) {
+            const webhookFunctionName = `${integrationName}Webhook`;
+
+            definition.functions[webhookFunctionName] = {
+                handler: `node_modules/@friggframework/core/handlers/routers/integration-webhook-routers.handlers.${integrationName}Webhook.handler`,
+                events: [
+                    {
+                        httpApi: {
+                            path: `/api/${integrationName}-integration/webhooks`,
+                            method: 'POST',
+                        },
+                    },
+                    {
+                        httpApi: {
+                            path: `/api/${integrationName}-integration/webhooks/{integrationId}`,
+                            method: 'POST',
+                        },
+                    },
+                ],
+            };
+        }
+
         definition.functions[integrationName] = {
             handler: `node_modules/@friggframework/core/handlers/routers/integration-defined-routers.handlers.${integrationName}.handler`,
             events: [
@@ -2009,30 +2033,6 @@ const attachIntegrations = (definition, AppDefinition) => {
         };
 
         definition.custom[queueReference] = queueName;
-
-        // Add webhook handler if enabled
-        const webhookConfig = integration.Definition.webhooks;
-        if (webhookConfig && (webhookConfig === true || webhookConfig.enabled === true)) {
-            const webhookFunctionName = `${integrationName}Webhook`;
-
-            definition.functions[webhookFunctionName] = {
-                handler: `node_modules/@friggframework/core/handlers/routers/integration-webhook-routers.handlers.${integrationName}Webhook.handler`,
-                events: [
-                    {
-                        httpApi: {
-                            path: `/api/${integrationName}-integration/webhooks`,
-                            method: 'POST',
-                        },
-                    },
-                    {
-                        httpApi: {
-                            path: `/api/${integrationName}-integration/webhooks/{integrationId}`,
-                            method: 'POST',
-                        },
-                    },
-                ],
-            };
-        }
     }
 };
 

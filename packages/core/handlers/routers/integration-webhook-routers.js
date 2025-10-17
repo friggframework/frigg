@@ -20,7 +20,7 @@ for (const IntegrationClass of integrationClasses) {
     console.log(`\n│ Configuring webhook routes for ${IntegrationClass.Definition.name}:`);
 
     // General webhook route (no integration ID)
-    router.post('/', async (req, res, next) => {
+    router.post(basePath, async (req, res, next) => {
         try {
             const integrationInstance = new IntegrationClass();
             const dispatcher = new IntegrationEventDispatcher(integrationInstance);
@@ -37,7 +37,7 @@ for (const IntegrationClass of integrationClasses) {
     console.log(`│ POST ${basePath}`);
 
     // Integration-specific webhook route (with integration ID)
-    router.post('/:integrationId', async (req, res, next) => {
+    router.post(`${basePath}/:integrationId`, async (req, res, next) => {
         try {
             const integrationInstance = new IntegrationClass();
             const dispatcher = new IntegrationEventDispatcher(integrationInstance);
