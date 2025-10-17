@@ -356,13 +356,31 @@ class AWSDiscovery {
                 console.warn(
                     'Please create a public subnet or use VPC endpoints instead'
                 );
-                return null;
+                return { primary: null, secondary: null, all: [] };
             }
 
-            console.log(
-                `Found ${publicSubnets.length} public subnets, using ${publicSubnets[0].SubnetId} for NAT Gateway`
+            // Sort by AZ to get subnets in different zones
+            const sortedByAz = publicSubnets.sort((a, b) =>
+                a.AvailabilityZone.localeCompare(b.AvailabilityZone)
             );
-            return publicSubnets[0];
+
+            // Get subnets from different AZs if possible
+            const primary = sortedByAz[0];
+            const secondary = sortedByAz.find(s => s.AvailabilityZone !== primary.AvailabilityZone)
+                || sortedByAz[1]
+                || sortedByAz[0]; // Fallback to same subnet if only one exists
+
+            console.log(
+                `Found ${publicSubnets.length} public subnet(s)`
+            );
+            console.log(`  Primary (NAT Gateway): ${primary.SubnetId} (${primary.AvailabilityZone})`);
+            if (secondary.SubnetId !== primary.SubnetId) {
+                console.log(`  Secondary (Aurora): ${secondary.SubnetId} (${secondary.AvailabilityZone})`);
+            } else {
+                console.warn(`  ⚠️  Only one public subnet found - Aurora public deployments will require creating a second subnet`);
+            }
+
+            return { primary, secondary, all: publicSubnets };
         } catch (error) {
             console.error('Error finding public subnets:', error);
             throw error;
@@ -1147,10 +1165,10 @@ class AWSDiscovery {
                     .join(', ')}`
             );
 
-            const publicSubnet = await this.findPublicSubnets(vpc.VpcId);
-            if (publicSubnet) {
+            const publicSubnets = await this.findPublicSubnets(vpc.VpcId);
+            if (publicSubnets.primary) {
                 console.log(
-                    `\n✅ Found public subnet for NAT Gateway: ${publicSubnet.SubnetId}`
+                    `\n✅ Found public subnet(s) for NAT Gateway and Aurora`
                 );
             } else {
                 console.log(
@@ -1221,15 +1239,15 @@ class AWSDiscovery {
 
             const subnet1IsActuallyPrivate = privateSubnets[0]
                 ? await this.isSubnetPrivate(
-                      privateSubnets[0].SubnetId,
-                      privateSubnets[0].VpcId || vpc.VpcId
-                  )
+                    privateSubnets[0].SubnetId,
+                    privateSubnets[0].VpcId || vpc.VpcId
+                )
                 : false;
             const subnet2IsActuallyPrivate = privateSubnets[1]
                 ? await this.isSubnetPrivate(
-                      privateSubnets[1].SubnetId,
-                      privateSubnets[1].VpcId || vpc.VpcId
-                  )
+                    privateSubnets[1].SubnetId,
+                    privateSubnets[1].VpcId || vpc.VpcId
+                )
                 : subnet1IsActuallyPrivate;
 
             const subnetStatus = {
@@ -1265,16 +1283,14 @@ class AWSDiscovery {
                     .join(', ')}`
             );
             console.log(
-                `  NAT Subnet: ${
-                    publicSubnet?.SubnetId || 'None (needs creation)'
+                `  NAT Subnet: ${publicSubnet?.SubnetId || 'None (needs creation)'
                 }`
             );
             console.log(
                 `  NAT Gateway: ${natGatewayId || 'None (will be created)'}`
             );
             console.log(
-                `  Elastic IP: ${
-                    elasticIpAllocationId || 'None (will be allocated)'
+                `  Elastic IP: ${elasticIpAllocationId || 'None (will be allocated)'
                 }`
             );
             if (subnetStatus.requiresConversion) {
@@ -1289,7 +1305,9 @@ class AWSDiscovery {
                 privateSubnetId1: privateSubnets[0]?.SubnetId,
                 privateSubnetId2:
                     privateSubnets[1]?.SubnetId || privateSubnets[0]?.SubnetId,
-                publicSubnetId: publicSubnet?.SubnetId || null,
+                publicSubnetId: publicSubnets.primary?.SubnetId || null, // Keep for NAT Gateway backward compat
+                publicSubnetId1: publicSubnets.primary?.SubnetId || null,
+                publicSubnetId2: publicSubnets.secondary?.SubnetId || null,
                 privateRouteTableId: routeTable.RouteTableId,
                 defaultKmsKeyId: kmsKeyArn,
                 kmsAliasExists: kmsAliasExists,
@@ -1607,8 +1625,8 @@ class AWSDiscovery {
 
             throw new Error(
                 `No private subnets found in VPC ${vpcId}. ` +
-                    `Found ${publicSubnets.length} public subnets. ` +
-                    `Lambda requires private subnets. Enable selfHeal or create private subnets.`
+                `Found ${publicSubnets.length} public subnets. ` +
+                `Lambda requires private subnets. Enable selfHeal or create private subnets.`
             );
         }
 

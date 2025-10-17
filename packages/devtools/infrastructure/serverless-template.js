@@ -231,7 +231,26 @@ const createVPCInfrastructure = (AppDefinition) => {
                 Tags: [
                     {
                         Key: 'Name',
-                        Value: '${self:service}-${self:provider.stage}-public-subnet',
+                        Value: '${self:service}-${self:provider.stage}-public-subnet-1',
+                    },
+                    { Key: 'ManagedBy', Value: 'Frigg' },
+                    { Key: 'Service', Value: '${self:service}' },
+                    { Key: 'Stage', Value: '${self:provider.stage}' },
+                    { Key: 'Type', Value: 'Public' },
+                ],
+            },
+        },
+        FriggPublicSubnet2: {
+            Type: 'AWS::EC2::Subnet',
+            Properties: {
+                VpcId: { Ref: 'FriggVPC' },
+                CidrBlock: '10.0.4.0/24',
+                AvailabilityZone: { 'Fn::Select': [1, { 'Fn::GetAZs': '' }] },
+                MapPublicIpOnLaunch: true,
+                Tags: [
+                    {
+                        Key: 'Name',
+                        Value: '${self:service}-${self:provider.stage}-public-subnet-2',
                     },
                     { Key: 'ManagedBy', Value: 'Frigg' },
                     { Key: 'Service', Value: '${self:service}' },
@@ -339,6 +358,13 @@ const createVPCInfrastructure = (AppDefinition) => {
             Type: 'AWS::EC2::SubnetRouteTableAssociation',
             Properties: {
                 SubnetId: { Ref: 'FriggPublicSubnet' },
+                RouteTableId: { Ref: 'FriggPublicRouteTable' },
+            },
+        },
+        FriggPublicSubnet2RouteTableAssociation: {
+            Type: 'AWS::EC2::SubnetRouteTableAssociation',
+            Properties: {
+                SubnetId: { Ref: 'FriggPublicSubnet2' },
                 RouteTableId: { Ref: 'FriggPublicRouteTable' },
             },
         },
@@ -601,7 +627,9 @@ const buildEnvironment = (appEnvironmentVars, discoveredResources) => {
         defaultSecurityGroupId: 'AWS_DISCOVERY_SECURITY_GROUP_ID',
         privateSubnetId1: 'AWS_DISCOVERY_SUBNET_ID_1',
         privateSubnetId2: 'AWS_DISCOVERY_SUBNET_ID_2',
-        publicSubnetId: 'AWS_DISCOVERY_PUBLIC_SUBNET_ID',
+        publicSubnetId: 'AWS_DISCOVERY_PUBLIC_SUBNET_ID', // Keep for backward compat
+        publicSubnetId1: 'AWS_DISCOVERY_PUBLIC_SUBNET_ID_1',
+        publicSubnetId2: 'AWS_DISCOVERY_PUBLIC_SUBNET_ID_2',
         defaultRouteTableId: 'AWS_DISCOVERY_ROUTE_TABLE_ID',
         defaultKmsKeyId: 'AWS_DISCOVERY_KMS_KEY_ID',
     };
@@ -651,6 +679,10 @@ const createBaseDefinition = (
             'node_modules/.prisma/**',
             'node_modules/prisma/**',
             'node_modules/@friggframework/core/generated/**',
+
+            // Exclude nested node_modules from symlinked frigg packages (for npm link development)
+            'node_modules/@friggframework/core/node_modules/**',
+            'node_modules/@friggframework/devtools/node_modules/**',
         ],
     };
 
@@ -1334,7 +1366,34 @@ const configureVpc = (definition, AppDefinition, discoveredResources) => {
                 Tags: [
                     {
                         Key: 'Name',
-                        Value: '${self:service}-${self:provider.stage}-public',
+                        Value: '${self:service}-${self:provider.stage}-public-1',
+                    },
+                    { Key: 'Type', Value: 'Public' },
+                    { Key: 'ManagedBy', Value: 'Frigg' },
+                ],
+            },
+        };
+
+        // Create second public subnet in different AZ for Aurora
+        let publicSubnet2Cidr;
+        if (vpcManagement === 'create-new') {
+            const generatedCidrs = { 'Fn::Cidr': ['10.0.0.0/16', 4, 8] };
+            publicSubnet2Cidr = { 'Fn::Select': [3, generatedCidrs] };
+        } else {
+            publicSubnet2Cidr = '172.31.251.0/24';
+        }
+
+        definition.resources.Resources.FriggPublicSubnet2 = {
+            Type: 'AWS::EC2::Subnet',
+            Properties: {
+                VpcId: subnetVpcId,
+                CidrBlock: publicSubnet2Cidr,
+                MapPublicIpOnLaunch: true,
+                AvailabilityZone: { 'Fn::Select': [1, { 'Fn::GetAZs': '' }] },
+                Tags: [
+                    {
+                        Key: 'Name',
+                        Value: '${self:service}-${self:provider.stage}-public-2',
                     },
                     { Key: 'Type', Value: 'Public' },
                     { Key: 'ManagedBy', Value: 'Frigg' },
@@ -1346,6 +1405,12 @@ const configureVpc = (definition, AppDefinition, discoveredResources) => {
             { Ref: 'FriggPrivateSubnet1' },
             { Ref: 'FriggPrivateSubnet2' },
         ];
+
+        // Map created subnets to discoveredResources for Aurora to use
+        discoveredResources.publicSubnetId1 = { Ref: 'FriggPublicSubnet' };
+        discoveredResources.publicSubnetId2 = { Ref: 'FriggPublicSubnet2' };
+        discoveredResources.privateSubnetId1 = { Ref: 'FriggPrivateSubnet1' };
+        discoveredResources.privateSubnetId2 = { Ref: 'FriggPrivateSubnet2' };
 
         if (
             !AppDefinition.vpc.natGateway ||
@@ -1413,6 +1478,15 @@ const configureVpc = (definition, AppDefinition, discoveredResources) => {
                 Type: 'AWS::EC2::SubnetRouteTableAssociation',
                 Properties: {
                     SubnetId: { Ref: 'FriggPublicSubnet' },
+                    RouteTableId: { Ref: 'FriggPublicRouteTable' },
+                },
+            };
+
+            definition.resources.Resources.FriggPublicSubnet2RouteTableAssociation =
+            {
+                Type: 'AWS::EC2::SubnetRouteTableAssociation',
+                Properties: {
+                    SubnetId: { Ref: 'FriggPublicSubnet2' },
                     RouteTableId: { Ref: 'FriggPublicRouteTable' },
                 },
             };
@@ -1640,7 +1714,28 @@ const configureVpc = (definition, AppDefinition, discoveredResources) => {
                             Tags: [
                                 {
                                     Key: 'Name',
-                                    Value: '${self:service}-${self:provider.stage}-public-subnet',
+                                    Value: '${self:service}-${self:provider.stage}-public-subnet-1',
+                                },
+                                { Key: 'Type', Value: 'Public' },
+                            ],
+                        },
+                    };
+
+                    definition.resources.Resources.FriggPublicSubnet2 = {
+                        Type: 'AWS::EC2::Subnet',
+                        Properties: {
+                            VpcId: discoveredResources.defaultVpcId,
+                            CidrBlock:
+                                AppDefinition.vpc.natGateway
+                                    ?.publicSubnetCidr2 || '172.31.251.0/24',
+                            AvailabilityZone: {
+                                'Fn::Select': [1, { 'Fn::GetAZs': '' }],
+                            },
+                            MapPublicIpOnLaunch: true,
+                            Tags: [
+                                {
+                                    Key: 'Name',
+                                    Value: '${self:service}-${self:provider.stage}-public-subnet-2',
                                 },
                                 { Key: 'Type', Value: 'Public' },
                             ],
@@ -1683,6 +1778,19 @@ const configureVpc = (definition, AppDefinition, discoveredResources) => {
                             RouteTableId: { Ref: 'FriggPublicRouteTable' },
                         },
                     };
+
+                    definition.resources.Resources.FriggPublicSubnet2RouteTableAssociation =
+                    {
+                        Type: 'AWS::EC2::SubnetRouteTableAssociation',
+                        Properties: {
+                            SubnetId: { Ref: 'FriggPublicSubnet2' },
+                            RouteTableId: { Ref: 'FriggPublicRouteTable' },
+                        },
+                    };
+
+                    // Map created public subnets to discoveredResources for Aurora
+                    discoveredResources.publicSubnetId1 = { Ref: 'FriggPublicSubnet' };
+                    discoveredResources.publicSubnetId2 = { Ref: 'FriggPublicSubnet2' };
                 }
 
                 definition.resources.Resources.FriggNATGateway = {
@@ -2032,18 +2140,43 @@ const configureVpc = (definition, AppDefinition, discoveredResources) => {
 
 const createAuroraInfrastructure = (definition, AppDefinition, discoveredResources) => {
     const dbConfig = AppDefinition.database.postgres;
+    const publiclyAccessible = dbConfig.publiclyAccessible === true;
 
     console.log('🔧 Creating Aurora Serverless v2 infrastructure...');
+    console.log(`   Publicly Accessible: ${publiclyAccessible}`);
 
-    // 1. DB Subnet Group (using Lambda private subnets)
+    // 1. DB Subnet Group
+    // Use public subnets if publicly accessible, private subnets otherwise
+    let subnetIds;
+    if (publiclyAccessible) {
+        subnetIds = [discoveredResources.publicSubnetId1, discoveredResources.publicSubnetId2];
+        console.log(`   Using public subnets: ${subnetIds.join(', ')}`);
+
+        // Safety check - this should have been caught earlier, but double-check
+        if (!subnetIds[0] || !subnetIds[1]) {
+            throw new Error(
+                'Public subnets are required for publicly accessible Aurora deployment but were not found. ' +
+                'This should have been caught earlier in validation.'
+            );
+        }
+    } else {
+        subnetIds = [discoveredResources.privateSubnetId1, discoveredResources.privateSubnetId2];
+        console.log(`   Using private subnets: ${subnetIds.join(', ')}`);
+
+        // Safety check - this should have been caught earlier, but double-check
+        if (!subnetIds[0] || !subnetIds[1]) {
+            throw new Error(
+                'Private subnets are required for private Aurora deployment but were not found. ' +
+                'This should have been caught earlier in validation.'
+            );
+        }
+    }
+
     definition.resources.Resources.FriggDBSubnetGroup = {
         Type: 'AWS::RDS::DBSubnetGroup',
         Properties: {
-            DBSubnetGroupDescription: 'Subnet group for Frigg Aurora cluster',
-            SubnetIds: [
-                discoveredResources.privateSubnetId1,
-                discoveredResources.privateSubnetId2
-            ],
+            DBSubnetGroupDescription: `Subnet group for Frigg Aurora cluster (${publiclyAccessible ? 'public' : 'private'})`,
+            SubnetIds: subnetIds,
             Tags: [
                 { Key: 'Name', Value: '${self:service}-${self:provider.stage}-db-subnet-group' },
                 { Key: 'ManagedBy', Value: 'Frigg' },
@@ -2053,27 +2186,58 @@ const createAuroraInfrastructure = (definition, AppDefinition, discoveredResourc
         }
     };
 
-    // 2. Security Group (allow Lambda SG to access 5432)
-    // In create-new VPC mode, Lambda uses FriggLambdaSecurityGroup
-    // In other modes, use discovered default security group
-    const lambdaSecurityGroupId = AppDefinition.vpc?.management === 'create-new'
-        ? { Ref: 'FriggLambdaSecurityGroup' }
-        : discoveredResources.defaultSecurityGroupId;
+    // 2. Security Group
+    // Build security group ingress rules based on configuration
+    const securityGroupIngress = [];
+
+    // Always allow Lambda functions to access the database (if VPC is configured)
+    if (AppDefinition.vpc?.enable) {
+        const lambdaSecurityGroupId = AppDefinition.vpc?.management === 'create-new'
+            ? { Ref: 'FriggLambdaSecurityGroup' }
+            : discoveredResources.defaultSecurityGroupId;
+
+        securityGroupIngress.push({
+            IpProtocol: 'tcp',
+            FromPort: 5432,
+            ToPort: 5432,
+            SourceSecurityGroupId: lambdaSecurityGroupId,
+            Description: 'PostgreSQL access from Lambda functions'
+        });
+    }
+
+    // Add IP whitelist rules for public access
+    if (publiclyAccessible && dbConfig.allowedIpAddresses) {
+        const allowedIps = Array.isArray(dbConfig.allowedIpAddresses)
+            ? dbConfig.allowedIpAddresses
+            : [dbConfig.allowedIpAddresses];
+
+        console.log(`   Adding ${allowedIps.length} whitelisted IP address(es)`);
+
+        allowedIps.forEach((ip, index) => {
+            // Ensure IP has CIDR notation
+            const cidrIp = ip.includes('/') ? ip : `${ip}/32`;
+            securityGroupIngress.push({
+                IpProtocol: 'tcp',
+                FromPort: 5432,
+                ToPort: 5432,
+                CidrIp: cidrIp,
+                Description: `PostgreSQL access from whitelisted IP ${index + 1}`
+            });
+        });
+    }
+
+    // If publicly accessible but no IPs specified, warn the user
+    if (publiclyAccessible && !dbConfig.allowedIpAddresses) {
+        console.log('   ⚠️  WARNING: Database is publicly accessible but no IP whitelist configured!');
+        console.log('   ⚠️  Add allowedIpAddresses to your database.postgres config for security.');
+    }
 
     definition.resources.Resources.FriggAuroraSecurityGroup = {
         Type: 'AWS::EC2::SecurityGroup',
         Properties: {
-            GroupDescription: 'Security group for Frigg Aurora PostgreSQL',
+            GroupDescription: `Security group for Frigg Aurora PostgreSQL (${publiclyAccessible ? 'public' : 'private'})`,
             VpcId: discoveredResources.defaultVpcId,
-            SecurityGroupIngress: [
-                {
-                    IpProtocol: 'tcp',
-                    FromPort: 5432,
-                    ToPort: 5432,
-                    SourceSecurityGroupId: lambdaSecurityGroupId,
-                    Description: 'PostgreSQL access from Lambda functions'
-                }
-            ],
+            SecurityGroupIngress: securityGroupIngress,
             Tags: [
                 { Key: 'Name', Value: '${self:service}-${self:provider.stage}-aurora-sg' },
                 { Key: 'ManagedBy', Value: 'Frigg' },
@@ -2143,7 +2307,7 @@ const createAuroraInfrastructure = (definition, AppDefinition, discoveredResourc
             Engine: 'aurora-postgresql',
             DBInstanceClass: 'db.serverless',
             DBClusterIdentifier: { Ref: 'FriggAuroraCluster' },
-            PubliclyAccessible: false,
+            PubliclyAccessible: publiclyAccessible,
             EnablePerformanceInsights: dbConfig.enablePerformanceInsights || false,
             Tags: [
                 { Key: 'Name', Value: '${self:service}-${self:provider.stage}-aurora-instance' },
@@ -2347,26 +2511,47 @@ const configurePostgres = (definition, AppDefinition, discoveredResources) => {
         return;
     }
 
-    // Validate VPC is enabled (required for Aurora deployment)
-    if (!AppDefinition.vpc?.enable) {
-        throw new Error(
-            'Aurora PostgreSQL requires VPC deployment. ' +
-            'Set vpc.enable to true in your app definition.'
-        );
-    }
-
-    // Validate private subnets exist (Aurora requires at least 2 subnets in different AZs)
-    // Skip validation if VPC management is 'create-new' (subnets will be created)
-    const vpcManagement = AppDefinition.vpc?.management || 'discover';
-    if (vpcManagement !== 'create-new' && (!discoveredResources.privateSubnetId1 || !discoveredResources.privateSubnetId2)) {
-        throw new Error(
-            'Aurora PostgreSQL requires at least 2 private subnets in different availability zones. ' +
-            'No private subnets were discovered in your VPC. ' +
-            'Please create private subnets or use VPC management mode "create-new".'
-        );
-    }
-
     const dbConfig = AppDefinition.database.postgres;
+    const publiclyAccessible = dbConfig.publiclyAccessible === true;
+
+    // Validate VPC is enabled for private deployments
+    // Public deployments can work without VPC if using default VPC
+    if (!publiclyAccessible && !AppDefinition.vpc?.enable) {
+        throw new Error(
+            'Aurora PostgreSQL requires VPC deployment for private access. ' +
+            'Either set vpc.enable to true, or set database.postgres.publiclyAccessible to true for public access.'
+        );
+    }
+
+    // Validate subnets based on deployment type
+    const vpcManagement = AppDefinition.vpc?.management || 'discover';
+
+    if (publiclyAccessible) {
+        // For public deployments, validate public subnets exist
+        if (vpcManagement !== 'create-new' && (!discoveredResources.publicSubnetId1 || !discoveredResources.publicSubnetId2)) {
+            throw new Error(
+                'Aurora PostgreSQL with publiclyAccessible requires at least 2 public subnets in different availability zones. ' +
+                'No public subnets were discovered in your VPC. ' +
+                'Options:\n' +
+                '  1. Create public subnets in your VPC with Internet Gateway attached\n' +
+                '  2. Use VPC management mode "create-new" (will create public subnets automatically)\n' +
+                '  3. Set publiclyAccessible to false and use private subnets instead'
+            );
+        }
+    } else {
+        // For private deployments, validate private subnets exist
+        if (vpcManagement !== 'create-new' && (!discoveredResources.privateSubnetId1 || !discoveredResources.privateSubnetId2)) {
+            throw new Error(
+                'Aurora PostgreSQL requires at least 2 private subnets in different availability zones for private deployment. ' +
+                'No private subnets were discovered in your VPC. ' +
+                'Options:\n' +
+                '  1. Create private subnets in your VPC\n' +
+                '  2. Use VPC management mode "create-new" (will create private subnets automatically)\n' +
+                '  3. Set publiclyAccessible to true and use public subnets instead'
+            );
+        }
+    }
+
     const management = dbConfig.management || 'discover';
 
     console.log(`\n🐘 PostgreSQL Management Mode: ${management}`);

@@ -7,7 +7,9 @@ const createDiscoveryResponse = (overrides = {}) => ({
     defaultSecurityGroupId: 'sg-123456',
     privateSubnetId1: 'subnet-123456',
     privateSubnetId2: 'subnet-789012',
-    publicSubnetId: 'subnet-public',
+    publicSubnetId: 'subnet-public', // Keep for backward compat
+    publicSubnetId1: 'subnet-public-1',
+    publicSubnetId2: 'subnet-public-2',
     defaultRouteTableId: 'rtb-123456',
     defaultKmsKeyId:
         'arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012',
