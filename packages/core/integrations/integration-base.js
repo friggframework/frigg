@@ -304,9 +304,11 @@ class IntegrationBase {
         await this.updateIntegrationStatus.execute(integrationId, 'ENABLED');
     }
 
-    async onUpdate(params) { }
+    async onUpdate(params) {
+        return this.validateConfig();
+    }
 
-    async onDelete(params) { }
+    async onDelete(params) {}
 
     async getConfigOptions() {
         const options = {
@@ -343,10 +345,10 @@ class IntegrationBase {
         const dynamicUserActions = await this.loadDynamicUserActions();
         const filteredDynamicActions = actionType
             ? Object.fromEntries(
-                Object.entries(dynamicUserActions).filter(
-                    ([_, event]) => event.userActionType === actionType
-                )
-            )
+                  Object.entries(dynamicUserActions).filter(
+                      ([_, event]) => event.userActionType === actionType
+                  )
+              )
             : dynamicUserActions;
         return { ...userActions, ...filteredDynamicActions };
     }
@@ -393,7 +395,9 @@ class IntegrationBase {
     async queueWebhook(data) {
         const { QueuerUtil } = require('../queues');
 
-        const queueName = `${this.constructor.Definition.name.toUpperCase().replace(/-/g, '_')}_QUEUE_URL`;
+        const queueName = `${this.constructor.Definition.name
+            .toUpperCase()
+            .replace(/-/g, '_')}_QUEUE_URL`;
         const queueUrl = process.env[queueName];
 
         if (!queueUrl) {
@@ -455,8 +459,14 @@ class IntegrationBase {
         return this.userId.toString() === userId.toString();
     }
 
+    registerEventHandlers() {
+        this.on = {
+            ...this.defaultEvents,
+            ...this.events,
+        };
+    }
+
     async initialize() {
-        // Load dynamic user actions
         try {
             const additionalUserActions = await this.loadDynamicUserActions();
             this.events = { ...this.events, ...additionalUserActions };
@@ -464,7 +474,16 @@ class IntegrationBase {
             this.addError(e);
         }
 
-        // Event handlers are no longer registered here - handled by IntegrationEventDispatcher
+        this.registerEventHandlers();
+    }
+
+    async send(event, object) {
+        if (!this.on[event]) {
+            throw new Error(
+                `Event ${event} is not defined in the Integration event object`
+            );
+        }
+        return this.on[event].handler.call(this, object);
     }
 
     getOptionDetails() {

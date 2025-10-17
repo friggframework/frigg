@@ -1,4 +1,4 @@
-//todo: this repository is tightly coupled to the token repository.
+const bcrypt = require('bcryptjs');
 const { prisma } = require('../../database/prisma');
 const {
     createTokenRepository,
@@ -130,21 +130,40 @@ class UserRepositoryPostgres extends UserRepositoryInterface {
      * Replaces: IndividualUser.create(params)
      *
      * @param {Object} params - User creation parameters (with string IDs from application layer)
+     * @param {string} [params.hashword] - Plain text password (will be bcrypt hashed automatically)
      * @returns {Promise<Object>} Created user object with string IDs
      */
     async createIndividualUser(params) {
-        const user = await this.prisma.user.create({
-            data: {
-                type: 'INDIVIDUAL',
-                email: params.email,
-                username: params.username,
-                hashword: params.hashword,
-                appUserId: params.appUserId,
-                organizationId: this._convertId(
-                    params.organization || params.organizationId
-                ),
-            },
-        });
+        const data = {
+            type: 'INDIVIDUAL',
+            email: params.email,
+            username: params.username,
+            appUserId: params.appUserId,
+            organizationId: this._convertId(
+                params.organization || params.organizationId
+            ),
+        };
+
+        if (
+            params.hashword !== undefined &&
+            params.hashword !== null &&
+            params.hashword !== ''
+        ) {
+            if (typeof params.hashword !== 'string') {
+                throw new Error('Password must be a string');
+            }
+
+            // Prevent double-hashing: bcrypt hashes start with $2a$ or $2b$
+            if (params.hashword.startsWith('$2')) {
+                throw new Error(
+                    'Password appears to be already hashed. Pass plain text password only.'
+                );
+            }
+
+            data.hashword = await bcrypt.hash(params.hashword, 10);
+        }
+
+        const user = await this.prisma.user.create({ data });
         return this._convertUserIds(user);
     }
 
@@ -249,19 +268,39 @@ class UserRepositoryPostgres extends UserRepositoryInterface {
      * Update individual user
      * @param {string} userId - User ID (string from application layer)
      * @param {Object} updates - Fields to update (with string IDs from application layer)
+     * @param {string} [updates.hashword] - Plain text password (will be bcrypt hashed automatically)
      * @returns {Promise<Object>} Updated user object with string IDs
      */
     async updateIndividualUser(userId, updates) {
         const intId = this._convertId(userId);
 
-        // Convert organizationId if present in updates
         const data = { ...updates };
+
         if (data.organizationId !== undefined) {
             data.organizationId = this._convertId(data.organizationId);
         }
         if (data.organization !== undefined) {
             data.organizationId = this._convertId(data.organization);
             delete data.organization;
+        }
+
+        if (
+            data.hashword !== undefined &&
+            data.hashword !== null &&
+            data.hashword !== ''
+        ) {
+            if (typeof data.hashword !== 'string') {
+                throw new Error('Password must be a string');
+            }
+
+            // Prevent double-hashing: bcrypt hashes start with $2a$ or $2b$
+            if (data.hashword.startsWith('$2')) {
+                throw new Error(
+                    'Password appears to be already hashed. Pass plain text password only.'
+                );
+            }
+
+            data.hashword = await bcrypt.hash(data.hashword, 10);
         }
 
         const user = await this.prisma.user.update({
