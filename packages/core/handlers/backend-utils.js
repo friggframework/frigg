@@ -132,15 +132,25 @@ const createQueueWorker = (integrationClass) => {
     class QueueWorker extends Worker {
         async _run(params, context) {
             try {
-                const integrationInstance =
-                    params.event === 'ON_WEBHOOK' && params.data?.integrationId
-                        ? await loadIntegrationForWebhook(
-                              params.data.integrationId
-                          )
-                        : await loadIntegrationForProcess(
-                              params.data?.processId,
-                              integrationClass
-                          );
+                if (params.event === 'ON_WEBHOOK') {
+                    if (!params.data?.integrationId) {
+                        throw new Error(
+                            'integrationId is required in data for ON_WEBHOOK event'
+                        );
+                    }
+
+                    integrationInstance = await loadIntegrationForWebhook(
+                        params.data.integrationId
+                    );
+                } else if (params.data?.processId) {
+                    integrationInstance = await loadIntegrationForProcess(
+                        params.data.processId,
+                        integrationClass
+                    );
+                } else {
+                    // Instantiates a DRY integration class without database records
+                    integrationInstance = new integrationClass();
+                }
 
                 const dispatcher = new IntegrationEventDispatcher(
                     integrationInstance
