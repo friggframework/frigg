@@ -19,6 +19,7 @@ const {
 const {
     getModulesDefinitionFromIntegrationClasses,
 } = require('../integrations/utils/map-integration-dto');
+const { loadAppDefinition } = require('./app-definition-loader');
 
 const loadRouterFromObject = (IntegrationClass, routerObject) => {
     const router = Router();
@@ -50,37 +51,29 @@ const loadRouterFromObject = (IntegrationClass, routerObject) => {
 };
 
 const initializeRepositories = () => {
-    const processRepository = createProcessRepository();
-    const integrationRepository = createIntegrationRepository();
-    const moduleRepository = createModuleRepository();
-
-    return { processRepository, integrationRepository, moduleRepository };
+    return {
+        processRepository: createProcessRepository(),
+        integrationRepository: createIntegrationRepository(),
+        moduleRepository: createModuleRepository(),
+    };
 };
 
-const createModuleFactoryWithDefinitions = (
-    moduleRepository,
-    integrationClasses
-) => {
-    const moduleDefinitions =
-        getModulesDefinitionFromIntegrationClasses(integrationClasses);
+/**
+ * Load hydrated integration instance for webhook events WITH integrationId.
+ * Must load app definition to find all integration classes, then match
+ * against the integration record's type.
+ */
+const loadIntegrationForWebhook = async (integrationId) => {
+    const { integrations: integrationClasses } = loadAppDefinition();
+    const { integrationRepository, moduleRepository } = initializeRepositories();
 
-    return new ModuleFactory({
+    const moduleDefinitions = getModulesDefinitionFromIntegrationClasses(
+        integrationClasses
+    );
+    const moduleFactory = new ModuleFactory({
         moduleRepository,
         moduleDefinitions,
     });
-};
-
-const loadIntegrationForWebhook = async (integrationId) => {
-    const { loadAppDefinition } = require('./app-definition-loader');
-    const { integrations: integrationClasses } = loadAppDefinition();
-
-    const { integrationRepository, moduleRepository } =
-        initializeRepositories();
-
-    const moduleFactory = createModuleFactoryWithDefinitions(
-        moduleRepository,
-        integrationClasses
-    );
 
     const getIntegrationInstance = new GetIntegrationInstance({
         integrationRepository,
@@ -92,29 +85,48 @@ const loadIntegrationForWebhook = async (integrationId) => {
         integrationId
     );
 
+    if (!integrationRecord) {
+        throw new Error(
+            `No integration found by the ID of ${integrationId}`
+        );
+    }
+
     return await getIntegrationInstance.execute(
         integrationId,
         integrationRecord.userId
     );
 };
 
+/**
+ * Load hydrated integration instance for process-based events.
+ * Integration class is already known from queue worker context,
+ * so we receive it as a parameter rather than loading all classes.
+ */
 const loadIntegrationForProcess = async (processId, integrationClass) => {
+    if (!integrationClass) {
+        throw new Error('integrationClass parameter is required');
+    }
+
+    if (!processId) {
+        throw new Error('processId is required in queue message data');
+    }
+
     const { processRepository, integrationRepository, moduleRepository } =
         initializeRepositories();
 
-    const moduleFactory = createModuleFactoryWithDefinitions(moduleRepository, [
+    const moduleDefinitions = getModulesDefinitionFromIntegrationClasses([
         integrationClass,
     ]);
+    const moduleFactory = new ModuleFactory({
+        moduleRepository,
+        moduleDefinitions,
+    });
 
     const getIntegrationInstance = new GetIntegrationInstance({
         integrationRepository,
         integrationClasses: [integrationClass],
         moduleFactory,
     });
-
-    if (!processId) {
-        throw new Error('processId is required in queue message data');
-    }
 
     const process = await processRepository.findById(processId);
 
