@@ -46,9 +46,19 @@ const {
     MigrationError,
     ValidationError,
 } = require('../../database/use-cases/run-database-migration-use-case');
+const {
+    UpdateProcessState,
+} = require('../../integrations/use-cases/update-process-state');
+const {
+    createProcessRepository,
+} = require('../../integrations/repositories/process-repository-factory');
 
 // Inject prisma-runner as dependency
 const prismaRunner = require('../../database/utils/prisma-runner');
+
+// Create process repository and use case for tracking migration progress
+const processRepository = createProcessRepository();
+const updateProcessState = new UpdateProcessState({ processRepository });
 
 /**
  * Sanitizes error messages to prevent credential leaks
@@ -86,8 +96,47 @@ function sanitizeDatabaseUrl(url) {
 }
 
 /**
+ * Extract migration parameters from SQS event or direct invocation
+ * @param {Object} event - Lambda event (SQS or direct)
+ * @returns {Object} Extracted parameters { processId, dbType, stage }
+ */
+function extractMigrationParams(event) {
+    let processId = null;
+    let dbType = null;
+    let stage = null;
+
+    // Check if this is an SQS event
+    if (event.Records && event.Records.length > 0) {
+        // SQS event - extract from message body
+        const message = JSON.parse(event.Records[0].body);
+        processId = message.processId;
+        dbType = message.dbType;
+        stage = message.stage;
+
+        console.log('SQS event detected');
+        console.log(`  Process ID: ${processId}`);
+        console.log(`  DB Type: ${dbType}`);
+        console.log(`  Stage: ${stage}`);
+    } else {
+        // Direct invocation - use event properties or environment variables
+        processId = event.processId || null;
+        dbType = event.dbType || process.env.DB_TYPE || 'postgresql';
+        stage = event.stage || process.env.STAGE || 'production';
+
+        console.log('Direct invocation detected');
+        if (processId) {
+            console.log(`  Process ID: ${processId}`);
+        }
+        console.log(`  DB Type: ${dbType}`);
+        console.log(`  Stage: ${stage}`);
+    }
+
+    return { processId, dbType, stage };
+}
+
+/**
  * Lambda handler entry point
- * @param {Object} event - Lambda event (not used, migrations don't need input)
+ * @param {Object} event - Lambda event (SQS message or direct invocation)
  * @param {Object} context - Lambda context (contains AWS request ID, timeout info)
  * @returns {Promise<Object>} Response with statusCode and body
  */
@@ -102,10 +151,11 @@ exports.handler = async (event, context) => {
         remainingTimeInMillis: context.getRemainingTimeInMillis(),
     }, null, 2));
 
+    // Extract migration parameters from event
+    const { processId, dbType, stage } = extractMigrationParams(event);
+
     // Get environment variables
     const databaseUrl = process.env.DATABASE_URL;
-    const dbType = process.env.DB_TYPE || 'postgresql';
-    const stage = process.env.STAGE || 'production';
 
     try {
         // Validate DATABASE_URL is set
@@ -125,6 +175,14 @@ exports.handler = async (event, context) => {
         console.log(`  Database Type: ${dbType}`);
         console.log(`  Stage: ${stage}`);
         console.log(`  Database URL: ${sanitizeDatabaseUrl(databaseUrl)}`);
+
+        // Update process state to RUNNING (if processId provided)
+        if (processId) {
+            console.log(`\n✓ Updating process state to RUNNING: ${processId}`);
+            await updateProcessState.execute(processId, 'RUNNING', {
+                startedAt: new Date().toISOString(),
+            });
+        }
 
         // Create use case with dependencies (Dependency Injection)
         const runDatabaseMigrationUseCase = new RunDatabaseMigrationUseCase({
@@ -152,17 +210,32 @@ exports.handler = async (event, context) => {
         console.log(`  Command: ${result.command}`);
         console.log('========================================');
 
+        // Update process state to COMPLETED (if processId provided)
+        if (processId) {
+            console.log(`\n✓ Updating process state to COMPLETED: ${processId}`);
+            await updateProcessState.execute(processId, 'COMPLETED', {
+                completedAt: new Date().toISOString(),
+                migrationCommand: result.command,
+            });
+        }
+
         // Return success response (adapter layer - HTTP mapping)
+        const responseBody = {
+            success: true,
+            message: result.message,
+            dbType: result.dbType,
+            stage: result.stage,
+            migrationCommand: result.command,
+            timestamp: new Date().toISOString(),
+        };
+
+        if (processId) {
+            responseBody.processId = processId;
+        }
+
         return {
             statusCode: 200,
-            body: JSON.stringify({
-                success: true,
-                message: result.message,
-                dbType: result.dbType,
-                stage: result.stage,
-                migrationCommand: result.command,
-                timestamp: new Date().toISOString(),
-            }),
+            body: JSON.stringify(responseBody),
         };
 
     } catch (error) {
@@ -194,15 +267,36 @@ exports.handler = async (event, context) => {
         // Sanitize error message before returning
         const sanitizedError = sanitizeError(errorMessage);
 
+        // Update process state to FAILED (if processId provided)
+        if (processId) {
+            try {
+                console.log(`\n✓ Updating process state to FAILED: ${processId}`);
+                await updateProcessState.execute(processId, 'FAILED', {
+                    failedAt: new Date().toISOString(),
+                    error: sanitizedError,
+                    errorType: error.name || 'Error',
+                });
+            } catch (updateError) {
+                console.error('Failed to update process state:', updateError);
+                // Don't fail the entire handler if state update fails
+            }
+        }
+
+        const errorBody = {
+            success: false,
+            error: sanitizedError,
+            errorType: error.name || 'Error',
+            // Only include stack traces in development environments
+            ...(stage === 'dev' || stage === 'local' || stage === 'test' ? { stack: error.stack } : {}),
+        };
+
+        if (processId) {
+            errorBody.processId = processId;
+        }
+
         return {
             statusCode,
-            body: JSON.stringify({
-                success: false,
-                error: sanitizedError,
-                errorType: error.name || 'Error',
-                // Only include stack traces in development environments
-                ...(stage === 'dev' || stage === 'local' || stage === 'test' ? { stack: error.stack } : {}),
-            }),
+            body: JSON.stringify(errorBody),
         };
     }
 };
