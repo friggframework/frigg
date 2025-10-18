@@ -10,16 +10,21 @@ describe('CheckIntegrationsHealthUseCase', () => {
     describe('execute()', () => {
         it('should return healthy status with module and integration counts', () => {
             const mockModuleFactory = {
-                moduleTypes: ['HubSpot', 'Salesforce', 'Slack'],
+                moduleDefinitions: [
+                    { name: 'HubSpot' },
+                    { name: 'Salesforce' },
+                    { name: 'Slack' },
+                ],
             };
 
-            const mockIntegrationFactory = {
-                integrationTypes: ['HubSpot-to-Salesforce', 'Slack-Notifications'],
-            };
+            const mockIntegrationClasses = [
+                { Definition: { name: 'HubSpot-to-Salesforce' } },
+                { Definition: { name: 'Slack-Notifications' } },
+            ];
 
             const useCase = new CheckIntegrationsHealthUseCase({
                 moduleFactory: mockModuleFactory,
-                integrationFactory: mockIntegrationFactory,
+                integrationClasses: mockIntegrationClasses,
             });
 
             const result = useCase.execute();
@@ -32,13 +37,13 @@ describe('CheckIntegrationsHealthUseCase', () => {
         });
 
         it('should handle undefined moduleFactory gracefully', () => {
-            const mockIntegrationFactory = {
-                integrationTypes: ['Integration1'],
-            };
+            const mockIntegrationClasses = [
+                { Definition: { name: 'Integration1' } },
+            ];
 
             const useCase = new CheckIntegrationsHealthUseCase({
                 moduleFactory: undefined,
-                integrationFactory: mockIntegrationFactory,
+                integrationClasses: mockIntegrationClasses,
             });
 
             const result = useCase.execute();
@@ -49,14 +54,14 @@ describe('CheckIntegrationsHealthUseCase', () => {
             expect(result.integrations.count).toBe(1);
         });
 
-        it('should handle undefined integrationFactory gracefully', () => {
+        it('should handle undefined integrationClasses gracefully', () => {
             const mockModuleFactory = {
-                moduleTypes: ['Module1'],
+                moduleDefinitions: [{ name: 'Module1' }],
             };
 
             const useCase = new CheckIntegrationsHealthUseCase({
                 moduleFactory: mockModuleFactory,
-                integrationFactory: undefined,
+                integrationClasses: undefined,
             });
 
             const result = useCase.execute();
@@ -67,10 +72,10 @@ describe('CheckIntegrationsHealthUseCase', () => {
             expect(result.integrations.available).toEqual([]);
         });
 
-        it('should handle both factories being undefined', () => {
+        it('should handle both moduleFactory and integrationClasses being undefined', () => {
             const useCase = new CheckIntegrationsHealthUseCase({
                 moduleFactory: undefined,
-                integrationFactory: undefined,
+                integrationClasses: undefined,
             });
 
             const result = useCase.execute();
@@ -82,18 +87,14 @@ describe('CheckIntegrationsHealthUseCase', () => {
             expect(result.integrations.available).toEqual([]);
         });
 
-        it('should handle non-array moduleTypes', () => {
+        it('should handle non-array moduleDefinitions', () => {
             const mockModuleFactory = {
-                moduleTypes: 'not-an-array',
-            };
-
-            const mockIntegrationFactory = {
-                integrationTypes: [],
+                moduleDefinitions: 'not-an-array',
             };
 
             const useCase = new CheckIntegrationsHealthUseCase({
                 moduleFactory: mockModuleFactory,
-                integrationFactory: mockIntegrationFactory,
+                integrationClasses: [],
             });
 
             const result = useCase.execute();
@@ -103,13 +104,12 @@ describe('CheckIntegrationsHealthUseCase', () => {
             expect(result.modules.available).toEqual([]);
         });
 
-        it('should handle factories with missing moduleTypes/integrationTypes properties', () => {
-            const mockModuleFactory = {}; // No moduleTypes property
-            const mockIntegrationFactory = {}; // No integrationTypes property
+        it('should handle moduleFactory with missing moduleDefinitions property', () => {
+            const mockModuleFactory = {}; // No moduleDefinitions property
 
             const useCase = new CheckIntegrationsHealthUseCase({
                 moduleFactory: mockModuleFactory,
-                integrationFactory: mockIntegrationFactory,
+                integrationClasses: [],
             });
 
             const result = useCase.execute();

@@ -1,5 +1,16 @@
 const { Router } = require('express');
 const { createAppHandler } = require('./../app-handler-helpers');
+const { loadAppDefinition } = require('./../app-definition-loader');
+const { ModuleFactory } = require('../../modules/module-factory');
+const {
+    getModulesDefinitionFromIntegrationClasses,
+} = require('../../integrations/utils/map-integration-dto');
+const {
+    createModuleRepository,
+} = require('../../modules/repositories/module-repository-factory');
+const {
+    createIntegrationRepository,
+} = require('../../integrations/repositories/integration-repository-factory');
 const {
     createHealthCheckRepository,
 } = require('../../database/repositories/health-check-repository-factory');
@@ -22,6 +33,27 @@ const {
 const router = Router();
 const healthCheckRepository = createHealthCheckRepository();
 
+// Load integrations and create factories just like auth router does
+// This verifies the system can properly load integrations
+let moduleFactory, integrationClasses;
+try {
+    const appDef = loadAppDefinition();
+    integrationClasses = appDef.integrations || [];
+    
+    const moduleRepository = createModuleRepository();
+    const moduleDefinitions = getModulesDefinitionFromIntegrationClasses(integrationClasses);
+    
+    moduleFactory = new ModuleFactory({
+        moduleRepository,
+        moduleDefinitions,
+    });
+} catch (error) {
+    console.error('Failed to load integrations for health check:', error.message);
+    // Factories will be undefined, health check will report unhealthy
+    moduleFactory = undefined;
+    integrationClasses = [];
+}
+
 const testEncryptionUseCase = new TestEncryptionUseCase({
     healthCheckRepository,
 });
@@ -32,11 +64,9 @@ const checkEncryptionHealthUseCase = new CheckEncryptionHealthUseCase({
     testEncryptionUseCase,
 });
 const checkExternalApisHealthUseCase = new CheckExternalApisHealthUseCase();
-// Module/Integration factories not available in health check context
-// Pass undefined - the use case will handle gracefully
 const checkIntegrationsHealthUseCase = new CheckIntegrationsHealthUseCase({
-    moduleFactory: undefined,
-    integrationFactory: undefined,
+    moduleFactory,
+    integrationClasses,
 });
 
 const validateApiKey = (req, res, next) => {
