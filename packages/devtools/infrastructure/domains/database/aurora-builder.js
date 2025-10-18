@@ -281,6 +281,22 @@ class AuroraBuilder extends InfrastructureBuilder {
             });
         }
 
+        // Add security group ingress rule to allow Lambda to connect to Aurora
+        if (discoveredResources.auroraSecurityGroupId) {
+            result.resources.FriggAuroraIngressRule = {
+                Type: 'AWS::EC2::SecurityGroupIngress',
+                Properties: {
+                    GroupId: discoveredResources.auroraSecurityGroupId,
+                    IpProtocol: 'tcp',
+                    FromPort: discoveredResources.auroraPort || 5432,
+                    ToPort: discoveredResources.auroraPort || 5432,
+                    SourceSecurityGroupId: { Ref: 'FriggLambdaSecurityGroup' },
+                    Description: 'Allow Lambda functions to connect to Aurora PostgreSQL',
+                },
+            };
+            console.log(`  ✅ Added security group ingress rule for Lambda → Aurora connectivity`);
+        }
+
         console.log(`  ✅ Discovered cluster configuration complete`);
     }
 

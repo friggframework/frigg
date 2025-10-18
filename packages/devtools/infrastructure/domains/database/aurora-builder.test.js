@@ -316,6 +316,33 @@ describe('AuroraBuilder', () => {
             expect(secretPermission).toBeDefined();
             expect(secretPermission.Resource).toBe('arn:aws:secretsmanager:us-east-1:123:secret:db');
         });
+
+        it('should add security group ingress rule for Lambda to Aurora connectivity', async () => {
+            const appDefinition = {
+                database: {
+                    postgres: {
+                        enable: true,
+                        management: 'discover',
+                    },
+                },
+            };
+
+            const discoveredResources = {
+                auroraClusterEndpoint: 'cluster.abc.us-east-1.rds.amazonaws.com',
+                auroraPort: 5432,
+                auroraSecurityGroupId: 'sg-aurora123',
+            };
+
+            const result = await auroraBuilder.build(appDefinition, discoveredResources);
+
+            expect(result.resources.FriggAuroraIngressRule).toBeDefined();
+            expect(result.resources.FriggAuroraIngressRule.Type).toBe('AWS::EC2::SecurityGroupIngress');
+            expect(result.resources.FriggAuroraIngressRule.Properties.GroupId).toBe('sg-aurora123');
+            expect(result.resources.FriggAuroraIngressRule.Properties.IpProtocol).toBe('tcp');
+            expect(result.resources.FriggAuroraIngressRule.Properties.FromPort).toBe(5432);
+            expect(result.resources.FriggAuroraIngressRule.Properties.ToPort).toBe(5432);
+            expect(result.resources.FriggAuroraIngressRule.Properties.SourceSecurityGroupId).toEqual({ Ref: 'FriggLambdaSecurityGroup' });
+        });
     });
 
     describe('build() - create-new mode', () => {

@@ -343,6 +343,7 @@ class AWSProviderAdapter extends CloudProviderAdapter {
             endpoint: null,
             port: null,
             engine: null,
+            securityGroupIds: [],
         };
 
         try {
@@ -361,6 +362,7 @@ class AWSProviderAdapter extends CloudProviderAdapter {
                         result.endpoint = cluster.Endpoint;
                         result.port = cluster.Port;
                         result.engine = cluster.Engine;
+                        result.securityGroupIds = (cluster.VpcSecurityGroups || []).map(sg => sg.VpcSecurityGroupId);
                     }
                 } else if (result.clusters.length > 0) {
                     // Use first available cluster
@@ -368,6 +370,7 @@ class AWSProviderAdapter extends CloudProviderAdapter {
                     result.endpoint = cluster.Endpoint;
                     result.port = cluster.Port;
                     result.engine = cluster.Engine;
+                    result.securityGroupIds = (cluster.VpcSecurityGroups || []).map(sg => sg.VpcSecurityGroupId);
                 }
             }
 
