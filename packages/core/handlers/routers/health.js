@@ -1,6 +1,8 @@
 const { Router } = require('express');
-const { moduleFactory, integrationFactory } = require('./../backend-utils');
 const { createAppHandler } = require('./../app-handler-helpers');
+const { loadAppDefinition } = require('./../app-definition-loader');
+const { ModuleFactory } = require('../../modules/module-factory');
+const { IntegrationFactory } = require('../../integrations/integration-factory');
 const {
     createHealthCheckRepository,
 } = require('../../database/repositories/health-check-repository-factory');
@@ -22,6 +24,35 @@ const {
 
 const router = Router();
 const healthCheckRepository = createHealthCheckRepository();
+
+// Load app definition to get integration classes for factory creation
+let moduleFactory, integrationFactory;
+try {
+    const { integrations: integrationClasses } = loadAppDefinition();
+    const {
+        createModuleRepository,
+    } = require('../../modules/repositories/module-repository-factory');
+    const {
+        createIntegrationRepository,
+    } = require('../../integrations/repositories/integration-repository-factory');
+    
+    const moduleRepository = createModuleRepository();
+    const integrationRepository = createIntegrationRepository();
+    
+    moduleFactory = new ModuleFactory({
+        moduleRepository,
+        integrationClasses,
+    });
+    
+    integrationFactory = new IntegrationFactory({
+        integrationRepository,
+        integrationClasses,
+    });
+} catch (error) {
+    console.warn('Could not initialize module/integration factories for health check:', error.message);
+    // Factories will be undefined, health check will handle gracefully
+}
+
 const testEncryptionUseCase = new TestEncryptionUseCase({
     healthCheckRepository,
 });
@@ -142,10 +173,10 @@ const detectVpcConfiguration = async () => {
         }
 
         // Check if Lambda is in VPC using VPC_ENABLED env var set by infrastructure
-        results.isInVpc = process.env.VPC_ENABLED === 'true' || 
-            (!results.hasInternetAccess && results.canResolvePublicDns) || 
+        results.isInVpc = process.env.VPC_ENABLED === 'true' ||
+            (!results.hasInternetAccess && results.canResolvePublicDns) ||
             results.vpcEndpoints.length > 0;
-        
+
         results.canConnectToAws =
             results.hasInternetAccess || results.vpcEndpoints.length > 0;
     } catch (error) {
