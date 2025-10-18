@@ -103,3 +103,4 @@ class GetUserFromXFriggHeaders {
 
 module.exports = { GetUserFromXFriggHeaders };
 
+
