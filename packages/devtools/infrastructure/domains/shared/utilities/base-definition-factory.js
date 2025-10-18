@@ -40,11 +40,11 @@ function createBaseDefinition(
             'node_modules/.prisma/**',
             'node_modules/prisma/**',
             'node_modules/@friggframework/core/generated/**',
-            
+
             // Exclude AWS SDK (provided by Lambda runtime)
             'node_modules/aws-sdk/**',
             'node_modules/@aws-sdk/**',
-            
+
             // Exclude dev/test dependencies
             'node_modules/@friggframework/test/**',
             'node_modules/@friggframework/eslint-config/**',
@@ -52,7 +52,7 @@ function createBaseDefinition(
             'node_modules/jest/**',
             'node_modules/prettier/**',
             'node_modules/eslint/**',
-            
+
             // Exclude test files and layers (but keep src/ - needed for app definition)
             'test/**',
             'layers/**',
@@ -90,14 +90,14 @@ function createBaseDefinition(
             '**/*.spec.js',
             '.git/**',
             '.github/**',
-            
+
             // Exclude AI assistant and development artifacts
             '**/.claude-flow/**',
             '**/.swarm/**',
             '**/CLAUDE.md',
             '**/README.md',
             '**/*.md',
-            
+
             // Exclude config and meta files from core
             'node_modules/@friggframework/core/.eslintrc.json',
             'node_modules/@friggframework/core/.gitignore',
@@ -112,7 +112,9 @@ function createBaseDefinition(
         package: {
             individually: true,
         },
-        useDotenv: true,
+        // Only use .env for local development (offline mode)
+        // Production deployments should use environment vars from infrastructure
+        useDotenv: process.argv.includes('offline'),
         provider: {
             name: AppDefinition.provider || 'aws',
             ...(process.env.AWS_PROFILE && { profile: process.env.AWS_PROFILE }),
