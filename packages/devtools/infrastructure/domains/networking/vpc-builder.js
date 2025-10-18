@@ -614,6 +614,23 @@ class VpcBuilder extends InfrastructureBuilder {
             },
         };
 
+        // Associate route table with private subnets
+        result.resources.FriggPrivateSubnet1RouteTableAssociation = {
+            Type: 'AWS::EC2::SubnetRouteTableAssociation',
+            Properties: {
+                SubnetId: { Ref: 'FriggPrivateSubnet1' },
+                RouteTableId: { Ref: 'FriggLambdaRouteTable' },
+            },
+        };
+
+        result.resources.FriggPrivateSubnet2RouteTableAssociation = {
+            Type: 'AWS::EC2::SubnetRouteTableAssociation',
+            Properties: {
+                SubnetId: { Ref: 'FriggPrivateSubnet2' },
+                RouteTableId: { Ref: 'FriggLambdaRouteTable' },
+            },
+        };
+
         console.log('    ✅ NAT Gateway infrastructure created');
     }
 

@@ -543,6 +543,46 @@ describe('VpcBuilder', () => {
             expect(result.resources.FriggNATGateway.Type).toBe('AWS::EC2::NatGateway');
         });
 
+        it('should create route table associations for private subnets with NAT Gateway', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'discover',
+                    subnets: { management: 'create' },
+                    natGateway: {
+                        management: 'createAndManage',
+                    },
+                    selfHeal: true,
+                },
+            };
+
+            const discoveredResources = {
+                defaultVpcId: 'vpc-123',
+                publicSubnetId: 'subnet-public',
+            };
+
+            const result = await vpcBuilder.build(appDefinition, discoveredResources);
+
+            // Verify route table is created
+            expect(result.resources.FriggLambdaRouteTable).toBeDefined();
+            expect(result.resources.FriggLambdaRouteTable.Type).toBe('AWS::EC2::RouteTable');
+
+            // Verify route to NAT Gateway
+            expect(result.resources.FriggPrivateRoute).toBeDefined();
+            expect(result.resources.FriggPrivateRoute.Properties.NatGatewayId).toEqual({ Ref: 'FriggNATGateway' });
+
+            // Verify subnet route table associations
+            expect(result.resources.FriggPrivateSubnet1RouteTableAssociation).toBeDefined();
+            expect(result.resources.FriggPrivateSubnet1RouteTableAssociation.Type).toBe('AWS::EC2::SubnetRouteTableAssociation');
+            expect(result.resources.FriggPrivateSubnet1RouteTableAssociation.Properties.SubnetId).toEqual({ Ref: 'FriggPrivateSubnet1' });
+            expect(result.resources.FriggPrivateSubnet1RouteTableAssociation.Properties.RouteTableId).toEqual({ Ref: 'FriggLambdaRouteTable' });
+
+            expect(result.resources.FriggPrivateSubnet2RouteTableAssociation).toBeDefined();
+            expect(result.resources.FriggPrivateSubnet2RouteTableAssociation.Type).toBe('AWS::EC2::SubnetRouteTableAssociation');
+            expect(result.resources.FriggPrivateSubnet2RouteTableAssociation.Properties.SubnetId).toEqual({ Ref: 'FriggPrivateSubnet2' });
+            expect(result.resources.FriggPrivateSubnet2RouteTableAssociation.Properties.RouteTableId).toEqual({ Ref: 'FriggLambdaRouteTable' });
+        });
+
         it('should not create NAT when existing NAT is properly placed', async () => {
             const appDefinition = {
                 vpc: {
