@@ -1,5 +1,8 @@
 const { prisma } = require('../../database/prisma');
-const AWS = require('aws-sdk');
+const {
+    ApiGatewayManagementApiClient,
+    PostToConnectionCommand,
+} = require('@aws-sdk/client-apigatewaymanagementapi');
 const {
     WebsocketConnectionRepositoryInterface,
 } = require('./websocket-connection-repository-interface');
@@ -79,20 +82,18 @@ class WebsocketConnectionRepository extends WebsocketConnectionRepositoryInterfa
             return connections.map((conn) => ({
                 connectionId: conn.connectionId,
                 send: async (data) => {
-                    const apigwManagementApi = new AWS.ApiGatewayManagementApi({
-                        apiVersion: '2018-11-29',
+                    const apigwManagementApi = new ApiGatewayManagementApiClient({
                         endpoint: process.env.WEBSOCKET_API_ENDPOINT,
                     });
 
                     try {
-                        await apigwManagementApi
-                            .postToConnection({
-                                ConnectionId: conn.connectionId,
-                                Data: JSON.stringify(data),
-                            })
-                            .promise();
+                        const command = new PostToConnectionCommand({
+                            ConnectionId: conn.connectionId,
+                            Data: JSON.stringify(data),
+                        });
+                        await apigwManagementApi.send(command);
                     } catch (error) {
-                        if (error.statusCode === 410) {
+                        if (error.statusCode === 410 || error.$metadata?.httpStatusCode === 410) {
                             console.log(
                                 `Stale connection ${conn.connectionId}`
                             );

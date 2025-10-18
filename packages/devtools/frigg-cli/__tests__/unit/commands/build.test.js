@@ -52,7 +52,7 @@ describe('CLI Command: build', () => {
       await buildCommand({ stage: 'dev' });
 
       expect(spawnSync).toHaveBeenCalledWith(
-        'serverless',
+        'osls',
         ['package', '--config', 'infrastructure.js', '--stage', 'dev'],
         expect.objectContaining({
           cwd: expect.any(String),
@@ -66,7 +66,7 @@ describe('CLI Command: build', () => {
       await buildCommand({ stage: 'production' });
 
       expect(spawnSync).toHaveBeenCalledWith(
-        'serverless',
+        'osls',
         expect.arrayContaining(['--stage', 'production']),
         expect.any(Object)
       );
@@ -76,7 +76,7 @@ describe('CLI Command: build', () => {
       await buildCommand({ stage: 'staging' });
 
       expect(spawnSync).toHaveBeenCalledWith(
-        'serverless',
+        'osls',
         expect.arrayContaining(['--stage', 'staging']),
         expect.any(Object)
       );
@@ -86,7 +86,7 @@ describe('CLI Command: build', () => {
       await buildCommand({ stage: 'dev', verbose: true });
 
       expect(spawnSync).toHaveBeenCalledWith(
-        'serverless',
+        'osls',
         expect.arrayContaining(['--verbose']),
         expect.any(Object)
       );
@@ -161,7 +161,7 @@ describe('CLI Command: build', () => {
       await buildCommand({ stage: 'dev' });
 
       expect(spawnSync).toHaveBeenCalledWith(
-        'serverless',
+        'osls',
         expect.arrayContaining(['--config', 'infrastructure.js']),
         expect.any(Object)
       );
@@ -188,7 +188,7 @@ describe('CLI Command: build', () => {
       const [cmd, args, opts] = spawnSync.mock.calls[0];
 
       // Verify complete command structure
-      expect(cmd).toBe('serverless');
+      expect(cmd).toBe('osls');
       expect(args).toEqual([
         'package',
         '--config',

@@ -17,7 +17,7 @@
  */
 
 const crypto = require('crypto');
-const AWS = require('aws-sdk');
+const { KMSClient, GenerateDataKeyCommand, DecryptCommand } = require('@aws-sdk/client-kms');
 const aes = require('./aes');
 
 class Cryptor {
@@ -27,16 +27,15 @@ class Cryptor {
 
     async generateDataKey() {
         if (this.shouldUseAws) {
-            const kmsClient = new AWS.KMS();
-            const dataKey = await kmsClient
-                .generateDataKey({
-                    KeyId: process.env.KMS_KEY_ARN,
-                    KeySpec: 'AES_256',
-                })
-                .promise();
+            const kmsClient = new KMSClient({});
+            const command = new GenerateDataKeyCommand({
+                KeyId: process.env.KMS_KEY_ARN,
+                KeySpec: 'AES_256',
+            });
+            const dataKey = await kmsClient.send(command);
 
             const keyId = Buffer.from(dataKey.KeyId).toString('base64');
-            const encryptedKey = dataKey.CiphertextBlob.toString('base64');
+            const encryptedKey = Buffer.from(dataKey.CiphertextBlob).toString('base64');
             const plaintext = dataKey.Plaintext;
             return { keyId, encryptedKey, plaintext };
         }
@@ -70,13 +69,12 @@ class Cryptor {
 
     async decryptDataKey(keyId, encryptedKey) {
         if (this.shouldUseAws) {
-            const kmsClient = new AWS.KMS();
-            const dataKey = await kmsClient
-                .decrypt({
-                    KeyId: keyId,
-                    CiphertextBlob: encryptedKey,
-                })
-                .promise();
+            const kmsClient = new KMSClient({});
+            const command = new DecryptCommand({
+                KeyId: keyId,
+                CiphertextBlob: encryptedKey,
+            });
+            const dataKey = await kmsClient.send(command);
 
             return dataKey.Plaintext;
         }

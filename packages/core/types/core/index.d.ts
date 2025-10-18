@@ -1,5 +1,5 @@
 declare module "@friggframework/core" {
-  import { SQS } from "aws-sdk";
+  import type { SendMessageCommandInput } from "@aws-sdk/client-sqs";
 
   export class Delegate implements IFriggDelegate {
     delegate: any;
@@ -50,5 +50,5 @@ declare module "@friggframework/core" {
     QueueOwnerAWSAccountId?: string;
   };
 
-  type SendSQSMessageParams = SQS.SendMessageRequest;
+  type SendSQSMessageParams = SendMessageCommandInput;
 }

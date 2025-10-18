@@ -2,7 +2,7 @@
  * Unit tests for PostgreSQL (Aurora) configuration
  */
 
-const { composeServerlessDefinition } = require('../serverless-template');
+const { composeServerlessDefinition } = require('../infrastructure-composer');
 const { AWSDiscovery } = require('../aws-discovery');
 const { mockClient } = require('aws-sdk-client-mock');
 const { RDSClient, DescribeDBClustersCommand, DescribeDBSubnetGroupsCommand } = require('@aws-sdk/client-rds');

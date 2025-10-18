@@ -5,7 +5,8 @@ const { AWSDiscovery } = require('./aws-discovery');
 
 // Mock dependencies
 jest.mock('fs');
-jest.mock('./aws-discovery');
+// Mock will be updated when tests are rewritten for new provider architecture
+// jest.mock('./aws-discovery');
 
 describe('BuildTimeDiscovery', () => {
     let buildTimeDiscovery;
@@ -14,7 +15,7 @@ describe('BuildTimeDiscovery', () => {
 
     beforeEach(() => {
         buildTimeDiscovery = new BuildTimeDiscovery('us-east-1');
-        
+
         // Mock AWSDiscovery
         mockAWSDiscovery = {
             discoverResources: jest.fn(),
@@ -27,7 +28,7 @@ describe('BuildTimeDiscovery', () => {
 
         // Reset environment
         process.env = { ...originalEnv };
-        
+
         jest.clearAllMocks();
     });
 
@@ -338,7 +339,7 @@ describe('BuildTimeDiscovery', () => {
         it('should process config file when configPath provided', async () => {
             const mockConfigContent = 'provider: aws';
             const mockResources = { defaultVpcId: 'vpc-12345678' };
-            
+
             fs.readFileSync.mockReturnValue(mockConfigContent);
             mockAWSDiscovery.discoverResources.mockResolvedValue(mockResources);
 

@@ -4,7 +4,7 @@ const { findNearestBackendPackageJson } = require('../utils/backend-path');
 const { select } = require('@inquirer/prompts');
 
 // Import generators for different formats
-const { generateCloudFormationTemplate } = require('../../infrastructure/iam-generator');
+const { generateCloudFormationTemplate } = require('../../infrastructure/domains/security/iam-generator');
 const { generateTerraformTemplate } = require('./terraform-generator');
 const { generateAzureARMTemplate, generateAzureTerraformTemplate } = require('./azure-generator');
 const { generateGCPDeploymentManagerTemplate, generateGCPTerraformTemplate } = require('./gcp-generator');
@@ -87,7 +87,7 @@ async function generateCommand(options = {}) {
         const backendDir = path.dirname(nearestBackendPackageJson);
         const backendPackageJsonFile = JSON.parse(fs.readFileSync(nearestBackendPackageJson, 'utf8'));
         const appName = backendPackageJsonFile.name || 'frigg-app';
-        
+
         if (options.verbose) {
             console.log('Current directory:', process.cwd());
             console.log('Backend package.json found at:', nearestBackendPackageJson);

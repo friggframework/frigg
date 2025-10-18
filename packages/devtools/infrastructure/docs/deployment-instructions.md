@@ -21,7 +21,7 @@ You can deploy the stack using either the AWS Management Console (UI) or AWS CLI
 3. Click **Create stack** → **With new resources (standard)**
 4. In the **Specify template** section:
    - Select **Upload a template file**
-   - Click **Choose file** and select `frigg-deployment-iam-stack.yaml`
+   - Click **Choose file** and select `domains/security/templates/frigg-deployment-iam-stack.yaml`
    - Click **Next**
 
 #### 2. Configure Stack Details
@@ -64,7 +64,7 @@ You can deploy the stack using either the AWS Management Console (UI) or AWS CLI
 
 ```bash
 aws cloudformation deploy \
-  --template-file frigg-deployment-iam-stack.yaml \
+  --template-file domains/security/templates/frigg-deployment-iam-stack.yaml \
   --stack-name frigg-deployment-iam \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
@@ -215,7 +215,7 @@ To update permissions or parameters:
 ```bash
 aws cloudformation update-stack \
   --stack-name frigg-deployment-iam \
-  --template-body file://frigg-deployment-iam-stack.yaml \
+  --template-body file://domains/security/templates/frigg-deployment-iam-stack.yaml \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
     EnableVPCSupport=false  # Example: disable VPC support

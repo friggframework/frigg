@@ -19,7 +19,7 @@ async function buildCommand(options) {
     console.log('📦 Packaging serverless application...');
     const backendPath = path.resolve(process.cwd());
     const infrastructurePath = 'infrastructure.js';
-    const command = 'serverless';
+    const command = 'osls';  // OSS-Serverless (drop-in replacement for serverless v3)
     const serverlessArgs = [
         'package',
         '--config',

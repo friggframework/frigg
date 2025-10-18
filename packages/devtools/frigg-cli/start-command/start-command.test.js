@@ -107,7 +107,7 @@ describe('startCommand', () => {
         await startCommand(options);
 
         expect(spawn).toHaveBeenCalledWith(
-            'serverless',
+            'osls',
             ['offline', '--config', 'infrastructure.js', '--stage', 'prod'],
             expect.objectContaining({
                 cwd: expect.any(String),
@@ -125,7 +125,7 @@ describe('startCommand', () => {
         await startCommand(options);
 
         expect(spawn).toHaveBeenCalledWith(
-            'serverless',
+            'osls',
             ['offline', '--config', 'infrastructure.js', '--stage', 'dev', '--verbose'],
             expect.any(Object)
         );
@@ -280,7 +280,7 @@ describe('startCommand', () => {
             await startCommand({ stage: 'dev' });
 
             expect(spawn).toHaveBeenCalledWith(
-                'serverless',
+                'osls',
                 expect.arrayContaining(['offline']),
                 expect.any(Object)
             );

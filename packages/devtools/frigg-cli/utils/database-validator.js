@@ -107,45 +107,38 @@ async function testDatabaseConnection(databaseUrl, dbType, timeout = 5000) {
 
 /**
  * Checks if Prisma client is generated for the database type
- * Uses require.resolve to find the client in node_modules
+ * Checks for the generated client directory in @friggframework/core/generated
  *
  * @param {'mongodb'|'postgresql'} dbType - Database type
  * @param {string} projectRoot - Project root directory (used for require.resolve context)
  * @returns {Object} { generated: boolean, path?: string, error?: string }
  */
 function checkPrismaClientGenerated(dbType, projectRoot = process.cwd()) {
-    const clientPackageName = `@prisma-${dbType}/client`;
-
     try {
-        // First, resolve where @friggframework/core actually is
+        // Resolve where @friggframework/core actually is
         // This handles file: dependencies and symlinks correctly
         const corePackagePath = require.resolve('@friggframework/core', {
             paths: [projectRoot]
         });
         const corePackageDir = path.dirname(corePackagePath);
 
-        // Now look for the Prisma client within the resolved core package
-        const clientPath = require.resolve(clientPackageName, {
-            paths: [
-                corePackageDir,  // Look in the actual core package location
-                projectRoot      // Fallback to project root
-            ]
-        });
+        // Check for the generated client directory (same path core uses)
+        const clientPath = path.join(corePackageDir, 'generated', `prisma-${dbType}`);
+        const clientIndexPath = path.join(clientPath, 'index.js');
 
-        return {
-            generated: true,
-            path: path.dirname(clientPath)
-        };
-
-    } catch (error) {
-        // require.resolve throws MODULE_NOT_FOUND if the client doesn't exist
-        if (error.code === 'MODULE_NOT_FOUND') {
+        if (fs.existsSync(clientIndexPath)) {
             return {
-                generated: false,
-                error: `Prisma client for ${dbType} (${clientPackageName}) not found. Run 'frigg db:setup' to generate it.`
+                generated: true,
+                path: clientPath
             };
         }
 
+        return {
+            generated: false,
+            error: `Prisma client for ${dbType} not found at ${clientPath}. Run 'frigg db:setup' to generate it.`
+        };
+
+    } catch (error) {
         return {
             generated: false,
             error: `Failed to check Prisma client: ${error.message}`

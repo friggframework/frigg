@@ -3,25 +3,26 @@
 /**
  * Build Prisma Lambda Layer
  *
- * Creates a Lambda Layer containing Prisma packages and rhel-openssl-3.0.x binaries.
+ * Creates a MINIMAL Lambda Layer containing only Prisma runtime client and query engines.
  * This reduces individual Lambda function sizes by ~60% (120MB → 45MB).
  *
+ * IMPORTANT: This layer does NOT include the Prisma CLI (saves ~82MB).
+ * The CLI is only needed for migrations and is packaged separately with the dbMigrate function.
+ *
  * The layer is configured based on AppDefinition database settings:
- * - PostgreSQL: Includes PostgreSQL client + query engine
- * - MongoDB: Includes MongoDB client + query engine (if needed)
+ * - PostgreSQL: Includes PostgreSQL client + query engine only
+ * - MongoDB: Includes MongoDB client + query engine only (if needed)
  * - Defaults to PostgreSQL only if not specified
  *
  * Usage:
- *   node scripts/build-prisma-layer.js [--mongodb] [--postgresql]
+ *   node scripts/build-prisma-layer.js
  *   npm run build:prisma-layer
  *
  * Output:
  *   layers/prisma/nodejs/node_modules/
- *   ├── @prisma/client
- *   ├── @prisma/engines
+ *   ├── @prisma/client (runtime only, ~10-15MB)
  *   ├── generated/prisma-postgresql (if PostgreSQL enabled)
- *   ├── generated/prisma-mongodb (if MongoDB enabled)
- *   └── prisma (CLI for migrations)
+ *   └── generated/prisma-mongodb (if MongoDB enabled)
  *
  * See: LAMBDA-LAYER-PRISMA.md for complete documentation
  */
@@ -108,6 +109,10 @@ const FILES_TO_REMOVE = [
     'CHANGELOG*',   // Changelog files
     '*.test.js',    // Test files
     '*.spec.js',    // Spec files
+    '*mysql.wasm*',        // MySQL WASM files (not needed for PostgreSQL)
+    '*cockroachdb.wasm*',  // CockroachDB WASM files
+    '*sqlite.wasm*',       // SQLite WASM files
+    '*sqlserver.wasm*',    // SQL Server WASM files
 ];
 
 // ANSI color codes for output
@@ -179,25 +184,20 @@ async function createLayerStructure() {
 }
 
 /**
- * Install Prisma CLI and client directly into layer
- * @param {Boolean} includeCLI - Whether to include Prisma CLI (needed for migrations)
+ * Install Prisma client directly into layer (RUNTIME ONLY - NO CLI)
+ * 
+ * The Prisma CLI is NOT included in this layer to keep it small.
+ * For migrations, the dbMigrate function has its own separate packaging with CLI.
  */
-async function installPrismaPackages(includeCLI = false) {
-    logStep(3, `Installing Prisma packages (${includeCLI ? 'with CLI' : 'runtime only'})`);
+async function installPrismaPackages() {
+    logStep(3, 'Installing Prisma runtime client (CLI excluded)');
 
-    // Create a minimal package.json in the layer
+    // Create a minimal package.json with ONLY the runtime client
     const dependencies = {
         '@prisma/client': '^6.16.3',
-        '@prisma/engines': '^6.16.3',
     };
 
-    // Only include CLI if needed (saves 50MB + 32MB effect dependency)
-    if (includeCLI) {
-        dependencies['prisma'] = '^6.16.3';
-        log('  Including Prisma CLI for migrations', 'yellow');
-    } else {
-        log('  Runtime only - CLI excluded (saves ~82MB)', 'green');
-    }
+    log('  Runtime client only - CLI excluded (saves ~82MB)', 'green');
 
     const layerPackageJson = {
         name: 'prisma-lambda-layer',
@@ -210,14 +210,21 @@ async function installPrismaPackages(includeCLI = false) {
     await fs.writeJson(packageJsonPath, layerPackageJson, { spaces: 2 });
     logSuccess('Created layer package.json');
 
-    // Install Prisma packages
-    log('Installing prisma and @prisma/client...');
+    // Install Prisma packages with Lambda binary target
+    // Setting PRISMA_CLI_BINARY_TARGETS ensures only rhel-openssl-3.0.x binary is downloaded
+    log('Installing @prisma/client for AWS Lambda (rhel-openssl-3.0.x)...');
     try {
-        execSync('npm install --production --no-package-lock', {
+        const env = {
+            ...process.env,
+            PRISMA_CLI_BINARY_TARGETS: 'rhel-openssl-3.0.x',
+        };
+        
+        execSync('npm install --omit=dev --no-package-lock', {
             cwd: path.join(LAYER_OUTPUT_PATH, 'nodejs'),
-            stdio: 'inherit'
+            stdio: 'inherit',
+            env,
         });
-        logSuccess('Prisma packages installed');
+        logSuccess('Prisma packages installed with Lambda binary target');
     } catch (error) {
         throw new Error(`Failed to install Prisma packages: ${error.message}`);
     }
@@ -402,23 +409,22 @@ async function verifyRhelBinaries(expectedClients) {
 
 /**
  * Verify required files exist
- * @param {Boolean} includeCLI - Whether CLI files should be present
+ * Runtime layer should NOT have CLI files
  */
-async function verifyLayerStructure(includeCLI) {
-    logStep(8, 'Verifying layer structure');
+async function verifyLayerStructure() {
+    logStep(8, 'Verifying layer structure (runtime only)');
 
     const requiredPaths = [
         '@prisma/client/runtime',
         '@prisma/client/index.d.ts',
-        '@prisma/engines',
-        'generated/prisma-postgresql/schema.prisma',  // PostgreSQL
+        'generated/prisma-postgresql/schema.prisma',  // PostgreSQL (default)
     ];
 
-    // Only check for CLI files if CLI was included
-    if (includeCLI) {
-        requiredPaths.push('prisma/build');
-        requiredPaths.push('.bin/prisma');
-    }
+    // Verify CLI is NOT present (keeps layer small)
+    const forbiddenPaths = [
+        'prisma/build',
+        '.bin/prisma',
+    ];
 
     let allPresent = true;
 
@@ -436,7 +442,15 @@ async function verifyLayerStructure(includeCLI) {
         throw new Error('Layer structure verification failed - missing required files');
     }
 
-    logSuccess('All required files present');
+    logSuccess('All required runtime files present');
+    
+    // Verify CLI is NOT present
+    for (const forbiddenPath of forbiddenPaths) {
+        const fullPath = path.join(LAYER_NODE_MODULES, forbiddenPath);
+        if (await fs.pathExists(fullPath)) {
+            logWarning(`  ⚠ ${forbiddenPath} found (should be excluded for minimal layer)`);
+        }
+    }
 }
 
 /**
@@ -455,11 +469,11 @@ async function displayLayerSummary() {
     log(`Layer size: ~${layerSizeMB} MB`, 'green');
 
     log('\nPackages included:', 'bright');
-    log('  - prisma (CLI - installed)', 'reset');
-    log('  - @prisma/client (runtime - installed)', 'reset');
-    log('  - @prisma/engines (binaries - installed)', 'reset');
-    log('  - generated/prisma-postgresql (PostgreSQL only)', 'reset');
-    log('\nNote: MongoDB support excluded (not used in this project)', 'yellow');
+    log('  - @prisma/client (runtime only - ~10-15MB)', 'reset');
+    log('  - generated/prisma-postgresql (PostgreSQL client)', 'reset');
+    log('\nPackages EXCLUDED for minimal size:', 'bright');
+    log('  - prisma CLI (excluded - only in dbMigrate function)', 'yellow');
+    log('  - @prisma/engines (minimal - only rhel binary)', 'yellow');
 
     log('\nNext steps:', 'bright');
     log('  1. Verify layer structure: ls -lah layers/prisma/nodejs/node_modules/', 'reset');
@@ -473,13 +487,12 @@ async function displayLayerSummary() {
 /**
  * Main build function
  * @param {Object} databaseConfig - Database configuration from AppDefinition.database
- * @param {Boolean} includeCLI - Whether to include Prisma CLI (false = runtime only)
  */
-async function buildPrismaLayer(databaseConfig = {}, includeCLI = false) {
+async function buildPrismaLayer(databaseConfig = {}) {
     const startTime = Date.now();
 
     log('\n' + '='.repeat(60), 'bright');
-    log(`  Building Prisma Lambda Layer ${includeCLI ? '(with CLI)' : '(runtime only)'}`, 'bright');
+    log('  Building Minimal Prisma Lambda Layer (Runtime Only)', 'bright');
     log('='.repeat(60) + '\n', 'bright');
 
     // Log paths
@@ -493,12 +506,12 @@ async function buildPrismaLayer(databaseConfig = {}, includeCLI = false) {
     try {
         await cleanLayerDirectory();
         await createLayerStructure();
-        await installPrismaPackages(includeCLI);    // Install Prisma packages (CLI optional)
+        await installPrismaPackages();              // Install runtime client only (NO CLI)
         await copyPrismaPackages(clientPackages);   // Copy generated clients from core
         await removeUnnecessaryFiles();             // Remove source maps, docs, tests (37MB+)
         await removeNonRhelBinaries();              // Remove non-Linux binaries
         await verifyRhelBinaries(clientPackages);   // Verify query engines present
-        await verifyLayerStructure(includeCLI);     // Verify structure (conditional on CLI)
+        await verifyLayerStructure();               // Verify minimal runtime structure
         await displayLayerSummary();
 
         const duration = ((Date.now() - startTime) / 1000).toFixed(2);

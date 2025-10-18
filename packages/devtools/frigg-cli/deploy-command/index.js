@@ -9,7 +9,7 @@ const PATHS = {
 };
 
 const COMMANDS = {
-    SERVERLESS: 'serverless'
+    SERVERLESS: 'osls'  // OSS-Serverless (drop-in replacement for serverless v3)
 };
 
 /**
@@ -46,7 +46,7 @@ function buildFilteredEnvironment(appDefinedVariables) {
  */
 function loadAppDefinition() {
     const appDefPath = path.join(process.cwd(), PATHS.APP_DEFINITION);
-    
+
     if (!fs.existsSync(appDefPath)) {
         return null;
     }
@@ -71,7 +71,7 @@ function extractEnvironmentVariables(appDefinition) {
     }
 
     console.log('🔧 Loading environment configuration from appDefinition...');
-    
+
     const appDefinedVariables = Object.keys(appDefinition.environment).filter(
         (key) => appDefinition.environment[key] === true
     );
@@ -119,7 +119,7 @@ function validateAndBuildEnvironment(appDefinition, options) {
     } catch (validatorError) {
         // Validator not available, do basic validation
         const missingVariables = appDefinedVariables.filter((variable) => !process.env[variable]);
-        
+
         if (missingVariables.length > 0) {
             console.warn(`⚠️  Warning: Missing ${missingVariables.length} environment variables: ${missingVariables.join(', ')}`);
             console.warn('   These variables are optional and deployment will continue');
@@ -137,7 +137,7 @@ function validateAndBuildEnvironment(appDefinition, options) {
  */
 function executeServerlessDeployment(environment, options) {
     console.log('🚀 Deploying serverless application...');
-    
+
     const serverlessArgs = [
         'deploy',
         '--config',
@@ -168,7 +168,7 @@ async function deployCommand(options) {
 
     const appDefinition = loadAppDefinition();
     const environment = validateAndBuildEnvironment(appDefinition, options);
-    
+
     executeServerlessDeployment(environment, options);
 }
 

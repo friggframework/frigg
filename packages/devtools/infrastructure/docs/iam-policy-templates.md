@@ -12,7 +12,7 @@ For immediate deployment, you have two ready-to-use IAM policy options:
 aws iam put-user-policy \
   --user-name frigg-deployment-user \
   --policy-name FriggBasicDeploymentPolicy \
-  --policy-document file://iam-policy-basic.json
+  --policy-document file://domains/security/templates/iam-policy-basic.json
 ```
 
 **Includes permissions for:**
@@ -32,7 +32,7 @@ aws iam put-user-policy \
 aws iam put-user-policy \
   --user-name frigg-deployment-user \
   --policy-name FriggFullDeploymentPolicy \
-  --policy-document file://iam-policy-full.json
+  --policy-document file://domains/security/templates/iam-policy-full.json
 ```
 
 **Includes everything from Basic Policy PLUS:**
@@ -65,7 +65,7 @@ This means your current deployment user doesn't have VPC permissions. You have t
 aws iam put-user-policy \
   --user-name frigg-deployment-user \
   --policy-name FriggFullDeploymentPolicy \
-  --policy-document file://iam-policy-full.json
+  --policy-document file://domains/security/templates/iam-policy-full.json
 ```
 
 ### Alternative: Update CloudFormation Stack
@@ -73,7 +73,7 @@ If you deployed using the CloudFormation template, update it with VPC support:
 ```bash
 aws cloudformation update-stack \
   --stack-name frigg-deployment-iam \
-  --template-body file://frigg-deployment-iam-stack.yaml \
+  --template-body file://domains/security/templates/frigg-deployment-iam-stack.yaml \
   --parameters ParameterKey=EnableVPCSupport,ParameterValue=true \
   --capabilities CAPABILITY_IAM
 ```
@@ -178,12 +178,11 @@ frigg deploy
 
 ## Files in this Directory
 
-- `iam-policy-basic.json` - Core Frigg permissions only (JSON format)
-- `iam-policy-full.json` - All features enabled (JSON format)
-- `frigg-deployment-iam-stack.yaml` - CloudFormation template with conditional parameters
-- `iam-generator.js` - Programmatic policy generation with basic/full/auto modes
-- `AWS-IAM-CREDENTIAL-NEEDS.md` - Detailed permission explanations and troubleshooting
-- `IAM-POLICY-TEMPLATES.md` - This file - Quick start guide and usage examples
+- `../domains/security/templates/iam-policy-basic.json` - Core Frigg permissions only (JSON format)
+- `../domains/security/templates/iam-policy-full.json` - All features enabled (JSON format)
+- `../domains/security/templates/frigg-deployment-iam-stack.yaml` - CloudFormation template with conditional parameters
+- `../domains/security/iam-generator.js` - Programmatic policy generation with basic/full/auto modes
+- This file (`iam-policy-templates.md`) - Quick start guide and usage examples
 
 ## Support
 

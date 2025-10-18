@@ -781,7 +781,7 @@ function getFeatureSummary(appDefinition) {
  * @returns {Object} Basic IAM policy document
  */
 function generateBasicIAMPolicy() {
-    const basicPolicyPath = path.join(__dirname, 'iam-policy-basic.json');
+    const basicPolicyPath = path.join(__dirname, 'templates/iam-policy-basic.json');
     return require(basicPolicyPath);
 }
 
@@ -790,7 +790,7 @@ function generateBasicIAMPolicy() {
  * @returns {Object} Full IAM policy document
  */
 function generateFullIAMPolicy() {
-    const fullPolicyPath = path.join(__dirname, 'iam-policy-full.json');
+    const fullPolicyPath = path.join(__dirname, 'templates/iam-policy-full.json');
     return require(fullPolicyPath);
 }
 

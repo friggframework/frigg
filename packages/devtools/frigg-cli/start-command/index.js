@@ -44,7 +44,7 @@ async function startCommand(options) {
     const backendPath = path.resolve(process.cwd());
     console.log(`Starting backend in ${backendPath}...`);
     const infrastructurePath = 'infrastructure.js';
-    const command = 'serverless';
+    const command = 'osls';  // OSS-Serverless (drop-in replacement for serverless v3)
     const args = [
         'offline',
         '--config',

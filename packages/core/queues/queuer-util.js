@@ -1,5 +1,6 @@
 const { v4: uuid } = require('uuid');
-const AWS = require('aws-sdk');
+const { SQSClient, SendMessageCommand, SendMessageBatchCommand } = require('@aws-sdk/client-sqs');
+
 const awsConfigOptions = () => {
     const config = {};
     if (process.env.IS_OFFLINE) {
@@ -10,18 +11,17 @@ const awsConfigOptions = () => {
     }
     return config;
 };
-AWS.config.update(awsConfigOptions());
-const sqs = new AWS.SQS();
+
+const sqs = new SQSClient(awsConfigOptions());
 
 const QueuerUtil = {
     send: async (message, queueUrl) => {
         console.log(`Enqueuing message to SQS queue ${queueUrl}`);
-        return sqs
-            .sendMessage({
-                MessageBody: JSON.stringify(message),
-                QueueUrl: queueUrl,
-            })
-            .promise();
+        const command = new SendMessageCommand({
+            MessageBody: JSON.stringify(message),
+            QueueUrl: queueUrl,
+        });
+        return sqs.send(command);
     },
 
     batchSend: async (entries = [], queueUrl) => {
@@ -39,12 +39,11 @@ const QueuerUtil = {
             // Sends 10, then purges the buffer
             if (buffer.length === batchSize) {
                 console.log('Buffer at 10, sending batch');
-                await sqs
-                    .sendMessageBatch({
-                        Entries: buffer,
-                        QueueUrl: queueUrl,
-                    })
-                    .promise();
+                const command = new SendMessageBatchCommand({
+                    Entries: buffer,
+                    QueueUrl: queueUrl,
+                });
+                await sqs.send(command);
                 // Purge the buffer
                 buffer.splice(0, buffer.length);
             }
@@ -54,12 +53,11 @@ const QueuerUtil = {
         // If any remaining entries under 10 are left in the buffer, send and return
         if (buffer.length > 0) {
             console.log(buffer);
-            return sqs
-                .sendMessageBatch({
-                    Entries: buffer,
-                    QueueUrl: queueUrl,
-                })
-                .promise();
+            const command = new SendMessageBatchCommand({
+                Entries: buffer,
+                QueueUrl: queueUrl,
+            });
+            return sqs.send(command);
         }
 
         // If we're exact... just return an empty object for now
