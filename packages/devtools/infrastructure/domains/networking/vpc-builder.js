@@ -159,6 +159,9 @@ class VpcBuilder extends InfrastructureBuilder {
             }
         }
 
+        // Set VPC_ENABLED environment variable so runtime can detect VPC configuration
+        result.environment.VPC_ENABLED = 'true';
+
         console.log(`[${this.name}] ✅ VPC infrastructure built successfully`);
         console.log(`  - VPC ID: ${result.vpcId || 'from discovery'}`);
         console.log(`  - Subnets: ${result.vpcConfig.subnetIds.length}`);

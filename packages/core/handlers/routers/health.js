@@ -141,8 +141,11 @@ const detectVpcConfiguration = async () => {
             }
         }
 
-        results.isInVpc =
-            !results.hasInternetAccess || results.vpcEndpoints.length > 0;
+        // Check if Lambda is in VPC using VPC_ENABLED env var set by infrastructure
+        results.isInVpc = process.env.VPC_ENABLED === 'true' || 
+            (!results.hasInternetAccess && results.canResolvePublicDns) || 
+            results.vpcEndpoints.length > 0;
+        
         results.canConnectToAws =
             results.hasInternetAccess || results.vpcEndpoints.length > 0;
     } catch (error) {
