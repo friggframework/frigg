@@ -160,6 +160,9 @@ class VpcBuilder extends InfrastructureBuilder {
         }
 
         // Set VPC_ENABLED environment variable so runtime can detect VPC configuration
+        if (!result.environment) {
+            result.environment = {};
+        }
         result.environment.VPC_ENABLED = 'true';
 
         console.log(`[${this.name}] ✅ VPC infrastructure built successfully`);
@@ -561,7 +564,7 @@ class VpcBuilder extends InfrastructureBuilder {
         if (discoveredResources.existingNatGatewayId && !discoveredResources.natGatewayInPrivateSubnet) {
             console.log(`    Reusing discovered NAT Gateway: ${discoveredResources.existingNatGatewayId}`);
             result.natGatewayId = discoveredResources.existingNatGatewayId;
-            
+
             // Still need to create route table and associations for discovered NAT
             this.createNatGatewayRouting(appDefinition, discoveredResources, result, discoveredResources.existingNatGatewayId);
             return;
