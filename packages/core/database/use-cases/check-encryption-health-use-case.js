@@ -66,8 +66,9 @@ class CheckEncryptionHealthUseCase {
 
         const isBypassed = bypassStages.includes(STAGE);
         const hasAES = AES_KEY_ID && AES_KEY_ID.trim() !== '';
-        const hasKMS = KMS_KEY_ARN && KMS_KEY_ARN.trim() !== '' && !hasAES;
-        const mode = hasAES ? 'aes' : hasKMS ? 'kms' : 'none';
+        const hasKMS = KMS_KEY_ARN && KMS_KEY_ARN.trim() !== '';
+        // Prefer KMS over AES when both are configured (KMS is more secure)
+        const mode = hasKMS ? 'kms' : hasAES ? 'aes' : 'none';
 
         return {
             stage: STAGE || null,

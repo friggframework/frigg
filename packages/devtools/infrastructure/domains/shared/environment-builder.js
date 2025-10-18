@@ -85,6 +85,7 @@ function getAppEnvironmentVars(appDefinition) {
 function buildEnvironment(appEnvironmentVars, discoveredResources) {
     const environment = {
         ...appEnvironmentVars,
+        STAGE: '${self:provider.stage}',  // Used by encryption bypass logic
         FRIGG_STACK: '${self:service}',
         FRIGG_STAGE: '${self:provider.stage}',
         FRIGG_REGION: '${self:provider.region}',

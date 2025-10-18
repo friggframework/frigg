@@ -118,6 +118,7 @@ describe('Environment Builder', () => {
             const result = buildEnvironment(appEnvironmentVars, discoveredResources);
 
             expect(result.API_KEY).toBe("${env:API_KEY, ''}");
+            expect(result.STAGE).toBe('${self:provider.stage}');
             expect(result.FRIGG_STACK).toBe('${self:service}');
             expect(result.FRIGG_STAGE).toBe('${self:provider.stage}');
             expect(result.FRIGG_REGION).toBe('${self:provider.region}');
