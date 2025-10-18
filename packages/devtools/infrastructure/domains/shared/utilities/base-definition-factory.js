@@ -52,6 +52,29 @@ function createBaseDefinition(
             'node_modules/jest/**',
             'node_modules/prettier/**',
             'node_modules/eslint/**',
+            
+            // Exclude ALL nested node_modules (catch any package with nested dependencies)
+            'node_modules/**/node_modules/**',
+            
+            // Exclude build tools (not needed at runtime)
+            'node_modules/esbuild/**',
+            'node_modules/@esbuild/**',
+            'node_modules/typescript/**',
+            'node_modules/webpack/**',
+            'node_modules/osls/**',
+            'node_modules/serverless*/**',
+            
+            // Exclude local dev files
+            'deploy.log',
+            '.env.backup',
+            'docker-compose.yml',
+            'jest.config.js',
+            'jest.unit.config.js',
+            '.eslintrc.json',
+            '.prettierrc',
+            '.prettierignore',
+            '.markdownlintignore',
+            'package-lock.json',
 
             // Exclude test files and layers (but keep src/ - needed for app definition)
             'test/**',
@@ -256,28 +279,76 @@ function createBaseDefinition(
                 description: 'Runs database migrations via Prisma CLI (invoke manually from CI/CD or triggers). Prisma CLI bundled separately.',
                 package: {
                     individually: true,
-                    patterns: [
-                        // Include handler
-                        'node_modules/@friggframework/core/handlers/database-migration-handler.js',
-
-                        // Include ONLY PostgreSQL Prisma client (exclude MongoDB)
-                        'node_modules/@friggframework/core/generated/prisma-postgresql/**',
-                        '!node_modules/@friggframework/core/generated/prisma-mongodb/**',  // Exclude MongoDB client entirely
-
-                        // Include Prisma runtime
-                        'node_modules/@prisma/client/**',
-                        'node_modules/.prisma/**',
-                        'node_modules/prisma/**',  // Prisma CLI
-
-                        // Exclude unnecessary engines and files
-                        '!node_modules/prisma/node_modules/**',
-                        '!**/query-engine-darwin*',  // Exclude macOS binaries (keep rhel for Lambda)
-                        '!**/runtime/*.wasm',  // WASM engines
-                        '!**/*.md',
-                        '!**/*.map',
-                        '!**/LICENSE*',
-                        '!**/*.d.ts',
-                        '!**/*.d.mts',
+                    exclude: [
+                        // Exclude ALL nested node_modules
+                        'node_modules/**/node_modules/**',
+                        
+                        // Exclude AWS SDK (provided by Lambda runtime)
+                        'node_modules/aws-sdk/**',
+                        'node_modules/@aws-sdk/**',
+                        
+                        // Exclude build tools (not needed for migrations)
+                        'node_modules/esbuild/**',
+                        'node_modules/@esbuild/**',
+                        'node_modules/typescript/**',
+                        'node_modules/webpack/**',
+                        'node_modules/osls/**',
+                        'node_modules/serverless*/**',
+                        
+                        // Exclude dev dependencies
+                        'node_modules/@friggframework/test/**',
+                        'node_modules/@friggframework/eslint-config/**',
+                        'node_modules/@friggframework/prettier-config/**',
+                        'node_modules/@friggframework/devtools/**',
+                        'node_modules/@friggframework/serverless-plugin/**',
+                        'node_modules/jest/**',
+                        'node_modules/prettier/**',
+                        'node_modules/eslint/**',
+                        
+                        // Exclude MongoDB Prisma client (only need PostgreSQL)
+                        'node_modules/@friggframework/core/generated/prisma-mongodb/**',
+                        
+                        // Exclude non-essential Frigg modules
+                        'node_modules/@friggframework/core/integrations/**',
+                        'node_modules/@friggframework/core/user/**',
+                        'node_modules/@friggframework/core/handlers/routers/**',
+                        'node_modules/@friggframework/core/handlers/workers/**',
+                        
+                        // Exclude wrong OS binaries
+                        '**/query-engine-darwin*',
+                        '**/schema-engine-darwin*',
+                        '**/libquery_engine-darwin*',
+                        '**/*-darwin-arm64*',
+                        '**/*-darwin*',
+                        
+                        // Exclude WASM engines
+                        '**/runtime/*.wasm',
+                        '**/*.wasm*',
+                        
+                        // Exclude backend source (not needed for migration handler)
+                        'src/**',
+                        'test/**',
+                        'layers/**',
+                        'coverage/**',
+                        
+                        // Exclude local dev files
+                        'deploy.log',
+                        '.env.backup',
+                        'docker-compose.yml',
+                        'jest.config.js',
+                        'jest.unit.config.js',
+                        'package-lock.json',
+                        
+                        // Exclude docs and metadata
+                        '**/*.md',
+                        '**/*.map',
+                        '**/LICENSE*',
+                        '**/*.d.ts',
+                        '**/*.d.mts',
+                        '**/*.test.js',
+                        '**/*.spec.js',
+                        '**/.claude-flow/**',
+                        '**/.swarm/**',
                     ],
                 },
                 maximumEventAge: 60,

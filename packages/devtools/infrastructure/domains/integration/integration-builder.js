@@ -60,12 +60,46 @@ class IntegrationBuilder extends InfrastructureBuilder {
 
         const functionPackageConfig = {
             exclude: [
+                // Exclude AWS SDK (provided by Lambda runtime)
                 'node_modules/aws-sdk/**',
                 'node_modules/@aws-sdk/**',
+                
+                // Exclude Prisma (provided via Lambda Layer)
                 'node_modules/@prisma/**',
                 'node_modules/.prisma/**',
                 'node_modules/prisma/**',
                 'node_modules/@friggframework/core/generated/**',
+                
+                // Exclude ALL nested node_modules
+                'node_modules/**/node_modules/**',
+                
+                // Exclude build tools (not needed at runtime)
+                'node_modules/esbuild/**',
+                'node_modules/@esbuild/**',
+                'node_modules/typescript/**',
+                'node_modules/webpack/**',
+                'node_modules/osls/**',
+                'node_modules/serverless*/**',
+                
+                // Exclude dev/test dependencies
+                'node_modules/@friggframework/test/**',
+                'node_modules/@friggframework/eslint-config/**',
+                'node_modules/@friggframework/prettier-config/**',
+                'node_modules/jest/**',
+                'node_modules/prettier/**',
+                'node_modules/eslint/**',
+                
+                // Exclude local dev files
+                'deploy.log',
+                '.env.backup',
+                'docker-compose.yml',
+                'jest.config.js',
+                'jest.unit.config.js',
+                '.eslintrc.json',
+                '.prettierrc',
+                '.prettierignore',
+                '.markdownlintignore',
+                'package-lock.json',
 
                 // Exclude development/test files
                 'coverage/**',
@@ -74,6 +108,8 @@ class IntegrationBuilder extends InfrastructureBuilder {
                 'layers/**',
                 '**/*.test.js',
                 '**/*.spec.js',
+                '**/.claude-flow/**',
+                '**/.swarm/**',
             ],
         };
 
