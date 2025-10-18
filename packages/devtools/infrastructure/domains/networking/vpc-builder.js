@@ -558,6 +558,9 @@ class VpcBuilder extends InfrastructureBuilder {
         if (discoveredResources.existingNatGatewayId && !discoveredResources.natGatewayInPrivateSubnet) {
             console.log(`    Reusing discovered NAT Gateway: ${discoveredResources.existingNatGatewayId}`);
             result.natGatewayId = discoveredResources.existingNatGatewayId;
+            
+            // Still need to create route table and associations for discovered NAT
+            this.createNatGatewayRouting(appDefinition, discoveredResources, result, discoveredResources.existingNatGatewayId);
             return;
         }
 
@@ -593,32 +596,48 @@ class VpcBuilder extends InfrastructureBuilder {
             },
         };
 
+        // Create routing for the new NAT Gateway
+        this.createNatGatewayRouting(appDefinition, discoveredResources, result, { Ref: 'FriggNATGateway' });
+
+        console.log('    ✅ NAT Gateway infrastructure created');
+    }
+
+    /**
+     * Create route table and associations for NAT Gateway
+     */
+    createNatGatewayRouting(appDefinition, discoveredResources, result, natGatewayId) {
         // Private route table with NAT Gateway route
-        result.resources.FriggLambdaRouteTable = {
-            Type: 'AWS::EC2::RouteTable',
-            Properties: {
-                VpcId: result.vpcId,
-                Tags: [
-                    { Key: 'Name', Value: '${self:service}-${self:provider.stage}-lambda-rt' },
-                    { Key: 'ManagedBy', Value: 'Frigg' },
-                ],
-            },
-        };
+        if (!result.resources.FriggLambdaRouteTable) {
+            result.resources.FriggLambdaRouteTable = {
+                Type: 'AWS::EC2::RouteTable',
+                Properties: {
+                    VpcId: result.vpcId,
+                    Tags: [
+                        { Key: 'Name', Value: '${self:service}-${self:provider.stage}-lambda-rt' },
+                        { Key: 'ManagedBy', Value: 'Frigg' },
+                    ],
+                },
+            };
+        }
 
         result.resources.FriggPrivateRoute = {
             Type: 'AWS::EC2::Route',
             Properties: {
                 RouteTableId: { Ref: 'FriggLambdaRouteTable' },
                 DestinationCidrBlock: '0.0.0.0/0',
-                NatGatewayId: { Ref: 'FriggNATGateway' },
+                NatGatewayId: natGatewayId,
             },
         };
 
         // Associate route table with private subnets
+        // Use discovered subnet IDs or CloudFormation references
+        const subnet1Id = discoveredResources.privateSubnetId1 || { Ref: 'FriggPrivateSubnet1' };
+        const subnet2Id = discoveredResources.privateSubnetId2 || { Ref: 'FriggPrivateSubnet2' };
+
         result.resources.FriggPrivateSubnet1RouteTableAssociation = {
             Type: 'AWS::EC2::SubnetRouteTableAssociation',
             Properties: {
-                SubnetId: { Ref: 'FriggPrivateSubnet1' },
+                SubnetId: subnet1Id,
                 RouteTableId: { Ref: 'FriggLambdaRouteTable' },
             },
         };
@@ -626,12 +645,12 @@ class VpcBuilder extends InfrastructureBuilder {
         result.resources.FriggPrivateSubnet2RouteTableAssociation = {
             Type: 'AWS::EC2::SubnetRouteTableAssociation',
             Properties: {
-                SubnetId: { Ref: 'FriggPrivateSubnet2' },
+                SubnetId: subnet2Id,
                 RouteTableId: { Ref: 'FriggLambdaRouteTable' },
             },
         };
 
-        console.log('    ✅ NAT Gateway infrastructure created');
+        console.log('    ✅ Route table and subnet associations created');
     }
 
     /**
