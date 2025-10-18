@@ -644,7 +644,7 @@ describe('VpcBuilder', () => {
             };
 
             const result = await vpcBuilder.build(appDefinition, discoveredResources);
-            
+
             // Should create new NAT Gateway instead of using the misplaced one
             expect(result.resources.FriggNATGateway).toBeDefined();
             expect(result.resources.FriggNATGateway.Type).toBe('AWS::EC2::NatGateway');

@@ -22,7 +22,7 @@ function getEncryptionConfig() {
     if (!hasKMS && !hasAES) {
         logger.warn(
             'No encryption keys configured (KMS_KEY_ARN or AES_KEY_ID). ' +
-                'Field-level encryption disabled. Set STAGE=production and configure keys to enable.'
+            'Field-level encryption disabled. Set STAGE=production and configure keys to enable.'
         );
         return { enabled: false };
     }
@@ -75,7 +75,7 @@ function loadCustomEncryptionSchema() {
 
 const prismaClientSingleton = () => {
     let PrismaClient;
-    
+
     // Helper to try loading Prisma client from multiple locations
     const loadPrismaClient = (dbType) => {
         const paths = [
@@ -84,7 +84,7 @@ const prismaClientSingleton = () => {
             // Local development location (relative to core package)
             `../generated/prisma-${dbType}`,
         ];
-        
+
         for (const path of paths) {
             try {
                 return require(path).PrismaClient;
@@ -92,7 +92,7 @@ const prismaClientSingleton = () => {
                 // Continue to next path
             }
         }
-        
+
         throw new Error(
             `Cannot find Prisma client for ${dbType}. Tried paths: ${paths.join(', ')}`
         );

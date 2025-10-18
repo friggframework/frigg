@@ -39,10 +39,10 @@ let moduleFactory, integrationClasses;
 try {
     const appDef = loadAppDefinition();
     integrationClasses = appDef.integrations || [];
-    
+
     const moduleRepository = createModuleRepository();
     const moduleDefinitions = getModulesDefinitionFromIntegrationClasses(integrationClasses);
-    
+
     moduleFactory = new ModuleFactory({
         moduleRepository,
         moduleDefinitions,

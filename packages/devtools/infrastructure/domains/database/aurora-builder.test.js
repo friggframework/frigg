@@ -58,7 +58,7 @@ describe('AuroraBuilder', () => {
 
         it('should return false when FRIGG_SKIP_AWS_DISCOVERY is set (local mode)', () => {
             process.env.FRIGG_SKIP_AWS_DISCOVERY = 'true';
-            
+
             const appDefinition = {
                 database: {
                     postgres: { enable: true },
@@ -70,7 +70,7 @@ describe('AuroraBuilder', () => {
 
         it('should return true when FRIGG_SKIP_AWS_DISCOVERY is not set and Postgres is enabled', () => {
             delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
-            
+
             const appDefinition = {
                 database: {
                     postgres: { enable: true },

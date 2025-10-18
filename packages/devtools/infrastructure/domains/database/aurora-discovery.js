@@ -49,7 +49,7 @@ class AuroraDiscovery {
                 result.databasePort = rawResources.port || 5432;
                 result.auroraEngine = rawResources.engine || 'aurora-postgresql';
                 result.databaseEngine = rawResources.engine || 'aurora-postgresql';
-                
+
                 // Capture security group IDs
                 if (rawResources.securityGroupIds && rawResources.securityGroupIds.length > 0) {
                     result.auroraSecurityGroupId = rawResources.securityGroupIds[0]; // Use first security group

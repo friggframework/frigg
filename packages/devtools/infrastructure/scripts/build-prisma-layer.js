@@ -218,7 +218,7 @@ async function installPrismaPackages() {
             ...process.env,
             PRISMA_CLI_BINARY_TARGETS: 'rhel-openssl-3.0.x',
         };
-        
+
         execSync('npm install --omit=dev --no-package-lock', {
             cwd: path.join(LAYER_OUTPUT_PATH, 'nodejs'),
             stdio: 'inherit',
@@ -443,7 +443,7 @@ async function verifyLayerStructure() {
     }
 
     logSuccess('All required runtime files present');
-    
+
     // Verify CLI is NOT present
     for (const forbiddenPath of forbiddenPaths) {
         const fullPath = path.join(LAYER_NODE_MODULES, forbiddenPath);

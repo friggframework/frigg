@@ -30,7 +30,7 @@ class AuroraBuilder extends InfrastructureBuilder {
         if (process.env.FRIGG_SKIP_AWS_DISCOVERY === 'true') {
             return false;
         }
-        
+
         return appDefinition.database?.postgres?.enable === true;
     }
 
@@ -267,7 +267,7 @@ class AuroraBuilder extends InfrastructureBuilder {
         }
 
         console.log(`  ✅ Using discovered Aurora cluster: ${discoveredResources.auroraClusterEndpoint}`);
-        
+
         // Use discovered cluster details
         result.environment.DATABASE_HOST = discoveredResources.auroraClusterEndpoint;
         result.environment.DATABASE_PORT = String(discoveredResources.auroraPort || 5432);
