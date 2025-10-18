@@ -107,11 +107,11 @@ class IntegrationBuilder extends InfrastructureBuilder {
                 '.markdownlintignore',
                 'package-lock.json',
 
-                // Exclude development/test files
+                // Exclude development/test files (keep src/ - needed for integrations and api-modules)
                 'coverage/**',
                 'test/**',
-                'src/**',
                 'layers/**',
+                // Note: DO NOT exclude src/** - handlers need src/integrations and src/api-modules at runtime
                 '**/*.test.js',
                 '**/*.spec.js',
                 '**/.claude-flow/**',

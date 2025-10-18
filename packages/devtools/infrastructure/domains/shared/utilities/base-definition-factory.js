@@ -82,10 +82,11 @@ function createBaseDefinition(
             '.markdownlintignore',
             'package-lock.json',
 
-            // Exclude test files and layers (but keep src/ - needed for app definition)
+            // Exclude test files and layers (keep src/ - needed for app definition and integrations)
             'test/**',
             'layers/**',
             'coverage/**',
+            // Note: DO NOT exclude src/** - handlers need src/integrations and src/api-modules at runtime
             '**/*.test.js',
             '**/*.spec.js',
             '**/.claude-flow/**',
@@ -336,8 +337,8 @@ function createBaseDefinition(
                         '**/runtime/*.wasm',
                         '**/*.wasm*',
 
-                        // Exclude backend source (not needed for migration handler)
-                        'src/**',
+                        // Exclude backend source (dbMigrate doesn't need it)
+                        'src/**',  // OK to exclude for migration handler only
                         'test/**',
                         'layers/**',
                         'coverage/**',
