@@ -384,6 +384,7 @@ class VpcBuilder extends InfrastructureBuilder {
         // Private Subnet 1
         result.resources.FriggPrivateSubnet1 = {
             Type: 'AWS::EC2::Subnet',
+            DeletionPolicy: 'Retain',
             Properties: {
                 VpcId: subnetVpcId,
                 CidrBlock: cidrs.private1,
@@ -399,6 +400,7 @@ class VpcBuilder extends InfrastructureBuilder {
         // Private Subnet 2
         result.resources.FriggPrivateSubnet2 = {
             Type: 'AWS::EC2::Subnet',
+            DeletionPolicy: 'Retain',
             Properties: {
                 VpcId: subnetVpcId,
                 CidrBlock: cidrs.private2,
