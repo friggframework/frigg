@@ -33,6 +33,15 @@ const {
     UserRepositoryMongo,
     UserRepositoryPostgres,
 } = require('./user/repositories/user-repository-factory');
+const {
+    GetUserFromXFriggHeaders,
+} = require('./user/use-cases/get-user-from-x-frigg-headers');
+const {
+    GetUserFromAdopterJwt,
+} = require('./user/use-cases/get-user-from-adopter-jwt');
+const {
+    AuthenticateUser,
+} = require('./user/use-cases/authenticate-user');
 
 const {
     CredentialRepository,
@@ -123,6 +132,9 @@ module.exports = {
     createUserRepository,
     UserRepositoryMongo,
     UserRepositoryPostgres,
+    GetUserFromXFriggHeaders,
+    GetUserFromAdopterJwt,
+    AuthenticateUser,
     CredentialRepository,
     ModuleRepository,
     IntegrationMappingRepository,

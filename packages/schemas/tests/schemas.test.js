@@ -80,6 +80,153 @@ describe('@friggframework/schemas', () => {
             expect(result.errors).toBeTruthy();
             expect(result.errors.length).toBeGreaterThan(0);
         });
+
+        describe('User Authentication Modes', () => {
+            test('should validate user config with authModes', () => {
+                const appDef = {
+                    integrations: [],
+                    user: {
+                        usePassword: true,
+                        primary: 'individual',
+                        individualUserRequired: true,
+                        organizationUserRequired: false,
+                        authModes: {
+                            friggToken: true,
+                            xFriggHeaders: true,
+                            adopterJwt: false,
+                        },
+                    },
+                };
+
+                const result = validateAppDefinition(appDef);
+                expect(result.valid).toBe(true);
+            });
+
+            test('should validate user config with jwtConfig', () => {
+                const appDef = {
+                    integrations: [],
+                    user: {
+                        usePassword: false,
+                        authModes: {
+                            friggToken: false,
+                            xFriggHeaders: false,
+                            adopterJwt: true,
+                        },
+                        jwtConfig: {
+                            secret: 'test-secret',
+                            userIdClaim: 'sub',
+                            orgIdClaim: 'org_id',
+                            algorithm: 'HS256',
+                        },
+                    },
+                };
+
+                const result = validateAppDefinition(appDef);
+                expect(result.valid).toBe(true);
+            });
+
+            test('should accept valid JWT algorithms', () => {
+                const algorithms = ['HS256', 'HS384', 'HS512', 'RS256', 'RS384', 'RS512'];
+
+                algorithms.forEach((algorithm) => {
+                    const appDef = {
+                        integrations: [],
+                        user: {
+                            authModes: { adopterJwt: true },
+                            jwtConfig: {
+                                secret: 'test-secret',
+                                algorithm,
+                            },
+                        },
+                    };
+
+                    const result = validateAppDefinition(appDef);
+                    expect(result.valid).toBe(true);
+                });
+            });
+
+            test('should reject invalid JWT algorithm', () => {
+                const appDef = {
+                    integrations: [],
+                    user: {
+                        authModes: { adopterJwt: true },
+                        jwtConfig: {
+                            secret: 'test-secret',
+                            algorithm: 'INVALID_ALGO',
+                        },
+                    },
+                };
+
+                const result = validateAppDefinition(appDef);
+                expect(result.valid).toBe(false);
+                expect(formatErrors(result.errors)).toContain('algorithm');
+            });
+
+            test('should require jwtConfig.secret when jwtConfig present', () => {
+                const appDef = {
+                    integrations: [],
+                    user: {
+                        authModes: { adopterJwt: true },
+                        jwtConfig: {
+                            // Missing required secret
+                            userIdClaim: 'sub',
+                        },
+                    },
+                };
+
+                const result = validateAppDefinition(appDef);
+                expect(result.valid).toBe(false);
+                expect(formatErrors(result.errors)).toContain('secret');
+            });
+
+            test('should reject invalid authMode keys', () => {
+                const appDef = {
+                    integrations: [],
+                    user: {
+                        authModes: {
+                            friggToken: true,
+                            invalidMode: true, // Not a valid auth mode
+                        },
+                    },
+                };
+
+                const result = validateAppDefinition(appDef);
+                expect(result.valid).toBe(false);
+            });
+
+            test('should validate complete user configuration', () => {
+                const appDef = {
+                    integrations: [],
+                    user: {
+                        usePassword: true,
+                        primary: 'individual',
+                        individualUserRequired: true,
+                        organizationUserRequired: false,
+                        authModes: {
+                            friggToken: true,
+                            xFriggHeaders: true,
+                            adopterJwt: false,
+                        },
+                        fields: ['email', 'firstName', 'lastName'],
+                    },
+                };
+
+                const result = validateAppDefinition(appDef);
+                expect(result.valid).toBe(true);
+            });
+
+            test('should reject invalid primary user type', () => {
+                const appDef = {
+                    integrations: [],
+                    user: {
+                        primary: 'invalid-type', // Must be 'individual' or 'organization'
+                    },
+                };
+
+                const result = validateAppDefinition(appDef);
+                expect(result.valid).toBe(false);
+            });
+        });
     });
 
     describe('Integration Definition Validation', () => {

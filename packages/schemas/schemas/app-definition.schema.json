@@ -49,12 +49,83 @@
     },
     "user": {
       "type": "object",
-      "description": "User management configuration",
+      "description": "User management and authentication configuration",
       "properties": {
+        "usePassword": {
+          "type": "boolean",
+          "description": "Enable password-based authentication for user login",
+          "default": true
+        },
         "password": {
           "type": "boolean",
-          "description": "Enable password-based authentication",
+          "description": "DEPRECATED: Use 'usePassword' instead. Enable password-based authentication",
           "default": true
+        },
+        "primary": {
+          "type": "string",
+          "description": "Primary user type for authentication",
+          "enum": ["individual", "organization"],
+          "default": "individual"
+        },
+        "individualUserRequired": {
+          "type": "boolean",
+          "description": "Require individual user for authentication",
+          "default": true
+        },
+        "organizationUserRequired": {
+          "type": "boolean",
+          "description": "Require organization user for authentication",
+          "default": false
+        },
+        "authModes": {
+          "type": "object",
+          "description": "Authentication mode configuration - enables multiple authentication strategies",
+          "properties": {
+            "friggToken": {
+              "type": "boolean",
+              "description": "Enable Frigg native bearer token authentication (from /user/login)",
+              "default": true
+            },
+            "xFriggHeaders": {
+              "type": "boolean",
+              "description": "Enable backend-to-backend authentication using x-frigg-appUserId and x-frigg-appOrgId headers",
+              "default": false
+            },
+            "adopterJwt": {
+              "type": "boolean",
+              "description": "Enable custom JWT authentication from adopter's auth system (NOT YET IMPLEMENTED)",
+              "default": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "jwtConfig": {
+          "type": "object",
+          "description": "JWT configuration for adopter JWT authentication mode (when authModes.adopterJwt is true)",
+          "properties": {
+            "secret": {
+              "type": "string",
+              "description": "JWT secret key for signature validation (should be set via environment variable)"
+            },
+            "userIdClaim": {
+              "type": "string",
+              "description": "JWT claim name containing the user ID",
+              "default": "sub"
+            },
+            "orgIdClaim": {
+              "type": "string",
+              "description": "JWT claim name containing the organization ID",
+              "default": "org_id"
+            },
+            "algorithm": {
+              "type": "string",
+              "description": "JWT signing algorithm",
+              "enum": ["HS256", "HS384", "HS512", "RS256", "RS384", "RS512"],
+              "default": "HS256"
+            }
+          },
+          "required": ["secret"],
+          "additionalProperties": false
         },
         "fields": {
           "type": "array",
