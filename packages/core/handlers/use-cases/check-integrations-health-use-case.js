@@ -5,13 +5,13 @@ class CheckIntegrationsHealthUseCase {
     }
 
     execute() {
-        const moduleTypes = Array.isArray(this.moduleFactory.moduleTypes)
+        const moduleTypes = (this.moduleFactory && Array.isArray(this.moduleFactory.moduleTypes))
             ? this.moduleFactory.moduleTypes
             : [];
 
-        const integrationTypes = Array.isArray(
+        const integrationTypes = (this.integrationFactory && Array.isArray(
             this.integrationFactory.integrationTypes
-        )
+        ))
             ? this.integrationFactory.integrationTypes
             : [];
 
