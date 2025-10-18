@@ -58,8 +58,8 @@ describe('CheckEncryptionHealthUseCase', () => {
             const result = await useCase.execute();
 
             expect(result.mode).toBe('aes');
-            expect(result.debug.hasKMS).toBe(false);
-            expect(result.debug.hasAES).toBe(true);
+            expect(result.status).toBe('healthy');
+            expect(result.encryptionWorks).toBe(true);
         });
 
         it('should use KMS when only KMS is configured', async () => {
@@ -79,8 +79,8 @@ describe('CheckEncryptionHealthUseCase', () => {
             const result = await useCase.execute();
 
             expect(result.mode).toBe('kms');
-            expect(result.debug.hasKMS).toBe(true);
-            expect(result.debug.hasAES).toBe(false);
+            expect(result.status).toBe('healthy');
+            expect(result.encryptionWorks).toBe(true);
         });
 
         it('should bypass encryption for dev stage', async () => {
