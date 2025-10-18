@@ -164,7 +164,8 @@ function createBaseDefinition(
         },
         plugins: [
             'serverless-esbuild',
-            'serverless-dotenv-plugin',
+            // Only load dotenv plugin for offline mode
+            ...(process.argv.includes('offline') ? ['serverless-dotenv-plugin'] : []),
             'serverless-offline-sqs',
             'serverless-offline',
             '@friggframework/serverless-plugin',
