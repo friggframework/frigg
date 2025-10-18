@@ -107,6 +107,16 @@ class FriggServerlessPlugin {
     // AWS discovery is now handled directly in serverless-template.js
     // This hook remains for potential future use or other pre-package tasks
     this.serverless.cli.log("Frigg Serverless Plugin: Pre-package hook");
+
+    // Ensure .esbuild/.serverless directory exists to prevent ENOENT errors
+    // serverless-esbuild may try to access this directory during packaging
+    const fs = require('fs');
+    const path = require('path');
+    const esbuildDir = path.join(this.serverless.config.servicePath || process.cwd(), '.esbuild', '.serverless');
+
+    if (!fs.existsSync(esbuildDir)) {
+      fs.mkdirSync(esbuildDir, { recursive: true });
+    }
   }
 
 
