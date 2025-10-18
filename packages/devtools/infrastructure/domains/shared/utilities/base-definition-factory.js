@@ -32,7 +32,7 @@ function createBaseDefinition(
     const region = process.env.AWS_REGION || 'us-east-1';
 
     // Package config for handlers that skip esbuild (need node_modules dependencies)
-    // Since Express and other deps are now in backend/node_modules, exclude only what's not needed
+    // Include backend src/ and index.js since handlers load the app definition
     const skipEsbuildPackageConfig = {
         exclude: [
             // Exclude Prisma (provided via Lambda Layer)
@@ -53,8 +53,7 @@ function createBaseDefinition(
             'node_modules/prettier/**',
             'node_modules/eslint/**',
             
-            // Exclude backend source and layers
-            'src/**',
+            // Exclude test files and layers (but keep src/ - needed for app definition)
             'test/**',
             'layers/**',
             'coverage/**',
