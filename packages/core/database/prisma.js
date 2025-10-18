@@ -75,11 +75,33 @@ function loadCustomEncryptionSchema() {
 
 const prismaClientSingleton = () => {
     let PrismaClient;
+    
+    // Helper to try loading Prisma client from multiple locations
+    const loadPrismaClient = (dbType) => {
+        const paths = [
+            // Lambda layer location (when using Prisma Lambda layer)
+            `/opt/nodejs/node_modules/generated/prisma-${dbType}`,
+            // Local development location (relative to core package)
+            `../generated/prisma-${dbType}`,
+        ];
+        
+        for (const path of paths) {
+            try {
+                return require(path).PrismaClient;
+            } catch (err) {
+                // Continue to next path
+            }
+        }
+        
+        throw new Error(
+            `Cannot find Prisma client for ${dbType}. Tried paths: ${paths.join(', ')}`
+        );
+    };
 
     if (config.DB_TYPE === 'mongodb') {
-        PrismaClient = require('../generated/prisma-mongodb').PrismaClient;
+        PrismaClient = loadPrismaClient('mongodb');
     } else if (config.DB_TYPE === 'postgresql') {
-        PrismaClient = require('../generated/prisma-postgresql').PrismaClient;
+        PrismaClient = loadPrismaClient('postgresql');
     } else {
         throw new Error(
             `Unsupported database type: ${config.DB_TYPE}. Supported values: 'mongodb', 'postgresql'`
