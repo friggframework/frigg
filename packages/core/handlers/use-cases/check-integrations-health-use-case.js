@@ -15,7 +15,7 @@ class CheckIntegrationsHealthUseCase {
 
         // Extract module names from definitions
         const moduleTypes = Array.isArray(moduleDefinitions)
-            ? moduleDefinitions.map(def => def.name || 'Unknown')
+            ? moduleDefinitions.map(def => def.moduleName || def.name || def.label || 'Unknown')
             : [];
 
         // Extract integration names from classes

@@ -11,9 +11,9 @@ describe('CheckIntegrationsHealthUseCase', () => {
         it('should return healthy status with module and integration counts', () => {
             const mockModuleFactory = {
                 moduleDefinitions: [
-                    { name: 'HubSpot' },
-                    { name: 'Salesforce' },
-                    { name: 'Slack' },
+                    { moduleName: 'HubSpot' },
+                    { moduleName: 'Salesforce' },
+                    { moduleName: 'Slack' },
                 ],
             };
 
@@ -56,7 +56,7 @@ describe('CheckIntegrationsHealthUseCase', () => {
 
         it('should handle undefined integrationClasses gracefully', () => {
             const mockModuleFactory = {
-                moduleDefinitions: [{ name: 'Module1' }],
+                moduleDefinitions: [{ moduleName: 'Module1' }],
             };
 
             const useCase = new CheckIntegrationsHealthUseCase({
