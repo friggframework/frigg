@@ -42,16 +42,24 @@ class FriggServerlessPlugin {
 
       const AWS = require("aws-sdk");
 
-      const endpointUrl = "localhost:4566"; // Assuming localstack is running on port 4
-      const region = "us-east-1";
+      const endpointUrl = process.env.AWS_ENDPOINT || "http://localhost:4566"; // LocalStack SQS endpoint
+      const region = process.env.AWS_REGION || "us-east-1";
+      const accessKeyId = process.env.AWS_ACCESS_KEY_ID || "root"; // LocalStack default
+      const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY || "root"; // LocalStack default
 
-      // Configure AWS SDK
+      // Configure AWS SDK for LocalStack
       AWS.config.update({
         region: region,
         endpoint: endpointUrl,
+        accessKeyId: accessKeyId,
+        secretAccessKey: secretAccessKey,
+        s3ForcePathStyle: true, // Required for LocalStack
+        sslEnabled: false, // Disable SSL for LocalStack
       });
 
-      const sqs = new AWS.SQS();
+      const sqs = new AWS.SQS({
+        sslEnabled: false, // Disable SSL validation for LocalStack
+      });
       // Find the environment variables that we need to override and create an easy map
       const environmentMap = {};
       const environment = this.serverless.service.provider.environment;
