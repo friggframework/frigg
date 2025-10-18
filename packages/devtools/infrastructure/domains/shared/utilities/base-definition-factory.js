@@ -52,18 +52,24 @@ function createBaseDefinition(
             'node_modules/jest/**',
             'node_modules/prettier/**',
             'node_modules/eslint/**',
-            
+
             // Exclude ALL nested node_modules (catch any package with nested dependencies)
             'node_modules/**/node_modules/**',
-            
+
             // Exclude build tools (not needed at runtime)
             'node_modules/esbuild/**',
             'node_modules/@esbuild/**',
             'node_modules/typescript/**',
             'node_modules/webpack/**',
             'node_modules/osls/**',
-            'node_modules/serverless*/**',
-            
+            'node_modules/serverless-esbuild/**',
+            'node_modules/serverless-jetpack/**',
+            'node_modules/serverless-offline/**',
+            'node_modules/serverless-offline-sqs/**',
+            'node_modules/serverless-dotenv-plugin/**',
+            'node_modules/serverless-kms-grants/**',
+            // Note: DO NOT exclude serverless-http - it's a runtime dependency!
+
             // Exclude local dev files
             'deploy.log',
             '.env.backup',
@@ -282,19 +288,24 @@ function createBaseDefinition(
                     exclude: [
                         // Exclude ALL nested node_modules
                         'node_modules/**/node_modules/**',
-                        
+
                         // Exclude AWS SDK (provided by Lambda runtime)
                         'node_modules/aws-sdk/**',
                         'node_modules/@aws-sdk/**',
-                        
+
                         // Exclude build tools (not needed for migrations)
                         'node_modules/esbuild/**',
                         'node_modules/@esbuild/**',
                         'node_modules/typescript/**',
                         'node_modules/webpack/**',
                         'node_modules/osls/**',
-                        'node_modules/serverless*/**',
-                        
+                        'node_modules/serverless-esbuild/**',
+                        'node_modules/serverless-jetpack/**',
+                        'node_modules/serverless-offline/**',
+                        'node_modules/serverless-offline-sqs/**',
+                        'node_modules/serverless-dotenv-plugin/**',
+                        'node_modules/serverless-kms-grants/**',
+
                         // Exclude dev dependencies
                         'node_modules/@friggframework/test/**',
                         'node_modules/@friggframework/eslint-config/**',
@@ -304,33 +315,33 @@ function createBaseDefinition(
                         'node_modules/jest/**',
                         'node_modules/prettier/**',
                         'node_modules/eslint/**',
-                        
+
                         // Exclude MongoDB Prisma client (only need PostgreSQL)
                         'node_modules/@friggframework/core/generated/prisma-mongodb/**',
-                        
+
                         // Exclude non-essential Frigg modules
                         'node_modules/@friggframework/core/integrations/**',
                         'node_modules/@friggframework/core/user/**',
                         'node_modules/@friggframework/core/handlers/routers/**',
                         'node_modules/@friggframework/core/handlers/workers/**',
-                        
+
                         // Exclude wrong OS binaries
                         '**/query-engine-darwin*',
                         '**/schema-engine-darwin*',
                         '**/libquery_engine-darwin*',
                         '**/*-darwin-arm64*',
                         '**/*-darwin*',
-                        
+
                         // Exclude WASM engines
                         '**/runtime/*.wasm',
                         '**/*.wasm*',
-                        
+
                         // Exclude backend source (not needed for migration handler)
                         'src/**',
                         'test/**',
                         'layers/**',
                         'coverage/**',
-                        
+
                         // Exclude local dev files
                         'deploy.log',
                         '.env.backup',
@@ -338,7 +349,7 @@ function createBaseDefinition(
                         'jest.config.js',
                         'jest.unit.config.js',
                         'package-lock.json',
-                        
+
                         // Exclude docs and metadata
                         '**/*.md',
                         '**/*.map',

@@ -63,24 +63,30 @@ class IntegrationBuilder extends InfrastructureBuilder {
                 // Exclude AWS SDK (provided by Lambda runtime)
                 'node_modules/aws-sdk/**',
                 'node_modules/@aws-sdk/**',
-                
+
                 // Exclude Prisma (provided via Lambda Layer)
                 'node_modules/@prisma/**',
                 'node_modules/.prisma/**',
                 'node_modules/prisma/**',
                 'node_modules/@friggframework/core/generated/**',
-                
+
                 // Exclude ALL nested node_modules
                 'node_modules/**/node_modules/**',
-                
+
                 // Exclude build tools (not needed at runtime)
                 'node_modules/esbuild/**',
                 'node_modules/@esbuild/**',
                 'node_modules/typescript/**',
                 'node_modules/webpack/**',
                 'node_modules/osls/**',
-                'node_modules/serverless*/**',
-                
+                'node_modules/serverless-esbuild/**',
+                'node_modules/serverless-jetpack/**',
+                'node_modules/serverless-offline/**',
+                'node_modules/serverless-offline-sqs/**',
+                'node_modules/serverless-dotenv-plugin/**',
+                'node_modules/serverless-kms-grants/**',
+                // Note: DO NOT exclude serverless-http - it's a runtime dependency!
+
                 // Exclude dev/test dependencies
                 'node_modules/@friggframework/test/**',
                 'node_modules/@friggframework/eslint-config/**',
@@ -88,7 +94,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
                 'node_modules/jest/**',
                 'node_modules/prettier/**',
                 'node_modules/eslint/**',
-                
+
                 // Exclude local dev files
                 'deploy.log',
                 '.env.backup',
