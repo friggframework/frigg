@@ -631,6 +631,12 @@ describe('AuroraBuilder', () => {
             
             // Port should be explicitly set to PostgreSQL standard (5432)
             expect(result.resources.FriggAuroraCluster.Properties.Port).toBe(5432);
+            
+            // Should create self-referencing security group ingress rule
+            expect(result.resources.FriggAuroraIngressRule).toBeDefined();
+            expect(result.resources.FriggAuroraIngressRule.Type).toBe('AWS::EC2::SecurityGroupIngress');
+            expect(result.resources.FriggAuroraIngressRule.Properties.FromPort).toBe(5432);
+            expect(result.resources.FriggAuroraIngressRule.Properties.ToPort).toBe(5432);
         });
 
         it('should create database subnet group', async () => {

@@ -235,6 +235,20 @@ class AuroraBuilder extends InfrastructureBuilder {
             Resource: { Ref: 'FriggDBSecret' },
         });
 
+        // Add self-referencing security group ingress rule to allow Lambda to connect to Aurora
+        // Since both Lambda and Aurora share the same security group, we need to allow the SG to accept traffic from itself
+        result.resources.FriggAuroraIngressRule = {
+            Type: 'AWS::EC2::SecurityGroupIngress',
+            Properties: {
+                GroupId: { Ref: 'FriggLambdaSecurityGroup' },
+                IpProtocol: 'tcp',
+                FromPort: 5432,
+                ToPort: 5432,
+                SourceSecurityGroupId: { Ref: 'FriggLambdaSecurityGroup' },
+                Description: 'Allow Lambda functions to connect to Aurora PostgreSQL (self-referencing rule)',
+            },
+        };
+
         console.log('  ✅ Aurora Serverless v2 cluster resources created');
     }
 
