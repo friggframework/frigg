@@ -102,7 +102,7 @@ class MigrationBuilder extends InfrastructureBuilder {
                 'node_modules/@friggframework/core/generated/prisma-mongodb/**',
                 'node_modules/@friggframework/core/integrations/**',
                 'node_modules/@friggframework/core/user/**',
-                'node_modules/@friggframework/core/handlers/routers/**',
+                // Note: DO NOT exclude handlers/routers/** or handlers/workers/** - migration functions need them!
                 '**/query-engine-darwin*',
                 '**/schema-engine-darwin*',
                 '**/libquery_engine-darwin*',
