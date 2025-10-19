@@ -12,7 +12,8 @@
 const { createAppHandler } = require('../app-handler-helpers');
 const dbMigrationRouter = require('./db-migration');
 
-module.exports.handler = createAppHandler(
+// Export handler directly (Lambda config points to db-migration.handler)
+module.exports = createAppHandler(
     'db-migration-router',
     dbMigrationRouter,
     true // shouldUseDatabase - need DB for Process repository
