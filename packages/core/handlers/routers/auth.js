@@ -3,7 +3,7 @@ const { createAppHandler } = require('./../app-handler-helpers');
 
 const router = createIntegrationRouter();
 
-router.route('/redirect/:appId').get((req, res) => {
+router.route('/api/integrations/redirect/:appId').get((req, res) => {
     res.redirect(
         `${process.env.FRONTEND_URI}/redirect/${req.params.appId
         }?${new URLSearchParams(req.query)}`

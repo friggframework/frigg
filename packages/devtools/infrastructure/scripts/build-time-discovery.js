@@ -1,5 +1,4 @@
 const fs = require('fs');
-const path = require('path');
 let AWSDiscovery;
 
 function loadAWSDiscovery() {
@@ -33,23 +32,28 @@ class BuildTimeDiscovery {
     async discoverAndCreateConfig(outputPath = './aws-discovery-config.json') {
         try {
             console.log('Starting AWS resource discovery for build...');
-            
+
             const resources = await this.discovery.discoverResources();
-            
+
             // Create configuration object
             const config = {
                 awsDiscovery: resources,
                 generatedAt: new Date().toISOString(),
-                region: this.region
+                region: this.region,
             };
-            
+
             // Write configuration to file
             fs.writeFileSync(outputPath, JSON.stringify(config, null, 2));
-            console.log(`AWS discovery configuration written to: ${outputPath}`);
-            
+            console.log(
+                `AWS discovery configuration written to: ${outputPath}`,
+            );
+
             return config;
         } catch (error) {
-            console.error('Error during AWS resource discovery:', error.message);
+            console.error(
+                'Error during AWS resource discovery:',
+                error.message,
+            );
             throw error;
         }
     }
@@ -62,22 +66,34 @@ class BuildTimeDiscovery {
      */
     replaceTemplateVariables(templateContent, discoveredResources) {
         let updatedContent = templateContent;
-        
+
         // Replace AWS discovery placeholders
         const replacements = {
-            '${self:custom.awsDiscovery.defaultVpcId}': discoveredResources.defaultVpcId,
-            '${self:custom.awsDiscovery.defaultSecurityGroupId}': discoveredResources.defaultSecurityGroupId,
-            '${self:custom.awsDiscovery.privateSubnetId1}': discoveredResources.privateSubnetId1,
-            '${self:custom.awsDiscovery.privateSubnetId2}': discoveredResources.privateSubnetId2,
-            '${self:custom.awsDiscovery.privateRouteTableId}': discoveredResources.privateRouteTableId,
-            '${self:custom.awsDiscovery.defaultKmsKeyId}': discoveredResources.defaultKmsKeyId
+            '${self:custom.awsDiscovery.defaultVpcId}':
+                discoveredResources.defaultVpcId,
+            '${self:custom.awsDiscovery.defaultSecurityGroupId}':
+                discoveredResources.defaultSecurityGroupId,
+            '${self:custom.awsDiscovery.privateSubnetId1}':
+                discoveredResources.privateSubnetId1,
+            '${self:custom.awsDiscovery.privateSubnetId2}':
+                discoveredResources.privateSubnetId2,
+            '${self:custom.awsDiscovery.privateRouteTableId}':
+                discoveredResources.privateRouteTableId,
+            '${self:custom.awsDiscovery.defaultKmsKeyId}':
+                discoveredResources.defaultKmsKeyId,
         };
-        
+
         for (const [placeholder, value] of Object.entries(replacements)) {
             // Use a more targeted replacement to avoid replacing similar strings
-            updatedContent = updatedContent.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
+            updatedContent = updatedContent.replace(
+                new RegExp(
+                    placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+                    'g',
+                ),
+                value,
+            );
         }
-        
+
         return updatedContent;
     }
 
@@ -91,25 +107,33 @@ class BuildTimeDiscovery {
     async processServerlessConfig(configPath, outputPath = null) {
         try {
             console.log(`Processing serverless configuration: ${configPath}`);
-            
+
             // Read the current serverless configuration
             const configContent = fs.readFileSync(configPath, 'utf8');
-            
+
             // Discover AWS resources
             const resources = await this.discovery.discoverResources();
-            
+
             // Replace placeholders with discovered values
-            const updatedContent = this.replaceTemplateVariables(configContent, resources);
-            
+            const updatedContent = this.replaceTemplateVariables(
+                configContent,
+                resources,
+            );
+
             // Write to output file or overwrite original
             const finalPath = outputPath || configPath;
             fs.writeFileSync(finalPath, updatedContent);
-            
-            console.log(`Updated serverless configuration written to: ${finalPath}`);
-            
+
+            console.log(
+                `Updated serverless configuration written to: ${finalPath}`,
+            );
+
             return resources;
         } catch (error) {
-            console.error('Error processing serverless configuration:', error.message);
+            console.error(
+                'Error processing serverless configuration:',
+                error.message,
+            );
             throw error;
         }
     }
@@ -121,7 +145,7 @@ class BuildTimeDiscovery {
      */
     generateCustomSection(discoveredResources) {
         return {
-            awsDiscovery: discoveredResources
+            awsDiscovery: discoveredResources,
         };
     }
 
@@ -135,40 +159,48 @@ class BuildTimeDiscovery {
     async preBuildHook(appDefinition, region) {
         try {
             console.log('Running pre-build AWS discovery hook...');
-            
+
             // Only run discovery if VPC, KMS, or SSM features are enabled
-            const needsDiscovery = appDefinition.vpc?.enable ||
-                                 appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms' ||
-                                 appDefinition.ssm?.enable;
-            
+            const needsDiscovery =
+                appDefinition.vpc?.enable ||
+                appDefinition.encryption?.fieldLevelEncryptionMethod ===
+                    'kms' ||
+                appDefinition.ssm?.enable;
+
             if (!needsDiscovery) {
                 console.log('No AWS discovery needed based on app definition');
                 return null;
             }
-            
+
             // Create discovery instance with specified region
             loadAWSDiscovery();
             const discovery = new AWSDiscovery(region);
             const resources = await discovery.discoverResources();
-            
+
             // Create environment variables for serverless
             const envVars = {
                 AWS_DISCOVERY_VPC_ID: resources.defaultVpcId,
-                AWS_DISCOVERY_SECURITY_GROUP_ID: resources.defaultSecurityGroupId,
+                AWS_DISCOVERY_SECURITY_GROUP_ID:
+                    resources.defaultSecurityGroupId,
                 AWS_DISCOVERY_SUBNET_ID_1: resources.privateSubnetId1,
                 AWS_DISCOVERY_SUBNET_ID_2: resources.privateSubnetId2,
                 AWS_DISCOVERY_PUBLIC_SUBNET_ID: resources.publicSubnetId,
                 AWS_DISCOVERY_ROUTE_TABLE_ID: resources.privateRouteTableId,
-                AWS_DISCOVERY_KMS_KEY_ID: resources.defaultKmsKeyId  // Keep consistent naming convention (even though it's an ARN)
+                AWS_DISCOVERY_KMS_KEY_ID: resources.defaultKmsKeyId, // Keep consistent naming convention (even though it's an ARN)
             };
-            
+
             // Set environment variables for serverless to use
             Object.assign(process.env, envVars);
-            
-            console.log('AWS discovery completed and environment variables set');
+
+            console.log(
+                'AWS discovery completed and environment variables set',
+            );
             return resources;
         } catch (error) {
-            console.error('Error in pre-build AWS discovery hook:', error.message);
+            console.error(
+                'Error in pre-build AWS discovery hook:',
+                error.message,
+            );
             throw error;
         }
     }
@@ -186,11 +218,11 @@ async function runBuildTimeDiscovery(options = {}) {
     const {
         region = process.env.AWS_REGION || 'us-east-1',
         outputPath = './aws-discovery-config.json',
-        configPath = null
+        configPath = null,
     } = options;
-    
+
     const discovery = new BuildTimeDiscovery(region);
-    
+
     if (configPath) {
         // Process existing serverless configuration
         return await discovery.processServerlessConfig(configPath);
@@ -200,7 +232,7 @@ async function runBuildTimeDiscovery(options = {}) {
     }
 }
 
-module.exports = { 
-    BuildTimeDiscovery, 
-    runBuildTimeDiscovery 
+module.exports = {
+    BuildTimeDiscovery,
+    runBuildTimeDiscovery,
 };
