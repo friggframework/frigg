@@ -183,31 +183,26 @@ describe('MigrationBuilder', () => {
 
             const result = await builder.build(appDef, {});
 
-            // Both migration functions should have package configs
+            // Both migration functions should have the same package config
             expect(result.functions.dbMigrationWorker.package).toBeDefined();
             expect(result.functions.dbMigrationRouter.package).toBeDefined();
-
-            // Check worker package config
-            const workerPackage = result.functions.dbMigrationWorker.package;
-            expect(workerPackage.individually).toBe(true);
-            expect(workerPackage.exclude).toBeDefined();
-            expect(Array.isArray(workerPackage.exclude)).toBe(true);
             
-            // Verify critical exclusions for size optimization
-            expect(workerPackage.exclude).toContain('test/**');
-            expect(workerPackage.exclude).toContain('**/*.test.js');
-            expect(workerPackage.exclude).toContain('node_modules/**/node_modules/**');
-            expect(workerPackage.exclude).toContain('node_modules/esbuild/**');
-            expect(workerPackage.exclude).toContain('node_modules/typescript/**');
-            expect(workerPackage.exclude).toContain('node_modules/@friggframework/devtools/**');
-            expect(workerPackage.exclude).toContain('src/**'); // Migration handlers don't need backend source
+            // They should share the same config object (migrationPackageConfig)
+            expect(result.functions.dbMigrationWorker.package).toBe(result.functions.dbMigrationRouter.package);
 
-            // Check router package config
-            const routerPackage = result.functions.dbMigrationRouter.package;
-            expect(routerPackage.individually).toBe(true);
-            expect(routerPackage.exclude).toBeDefined();
-            expect(routerPackage.exclude).toContain('test/**');
-            expect(routerPackage.exclude).toContain('node_modules/**/node_modules/**');
+            // Verify the shared package config has critical exclusions for size optimization
+            const packageConfig = result.functions.dbMigrationWorker.package;
+            expect(packageConfig.individually).toBe(true);
+            expect(Array.isArray(packageConfig.exclude)).toBe(true);
+            
+            // Critical exclusions to prevent Lambda size limit errors
+            expect(packageConfig.exclude).toContain('test/**');
+            expect(packageConfig.exclude).toContain('**/*.test.js');
+            expect(packageConfig.exclude).toContain('node_modules/**/node_modules/**');
+            expect(packageConfig.exclude).toContain('node_modules/esbuild/**');
+            expect(packageConfig.exclude).toContain('node_modules/typescript/**');
+            expect(packageConfig.exclude).toContain('node_modules/@friggframework/devtools/**');
+            expect(packageConfig.exclude).toContain('src/**'); // Migration handlers don't need backend source
         });
 
         it('should add queue URL to environment', async () => {
