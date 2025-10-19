@@ -591,13 +591,13 @@ describe('AuroraBuilder', () => {
                 const result = await auroraBuilder.build(appDefinition, discoveredResources);
 
                 const excludeChars = result.resources.FriggDBSecret.Properties.GenerateSecretString.ExcludeCharacters;
-                
+
                 // Must exclude URL-special characters that would break Prisma connection strings
                 // Prisma docs: https://www.prisma.io/docs/reference/database-reference/connection-urls#special-characters
                 // These characters have special meaning in URLs and must be excluded or the password must be URL-encoded
                 // Exclude: " @ : / ? # [ ] % (and \ for JSON escaping)
                 expect(excludeChars).toBe('"@:/?#[]%\\\\');
-                
+
                 // Verify it can be JSON-stringified without errors
                 expect(() => JSON.stringify(result.resources.FriggDBSecret)).not.toThrow();
             });

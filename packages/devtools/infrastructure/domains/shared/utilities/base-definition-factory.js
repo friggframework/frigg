@@ -333,9 +333,10 @@ function createBaseDefinition(
                         '**/*-darwin-arm64*',
                         '**/*-darwin*',
 
-                        // Exclude WASM engines
-                        '**/runtime/*.wasm',
-                        '**/*.wasm*',
+                        // Exclude WASM engines (but keep Prisma CLI WASM files in build/)
+                        // Note: Prisma CLI needs prisma/build/prisma_schema_build_bg.wasm for migrations
+                        '**/runtime/*.wasm',  // Exclude query engine WASM (unused with binary engines)
+                        // DO NOT exclude **/*.wasm* - Prisma CLI needs build/*.wasm files!
 
                         // Exclude backend source (dbMigrate doesn't need it)
                         'src/**',  // OK to exclude for migration handler only

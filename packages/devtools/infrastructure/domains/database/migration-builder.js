@@ -108,8 +108,9 @@ class MigrationBuilder extends InfrastructureBuilder {
                 '**/libquery_engine-darwin*',
                 '**/*-darwin-arm64*',
                 '**/*-darwin*',
-                '**/runtime/*.wasm',
-                '**/*.wasm*',
+                // Exclude WASM engines (but keep Prisma CLI WASM files in build/)
+                '**/runtime/*.wasm',  // Exclude query engine WASM (unused with binary engines)
+                // DO NOT exclude **/*.wasm* - Prisma CLI needs build/*.wasm files!
                 'src/**',
                 'test/**',
                 'layers/**',

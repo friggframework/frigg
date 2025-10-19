@@ -106,6 +106,20 @@ describe('Base Definition Factory', () => {
             expect(result.functions.dbMigrate.layers).toBeUndefined(); // No Prisma layer
         });
 
+        it('should NOT exclude Prisma CLI WASM files from dbMigrate function', () => {
+            const result = createBaseDefinition({}, {}, {});
+
+            const excludeList = result.functions.dbMigrate.package.exclude;
+            
+            // Should exclude WASM files from runtime/ (query engine WASM)
+            expect(excludeList).toContain('**/runtime/*.wasm');
+            
+            // But should NOT exclude build/*.wasm files (Prisma CLI needs prisma_schema_build_bg.wasm)
+            expect(excludeList).not.toContain('**/*.wasm*');
+            expect(excludeList).not.toContain('**/*.wasm');
+            expect(excludeList).not.toContain('**/build/*.wasm');
+        });
+
         it('should include Prisma Lambda Layer', () => {
             const result = createBaseDefinition({}, {}, {});
 
