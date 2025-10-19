@@ -628,6 +628,9 @@ describe('AuroraBuilder', () => {
             
             // PubliclyAccessible is NOT supported on Aurora clusters (only on instances)
             expect(result.resources.FriggAuroraCluster.Properties.PubliclyAccessible).toBeUndefined();
+            
+            // Port should be explicitly set to PostgreSQL standard (5432)
+            expect(result.resources.FriggAuroraCluster.Properties.Port).toBe(5432);
         });
 
         it('should create database subnet group', async () => {

@@ -176,6 +176,7 @@ class AuroraBuilder extends InfrastructureBuilder {
                 Engine: 'aurora-postgresql',
                 EngineMode: 'provisioned',
                 EngineVersion: '15.5',
+                Port: 5432, // Explicitly set PostgreSQL port (AWS may not auto-detect)
                 DatabaseName: dbConfig.database || 'frigg',
                 MasterUsername: {
                     'Fn::Sub': '{{resolve:secretsmanager:${FriggDBSecret}:SecretString:username}}',
