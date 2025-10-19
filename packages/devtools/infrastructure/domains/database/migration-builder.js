@@ -72,6 +72,61 @@ class MigrationBuilder extends InfrastructureBuilder {
 
         console.log('  ✓ Created DbMigrationQueue resource');
 
+        // Package configuration for migration functions (reuse from base-definition-factory)
+        const migrationPackageConfig = {
+            individually: true,
+            exclude: [
+                // Exclude ALL nested node_modules
+                'node_modules/**/node_modules/**',
+                'node_modules/aws-sdk/**',
+                'node_modules/@aws-sdk/**',
+                'node_modules/esbuild/**',
+                'node_modules/@esbuild/**',
+                'node_modules/typescript/**',
+                'node_modules/webpack/**',
+                'node_modules/osls/**',
+                'node_modules/serverless-esbuild/**',
+                'node_modules/serverless-jetpack/**',
+                'node_modules/serverless-offline/**',
+                'node_modules/serverless-offline-sqs/**',
+                'node_modules/serverless-dotenv-plugin/**',
+                'node_modules/serverless-kms-grants/**',
+                'node_modules/@friggframework/test/**',
+                'node_modules/@friggframework/eslint-config/**',
+                'node_modules/@friggframework/prettier-config/**',
+                'node_modules/@friggframework/devtools/**',
+                'node_modules/@friggframework/serverless-plugin/**',
+                'node_modules/jest/**',
+                'node_modules/prettier/**',
+                'node_modules/eslint/**',
+                'node_modules/@friggframework/core/generated/prisma-mongodb/**',
+                'node_modules/@friggframework/core/integrations/**',
+                'node_modules/@friggframework/core/user/**',
+                'node_modules/@friggframework/core/handlers/routers/**',
+                '**/query-engine-darwin*',
+                '**/schema-engine-darwin*',
+                '**/libquery_engine-darwin*',
+                '**/*-darwin-arm64*',
+                '**/*-darwin*',
+                '**/runtime/*.wasm',
+                '**/*.wasm*',
+                'src/**',
+                'test/**',
+                'layers/**',
+                'coverage/**',
+                'deploy.log',
+                '.env.backup',
+                'docker-compose.yml',
+                'jest.config.js',
+                'jest.unit.config.js',
+                'package-lock.json',
+                '**/*.test.js',
+                '**/*.spec.js',
+                '**/.claude-flow/**',
+                '**/.swarm/**',
+            ],
+        };
+
         // Create migration worker Lambda (triggered by SQS)
         result.functions.dbMigrationWorker = {
             handler: 'node_modules/@friggframework/core/handlers/workers/db-migration.handler',
@@ -81,6 +136,7 @@ class MigrationBuilder extends InfrastructureBuilder {
             memorySize: 1024, // Extra memory for Prisma operations
             reservedConcurrency: 1, // Process one migration at a time (critical for safety)
             description: 'Database migration worker (triggered by SQS queue)',
+            package: migrationPackageConfig,
             events: [
                 {
                     sqs: {
@@ -101,6 +157,7 @@ class MigrationBuilder extends InfrastructureBuilder {
             timeout: 30, // Router just queues jobs, doesn't run migrations
             memorySize: 512,
             description: 'Database migration HTTP API (POST to trigger, GET to check status)',
+            package: migrationPackageConfig,
             events: [
                 { httpApi: { path: '/db-migrate', method: 'POST' } },
                 { httpApi: { path: '/db-migrate/{processId}', method: 'GET' } },

@@ -172,6 +172,44 @@ describe('MigrationBuilder', () => {
             });
         });
 
+        it('should configure package exclusions for migration functions to reduce Lambda size', async () => {
+            const appDef = {
+                database: {
+                    postgres: {
+                        enable: true,
+                    },
+                },
+            };
+
+            const result = await builder.build(appDef, {});
+
+            // Both migration functions should have package configs
+            expect(result.functions.dbMigrationWorker.package).toBeDefined();
+            expect(result.functions.dbMigrationRouter.package).toBeDefined();
+
+            // Check worker package config
+            const workerPackage = result.functions.dbMigrationWorker.package;
+            expect(workerPackage.individually).toBe(true);
+            expect(workerPackage.exclude).toBeDefined();
+            expect(Array.isArray(workerPackage.exclude)).toBe(true);
+            
+            // Verify critical exclusions for size optimization
+            expect(workerPackage.exclude).toContain('test/**');
+            expect(workerPackage.exclude).toContain('**/*.test.js');
+            expect(workerPackage.exclude).toContain('node_modules/**/node_modules/**');
+            expect(workerPackage.exclude).toContain('node_modules/esbuild/**');
+            expect(workerPackage.exclude).toContain('node_modules/typescript/**');
+            expect(workerPackage.exclude).toContain('node_modules/@friggframework/devtools/**');
+            expect(workerPackage.exclude).toContain('src/**'); // Migration handlers don't need backend source
+
+            // Check router package config
+            const routerPackage = result.functions.dbMigrationRouter.package;
+            expect(routerPackage.individually).toBe(true);
+            expect(routerPackage.exclude).toBeDefined();
+            expect(routerPackage.exclude).toContain('test/**');
+            expect(routerPackage.exclude).toContain('node_modules/**/node_modules/**');
+        });
+
         it('should add queue URL to environment', async () => {
             const appDef = {
                 database: {

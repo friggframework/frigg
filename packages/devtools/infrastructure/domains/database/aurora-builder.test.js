@@ -388,11 +388,11 @@ describe('AuroraBuilder', () => {
                 // Check DATABASE_URL uses the secret
                 expect(result.environment.DATABASE_URL).toBeDefined();
                 expect(result.environment.DATABASE_URL['Fn::Sub']).toBeDefined();
-                
+
                 // Username and Password should use nested Fn::Sub to resolve the Ref
                 expect(result.environment.DATABASE_URL['Fn::Sub'][1].Username['Fn::Sub']).toBeDefined();
                 expect(result.environment.DATABASE_URL['Fn::Sub'][1].Password['Fn::Sub']).toBeDefined();
-                
+
                 // Should contain secretsmanager resolution
                 expect(result.environment.DATABASE_URL['Fn::Sub'][1].Username['Fn::Sub'][0]).toContain('resolve:secretsmanager');
                 expect(result.environment.DATABASE_URL['Fn::Sub'][1].Password['Fn::Sub'][0]).toContain('resolve:secretsmanager');
@@ -558,15 +558,15 @@ describe('AuroraBuilder', () => {
                 const result = await auroraBuilder.build(appDefinition, discoveredResources);
 
                 const dbUrl = result.environment.DATABASE_URL;
-                
+
                 // Should use Fn::Sub with nested Fn::Sub to resolve the Ref
                 expect(dbUrl['Fn::Sub']).toBeDefined();
                 expect(dbUrl['Fn::Sub'][0]).toBe('postgresql://${Username}:${Password}@${Host}:${Port}/${Database}');
-                
+
                 // The Username and Password should use Fn::Sub to resolve the secret Ref, not literal "[object Object]"
                 expect(dbUrl['Fn::Sub'][1].Username['Fn::Sub']).toBeDefined();
                 expect(dbUrl['Fn::Sub'][1].Password['Fn::Sub']).toBeDefined();
-                
+
                 // Should not contain the literal string "[object Object]"
                 const jsonOutput = JSON.stringify(dbUrl);
                 expect(jsonOutput).not.toContain('[object Object]');
