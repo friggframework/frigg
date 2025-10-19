@@ -39,7 +39,7 @@ describe('Database Migration Router - Adapter Layer', () => {
         expect(typeof router).toBe('function');
         expect(router.stack).toBeDefined();
     });
-    
+
     it('should have separate handler file for Lambda', () => {
         // db-migration.handler.js wraps router with createAppHandler
         // This keeps db-migration.js free of app-handler-helpers dependency

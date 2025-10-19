@@ -24,6 +24,6 @@ app.use((err, req, res, next) => {
     res.status(500).json({ message: 'Internal Server Error' });
 });
 
-// Export serverless-http wrapped handler
-module.exports = serverlessHttp(app);
+// Export as .handler property (Lambda config: db-migration.handler)
+module.exports.handler = serverlessHttp(app);
 
