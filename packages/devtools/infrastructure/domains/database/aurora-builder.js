@@ -377,7 +377,7 @@ exports.handler = async (event, context) => {
             })
         );
         
-        console.log(\`Successfully rotated password for cluster: \${ClusterIdentifier}\`);
+        console.log('Successfully rotated password for cluster: ' + ClusterIdentifier);
         await sendResponse('SUCCESS', { 
             Message: 'Password rotated successfully',
             ClusterIdentifier,
