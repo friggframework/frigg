@@ -288,7 +288,7 @@ class AuroraBuilder extends InfrastructureBuilder {
                         SecretStringTemplate: JSON.stringify({ username: dbConfig.username || 'postgres' }),
                         GenerateStringKey: 'password',
                         PasswordLength: 32,
-                        ExcludeCharacters: '"@/\\',
+                        ExcludeCharacters: '"@/\\\\',
                     },
                     Tags: [
                         { Key: 'Name', Value: '${self:service}-${self:provider.stage}-db-secret' },
