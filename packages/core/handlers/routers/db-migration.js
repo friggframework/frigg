@@ -85,11 +85,13 @@ router.use(validateApiKey);
 router.post(
     '/db-migrate',
     catchAsyncError(async (req, res) => {
-        const { dbType, stage } = req.body;
+        // Migration infrastructure is PostgreSQL-only, so hardcode dbType
+        const dbType = 'postgresql';
+        const { stage } = req.body;
         // TODO: Extract userId from JWT token when auth is implemented
         const userId = req.body.userId || 'admin';
 
-        console.log(`Migration trigger request: dbType=${dbType}, stage=${stage}, userId=${userId}`);
+        console.log(`Migration trigger request: dbType=${dbType}, stage=${stage || 'auto-detect'}, userId=${userId}`);
 
         try {
             const result = await triggerMigrationUseCase.execute({

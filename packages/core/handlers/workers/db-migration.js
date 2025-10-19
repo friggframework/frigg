@@ -104,32 +104,32 @@ function sanitizeDatabaseUrl(url) {
  */
 function extractMigrationParams(event) {
     let processId = null;
-    let dbType = null;
     let stage = null;
+    
+    // Migration infrastructure is PostgreSQL-only, so hardcode dbType
+    const dbType = 'postgresql';
 
     // Check if this is an SQS event
     if (event.Records && event.Records.length > 0) {
         // SQS event - extract from message body
         const message = JSON.parse(event.Records[0].body);
         processId = message.processId;
-        dbType = message.dbType;
         stage = message.stage;
 
         console.log('SQS event detected');
         console.log(`  Process ID: ${processId}`);
-        console.log(`  DB Type: ${dbType}`);
+        console.log(`  DB Type: ${dbType} (hardcoded - PostgreSQL-only)`);
         console.log(`  Stage: ${stage}`);
     } else {
         // Direct invocation - use event properties or environment variables
         processId = event.processId || null;
-        dbType = event.dbType || process.env.DB_TYPE || 'postgresql';
         stage = event.stage || process.env.STAGE || 'production';
 
         console.log('Direct invocation detected');
         if (processId) {
             console.log(`  Process ID: ${processId}`);
         }
-        console.log(`  DB Type: ${dbType}`);
+        console.log(`  DB Type: ${dbType} (hardcoded - PostgreSQL-only)`);
         console.log(`  Stage: ${stage}`);
     }
 
