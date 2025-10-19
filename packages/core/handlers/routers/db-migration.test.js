@@ -34,8 +34,9 @@ describe('Database Migration Router - Adapter Layer', () => {
         }).not.toThrow();
     });
 
-    it('should export Express router', () => {
-        const router = require('./db-migration');
+    it('should export handler and router', () => {
+        const { handler, router } = require('./db-migration');
+        expect(typeof handler).toBe('function');
         expect(typeof router).toBe('function');
         expect(router.stack).toBeDefined();
     });
