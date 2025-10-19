@@ -50,14 +50,16 @@ const {
     UpdateProcessState,
 } = require('../../integrations/use-cases/update-process-state');
 const {
-    createProcessRepository,
-} = require('../../integrations/repositories/process-repository-factory');
+    ProcessRepositoryPostgres,
+} = require('../../integrations/repositories/process-repository-postgres');
 
 // Inject prisma-runner as dependency
 const prismaRunner = require('../../database/utils/prisma-runner');
 
 // Create process repository and use case for tracking migration progress
-const processRepository = createProcessRepository();
+// Note: Migrations are PostgreSQL-only, so we directly use ProcessRepositoryPostgres
+// This avoids loading app definition (which requires integration classes)
+const processRepository = new ProcessRepositoryPostgres();
 const updateProcessState = new UpdateProcessState({ processRepository });
 
 /**

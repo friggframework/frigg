@@ -17,7 +17,7 @@
 
 const { Router } = require('express');
 const catchAsyncError = require('express-async-handler');
-const { createProcessRepository } = require('../../integrations/repositories/process-repository-factory');
+const { ProcessRepositoryPostgres } = require('../../integrations/repositories/process-repository-postgres');
 const {
     TriggerDatabaseMigrationUseCase,
     ValidationError: TriggerValidationError,
@@ -30,8 +30,10 @@ const {
 
 const router = Router();
 
-// Dependency injection (like health.js:34-70)
-const processRepository = createProcessRepository();
+// Dependency injection
+// Note: Migrations are PostgreSQL-only, so we directly use ProcessRepositoryPostgres
+// This avoids loading app definition (which requires integration classes)
+const processRepository = new ProcessRepositoryPostgres();
 const triggerMigrationUseCase = new TriggerDatabaseMigrationUseCase({
     processRepository,
     // Note: QueuerUtil is used directly in the use case (static utility)
