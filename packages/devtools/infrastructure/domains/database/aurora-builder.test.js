@@ -497,6 +497,34 @@ describe('AuroraBuilder', () => {
                 expect(result.environment.DATABASE_HOST).toBe('cluster.abc.us-east-1.rds.amazonaws.com');
                 expect(result.environment.DATABASE_PORT).toBe('5432');
             });
+
+            it('should generate valid CloudFormation ZipFile code without template literal conflicts', async () => {
+                const appDefinition = {
+                    database: {
+                        postgres: {
+                            enable: true,
+                            management: 'discover',
+                            autoCreateCredentials: true,
+                        },
+                    },
+                };
+
+                const discoveredResources = {
+                    auroraClusterEndpoint: 'cluster.abc.us-east-1.rds.amazonaws.com',
+                    auroraPort: 5432,
+                };
+
+                const result = await auroraBuilder.build(appDefinition, discoveredResources);
+
+                const zipFileCode = result.resources.PasswordRotatorLambda.Properties.Code.ZipFile;
+                
+                // Should not contain template literals that would conflict with CloudFormation ${} substitution
+                // CloudFormation uses ${} for parameter substitution, so we should avoid `${variable}` in ZipFile
+                expect(zipFileCode).not.toMatch(/`.*\$\{(?!env:).*\}`/); // No template literals with ${} except ${env:...}
+                
+                // Should use string concatenation instead
+                expect(zipFileCode).toContain("'Successfully rotated password for cluster: ' + ClusterIdentifier");
+            });
         });
     });
 
