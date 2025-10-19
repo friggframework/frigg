@@ -277,7 +277,7 @@ class AuroraBuilder extends InfrastructureBuilder {
         // Check if we should auto-create credentials
         if (dbConfig.autoCreateCredentials && !discoveredResources.databaseSecretArn) {
             console.log('  Creating Secrets Manager secret and rotating Aurora password...');
-            
+
             // Create Secrets Manager secret with auto-generated password
             result.resources.FriggDBSecret = {
                 Type: 'AWS::SecretsManager::Secret',
@@ -473,15 +473,15 @@ exports.handler = async (event, context) => {
             // No secret and no auto-create - set individual DB connection components
             // The application will construct DATABASE_URL at runtime from these components + DATABASE_USER + DATABASE_PASSWORD
             const dbName = dbConfig.database || 'frigg';
-            
+
             result.environment.DATABASE_HOST = discoveredResources.auroraClusterEndpoint;
             result.environment.DATABASE_PORT = String(discoveredResources.auroraPort || 5432);
             result.environment.DATABASE_NAME = dbName;
-            
+
             // Note: DATABASE_URL is NOT set here to avoid Serverless variable resolution errors
             // The application (Frigg Core) should construct it at runtime from:
             // DATABASE_HOST, DATABASE_PORT, DATABASE_NAME, DATABASE_USER, DATABASE_PASSWORD
-            
+
             console.log('  ℹ️  No Secrets Manager secret found - set DATABASE_USER and DATABASE_PASSWORD in Lambda environment');
             console.log('  ℹ️  Application will construct DATABASE_URL at runtime from DATABASE_HOST, DATABASE_PORT, DATABASE_NAME, DATABASE_USER, DATABASE_PASSWORD');
             console.log('  ℹ️  Or enable autoCreateCredentials=true to automatically create and rotate credentials');
@@ -508,14 +508,47 @@ exports.handler = async (event, context) => {
 
     /**
      * Build DATABASE_URL connection string
+     * @param {string|object} host - Database host (string or CloudFormation intrinsic function)
+     * @param {string|number|object} port - Database port (string/number or CloudFormation intrinsic function)
+     * @param {string} database - Database name
+     * @param {string|object} secretRef - Secret ARN (string) or CloudFormation Ref object
      */
     buildDatabaseUrl(host, port, database, secretRef) {
+        // Handle secretRef as either a string ARN or CloudFormation Ref object
+        const resolveSecretRef = (secretRefValue) => {
+            if (typeof secretRefValue === 'object' && secretRefValue.Ref) {
+                // CloudFormation Ref - use nested Fn::Sub to resolve it
+                return {
+                    'Fn::Sub': [
+                        '{{resolve:secretsmanager:${SecretArn}:SecretString:username}}',
+                        { SecretArn: secretRefValue },
+                    ],
+                };
+            }
+            // String ARN - use directly
+            return `{{resolve:secretsmanager:${secretRefValue}:SecretString:username}}`;
+        };
+
+        const resolveSecretPassword = (secretRefValue) => {
+            if (typeof secretRefValue === 'object' && secretRefValue.Ref) {
+                // CloudFormation Ref - use nested Fn::Sub to resolve it
+                return {
+                    'Fn::Sub': [
+                        '{{resolve:secretsmanager:${SecretArn}:SecretString:password}}',
+                        { SecretArn: secretRefValue },
+                    ],
+                };
+            }
+            // String ARN - use directly
+            return `{{resolve:secretsmanager:${secretRefValue}:SecretString:password}}`;
+        };
+
         return {
             'Fn::Sub': [
                 `postgresql://\${Username}:\${Password}@\${Host}:\${Port}/\${Database}`,
                 {
-                    Username: `{{resolve:secretsmanager:${secretRef}:SecretString:username}}`,
-                    Password: `{{resolve:secretsmanager:${secretRef}:SecretString:password}}`,
+                    Username: resolveSecretRef(secretRef),
+                    Password: resolveSecretPassword(secretRef),
                     Host: host,
                     Port: port,
                     Database: database,

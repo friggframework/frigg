@@ -388,8 +388,14 @@ describe('AuroraBuilder', () => {
                 // Check DATABASE_URL uses the secret
                 expect(result.environment.DATABASE_URL).toBeDefined();
                 expect(result.environment.DATABASE_URL['Fn::Sub']).toBeDefined();
-                expect(result.environment.DATABASE_URL['Fn::Sub'][1].Username).toContain('resolve:secretsmanager');
-                expect(result.environment.DATABASE_URL['Fn::Sub'][1].Password).toContain('resolve:secretsmanager');
+                
+                // Username and Password should use nested Fn::Sub to resolve the Ref
+                expect(result.environment.DATABASE_URL['Fn::Sub'][1].Username['Fn::Sub']).toBeDefined();
+                expect(result.environment.DATABASE_URL['Fn::Sub'][1].Password['Fn::Sub']).toBeDefined();
+                
+                // Should contain secretsmanager resolution
+                expect(result.environment.DATABASE_URL['Fn::Sub'][1].Username['Fn::Sub'][0]).toContain('resolve:secretsmanager');
+                expect(result.environment.DATABASE_URL['Fn::Sub'][1].Password['Fn::Sub'][0]).toContain('resolve:secretsmanager');
 
                 // Check IAM permissions for secret access
                 const secretPermission = result.iamStatements.find(stmt =>
@@ -426,11 +432,11 @@ describe('AuroraBuilder', () => {
                 expect(result.environment.DATABASE_HOST).toBe('cluster.abc.us-east-1.rds.amazonaws.com');
                 expect(result.environment.DATABASE_PORT).toBe('5432');
                 expect(result.environment.DATABASE_NAME).toBe('frigg');
-                
+
                 // DATABASE_URL should NOT be set (to avoid Serverless variable resolution errors)
                 // The application should construct it at runtime from DATABASE_HOST, DATABASE_PORT, DATABASE_NAME, DATABASE_USER, DATABASE_PASSWORD
                 expect(result.environment.DATABASE_URL).toBeUndefined();
-                
+
                 // DATABASE_USER and DATABASE_PASSWORD should come from appDefinition.environment
                 // and will be set by the environment-builder, not here
             });
@@ -523,13 +529,47 @@ describe('AuroraBuilder', () => {
                 const result = await auroraBuilder.build(appDefinition, discoveredResources);
 
                 const zipFileCode = result.resources.PasswordRotatorLambda.Properties.Code.ZipFile;
-                
+
                 // Should not contain template literals that would conflict with CloudFormation ${} substitution
                 // CloudFormation uses ${} for parameter substitution, so we should avoid `${variable}` in ZipFile
                 expect(zipFileCode).not.toMatch(/`.*\$\{(?!env:).*\}`/); // No template literals with ${} except ${env:...}
-                
+
                 // Should use string concatenation instead
                 expect(zipFileCode).toContain("'Successfully rotated password for cluster: ' + ClusterIdentifier");
+            });
+
+            it('should properly handle Ref objects in buildDatabaseUrl when autoCreateCredentials is enabled', async () => {
+                const appDefinition = {
+                    database: {
+                        postgres: {
+                            enable: true,
+                            management: 'discover',
+                            autoCreateCredentials: true,
+                            database: 'testdb',
+                        },
+                    },
+                };
+
+                const discoveredResources = {
+                    auroraClusterEndpoint: 'cluster.abc.us-east-1.rds.amazonaws.com',
+                    auroraPort: 5432,
+                };
+
+                const result = await auroraBuilder.build(appDefinition, discoveredResources);
+
+                const dbUrl = result.environment.DATABASE_URL;
+                
+                // Should use Fn::Sub with nested Fn::Sub to resolve the Ref
+                expect(dbUrl['Fn::Sub']).toBeDefined();
+                expect(dbUrl['Fn::Sub'][0]).toBe('postgresql://${Username}:${Password}@${Host}:${Port}/${Database}');
+                
+                // The Username and Password should use Fn::Sub to resolve the secret Ref, not literal "[object Object]"
+                expect(dbUrl['Fn::Sub'][1].Username['Fn::Sub']).toBeDefined();
+                expect(dbUrl['Fn::Sub'][1].Password['Fn::Sub']).toBeDefined();
+                
+                // Should not contain the literal string "[object Object]"
+                const jsonOutput = JSON.stringify(dbUrl);
+                expect(jsonOutput).not.toContain('[object Object]');
             });
 
             it('should properly escape ExcludeCharacters for valid JSON in CloudFormation template', async () => {
@@ -551,15 +591,15 @@ describe('AuroraBuilder', () => {
                 const result = await auroraBuilder.build(appDefinition, discoveredResources);
 
                 const excludeChars = result.resources.FriggDBSecret.Properties.GenerateSecretString.ExcludeCharacters;
-                
+
                 // Should properly escape the backslash so it's valid JSON
                 // In JavaScript string: '"@/\\' represents the string: "@/\
                 // When serialized to JSON, backslash must be doubled: '"@/\\'
                 expect(excludeChars).toBe('"@/\\\\');
-                
+
                 // Verify it can be JSON-stringified without errors
                 expect(() => JSON.stringify(result.resources.FriggDBSecret)).not.toThrow();
-                
+
                 // Verify the JSON output has the correct escape sequence
                 const jsonOutput = JSON.stringify(result.resources.FriggDBSecret);
                 expect(jsonOutput).toContain('\\"@/\\\\\\\\');  // In JSON string: "\"@/\\\\"
