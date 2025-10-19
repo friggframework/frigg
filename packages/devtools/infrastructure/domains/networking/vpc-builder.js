@@ -141,18 +141,32 @@ class VpcBuilder extends InfrastructureBuilder {
         // Build VPC Endpoints if enabled
         const vpcManagement = appDefinition.vpc.management || 'discover';
         const selfHeal = appDefinition.vpc.selfHeal !== false;
-        const vpcEndpointsExist = discoveredResources.s3VpcEndpointId && discoveredResources.dynamodbVpcEndpointId;
+        // Check which VPC endpoints already exist
+        const existingEndpoints = {
+            s3: discoveredResources.s3VpcEndpointId,
+            dynamodb: discoveredResources.dynamodbVpcEndpointId,
+            kms: discoveredResources.kmsVpcEndpointId,
+            secretsManager: discoveredResources.secretsManagerVpcEndpointId,
+        };
+        const allEndpointsExist = existingEndpoints.s3 && existingEndpoints.dynamodb && 
+                                   existingEndpoints.kms && existingEndpoints.secretsManager;
+        const someEndpointsExist = existingEndpoints.s3 || existingEndpoints.dynamodb || 
+                                    existingEndpoints.kms || existingEndpoints.secretsManager;
 
         if (appDefinition.vpc.enableVPCEndpoints !== false) {
             if (vpcManagement === 'create-new') {
                 // Always create in create-new mode
-                this.buildVpcEndpoints(appDefinition, discoveredResources, result);
+                this.buildVpcEndpoints(appDefinition, discoveredResources, result, existingEndpoints);
             } else if (vpcManagement === 'discover') {
-                if (vpcEndpointsExist) {
-                    console.log('  VPC endpoints already exist - skipping creation');
+                if (allEndpointsExist) {
+                    console.log('  All VPC endpoints already exist - skipping creation');
                 } else if (selfHeal) {
-                    console.log('  No VPC endpoints found - selfHeal creating them');
-                    this.buildVpcEndpoints(appDefinition, discoveredResources, result);
+                    if (someEndpointsExist) {
+                        console.log('  Some VPC endpoints found - selfHeal creating missing ones');
+                    } else {
+                        console.log('  No VPC endpoints found - selfHeal creating them');
+                    }
+                    this.buildVpcEndpoints(appDefinition, discoveredResources, result, existingEndpoints);
                 } else {
                     console.log('  VPC endpoints not found and selfHeal disabled - skipping');
                 }
@@ -662,8 +676,19 @@ class VpcBuilder extends InfrastructureBuilder {
     /**
      * Build VPC Endpoints for AWS services
      */
-    buildVpcEndpoints(appDefinition, discoveredResources, result) {
-        console.log('  Creating VPC Endpoints...');
+    buildVpcEndpoints(appDefinition, discoveredResources, result, existingEndpoints = {}) {
+        const missing = [];
+        if (!existingEndpoints.s3) missing.push('S3');
+        if (!existingEndpoints.dynamodb) missing.push('DynamoDB');
+        if (!existingEndpoints.kms && appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms') missing.push('KMS');
+        if (!existingEndpoints.secretsManager) missing.push('Secrets Manager');
+        
+        if (missing.length > 0) {
+            console.log(`  Creating missing VPC Endpoints: ${missing.join(', ')}...`);
+        } else {
+            console.log('  All required VPC Endpoints already exist - skipping creation');
+            return;
+        }
 
         const vpcId = result.vpcId || discoveredResources.defaultVpcId;
 
@@ -682,8 +707,9 @@ class VpcBuilder extends InfrastructureBuilder {
             };
         }
 
-        // S3 Gateway Endpoint
-        result.resources.FriggS3VPCEndpoint = {
+        // S3 Gateway Endpoint (only if missing)
+        if (!existingEndpoints.s3) {
+            result.resources.FriggS3VPCEndpoint = {
             Type: 'AWS::EC2::VPCEndpoint',
             Properties: {
                 VpcId: vpcId,
@@ -692,9 +718,11 @@ class VpcBuilder extends InfrastructureBuilder {
                 RouteTableIds: [{ Ref: 'FriggLambdaRouteTable' }],
             },
         };
+        }
 
-        // DynamoDB Gateway Endpoint
-        result.resources.FriggDynamoDBVPCEndpoint = {
+        // DynamoDB Gateway Endpoint (only if missing)
+        if (!existingEndpoints.dynamodb) {
+            result.resources.FriggDynamoDBVPCEndpoint = {
             Type: 'AWS::EC2::VPCEndpoint',
             Properties: {
                 VpcId: vpcId,
@@ -703,9 +731,11 @@ class VpcBuilder extends InfrastructureBuilder {
                 RouteTableIds: [{ Ref: 'FriggLambdaRouteTable' }],
             },
         };
+        }
 
-        // VPC Endpoint Security Group
-        result.resources.FriggVPCEndpointSecurityGroup = {
+        // VPC Endpoint Security Group (only if KMS or Secrets Manager are missing)
+        if (!existingEndpoints.kms || !existingEndpoints.secretsManager) {
+            result.resources.FriggVPCEndpointSecurityGroup = {
             Type: 'AWS::EC2::SecurityGroup',
             Properties: {
                 GroupDescription: 'Security group for VPC Endpoints',
@@ -725,9 +755,10 @@ class VpcBuilder extends InfrastructureBuilder {
                 ],
             },
         };
+        }
 
-        // KMS Interface Endpoint (if KMS encryption enabled)
-        if (appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms') {
+        // KMS Interface Endpoint (only if missing AND KMS encryption is enabled)
+        if (!existingEndpoints.kms && appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms') {
             result.resources.FriggKMSVPCEndpoint = {
                 Type: 'AWS::EC2::VPCEndpoint',
                 Properties: {
@@ -741,8 +772,9 @@ class VpcBuilder extends InfrastructureBuilder {
             };
         }
 
-        // Secrets Manager Interface Endpoint
-        result.resources.FriggSecretsManagerVPCEndpoint = {
+        // Secrets Manager Interface Endpoint (only if missing)
+        if (!existingEndpoints.secretsManager) {
+            result.resources.FriggSecretsManagerVPCEndpoint = {
             Type: 'AWS::EC2::VPCEndpoint',
             Properties: {
                 VpcId: vpcId,
@@ -753,8 +785,9 @@ class VpcBuilder extends InfrastructureBuilder {
                 PrivateDnsEnabled: true,
             },
         };
+        }
 
-        console.log('    ✅ VPC Endpoints created (S3, DynamoDB, KMS, Secrets Manager)');
+        console.log(`    ✅ Created ${missing.length} VPC endpoint(s): ${missing.join(', ')}`);
     }
 }
 
