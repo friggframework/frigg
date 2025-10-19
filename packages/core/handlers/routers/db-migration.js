@@ -173,9 +173,5 @@ router.get(
     })
 );
 
-// Export handler for Lambda (like auth.js and user.js)
-const { createAppHandler } = require('../app-handler-helpers');
-const handler = createAppHandler('HTTP Event: DB Migration', router, true);
-
-module.exports = { handler, router };
+module.exports = router;
 

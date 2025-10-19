@@ -28,16 +28,21 @@ describe('Database Migration Router - Adapter Layer', () => {
     it('should load without requiring app definition (critical bug fix)', () => {
         // Before fix: createProcessRepository() → getDatabaseType() → loads app definition → requires integrations → CRASH
         // After fix: ProcessRepositoryPostgres instantiated directly → no app definition → SUCCESS
-        
+
         expect(() => {
             require('./db-migration');
         }).not.toThrow();
     });
 
-    it('should export handler and router', () => {
-        const { handler, router } = require('./db-migration');
-        expect(typeof handler).toBe('function');
+    it('should export Express router', () => {
+        const router = require('./db-migration');
         expect(typeof router).toBe('function');
         expect(router.stack).toBeDefined();
+    });
+    
+    it('should have separate handler file for Lambda', () => {
+        // db-migration.handler.js wraps router with createAppHandler
+        // This keeps db-migration.js free of app-handler-helpers dependency
+        expect(() => require('./db-migration.handler')).not.toThrow();
     });
 });

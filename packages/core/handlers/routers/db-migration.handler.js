@@ -1,21 +1,29 @@
 /**
  * Database Migration Router Lambda Handler
  *
- * Wraps the Express router with Lambda infrastructure:
- * - Express app with middleware (CORS, body-parser, error handling)
- * - serverless-http for Lambda compatibility
- * - createHandler for DB pooling + secrets management
- *
- * This matches the pattern used by health.handler.js and user.handler.js
+ * Minimal Lambda wrapper that avoids loading core/index.js
+ * (which would try to load user/** modules excluded from migration packages)
+ * 
+ * This handler is intentionally simpler than health.handler.js to avoid dependencies.
  */
 
-const { createAppHandler } = require('../app-handler-helpers');
+const serverlessHttp = require('serverless-http');
+const express = require('express');
+const cors = require('cors');
 const dbMigrationRouter = require('./db-migration');
 
-// Export handler directly (Lambda config points to db-migration.handler)
-module.exports = createAppHandler(
-    'db-migration-router',
-    dbMigrationRouter,
-    true // shouldUseDatabase - need DB for Process repository
-);
+// Create minimal Express app
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(dbMigrationRouter);
+
+// Error handler
+app.use((err, req, res, next) => {
+    console.error('Error:', err);
+    res.status(500).json({ message: 'Internal Server Error' });
+});
+
+// Export serverless-http wrapped handler
+module.exports = serverlessHttp(app);
 
