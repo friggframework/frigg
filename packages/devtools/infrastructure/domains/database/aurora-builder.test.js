@@ -343,6 +343,161 @@ describe('AuroraBuilder', () => {
             expect(result.resources.FriggAuroraIngressRule.Properties.ToPort).toBe(5432);
             expect(result.resources.FriggAuroraIngressRule.Properties.SourceSecurityGroupId).toEqual({ Ref: 'FriggLambdaSecurityGroup' });
         });
+
+        describe('autoCreateCredentials', () => {
+            it('should create Secrets Manager secret and password rotator when autoCreateCredentials is enabled', async () => {
+                const appDefinition = {
+                    database: {
+                        postgres: {
+                            enable: true,
+                            management: 'discover',
+                            autoCreateCredentials: true,
+                            username: 'postgres',
+                            database: 'frigg',
+                        },
+                    },
+                };
+
+                const discoveredResources = {
+                    auroraClusterEndpoint: 'quo-aurora-cluster.cluster-abc123.us-east-1.rds.amazonaws.com',
+                    auroraPort: 5432,
+                };
+
+                const result = await auroraBuilder.build(appDefinition, discoveredResources);
+
+                // Check secret creation
+                expect(result.resources.FriggDBSecret).toBeDefined();
+                expect(result.resources.FriggDBSecret.Type).toBe('AWS::SecretsManager::Secret');
+                expect(result.resources.FriggDBSecret.Properties.GenerateSecretString.SecretStringTemplate).toContain('postgres');
+                expect(result.resources.FriggDBSecret.Properties.GenerateSecretString.PasswordLength).toBe(32);
+
+                // Check password rotator Lambda
+                expect(result.resources.PasswordRotatorLambda).toBeDefined();
+                expect(result.resources.PasswordRotatorLambda.Type).toBe('AWS::Lambda::Function');
+                expect(result.resources.PasswordRotatorLambda.Properties.Runtime).toBe('nodejs22.x');
+
+                // Check custom resource
+                expect(result.resources.FriggAuroraPasswordRotator).toBeDefined();
+                expect(result.resources.FriggAuroraPasswordRotator.Type).toBe('Custom::AuroraPasswordRotator');
+                expect(result.resources.FriggAuroraPasswordRotator.Properties.ClusterIdentifier).toBe('quo-aurora-cluster');
+
+                // Check IAM role
+                expect(result.resources.PasswordRotatorRole).toBeDefined();
+                expect(result.resources.PasswordRotatorRole.Type).toBe('AWS::IAM::Role');
+
+                // Check DATABASE_URL uses the secret
+                expect(result.environment.DATABASE_URL).toBeDefined();
+                expect(result.environment.DATABASE_URL['Fn::Sub']).toBeDefined();
+                expect(result.environment.DATABASE_URL['Fn::Sub'][1].Username).toContain('resolve:secretsmanager');
+                expect(result.environment.DATABASE_URL['Fn::Sub'][1].Password).toContain('resolve:secretsmanager');
+
+                // Check IAM permissions for secret access
+                const secretPermission = result.iamStatements.find(stmt =>
+                    stmt.Action.includes('secretsmanager:GetSecretValue')
+                );
+                expect(secretPermission).toBeDefined();
+            });
+
+            it('should not create credentials when autoCreateCredentials is false', async () => {
+                const appDefinition = {
+                    database: {
+                        postgres: {
+                            enable: true,
+                            management: 'discover',
+                            autoCreateCredentials: false,
+                        },
+                    },
+                };
+
+                const discoveredResources = {
+                    auroraClusterEndpoint: 'cluster.abc.us-east-1.rds.amazonaws.com',
+                    auroraPort: 5432,
+                };
+
+                const result = await auroraBuilder.build(appDefinition, discoveredResources);
+
+                // Should not create secret or rotator
+                expect(result.resources.FriggDBSecret).toBeUndefined();
+                expect(result.resources.PasswordRotatorLambda).toBeUndefined();
+                expect(result.resources.FriggAuroraPasswordRotator).toBeUndefined();
+                expect(result.resources.PasswordRotatorRole).toBeUndefined();
+
+                // DATABASE_URL should use env variables
+                expect(result.environment.DATABASE_URL).toBeDefined();
+                expect(result.environment.DATABASE_URL['Fn::Sub']).toBeDefined();
+                expect(result.environment.DATABASE_URL['Fn::Sub'][1].DatabaseUser).toContain('env:DATABASE_USER');
+                expect(result.environment.DATABASE_URL['Fn::Sub'][1].DatabasePassword).toContain('env:DATABASE_PASSWORD');
+            });
+
+            it('should not create credentials when secret is already discovered', async () => {
+                const appDefinition = {
+                    database: {
+                        postgres: {
+                            enable: true,
+                            management: 'discover',
+                            autoCreateCredentials: true, // Enabled, but secret already exists
+                        },
+                    },
+                };
+
+                const discoveredResources = {
+                    auroraClusterEndpoint: 'cluster.abc.us-east-1.rds.amazonaws.com',
+                    auroraPort: 5432,
+                    databaseSecretArn: 'arn:aws:secretsmanager:us-east-1:123:secret:existing-secret',
+                };
+
+                const result = await auroraBuilder.build(appDefinition, discoveredResources);
+
+                // Should use existing secret, not create new one
+                expect(result.resources.FriggDBSecret).toBeUndefined();
+                expect(result.resources.PasswordRotatorLambda).toBeUndefined();
+                expect(result.environment.DATABASE_SECRET_ARN).toBe('arn:aws:secretsmanager:us-east-1:123:secret:existing-secret');
+            });
+
+            it('should extract correct cluster identifier from endpoint', async () => {
+                const appDefinition = {
+                    database: {
+                        postgres: {
+                            enable: true,
+                            management: 'discover',
+                            autoCreateCredentials: true,
+                        },
+                    },
+                };
+
+                const discoveredResources = {
+                    auroraClusterEndpoint: 'my-cluster-name.cluster-xyz123.us-west-2.rds.amazonaws.com',
+                    auroraPort: 5432,
+                };
+
+                const result = await auroraBuilder.build(appDefinition, discoveredResources);
+
+                expect(result.resources.FriggAuroraPasswordRotator.Properties.ClusterIdentifier).toBe('my-cluster-name');
+            });
+
+            it('should set DATABASE_HOST, DATABASE_PORT, DATABASE_NAME when autoCreateCredentials is enabled', async () => {
+                const appDefinition = {
+                    database: {
+                        postgres: {
+                            enable: true,
+                            management: 'discover',
+                            autoCreateCredentials: true,
+                            database: 'mydb',
+                        },
+                    },
+                };
+
+                const discoveredResources = {
+                    auroraClusterEndpoint: 'cluster.abc.us-east-1.rds.amazonaws.com',
+                    auroraPort: 5432,
+                };
+
+                const result = await auroraBuilder.build(appDefinition, discoveredResources);
+
+                expect(result.environment.DATABASE_HOST).toBe('cluster.abc.us-east-1.rds.amazonaws.com');
+                expect(result.environment.DATABASE_PORT).toBe('5432');
+            });
+        });
     });
 
     describe('build() - create-new mode', () => {
