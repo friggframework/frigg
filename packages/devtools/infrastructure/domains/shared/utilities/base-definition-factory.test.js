@@ -85,7 +85,8 @@ describe('Base Definition Factory', () => {
             expect(result.functions.auth).toBeDefined();
             expect(result.functions.user).toBeDefined();
             expect(result.functions.health).toBeDefined();
-            expect(result.functions.dbMigrate).toBeDefined();
+            // dbMigrate removed - MigrationBuilder now handles migration infrastructure
+            expect(result.functions.dbMigrate).toBeUndefined();
         });
 
         it('should configure auth function correctly', () => {
@@ -96,28 +97,11 @@ describe('Base Definition Factory', () => {
             expect(result.functions.auth.events).toHaveLength(3);
         });
 
-        it('should configure dbMigrate function correctly', () => {
+        it('should NOT include legacy dbMigrate function', () => {
             const result = createBaseDefinition({}, {}, {});
 
-            expect(result.functions.dbMigrate.timeout).toBe(300);
-            expect(result.functions.dbMigrate.memorySize).toBe(1024);
-            expect(result.functions.dbMigrate.reservedConcurrency).toBe(1);
-            expect(result.functions.dbMigrate.esbuild).toBe(false);
-            expect(result.functions.dbMigrate.layers).toBeUndefined(); // No Prisma layer
-        });
-
-        it('should NOT exclude Prisma CLI WASM files from dbMigrate function', () => {
-            const result = createBaseDefinition({}, {}, {});
-
-            const excludeList = result.functions.dbMigrate.package.exclude;
-            
-            // Should exclude WASM files from runtime/ (query engine WASM)
-            expect(excludeList).toContain('**/runtime/*.wasm');
-            
-            // But should NOT exclude build/*.wasm files (Prisma CLI needs prisma_schema_build_bg.wasm)
-            expect(excludeList).not.toContain('**/*.wasm*');
-            expect(excludeList).not.toContain('**/*.wasm');
-            expect(excludeList).not.toContain('**/build/*.wasm');
+            // dbMigrate is legacy - MigrationBuilder handles migration infrastructure
+            expect(result.functions.dbMigrate).toBeUndefined();
         });
 
         it('should include Prisma Lambda Layer', () => {
