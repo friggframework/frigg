@@ -28,7 +28,7 @@ describe('Database Migration Router - Adapter Layer', () => {
     it('should load without requiring app definition (critical bug fix)', () => {
         // Before fix: createProcessRepository() → getDatabaseType() → loads app definition → requires integrations → CRASH
         // After fix: ProcessRepositoryPostgres instantiated directly → no app definition → SUCCESS
-        
+
         expect(() => {
             require('./db-migration');
         }).not.toThrow();

@@ -4,25 +4,19 @@
  */
 
 /**
- * Determines database type from DATABASE_URL or app definition
+ * Determines database type from environment or app definition
  * 
  * Detection order:
- * 1. DATABASE_URL protocol (for migration handlers - avoids loading app definition)
+ * 1. DB_TYPE environment variable (set for migration handlers)
  * 2. App definition (backend/index.js Definition.database configuration)
  *
  * @returns {'mongodb'|'postgresql'} Database type
  * @throws {Error} If database type cannot be determined or app definition missing
  */
 function getDatabaseType() {
-    // First, try to detect from DATABASE_URL (migration handlers don't need app definition)
-    const databaseUrl = process.env.DATABASE_URL;
-    if (databaseUrl) {
-        if (databaseUrl.startsWith('postgresql://') || databaseUrl.startsWith('postgres://')) {
-            return 'postgresql';
-        }
-        if (databaseUrl.startsWith('mongodb://') || databaseUrl.startsWith('mongodb+srv://')) {
-            return 'mongodb';
-        }
+    // First, check DB_TYPE environment variable (migration handlers set this)
+    if (process.env.DB_TYPE) {
+        return process.env.DB_TYPE;
     }
     
     // Fallback: Load app definition

@@ -171,11 +171,11 @@ class MigrationBuilder extends InfrastructureBuilder {
         // Add queue URL to environment
         result.environment.DB_MIGRATION_QUEUE_URL = { Ref: 'DbMigrationQueue' };
         
-        // Set DB_TYPE so migration handlers don't need to load app definition
-        // Migrations are PostgreSQL-only (line 33), so this is always 'postgresql'
+        // Hardcode DB_TYPE for PostgreSQL-only migrations
+        // Avoids Prisma needing to load app definition to determine database type
         result.environment.DB_TYPE = 'postgresql';
 
-        console.log('  ✓ Added DB_MIGRATION_QUEUE_URL environment variable');
+        console.log('  ✓ Added DB_MIGRATION_QUEUE_URL and DB_TYPE environment variables');
 
         // Add IAM permissions for SQS
         result.iamStatements.push({

@@ -105,7 +105,7 @@ function sanitizeDatabaseUrl(url) {
 function extractMigrationParams(event) {
     let processId = null;
     let stage = null;
-    
+
     // Migration infrastructure is PostgreSQL-only, so hardcode dbType
     const dbType = 'postgresql';
 
