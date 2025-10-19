@@ -572,7 +572,7 @@ describe('AuroraBuilder', () => {
                 expect(jsonOutput).not.toContain('[object Object]');
             });
 
-            it('should properly escape ExcludeCharacters for valid JSON in CloudFormation template', async () => {
+            it('should exclude URL-special characters from password generation for Prisma compatibility', async () => {
                 const appDefinition = {
                     database: {
                         postgres: {
@@ -591,18 +591,15 @@ describe('AuroraBuilder', () => {
                 const result = await auroraBuilder.build(appDefinition, discoveredResources);
 
                 const excludeChars = result.resources.FriggDBSecret.Properties.GenerateSecretString.ExcludeCharacters;
-
-                // Should properly escape the backslash so it's valid JSON
-                // In JavaScript string: '"@/\\' represents the string: "@/\
-                // When serialized to JSON, backslash must be doubled: '"@/\\'
-                expect(excludeChars).toBe('"@/\\\\');
-
+                
+                // Must exclude URL-special characters that would break Prisma connection strings
+                // Prisma docs: https://www.prisma.io/docs/reference/database-reference/connection-urls#special-characters
+                // These characters have special meaning in URLs and must be excluded or the password must be URL-encoded
+                // Exclude: " @ : / ? # [ ] % (and \ for JSON escaping)
+                expect(excludeChars).toBe('"@:/?#[]%\\\\');
+                
                 // Verify it can be JSON-stringified without errors
                 expect(() => JSON.stringify(result.resources.FriggDBSecret)).not.toThrow();
-
-                // Verify the JSON output has the correct escape sequence
-                const jsonOutput = JSON.stringify(result.resources.FriggDBSecret);
-                expect(jsonOutput).toContain('\\"@/\\\\\\\\');  // In JSON string: "\"@/\\\\"
             });
         });
     });

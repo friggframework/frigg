@@ -156,7 +156,10 @@ class AuroraBuilder extends InfrastructureBuilder {
                     SecretStringTemplate: JSON.stringify({ username: dbConfig.username || 'postgres' }),
                     GenerateStringKey: 'password',
                     PasswordLength: 32,
-                    ExcludeCharacters: '"@/\\',
+                    // Exclude URL-special characters for Prisma connection string compatibility
+                    // Prisma docs: https://www.prisma.io/docs/reference/database-reference/connection-urls#special-characters
+                    // Exclude: " @ : / ? # [ ] % \ (all have special meaning in URLs or need escaping)
+                    ExcludeCharacters: '"@:/?#[]%\\\\',
                 },
                 Tags: [
                     { Key: 'Name', Value: '${self:service}-${self:provider.stage}-db-secret' },
@@ -288,7 +291,10 @@ class AuroraBuilder extends InfrastructureBuilder {
                         SecretStringTemplate: JSON.stringify({ username: dbConfig.username || 'postgres' }),
                         GenerateStringKey: 'password',
                         PasswordLength: 32,
-                        ExcludeCharacters: '"@/\\\\',
+                        // Exclude URL-special characters for Prisma connection string compatibility
+                        // Prisma docs: https://www.prisma.io/docs/reference/database-reference/connection-urls#special-characters
+                        // Exclude: " @ : / ? # [ ] % \ (all have special meaning in URLs or need escaping)
+                        ExcludeCharacters: '"@:/?#[]%\\\\',
                     },
                     Tags: [
                         { Key: 'Name', Value: '${self:service}-${self:provider.stage}-db-secret' },

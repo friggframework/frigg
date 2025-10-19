@@ -186,7 +186,7 @@ describe('MigrationBuilder', () => {
             // Both migration functions should have the same package config
             expect(result.functions.dbMigrationWorker.package).toBeDefined();
             expect(result.functions.dbMigrationRouter.package).toBeDefined();
-            
+
             // They should share the same config object (migrationPackageConfig)
             expect(result.functions.dbMigrationWorker.package).toBe(result.functions.dbMigrationRouter.package);
 
@@ -194,7 +194,7 @@ describe('MigrationBuilder', () => {
             const packageConfig = result.functions.dbMigrationWorker.package;
             expect(packageConfig.individually).toBe(true);
             expect(Array.isArray(packageConfig.exclude)).toBe(true);
-            
+
             // Critical exclusions to prevent Lambda size limit errors
             expect(packageConfig.exclude).toContain('test/**');
             expect(packageConfig.exclude).toContain('**/*.test.js');
