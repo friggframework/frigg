@@ -470,31 +470,20 @@ exports.handler = async (event, context) => {
 
             console.log('  ✅ Using discovered Secrets Manager credentials');
         } else {
-            // No secret and no auto-create - construct DATABASE_URL using environment variables at runtime
+            // No secret and no auto-create - set individual DB connection components
+            // The application will construct DATABASE_URL at runtime from these components + DATABASE_USER + DATABASE_PASSWORD
             const dbName = dbConfig.database || 'frigg';
             
-            // Set individual environment variables for flexible credential management
             result.environment.DATABASE_HOST = discoveredResources.auroraClusterEndpoint;
             result.environment.DATABASE_PORT = String(discoveredResources.auroraPort || 5432);
             result.environment.DATABASE_NAME = dbName;
             
-            // Build DATABASE_URL using CloudFormation intrinsic functions to reference
-            // the environment variables at runtime (not build time)
-            result.environment.DATABASE_URL = {
-                'Fn::Sub': [
-                    'postgresql://${DatabaseUser}:${DatabasePassword}@${DatabaseHost}:${DatabasePort}/${DatabaseName}',
-                    {
-                        DatabaseUser: '${env:DATABASE_USER, "postgres"}',
-                        DatabasePassword: '${env:DATABASE_PASSWORD}',
-                        DatabaseHost: discoveredResources.auroraClusterEndpoint,
-                        DatabasePort: String(discoveredResources.auroraPort || 5432),
-                        DatabaseName: dbName,
-                    },
-                ],
-            };
+            // Note: DATABASE_URL is NOT set here to avoid Serverless variable resolution errors
+            // The application (Frigg Core) should construct it at runtime from:
+            // DATABASE_HOST, DATABASE_PORT, DATABASE_NAME, DATABASE_USER, DATABASE_PASSWORD
             
-            console.log('  ℹ️  No Secrets Manager secret found - DATABASE_URL will use DATABASE_USER and DATABASE_PASSWORD from environment');
-            console.log('  ℹ️  Set DATABASE_USER and DATABASE_PASSWORD in Lambda environment or via serverless deploy --param');
+            console.log('  ℹ️  No Secrets Manager secret found - set DATABASE_USER and DATABASE_PASSWORD in Lambda environment');
+            console.log('  ℹ️  Application will construct DATABASE_URL at runtime from DATABASE_HOST, DATABASE_PORT, DATABASE_NAME, DATABASE_USER, DATABASE_PASSWORD');
             console.log('  ℹ️  Or enable autoCreateCredentials=true to automatically create and rotate credentials');
         }
 

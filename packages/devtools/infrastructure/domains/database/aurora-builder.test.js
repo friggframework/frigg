@@ -422,11 +422,17 @@ describe('AuroraBuilder', () => {
                 expect(result.resources.FriggAuroraPasswordRotator).toBeUndefined();
                 expect(result.resources.PasswordRotatorRole).toBeUndefined();
 
-                // DATABASE_URL should use env variables
-                expect(result.environment.DATABASE_URL).toBeDefined();
-                expect(result.environment.DATABASE_URL['Fn::Sub']).toBeDefined();
-                expect(result.environment.DATABASE_URL['Fn::Sub'][1].DatabaseUser).toContain('env:DATABASE_USER');
-                expect(result.environment.DATABASE_URL['Fn::Sub'][1].DatabasePassword).toContain('env:DATABASE_PASSWORD');
+                // Should set individual environment variables for flexible credential management
+                expect(result.environment.DATABASE_HOST).toBe('cluster.abc.us-east-1.rds.amazonaws.com');
+                expect(result.environment.DATABASE_PORT).toBe('5432');
+                expect(result.environment.DATABASE_NAME).toBe('frigg');
+                
+                // DATABASE_URL should NOT be set (to avoid Serverless variable resolution errors)
+                // The application should construct it at runtime from DATABASE_HOST, DATABASE_PORT, DATABASE_NAME, DATABASE_USER, DATABASE_PASSWORD
+                expect(result.environment.DATABASE_URL).toBeUndefined();
+                
+                // DATABASE_USER and DATABASE_PASSWORD should come from appDefinition.environment
+                // and will be set by the environment-builder, not here
             });
 
             it('should not create credentials when secret is already discovered', async () => {
