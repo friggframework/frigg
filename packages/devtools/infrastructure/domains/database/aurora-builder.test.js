@@ -625,6 +625,9 @@ describe('AuroraBuilder', () => {
 
             expect(result.resources.FriggAuroraCluster).toBeDefined();
             expect(result.resources.FriggAuroraCluster.Type).toBe('AWS::RDS::DBCluster');
+            
+            // PubliclyAccessible is NOT supported on Aurora clusters (only on instances)
+            expect(result.resources.FriggAuroraCluster.Properties.PubliclyAccessible).toBeUndefined();
         });
 
         it('should create database subnet group', async () => {

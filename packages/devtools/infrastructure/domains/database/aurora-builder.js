@@ -187,7 +187,8 @@ class AuroraBuilder extends InfrastructureBuilder {
                 VpcSecurityGroupIds: discoveredResources.vpcSecurityGroupIds || [
                     { Ref: 'FriggLambdaSecurityGroup' },
                 ],
-                PubliclyAccessible: publiclyAccessible,
+                // Note: PubliclyAccessible is NOT supported on Aurora clusters
+                // It should only be set on DB instances (see FriggAuroraInstance below)
                 ServerlessV2ScalingConfiguration: {
                     MinCapacity: dbConfig.minCapacity || 0.5,
                     MaxCapacity: dbConfig.maxCapacity || 1,
