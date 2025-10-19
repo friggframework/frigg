@@ -210,6 +210,9 @@ describe('MigrationBuilder', () => {
             // Should NOT exclude migration handlers - they're needed!
             expect(packageConfig.exclude).not.toContain('node_modules/@friggframework/core/handlers/routers/**');
             expect(packageConfig.exclude).not.toContain('node_modules/@friggframework/core/handlers/workers/**');
+            
+            // Should NOT exclude integrations module - migration router needs process-repository-factory
+            expect(packageConfig.exclude).not.toContain('node_modules/@friggframework/core/integrations/**');
         });
 
         it('should add queue URL to environment', async () => {

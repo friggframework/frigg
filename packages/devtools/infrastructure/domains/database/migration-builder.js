@@ -100,7 +100,7 @@ class MigrationBuilder extends InfrastructureBuilder {
                 'node_modules/prettier/**',
                 'node_modules/eslint/**',
                 'node_modules/@friggframework/core/generated/prisma-mongodb/**',
-                'node_modules/@friggframework/core/integrations/**',
+                // Note: DO NOT exclude integrations/** - migration router needs process-repository-factory
                 'node_modules/@friggframework/core/user/**',
                 // Note: DO NOT exclude handlers/routers/** or handlers/workers/** - migration functions need them!
                 '**/query-engine-darwin*',
