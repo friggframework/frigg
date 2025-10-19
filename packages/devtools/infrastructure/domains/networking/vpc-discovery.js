@@ -114,12 +114,24 @@ class VpcDiscovery {
                 const dynamodbEndpoint = rawResources.vpcEndpoints.find(
                     ep => ep.ServiceName && ep.ServiceName.includes('.dynamodb')
                 );
+                const kmsEndpoint = rawResources.vpcEndpoints.find(
+                    ep => ep.ServiceName && ep.ServiceName.includes('.kms')
+                );
+                const secretsManagerEndpoint = rawResources.vpcEndpoints.find(
+                    ep => ep.ServiceName && ep.ServiceName.includes('.secretsmanager')
+                );
 
                 if (s3Endpoint) {
                     result.s3VpcEndpointId = s3Endpoint.VpcEndpointId;
                 }
                 if (dynamodbEndpoint) {
                     result.dynamodbVpcEndpointId = dynamodbEndpoint.VpcEndpointId;
+                }
+                if (kmsEndpoint) {
+                    result.kmsVpcEndpointId = kmsEndpoint.VpcEndpointId;
+                }
+                if (secretsManagerEndpoint) {
+                    result.secretsManagerVpcEndpointId = secretsManagerEndpoint.VpcEndpointId;
                 }
             }
 
@@ -133,8 +145,8 @@ class VpcDiscovery {
             if (result.existingNatGatewayId) {
                 console.log(`  ✓ Found NAT Gateway: ${result.existingNatGatewayId}`);
             }
-            if (result.s3VpcEndpointId || result.dynamodbVpcEndpointId) {
-                console.log(`  ✓ Found VPC Endpoints: S3=${result.s3VpcEndpointId ? 'Yes' : 'No'}, DynamoDB=${result.dynamodbVpcEndpointId ? 'Yes' : 'No'}`);
+            if (result.s3VpcEndpointId || result.dynamodbVpcEndpointId || result.kmsVpcEndpointId || result.secretsManagerVpcEndpointId) {
+                console.log(`  ✓ Found VPC Endpoints: S3=${result.s3VpcEndpointId ? 'Yes' : 'No'}, DynamoDB=${result.dynamodbVpcEndpointId ? 'Yes' : 'No'}, KMS=${result.kmsVpcEndpointId ? 'Yes' : 'No'}, SecretsManager=${result.secretsManagerVpcEndpointId ? 'Yes' : 'No'}`);
             }
 
             return result;

@@ -252,6 +252,99 @@ describe('VpcDiscovery', () => {
 
             expect(mockProvider.discoverVpc).toHaveBeenCalledWith(config);
         });
+
+        it('should discover all VPC endpoints (S3, DynamoDB, KMS, Secrets Manager)', async () => {
+            mockProvider.discoverVpc.mockResolvedValue({
+                vpcId: 'vpc-123',
+                vpcCidr: '10.0.0.0/16',
+                subnets: [],
+                securityGroups: [],
+                routeTables: [],
+                natGateways: [],
+                internetGateways: [],
+                vpcEndpoints: [
+                    {
+                        VpcEndpointId: 'vpce-s3-123',
+                        ServiceName: 'com.amazonaws.us-east-1.s3',
+                        State: 'available',
+                    },
+                    {
+                        VpcEndpointId: 'vpce-ddb-456',
+                        ServiceName: 'com.amazonaws.us-east-1.dynamodb',
+                        State: 'available',
+                    },
+                    {
+                        VpcEndpointId: 'vpce-kms-789',
+                        ServiceName: 'com.amazonaws.us-east-1.kms',
+                        State: 'available',
+                    },
+                    {
+                        VpcEndpointId: 'vpce-sm-abc',
+                        ServiceName: 'com.amazonaws.us-east-1.secretsmanager',
+                        State: 'available',
+                    },
+                ],
+            });
+
+            const result = await vpcDiscovery.discover({});
+
+            expect(result.s3VpcEndpointId).toBe('vpce-s3-123');
+            expect(result.dynamodbVpcEndpointId).toBe('vpce-ddb-456');
+            expect(result.kmsVpcEndpointId).toBe('vpce-kms-789');
+            expect(result.secretsManagerVpcEndpointId).toBe('vpce-sm-abc');
+        });
+
+        it('should handle partial VPC endpoint discovery', async () => {
+            mockProvider.discoverVpc.mockResolvedValue({
+                vpcId: 'vpc-123',
+                vpcCidr: '10.0.0.0/16',
+                subnets: [],
+                securityGroups: [],
+                routeTables: [],
+                natGateways: [],
+                internetGateways: [],
+                vpcEndpoints: [
+                    {
+                        VpcEndpointId: 'vpce-s3-123',
+                        ServiceName: 'com.amazonaws.us-east-1.s3',
+                        State: 'available',
+                    },
+                    {
+                        VpcEndpointId: 'vpce-ddb-456',
+                        ServiceName: 'com.amazonaws.us-east-1.dynamodb',
+                        State: 'available',
+                    },
+                    // KMS and Secrets Manager are missing
+                ],
+            });
+
+            const result = await vpcDiscovery.discover({});
+
+            expect(result.s3VpcEndpointId).toBe('vpce-s3-123');
+            expect(result.dynamodbVpcEndpointId).toBe('vpce-ddb-456');
+            expect(result.kmsVpcEndpointId).toBeUndefined();
+            expect(result.secretsManagerVpcEndpointId).toBeUndefined();
+        });
+
+        it('should handle no VPC endpoints', async () => {
+            mockProvider.discoverVpc.mockResolvedValue({
+                vpcId: 'vpc-123',
+                vpcCidr: '10.0.0.0/16',
+                subnets: [],
+                securityGroups: [],
+                routeTables: [],
+                natGateways: [],
+                internetGateways: [],
+                vpcEndpoints: [],
+            });
+
+            const result = await vpcDiscovery.discover({});
+
+            expect(result.s3VpcEndpointId).toBeUndefined();
+            expect(result.dynamodbVpcEndpointId).toBeUndefined();
+            expect(result.kmsVpcEndpointId).toBeUndefined();
+            expect(result.secretsManagerVpcEndpointId).toBeUndefined();
+        });
     });
 });
 

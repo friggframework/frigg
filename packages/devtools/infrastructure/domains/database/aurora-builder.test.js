@@ -625,13 +625,13 @@ describe('AuroraBuilder', () => {
 
             expect(result.resources.FriggAuroraCluster).toBeDefined();
             expect(result.resources.FriggAuroraCluster.Type).toBe('AWS::RDS::DBCluster');
-            
+
             // PubliclyAccessible is NOT supported on Aurora clusters (only on instances)
             expect(result.resources.FriggAuroraCluster.Properties.PubliclyAccessible).toBeUndefined();
-            
+
             // Port should be explicitly set to PostgreSQL standard (5432)
             expect(result.resources.FriggAuroraCluster.Properties.Port).toBe(5432);
-            
+
             // Should create self-referencing security group ingress rule
             expect(result.resources.FriggAuroraIngressRule).toBeDefined();
             expect(result.resources.FriggAuroraIngressRule.Type).toBe('AWS::EC2::SecurityGroupIngress');
