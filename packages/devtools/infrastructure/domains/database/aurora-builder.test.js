@@ -525,6 +525,39 @@ describe('AuroraBuilder', () => {
                 // Should use string concatenation instead
                 expect(zipFileCode).toContain("'Successfully rotated password for cluster: ' + ClusterIdentifier");
             });
+
+            it('should properly escape ExcludeCharacters for valid JSON in CloudFormation template', async () => {
+                const appDefinition = {
+                    database: {
+                        postgres: {
+                            enable: true,
+                            management: 'discover',
+                            autoCreateCredentials: true,
+                        },
+                    },
+                };
+
+                const discoveredResources = {
+                    auroraClusterEndpoint: 'cluster.abc.us-east-1.rds.amazonaws.com',
+                    auroraPort: 5432,
+                };
+
+                const result = await auroraBuilder.build(appDefinition, discoveredResources);
+
+                const excludeChars = result.resources.FriggDBSecret.Properties.GenerateSecretString.ExcludeCharacters;
+                
+                // Should properly escape the backslash so it's valid JSON
+                // In JavaScript string: '"@/\\' represents the string: "@/\
+                // When serialized to JSON, backslash must be doubled: '"@/\\'
+                expect(excludeChars).toBe('"@/\\\\');
+                
+                // Verify it can be JSON-stringified without errors
+                expect(() => JSON.stringify(result.resources.FriggDBSecret)).not.toThrow();
+                
+                // Verify the JSON output has the correct escape sequence
+                const jsonOutput = JSON.stringify(result.resources.FriggDBSecret);
+                expect(jsonOutput).toContain('\\"@/\\\\\\\\');  // In JSON string: "\"@/\\\\"
+            });
         });
     });
 
