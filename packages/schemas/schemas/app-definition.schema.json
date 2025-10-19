@@ -252,6 +252,11 @@
               "description": "Make database publicly accessible (not recommended for production)",
               "default": false
             },
+            "autoCreateCredentials": {
+              "type": "boolean",
+              "description": "Automatically create Secrets Manager secret and rotate Aurora password when discovering existing cluster (only applies when management='discover')",
+              "default": false
+            },
             "minCapacity": {
               "type": "number",
               "description": "Minimum Aurora Serverless capacity units (0.5-128)",

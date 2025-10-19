@@ -49,7 +49,7 @@ class TriggerDatabaseMigrationUseCase {
         this._validateParams({ userId, dbType, stage });
 
         // Create Process record for tracking
-        const process = await this.processRepository.create({
+        const migrationProcess = await this.processRepository.create({
             userId,
             integrationId: null, // System operation, not tied to integration
             name: 'database-migration',
@@ -63,7 +63,7 @@ class TriggerDatabaseMigrationUseCase {
             results: {},
         });
 
-        console.log(`Created migration process: ${process.id}`);
+        console.log(`Created migration process: ${migrationProcess.id}`);
 
         // Get queue URL from environment
         const queueUrl = process.env.DB_MIGRATION_QUEUE_URL;
@@ -78,20 +78,20 @@ class TriggerDatabaseMigrationUseCase {
         try {
             await this.queuerUtil.send(
                 {
-                    processId: process.id,
+                    processId: migrationProcess.id,
                     dbType,
                     stage,
                 },
                 queueUrl
             );
 
-            console.log(`Sent migration job to queue for process: ${process.id}`);
+            console.log(`Sent migration job to queue for process: ${migrationProcess.id}`);
         } catch (error) {
             console.error(`Failed to send migration to queue:`, error);
-            
+
             // Update process state to FAILED
             await this.processRepository.updateState(
-                process.id,
+                migrationProcess.id,
                 'FAILED',
                 {
                     error: 'Failed to queue migration job',
@@ -107,9 +107,9 @@ class TriggerDatabaseMigrationUseCase {
         // Return process info immediately (don't wait for migration completion)
         return {
             success: true,
-            processId: process.id,
-            state: process.state,
-            statusUrl: `/db-migrate/${process.id}`,
+            processId: migrationProcess.id,
+            state: migrationProcess.state,
+            statusUrl: `/db-migrate/${migrationProcess.id}`,
             message: 'Database migration queued successfully',
         };
     }

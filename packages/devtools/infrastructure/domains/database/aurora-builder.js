@@ -268,17 +268,234 @@ class AuroraBuilder extends InfrastructureBuilder {
 
         console.log(`  ✅ Using discovered Aurora cluster: ${discoveredResources.auroraClusterEndpoint}`);
 
+        const dbConfig = appDefinition.database.postgres;
+
         // Use discovered cluster details
         result.environment.DATABASE_HOST = discoveredResources.auroraClusterEndpoint;
         result.environment.DATABASE_PORT = String(discoveredResources.auroraPort || 5432);
 
-        if (discoveredResources.databaseSecretArn) {
+        // Check if we should auto-create credentials
+        if (dbConfig.autoCreateCredentials && !discoveredResources.databaseSecretArn) {
+            console.log('  Creating Secrets Manager secret and rotating Aurora password...');
+            
+            // Create Secrets Manager secret with auto-generated password
+            result.resources.FriggDBSecret = {
+                Type: 'AWS::SecretsManager::Secret',
+                Properties: {
+                    Name: '${self:service}-${self:provider.stage}-db-credentials',
+                    Description: 'Aurora database credentials (auto-created for discovered cluster)',
+                    GenerateSecretString: {
+                        SecretStringTemplate: JSON.stringify({ username: dbConfig.username || 'postgres' }),
+                        GenerateStringKey: 'password',
+                        PasswordLength: 32,
+                        ExcludeCharacters: '"@/\\',
+                    },
+                    Tags: [
+                        { Key: 'Name', Value: '${self:service}-${self:provider.stage}-db-secret' },
+                        { Key: 'ManagedBy', Value: 'Frigg' },
+                        { Key: 'Purpose', Value: 'DiscoveredClusterCredentials' },
+                    ],
+                },
+            };
+
+            // Get the cluster identifier from the endpoint
+            // Format: cluster-name.cluster-xyz.region.rds.amazonaws.com
+            const clusterIdentifier = discoveredResources.auroraClusterEndpoint.split('.')[0];
+
+            // Create custom resource to rotate the Aurora master password
+            // This uses a Lambda-backed CloudFormation custom resource
+            result.resources.FriggAuroraPasswordRotator = {
+                Type: 'Custom::AuroraPasswordRotator',
+                Properties: {
+                    ServiceToken: { 'Fn::GetAtt': ['PasswordRotatorLambda', 'Arn'] },
+                    ClusterIdentifier: clusterIdentifier,
+                    SecretArn: { Ref: 'FriggDBSecret' },
+                    Region: '${self:provider.region}',
+                },
+                DependsOn: ['FriggDBSecret', 'PasswordRotatorLambda'],
+            };
+
+            // Lambda function to rotate the password
+            result.resources.PasswordRotatorLambda = {
+                Type: 'AWS::Lambda::Function',
+                Properties: {
+                    FunctionName: '${self:service}-${self:provider.stage}-password-rotator',
+                    Runtime: 'nodejs22.x',
+                    Handler: 'index.handler',
+                    Role: { 'Fn::GetAtt': ['PasswordRotatorRole', 'Arn'] },
+                    Timeout: 60,
+                    Code: {
+                        ZipFile: `
+const { RDSClient, ModifyDBClusterCommand } = require('@aws-sdk/client-rds');
+const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
+
+exports.handler = async (event, context) => {
+    console.log('Event:', JSON.stringify(event, null, 2));
+    
+    const { RequestType, ResourceProperties } = event;
+    const { ClusterIdentifier, SecretArn, Region } = ResourceProperties;
+    
+    const sendResponse = async (status, data = {}) => {
+        const responseBody = JSON.stringify({
+            Status: status,
+            Reason: data.Reason || 'See CloudWatch logs',
+            PhysicalResourceId: context.logStreamName,
+            StackId: event.StackId,
+            RequestId: event.RequestId,
+            LogicalResourceId: event.LogicalResourceId,
+            Data: data,
+        });
+        
+        await fetch(event.ResponseURL, {
+            method: 'PUT',
+            body: responseBody,
+            headers: { 'Content-Type': '' },
+        });
+    };
+    
+    try {
+        if (RequestType === 'Delete') {
+            await sendResponse('SUCCESS', { Message: 'Delete not required' });
+            return;
+        }
+        
+        // Get the new password from Secrets Manager
+        const smClient = new SecretsManagerClient({ region: Region });
+        const secretResponse = await smClient.send(
+            new GetSecretValueCommand({ SecretId: SecretArn })
+        );
+        const secret = JSON.parse(secretResponse.SecretString);
+        const newPassword = secret.password;
+        
+        // Rotate the Aurora cluster master password
+        const rdsClient = new RDSClient({ region: Region });
+        await rdsClient.send(
+            new ModifyDBClusterCommand({
+                DBClusterIdentifier: ClusterIdentifier,
+                MasterUserPassword: newPassword,
+                ApplyImmediately: true,
+            })
+        );
+        
+        console.log(\`Successfully rotated password for cluster: \${ClusterIdentifier}\`);
+        await sendResponse('SUCCESS', { 
+            Message: 'Password rotated successfully',
+            ClusterIdentifier,
+        });
+    } catch (error) {
+        console.error('Error rotating password:', error);
+        await sendResponse('FAILED', { Reason: error.message });
+    }
+};
+                        `,
+                    },
+                },
+            };
+
+            // IAM role for the password rotator Lambda
+            result.resources.PasswordRotatorRole = {
+                Type: 'AWS::IAM::Role',
+                Properties: {
+                    AssumeRolePolicyDocument: {
+                        Version: '2012-10-17',
+                        Statement: [
+                            {
+                                Effect: 'Allow',
+                                Principal: { Service: 'lambda.amazonaws.com' },
+                                Action: 'sts:AssumeRole',
+                            },
+                        ],
+                    },
+                    ManagedPolicyArns: [
+                        'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole',
+                    ],
+                    Policies: [
+                        {
+                            PolicyName: 'PasswordRotatorPolicy',
+                            PolicyDocument: {
+                                Version: '2012-10-17',
+                                Statement: [
+                                    {
+                                        Effect: 'Allow',
+                                        Action: [
+                                            'rds:ModifyDBCluster',
+                                            'rds:DescribeDBClusters',
+                                        ],
+                                        Resource: '*',
+                                    },
+                                    {
+                                        Effect: 'Allow',
+                                        Action: ['secretsmanager:GetSecretValue'],
+                                        Resource: { Ref: 'FriggDBSecret' },
+                                    },
+                                ],
+                            },
+                        },
+                    ],
+                },
+            };
+
+            // Use the secret for DATABASE_URL
+            result.environment.DATABASE_SECRET_ARN = { Ref: 'FriggDBSecret' };
+            result.environment.DATABASE_URL = this.buildDatabaseUrl(
+                discoveredResources.auroraClusterEndpoint,
+                discoveredResources.auroraPort || 5432,
+                dbConfig.database || 'frigg',
+                { Ref: 'FriggDBSecret' }
+            );
+
+            // Grant Lambda functions permission to read the secret
+            result.iamStatements.push({
+                Effect: 'Allow',
+                Action: ['secretsmanager:GetSecretValue'],
+                Resource: { Ref: 'FriggDBSecret' },
+            });
+
+            console.log('  ✅ Credentials auto-creation configured');
+        } else if (discoveredResources.databaseSecretArn) {
+            // Use existing discovered secret
             result.environment.DATABASE_SECRET_ARN = discoveredResources.databaseSecretArn;
+            result.environment.DATABASE_URL = this.buildDatabaseUrl(
+                discoveredResources.auroraClusterEndpoint,
+                discoveredResources.auroraPort || 5432,
+                dbConfig.database || 'frigg',
+                discoveredResources.databaseSecretArn
+            );
+
             result.iamStatements.push({
                 Effect: 'Allow',
                 Action: ['secretsmanager:GetSecretValue'],
                 Resource: discoveredResources.databaseSecretArn,
             });
+
+            console.log('  ✅ Using discovered Secrets Manager credentials');
+        } else {
+            // No secret and no auto-create - construct DATABASE_URL using environment variables at runtime
+            const dbName = dbConfig.database || 'frigg';
+            
+            // Set individual environment variables for flexible credential management
+            result.environment.DATABASE_HOST = discoveredResources.auroraClusterEndpoint;
+            result.environment.DATABASE_PORT = String(discoveredResources.auroraPort || 5432);
+            result.environment.DATABASE_NAME = dbName;
+            
+            // Build DATABASE_URL using CloudFormation intrinsic functions to reference
+            // the environment variables at runtime (not build time)
+            result.environment.DATABASE_URL = {
+                'Fn::Sub': [
+                    'postgresql://${DatabaseUser}:${DatabasePassword}@${DatabaseHost}:${DatabasePort}/${DatabaseName}',
+                    {
+                        DatabaseUser: '${env:DATABASE_USER, "postgres"}',
+                        DatabasePassword: '${env:DATABASE_PASSWORD}',
+                        DatabaseHost: discoveredResources.auroraClusterEndpoint,
+                        DatabasePort: String(discoveredResources.auroraPort || 5432),
+                        DatabaseName: dbName,
+                    },
+                ],
+            };
+            
+            console.log('  ℹ️  No Secrets Manager secret found - DATABASE_URL will use DATABASE_USER and DATABASE_PASSWORD from environment');
+            console.log('  ℹ️  Set DATABASE_USER and DATABASE_PASSWORD in Lambda environment or via serverless deploy --param');
+            console.log('  ℹ️  Or enable autoCreateCredentials=true to automatically create and rotate credentials');
         }
 
         // Add security group ingress rule to allow Lambda to connect to Aurora

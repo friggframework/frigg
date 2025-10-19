@@ -12,6 +12,7 @@ const { BuilderOrchestrator } = require('./domains/shared/builder-orchestrator')
 const { VpcBuilder } = require('./domains/networking/vpc-builder');
 const { KmsBuilder } = require('./domains/security/kms-builder');
 const { AuroraBuilder } = require('./domains/database/aurora-builder');
+const { MigrationBuilder } = require('./domains/database/migration-builder');
 const { SsmBuilder } = require('./domains/parameters/ssm-builder');
 const { WebsocketBuilder } = require('./domains/integration/websocket-builder');
 const { IntegrationBuilder } = require('./domains/integration/integration-builder');
@@ -38,6 +39,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
         new VpcBuilder(),
         new KmsBuilder(),
         new AuroraBuilder(),
+        new MigrationBuilder(), // Add migration infrastructure after Aurora
         new SsmBuilder(),
         new WebsocketBuilder(),
         new IntegrationBuilder(),
