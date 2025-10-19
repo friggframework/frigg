@@ -173,5 +173,21 @@ router.get(
     })
 );
 
-module.exports = router;
+// Minimal Lambda handler (avoids app-handler-helpers which loads core/index.js → user/**)
+const serverlessHttp = require('serverless-http');
+const express = require('express');
+const cors = require('cors');
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(router);
+app.use((err, req, res, next) => {
+    console.error('Migration Router Error:', err);
+    res.status(500).json({ message: 'Internal Server Error' });
+});
+
+const handler = serverlessHttp(app);
+
+module.exports = { handler, router };
 

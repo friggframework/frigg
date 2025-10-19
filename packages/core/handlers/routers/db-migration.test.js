@@ -34,15 +34,10 @@ describe('Database Migration Router - Adapter Layer', () => {
         }).not.toThrow();
     });
 
-    it('should export Express router', () => {
-        const router = require('./db-migration');
+    it('should export handler and router', () => {
+        const { handler, router } = require('./db-migration');
+        expect(typeof handler).toBe('function');
         expect(typeof router).toBe('function');
         expect(router.stack).toBeDefined();
-    });
-
-    it('should have separate handler file for Lambda', () => {
-        // db-migration.handler.js wraps router with createAppHandler
-        // This keeps db-migration.js free of app-handler-helpers dependency
-        expect(() => require('./db-migration.handler')).not.toThrow();
     });
 });
