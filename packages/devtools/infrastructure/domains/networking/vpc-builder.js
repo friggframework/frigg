@@ -148,10 +148,10 @@ class VpcBuilder extends InfrastructureBuilder {
             kms: discoveredResources.kmsVpcEndpointId,
             secretsManager: discoveredResources.secretsManagerVpcEndpointId,
         };
-        const allEndpointsExist = existingEndpoints.s3 && existingEndpoints.dynamodb && 
-                                   existingEndpoints.kms && existingEndpoints.secretsManager;
-        const someEndpointsExist = existingEndpoints.s3 || existingEndpoints.dynamodb || 
-                                    existingEndpoints.kms || existingEndpoints.secretsManager;
+        const allEndpointsExist = existingEndpoints.s3 && existingEndpoints.dynamodb &&
+            existingEndpoints.kms && existingEndpoints.secretsManager;
+        const someEndpointsExist = existingEndpoints.s3 || existingEndpoints.dynamodb ||
+            existingEndpoints.kms || existingEndpoints.secretsManager;
 
         if (appDefinition.vpc.enableVPCEndpoints !== false) {
             if (vpcManagement === 'create-new') {
@@ -682,7 +682,7 @@ class VpcBuilder extends InfrastructureBuilder {
         if (!existingEndpoints.dynamodb) missing.push('DynamoDB');
         if (!existingEndpoints.kms && appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms') missing.push('KMS');
         if (!existingEndpoints.secretsManager) missing.push('Secrets Manager');
-        
+
         if (missing.length > 0) {
             console.log(`  Creating missing VPC Endpoints: ${missing.join(', ')}...`);
         } else {
@@ -710,51 +710,51 @@ class VpcBuilder extends InfrastructureBuilder {
         // S3 Gateway Endpoint (only if missing)
         if (!existingEndpoints.s3) {
             result.resources.FriggS3VPCEndpoint = {
-            Type: 'AWS::EC2::VPCEndpoint',
-            Properties: {
-                VpcId: vpcId,
-                ServiceName: 'com.amazonaws.${self:provider.region}.s3',
-                VpcEndpointType: 'Gateway',
-                RouteTableIds: [{ Ref: 'FriggLambdaRouteTable' }],
-            },
-        };
+                Type: 'AWS::EC2::VPCEndpoint',
+                Properties: {
+                    VpcId: vpcId,
+                    ServiceName: 'com.amazonaws.${self:provider.region}.s3',
+                    VpcEndpointType: 'Gateway',
+                    RouteTableIds: [{ Ref: 'FriggLambdaRouteTable' }],
+                },
+            };
         }
 
         // DynamoDB Gateway Endpoint (only if missing)
         if (!existingEndpoints.dynamodb) {
             result.resources.FriggDynamoDBVPCEndpoint = {
-            Type: 'AWS::EC2::VPCEndpoint',
-            Properties: {
-                VpcId: vpcId,
-                ServiceName: 'com.amazonaws.${self:provider.region}.dynamodb',
-                VpcEndpointType: 'Gateway',
-                RouteTableIds: [{ Ref: 'FriggLambdaRouteTable' }],
-            },
-        };
+                Type: 'AWS::EC2::VPCEndpoint',
+                Properties: {
+                    VpcId: vpcId,
+                    ServiceName: 'com.amazonaws.${self:provider.region}.dynamodb',
+                    VpcEndpointType: 'Gateway',
+                    RouteTableIds: [{ Ref: 'FriggLambdaRouteTable' }],
+                },
+            };
         }
 
         // VPC Endpoint Security Group (only if KMS or Secrets Manager are missing)
         if (!existingEndpoints.kms || !existingEndpoints.secretsManager) {
             result.resources.FriggVPCEndpointSecurityGroup = {
-            Type: 'AWS::EC2::SecurityGroup',
-            Properties: {
-                GroupDescription: 'Security group for VPC Endpoints',
-                VpcId: vpcId,
-                SecurityGroupIngress: [
-                    {
-                        IpProtocol: 'tcp',
-                        FromPort: 443,
-                        ToPort: 443,
-                        SourceSecurityGroupId: { Ref: 'FriggLambdaSecurityGroup' },
-                        Description: 'HTTPS from Lambda',
-                    },
-                ],
-                Tags: [
-                    { Key: 'Name', Value: '${self:service}-${self:provider.stage}-vpc-endpoint-sg' },
-                    { Key: 'ManagedBy', Value: 'Frigg' },
-                ],
-            },
-        };
+                Type: 'AWS::EC2::SecurityGroup',
+                Properties: {
+                    GroupDescription: 'Security group for VPC Endpoints',
+                    VpcId: vpcId,
+                    SecurityGroupIngress: [
+                        {
+                            IpProtocol: 'tcp',
+                            FromPort: 443,
+                            ToPort: 443,
+                            SourceSecurityGroupId: { Ref: 'FriggLambdaSecurityGroup' },
+                            Description: 'HTTPS from Lambda',
+                        },
+                    ],
+                    Tags: [
+                        { Key: 'Name', Value: '${self:service}-${self:provider.stage}-vpc-endpoint-sg' },
+                        { Key: 'ManagedBy', Value: 'Frigg' },
+                    ],
+                },
+            };
         }
 
         // KMS Interface Endpoint (only if missing AND KMS encryption is enabled)
@@ -775,16 +775,16 @@ class VpcBuilder extends InfrastructureBuilder {
         // Secrets Manager Interface Endpoint (only if missing)
         if (!existingEndpoints.secretsManager) {
             result.resources.FriggSecretsManagerVPCEndpoint = {
-            Type: 'AWS::EC2::VPCEndpoint',
-            Properties: {
-                VpcId: vpcId,
-                ServiceName: 'com.amazonaws.${self:provider.region}.secretsmanager',
-                VpcEndpointType: 'Interface',
-                SubnetIds: result.vpcConfig.subnetIds,
-                SecurityGroupIds: [{ Ref: 'FriggVPCEndpointSecurityGroup' }],
-                PrivateDnsEnabled: true,
-            },
-        };
+                Type: 'AWS::EC2::VPCEndpoint',
+                Properties: {
+                    VpcId: vpcId,
+                    ServiceName: 'com.amazonaws.${self:provider.region}.secretsmanager',
+                    VpcEndpointType: 'Interface',
+                    SubnetIds: result.vpcConfig.subnetIds,
+                    SecurityGroupIds: [{ Ref: 'FriggVPCEndpointSecurityGroup' }],
+                    PrivateDnsEnabled: true,
+                },
+            };
         }
 
         console.log(`    ✅ Created ${missing.length} VPC endpoint(s): ${missing.join(', ')}`);
