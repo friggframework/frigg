@@ -59,6 +59,38 @@ class MigrationBuilder extends InfrastructureBuilder {
             environment: {},
         };
 
+        // Create S3 bucket for migration status tracking
+        result.resources.FriggMigrationStatusBucket = {
+            Type: 'AWS::S3::Bucket',
+            Properties: {
+                BucketName: '${self:service}-${self:provider.stage}-migration-status',
+                VersioningConfiguration: {
+                    Status: 'Enabled', // Enable versioning for audit trail
+                },
+                LifecycleConfiguration: {
+                    Rules: [
+                        {
+                            Id: 'DeleteOldMigrations',
+                            Status: 'Enabled',
+                            ExpirationInDays: 90, // Keep migration history for 90 days
+                        },
+                    ],
+                },
+                PublicAccessBlockConfiguration: {
+                    BlockPublicAcls: true,
+                    BlockPublicPolicy: true,
+                    IgnorePublicAcls: true,
+                    RestrictPublicBuckets: true,
+                },
+                Tags: [
+                    { Key: 'ManagedBy', Value: 'Frigg' },
+                    { Key: 'Purpose', Value: 'MigrationStatusTracking' },
+                ],
+            },
+        };
+
+        console.log('  ✓ Created FriggMigrationStatusBucket resource');
+
         // Create SQS queue for migration jobs
         result.resources.DbMigrationQueue = {
             Type: 'AWS::SQS::Queue',
@@ -176,6 +208,10 @@ class MigrationBuilder extends InfrastructureBuilder {
 
         console.log('  ✓ Created dbMigrationRouter function');
 
+        // Add S3 bucket name to environment (for migration status tracking)
+        result.environment.S3_BUCKET_NAME = { Ref: 'FriggMigrationStatusBucket' };
+        result.environment.MIGRATION_STATUS_BUCKET = { Ref: 'FriggMigrationStatusBucket' };
+
         // Add queue URL to environment
         result.environment.DB_MIGRATION_QUEUE_URL = { Ref: 'DbMigrationQueue' };
 
@@ -183,7 +219,7 @@ class MigrationBuilder extends InfrastructureBuilder {
         // Avoids Prisma needing to load app definition to determine database type
         result.environment.DB_TYPE = 'postgresql';
 
-        console.log('  ✓ Added DB_MIGRATION_QUEUE_URL and DB_TYPE environment variables');
+        console.log('  ✓ Added S3_BUCKET_NAME, DB_MIGRATION_QUEUE_URL, and DB_TYPE environment variables');
 
         // Add IAM permissions for SQS
         result.iamStatements.push({
@@ -201,7 +237,6 @@ class MigrationBuilder extends InfrastructureBuilder {
         // Add IAM permissions for S3 (migration status storage)
         // Migration functions need to read/write migration status in S3
         // to avoid chicken-and-egg dependency on User/Process tables
-        // Note: Uses wildcard for bucket as S3_BUCKET_NAME is set at runtime via environment
         result.iamStatements.push({
             Effect: 'Allow',
             Action: [
@@ -209,7 +244,15 @@ class MigrationBuilder extends InfrastructureBuilder {
                 's3:GetObject',
                 's3:DeleteObject',
             ],
-            Resource: 'arn:aws:s3:::*/migrations/*', // Wildcard allows any S3 bucket
+            Resource: {
+                'Fn::Join': [
+                    '',
+                    [
+                        { 'Fn::GetAtt': ['FriggMigrationStatusBucket', 'Arn'] },
+                        '/migrations/*',
+                    ],
+                ],
+            },
         });
 
         console.log('  ✓ Added S3 IAM permissions for migration status tracking');
