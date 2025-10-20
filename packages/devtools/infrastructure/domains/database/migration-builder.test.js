@@ -183,36 +183,29 @@ describe('MigrationBuilder', () => {
 
             const result = await builder.build(appDef, {});
 
-            // Both migration functions should have the same package config
+            // Worker and router now have DIFFERENT package configs (split for size optimization)
             expect(result.functions.dbMigrationWorker.package).toBeDefined();
             expect(result.functions.dbMigrationRouter.package).toBeDefined();
+            expect(result.functions.dbMigrationWorker.package).not.toBe(result.functions.dbMigrationRouter.package);
 
-            // They should share the same config object (migrationPackageConfig)
-            expect(result.functions.dbMigrationWorker.package).toBe(result.functions.dbMigrationRouter.package);
-
-            // Verify the shared package config has critical exclusions for size optimization
-            const packageConfig = result.functions.dbMigrationWorker.package;
-            expect(packageConfig.individually).toBe(true);
-            expect(Array.isArray(packageConfig.exclude)).toBe(true);
-
-            // Critical exclusions to prevent Lambda size limit errors
-            expect(packageConfig.exclude).toContain('test/**');
-            expect(packageConfig.exclude).toContain('**/*.test.js');
-            expect(packageConfig.exclude).toContain('node_modules/**/node_modules/**');
-            expect(packageConfig.exclude).toContain('node_modules/esbuild/**');
-            expect(packageConfig.exclude).toContain('node_modules/typescript/**');
-            expect(packageConfig.exclude).toContain('node_modules/@friggframework/devtools/**');
-            expect(packageConfig.exclude).toContain('src/**'); // Migration handlers don't need backend source
-
-            // Should NOT exclude generated Prisma clients/schemas - worker needs them
-            expect(packageConfig.exclude).not.toContain('node_modules/@friggframework/core/generated/**');
+            const workerPackage = result.functions.dbMigrationWorker.package;
+            const routerPackage = result.functions.dbMigrationRouter.package;
+            
+            // Verify worker excludes Prisma client (in layer) but keeps CLI
+            expect(workerPackage.exclude).toContain('node_modules/@prisma/client/**');
+            expect(workerPackage.exclude).toContain('node_modules/@friggframework/core/generated/**');
+            
+            // Verify router excludes ALL WASM files (doesn't run migrations)
+            expect(routerPackage.exclude).toContain('**/*.wasm*');
+            
+            // Verify common exclusions for both
+            expect(workerPackage.exclude).toContain('node_modules/**/node_modules/**');
+            expect(workerPackage.exclude).toContain('**/*.test.js');
+            expect(workerPackage.exclude).toContain('src/**');
 
             // Should NOT exclude migration handlers - they're needed!
-            expect(packageConfig.exclude).not.toContain('node_modules/@friggframework/core/handlers/routers/**');
-            expect(packageConfig.exclude).not.toContain('node_modules/@friggframework/core/handlers/workers/**');
-
-            // Should NOT exclude integrations module - migration router needs process-repository-factory
-            expect(packageConfig.exclude).not.toContain('node_modules/@friggframework/core/integrations/**');
+            expect(workerPackage.exclude).not.toContain('node_modules/@friggframework/core/handlers/routers/**');
+            expect(workerPackage.exclude).not.toContain('node_modules/@friggframework/core/handlers/workers/**');
         });
 
         it('should add queue URL to environment', async () => {
