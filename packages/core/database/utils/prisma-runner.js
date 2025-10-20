@@ -53,9 +53,15 @@ async function runPrismaGenerate(dbType, verbose = false) {
         const generatedClientPath = path.join(path.dirname(path.dirname(schemaPath)), 'generated', `prisma-${dbType}`, 'client.js');
         const isLambdaEnvironment = !!process.env.AWS_LAMBDA_FUNCTION_NAME || !!process.env.LAMBDA_TASK_ROOT;
 
-        if (fs.existsSync(generatedClientPath)) {
+        // In Lambda, also check the layer path (/opt/nodejs/node_modules)
+        const lambdaLayerClientPath = `/opt/nodejs/node_modules/generated/prisma-${dbType}/client.js`;
+        
+        const clientExists = fs.existsSync(generatedClientPath) || (isLambdaEnvironment && fs.existsSync(lambdaLayerClientPath));
+
+        if (clientExists) {
+            const foundPath = fs.existsSync(generatedClientPath) ? generatedClientPath : lambdaLayerClientPath;
             if (verbose) {
-                console.log(chalk.gray(`✓ Prisma client already generated at: ${generatedClientPath}`));
+                console.log(chalk.gray(`✓ Prisma client already generated at: ${foundPath}`));
             }
             if (isLambdaEnvironment) {
                 if (verbose) {
