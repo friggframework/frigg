@@ -198,6 +198,23 @@ class MigrationBuilder extends InfrastructureBuilder {
 
         console.log('  ✓ Added SQS IAM permissions');
 
+        // Add IAM permissions for S3 (migration status storage)
+        // Migration functions need to read/write migration status in S3
+        // to avoid chicken-and-egg dependency on User/Process tables
+        result.iamStatements.push({
+            Effect: 'Allow',
+            Action: [
+                's3:PutObject',
+                's3:GetObject',
+                's3:DeleteObject',
+            ],
+            Resource: {
+                'Fn::Sub': 'arn:aws:s3:::${S3BucketName}/migrations/*',
+            },
+        });
+
+        console.log('  ✓ Added S3 IAM permissions for migration status tracking');
+
         console.log(`[${this.name}] ✅ Migration infrastructure configuration completed`);
         return result;
     }
