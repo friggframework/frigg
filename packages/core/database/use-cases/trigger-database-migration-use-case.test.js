@@ -9,7 +9,7 @@ const {
 
 describe('TriggerDatabaseMigrationUseCase', () => {
     let useCase;
-    let mockProcessRepository;
+    let mockMigrationStatusRepository;
     let mockQueuerUtil;
     let originalEnv;
 
@@ -21,23 +21,18 @@ describe('TriggerDatabaseMigrationUseCase', () => {
         process.env.DB_MIGRATION_QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue';
 
         // Create mock repository
-        mockProcessRepository = {
+        mockMigrationStatusRepository = {
             create: jest.fn().mockResolvedValue({
-                id: 'process-123',
-                userId: 'user-456',
-                integrationId: null,
-                name: 'database-migration',
-                type: 'DATABASE_MIGRATION',
+                migrationId: 'migration-123',
+                stage: 'production',
                 state: 'INITIALIZING',
-                context: {
-                    dbType: 'postgresql',
-                    stage: 'production',
-                },
-                results: {},
-                createdAt: new Date(),
-                updatedAt: new Date(),
+                progress: 0,
+                triggeredBy: 'user-456',
+                triggeredAt: new Date().toISOString(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
             }),
-            updateState: jest.fn().mockResolvedValue(true),
+            update: jest.fn().mockResolvedValue(true),
         };
 
         // Create mock queuer util
@@ -47,7 +42,7 @@ describe('TriggerDatabaseMigrationUseCase', () => {
 
         // Create use case with mocks
         useCase = new TriggerDatabaseMigrationUseCase({
-            processRepository: mockProcessRepository,
+            migrationStatusRepository: mockMigrationStatusRepository,
             queuerUtil: mockQueuerUtil,
         });
     });
@@ -63,16 +58,16 @@ describe('TriggerDatabaseMigrationUseCase', () => {
     });
 
     describe('constructor', () => {
-        it('should throw error if processRepository not provided', () => {
+        it('should throw error if migrationStatusRepository not provided', () => {
             expect(() => {
                 new TriggerDatabaseMigrationUseCase({});
-            }).toThrow('processRepository dependency is required');
+            }).toThrow('migrationStatusRepository dependency is required');
         });
 
         it('should accept custom queuerUtil', () => {
             const customQueuer = { send: jest.fn() };
             const instance = new TriggerDatabaseMigrationUseCase({
-                processRepository: mockProcessRepository,
+                migrationStatusRepository: mockMigrationStatusRepository,
                 queuerUtil: customQueuer,
             });
 
@@ -88,24 +83,17 @@ describe('TriggerDatabaseMigrationUseCase', () => {
                 stage: 'production',
             });
 
-            // Verify process creation
-            expect(mockProcessRepository.create).toHaveBeenCalledWith({
-                userId: 'user-456',
-                integrationId: null,
-                name: 'database-migration',
-                type: 'DATABASE_MIGRATION',
-                state: 'INITIALIZING',
-                context: expect.objectContaining({
-                    dbType: 'postgresql',
-                    stage: 'production',
-                }),
-                results: {},
+            // Verify migration status creation (S3 repository interface)
+            expect(mockMigrationStatusRepository.create).toHaveBeenCalledWith({
+                stage: 'production',
+                triggeredBy: 'user-456',
+                triggeredAt: expect.any(String),
             });
 
             // Verify SQS message sent
             expect(mockQueuerUtil.send).toHaveBeenCalledWith(
                 {
-                    processId: 'process-123',
+                    migrationId: 'migration-123',
                     dbType: 'postgresql',
                     stage: 'production',
                 },
@@ -115,9 +103,10 @@ describe('TriggerDatabaseMigrationUseCase', () => {
             // Verify response
             expect(result).toEqual({
                 success: true,
-                processId: 'process-123',
+                migrationId: 'migration-123',
                 state: 'INITIALIZING',
-                statusUrl: '/db-migrate/process-123',
+                statusUrl: '/db-migrate/migration-123',
+                s3Key: expect.stringContaining('migrations/'),
                 message: 'Database migration queued successfully',
             });
         });
@@ -129,30 +118,27 @@ describe('TriggerDatabaseMigrationUseCase', () => {
                 stage: 'dev',
             });
 
-            expect(mockProcessRepository.create).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    context: expect.objectContaining({
-                        dbType: 'mongodb',
-                        stage: 'dev',
-                    }),
-                })
-            );
+            expect(mockMigrationStatusRepository.create).toHaveBeenCalledWith({
+                stage: 'dev',
+                triggeredBy: 'user-456',
+                triggeredAt: expect.any(String),
+            });
         });
 
-        it('should throw ValidationError if userId is missing', async () => {
-            await expect(
-                useCase.execute({
-                    dbType: 'postgresql',
-                    stage: 'production',
-                })
-            ).rejects.toThrow(ValidationError);
+        it('should allow userId to be omitted (system migrations)', async () => {
+            const result = await useCase.execute({
+                dbType: 'postgresql',
+                stage: 'production',
+            });
 
-            await expect(
-                useCase.execute({
-                    dbType: 'postgresql',
-                    stage: 'production',
-                })
-            ).rejects.toThrow('userId is required');
+            // Should use 'system' as triggeredBy when userId not provided
+            expect(mockMigrationStatusRepository.create).toHaveBeenCalledWith({
+                stage: 'production',
+                triggeredBy: 'system',
+                triggeredAt: expect.any(String),
+            });
+
+            expect(result.success).toBe(true);
         });
 
         it('should throw ValidationError if userId is not a string', async () => {
@@ -226,19 +212,18 @@ describe('TriggerDatabaseMigrationUseCase', () => {
                 })
             ).rejects.toThrow('Failed to queue migration: SQS unavailable');
 
-            // Verify process was marked as failed
-            expect(mockProcessRepository.updateState).toHaveBeenCalledWith(
-                'process-123',
-                'FAILED',
-                {
-                    error: 'Failed to queue migration job',
-                    errorDetails: 'SQS unavailable',
-                }
+            // Verify migration status was marked as failed
+            expect(mockMigrationStatusRepository.update).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    migrationId: 'migration-123',
+                    state: 'FAILED',
+                    error: expect.stringContaining('Failed to queue migration'),
+                })
             );
         });
 
-        it('should handle process creation failure', async () => {
-            mockProcessRepository.create.mockRejectedValue(new Error('Database error'));
+        it('should handle migration status creation failure', async () => {
+            mockMigrationStatusRepository.create.mockRejectedValue(new Error('S3 error'));
 
             await expect(
                 useCase.execute({
@@ -246,7 +231,7 @@ describe('TriggerDatabaseMigrationUseCase', () => {
                     dbType: 'postgresql',
                     stage: 'production',
                 })
-            ).rejects.toThrow('Database error');
+            ).rejects.toThrow('S3 error');
 
             // Should not attempt to send to queue if process creation fails
             expect(mockQueuerUtil.send).not.toHaveBeenCalled();

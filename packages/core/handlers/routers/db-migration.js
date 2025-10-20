@@ -17,7 +17,7 @@
 
 const { Router } = require('express');
 const catchAsyncError = require('express-async-handler');
-const { ProcessRepositoryPostgres } = require('../../integrations/repositories/process-repository-postgres');
+const { MigrationStatusRepositoryS3 } = require('../../database/repositories/migration-status-repository-s3');
 const {
     TriggerDatabaseMigrationUseCase,
     ValidationError: TriggerValidationError,
@@ -31,14 +31,15 @@ const {
 const router = Router();
 
 // Dependency injection
-// Note: Migrations are PostgreSQL-only, so we directly use ProcessRepositoryPostgres
-// This avoids loading app definition (which requires integration classes)
-const processRepository = new ProcessRepositoryPostgres();
+// Use S3 repository to avoid User table dependency (chicken-and-egg problem)
+const bucketName = process.env.S3_BUCKET_NAME || process.env.MIGRATION_STATUS_BUCKET;
+const migrationStatusRepository = new MigrationStatusRepositoryS3(bucketName);
+
 const triggerMigrationUseCase = new TriggerDatabaseMigrationUseCase({
-    processRepository,
+    migrationStatusRepository,
     // Note: QueuerUtil is used directly in the use case (static utility)
 });
-const getStatusUseCase = new GetMigrationStatusUseCase({ processRepository });
+const getStatusUseCase = new GetMigrationStatusUseCase({ migrationStatusRepository });
 
 /**
  * Admin API key validation middleware
@@ -118,9 +119,9 @@ router.post(
 );
 
 /**
- * GET /db-migrate/:processId
+ * GET /db-migrate/:migrationId
  *
- * Get migration status by process ID
+ * Get migration status by migration ID
  *
  * Response (200 OK):
  * {
@@ -142,14 +143,15 @@ router.post(
  * }
  */
 router.get(
-    '/db-migrate/:processId',
+    '/db-migrate/:migrationId',
     catchAsyncError(async (req, res) => {
-        const { processId } = req.params;
+        const { migrationId } = req.params;
+        const stage = req.query.stage || process.env.STAGE || 'production';
 
-        console.log(`Migration status request: processId=${processId}`);
+        console.log(`Migration status request: migrationId=${migrationId}, stage=${stage}`);
 
         try {
-            const status = await getStatusUseCase.execute({ processId });
+            const status = await getStatusUseCase.execute(migrationId, stage);
 
             res.status(200).json(status);
         } catch (error) {

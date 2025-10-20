@@ -10,17 +10,17 @@ const {
 
 describe('GetMigrationStatusUseCase', () => {
     let useCase;
-    let mockProcessRepository;
+    let mockMigrationStatusRepository;
 
     beforeEach(() => {
         // Create mock repository
-        mockProcessRepository = {
-            findById: jest.fn(),
+        mockMigrationStatusRepository = {
+            get: jest.fn(),
         };
 
         // Create use case with mock
         useCase = new GetMigrationStatusUseCase({
-            processRepository: mockProcessRepository,
+            migrationStatusRepository: mockMigrationStatusRepository,
         });
     });
 
@@ -29,10 +29,10 @@ describe('GetMigrationStatusUseCase', () => {
     });
 
     describe('constructor', () => {
-        it('should throw error if processRepository not provided', () => {
+        it('should throw error if migrationStatusRepository not provided', () => {
             expect(() => {
                 new GetMigrationStatusUseCase({});
-            }).toThrow('processRepository dependency is required');
+            }).toThrow('migrationStatusRepository dependency is required');
         });
     });
 
@@ -56,25 +56,17 @@ describe('GetMigrationStatusUseCase', () => {
                 updatedAt: new Date('2025-10-18T10:30:02Z'),
             };
 
-            mockProcessRepository.findById.mockResolvedValue(mockProcess);
+            mockMigrationStatusRepository.get.mockResolvedValue(mockProcess);
 
-            const result = await useCase.execute({ processId: 'process-123' });
+            const result = await useCase.execute('migration-123', 'production');
 
-            expect(mockProcessRepository.findById).toHaveBeenCalledWith('process-123');
-            expect(result).toEqual({
-                processId: 'process-123',
-                type: 'DATABASE_MIGRATION',
-                state: 'COMPLETED',
-                context: mockProcess.context,
-                results: mockProcess.results,
-                createdAt: mockProcess.createdAt,
-                updatedAt: mockProcess.updatedAt,
-            });
+            expect(mockMigrationStatusRepository.get).toHaveBeenCalledWith('migration-123', 'production');
+            expect(result).toEqual(mockProcess); // S3 repository returns full status object
         });
 
-        it('should return migration status for RUNNING process', async () => {
+        it('should return migration status for RUNNING migration', async () => {
             const mockProcess = {
-                id: 'process-456',
+                migrationId: 'migration-456',
                 type: 'DATABASE_MIGRATION',
                 state: 'RUNNING',
                 context: {
@@ -87,109 +79,73 @@ describe('GetMigrationStatusUseCase', () => {
                 updatedAt: new Date('2025-10-18T10:30:00Z'),
             };
 
-            mockProcessRepository.findById.mockResolvedValue(mockProcess);
+            mockMigrationStatusRepository.get.mockResolvedValue(mockProcess);
 
-            const result = await useCase.execute({ processId: 'process-456' });
+            const result = await useCase.execute('migration-456', 'dev');
 
             expect(result.state).toBe('RUNNING');
             expect(result.context.dbType).toBe('mongodb');
         });
 
-        it('should return migration status for FAILED process', async () => {
-            const mockProcess = {
-                id: 'process-789',
-                type: 'DATABASE_MIGRATION',
+        it('should return migration status for FAILED migration', async () => {
+            const mockStatus = {
+                migrationId: 'migration-789',
+                stage: 'production',
                 state: 'FAILED',
-                context: {
-                    dbType: 'postgresql',
-                    stage: 'production',
-                    failedAt: '2025-10-18T10:30:00Z',
-                },
-                results: {
-                    error: 'Migration failed: syntax error',
-                    errorType: 'MigrationError',
-                },
-                createdAt: new Date('2025-10-18T10:29:55Z'),
-                updatedAt: new Date('2025-10-18T10:30:00Z'),
+                progress: 0,
+                error: 'Migration failed: syntax error',
+                triggeredBy: 'admin',
+                triggeredAt: '2025-10-18T10:29:55Z',
+                completedAt: '2025-10-18T10:30:00Z',
             };
 
-            mockProcessRepository.findById.mockResolvedValue(mockProcess);
+            mockMigrationStatusRepository.get.mockResolvedValue(mockStatus);
 
-            const result = await useCase.execute({ processId: 'process-789' });
+            const result = await useCase.execute('migration-789', 'production');
 
+            expect(mockMigrationStatusRepository.get).toHaveBeenCalledWith('migration-789', 'production');
             expect(result.state).toBe('FAILED');
-            expect(result.results.error).toContain('Migration failed');
+            expect(result.error).toContain('Migration failed');
         });
 
-        it('should handle empty context and results', async () => {
-            const mockProcess = {
-                id: 'process-999',
-                type: 'DATABASE_MIGRATION',
-                state: 'INITIALIZING',
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            };
+        // Removed - already covered by "should return minimal migration status"
 
-            mockProcessRepository.findById.mockResolvedValue(mockProcess);
-
-            const result = await useCase.execute({ processId: 'process-999' });
-
-            expect(result.context).toEqual({});
-            expect(result.results).toEqual({});
-        });
-
-        it('should throw NotFoundError if process does not exist', async () => {
-            mockProcessRepository.findById.mockResolvedValue(null);
+        it('should throw NotFoundError if migration does not exist', async () => {
+            mockMigrationStatusRepository.get.mockRejectedValue(new Error('Migration not found: nonexistent-123'));
 
             await expect(
-                useCase.execute({ processId: 'nonexistent-123' })
+                useCase.execute('nonexistent-123', 'dev')
             ).rejects.toThrow(NotFoundError);
 
             await expect(
-                useCase.execute({ processId: 'nonexistent-123' })
-            ).rejects.toThrow('Migration process not found: nonexistent-123');
+                useCase.execute('nonexistent-123', 'dev')
+            ).rejects.toThrow('Migration not found');
         });
 
-        it('should throw error if process is not a migration process', async () => {
-            const nonMigrationProcess = {
-                id: 'process-999',
-                type: 'CRM_SYNC', // Not a migration
-                state: 'RUNNING',
-                context: {},
-                results: {},
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            };
+        // Removed: S3 repository only stores migrations, no type validation needed
 
-            mockProcessRepository.findById.mockResolvedValue(nonMigrationProcess);
-
+        it('should throw ValidationError if migrationId is missing', async () => {
             await expect(
-                useCase.execute({ processId: 'process-999' })
-            ).rejects.toThrow('Process process-999 is not a migration process (type: CRM_SYNC)');
-        });
-
-        it('should throw ValidationError if processId is missing', async () => {
-            await expect(
-                useCase.execute({})
+                useCase.execute(null)
             ).rejects.toThrow(ValidationError);
 
             await expect(
-                useCase.execute({})
-            ).rejects.toThrow('processId is required');
+                useCase.execute(undefined)
+            ).rejects.toThrow('migrationId is required');
         });
 
-        it('should throw ValidationError if processId is not a string', async () => {
+        it('should throw ValidationError if migrationId is not a string', async () => {
             await expect(
-                useCase.execute({ processId: 123 })
-            ).rejects.toThrow('processId must be a string');
+                useCase.execute(123)
+            ).rejects.toThrow('migrationId must be a string');
         });
 
         it('should handle repository errors', async () => {
-            mockProcessRepository.findById.mockRejectedValue(new Error('Database connection failed'));
+            mockMigrationStatusRepository.get.mockRejectedValue(new Error('S3 connection failed'));
 
             await expect(
-                useCase.execute({ processId: 'process-123' })
-            ).rejects.toThrow('Database connection failed');
+                useCase.execute('migration-123', 'dev')
+            ).rejects.toThrow('S3 connection failed');
         });
     });
 
