@@ -18,7 +18,7 @@ function getDatabaseType() {
     if (process.env.DB_TYPE) {
         return process.env.DB_TYPE;
     }
-    
+
     // Fallback: Load app definition
     try {
         const path = require('node:path');

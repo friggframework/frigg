@@ -139,6 +139,10 @@ class MigrationBuilder extends InfrastructureBuilder {
             reservedConcurrency: 1, // Process one migration at a time (critical for safety)
             description: 'Database migration worker (triggered by SQS queue)',
             package: migrationPackageConfig,
+            environment: {
+                // Ensure migration functions get DATABASE_URL from provider.environment
+                // Note: Serverless will merge this with provider.environment
+            },
             events: [
                 {
                     sqs: {
@@ -160,6 +164,10 @@ class MigrationBuilder extends InfrastructureBuilder {
             memorySize: 512,
             description: 'Database migration HTTP API (POST to trigger, GET to check status)',
             package: migrationPackageConfig,
+            environment: {
+                // Ensure migration functions get DATABASE_URL from provider.environment
+                // Note: Serverless will merge this with provider.environment
+            },
             events: [
                 { httpApi: { path: '/db-migrate', method: 'POST' } },
                 { httpApi: { path: '/db-migrate/{processId}', method: 'GET' } },
@@ -170,7 +178,7 @@ class MigrationBuilder extends InfrastructureBuilder {
 
         // Add queue URL to environment
         result.environment.DB_MIGRATION_QUEUE_URL = { Ref: 'DbMigrationQueue' };
-        
+
         // Hardcode DB_TYPE for PostgreSQL-only migrations
         // Avoids Prisma needing to load app definition to determine database type
         result.environment.DB_TYPE = 'postgresql';
