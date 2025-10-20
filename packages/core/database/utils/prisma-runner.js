@@ -154,35 +154,38 @@ async function checkDatabaseState(dbType) {
 }
 
 /**
- * Get Prisma binary path for Lambda environment
- * Checks multiple locations in priority order:
- * 1. Function's bundled Prisma (/var/task/node_modules/.bin/prisma) - for standalone functions
- * 2. Layer's Prisma (/opt/nodejs/node_modules/.bin/prisma) - for functions using Prisma layer with CLI
- * 3. Fallback to npx for local development
+ * Gets the path to the Prisma CLI entry point
+ * 
+ * IMPORTANT: We invoke prisma/build/index.js directly instead of .bin/prisma
+ * because .bin/prisma uses __dirname to find WASM files, and when the symlink
+ * is resolved during Lambda packaging, __dirname points to .bin/ instead of
+ * prisma/build/, causing WASM files to not be found.
+ * 
+ * @returns {string} Command to run Prisma CLI (e.g., 'node /path/to/index.js' or 'npx prisma')
  */
 function getPrismaBinaryPath() {
     const fs = require('fs');
-    const isLambdaEnvironment = !!process.env.AWS_LAMBDA_FUNCTION_NAME || !!process.env.LAMBDA_TASK_ROOT;
-
-    if (!isLambdaEnvironment) {
-        return 'npx';
-    }
-
-    // Check function's own node_modules first (standalone dbMigrate)
-    const functionPrisma = '/var/task/node_modules/.bin/prisma';
+    
+    // Check function's bundled Prisma (Lambda) - use actual CLI location
+    const functionPrisma = '/var/task/node_modules/prisma/build/index.js';
     if (fs.existsSync(functionPrisma)) {
-        return functionPrisma;
+        return `node ${functionPrisma}`;
     }
 
-    // Fall back to layer path (functions using Prisma layer with CLI)
-    const layerPrisma = '/opt/nodejs/node_modules/.bin/prisma';
+    // Check Lambda layer path - use actual CLI location
+    const layerPrisma = '/opt/nodejs/node_modules/prisma/build/index.js';
     if (fs.existsSync(layerPrisma)) {
-        return layerPrisma;
+        return `node ${layerPrisma}`;
     }
 
-    // Should not reach here in Lambda, but provide fallback
-    console.warn('⚠️  Prisma binary not found in expected Lambda paths, using npx');
-    return 'npx';
+    // Check local node_modules - use actual CLI location
+    const localPrisma = path.join(process.cwd(), 'node_modules', 'prisma', 'build', 'index.js');
+    if (fs.existsSync(localPrisma)) {
+        return `node ${localPrisma}`;
+    }
+
+    // Fallback to npx (local dev)
+    return 'npx prisma';
 }
 
 /**
@@ -215,7 +218,11 @@ async function runPrismaMigrate(command = 'dev', verbose = false) {
                 console.log(chalk.gray(`Running: ${displayCmd}`));
             }
 
-            const proc = spawn(prismaBin, args, {
+            // Execute the command (prismaBin might be 'node /path/to/index.js' or 'npx prisma')
+            const [command, ...commandArgs] = prismaBin.split(' ');
+            const fullArgs = [...commandArgs, ...args];
+
+            const proc = spawn(command, fullArgs, {
                 stdio: 'inherit',
                 env: {
                     ...process.env,
