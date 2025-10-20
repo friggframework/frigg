@@ -246,7 +246,7 @@ describe('MigrationBuilder', () => {
             });
         });
 
-        it('should include Prisma layer in both functions', async () => {
+        it('should only include Prisma layer in worker (router doesn\'t need database)', async () => {
             const appDef = {
                 database: {
                     postgres: {
@@ -257,8 +257,10 @@ describe('MigrationBuilder', () => {
 
             const result = await builder.build(appDef, {});
 
+            // Worker needs Prisma layer for runtime client
             expect(result.functions.dbMigrationWorker.layers).toEqual([{ Ref: 'PrismaLambdaLayer' }]);
-            expect(result.functions.dbMigrationRouter.layers).toEqual([{ Ref: 'PrismaLambdaLayer' }]);
+            // Router doesn't access database - no Prisma layer needed
+            expect(result.functions.dbMigrationRouter.layers).toBeUndefined();
         });
 
         it('should set skipEsbuild for both functions', async () => {
