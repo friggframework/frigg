@@ -22,14 +22,14 @@ const { QueuerUtil } = require('../../queues/queuer-util');
 class TriggerDatabaseMigrationUseCase {
     /**
      * @param {Object} dependencies
-     * @param {Object} dependencies.processRepository - Repository for process data access
+     * @param {Object} dependencies.migrationStatusRepository - Repository for migration status (S3)
      * @param {Object} [dependencies.queuerUtil] - SQS utility (injectable for testing)
      */
-    constructor({ processRepository, queuerUtil = QueuerUtil }) {
-        if (!processRepository) {
-            throw new Error('processRepository dependency is required');
+    constructor({ migrationStatusRepository, queuerUtil = QueuerUtil }) {
+        if (!migrationStatusRepository) {
+            throw new Error('migrationStatusRepository dependency is required');
         }
-        this.processRepository = processRepository;
+        this.migrationStatusRepository = migrationStatusRepository;
         this.queuerUtil = queuerUtil;
     }
 
@@ -48,22 +48,14 @@ class TriggerDatabaseMigrationUseCase {
         // Validation
         this._validateParams({ userId, dbType, stage });
 
-        // Create Process record for tracking
-        const migrationProcess = await this.processRepository.create({
-            userId,
-            integrationId: null, // System operation, not tied to integration
-            name: 'database-migration',
-            type: 'DATABASE_MIGRATION',
-            state: 'INITIALIZING',
-            context: {
-                dbType,
-                stage,
-                triggeredAt: new Date().toISOString(),
-            },
-            results: {},
+        // Create migration status in S3 (no User table dependency)
+        const migrationStatus = await this.migrationStatusRepository.create({
+            stage: stage || process.env.STAGE || 'production',
+            triggeredBy: userId || 'system',
+            triggeredAt: new Date().toISOString(),
         });
 
-        console.log(`Created migration process: ${migrationProcess.id}`);
+        console.log(`Created migration status: ${migrationStatus.migrationId}`);
 
         // Get queue URL from environment
         const queueUrl = process.env.DB_MIGRATION_QUEUE_URL;
@@ -78,38 +70,37 @@ class TriggerDatabaseMigrationUseCase {
         try {
             await this.queuerUtil.send(
                 {
-                    processId: migrationProcess.id,
+                    migrationId: migrationStatus.migrationId,
                     dbType,
                     stage,
                 },
                 queueUrl
             );
 
-            console.log(`Sent migration job to queue for process: ${migrationProcess.id}`);
+            console.log(`Sent migration job to queue: ${migrationStatus.migrationId}`);
         } catch (error) {
             console.error(`Failed to send migration to queue:`, error);
 
-            // Update process state to FAILED
-            await this.processRepository.updateState(
-                migrationProcess.id,
-                'FAILED',
-                {
-                    error: 'Failed to queue migration job',
-                    errorDetails: error.message,
-                }
-            );
+            // Update migration status to FAILED
+            await this.migrationStatusRepository.update({
+                migrationId: migrationStatus.migrationId,
+                stage: migrationStatus.stage,
+                state: 'FAILED',
+                error: `Failed to queue migration: ${error.message}`,
+            });
 
             throw new Error(
                 `Failed to queue migration: ${error.message}`
             );
         }
 
-        // Return process info immediately (don't wait for migration completion)
+        // Return migration info immediately (don't wait for migration completion)
         return {
             success: true,
-            processId: migrationProcess.id,
-            state: migrationProcess.state,
-            statusUrl: `/db-migrate/${migrationProcess.id}`,
+            migrationId: migrationStatus.migrationId,
+            state: migrationStatus.state,
+            statusUrl: `/db-migrate/${migrationStatus.migrationId}`,
+            s3Key: `migrations/${migrationStatus.stage}/${migrationStatus.migrationId}.json`,
             message: 'Database migration queued successfully',
         };
     }
@@ -119,11 +110,8 @@ class TriggerDatabaseMigrationUseCase {
      * @private
      */
     _validateParams({ userId, dbType, stage }) {
-        if (!userId) {
-            throw new ValidationError('userId is required');
-        }
-
-        if (typeof userId !== 'string') {
+        // userId is optional for system migrations
+        if (userId && typeof userId !== 'string') {
             throw new ValidationError('userId must be a string');
         }
 

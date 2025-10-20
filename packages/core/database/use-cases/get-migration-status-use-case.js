@@ -13,58 +13,54 @@
 class GetMigrationStatusUseCase {
     /**
      * @param {Object} dependencies
-     * @param {Object} dependencies.processRepository - Repository for process data access
+     * @param {Object} dependencies.migrationStatusRepository - Repository for migration status (S3)
      */
-    constructor({ processRepository }) {
-        if (!processRepository) {
-            throw new Error('processRepository dependency is required');
+    constructor({ migrationStatusRepository }) {
+        if (!migrationStatusRepository) {
+            throw new Error('migrationStatusRepository dependency is required');
         }
-        this.processRepository = processRepository;
+        this.migrationStatusRepository = migrationStatusRepository;
     }
 
     /**
      * Execute get migration status
      *
-     * @param {Object} params
-     * @param {string} params.processId - Process ID to retrieve
-     * @returns {Promise<Object>} Migration status with process details
-     * @throws {NotFoundError} If process not found
-     * @throws {Error} If process is not a migration process
+     * @param {string} migrationId - Migration ID to retrieve
+     * @param {string} [stage] - Deployment stage (defaults to env.STAGE)
+     * @returns {Promise<Object>} Migration status from S3
+     * @throws {NotFoundError} If migration not found
+     * @throws {ValidationError} If migrationId is invalid
      */
-    async execute({ processId }) {
+    async execute(migrationId, stage = null) {
         // Validation
-        if (!processId) {
-            throw new ValidationError('processId is required');
+        this._validateParams(migrationId);
+
+        const effectiveStage = stage || process.env.STAGE || 'production';
+
+        // Get migration status from S3
+        try {
+            const migrationStatus = await this.migrationStatusRepository.get(migrationId, effectiveStage);
+            return migrationStatus;
+        } catch (error) {
+            if (error.message.includes('not found')) {
+                throw new NotFoundError(`Migration not found: ${migrationId}`);
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * Validate parameters
+     * @private
+     */
+    _validateParams(migrationId) {
+        if (!migrationId) {
+            throw new ValidationError('migrationId is required');
         }
 
-        if (typeof processId !== 'string') {
-            throw new ValidationError('processId must be a string');
+        if (typeof migrationId !== 'string') {
+            throw new ValidationError('migrationId must be a string');
         }
-
-        // Get process from repository
-        const process = await this.processRepository.findById(processId);
-
-        if (!process) {
-            throw new NotFoundError(`Migration process not found: ${processId}`);
-        }
-
-        // Verify this is a migration process
-        if (process.type !== 'DATABASE_MIGRATION') {
-            throw new Error(
-                `Process ${processId} is not a migration process (type: ${process.type})`
-            );
-        }
-
-        // Format response
-        return {
-            processId: process.id,
-            type: process.type,
-            state: process.state,
-            context: process.context || {},
-            results: process.results || {},
-            createdAt: process.createdAt,
-            updatedAt: process.updatedAt,
-        };
     }
 }
 
