@@ -55,7 +55,7 @@ async function runPrismaGenerate(dbType, verbose = false) {
 
         // In Lambda, also check the layer path (/opt/nodejs/node_modules)
         const lambdaLayerClientPath = `/opt/nodejs/node_modules/generated/prisma-${dbType}/client.js`;
-        
+
         const clientExists = fs.existsSync(generatedClientPath) || (isLambdaEnvironment && fs.existsSync(lambdaLayerClientPath));
 
         if (clientExists) {
