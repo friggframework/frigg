@@ -47,20 +47,15 @@ const {
     ValidationError,
 } = require('../../database/use-cases/run-database-migration-use-case');
 const {
-    UpdateProcessState,
-} = require('../../integrations/use-cases/update-process-state');
-const {
-    ProcessRepositoryPostgres,
-} = require('../../integrations/repositories/process-repository-postgres');
+    MigrationStatusRepositoryS3,
+} = require('../../database/repositories/migration-status-repository-s3');
 
 // Inject prisma-runner as dependency
 const prismaRunner = require('../../database/utils/prisma-runner');
 
-// Create process repository and use case for tracking migration progress
-// Note: Migrations are PostgreSQL-only, so we directly use ProcessRepositoryPostgres
-// This avoids loading app definition (which requires integration classes)
-const processRepository = new ProcessRepositoryPostgres();
-const updateProcessState = new UpdateProcessState({ processRepository });
+// Use S3 repository for migration status tracking (no User table dependency)
+const bucketName = process.env.S3_BUCKET_NAME || process.env.MIGRATION_STATUS_BUCKET;
+const migrationStatusRepository = new MigrationStatusRepositoryS3(bucketName);
 
 /**
  * Sanitizes error messages to prevent credential leaks
@@ -100,12 +95,12 @@ function sanitizeDatabaseUrl(url) {
 /**
  * Extract migration parameters from SQS event or direct invocation
  * @param {Object} event - Lambda event (SQS or direct)
- * @returns {Object} Extracted parameters { processId, dbType, stage }
+ * @returns {Object} Extracted parameters { migrationId, dbType, stage }
  */
 function extractMigrationParams(event) {
-    let processId = null;
+    let migrationId = null;
     let stage = null;
-
+    
     // Migration infrastructure is PostgreSQL-only, so hardcode dbType
     const dbType = 'postgresql';
 
@@ -113,27 +108,27 @@ function extractMigrationParams(event) {
     if (event.Records && event.Records.length > 0) {
         // SQS event - extract from message body
         const message = JSON.parse(event.Records[0].body);
-        processId = message.processId;
+        migrationId = message.migrationId;
         stage = message.stage;
 
         console.log('SQS event detected');
-        console.log(`  Process ID: ${processId}`);
+        console.log(`  Migration ID: ${migrationId}`);
         console.log(`  DB Type: ${dbType} (hardcoded - PostgreSQL-only)`);
         console.log(`  Stage: ${stage}`);
     } else {
         // Direct invocation - use event properties or environment variables
-        processId = event.processId || null;
+        migrationId = event.migrationId || null;
         stage = event.stage || process.env.STAGE || 'production';
 
         console.log('Direct invocation detected');
-        if (processId) {
-            console.log(`  Process ID: ${processId}`);
+        if (migrationId) {
+            console.log(`  Migration ID: ${migrationId}`);
         }
         console.log(`  DB Type: ${dbType} (hardcoded - PostgreSQL-only)`);
         console.log(`  Stage: ${stage}`);
     }
 
-    return { processId, dbType, stage };
+    return { migrationId, dbType, stage };
 }
 
 /**
@@ -154,7 +149,7 @@ exports.handler = async (event, context) => {
     }, null, 2));
 
     // Extract migration parameters from event
-    const { processId, dbType, stage } = extractMigrationParams(event);
+    const { migrationId, dbType, stage } = extractMigrationParams(event);
 
     // Get environment variables
     const databaseUrl = process.env.DATABASE_URL;
@@ -178,10 +173,14 @@ exports.handler = async (event, context) => {
         console.log(`  Stage: ${stage}`);
         console.log(`  Database URL: ${sanitizeDatabaseUrl(databaseUrl)}`);
 
-        // Update process state to RUNNING (if processId provided)
-        if (processId) {
-            console.log(`\n✓ Updating process state to RUNNING: ${processId}`);
-            await updateProcessState.execute(processId, 'RUNNING', {
+        // Update migration status to RUNNING (if migrationId provided)
+        if (migrationId) {
+            console.log(`\n✓ Updating migration status to RUNNING: ${migrationId}`);
+            await migrationStatusRepository.update({
+                migrationId,
+                stage,
+                state: 'RUNNING',
+                progress: 10,
                 startedAt: new Date().toISOString(),
             });
         }
@@ -212,10 +211,14 @@ exports.handler = async (event, context) => {
         console.log(`  Command: ${result.command}`);
         console.log('========================================');
 
-        // Update process state to COMPLETED (if processId provided)
-        if (processId) {
-            console.log(`\n✓ Updating process state to COMPLETED: ${processId}`);
-            await updateProcessState.execute(processId, 'COMPLETED', {
+        // Update migration status to COMPLETED (if migrationId provided)
+        if (migrationId) {
+            console.log(`\n✓ Updating migration status to COMPLETED: ${migrationId}`);
+            await migrationStatusRepository.update({
+                migrationId,
+                stage,
+                state: 'COMPLETED',
+                progress: 100,
                 completedAt: new Date().toISOString(),
                 migrationCommand: result.command,
             });
@@ -231,8 +234,8 @@ exports.handler = async (event, context) => {
             timestamp: new Date().toISOString(),
         };
 
-        if (processId) {
-            responseBody.processId = processId;
+        if (migrationId) {
+            responseBody.migrationId = migrationId;
         }
 
         return {
@@ -269,18 +272,21 @@ exports.handler = async (event, context) => {
         // Sanitize error message before returning
         const sanitizedError = sanitizeError(errorMessage);
 
-        // Update process state to FAILED (if processId provided)
-        if (processId) {
+        // Update migration status to FAILED (if migrationId provided)
+        if (migrationId) {
             try {
-                console.log(`\n✓ Updating process state to FAILED: ${processId}`);
-                await updateProcessState.execute(processId, 'FAILED', {
-                    failedAt: new Date().toISOString(),
+                console.log(`\n✓ Updating migration status to FAILED: ${migrationId}`);
+                await migrationStatusRepository.update({
+                    migrationId,
+                    stage,
+                    state: 'FAILED',
+                    progress: 0,
                     error: sanitizedError,
-                    errorType: error.name || 'Error',
+                    failedAt: new Date().toISOString(),
                 });
             } catch (updateError) {
-                console.error('Failed to update process state:', updateError);
-                // Don't fail the entire handler if state update fails
+                console.error('Failed to update migration status:', updateError.message);
+                // Continue - don't let status update failure block error response
             }
         }
 
