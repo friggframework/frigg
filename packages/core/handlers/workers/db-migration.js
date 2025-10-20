@@ -100,7 +100,7 @@ function sanitizeDatabaseUrl(url) {
 function extractMigrationParams(event) {
     let migrationId = null;
     let stage = null;
-    
+
     // Migration infrastructure is PostgreSQL-only, so hardcode dbType
     const dbType = 'postgresql';
 
@@ -298,8 +298,8 @@ exports.handler = async (event, context) => {
             ...(stage === 'dev' || stage === 'local' || stage === 'test' ? { stack: error.stack } : {}),
         };
 
-        if (processId) {
-            errorBody.processId = processId;
+        if (migrationId) {
+            errorBody.migrationId = migrationId;
         }
 
         return {
