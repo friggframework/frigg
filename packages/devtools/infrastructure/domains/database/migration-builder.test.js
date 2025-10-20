@@ -190,14 +190,14 @@ describe('MigrationBuilder', () => {
 
             const workerPackage = result.functions.dbMigrationWorker.package;
             const routerPackage = result.functions.dbMigrationRouter.package;
-            
+
             // Verify worker excludes Prisma client (in layer) but keeps CLI
             expect(workerPackage.exclude).toContain('node_modules/@prisma/client/**');
             expect(workerPackage.exclude).toContain('node_modules/@friggframework/core/generated/**');
-            
+
             // Verify router excludes ALL WASM files (doesn't run migrations)
             expect(routerPackage.exclude).toContain('**/*.wasm*');
-            
+
             // Verify common exclusions for both
             expect(workerPackage.exclude).toContain('node_modules/**/node_modules/**');
             expect(workerPackage.exclude).toContain('**/*.test.js');

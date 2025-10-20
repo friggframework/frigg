@@ -113,7 +113,7 @@ class MigrationBuilder extends InfrastructureBuilder {
                 'node_modules/.prisma/**',
                 'node_modules/@friggframework/core/generated/**',
                 // But KEEP node_modules/prisma/** (the CLI with WASM)
-                
+
                 // Same base exclusions as router
                 'node_modules/**/node_modules/**',
                 'node_modules/aws-sdk/**',
@@ -148,6 +148,12 @@ class MigrationBuilder extends InfrastructureBuilder {
                 // Note: Migration worker DOES need Prisma CLI WASM files (for migrate deploy)
                 // Only exclude runtime engine WASM (query engine internals)
                 '**/runtime/*.wasm',
+                // Additional size optimizations for worker
+                '**/*.map', // Source maps not needed in production
+                '**/*.md', // Documentation
+                '**/examples/**',
+                '**/docs/**',
+                '**/*.d.ts', // TypeScript declarations
                 'src/**',
                 'test/**',
                 'layers/**',
@@ -204,6 +210,15 @@ class MigrationBuilder extends InfrastructureBuilder {
                 // Router doesn't run migrations - exclude ALL WASM files
                 '**/runtime/*.wasm',
                 '**/*.wasm*', // Exclude all WASM (Prisma CLI + query engine)
+                // Additional size optimizations for router
+                '**/*.map', // Source maps not needed in production
+                '**/*.md', // Documentation
+                '**/test/**',
+                '**/tests/**',
+                '**/__tests__/**',
+                '**/examples/**',
+                '**/docs/**',
+                '**/*.d.ts', // TypeScript declarations
                 'src/**',
                 'test/**',
                 'layers/**',
