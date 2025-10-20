@@ -219,10 +219,10 @@ async function runPrismaMigrate(command = 'dev', verbose = false) {
             }
 
             // Execute the command (prismaBin might be 'node /path/to/index.js' or 'npx prisma')
-            const [command, ...commandArgs] = prismaBin.split(' ');
-            const fullArgs = [...commandArgs, ...args];
+            const [executable, ...executableArgs] = prismaBin.split(' ');
+            const fullArgs = [...executableArgs, ...args];
 
-            const proc = spawn(command, fullArgs, {
+            const proc = spawn(executable, fullArgs, {
                 stdio: 'inherit',
                 env: {
                     ...process.env,
