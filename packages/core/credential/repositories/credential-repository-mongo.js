@@ -100,6 +100,17 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
         if (!identifiers)
             throw new Error('identifiers required to upsert credential');
 
+        if (!identifiers.user && !identifiers.userId) {
+            throw new Error('user or userId required in identifiers');
+        }
+        if (!identifiers.externalId) {
+            throw new Error(
+                'externalId required in identifiers to prevent credential collision. ' +
+                'When multiple credentials exist for the same user, both userId and externalId ' +
+                'are needed to uniquely identify which credential to update.'
+            );
+        }
+
         // Build where clause from identifiers
         const where = this._convertIdentifiersToWhere(identifiers);
 
