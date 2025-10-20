@@ -175,7 +175,13 @@ class MigrationBuilder extends InfrastructureBuilder {
         const migrationRouterPackageConfig = {
             individually: true,
             exclude: [
-                // Same base exclusions but EXCLUDE all WASM (router doesn't run migrations)
+                // Router doesn't access database - exclude ALL Prisma
+                'node_modules/prisma/**', // Prisma CLI with engines (54MB!)
+                'node_modules/@prisma/**', // Prisma engines
+                'node_modules/.prisma/**',
+                'node_modules/@friggframework/core/generated/**', // Generated clients
+                
+                // Base exclusions
                 'node_modules/**/node_modules/**',
                 'node_modules/aws-sdk/**',
                 'node_modules/@aws-sdk/**',
@@ -265,7 +271,7 @@ class MigrationBuilder extends InfrastructureBuilder {
         // Create migration router Lambda (HTTP API)
         result.functions.dbMigrationRouter = {
             handler: 'node_modules/@friggframework/core/handlers/routers/db-migration.handler',
-            layers: [{ Ref: 'PrismaLambdaLayer' }],
+            // No Prisma layer needed - router doesn't access database
             skipEsbuild: true,
             timeout: 30, // Router just queues jobs, doesn't run migrations
             memorySize: 512,
