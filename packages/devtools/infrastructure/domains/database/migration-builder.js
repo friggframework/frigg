@@ -201,6 +201,7 @@ class MigrationBuilder extends InfrastructureBuilder {
         // Add IAM permissions for S3 (migration status storage)
         // Migration functions need to read/write migration status in S3
         // to avoid chicken-and-egg dependency on User/Process tables
+        // Note: Uses wildcard for bucket as S3_BUCKET_NAME is set at runtime via environment
         result.iamStatements.push({
             Effect: 'Allow',
             Action: [
@@ -208,9 +209,7 @@ class MigrationBuilder extends InfrastructureBuilder {
                 's3:GetObject',
                 's3:DeleteObject',
             ],
-            Resource: {
-                'Fn::Sub': 'arn:aws:s3:::${S3BucketName}/migrations/*',
-            },
+            Resource: 'arn:aws:s3:::*/migrations/*', // Wildcard allows any S3 bucket
         });
 
         console.log('  ✓ Added S3 IAM permissions for migration status tracking');
