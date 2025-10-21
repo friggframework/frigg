@@ -129,9 +129,21 @@ class FriggServerlessPlugin {
 
 
   /**
-   * Initialization hook (currently empty)
+   * Initialization hook - runs very early, before packaging
+   * Create .esbuild/.serverless directory to prevent ENOENT errors
    */
-  init() { }
+  init() {
+    // Ensure .esbuild/.serverless directory exists to prevent ENOENT errors
+    // serverless-esbuild may try to access this directory during packaging
+    const fs = require('fs');
+    const path = require('path');
+    const esbuildDir = path.join(this.serverless.config.servicePath || process.cwd(), '.esbuild', '.serverless');
+
+    if (!fs.existsSync(esbuildDir)) {
+      fs.mkdirSync(esbuildDir, { recursive: true });
+      console.log(`Created ${esbuildDir} directory for serverless-esbuild`);
+    }
+  }
   /**
    * Hook that runs after serverless package
    */
