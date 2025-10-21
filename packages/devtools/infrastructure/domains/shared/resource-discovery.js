@@ -78,14 +78,24 @@ async function gatherDiscoveredResources(appDefinition) {
         const cfDiscovery = new CloudFormationDiscovery(provider);
         const stackResources = await cfDiscovery.discoverFromStack(stackName);
 
-        if (stackResources) {
+        // Validate CF discovery results - only use if contains useful data
+        const hasVpcData = stackResources?.defaultVpcId;
+        const hasKmsData = stackResources?.defaultKmsKeyId;
+        const hasAuroraData = stackResources?.auroraClusterId;
+        const hasSomeUsefulData = hasVpcData || hasKmsData || hasAuroraData;
+
+        if (stackResources && hasSomeUsefulData) {
             console.log('  ✓ Discovered resources from existing CloudFormation stack');
             console.log('✅ Cloud resource discovery completed successfully!');
             return stackResources;
         }
 
-        // Fallback to AWS API discovery (fresh deployment or stack not found)
-        console.log('  ℹ No stack found - running AWS API discovery...');
+        // Fallback to AWS API discovery (fresh deployment, stack not found, or stack has no useful data)
+        if (stackResources && !hasSomeUsefulData) {
+            console.log('  ℹ Stack found but contains no usable resources - running AWS API discovery...');
+        } else {
+            console.log('  ℹ No stack found - running AWS API discovery...');
+        }
 
         // Create domain discovery services with provider
         const vpcDiscovery = new VpcDiscovery(provider);
