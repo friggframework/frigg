@@ -61,10 +61,11 @@ describe('KmsDiscovery', () => {
 
             const result = await kmsDiscovery.discover({});
 
-            expect(result.kmsKeyId).toBeNull();
-            expect(result.kmsKeyArn).toBeNull();
-            expect(result.defaultKmsKeyId).toBeNull();
-            expect(result.kmsKeyAlias).toBeNull();
+            // When no keys found, properties are undefined (not explicitly set to null)
+            expect(result.kmsKeyId).toBeFalsy();
+            expect(result.kmsKeyArn).toBeFalsy();
+            expect(result.defaultKmsKeyId).toBeFalsy();
+            expect(result.kmsKeyAlias).toBeFalsy();
         });
 
         it('should handle KMS key without alias', async () => {

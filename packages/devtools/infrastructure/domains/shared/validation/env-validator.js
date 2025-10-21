@@ -23,7 +23,8 @@ const validateEnvironmentVariables = (AppDefinition) => {
 
     for (const [key, value] of Object.entries(AppDefinition.environment)) {
         if (value === true) {
-            if (process.env[key]) {
+            // Use 'in' operator to check if key exists (undefined = missing, empty string = present)
+            if (key in process.env) {
                 results.valid.push(key);
             } else {
                 results.missing.push(key);

@@ -58,20 +58,21 @@ describe('Handler Path Resolver', () => {
         });
 
         it('should use npm root if directory search fails (method 2)', () => {
-            process.cwd = jest.fn().mockReturnValue('/project');
-            fs.existsSync = jest.fn().mockReturnValue(false);
-
+            process.cwd = jest.fn().mockReturnValue('/some/unusual/directory');
+            
             const { execSync } = require('node:child_process');
-            execSync.mockReturnValue('/project/node_modules\n');
+            // npm root returns a different path
+            execSync.mockReturnValue('/usr/local/lib/node_modules\n');
 
-            // On second call for npm root, return true
-            fs.existsSync.mockImplementation((p) =>
-                p === '/project/node_modules'
-            );
+            // Mock to fail directory searches but succeed for npm root result
+            fs.existsSync = jest.fn().mockImplementation((p) => {
+                // Only succeed for the npm root path (not under /some/unusual/directory)
+                return p === '/usr/local/lib/node_modules';
+            });
 
             const result = findNodeModulesPath();
 
-            expect(result).toBe('/project/node_modules');
+            expect(result).toBe('/usr/local/lib/node_modules');
             expect(execSync).toHaveBeenCalledWith('npm root', { encoding: 'utf8' });
         });
 
@@ -129,13 +130,21 @@ describe('Handler Path Resolver', () => {
         });
 
         it('should handle errors during search', () => {
-            process.cwd = jest.fn().mockImplementation(() => {
-                throw new Error('cwd error');
+            process.cwd = jest.fn().mockReturnValue('/project');
+            // Mock fs.existsSync to throw an error
+            fs.existsSync = jest.fn().mockImplementation(() => {
+                throw new Error('fs error');
+            });
+
+            const { execSync } = require('node:child_process');
+            execSync.mockImplementation(() => {
+                throw new Error('npm error');
             });
 
             const result = findNodeModulesPath();
 
-            expect(result).toBe(path.resolve(process.cwd(), '../node_modules'));
+            // Should fallback to default path even when search methods fail
+            expect(result).toBe(path.resolve('/project', '../node_modules'));
         });
     });
 

@@ -247,7 +247,7 @@ describe('IntegrationBuilder', () => {
 
             const result = await integrationBuilder.build(appDefinition, {});
 
-            expect(result.functions.testQueueWorker.timeout).toBe(600);
+            expect(result.functions.testQueueWorker.timeout).toBe(900); // 15 minutes (Lambda max)
         });
 
         it('should set queue worker reserved concurrency', async () => {

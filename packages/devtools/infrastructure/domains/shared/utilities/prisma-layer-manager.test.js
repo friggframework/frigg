@@ -92,8 +92,10 @@ describe('Prisma Layer Manager', () => {
 
             await ensurePrismaLayerExists();
 
+            // console.log is called with 2 args: message + path
             expect(consoleSpy).toHaveBeenCalledWith(
-                expect.stringContaining('already exists')
+                expect.stringContaining('already exists'),
+                expect.any(String)
             );
 
             consoleSpy.mockRestore();
@@ -123,8 +125,10 @@ describe('Prisma Layer Manager', () => {
 
             await expect(ensurePrismaLayerExists()).rejects.toThrow();
 
+            // console.error is called with 2 args: message + error
             expect(consoleErrorSpy).toHaveBeenCalledWith(
-                expect.stringContaining('Failed to build')
+                expect.stringContaining('Failed to build'),
+                expect.any(String)
             );
 
             consoleErrorSpy.mockRestore();

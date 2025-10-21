@@ -112,14 +112,19 @@ function modifyHandlerPaths(functions) {
 
     if (!isOffline) {
         console.log('Not in offline mode, skipping handler path modification');
-        return functions;
+        // Return shallow copy to prevent mutations (DDD immutability principle)
+        return { ...functions };
     }
 
     // In offline mode, don't modify the handler paths at all
     // serverless-offline will resolve node_modules paths from the working directory
     console.log('Offline mode detected - keeping original handler paths for serverless-offline');
 
-    return functions;
+    // Return deep copy to prevent mutations (DDD immutability principle)
+    return Object.entries(functions).reduce((acc, [key, value]) => {
+        acc[key] = { ...value };
+        return acc;
+    }, {});
 }
 
 module.exports = {
