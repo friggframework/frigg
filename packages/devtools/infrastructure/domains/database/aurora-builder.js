@@ -83,7 +83,7 @@ class AuroraBuilder extends InfrastructureBuilder {
         console.log(`\n[${this.name}] Configuring Aurora PostgreSQL...`);
 
         const dbConfig = appDefinition.database.postgres;
-        
+
         // Normalize top-level managementMode
         const globalMode = appDefinition.managementMode || 'discover';
         const vpcIsolation = appDefinition.vpcIsolation || 'shared';
@@ -95,10 +95,10 @@ class AuroraBuilder extends InfrastructureBuilder {
             if (dbConfig.management) {
                 console.log(`  ⚠️  managementMode='managed' ignoring: database.postgres.management`);
             }
-            
+
             // Clear granular option to prevent conflicts
             delete appDefinition.database.postgres.management;
-            
+
             // Set management based on isolation strategy
             if (vpcIsolation === 'isolated') {
                 management = 'managed';  // New VPC = new Aurora

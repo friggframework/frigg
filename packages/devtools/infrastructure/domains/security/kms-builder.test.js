@@ -366,7 +366,8 @@ describe('KmsBuilder', () => {
 
             const result = await kmsBuilder.build(appDefinition, discoveredResources);
 
-            expect(result.environment.KMS_KEY_ARN).toBe('${env:AWS_DISCOVERY_KMS_KEY_ID}');
+            // Should format env var as ARN for IAM policies
+            expect(result.environment.KMS_KEY_ARN).toBe('arn:aws:kms:${self:provider.region}:${aws:accountId}:key/${env:AWS_DISCOVERY_KMS_KEY_ID}');
         });
     });
 });
