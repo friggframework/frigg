@@ -320,6 +320,8 @@ class MigrationBuilder extends InfrastructureBuilder {
         // Add IAM permissions for S3 (migration status storage)
         // Migration functions need to read/write migration status in S3
         // to avoid chicken-and-egg dependency on User/Process tables
+        
+        // Object-level permissions (put, get, delete)
         result.iamStatements.push({
             Effect: 'Allow',
             Action: [
@@ -336,6 +338,13 @@ class MigrationBuilder extends InfrastructureBuilder {
                     ],
                 ],
             },
+        });
+
+        // Bucket-level permissions (list objects, needed to check if migration status exists)
+        result.iamStatements.push({
+            Effect: 'Allow',
+            Action: ['s3:ListBucket'],
+            Resource: { 'Fn::GetAtt': ['FriggMigrationStatusBucket', 'Arn'] },
         });
 
         console.log('  ✓ Added S3 IAM permissions for migration status tracking');

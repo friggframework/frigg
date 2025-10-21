@@ -246,6 +246,42 @@ describe('MigrationBuilder', () => {
             });
         });
 
+        it('should add S3 IAM permissions including ListBucket', async () => {
+            const appDef = {
+                database: {
+                    postgres: {
+                        enable: true,
+                    },
+                },
+            };
+
+            const result = await builder.build(appDef, {});
+
+            // Should have object-level permissions
+            expect(result.iamStatements).toContainEqual(
+                expect.objectContaining({
+                    Effect: 'Allow',
+                    Action: expect.arrayContaining([
+                        's3:PutObject',
+                        's3:GetObject',
+                        's3:DeleteObject',
+                    ]),
+                    Resource: expect.objectContaining({
+                        'Fn::Join': expect.anything(),
+                    }),
+                })
+            );
+
+            // Should have bucket-level ListBucket permission (needed to check if objects exist)
+            expect(result.iamStatements).toContainEqual(
+                expect.objectContaining({
+                    Effect: 'Allow',
+                    Action: ['s3:ListBucket'],
+                    Resource: { 'Fn::GetAtt': ['FriggMigrationStatusBucket', 'Arn'] },
+                })
+            );
+        });
+
         it('should only include Prisma layer in worker (router doesn\'t need database)', async () => {
             const appDef = {
                 database: {
