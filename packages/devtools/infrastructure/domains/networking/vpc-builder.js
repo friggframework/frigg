@@ -110,7 +110,23 @@ class VpcBuilder extends InfrastructureBuilder {
             Resource: '*',
         });
 
-        const management = appDefinition.vpc.management || 'discover';
+        // Normalize shareAcrossStages into management mode
+        // This provides a simpler API for users while maintaining backwards compatibility
+        let management = appDefinition.vpc.management;
+        if (!management && appDefinition.vpc.shareAcrossStages !== undefined) {
+            // Explicit shareAcrossStages setting overrides default
+            management = appDefinition.vpc.shareAcrossStages ? 'discover' : 'create-new';
+            console.log(`  VPC Sharing: ${appDefinition.vpc.shareAcrossStages ? 'shared' : 'isolated'} (translated to ${management})`);
+            
+            // When creating isolated VPC, also create isolated NAT Gateway
+            if (!appDefinition.vpc.shareAcrossStages && !appDefinition.vpc.natGateway?.management) {
+                appDefinition.vpc.natGateway = appDefinition.vpc.natGateway || {};
+                appDefinition.vpc.natGateway.management = 'createAndManage';
+                console.log(`  NAT Gateway: creating isolated NAT (shareAcrossStages=false)`);
+            }
+        } else {
+            management = management || 'discover'; // Default to sharing for backwards compatibility
+        }
         console.log(`  VPC Management Mode: ${management}`);
 
         // Handle self-healing if enabled

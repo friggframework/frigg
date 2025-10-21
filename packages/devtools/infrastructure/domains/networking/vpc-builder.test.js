@@ -809,6 +809,81 @@ describe('VpcBuilder', () => {
         });
     });
 
+    describe('VPC Sharing Control', () => {
+        it('should share VPC across stages when shareAcrossStages is true (default)', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    shareAcrossStages: true, // Explicit opt-in to sharing
+                },
+            };
+
+            const discoveredResources = {
+                defaultVpcId: 'vpc-shared',
+                natGatewayId: 'nat-shared',
+            };
+
+            const result = await vpcBuilder.build(appDefinition, discoveredResources);
+
+            // Should use discovered VPC (not create new one)
+            expect(result.vpcId).toBe('vpc-shared');
+            expect(result.resources.FriggVPC).toBeUndefined();
+            
+            // Should create stage-specific subnets for isolation
+            expect(result.resources.FriggPrivateSubnet1).toBeDefined();
+            expect(result.resources.FriggPrivateSubnet2).toBeDefined();
+            
+            // Should reuse discovered NAT Gateway
+            expect(result.resources.FriggNATGateway).toBeUndefined();
+        });
+
+        it('should create isolated VPC when shareAcrossStages is false', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    shareAcrossStages: false, // Explicit opt-out of sharing
+                },
+            };
+
+            const discoveredResources = {
+                defaultVpcId: 'vpc-shared',
+                natGatewayId: 'nat-shared',
+            };
+
+            const result = await vpcBuilder.build(appDefinition, discoveredResources);
+
+            // Should create new VPC (ignore discovered resources)
+            expect(result.vpcId).toEqual({ Ref: 'FriggVPC' });
+            expect(result.resources.FriggVPC).toBeDefined();
+            
+            // Should create stage-specific subnets
+            expect(result.resources.FriggPrivateSubnet1).toBeDefined();
+            expect(result.resources.FriggPrivateSubnet2).toBeDefined();
+            
+            // Should create new NAT Gateway
+            expect(result.resources.FriggNATGateway).toBeDefined();
+        });
+
+        it('should default to shared VPC when shareAcrossStages is not specified', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    // shareAcrossStages not specified - should default to true
+                },
+            };
+
+            const discoveredResources = {
+                defaultVpcId: 'vpc-discovered',
+            };
+
+            const result = await vpcBuilder.build(appDefinition, discoveredResources);
+
+            // Should use discovered VPC by default (backwards compatibility)
+            expect(result.vpcId).toBe('vpc-discovered');
+            expect(result.resources.FriggVPC).toBeUndefined();
+        });
+    });
+
     describe('Outputs', () => {
         it.skip('should generate VPC ID output', async () => {
             const appDefinition = {
