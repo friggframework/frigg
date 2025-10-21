@@ -417,7 +417,7 @@ describe('Resource Discovery', () => {
             }));
         });
 
-        it('should return empty results for isolated mode (prevents cross-stage contamination)', async () => {
+        it('should discover KMS but not VPC/Aurora in isolated mode', async () => {
             const appDefinition = {
                 name: 'test-app',
                 managementMode: 'managed',
@@ -427,18 +427,26 @@ describe('Resource Discovery', () => {
             };
 
             process.env.SLS_STAGE = 'dev';
+            
+            // Mock KMS discovery returning a shared key
+            mockKmsDiscovery.discover.mockResolvedValue({
+                defaultKmsKeyId: 'shared-kms-key-123',
+            });
 
             const result = await gatherDiscoveredResources(appDefinition);
 
-            // Should return empty (no discovery)
-            expect(result).toEqual({});
+            // Should return KMS (shareable) but not VPC/Aurora (isolated)
+            expect(result).toEqual({
+                defaultKmsKeyId: 'shared-kms-key-123',
+            });
 
-            // Should NOT call AWS API discovery
+            // Should call KMS discovery (shared) but NOT VPC/Aurora discovery (isolated)
+            expect(mockKmsDiscovery.discover).toHaveBeenCalled();
             expect(mockVpcDiscovery.discover).not.toHaveBeenCalled();
             expect(mockAuroraDiscovery.discover).not.toHaveBeenCalled();
         });
 
-        it('should return empty in isolated mode even if stack exists (fresh creation)', async () => {
+        it('should return empty if no KMS found in isolated mode (fresh infrastructure)', async () => {
             const { CloudFormationDiscovery } = require('./cloudformation-discovery');
 
             // Mock that CF stack exists but we still want fresh resources
@@ -454,14 +462,18 @@ describe('Resource Discovery', () => {
             };
 
             process.env.SLS_STAGE = 'dev';
+            
+            // Mock KMS discovery finding nothing
+            mockKmsDiscovery.discover.mockResolvedValue({});
 
             const result = await gatherDiscoveredResources(appDefinition);
 
-            // In isolated mode, always return empty to force fresh creation
-            // This prevents any cross-stage resource reuse
+            // Should return empty (no VPC/Aurora, and KMS not found)
+            // This will trigger fresh KMS creation
             expect(result).toEqual({});
 
-            // Should NOT call AWS API discovery
+            // Should call KMS discovery but NOT VPC/Aurora
+            expect(mockKmsDiscovery.discover).toHaveBeenCalled();
             expect(mockVpcDiscovery.discover).not.toHaveBeenCalled();
         });
 

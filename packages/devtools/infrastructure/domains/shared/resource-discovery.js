@@ -90,11 +90,22 @@ async function gatherDiscoveredResources(appDefinition) {
             return stackResources;
         }
 
-        // In isolated mode, ONLY use CloudFormation discovery for this stage's stack
-        // Do NOT fall back to AWS API discovery (which finds resources from other stages)
+        // In isolated mode, ONLY use CloudFormation discovery for VPC/Aurora
+        // But still discover KMS (encryption keys can be safely shared across stages)
         if (appDefinition.managementMode === 'managed' && appDefinition.vpcIsolation === 'isolated') {
-            console.log('  ℹ Isolated mode: only discovering resources from this stage\'s stack');
-            console.log('  ℹ No existing stack resources found - will create fresh infrastructure');
+            console.log('  ℹ Isolated mode: discovering KMS (shareable) but not VPC/Aurora (isolated)');
+            
+            // Still run KMS discovery - encryption keys are safe to share
+            const kmsDiscovery = new KmsDiscovery(provider);
+            const kmsResult = await kmsDiscovery.discover();
+            
+            if (kmsResult?.defaultKmsKeyId) {
+                console.log('  ✓ Found shared KMS key (can be reused across stages)');
+                console.log('✅ Cloud resource discovery completed successfully!');
+                return kmsResult;
+            }
+            
+            console.log('  ℹ No existing resources found - will create fresh infrastructure');
             console.log('✅ Cloud resource discovery completed successfully!');
             return {};
         }

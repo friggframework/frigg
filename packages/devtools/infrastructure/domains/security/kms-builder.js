@@ -88,12 +88,12 @@ class KmsBuilder extends InfrastructureBuilder {
             // Use discovered KMS key
             const kmsKeyId = discoveredResources.defaultKmsKeyId || '${env:AWS_DISCOVERY_KMS_KEY_ID}';
             console.log(`  Using ${discoveredResources.defaultKmsKeyId ? 'discovered' : 'environment variable'} KMS key`);
-            
+
             // Format as ARN if it's just a key ID (for IAM policies)
-            const kmsArn = kmsKeyId.startsWith('arn:') 
-                ? kmsKeyId 
+            const kmsArn = kmsKeyId.startsWith('arn:')
+                ? kmsKeyId
                 : `arn:aws:kms:\${self:provider.region}:\${aws:accountId}:key/${kmsKeyId}`;
-            
+
             result.environment.KMS_KEY_ARN = kmsArn;
         }
 
