@@ -329,15 +329,11 @@ describe('KmsBuilder', () => {
             const result = await kmsBuilder.build(appDefinition, {});
 
             const policy = result.resources.FriggKMSKey.Properties.KeyPolicy;
+            // Should NOT have AllowLambdaExecutionRole statement to avoid circular dependency
+            // (KMS Key → IAM Role → KMS Key = circular)
+            // IAM policies already grant KMS permissions, so key policy doesn't need to reference the role
             const roleStatement = policy.Statement.find(s => s.Sid === 'AllowLambdaExecutionRole');
-
-            expect(roleStatement).toBeDefined();
-            expect(roleStatement.Effect).toBe('Allow');
-            expect(roleStatement.Principal.AWS).toEqual({ 'Fn::GetAtt': ['IamRoleLambdaExecution', 'Arn'] });
-            expect(roleStatement.Action).toContain('kms:GenerateDataKey');
-            expect(roleStatement.Action).toContain('kms:Decrypt');
-            expect(roleStatement.Action).toContain('kms:Encrypt');
-            expect(roleStatement.Action).toContain('kms:DescribeKey');
+            expect(roleStatement).toBeUndefined();
         });
     });
 

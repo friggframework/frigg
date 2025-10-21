@@ -137,20 +137,9 @@ class KmsBuilder extends InfrastructureBuilder {
                                     },
                                 },
                             },
-                            {
-                                Sid: 'AllowLambdaExecutionRole',
-                                Effect: 'Allow',
-                                Principal: {
-                                    AWS: { 'Fn::GetAtt': ['IamRoleLambdaExecution', 'Arn'] },
-                                },
-                                Action: [
-                                    'kms:Decrypt',
-                                    'kms:GenerateDataKey',
-                                    'kms:Encrypt',
-                                    'kms:DescribeKey',
-                                ],
-                                Resource: '*',
-                            },
+                            // NOTE: We do NOT add a statement referencing IamRoleLambdaExecution here
+                            // because it creates a circular dependency (KMS Key → IAM Role → KMS Key).
+                            // Instead, IAM policies grant the Lambda execution role permissions to use KMS.
                         ],
                     },
                     Tags: [
