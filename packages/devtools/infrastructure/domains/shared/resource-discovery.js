@@ -10,6 +10,7 @@
  */
 
 const { CloudProviderFactory } = require('./providers/provider-factory');
+const { CloudFormationDiscovery } = require('./cloudformation-discovery');
 const { VpcDiscovery } = require('../networking/vpc-discovery');
 const { KmsDiscovery } = require('../security/kms-discovery');
 const { AuroraDiscovery } = require('../database/aurora-discovery');
@@ -69,14 +70,29 @@ async function gatherDiscoveredResources(appDefinition) {
         // Create provider adapter
         const provider = CloudProviderFactory.create(providerName, region);
 
+        // Build discovery configuration
+        const stage = process.env.SLS_STAGE || 'dev';
+        const stackName = `${appDefinition.name || 'create-frigg-app'}-${stage}`;
+
+        // Try CloudFormation-first discovery
+        const cfDiscovery = new CloudFormationDiscovery(provider);
+        const stackResources = await cfDiscovery.discoverFromStack(stackName);
+
+        if (stackResources) {
+            console.log('  ✓ Discovered resources from existing CloudFormation stack');
+            console.log('✅ Cloud resource discovery completed successfully!');
+            return stackResources;
+        }
+
+        // Fallback to AWS API discovery (fresh deployment or stack not found)
+        console.log('  ℹ No stack found - running AWS API discovery...');
+
         // Create domain discovery services with provider
         const vpcDiscovery = new VpcDiscovery(provider);
         const kmsDiscovery = new KmsDiscovery(provider);
         const auroraDiscovery = new AuroraDiscovery(provider);
         const ssmDiscovery = new SsmDiscovery(provider);
 
-        // Build discovery configuration
-        const stage = process.env.SLS_STAGE || 'dev';
         const config = {
             serviceName: appDefinition.name || 'create-frigg-app',
             stage,

@@ -20,6 +20,7 @@ let KMSClient, ListKeysCommand, DescribeKeyCommand, ListAliasesCommand;
 let RDSClient, DescribeDBClustersCommand, DescribeDBInstancesCommand;
 let SSMClient, GetParameterCommand, GetParametersByPathCommand;
 let SecretsManagerClient, ListSecretsCommand, GetSecretValueCommand;
+let CloudFormationClient, DescribeStacksCommand, ListStackResourcesCommand;
 
 /**
  * Lazy load EC2 SDK
@@ -87,6 +88,18 @@ function loadSecretsManager() {
     }
 }
 
+/**
+ * Lazy load CloudFormation SDK
+ */
+function loadCloudFormation() {
+    if (!CloudFormationClient) {
+        const cfModule = require('@aws-sdk/client-cloudformation');
+        CloudFormationClient = cfModule.CloudFormationClient;
+        DescribeStacksCommand = cfModule.DescribeStacksCommand;
+        ListStackResourcesCommand = cfModule.ListStackResourcesCommand;
+    }
+}
+
 class AWSProviderAdapter extends CloudProviderAdapter {
     constructor(region, credentials = {}) {
         super();
@@ -99,6 +112,7 @@ class AWSProviderAdapter extends CloudProviderAdapter {
         this.rds = null;
         this.ssm = null;
         this.secretsManager = null;
+        this.cloudformation = null;
     }
 
     /**
@@ -169,6 +183,20 @@ class AWSProviderAdapter extends CloudProviderAdapter {
             });
         }
         return this.secretsManager;
+    }
+
+    /**
+     * Get CloudFormation client (lazy loaded)
+     */
+    getCloudFormationClient() {
+        if (!this.cloudformation) {
+            loadCloudFormation();
+            this.cloudformation = new CloudFormationClient({
+                region: this.region,
+                ...this.credentials,
+            });
+        }
+        return this.cloudformation;
     }
 
     getName() {
@@ -439,6 +467,54 @@ class AWSProviderAdapter extends CloudProviderAdapter {
         }
 
         return result;
+    }
+
+    /**
+     * Describe CloudFormation stack
+     * 
+     * @param {string} stackName - Name of the CloudFormation stack
+     * @returns {Promise<Object>} Stack details including outputs
+     */
+    async describeStack(stackName) {
+        const cf = this.getCloudFormationClient();
+        
+        try {
+            const response = await cf.send(new DescribeStacksCommand({
+                StackName: stackName,
+            }));
+            
+            if (!response.Stacks || response.Stacks.length === 0) {
+                throw new Error(`Stack ${stackName} not found`);
+            }
+            
+            return response.Stacks[0];
+        } catch (error) {
+            if (error.message && error.message.includes('does not exist')) {
+                throw new Error(`Stack with id ${stackName} does not exist`);
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * List CloudFormation stack resources
+     * 
+     * @param {string} stackName - Name of the CloudFormation stack
+     * @returns {Promise<Array>} List of stack resources
+     */
+    async listStackResources(stackName) {
+        const cf = this.getCloudFormationClient();
+        
+        try {
+            const response = await cf.send(new ListStackResourcesCommand({
+                StackName: stackName,
+            }));
+            
+            return response.StackResourceSummaries || [];
+        } catch (error) {
+            console.warn(`Failed to list stack resources for ${stackName}:`, error.message);
+            return [];
+        }
     }
 }
 

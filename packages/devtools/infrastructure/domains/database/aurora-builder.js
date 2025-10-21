@@ -11,7 +11,7 @@
  * - Database connection environment variables
  * 
  * Supports three management modes:
- * 1. create-new: Creates new Aurora cluster
+ * 1. managed: Creates new Aurora cluster
  * 2. use-existing: Uses explicitly provided cluster
  * 3. discover (default): Discovers existing cluster
  */
@@ -49,7 +49,7 @@ class AuroraBuilder extends InfrastructureBuilder {
         const dbConfig = appDefinition.database.postgres;
 
         // Validate management mode
-        const validModes = ['discover', 'create-new', 'use-existing'];
+        const validModes = ['discover', 'managed', 'use-existing'];
         const management = dbConfig.management || 'discover';
         if (!validModes.includes(management)) {
             result.addError(`Invalid database.postgres.management: "${management}"`);
@@ -95,7 +95,7 @@ class AuroraBuilder extends InfrastructureBuilder {
 
         // Handle different management modes
         switch (management) {
-            case 'create-new':
+            case 'managed':
                 await this.createNewAurora(appDefinition, discoveredResources, result);
                 break;
             case 'use-existing':
@@ -281,7 +281,7 @@ class AuroraBuilder extends InfrastructureBuilder {
 
         if (!discoveredResources.auroraClusterEndpoint) {
             throw new Error(
-                'No Aurora cluster found in discovery mode. Set management to "create-new" or provide endpoint with "use-existing".'
+                'No Aurora cluster found in discovery mode. Set management to "managed" or provide endpoint with "use-existing".'
             );
         }
 

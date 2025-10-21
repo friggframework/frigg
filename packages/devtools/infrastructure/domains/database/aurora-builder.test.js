@@ -107,12 +107,12 @@ describe('AuroraBuilder', () => {
             expect(result.errors).toEqual([]);
         });
 
-        it('should pass validation for create-new mode', () => {
+        it('should pass validation for managed mode', () => {
             const appDefinition = {
                 database: {
                     postgres: {
                         enable: true,
-                        management: 'create-new',
+                        management: 'managed',
                     },
                 },
             };
@@ -144,9 +144,7 @@ describe('AuroraBuilder', () => {
             const result = auroraBuilder.validate(appDefinition);
 
             expect(result.valid).toBe(false);
-            expect(result.errors).toContain(
-                expect.stringContaining('Invalid database.postgres.management')
-            );
+            expect(result.errors.some(e => e.includes('Invalid database.postgres.management'))).toBe(true);
         });
 
         it('should error when use-existing without endpoint', () => {
@@ -196,9 +194,7 @@ describe('AuroraBuilder', () => {
             const result = auroraBuilder.validate(appDefinition);
 
             expect(result.valid).toBe(false);
-            expect(result.errors).toContain(
-                expect.stringContaining('minCapacity must be between 0.5 and 128')
-            );
+            expect(result.errors.some(e => e.includes('minCapacity must be between 0.5 and 128'))).toBe(true);
         });
 
         it('should error when maxCapacity is out of range', () => {
@@ -214,9 +210,7 @@ describe('AuroraBuilder', () => {
             const result = auroraBuilder.validate(appDefinition);
 
             expect(result.valid).toBe(false);
-            expect(result.errors).toContain(
-                expect.stringContaining('maxCapacity must be between 0.5 and 128')
-            );
+            expect(result.errors.some(e => e.includes('maxCapacity must be between 0.5 and 128'))).toBe(true);
         });
 
         it('should pass with valid capacity values', () => {
@@ -247,9 +241,7 @@ describe('AuroraBuilder', () => {
 
             const result = auroraBuilder.validate(appDefinition);
 
-            expect(result.warnings).toContain(
-                expect.stringContaining('publiclyAccessible=true is not recommended for production')
-            );
+            expect(result.warnings.some(w => w.includes('publiclyAccessible=true is not recommended for production'))).toBe(true);
         });
 
         it('should not warn when publiclyAccessible is false', () => {
@@ -287,8 +279,11 @@ describe('AuroraBuilder', () => {
 
             const result = await auroraBuilder.build(appDefinition, discoveredResources);
 
-            expect(result.environment.DATABASE_URL).toContain('cluster.abc.us-east-1.rds.amazonaws.com');
-            expect(result.environment.DATABASE_URL).toContain('5432');
+            // buildDatabaseUrl returns CloudFormation Fn::Sub object, not plain string
+            expect(result.environment.DATABASE_URL).toBeDefined();
+            expect(result.environment.DATABASE_URL['Fn::Sub']).toBeDefined();
+            expect(result.environment.DATABASE_URL['Fn::Sub'][1].Host).toBe('cluster.abc.us-east-1.rds.amazonaws.com');
+            expect(result.environment.DATABASE_URL['Fn::Sub'][1].Port).toBe(5432);
         });
 
         it('should add IAM permissions for Secrets Manager', async () => {
@@ -604,13 +599,13 @@ describe('AuroraBuilder', () => {
         });
     });
 
-    describe('build() - create-new mode', () => {
+    describe('build() - managed mode', () => {
         it('should create Aurora cluster resources', async () => {
             const appDefinition = {
                 database: {
                     postgres: {
                         enable: true,
-                        management: 'create-new',
+                        management: 'managed',
                     },
                 },
             };
@@ -644,7 +639,7 @@ describe('AuroraBuilder', () => {
                 database: {
                     postgres: {
                         enable: true,
-                        management: 'create-new',
+                        management: 'managed',
                     },
                 },
             };
@@ -666,19 +661,21 @@ describe('AuroraBuilder', () => {
                 database: {
                     postgres: {
                         enable: true,
-                        management: 'create-new',
+                        management: 'managed',
                     },
                 },
             };
 
             const discoveredResources = {
                 defaultVpcId: 'vpc-123',
+                privateSubnetId1: 'subnet-1',
+                privateSubnetId2: 'subnet-2',
             };
 
             const result = await auroraBuilder.build(appDefinition, discoveredResources);
 
-            expect(result.resources.FriggDatabaseSecret).toBeDefined();
-            expect(result.resources.FriggDatabaseSecret.Type).toBe('AWS::SecretsManager::Secret');
+            expect(result.resources.FriggDBSecret).toBeDefined();
+            expect(result.resources.FriggDBSecret.Type).toBe('AWS::SecretsManager::Secret');
         });
 
         it('should configure Aurora Serverless v2', async () => {
@@ -686,12 +683,18 @@ describe('AuroraBuilder', () => {
                 database: {
                     postgres: {
                         enable: true,
-                        management: 'create-new',
+                        management: 'managed',
                     },
                 },
             };
 
-            const result = await auroraBuilder.build(appDefinition, {});
+            const discoveredResources = {
+                defaultVpcId: 'vpc-123',
+                privateSubnetId1: 'subnet-1',
+                privateSubnetId2: 'subnet-2',
+            };
+
+            const result = await auroraBuilder.build(appDefinition, discoveredResources);
 
             expect(result.resources.FriggAuroraCluster.Properties.EngineMode).toBe('provisioned');
             expect(result.resources.FriggAuroraCluster.Properties.ServerlessV2ScalingConfiguration).toBeDefined();
@@ -702,14 +705,20 @@ describe('AuroraBuilder', () => {
                 database: {
                     postgres: {
                         enable: true,
-                        management: 'create-new',
+                        management: 'managed',
                         minCapacity: 1,
                         maxCapacity: 8,
                     },
                 },
             };
 
-            const result = await auroraBuilder.build(appDefinition, {});
+            const discoveredResources = {
+                defaultVpcId: 'vpc-123',
+                privateSubnetId1: 'subnet-1',
+                privateSubnetId2: 'subnet-2',
+            };
+
+            const result = await auroraBuilder.build(appDefinition, discoveredResources);
 
             const scaling = result.resources.FriggAuroraCluster.Properties.ServerlessV2ScalingConfiguration;
             expect(scaling.MinCapacity).toBe(1);
@@ -721,12 +730,18 @@ describe('AuroraBuilder', () => {
                 database: {
                     postgres: {
                         enable: true,
-                        management: 'create-new',
+                        management: 'managed',
                     },
                 },
             };
 
-            const result = await auroraBuilder.build(appDefinition, {});
+            const discoveredResources = {
+                defaultVpcId: 'vpc-123',
+                privateSubnetId1: 'subnet-1',
+                privateSubnetId2: 'subnet-2',
+            };
+
+            const result = await auroraBuilder.build(appDefinition, discoveredResources);
 
             const scaling = result.resources.FriggAuroraCluster.Properties.ServerlessV2ScalingConfiguration;
             expect(scaling.MinCapacity).toBeGreaterThanOrEqual(0.5);
@@ -749,8 +764,11 @@ describe('AuroraBuilder', () => {
 
             const result = await auroraBuilder.build(appDefinition, {});
 
-            expect(result.environment.DATABASE_URL).toContain('custom-db.example.com');
-            expect(result.environment.DATABASE_URL).toContain('5432');
+            // use-existing mode sets individual components, not DATABASE_URL
+            expect(result.environment.DATABASE_HOST).toBe('custom-db.example.com');
+            expect(result.environment.DATABASE_PORT).toBe('5432');
+            expect(result.environment.DATABASE_NAME).toBe('frigg');
+            expect(result.environment.DATABASE_USER).toBe('postgres');
         });
 
         it('should not create Aurora resources in use-existing mode', async () => {
@@ -767,7 +785,7 @@ describe('AuroraBuilder', () => {
             const result = await auroraBuilder.build(appDefinition, {});
 
             expect(result.resources.FriggAuroraCluster).toBeUndefined();
-            expect(result.resources.FriggDatabaseSecret).toBeUndefined();
+            expect(result.resources.FriggDBSecret).toBeUndefined();
         });
     });
 
