@@ -103,7 +103,7 @@ describe('SsmBuilder', () => {
             const result = ssmBuilder.validate(appDefinition);
 
             expect(result.valid).toBe(false);
-            expect(result.errors).toContain('ssm.parameters must be an object');
+            expect(result.errors.some(e => e.includes('ssm.parameters must be an object'))).toBe(true);
         });
 
         it('should error if parameters is an array', () => {
@@ -117,6 +117,7 @@ describe('SsmBuilder', () => {
             const result = ssmBuilder.validate(appDefinition);
 
             expect(result.valid).toBe(false);
+            expect(result.errors.some(e => e.includes('ssm.parameters must be an object'))).toBe(true);
         });
     });
 

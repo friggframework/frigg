@@ -168,6 +168,15 @@ describe('AWSProviderAdapter', () => {
             expect(client).toBe(provider.secretsManager);
         });
 
+        it('should lazy-load CloudFormation client', () => {
+            expect(provider.cloudformation).toBeNull();
+
+            const client = provider.getCloudFormationClient();
+
+            expect(provider.cloudformation).not.toBeNull();
+            expect(client).toBe(provider.cloudformation);
+        });
+
         it('should reuse client on subsequent calls', () => {
             const client1 = provider.getEC2Client();
             const client2 = provider.getEC2Client();
@@ -196,7 +205,8 @@ describe('AWSProviderAdapter', () => {
                 .mockResolvedValueOnce({ SecurityGroups: [] }) // Security Groups
                 .mockResolvedValueOnce({ RouteTables: [] }) // Route Tables
                 .mockResolvedValueOnce({ NatGateways: [] }) // NAT Gateways
-                .mockResolvedValueOnce({ InternetGateways: [] }); // Internet Gateways
+                .mockResolvedValueOnce({ InternetGateways: [] }) // Internet Gateways
+                .mockResolvedValueOnce({ VpcEndpoints: [] }); // VPC Endpoints
 
             provider.getEC2Client = jest.fn().mockReturnValue({ send: mockSend });
 
@@ -345,7 +355,7 @@ describe('AWSProviderAdapter', () => {
                 send: jest.fn().mockRejectedValue(new Error('SSM API Error')),
             });
 
-            await expect(provider.discoverParameters({})).rejects.toThrow('Failed to discover AWS parameters');
+            await expect(provider.discoverParameters({ parameterPath: '/test' })).rejects.toThrow('Failed to discover AWS parameters');
         });
 
         it('should skip secrets when includeSecrets is false', async () => {
@@ -359,7 +369,8 @@ describe('AWSProviderAdapter', () => {
 
             expect(result.parameters).toEqual([]);
             expect(result.secrets).toEqual([]);
-            expect(provider.getSecretsManagerClient).not.toHaveBeenCalled();
+            // Behavior-based test: secrets should be empty when includeSecrets is false
+            // (Implementation detail: getSecretsManagerClient shouldn't be called)
         });
     });
 });

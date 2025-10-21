@@ -36,8 +36,8 @@ class SsmBuilder extends InfrastructureBuilder {
 
         // Validate parameters if provided
         if (appDefinition.ssm.parameters) {
-            if (typeof appDefinition.ssm.parameters !== 'object') {
-                result.addError('ssm.parameters must be an object');
+            if (typeof appDefinition.ssm.parameters !== 'object' || Array.isArray(appDefinition.ssm.parameters)) {
+                result.addError('ssm.parameters must be an object (not an array)');
             }
         }
 
