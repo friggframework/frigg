@@ -218,8 +218,8 @@
             },
             "management": {
               "type": "string",
-              "description": "How to manage the PostgreSQL database",
-              "enum": ["discover", "create-new", "existing"],
+              "description": "How to manage the PostgreSQL database: 'discover' uses existing Aurora cluster if found, 'managed' creates Aurora Serverless cluster, 'existing' uses provided endpoint",
+              "enum": ["discover", "managed", "existing"],
               "default": "discover"
             },
             "endpoint": {
@@ -304,10 +304,15 @@
           "description": "Enable VPC for Lambda functions",
           "default": false
         },
+        "shareAcrossStages": {
+          "type": "boolean",
+          "description": "Share VPC and NAT Gateway across stages (dev/qa/prod). When true (default), reuses existing VPC/NAT Gateway with stage-specific subnets (~$32/month NAT cost). When false, creates completely isolated VPC, NAT Gateway, and subnets for each stage (~$32/month per stage). Provides simpler API than 'management' option.",
+          "default": true
+        },
         "management": {
           "type": "string",
-          "description": "How to manage VPC infrastructure",
-          "enum": ["discover", "create-new", "existing"],
+          "description": "How to manage VPC infrastructure (advanced option - use 'shareAcrossStages' for simpler configuration). 'discover' reuses existing VPC, 'create-new' creates new VPC, 'use-existing' requires vpcId",
+          "enum": ["discover", "create-new", "use-existing"],
           "default": "discover"
         },
         "vpcId": {
@@ -337,9 +342,9 @@
           "properties": {
             "management": {
               "type": "string",
-              "description": "How to manage subnets",
-              "enum": ["discover", "create-new", "existing"],
-              "default": "discover"
+              "description": "How to manage subnets. Default 'create' creates stage-specific subnets for isolation (prevents route table conflicts). Use 'discover' to share subnets across stages (not recommended), or 'use-existing' with provided IDs",
+              "enum": ["discover", "create", "use-existing"],
+              "default": "create"
             },
             "ids": {
               "type": "array",
@@ -360,8 +365,8 @@
           "properties": {
             "management": {
               "type": "string",
-              "description": "How to manage NAT Gateway",
-              "enum": ["discover", "create-new", "existing"],
+              "description": "How to manage NAT Gateway. 'discover' reuses existing NAT Gateway, 'createAndManage' creates new NAT Gateway, 'use-existing' requires provided ID. Automatically set to 'createAndManage' when shareAcrossStages=false",
+              "enum": ["discover", "createAndManage", "use-existing"],
               "default": "discover"
             },
             "id": {
@@ -594,7 +599,7 @@
       "database": {
         "postgres": {
           "enable": true,
-          "management": "create-new"
+          "management": "managed"
         }
       },
       "encryption": {
@@ -603,8 +608,7 @@
       },
       "vpc": {
         "enable": true,
-        "management": "create-new",
-        "cidrBlock": "10.0.0.0/16",
+        "shareAcrossStages": true,
         "enableVPCEndpoints": true
       },
       "ssm": {
