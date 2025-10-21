@@ -372,10 +372,17 @@ class VpcBuilder extends InfrastructureBuilder {
      */
     async buildSubnets(appDefinition, discoveredResources, result) {
         const vpcManagement = appDefinition.vpc.management || 'discover';
-        const defaultSubnetManagement = vpcManagement === 'create-new' ? 'create' : 'discover';
+        // Default subnet management depends on context:
+        // - use-existing mode with subnet IDs provided: use-existing
+        // - create-new mode: create
+        // - discover mode: create (for stage isolation)
+        let defaultSubnetManagement = 'create';
+        if (vpcManagement === 'use-existing' && appDefinition.vpc.subnets?.ids?.length >= 2) {
+            defaultSubnetManagement = 'use-existing';
+        }
         const subnetManagement = appDefinition.vpc.subnets?.management || defaultSubnetManagement;
 
-        console.log(`  Subnet Management Mode: ${subnetManagement}`);
+        console.log(`  Subnet Management Mode: ${subnetManagement} (default: ${defaultSubnetManagement}, explicit: ${appDefinition.vpc.subnets?.management})`);
 
         switch (subnetManagement) {
             case 'create':
@@ -508,17 +515,19 @@ class VpcBuilder extends InfrastructureBuilder {
             return;
         }
 
-        // Use discovered subnets
+        // User explicitly set subnets.management: 'discover', so use discovered subnets
+        // NOTE: This may cause route table conflicts if multiple stages share subnets
+        // Default behavior is now to create stage-specific subnets (subnets.management: 'create')
         if (discoveredResources.privateSubnetId1 && discoveredResources.privateSubnetId2) {
             result.vpcConfig.subnetIds = [
                 discoveredResources.privateSubnetId1,
                 discoveredResources.privateSubnetId2,
             ];
-            console.log('    ✅ Discovered 2 private subnets');
+            console.log('    ✅ Using discovered subnets (backwards compatibility mode)');
             return;
         }
 
-        // Fallback: create if self-heal enabled
+        // No subnets found - create if self-heal enabled
         if (appDefinition.vpc.selfHeal) {
             console.log('    ⚠️  No subnets found - self-heal will create them');
             this.createSubnets(appDefinition, discoveredResources, result, 'discover');

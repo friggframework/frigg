@@ -241,7 +241,7 @@ describe('VpcBuilder', () => {
     });
 
     describe('build() - discover mode', () => {
-        it('should use discovered VPC resources', async () => {
+        it('should use discovered VPC but create stage-specific subnets by default', async () => {
             const appDefinition = {
                 vpc: {
                     enable: true,
@@ -251,6 +251,7 @@ describe('VpcBuilder', () => {
 
             const discoveredResources = {
                 defaultVpcId: 'vpc-discovered',
+                // Even though subnets are discovered, we should create new ones for stage isolation
                 privateSubnetId1: 'subnet-private1',
                 privateSubnetId2: 'subnet-private2',
                 defaultSecurityGroupId: 'sg-discovered',
@@ -258,11 +259,41 @@ describe('VpcBuilder', () => {
 
             const result = await vpcBuilder.build(appDefinition, discoveredResources);
 
-            expect(result.vpcConfig.subnetIds).toEqual(['subnet-private1', 'subnet-private2']);
+            // NEW BEHAVIOR: Create stage-specific subnets for isolation (prevent route table conflicts)
+            expect(result.vpcConfig.subnetIds).toEqual([
+                { Ref: 'FriggPrivateSubnet1' },
+                { Ref: 'FriggPrivateSubnet2' },
+            ]);
+            expect(result.resources.FriggPrivateSubnet1).toBeDefined();
+            expect(result.resources.FriggPrivateSubnet2).toBeDefined();
             // In discover mode, we create FriggLambdaSecurityGroup in the discovered VPC
             expect(result.vpcConfig.securityGroupIds).toEqual([{ Ref: 'FriggLambdaSecurityGroup' }]);
             expect(result.resources.FriggLambdaSecurityGroup).toBeDefined();
             expect(result.resources.FriggLambdaSecurityGroup.Properties.VpcId).toBe('vpc-discovered');
+        });
+
+        it('should allow sharing discovered subnets when explicitly configured', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'discover',
+                    subnets: {
+                        management: 'discover', // Explicitly opt-in to subnet sharing
+                    },
+                },
+            };
+
+            const discoveredResources = {
+                defaultVpcId: 'vpc-discovered',
+                privateSubnetId1: 'subnet-shared-1',
+                privateSubnetId2: 'subnet-shared-2',
+            };
+
+            const result = await vpcBuilder.build(appDefinition, discoveredResources);
+
+            // OLD BEHAVIOR: When explicitly set to 'discover', reuse discovered subnets
+            expect(result.vpcConfig.subnetIds).toEqual(['subnet-shared-1', 'subnet-shared-2']);
+            expect(result.resources.FriggPrivateSubnet1).toBeUndefined();
         });
 
         it('should create VPC endpoints in discover mode with selfHeal when none exist', async () => {
