@@ -66,10 +66,20 @@ class KmsBuilder extends InfrastructureBuilder {
             plugins: [],
         };
 
-        // Check if we should create a new KMS key
-        if (!discoveredResources.defaultKmsKeyId &&
-            appDefinition.encryption.createResourceIfNoneFound === true) {
+        // Normalize top-level managementMode
+        const globalMode = appDefinition.managementMode || 'discover';
+        let createIfNoneFound = appDefinition.encryption.createResourceIfNoneFound;
 
+        if (globalMode === 'managed') {
+            // In managed mode, always create KMS if not found
+            createIfNoneFound = true;
+            if (appDefinition.encryption.createResourceIfNoneFound !== undefined) {
+                console.log(`  ⚠️  managementMode='managed' ignoring: encryption.createResourceIfNoneFound`);
+            }
+        }
+
+        // Check if we should create a new KMS key
+        if (!discoveredResources.defaultKmsKeyId && createIfNoneFound === true) {
             console.log('  Creating new KMS key...');
             result.resources = this.createKmsKey(appDefinition);
             result.environment.KMS_KEY_ARN = { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] };
