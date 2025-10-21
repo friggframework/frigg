@@ -28,6 +28,18 @@ class FriggServerlessPlugin {
   async asyncInit() {
     this.serverless.cli.log("Initializing Frigg Serverless Plugin...");
     console.log("Hello from Frigg Serverless Plugin!");
+    
+    // CRITICAL: Create .esbuild/.serverless directory before serverless-esbuild needs it
+    // This prevents ENOENT errors during packaging
+    const fs = require('fs');
+    const path = require('path');
+    const esbuildDir = path.join(this.serverless.config.servicePath || process.cwd(), '.esbuild', '.serverless');
+
+    if (!fs.existsSync(esbuildDir)) {
+      fs.mkdirSync(esbuildDir, { recursive: true });
+      console.log(`✓ Created ${esbuildDir} directory for serverless-esbuild`);
+    }
+    
     if (this.serverless.processedInput.commands.includes("offline")) {
       console.log("Running in offline mode. Making queues!");
       const queues = Object.keys(this.serverless.service.custom)
