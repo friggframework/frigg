@@ -65,7 +65,11 @@ class MigrationBuilder extends InfrastructureBuilder {
             DeletionPolicy: 'Retain', // Protect migration history during stack rollbacks/deletions
             UpdateReplacePolicy: 'Retain', // Protect during stack updates that require replacement
             Properties: {
-                BucketName: '${self:service}-${self:provider.stage}-migration-status',
+                // Let CloudFormation auto-generate bucket name for global uniqueness
+                // Result: ${StackName}-friggmigrationstatusbucket-${randomHash}
+                // Example: quo-integrations-prod-friggmigrationstatusbucket-abc123xyz
+                // This ensures no conflicts across accounts/regions/stages
+                // BucketName: undefined (CloudFormation generates unique name)
                 VersioningConfiguration: {
                     Status: 'Enabled', // Enable versioning for audit trail
                 },
