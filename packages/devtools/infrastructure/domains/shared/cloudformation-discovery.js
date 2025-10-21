@@ -28,7 +28,7 @@ class CloudFormationDiscovery {
         try {
             // Try to get the stack
             const stack = await this.provider.describeStack(stackName);
-            
+
             // Get stack resources
             const resources = await this.provider.listStackResources(stackName);
 
@@ -51,7 +51,7 @@ class CloudFormationDiscovery {
             if (error.message && error.message.includes('does not exist')) {
                 return null;
             }
-            
+
             // Other errors - log and return null
             console.warn(`⚠️  CloudFormation discovery failed: ${error.message}`);
             return null;
@@ -73,18 +73,18 @@ class CloudFormationDiscovery {
 
         // VPC outputs
         if (outputMap.VpcId) {
-            discovered.vpcId = outputMap.VpcId;
+            discovered.defaultVpcId = outputMap.VpcId; // VpcBuilder expects 'defaultVpcId'
         }
-        
+
         if (outputMap.PrivateSubnetIds) {
             // Handle comma-separated subnet IDs
             discovered.privateSubnetIds = outputMap.PrivateSubnetIds.split(',').map(id => id.trim());
         }
-        
+
         if (outputMap.PublicSubnetId) {
             discovered.publicSubnetId = outputMap.PublicSubnetId;
         }
-        
+
         if (outputMap.SecurityGroupId) {
             discovered.securityGroupId = outputMap.SecurityGroupId;
         }
@@ -116,7 +116,7 @@ class CloudFormationDiscovery {
                 discovered.securityGroupId = PhysicalResourceId;
                 console.log(`  ✓ Found security group in stack: ${PhysicalResourceId}`);
                 // Query security group to get VPC ID
-                if (this.provider && !discovered.vpcId) {
+                if (this.provider && !discovered.defaultVpcId) {
                     try {
                         console.log(`  Querying security group to get VPC ID...`);
                         const { DescribeSecurityGroupsCommand } = require('@aws-sdk/client-ec2');
@@ -126,8 +126,8 @@ class CloudFormationDiscovery {
                             })
                         );
                         if (sgDetails.SecurityGroups && sgDetails.SecurityGroups.length > 0) {
-                            discovered.vpcId = sgDetails.SecurityGroups[0].VpcId;
-                            console.log(`  ✓ Extracted VPC ID from security group: ${discovered.vpcId}`);
+                            discovered.defaultVpcId = sgDetails.SecurityGroups[0].VpcId; // VpcBuilder expects 'defaultVpcId'
+                            console.log(`  ✓ Extracted VPC ID from security group: ${discovered.defaultVpcId}`);
                         } else {
                             console.warn(`  ⚠️  Security group query returned no results`);
                         }

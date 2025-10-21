@@ -48,7 +48,7 @@ describe('CloudFormationDiscovery', () => {
             const result = await cfDiscovery.discoverFromStack('test-stack');
 
             expect(result).toEqual({
-                vpcId: 'vpc-123',
+                defaultVpcId: 'vpc-123', // VpcBuilder expects 'defaultVpcId', not 'vpcId'
                 privateSubnetIds: ['subnet-1', 'subnet-2'],
                 publicSubnetId: 'subnet-3',
                 securityGroupId: 'sg-123',
@@ -197,7 +197,7 @@ describe('CloudFormationDiscovery', () => {
             const result = await cfDiscovery.discoverFromStack('test-stack');
 
             expect(result).toEqual({
-                vpcId: 'vpc-123',
+                defaultVpcId: 'vpc-123', // VpcBuilder expects 'defaultVpcId'
                 defaultKmsKeyId: 'arn:aws:kms:us-east-1:123456789:key/abc',
                 auroraClusterId: 'test-cluster',
                 natGatewayId: 'nat-123',
