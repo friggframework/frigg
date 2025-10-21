@@ -62,6 +62,8 @@ class MigrationBuilder extends InfrastructureBuilder {
         // Create S3 bucket for migration status tracking
         result.resources.FriggMigrationStatusBucket = {
             Type: 'AWS::S3::Bucket',
+            DeletionPolicy: 'Retain', // Protect migration history during stack rollbacks/deletions
+            UpdateReplacePolicy: 'Retain', // Protect during stack updates that require replacement
             Properties: {
                 BucketName: '${self:service}-${self:provider.stage}-migration-status',
                 VersioningConfiguration: {
