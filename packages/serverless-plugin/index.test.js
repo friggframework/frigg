@@ -13,7 +13,7 @@ describe('FriggServerlessPlugin', () => {
 
     beforeEach(() => {
         mockServicePath = '/test/service/path';
-        
+
         mockServerless = {
             config: {
                 servicePath: mockServicePath,
@@ -64,10 +64,10 @@ describe('FriggServerlessPlugin', () => {
     describe('asyncInit - Directory Creation', () => {
         it('should create .esbuild/.serverless directory if it does not exist', async () => {
             plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
-            
+
             // Mock fs.existsSync to return false (directory doesn't exist)
             fs.existsSync.mockReturnValue(false);
-            fs.mkdirSync.mockImplementation(() => {});
+            fs.mkdirSync.mockImplementation(() => { });
 
             // Spy on console.log
             const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
@@ -78,10 +78,10 @@ describe('FriggServerlessPlugin', () => {
 
             // Verify directory existence check
             expect(fs.existsSync).toHaveBeenCalledWith(expectedPath);
-            
+
             // Verify directory creation
             expect(fs.mkdirSync).toHaveBeenCalledWith(expectedPath, { recursive: true });
-            
+
             // Verify success message
             expect(consoleLogSpy).toHaveBeenCalledWith(
                 expect.stringContaining('Created')
@@ -95,10 +95,10 @@ describe('FriggServerlessPlugin', () => {
 
         it('should not create directory if it already exists', async () => {
             plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
-            
+
             // Mock fs.existsSync to return true (directory exists)
             fs.existsSync.mockReturnValue(true);
-            fs.mkdirSync.mockImplementation(() => {});
+            fs.mkdirSync.mockImplementation(() => { });
 
             const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
 
@@ -108,10 +108,10 @@ describe('FriggServerlessPlugin', () => {
 
             // Verify directory existence check
             expect(fs.existsSync).toHaveBeenCalledWith(expectedPath);
-            
+
             // Verify directory creation was NOT called
             expect(fs.mkdirSync).not.toHaveBeenCalled();
-            
+
             // Verify success message was NOT logged
             expect(consoleLogSpy).not.toHaveBeenCalledWith(
                 expect.stringContaining('Created')
@@ -123,11 +123,11 @@ describe('FriggServerlessPlugin', () => {
         it('should use process.cwd() if servicePath is not available', async () => {
             // Remove servicePath from config
             mockServerless.config.servicePath = undefined;
-            
+
             plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
-            
+
             fs.existsSync.mockReturnValue(false);
-            fs.mkdirSync.mockImplementation(() => {});
+            fs.mkdirSync.mockImplementation(() => { });
 
             await plugin.asyncInit();
 
@@ -139,7 +139,7 @@ describe('FriggServerlessPlugin', () => {
 
         it('should log initialization messages', async () => {
             plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
-            
+
             fs.existsSync.mockReturnValue(true);
 
             const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
@@ -157,9 +157,9 @@ describe('FriggServerlessPlugin', () => {
     describe('asyncInit - Offline Mode', () => {
         it('should not create SQS queues when not in offline mode', async () => {
             plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
-            
+
             fs.existsSync.mockReturnValue(true);
-            
+
             // Not in offline mode
             mockServerless.processedInput.commands = ['deploy'];
 
@@ -177,9 +177,9 @@ describe('FriggServerlessPlugin', () => {
 
         it('should create SQS queues when in offline mode', async () => {
             plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
-            
+
             fs.existsSync.mockReturnValue(true);
-            
+
             // Set offline mode
             mockServerless.processedInput.commands = ['offline'];
             mockServerless.service.custom = {
@@ -215,9 +215,9 @@ describe('FriggServerlessPlugin', () => {
     describe('beforePackageInitialize', () => {
         it('should create .esbuild/.serverless directory', () => {
             plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
-            
+
             fs.existsSync.mockReturnValue(false);
-            fs.mkdirSync.mockImplementation(() => {});
+            fs.mkdirSync.mockImplementation(() => { });
 
             plugin.beforePackageInitialize();
 
@@ -229,7 +229,7 @@ describe('FriggServerlessPlugin', () => {
 
         it('should log pre-package hook message', () => {
             plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
-            
+
             fs.existsSync.mockReturnValue(true);
 
             plugin.beforePackageInitialize();
@@ -241,9 +241,9 @@ describe('FriggServerlessPlugin', () => {
     describe('init', () => {
         it('should create .esbuild/.serverless directory', () => {
             plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
-            
+
             fs.existsSync.mockReturnValue(false);
-            fs.mkdirSync.mockImplementation(() => {});
+            fs.mkdirSync.mockImplementation(() => { });
 
             const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
 
@@ -264,7 +264,7 @@ describe('FriggServerlessPlugin', () => {
     describe('afterPackage', () => {
         it('should log after package hook message', () => {
             plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
-            
+
             const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
 
             plugin.afterPackage();
@@ -278,7 +278,7 @@ describe('FriggServerlessPlugin', () => {
     describe('beforeDeploy', () => {
         it('should log before deploy hook message', () => {
             plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
-            
+
             const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
 
             plugin.beforeDeploy();
@@ -292,7 +292,7 @@ describe('FriggServerlessPlugin', () => {
     describe('Error Handling', () => {
         it('should handle fs.mkdirSync errors gracefully', async () => {
             plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
-            
+
             fs.existsSync.mockReturnValue(false);
             fs.mkdirSync.mockImplementation(() => {
                 throw new Error('Permission denied');

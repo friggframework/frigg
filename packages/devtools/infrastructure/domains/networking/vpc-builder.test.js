@@ -855,10 +855,19 @@ describe('VpcBuilder', () => {
             // Should create new VPC (ignore discovered resources)
             expect(result.vpcId).toEqual({ Ref: 'FriggVPC' });
             expect(result.resources.FriggVPC).toBeDefined();
+            expect(result.resources.FriggVPC.Properties.CidrBlock).toBe('10.0.0.0/16');
             
-            // Should create stage-specific subnets
+            // Should create stage-specific subnets with Fn::Cidr (dynamic from VPC CIDR)
             expect(result.resources.FriggPrivateSubnet1).toBeDefined();
             expect(result.resources.FriggPrivateSubnet2).toBeDefined();
+            
+            // Subnets should use CloudFormation Fn::Cidr, NOT hardcoded 172.31.x.x
+            expect(result.resources.FriggPrivateSubnet1.Properties.CidrBlock).toEqual({
+                'Fn::Select': [0, { 'Fn::Cidr': ['10.0.0.0/16', 4, 8] }]
+            });
+            expect(result.resources.FriggPrivateSubnet2.Properties.CidrBlock).toEqual({
+                'Fn::Select': [1, { 'Fn::Cidr': ['10.0.0.0/16', 4, 8] }]
+            });
             
             // Should create new NAT Gateway
             expect(result.resources.FriggNATGateway).toBeDefined();

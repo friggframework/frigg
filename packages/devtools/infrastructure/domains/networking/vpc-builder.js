@@ -148,8 +148,8 @@ class VpcBuilder extends InfrastructureBuilder {
                 break;
         }
 
-        // Build subnets
-        await this.buildSubnets(appDefinition, discoveredResources, result);
+        // Build subnets - pass normalized management mode for correct CIDR generation
+        await this.buildSubnets(appDefinition, discoveredResources, result, management);
 
         // Build NAT Gateway if needed
         await this.buildNatGateway(appDefinition, discoveredResources, result);
@@ -385,9 +385,9 @@ class VpcBuilder extends InfrastructureBuilder {
 
     /**
      * Build subnet infrastructure
+     * @param {Object} vpcManagement - Normalized VPC management mode (passed from build() to ensure consistency)
      */
-    async buildSubnets(appDefinition, discoveredResources, result) {
-        const vpcManagement = appDefinition.vpc.management || 'discover';
+    async buildSubnets(appDefinition, discoveredResources, result, vpcManagement) {
         // Default subnet management depends on context:
         // - use-existing mode with subnet IDs provided: use-existing
         // - create-new mode: create
