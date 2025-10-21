@@ -90,6 +90,15 @@ async function gatherDiscoveredResources(appDefinition) {
             return stackResources;
         }
 
+        // In isolated mode, ONLY use CloudFormation discovery for this stage's stack
+        // Do NOT fall back to AWS API discovery (which finds resources from other stages)
+        if (appDefinition.managementMode === 'managed' && appDefinition.vpcIsolation === 'isolated') {
+            console.log('  ℹ Isolated mode: only discovering resources from this stage\'s stack');
+            console.log('  ℹ No existing stack resources found - will create fresh infrastructure');
+            console.log('✅ Cloud resource discovery completed successfully!');
+            return {};
+        }
+
         // Fallback to AWS API discovery (fresh deployment, stack not found, or stack has no useful data)
         if (stackResources && !hasSomeUsefulData) {
             console.log('  ℹ Stack found but contains no usable resources - running AWS API discovery...');

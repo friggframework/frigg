@@ -406,5 +406,80 @@ describe('Resource Discovery', () => {
             );
         });
     });
+
+    describe('Isolated Mode Discovery', () => {
+        beforeEach(() => {
+            // Mock CloudFormation discovery
+            jest.mock('./cloudformation-discovery');
+            const { CloudFormationDiscovery } = require('./cloudformation-discovery');
+            CloudFormationDiscovery.mockImplementation(() => ({
+                discoverFromStack: jest.fn().mockResolvedValue({}), // No stack found
+            }));
+        });
+
+        it('should return empty results for isolated mode (prevents cross-stage contamination)', async () => {
+            const appDefinition = {
+                name: 'test-app',
+                managementMode: 'managed',
+                vpcIsolation: 'isolated',
+                vpc: { enable: true },
+                database: { postgres: { enable: true } },
+            };
+
+            process.env.SLS_STAGE = 'dev';
+
+            const result = await gatherDiscoveredResources(appDefinition);
+
+            // Should return empty (no discovery)
+            expect(result).toEqual({});
+            
+            // Should NOT call AWS API discovery
+            expect(mockVpcDiscovery.discover).not.toHaveBeenCalled();
+            expect(mockAuroraDiscovery.discover).not.toHaveBeenCalled();
+        });
+
+        it('should still use CloudFormation discovery in isolated mode for redeployments', async () => {
+            const { CloudFormationDiscovery } = require('./cloudformation-discovery');
+            const mockCfDiscover = jest.fn().mockResolvedValue({
+                defaultVpcId: 'vpc-stage-specific',
+                auroraClusterId: 'cluster-stage-specific',
+            });
+
+            CloudFormationDiscovery.mockImplementation(() => ({
+                discoverFromStack: mockCfDiscover,
+            }));
+
+            const appDefinition = {
+                name: 'test-app',
+                managementMode: 'managed',
+                vpcIsolation: 'isolated',
+                vpc: { enable: true },
+            };
+
+            process.env.SLS_STAGE = 'dev';
+
+            const result = await gatherDiscoveredResources(appDefinition);
+
+            // Should call CloudFormation discovery for stage-specific stack
+            expect(mockCfDiscover).toHaveBeenCalledWith('test-app-dev');
+            
+            // If CF finds resources, use them (redeployment scenario)
+            expect(result.defaultVpcId).toBe('vpc-stage-specific');
+        });
+
+        it('should use AWS API discovery in shared mode', async () => {
+            const appDefinition = {
+                name: 'test-app',
+                managementMode: 'managed',
+                vpcIsolation: 'shared',  // NOT isolated
+                vpc: { enable: true },
+            };
+
+            await gatherDiscoveredResources(appDefinition);
+
+            // Should call AWS API discovery (shared mode finds resources across stages)
+            expect(mockVpcDiscovery.discover).toHaveBeenCalled();
+        });
+    });
 });
 
