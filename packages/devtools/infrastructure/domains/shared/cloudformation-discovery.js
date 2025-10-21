@@ -114,19 +114,25 @@ class CloudFormationDiscovery {
             // Security Group - use to get VPC ID
             if (LogicalResourceId === 'FriggLambdaSecurityGroup' && ResourceType === 'AWS::EC2::SecurityGroup') {
                 discovered.securityGroupId = PhysicalResourceId;
+                console.log(`  ✓ Found security group in stack: ${PhysicalResourceId}`);
                 // Query security group to get VPC ID
                 if (this.provider && !discovered.vpcId) {
                     try {
+                        console.log(`  Querying security group to get VPC ID...`);
+                        const { DescribeSecurityGroupsCommand } = require('@aws-sdk/client-ec2');
                         const sgDetails = await this.provider.getEC2Client().send(
-                            new (require('@aws-sdk/client-ec2').DescribeSecurityGroupsCommand)({
+                            new DescribeSecurityGroupsCommand({
                                 GroupIds: [PhysicalResourceId]
                             })
                         );
                         if (sgDetails.SecurityGroups && sgDetails.SecurityGroups.length > 0) {
                             discovered.vpcId = sgDetails.SecurityGroups[0].VpcId;
+                            console.log(`  ✓ Extracted VPC ID from security group: ${discovered.vpcId}`);
+                        } else {
+                            console.warn(`  ⚠️  Security group query returned no results`);
                         }
                     } catch (error) {
-                        console.warn(`Could not get VPC from security group: ${error.message}`);
+                        console.warn(`  ⚠️  Could not get VPC from security group: ${error.message}`);
                     }
                 }
             }
