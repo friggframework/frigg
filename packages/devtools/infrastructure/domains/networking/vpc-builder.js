@@ -82,6 +82,21 @@ class VpcBuilder extends InfrastructureBuilder {
     }
 
     /**
+     * Warn about ignored options when managementMode='managed'
+     */
+    warnIgnoredOptions(appDefinition) {
+        const ignoredOptions = [];
+        if (appDefinition.vpc?.management) ignoredOptions.push('vpc.management');
+        if (appDefinition.vpc?.subnets?.management) ignoredOptions.push('vpc.subnets.management');
+        if (appDefinition.vpc?.natGateway?.management) ignoredOptions.push('vpc.natGateway.management');
+        if (appDefinition.vpc?.shareAcrossStages !== undefined) ignoredOptions.push('vpc.shareAcrossStages');
+        
+        if (ignoredOptions.length > 0) {
+            console.log(`  ⚠️  managementMode='managed' ignoring: ${ignoredOptions.join(', ')}`);
+        }
+    }
+
+    /**
      * Build complete VPC infrastructure based on management mode
      */
     async build(appDefinition, discoveredResources) {
@@ -110,23 +125,49 @@ class VpcBuilder extends InfrastructureBuilder {
             Resource: '*',
         });
 
-        // Normalize shareAcrossStages into management mode
-        // This provides a simpler API for users while maintaining backwards compatibility
+        // Normalize top-level managementMode (simplified API)
+        const globalMode = appDefinition.managementMode || 'discover';
+        const vpcIsolation = appDefinition.vpcIsolation || 'shared';
+
         let management = appDefinition.vpc.management;
-        if (!management && appDefinition.vpc.shareAcrossStages !== undefined) {
-            // Explicit shareAcrossStages setting overrides default
+
+        if (globalMode === 'managed') {
+            // Warn about ignored granular options
+            this.warnIgnoredOptions(appDefinition);
+            
+            // Clear granular options to prevent conflicts
+            delete appDefinition.vpc.management;
+            if (appDefinition.vpc.subnets) delete appDefinition.vpc.subnets.management;
+            if (appDefinition.vpc.natGateway) delete appDefinition.vpc.natGateway.management;
+            delete appDefinition.vpc.shareAcrossStages;
+            
+            // Set management based on isolation strategy
+            if (vpcIsolation === 'isolated') {
+                management = 'create-new';
+                appDefinition.vpc.natGateway = appDefinition.vpc.natGateway || {};
+                appDefinition.vpc.natGateway.management = 'createAndManage';
+                console.log(`  managementMode='managed' + vpcIsolation='isolated' → creating new VPC`);
+            } else {
+                management = 'discover';
+                appDefinition.vpc.selfHeal = true;
+                console.log(`  managementMode='managed' + vpcIsolation='shared' → discovering VPC`);
+            }
+        } else if (globalMode === 'existing') {
+            management = 'use-existing';
+        } else if (!management && appDefinition.vpc.shareAcrossStages !== undefined) {
+            // Legacy shareAcrossStages support (backwards compatibility)
             management = appDefinition.vpc.shareAcrossStages ? 'discover' : 'create-new';
             console.log(`  VPC Sharing: ${appDefinition.vpc.shareAcrossStages ? 'shared' : 'isolated'} (translated to ${management})`);
             
-            // When creating isolated VPC, also create isolated NAT Gateway
             if (!appDefinition.vpc.shareAcrossStages && !appDefinition.vpc.natGateway?.management) {
                 appDefinition.vpc.natGateway = appDefinition.vpc.natGateway || {};
                 appDefinition.vpc.natGateway.management = 'createAndManage';
                 console.log(`  NAT Gateway: creating isolated NAT (shareAcrossStages=false)`);
             }
         } else {
-            management = management || 'discover'; // Default to sharing for backwards compatibility
+            management = management || 'discover';
         }
+        
         console.log(`  VPC Management Mode: ${management}`);
 
         // Handle self-healing if enabled

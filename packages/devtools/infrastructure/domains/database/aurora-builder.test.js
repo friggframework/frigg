@@ -749,6 +749,102 @@ describe('AuroraBuilder', () => {
         });
     });
 
+    describe('Top-Level Management Mode', () => {
+        it('should use managementMode=managed with vpcIsolation=isolated to create new Aurora', async () => {
+            const appDefinition = {
+                managementMode: 'managed',
+                vpcIsolation: 'isolated',
+                database: {
+                    postgres: {
+                        enable: true,
+                        management: 'discover',  // Should be IGNORED
+                        minCapacity: 0.5,
+                        maxCapacity: 1,
+                    },
+                },
+            };
+
+            const discoveredResources = {
+                auroraClusterEndpoint: 'existing-cluster.us-east-1.rds.amazonaws.com',
+                privateSubnetId1: 'subnet-1',
+                privateSubnetId2: 'subnet-2',
+            };
+
+            const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+
+            const result = await auroraBuilder.build(appDefinition, discoveredResources);
+
+            // Should warn about ignored options
+            expect(consoleLogSpy).toHaveBeenCalledWith(
+                expect.stringContaining("managementMode='managed' ignoring")
+            );
+
+            // Should create new Aurora cluster (isolated mode)
+            expect(result.resources.FriggAuroraCluster).toBeDefined();
+            expect(result.environment.DATABASE_URL).toBeDefined();
+
+            consoleLogSpy.mockRestore();
+        });
+
+        it('should use managementMode=managed with vpcIsolation=shared to discover Aurora', async () => {
+            const appDefinition = {
+                managementMode: 'managed',
+                vpcIsolation: 'shared',
+                database: {
+                    postgres: {
+                        enable: true,
+                        management: 'managed',  // Should be IGNORED
+                    },
+                },
+            };
+
+            const discoveredResources = {
+                auroraClusterEndpoint: 'existing-cluster.us-east-1.rds.amazonaws.com',
+                auroraClusterPort: 5432,
+                auroraClusterIdentifier: 'existing-cluster',
+                privateSubnetId1: 'subnet-1',
+                privateSubnetId2: 'subnet-2',
+            };
+
+            const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+
+            const result = await auroraBuilder.build(appDefinition, discoveredResources);
+
+            // Should warn about ignored options
+            expect(consoleLogSpy).toHaveBeenCalledWith(
+                expect.stringContaining("ignoring")
+            );
+
+            // Should discover existing Aurora
+            expect(result.resources.FriggAuroraCluster).toBeUndefined();
+            expect(result.environment.DATABASE_URL).toBeDefined();
+
+            consoleLogSpy.mockRestore();
+        });
+
+        it('should respect granular management when no managementMode specified', async () => {
+            const appDefinition = {
+                // No managementMode
+                database: {
+                    postgres: {
+                        enable: true,
+                        management: 'managed',  // Should be RESPECTED
+                    },
+                },
+            };
+
+            const discoveredResources = {
+                privateSubnetId1: 'subnet-1',
+                privateSubnetId2: 'subnet-2',
+            };
+
+            const result = await auroraBuilder.build(appDefinition, discoveredResources);
+
+            // Should create Aurora cluster
+            expect(result.resources.FriggAuroraCluster).toBeDefined();
+        });
+    });
+
     describe('build() - use-existing mode', () => {
         it('should use provided database endpoint', async () => {
             const appDefinition = {

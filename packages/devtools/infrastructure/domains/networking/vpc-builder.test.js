@@ -809,6 +809,96 @@ describe('VpcBuilder', () => {
         });
     });
 
+    describe('Management Mode (Simplified API)', () => {
+        it('should use managementMode=managed with vpcIsolation=isolated to create new VPC', async () => {
+            const appDefinition = {
+                managementMode: 'managed',
+                vpcIsolation: 'isolated',
+                vpc: {
+                    enable: true,
+                    management: 'discover',  // Should be IGNORED
+                },
+            };
+
+            const discoveredResources = {
+                defaultVpcId: 'vpc-existing',
+                natGatewayId: 'nat-existing',
+            };
+
+            const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+
+            const result = await vpcBuilder.build(appDefinition, discoveredResources);
+
+            // Should warn about ignored options
+            expect(consoleLogSpy).toHaveBeenCalledWith(
+                expect.stringContaining("managementMode='managed' ignoring")
+            );
+            expect(consoleLogSpy).toHaveBeenCalledWith(
+                expect.stringContaining("vpc.management")
+            );
+
+            // Should create new isolated VPC
+            expect(result.vpcId).toEqual({ Ref: 'FriggVPC' });
+            expect(result.resources.FriggVPC).toBeDefined();
+            
+            // Subnets should use CloudFormation Fn::Cidr
+            expect(result.resources.FriggPrivateSubnet1.Properties.CidrBlock).toEqual({
+                'Fn::Select': [0, { 'Fn::Cidr': ['10.0.0.0/16', 4, 8] }]
+            });
+
+            consoleLogSpy.mockRestore();
+        });
+
+        it('should use managementMode=managed with vpcIsolation=shared to discover VPC', async () => {
+            const appDefinition = {
+                managementMode: 'managed',
+                vpcIsolation: 'shared',
+                vpc: {
+                    enable: true,
+                    subnets: { management: 'use-existing' },  // Should be IGNORED
+                },
+            };
+
+            const discoveredResources = {
+                defaultVpcId: 'vpc-existing',
+            };
+
+            const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+
+            const result = await vpcBuilder.build(appDefinition, discoveredResources);
+
+            // Should warn about ignored options
+            expect(consoleLogSpy).toHaveBeenCalledWith(
+                expect.stringContaining("ignoring")
+            );
+
+            // Should discover existing VPC
+            expect(result.vpcId).toBe('vpc-existing');
+            expect(result.resources.FriggVPC).toBeUndefined();
+            
+            // Should create new stage-specific subnets
+            expect(result.resources.FriggPrivateSubnet1).toBeDefined();
+
+            consoleLogSpy.mockRestore();
+        });
+
+        it('should default to discover mode for backwards compatibility', async () => {
+            const appDefinition = {
+                // No managementMode specified
+                vpc: {
+                    enable: true,
+                    management: 'create-new',  // Should be RESPECTED
+                },
+            };
+
+            const result = await vpcBuilder.build(appDefinition, {});
+
+            // Should respect legacy vpc.management
+            expect(result.vpcId).toEqual({ Ref: 'FriggVPC' });
+            expect(result.resources.FriggVPC).toBeDefined();
+        });
+    });
+
     describe('VPC Sharing Control', () => {
         it('should share VPC across stages when shareAcrossStages is true (default)', async () => {
             const appDefinition = {
@@ -828,11 +918,11 @@ describe('VpcBuilder', () => {
             // Should use discovered VPC (not create new one)
             expect(result.vpcId).toBe('vpc-shared');
             expect(result.resources.FriggVPC).toBeUndefined();
-            
+
             // Should create stage-specific subnets for isolation
             expect(result.resources.FriggPrivateSubnet1).toBeDefined();
             expect(result.resources.FriggPrivateSubnet2).toBeDefined();
-            
+
             // Should reuse discovered NAT Gateway
             expect(result.resources.FriggNATGateway).toBeUndefined();
         });
@@ -856,11 +946,11 @@ describe('VpcBuilder', () => {
             expect(result.vpcId).toEqual({ Ref: 'FriggVPC' });
             expect(result.resources.FriggVPC).toBeDefined();
             expect(result.resources.FriggVPC.Properties.CidrBlock).toBe('10.0.0.0/16');
-            
+
             // Should create stage-specific subnets with Fn::Cidr (dynamic from VPC CIDR)
             expect(result.resources.FriggPrivateSubnet1).toBeDefined();
             expect(result.resources.FriggPrivateSubnet2).toBeDefined();
-            
+
             // Subnets should use CloudFormation Fn::Cidr, NOT hardcoded 172.31.x.x
             expect(result.resources.FriggPrivateSubnet1.Properties.CidrBlock).toEqual({
                 'Fn::Select': [0, { 'Fn::Cidr': ['10.0.0.0/16', 4, 8] }]
@@ -868,7 +958,7 @@ describe('VpcBuilder', () => {
             expect(result.resources.FriggPrivateSubnet2.Properties.CidrBlock).toEqual({
                 'Fn::Select': [1, { 'Fn::Cidr': ['10.0.0.0/16', 4, 8] }]
             });
-            
+
             // Should create new NAT Gateway
             expect(result.resources.FriggNATGateway).toBeDefined();
         });
