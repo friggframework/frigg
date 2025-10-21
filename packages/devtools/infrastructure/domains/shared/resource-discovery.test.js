@@ -438,15 +438,12 @@ describe('Resource Discovery', () => {
             expect(mockAuroraDiscovery.discover).not.toHaveBeenCalled();
         });
 
-        it('should still use CloudFormation discovery in isolated mode for redeployments', async () => {
+        it('should return empty in isolated mode even if stack exists (fresh creation)', async () => {
             const { CloudFormationDiscovery } = require('./cloudformation-discovery');
-            const mockCfDiscover = jest.fn().mockResolvedValue({
-                defaultVpcId: 'vpc-stage-specific',
-                auroraClusterId: 'cluster-stage-specific',
-            });
-
+            
+            // Mock that CF stack exists but we still want fresh resources
             CloudFormationDiscovery.mockImplementation(() => ({
-                discoverFromStack: mockCfDiscover,
+                discoverFromStack: jest.fn().mockResolvedValue({}), // Stack exists but empty
             }));
 
             const appDefinition = {
@@ -460,11 +457,12 @@ describe('Resource Discovery', () => {
 
             const result = await gatherDiscoveredResources(appDefinition);
 
-            // Should call CloudFormation discovery for stage-specific stack
-            expect(mockCfDiscover).toHaveBeenCalledWith('test-app-dev');
+            // In isolated mode, always return empty to force fresh creation
+            // This prevents any cross-stage resource reuse
+            expect(result).toEqual({});
             
-            // If CF finds resources, use them (redeployment scenario)
-            expect(result.defaultVpcId).toBe('vpc-stage-specific');
+            // Should NOT call AWS API discovery
+            expect(mockVpcDiscovery.discover).not.toHaveBeenCalled();
         });
 
         it('should use AWS API discovery in shared mode', async () => {
