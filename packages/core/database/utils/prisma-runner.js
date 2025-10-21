@@ -165,7 +165,7 @@ async function checkDatabaseState(dbType) {
  */
 function getPrismaBinaryPath() {
     const fs = require('fs');
-    
+
     // Check function's bundled Prisma (Lambda) - use actual CLI location
     const functionPrisma = '/var/task/node_modules/prisma/build/index.js';
     if (fs.existsSync(functionPrisma)) {

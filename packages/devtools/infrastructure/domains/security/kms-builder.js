@@ -7,7 +7,7 @@
  * - KMS key creation or discovery
  * - KMS key configuration for field-level encryption
  * - IAM permissions for KMS operations
- * - KMS grants via serverless-kms-grants plugin
+ * - KMS key policy configuration for Lambda execution role
  */
 
 const { InfrastructureBuilder, ValidationResult } = require('../shared/base-builder');
@@ -73,27 +73,20 @@ class KmsBuilder extends InfrastructureBuilder {
             console.log('  Creating new KMS key...');
             result.resources = this.createKmsKey(appDefinition);
             result.environment.KMS_KEY_ARN = { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] };
-            result.pluginConfig.kmsGrants = {
-                kmsKeyId: { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] },
-            };
             console.log('  ✅ KMS key resources created');
         } else {
             // Use discovered KMS key
             const kmsKeyId = discoveredResources.defaultKmsKeyId || '${env:AWS_DISCOVERY_KMS_KEY_ID}';
             console.log(`  Using ${discoveredResources.defaultKmsKeyId ? 'discovered' : 'environment variable'} KMS key`);
             result.environment.KMS_KEY_ARN = kmsKeyId;
-            result.pluginConfig.kmsGrants = { kmsKeyId };
         }
 
-        // Add IAM permissions
+        // Add IAM permissions for Lambda role
         result.iamStatements.push({
             Effect: 'Allow',
-            Action: ['kms:GenerateDataKey', 'kms:Decrypt'],
+            Action: ['kms:GenerateDataKey', 'kms:Decrypt', 'kms:Encrypt', 'kms:DescribeKey'],
             Resource: result.environment.KMS_KEY_ARN,
         });
-
-        // Enable KMS grants plugin
-        result.plugins.push('serverless-kms-grants');
 
         console.log(`[${this.name}] ✅ KMS configuration completed`);
         return result;
@@ -110,12 +103,13 @@ class KmsBuilder extends InfrastructureBuilder {
                 UpdateReplacePolicy: 'Retain',
                 Properties: {
                     Description: 'Frigg Field-Level Encryption Key for ${self:service}-${self:provider.stage}',
+                    EnableKeyRotation: true,
                     KeyPolicy: {
                         Version: '2012-10-17',
                         Id: 'key-policy-1',
                         Statement: [
                             {
-                                Sid: 'Enable IAM User Permissions',
+                                Sid: 'AllowRootAccountAdmin',
                                 Effect: 'Allow',
                                 Principal: {
                                     AWS: {
@@ -126,7 +120,7 @@ class KmsBuilder extends InfrastructureBuilder {
                                 Resource: '*',
                             },
                             {
-                                Sid: 'Allow Lambda to use the key',
+                                Sid: 'AllowLambdaService',
                                 Effect: 'Allow',
                                 Principal: {
                                     Service: 'lambda.amazonaws.com',
@@ -142,6 +136,20 @@ class KmsBuilder extends InfrastructureBuilder {
                                         'kms:ViaService': 'lambda.${self:provider.region}.amazonaws.com',
                                     },
                                 },
+                            },
+                            {
+                                Sid: 'AllowLambdaExecutionRole',
+                                Effect: 'Allow',
+                                Principal: {
+                                    AWS: { 'Fn::GetAtt': ['IamRoleLambdaExecution', 'Arn'] },
+                                },
+                                Action: [
+                                    'kms:Decrypt',
+                                    'kms:GenerateDataKey',
+                                    'kms:Encrypt',
+                                    'kms:DescribeKey',
+                                ],
+                                Resource: '*',
                             },
                         ],
                     },

@@ -148,7 +148,7 @@ describe('KmsBuilder', () => {
             const result = await kmsBuilder.build(appDefinition, discoveredResources);
 
             expect(result.environment.KMS_KEY_ARN).toBe('arn:aws:kms:us-east-1:123456:key/abc-123');
-            expect(result.pluginConfig.kmsGrants.kmsKeyId).toBe('arn:aws:kms:us-east-1:123456:key/abc-123');
+            expect(result.pluginConfig.kmsGrants).toBeUndefined();
         });
 
         it('should add IAM permissions for KMS operations', async () => {
@@ -167,12 +167,12 @@ describe('KmsBuilder', () => {
             expect(result.iamStatements).toHaveLength(1);
             expect(result.iamStatements[0]).toEqual({
                 Effect: 'Allow',
-                Action: ['kms:GenerateDataKey', 'kms:Decrypt'],
+                Action: ['kms:GenerateDataKey', 'kms:Decrypt', 'kms:Encrypt', 'kms:DescribeKey'],
                 Resource: 'arn:aws:kms:us-east-1:123456:key/abc',
             });
         });
 
-        it('should enable serverless-kms-grants plugin', async () => {
+        it('should NOT use serverless-kms-grants plugin (deprecated)', async () => {
             const appDefinition = {
                 encryption: {
                     fieldLevelEncryptionMethod: 'kms',
@@ -185,7 +185,8 @@ describe('KmsBuilder', () => {
 
             const result = await kmsBuilder.build(appDefinition, discoveredResources);
 
-            expect(result.plugins).toContain('serverless-kms-grants');
+            expect(result.plugins).not.toContain('serverless-kms-grants');
+            expect(result.pluginConfig.kmsGrants).toBeUndefined();
         });
     });
 
@@ -315,6 +316,28 @@ describe('KmsBuilder', () => {
             expect(lambdaStatement).toBeDefined();
             expect(lambdaStatement.Action).toContain('kms:GenerateDataKey');
             expect(lambdaStatement.Action).toContain('kms:Decrypt');
+        });
+
+        it('should create key policy allowing Lambda execution role direct access', async () => {
+            const appDefinition = {
+                encryption: {
+                    fieldLevelEncryptionMethod: 'kms',
+                    createResourceIfNoneFound: true,
+                },
+            };
+
+            const result = await kmsBuilder.build(appDefinition, {});
+
+            const policy = result.resources.FriggKMSKey.Properties.KeyPolicy;
+            const roleStatement = policy.Statement.find(s => s.Sid === 'AllowLambdaExecutionRole');
+
+            expect(roleStatement).toBeDefined();
+            expect(roleStatement.Effect).toBe('Allow');
+            expect(roleStatement.Principal.AWS).toEqual({ 'Fn::GetAtt': ['IamRoleLambdaExecution', 'Arn'] });
+            expect(roleStatement.Action).toContain('kms:GenerateDataKey');
+            expect(roleStatement.Action).toContain('kms:Decrypt');
+            expect(roleStatement.Action).toContain('kms:Encrypt');
+            expect(roleStatement.Action).toContain('kms:DescribeKey');
         });
     });
 
