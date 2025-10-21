@@ -683,10 +683,59 @@ class VpcBuilder extends InfrastructureBuilder {
             },
         };
 
-        // Create routing for the new NAT Gateway
+        // Create public routing (public subnets → Internet Gateway)
+        this.createPublicRouting(appDefinition, result);
+
+        // Create routing for the new NAT Gateway (private subnets → NAT → IGW)
         this.createNatGatewayRouting(appDefinition, discoveredResources, result, { Ref: 'FriggNATGateway' });
 
         console.log('    ✅ NAT Gateway infrastructure created');
+    }
+
+    /**
+     * Create public route table with Internet Gateway route
+     * Required for NAT Gateway to have internet access
+     */
+    createPublicRouting(appDefinition, result) {
+        // Public route table with Internet Gateway route
+        result.resources.FriggPublicRouteTable = {
+            Type: 'AWS::EC2::RouteTable',
+            Properties: {
+                VpcId: result.vpcId,
+                Tags: [
+                    { Key: 'Name', Value: '${self:service}-${self:provider.stage}-public-rt' },
+                    { Key: 'ManagedBy', Value: 'Frigg' },
+                ],
+            },
+        };
+
+        // Route to Internet Gateway
+        result.resources.FriggPublicRoute = {
+            Type: 'AWS::EC2::Route',
+            DependsOn: 'FriggVPCGatewayAttachment',
+            Properties: {
+                RouteTableId: { Ref: 'FriggPublicRouteTable' },
+                DestinationCidrBlock: '0.0.0.0/0',
+                GatewayId: { Ref: 'FriggInternetGateway' },
+            },
+        };
+
+        // Associate public subnets with public route table
+        result.resources.FriggPublicSubnet1RouteTableAssociation = {
+            Type: 'AWS::EC2::SubnetRouteTableAssociation',
+            Properties: {
+                SubnetId: { Ref: 'FriggPublicSubnet' },
+                RouteTableId: { Ref: 'FriggPublicRouteTable' },
+            },
+        };
+
+        result.resources.FriggPublicSubnet2RouteTableAssociation = {
+            Type: 'AWS::EC2::SubnetRouteTableAssociation',
+            Properties: {
+                SubnetId: { Ref: 'FriggPublicSubnet2' },
+                RouteTableId: { Ref: 'FriggPublicRouteTable' },
+            },
+        };
     }
 
     /**

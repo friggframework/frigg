@@ -432,7 +432,7 @@ describe('Resource Discovery', () => {
 
             // Should return empty (no discovery)
             expect(result).toEqual({});
-            
+
             // Should NOT call AWS API discovery
             expect(mockVpcDiscovery.discover).not.toHaveBeenCalled();
             expect(mockAuroraDiscovery.discover).not.toHaveBeenCalled();
@@ -440,7 +440,7 @@ describe('Resource Discovery', () => {
 
         it('should return empty in isolated mode even if stack exists (fresh creation)', async () => {
             const { CloudFormationDiscovery } = require('./cloudformation-discovery');
-            
+
             // Mock that CF stack exists but we still want fresh resources
             CloudFormationDiscovery.mockImplementation(() => ({
                 discoverFromStack: jest.fn().mockResolvedValue({}), // Stack exists but empty
@@ -460,7 +460,7 @@ describe('Resource Discovery', () => {
             // In isolated mode, always return empty to force fresh creation
             // This prevents any cross-stage resource reuse
             expect(result).toEqual({});
-            
+
             // Should NOT call AWS API discovery
             expect(mockVpcDiscovery.discover).not.toHaveBeenCalled();
         });

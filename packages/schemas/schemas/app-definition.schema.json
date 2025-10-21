@@ -6,18 +6,6 @@
   "type": "object",
   "required": ["integrations"],
   "properties": {
-    "managementMode": {
-      "type": "string",
-      "description": "Global resource management strategy. 'discover' (default) uses granular *.management options for each resource. 'managed' creates/manages all enabled resources automatically (ignores granular options with warnings). 'existing' requires explicit resource IDs. Provides simplified API while maintaining backwards compatibility.",
-      "enum": ["managed", "discover", "existing"],
-      "default": "discover"
-    },
-    "vpcIsolation": {
-      "type": "string",
-      "description": "VPC and database isolation strategy when managementMode='managed'. 'shared' (default): stages share VPC/NAT/Aurora with stage-specific subnets (~$32/month NAT). 'isolated': each stage gets separate VPC/NAT/Aurora (~$32/month per stage). Ignored when managementMode != 'managed'.",
-      "enum": ["shared", "isolated"],
-      "default": "shared"
-    },
     "name": {
       "type": "string",
       "description": "Service name for deployment (used as CloudFormation stack name prefix)",
@@ -230,8 +218,8 @@
             },
             "management": {
               "type": "string",
-              "description": "How to manage the PostgreSQL database. IGNORED when managementMode='managed' (automatically determined by vpcIsolation). 'discover' uses existing Aurora cluster, 'managed' creates Aurora Serverless cluster, 'existing' uses provided endpoint. For backwards compatibility only.",
-              "enum": ["discover", "managed", "existing"],
+              "description": "How to manage the PostgreSQL database",
+              "enum": ["discover", "create-new", "existing"],
               "default": "discover"
             },
             "endpoint": {
@@ -316,15 +304,10 @@
           "description": "Enable VPC for Lambda functions",
           "default": false
         },
-        "shareAcrossStages": {
-          "type": "boolean",
-          "description": "Share VPC and NAT Gateway across stages (dev/qa/prod). When true (default), reuses existing VPC/NAT Gateway with stage-specific subnets (~$32/month NAT cost). When false, creates completely isolated VPC, NAT Gateway, and subnets for each stage (~$32/month per stage). Provides simpler API than 'management' option.",
-          "default": true
-        },
         "management": {
           "type": "string",
-          "description": "How to manage VPC infrastructure. IGNORED when managementMode='managed' (use vpcIsolation instead). 'discover' reuses existing VPC, 'create-new' creates new VPC, 'use-existing' requires vpcId. For backwards compatibility only.",
-          "enum": ["discover", "create-new", "use-existing"],
+          "description": "How to manage VPC infrastructure",
+          "enum": ["discover", "create-new", "existing"],
           "default": "discover"
         },
         "vpcId": {
@@ -354,9 +337,9 @@
           "properties": {
             "management": {
               "type": "string",
-              "description": "How to manage subnets. Default 'create' creates stage-specific subnets for isolation (prevents route table conflicts). Use 'discover' to share subnets across stages (not recommended), or 'use-existing' with provided IDs",
-              "enum": ["discover", "create", "use-existing"],
-              "default": "create"
+              "description": "How to manage subnets",
+              "enum": ["discover", "create-new", "existing"],
+              "default": "discover"
             },
             "ids": {
               "type": "array",
@@ -377,8 +360,8 @@
           "properties": {
             "management": {
               "type": "string",
-              "description": "How to manage NAT Gateway. 'discover' reuses existing NAT Gateway, 'createAndManage' creates new NAT Gateway, 'use-existing' requires provided ID. Automatically set to 'createAndManage' when shareAcrossStages=false",
-              "enum": ["discover", "createAndManage", "use-existing"],
+              "description": "How to manage NAT Gateway",
+              "enum": ["discover", "create-new", "existing"],
               "default": "discover"
             },
             "id": {
@@ -600,8 +583,6 @@
     {
       "name": "my-frigg-app",
       "provider": "aws",
-      "managementMode": "managed",
-      "vpcIsolation": "shared",
       "environment": {
         "NODE_ENV": true,
         "API_KEY": true
@@ -613,17 +594,18 @@
       "database": {
         "postgres": {
           "enable": true,
-          "minCapacity": 0.5,
-          "maxCapacity": 1
+          "management": "create-new"
         }
       },
       "encryption": {
-        "fieldLevelEncryptionMethod": "kms"
+        "fieldLevelEncryptionMethod": "kms",
+        "createResourceIfNoneFound": true
       },
       "vpc": {
         "enable": true,
-        "enableVPCEndpoints": true,
-        "selfHeal": true
+        "management": "create-new",
+        "cidrBlock": "10.0.0.0/16",
+        "enableVPCEndpoints": true
       },
       "ssm": {
         "enable": true

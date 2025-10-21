@@ -83,36 +83,7 @@ class AuroraBuilder extends InfrastructureBuilder {
         console.log(`\n[${this.name}] Configuring Aurora PostgreSQL...`);
 
         const dbConfig = appDefinition.database.postgres;
-        
-        // Normalize top-level managementMode
-        const globalMode = appDefinition.managementMode || 'discover';
-        const vpcIsolation = appDefinition.vpcIsolation || 'shared';
-
-        let management = dbConfig.management;
-
-        if (globalMode === 'managed') {
-            // Warn about ignored granular options
-            if (dbConfig.management) {
-                console.log(`  ⚠️  managementMode='managed' ignoring: database.postgres.management`);
-            }
-            
-            // Clear granular option to prevent conflicts
-            delete appDefinition.database.postgres.management;
-            
-            // Set management based on isolation strategy
-            if (vpcIsolation === 'isolated') {
-                management = 'managed';  // New VPC = new Aurora
-                console.log(`  managementMode='managed' + vpcIsolation='isolated' → creating new Aurora`);
-            } else {
-                management = 'discover';  // Shared VPC = reuse Aurora
-                appDefinition.database.postgres.autoCreateCredentials = true;
-                console.log(`  managementMode='managed' + vpcIsolation='shared' → discovering Aurora`);
-            }
-        } else if (globalMode === 'existing') {
-            management = 'existing';
-        } else {
-            management = management || 'discover';
-        }
+        const management = dbConfig.management || 'discover';
 
         console.log(`  PostgreSQL Management Mode: ${management}`);
 
