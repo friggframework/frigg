@@ -40,9 +40,9 @@ class CloudFormationDiscovery {
                 this._extractFromOutputs(stack.Outputs, discovered);
             }
 
-            // Extract from resources
+            // Extract from resources (now async to query AWS for details)
             if (resources && resources.length > 0) {
-                this._extractFromResources(resources, discovered);
+                await this._extractFromResources(resources, discovered);
             }
 
             return discovered;
@@ -107,9 +107,29 @@ class CloudFormationDiscovery {
      * @param {Array} resources - CloudFormation stack resources
      * @param {Object} discovered - Object to populate with discovered resources
      */
-    _extractFromResources(resources, discovered) {
+    async _extractFromResources(resources, discovered) {
         for (const resource of resources) {
             const { LogicalResourceId, PhysicalResourceId, ResourceType } = resource;
+
+            // Security Group - use to get VPC ID
+            if (LogicalResourceId === 'FriggLambdaSecurityGroup' && ResourceType === 'AWS::EC2::SecurityGroup') {
+                discovered.securityGroupId = PhysicalResourceId;
+                // Query security group to get VPC ID
+                if (this.provider && !discovered.vpcId) {
+                    try {
+                        const sgDetails = await this.provider.getEC2Client().send(
+                            new (require('@aws-sdk/client-ec2').DescribeSecurityGroupsCommand)({
+                                GroupIds: [PhysicalResourceId]
+                            })
+                        );
+                        if (sgDetails.SecurityGroups && sgDetails.SecurityGroups.length > 0) {
+                            discovered.vpcId = sgDetails.SecurityGroups[0].VpcId;
+                        }
+                    } catch (error) {
+                        console.warn(`Could not get VPC from security group: ${error.message}`);
+                    }
+                }
+            }
 
             // Aurora cluster
             if (LogicalResourceId === 'FriggAuroraCluster' && ResourceType === 'AWS::RDS::DBCluster') {
