@@ -147,11 +147,12 @@ class VpcBuilder extends InfrastructureBuilder {
             dynamodb: discoveredResources.dynamodbVpcEndpointId,
             kms: discoveredResources.kmsVpcEndpointId,
             secretsManager: discoveredResources.secretsManagerVpcEndpointId,
+            sqs: discoveredResources.sqsVpcEndpointId,
         };
         const allEndpointsExist = existingEndpoints.s3 && existingEndpoints.dynamodb &&
-            existingEndpoints.kms && existingEndpoints.secretsManager;
+            existingEndpoints.kms && existingEndpoints.secretsManager && existingEndpoints.sqs;
         const someEndpointsExist = existingEndpoints.s3 || existingEndpoints.dynamodb ||
-            existingEndpoints.kms || existingEndpoints.secretsManager;
+            existingEndpoints.kms || existingEndpoints.secretsManager || existingEndpoints.sqs;
 
         if (appDefinition.vpc.enableVPCEndpoints !== false) {
             if (vpcManagement === 'create-new') {
@@ -682,6 +683,8 @@ class VpcBuilder extends InfrastructureBuilder {
         if (!existingEndpoints.dynamodb) missing.push('DynamoDB');
         if (!existingEndpoints.kms && appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms') missing.push('KMS');
         if (!existingEndpoints.secretsManager) missing.push('Secrets Manager');
+        // SQS endpoint needed for database migrations (migration queue)
+        if (!existingEndpoints.sqs && appDefinition.database?.postgres?.enable) missing.push('SQS');
 
         if (missing.length > 0) {
             console.log(`  Creating missing VPC Endpoints: ${missing.join(', ')}...`);
@@ -733,8 +736,8 @@ class VpcBuilder extends InfrastructureBuilder {
             };
         }
 
-        // VPC Endpoint Security Group (only if KMS or Secrets Manager are missing)
-        if (!existingEndpoints.kms || !existingEndpoints.secretsManager) {
+        // VPC Endpoint Security Group (only if KMS, Secrets Manager, or SQS are missing)
+        if (!existingEndpoints.kms || !existingEndpoints.secretsManager || (!existingEndpoints.sqs && appDefinition.database?.postgres?.enable)) {
             result.resources.FriggVPCEndpointSecurityGroup = {
                 Type: 'AWS::EC2::SecurityGroup',
                 Properties: {
@@ -779,6 +782,21 @@ class VpcBuilder extends InfrastructureBuilder {
                 Properties: {
                     VpcId: vpcId,
                     ServiceName: 'com.amazonaws.${self:provider.region}.secretsmanager',
+                    VpcEndpointType: 'Interface',
+                    SubnetIds: result.vpcConfig.subnetIds,
+                    SecurityGroupIds: [{ Ref: 'FriggVPCEndpointSecurityGroup' }],
+                    PrivateDnsEnabled: true,
+                },
+            };
+        }
+
+        // SQS Interface Endpoint (only if missing AND database migrations are enabled)
+        if (!existingEndpoints.sqs && appDefinition.database?.postgres?.enable) {
+            result.resources.FriggSQSVPCEndpoint = {
+                Type: 'AWS::EC2::VPCEndpoint',
+                Properties: {
+                    VpcId: vpcId,
+                    ServiceName: 'com.amazonaws.${self:provider.region}.sqs',
                     VpcEndpointType: 'Interface',
                     SubnetIds: result.vpcConfig.subnetIds,
                     SecurityGroupIds: [{ Ref: 'FriggVPCEndpointSecurityGroup' }],

@@ -182,7 +182,7 @@ class MigrationBuilder extends InfrastructureBuilder {
                 'node_modules/@prisma/**', // Prisma engines
                 'node_modules/.prisma/**',
                 'node_modules/@friggframework/core/generated/**', // Generated clients
-                
+
                 // Base exclusions
                 'node_modules/**/node_modules/**',
                 'node_modules/aws-sdk/**',
@@ -320,7 +320,7 @@ class MigrationBuilder extends InfrastructureBuilder {
         // Add IAM permissions for S3 (migration status storage)
         // Migration functions need to read/write migration status in S3
         // to avoid chicken-and-egg dependency on User/Process tables
-        
+
         // Object-level permissions (put, get, delete)
         result.iamStatements.push({
             Effect: 'Allow',
