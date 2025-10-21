@@ -6,6 +6,18 @@
   "type": "object",
   "required": ["integrations"],
   "properties": {
+    "managementMode": {
+      "type": "string",
+      "description": "Global resource management strategy. 'discover' (default) uses granular *.management options for each resource. 'managed' creates/manages all enabled resources automatically (ignores granular options with warnings). 'existing' requires explicit resource IDs. Provides simplified API while maintaining backwards compatibility.",
+      "enum": ["managed", "discover", "existing"],
+      "default": "discover"
+    },
+    "vpcIsolation": {
+      "type": "string",
+      "description": "VPC and database isolation strategy when managementMode='managed'. 'shared' (default): stages share VPC/NAT/Aurora with stage-specific subnets (~$32/month NAT). 'isolated': each stage gets separate VPC/NAT/Aurora (~$32/month per stage). Ignored when managementMode != 'managed'.",
+      "enum": ["shared", "isolated"],
+      "default": "shared"
+    },
     "name": {
       "type": "string",
       "description": "Service name for deployment (used as CloudFormation stack name prefix)",
@@ -218,7 +230,7 @@
             },
             "management": {
               "type": "string",
-              "description": "How to manage the PostgreSQL database: 'discover' uses existing Aurora cluster if found, 'managed' creates Aurora Serverless cluster, 'existing' uses provided endpoint",
+              "description": "How to manage the PostgreSQL database. IGNORED when managementMode='managed' (automatically determined by vpcIsolation). 'discover' uses existing Aurora cluster, 'managed' creates Aurora Serverless cluster, 'existing' uses provided endpoint. For backwards compatibility only.",
               "enum": ["discover", "managed", "existing"],
               "default": "discover"
             },
@@ -311,7 +323,7 @@
         },
         "management": {
           "type": "string",
-          "description": "How to manage VPC infrastructure (advanced option - use 'shareAcrossStages' for simpler configuration). 'discover' reuses existing VPC, 'create-new' creates new VPC, 'use-existing' requires vpcId",
+          "description": "How to manage VPC infrastructure. IGNORED when managementMode='managed' (use vpcIsolation instead). 'discover' reuses existing VPC, 'create-new' creates new VPC, 'use-existing' requires vpcId. For backwards compatibility only.",
           "enum": ["discover", "create-new", "use-existing"],
           "default": "discover"
         },
@@ -588,6 +600,8 @@
     {
       "name": "my-frigg-app",
       "provider": "aws",
+      "managementMode": "managed",
+      "vpcIsolation": "shared",
       "environment": {
         "NODE_ENV": true,
         "API_KEY": true
@@ -599,17 +613,17 @@
       "database": {
         "postgres": {
           "enable": true,
-          "management": "managed"
+          "minCapacity": 0.5,
+          "maxCapacity": 1
         }
       },
       "encryption": {
-        "fieldLevelEncryptionMethod": "kms",
-        "createResourceIfNoneFound": true
+        "fieldLevelEncryptionMethod": "kms"
       },
       "vpc": {
         "enable": true,
-        "shareAcrossStages": true,
-        "enableVPCEndpoints": true
+        "enableVPCEndpoints": true,
+        "selfHeal": true
       },
       "ssm": {
         "enable": true
