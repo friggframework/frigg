@@ -411,15 +411,20 @@ async function verifyRhelBinaries(expectedClients) {
 /**
  * Verify required files exist
  * Runtime layer should NOT have CLI files
+ * @param {Array} clientPackages - Generated client packages that were included
  */
-async function verifyLayerStructure() {
+async function verifyLayerStructure(clientPackages) {
     logStep(8, 'Verifying layer structure (runtime only)');
 
     const requiredPaths = [
         '@prisma/client/runtime',
         '@prisma/client/index.d.ts',
-        'generated/prisma-postgresql/schema.prisma',  // PostgreSQL (default)
     ];
+    
+    // Add schema.prisma for each included client
+    for (const pkg of clientPackages) {
+        requiredPaths.push(`${pkg}/schema.prisma`);
+    }
 
     // Verify CLI is NOT present (keeps layer small)
     const forbiddenPaths = [
@@ -512,7 +517,7 @@ async function buildPrismaLayer(databaseConfig = {}) {
         await removeUnnecessaryFiles();             // Remove source maps, docs, tests (37MB+)
         await removeNonRhelBinaries();              // Remove non-Linux binaries
         await verifyRhelBinaries(clientPackages);   // Verify query engines present
-        await verifyLayerStructure();               // Verify minimal runtime structure
+        await verifyLayerStructure(clientPackages); // Verify minimal runtime structure
         await displayLayerSummary();
 
         const duration = ((Date.now() - startTime) / 1000).toFixed(2);
