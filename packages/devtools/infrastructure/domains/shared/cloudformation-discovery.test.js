@@ -73,6 +73,50 @@ describe('CloudFormationDiscovery', () => {
             });
         });
 
+        it('should extract VPC subnets from stack resources', async () => {
+            const mockStack = { StackName: 'test-stack', Outputs: [] };
+            const mockResources = [
+                { LogicalResourceId: 'FriggPrivateSubnet1', PhysicalResourceId: 'subnet-priv-1', ResourceType: 'AWS::EC2::Subnet' },
+                { LogicalResourceId: 'FriggPrivateSubnet2', PhysicalResourceId: 'subnet-priv-2', ResourceType: 'AWS::EC2::Subnet' },
+                { LogicalResourceId: 'FriggPublicSubnet', PhysicalResourceId: 'subnet-pub-1', ResourceType: 'AWS::EC2::Subnet' },
+                { LogicalResourceId: 'FriggPublicSubnet2', PhysicalResourceId: 'subnet-pub-2', ResourceType: 'AWS::EC2::Subnet' },
+            ];
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+
+            const result = await cfDiscovery.discoverFromStack('test-stack');
+
+            expect(result.privateSubnetId1).toBe('subnet-priv-1');
+            expect(result.privateSubnetId2).toBe('subnet-priv-2');
+            expect(result.publicSubnetId1).toBe('subnet-pub-1');
+            expect(result.publicSubnetId2).toBe('subnet-pub-2');
+        });
+
+        it('should extract route tables and VPC endpoints from stack resources', async () => {
+            const mockStack = { StackName: 'test-stack', Outputs: [] };
+            const mockResources = [
+                { LogicalResourceId: 'FriggLambdaRouteTable', PhysicalResourceId: 'rtb-123', ResourceType: 'AWS::EC2::RouteTable' },
+                { LogicalResourceId: 'FriggVPCEndpointSecurityGroup', PhysicalResourceId: 'sg-vpce-123', ResourceType: 'AWS::EC2::SecurityGroup' },
+                { LogicalResourceId: 'FriggS3VPCEndpoint', PhysicalResourceId: 'vpce-s3-123', ResourceType: 'AWS::EC2::VPCEndpoint' },
+                { LogicalResourceId: 'FriggDynamoDBVPCEndpoint', PhysicalResourceId: 'vpce-ddb-123', ResourceType: 'AWS::EC2::VPCEndpoint' },
+                { LogicalResourceId: 'FriggKMSVPCEndpoint', PhysicalResourceId: 'vpce-kms-123', ResourceType: 'AWS::EC2::VPCEndpoint' },
+                { LogicalResourceId: 'FriggSecretsManagerVPCEndpoint', PhysicalResourceId: 'vpce-sm-123', ResourceType: 'AWS::EC2::VPCEndpoint' },
+            ];
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+
+            const result = await cfDiscovery.discoverFromStack('test-stack');
+
+            expect(result.routeTableId).toBe('rtb-123');
+            expect(result.vpcEndpointSecurityGroupId).toBe('sg-vpce-123');
+            expect(result.s3VpcEndpointId).toBe('vpce-s3-123');
+            expect(result.dynamoDbVpcEndpointId).toBe('vpce-ddb-123');
+            expect(result.kmsVpcEndpointId).toBe('vpce-kms-123');
+            expect(result.secretsManagerVpcEndpointId).toBe('vpce-sm-123');
+        });
+
         it('should extract Aurora cluster from stack resources', async () => {
             const mockStack = {
                 StackName: 'test-stack',
@@ -95,6 +139,46 @@ describe('CloudFormationDiscovery', () => {
             expect(result).toEqual({
                 auroraClusterId: 'test-cluster',
             });
+        });
+
+        it('should extract subnets from stack resources', async () => {
+            const mockStack = {
+                StackName: 'test-stack',
+                Outputs: [],
+            };
+
+            const mockResources = [
+                {
+                    LogicalResourceId: 'FriggPrivateSubnet1',
+                    PhysicalResourceId: 'subnet-private-1',
+                    ResourceType: 'AWS::EC2::Subnet',
+                },
+                {
+                    LogicalResourceId: 'FriggPrivateSubnet2',
+                    PhysicalResourceId: 'subnet-private-2',
+                    ResourceType: 'AWS::EC2::Subnet',
+                },
+                {
+                    LogicalResourceId: 'FriggPublicSubnet',
+                    PhysicalResourceId: 'subnet-public-1',
+                    ResourceType: 'AWS::EC2::Subnet',
+                },
+                {
+                    LogicalResourceId: 'FriggPublicSubnet2',
+                    PhysicalResourceId: 'subnet-public-2',
+                    ResourceType: 'AWS::EC2::Subnet',
+                },
+            ];
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+
+            const result = await cfDiscovery.discoverFromStack('test-stack');
+
+            expect(result.privateSubnetId1).toBe('subnet-private-1');
+            expect(result.privateSubnetId2).toBe('subnet-private-2');
+            expect(result.publicSubnetId1).toBe('subnet-public-1');
+            expect(result.publicSubnetId2).toBe('subnet-public-2');
         });
 
         it('should extract S3 migration bucket from stack resources', async () => {

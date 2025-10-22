@@ -164,6 +164,47 @@ class CloudFormationDiscovery {
                     discovered.defaultKmsKeyId = PhysicalResourceId;
                 }
             }
+
+            // Subnets
+            if (LogicalResourceId === 'FriggPrivateSubnet1' && ResourceType === 'AWS::EC2::Subnet') {
+                discovered.privateSubnetId1 = PhysicalResourceId;
+            }
+            if (LogicalResourceId === 'FriggPrivateSubnet2' && ResourceType === 'AWS::EC2::Subnet') {
+                discovered.privateSubnetId2 = PhysicalResourceId;
+            }
+            if (LogicalResourceId === 'FriggPublicSubnet' && ResourceType === 'AWS::EC2::Subnet') {
+                discovered.publicSubnetId1 = PhysicalResourceId;
+            }
+            if (LogicalResourceId === 'FriggPublicSubnet2' && ResourceType === 'AWS::EC2::Subnet') {
+                discovered.publicSubnetId2 = PhysicalResourceId;
+            }
+
+            // Route Tables
+            if (LogicalResourceId === 'FriggLambdaRouteTable' && ResourceType === 'AWS::EC2::RouteTable') {
+                discovered.routeTableId = PhysicalResourceId;
+            }
+
+            // VPC Endpoint Security Group
+            if (LogicalResourceId === 'FriggVPCEndpointSecurityGroup' && ResourceType === 'AWS::EC2::SecurityGroup') {
+                discovered.vpcEndpointSecurityGroupId = PhysicalResourceId;
+            }
+
+            // VPC Endpoints
+            if (LogicalResourceId === 'FriggS3VPCEndpoint' && ResourceType === 'AWS::EC2::VPCEndpoint') {
+                discovered.s3VpcEndpointId = PhysicalResourceId;
+            }
+            if (LogicalResourceId === 'FriggDynamoDBVPCEndpoint' && ResourceType === 'AWS::EC2::VPCEndpoint') {
+                discovered.dynamoDbVpcEndpointId = PhysicalResourceId;
+            }
+            if (LogicalResourceId === 'FriggKMSVPCEndpoint' && ResourceType === 'AWS::EC2::VPCEndpoint') {
+                discovered.kmsVpcEndpointId = PhysicalResourceId;
+            }
+            if (LogicalResourceId === 'FriggSecretsManagerVPCEndpoint' && ResourceType === 'AWS::EC2::VPCEndpoint') {
+                discovered.secretsManagerVpcEndpointId = PhysicalResourceId;
+            }
+            if (LogicalResourceId === 'FriggSQSVPCEndpoint' && ResourceType === 'AWS::EC2::VPCEndpoint') {
+                discovered.sqsVpcEndpointId = PhysicalResourceId;
+            }
         }
     }
 }

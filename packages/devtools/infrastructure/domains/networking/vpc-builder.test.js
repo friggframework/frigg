@@ -241,7 +241,36 @@ describe('VpcBuilder', () => {
     });
 
     describe('build() - discover mode', () => {
-        it('should use discovered VPC but create stage-specific subnets by default', async () => {
+        it('should reuse stack-managed subnets when discovered from CloudFormation', async () => {
+            const appDefinition = {
+                vpc: { enable: true },
+            };
+
+            const discoveredResources = {
+                defaultVpcId: 'vpc-discovered',
+                privateSubnetId1: 'subnet-stack-private-1',
+                privateSubnetId2: 'subnet-stack-private-2',
+                publicSubnetId1: 'subnet-stack-public-1',
+                publicSubnetId2: 'subnet-stack-public-2',
+            };
+
+            const result = await vpcBuilder.build(appDefinition, discoveredResources);
+
+            // Should use discovered VPC
+            expect(result.vpcId).toBe('vpc-discovered');
+
+            // Should reuse stack-managed subnets (not create new ones)
+            expect(result.vpcConfig.subnetIds).toEqual([
+                'subnet-stack-private-1',
+                'subnet-stack-private-2',
+            ]);
+
+            // Should NOT create new subnet resources
+            expect(result.resources.FriggPrivateSubnet1).toBeUndefined();
+            expect(result.resources.FriggPrivateSubnet2).toBeUndefined();
+        });
+
+        it('should use discovered VPC but create stage-specific subnets when no stack subnets exist', async () => {
             const appDefinition = {
                 vpc: {
                     enable: true,
@@ -251,15 +280,13 @@ describe('VpcBuilder', () => {
 
             const discoveredResources = {
                 defaultVpcId: 'vpc-discovered',
-                // Even though subnets are discovered, we should create new ones for stage isolation
-                privateSubnetId1: 'subnet-private1',
-                privateSubnetId2: 'subnet-private2',
+                // No stack-managed subnets, so create new ones for stage isolation
                 defaultSecurityGroupId: 'sg-discovered',
             };
 
             const result = await vpcBuilder.build(appDefinition, discoveredResources);
 
-            // NEW BEHAVIOR: Create stage-specific subnets for isolation (prevent route table conflicts)
+            // Should create new stage-specific subnets for isolation (prevent route table conflicts)
             expect(result.vpcConfig.subnetIds).toEqual([
                 { Ref: 'FriggPrivateSubnet1' },
                 { Ref: 'FriggPrivateSubnet2' },
