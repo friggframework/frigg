@@ -36,8 +36,10 @@ function createBaseDefinition(
     const skipEsbuildPackageConfig = {
         // Explicitly include project files that handlers need
         include: [
-            // Include security folder if DocumentDB TLS is configured
-            ...(AppDefinition.database?.documentDB?.enable ? ['security/**'] : []),
+            // Include DocumentDB TLS certificate if configured
+            ...(AppDefinition.database?.documentDB?.tlsCAFile 
+                ? [AppDefinition.database.documentDB.tlsCAFile.replace(/^\.\//, '')] 
+                : []),
         ],
         exclude: [
             // Exclude Prisma (provided via Lambda Layer)
