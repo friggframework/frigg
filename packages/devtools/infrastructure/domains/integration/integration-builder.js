@@ -126,7 +126,36 @@ class IntegrationBuilder extends InfrastructureBuilder {
 
             console.log(`    Adding integration: ${integrationName}`);
 
-            // Create HTTP API handler for integration
+            // Add webhook handler if enabled (BEFORE catch-all proxy route)
+            // CRITICAL: Webhook routes must be defined before the catch-all {proxy+} route
+            // to ensure proper route matching in AWS API Gateway/HTTP API
+            const webhookConfig = integration.Definition.webhooks;
+            if (webhookConfig && (webhookConfig === true || webhookConfig.enabled === true)) {
+                const webhookFunctionName = `${integrationName}Webhook`;
+
+                result.functions[webhookFunctionName] = {
+                    handler: `node_modules/@friggframework/core/handlers/routers/integration-webhook-routers.handlers.${integrationName}Webhook.handler`,
+                    skipEsbuild: true,  // Nested exports in node_modules - skip esbuild bundling
+                    package: functionPackageConfig,
+                    events: [
+                        {
+                            httpApi: {
+                                path: `/api/${integrationName}-integration/webhooks`,
+                                method: 'POST',
+                            },
+                        },
+                        {
+                            httpApi: {
+                                path: `/api/${integrationName}-integration/webhooks/{integrationId}`,
+                                method: 'POST',
+                            },
+                        },
+                    ],
+                };
+                console.log(`      + Webhook handler enabled`);
+            }
+
+            // Create HTTP API handler for integration (catch-all route AFTER webhooks)
             result.functions[integrationName] = {
                 handler: `node_modules/@friggframework/core/handlers/routers/integration-defined-routers.handlers.${integrationName}.handler`,
                 skipEsbuild: true,  // Nested exports in node_modules - skip esbuild bundling
@@ -181,32 +210,6 @@ class IntegrationBuilder extends InfrastructureBuilder {
             };
 
             result.custom[queueReference] = queueName;
-
-            // Add webhook handler if enabled
-            const webhookConfig = integration.Definition.webhooks;
-            if (webhookConfig && (webhookConfig === true || webhookConfig.enabled === true)) {
-                const webhookFunctionName = `${integrationName}Webhook`;
-
-                result.functions[webhookFunctionName] = {
-                    handler: `node_modules/@friggframework/core/handlers/routers/integration-webhook-routers.handlers.${integrationName}Webhook.handler`,
-                    skipEsbuild: true,  // Nested exports in node_modules - skip esbuild bundling
-                    events: [
-                        {
-                            httpApi: {
-                                path: `/api/${integrationName}-integration/webhooks`,
-                                method: 'POST',
-                            },
-                        },
-                        {
-                            httpApi: {
-                                path: `/api/${integrationName}-integration/webhooks/{integrationId}`,
-                                method: 'POST',
-                            },
-                        },
-                    ],
-                };
-                console.log(`      + Webhook handler enabled`);
-            }
         }
 
         console.log(`  ✅ Configured ${appDefinition.integrations.length} integrations`);
