@@ -358,5 +358,236 @@ describe('IntegrationBuilder', () => {
             expect(integrationBuilder.getName()).toBe('IntegrationBuilder');
         });
     });
+
+    describe('Webhook Handler Configuration', () => {
+        it('should create webhook handler when webhooks enabled with boolean true', async () => {
+            const appDefinition = {
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'hubspot',
+                            webhooks: true,
+                        }
+                    },
+                ],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(result.functions.hubspotWebhook).toBeDefined();
+            expect(result.functions.hubspotWebhook.handler).toBe(
+                'node_modules/@friggframework/core/handlers/routers/integration-webhook-routers.handlers.hubspotWebhook.handler'
+            );
+        });
+
+        it('should create webhook handler when webhooks enabled with object', async () => {
+            const appDefinition = {
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'salesforce',
+                            webhooks: { enabled: true },
+                        }
+                    },
+                ],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(result.functions.salesforceWebhook).toBeDefined();
+        });
+
+        it('should NOT create webhook handler when webhooks disabled', async () => {
+            const appDefinition = {
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'slack',
+                            webhooks: false,
+                        }
+                    },
+                ],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(result.functions.slackWebhook).toBeUndefined();
+        });
+
+        it('should NOT create webhook handler when webhooks explicitly disabled in object', async () => {
+            const appDefinition = {
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'test',
+                            webhooks: { enabled: false },
+                        }
+                    },
+                ],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(result.functions.testWebhook).toBeUndefined();
+        });
+
+        it('should configure webhook with both base and ID-specific routes', async () => {
+            const appDefinition = {
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'stripe',
+                            webhooks: true,
+                        }
+                    },
+                ],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(result.functions.stripeWebhook.events).toEqual([
+                {
+                    httpApi: {
+                        path: '/api/stripe-integration/webhooks',
+                        method: 'POST',
+                    },
+                },
+                {
+                    httpApi: {
+                        path: '/api/stripe-integration/webhooks/{integrationId}',
+                        method: 'POST',
+                    },
+                },
+            ]);
+        });
+
+        it('should define webhook handler BEFORE catch-all proxy route (ordering bug fix)', async () => {
+            const appDefinition = {
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'asana',
+                            webhooks: true,
+                        }
+                    },
+                ],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            // Get the keys (function names) in the order they were added
+            const functionKeys = Object.keys(result.functions);
+
+            // Webhook handler should be defined before the main integration handler
+            const webhookIndex = functionKeys.indexOf('asanaWebhook');
+            const integrationIndex = functionKeys.indexOf('asana');
+
+            expect(webhookIndex).toBeGreaterThanOrEqual(0);
+            expect(integrationIndex).toBeGreaterThan(0);
+            expect(webhookIndex).toBeLessThan(integrationIndex);
+        });
+
+        it('should maintain correct function order: webhook, integration, queue worker', async () => {
+            const appDefinition = {
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'test',
+                            webhooks: true,
+                        }
+                    },
+                ],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            const functionKeys = Object.keys(result.functions);
+
+            // Expected order: webhook, integration, queueWorker
+            expect(functionKeys).toEqual([
+                'testWebhook',
+                'test',
+                'testQueueWorker',
+            ]);
+        });
+
+        it('should handle multiple integrations with mixed webhook configurations', async () => {
+            const appDefinition = {
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'hubspot',
+                            webhooks: true,
+                        }
+                    },
+                    {
+                        Definition: {
+                            name: 'salesforce',
+                            webhooks: false,
+                        }
+                    },
+                    {
+                        Definition: {
+                            name: 'slack',
+                            webhooks: { enabled: true },
+                        }
+                    },
+                ],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            // Hubspot: webhook enabled
+            expect(result.functions.hubspotWebhook).toBeDefined();
+            expect(result.functions.hubspot).toBeDefined();
+            expect(result.functions.hubspotQueueWorker).toBeDefined();
+
+            // Salesforce: webhook disabled
+            expect(result.functions.salesforceWebhook).toBeUndefined();
+            expect(result.functions.salesforce).toBeDefined();
+            expect(result.functions.salesforceQueueWorker).toBeDefined();
+
+            // Slack: webhook enabled via object
+            expect(result.functions.slackWebhook).toBeDefined();
+            expect(result.functions.slack).toBeDefined();
+            expect(result.functions.slackQueueWorker).toBeDefined();
+        });
+
+        it('should use skipEsbuild for webhook handlers', async () => {
+            const appDefinition = {
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'test',
+                            webhooks: true,
+                        }
+                    },
+                ],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(result.functions.testWebhook.skipEsbuild).toBe(true);
+        });
+
+        it('should apply package configuration to webhook handlers', async () => {
+            const appDefinition = {
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'test',
+                            webhooks: true,
+                        }
+                    },
+                ],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(result.functions.testWebhook.package).toBeDefined();
+            expect(result.functions.testWebhook.package.exclude).toContain('node_modules/aws-sdk/**');
+            expect(result.functions.testWebhook.package.exclude).toContain('node_modules/@prisma/**');
+        });
+    });
 });
 
