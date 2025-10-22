@@ -766,9 +766,8 @@ describe('AuroraBuilder', () => {
 
             // CloudFormation stack has Aurora (from previous deployment of this stage)
             const discoveredResources = {
-                auroraEndpoint: 'stack-cluster-dev.us-east-1.rds.amazonaws.com',  // String = from stack
-                auroraClusterEndpoint: 'stack-cluster-dev.us-east-1.rds.amazonaws.com',  // Also set for discover mode
-                auroraPort: 5432,
+                auroraClusterId: 'stack-cluster-dev',  // CloudFormation discovery sets this
+                auroraClusterEndpoint: 'stack-cluster-dev.us-east-1.rds.amazonaws.com',  // For discover mode
                 auroraClusterPort: 5432,
                 auroraClusterIdentifier: 'stack-cluster-dev',
                 privateSubnetId1: 'subnet-1',

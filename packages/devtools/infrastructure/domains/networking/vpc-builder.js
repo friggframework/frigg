@@ -144,8 +144,8 @@ class VpcBuilder extends InfrastructureBuilder {
             // Set management based on isolation strategy AND existing stack resources
             if (vpcIsolation === 'isolated') {
                 // Check if CloudFormation stack already has a VPC (stage-specific)
-                // Only string IDs mean resources are from stack (not CloudFormation refs)
-                const hasStackVpc = discoveredResources?.vpcId && typeof discoveredResources.vpcId === 'string';
+                // CloudFormation discovery sets 'defaultVpcId' (string) when found in stack
+                const hasStackVpc = discoveredResources?.defaultVpcId && typeof discoveredResources.defaultVpcId === 'string';
                 
                 if (hasStackVpc) {
                     // Stack has VPC - reuse it (standard flow: stack → orphaned → create)

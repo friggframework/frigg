@@ -102,9 +102,9 @@ class AuroraBuilder extends InfrastructureBuilder {
             // Set management based on isolation strategy AND existing stack resources
             if (vpcIsolation === 'isolated') {
                 // Check if CloudFormation stack already has Aurora (stage-specific)
-                // Only string endpoints mean resources are from stack (not CloudFormation refs)
-                const hasStackAurora = discoveredResources?.auroraEndpoint && 
-                                     typeof discoveredResources.auroraEndpoint === 'string';
+                // CloudFormation discovery sets 'auroraClusterId' (string) when found in stack
+                const hasStackAurora = discoveredResources?.auroraClusterId && 
+                                     typeof discoveredResources.auroraClusterId === 'string';
                 
                 if (hasStackAurora) {
                     // Stack has Aurora - reuse it (standard flow: stack → orphaned → create)

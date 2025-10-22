@@ -849,8 +849,7 @@ describe('VpcBuilder', () => {
 
             // CloudFormation stack has VPC (from previous deployment of this stage)
             const discoveredResources = {
-                vpcId: 'vpc-stack-dev',  // String = from stack (not default VPC)
-                defaultVpcId: 'vpc-stack-dev',  // Also set for discover mode
+                defaultVpcId: 'vpc-stack-dev',  // CloudFormation discovery sets this
                 privateSubnetId1: 'subnet-private-1',
                 privateSubnetId2: 'subnet-private-2',
                 publicSubnetId1: 'subnet-public-1',
