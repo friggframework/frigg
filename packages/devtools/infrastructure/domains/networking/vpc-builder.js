@@ -463,8 +463,8 @@ class VpcBuilder extends InfrastructureBuilder {
 
         const subnetVpcId = vpcManagement === 'create-new' ? { Ref: 'FriggVPC' } : result.vpcId;
 
-        // Generate CIDRs
-        const cidrs = this.generateSubnetCidrs(vpcManagement);
+        // Generate CIDRs - pass discovered resources to avoid conflicts
+        const cidrs = this.generateSubnetCidrs(vpcManagement, discoveredResources);
 
         // Private Subnet 1
         result.resources.FriggPrivateSubnet1 = {
@@ -597,8 +597,9 @@ class VpcBuilder extends InfrastructureBuilder {
 
     /**
      * Generate subnet CIDR blocks
+     * Finds available CIDRs that don't conflict with existing subnets
      */
-    generateSubnetCidrs(vpcManagement) {
+    generateSubnetCidrs(vpcManagement, discoveredResources) {
         if (vpcManagement === 'create-new') {
             // Use CloudFormation Fn::Cidr for dynamic generation
             return {
@@ -608,13 +609,47 @@ class VpcBuilder extends InfrastructureBuilder {
                 public2: { 'Fn::Select': [3, { 'Fn::Cidr': ['10.0.0.0/16', 4, 8] }] },
             };
         } else {
-            // Static CIDRs for existing VPC (default VPC range)
-            return {
-                private1: '172.31.240.0/24',
-                private2: '172.31.241.0/24',
-                public1: '172.31.250.0/24',
-                public2: '172.31.251.0/24',
+            // Find available CIDRs for existing VPC by checking existing subnets
+            const existingCidrs = new Set();
+            
+            // Collect all existing subnet CIDRs
+            if (discoveredResources?.subnets) {
+                for (const subnet of discoveredResources.subnets) {
+                    if (subnet.CidrBlock) {
+                        existingCidrs.add(subnet.CidrBlock);
+                    }
+                }
+            }
+            
+            console.log(`    Found ${existingCidrs.size} existing subnet CIDRs in VPC`);
+            
+            // Generate candidates in the default VPC range (172.31.0.0/16)
+            // Private subnets: 240-249, Public subnets: 250-255
+            const findAvailableCidr = (startOctet, endOctet) => {
+                for (let octet = startOctet; octet <= endOctet; octet++) {
+                    const candidate = `172.31.${octet}.0/24`;
+                    if (!existingCidrs.has(candidate)) {
+                        existingCidrs.add(candidate); // Mark as used immediately
+                        return candidate;
+                    }
+                }
+                // Fallback if range exhausted
+                return `172.31.${startOctet}.0/24`;
             };
+            
+            const privateRange = { start: 240, end: 249 };
+            const publicRange = { start: 250, end: 255 };
+            
+            const cidrs = {
+                private1: findAvailableCidr(privateRange.start, privateRange.end),
+                private2: findAvailableCidr(privateRange.start, privateRange.end),
+                public1: findAvailableCidr(publicRange.start, publicRange.end),
+                public2: findAvailableCidr(publicRange.start, publicRange.end),
+            };
+            
+            console.log(`    Using available CIDRs: ${Object.values(cidrs).join(', ')}`);
+            
+            return cidrs;
         }
     }
 

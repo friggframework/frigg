@@ -983,6 +983,93 @@ describe('VpcBuilder', () => {
         });
     });
 
+    describe('generateSubnetCidrs()', () => {
+        it('should use CloudFormation Fn::Cidr for create-new mode', () => {
+            const cidrs = vpcBuilder.generateSubnetCidrs('create-new', {});
+            
+            expect(cidrs.private1).toEqual({
+                'Fn::Select': [0, { 'Fn::Cidr': ['10.0.0.0/16', 4, 8] }]
+            });
+            expect(cidrs.private2).toEqual({
+                'Fn::Select': [1, { 'Fn::Cidr': ['10.0.0.0/16', 4, 8] }]
+            });
+            expect(cidrs.public1).toEqual({
+                'Fn::Select': [2, { 'Fn::Cidr': ['10.0.0.0/16', 4, 8] }]
+            });
+            expect(cidrs.public2).toEqual({
+                'Fn::Select': [3, { 'Fn::Cidr': ['10.0.0.0/16', 4, 8] }]
+            });
+        });
+
+        it('should use default static CIDRs when no existing subnets in VPC', () => {
+            const discoveredResources = {
+                subnets: []
+            };
+            
+            const cidrs = vpcBuilder.generateSubnetCidrs('discover', discoveredResources);
+            
+            expect(cidrs.private1).toBe('172.31.240.0/24');
+            expect(cidrs.private2).toBe('172.31.241.0/24');
+            expect(cidrs.public1).toBe('172.31.250.0/24');
+            expect(cidrs.public2).toBe('172.31.251.0/24');
+        });
+
+        it('should avoid CIDR conflicts with existing subnets', () => {
+            const discoveredResources = {
+                subnets: [
+                    { CidrBlock: '172.31.240.0/24' },  // Conflicts with default private1
+                    { CidrBlock: '172.31.241.0/24' },  // Conflicts with default private2
+                    { CidrBlock: '172.31.0.0/20' },    // Default VPC subnet
+                    { CidrBlock: '172.31.16.0/20' },   // Default VPC subnet
+                ]
+            };
+            
+            const cidrs = vpcBuilder.generateSubnetCidrs('discover', discoveredResources);
+            
+            // Should skip 240 and 241 (already taken), use 242-243 for private, 250-251 for public
+            expect(cidrs.private1).toBe('172.31.242.0/24');
+            expect(cidrs.private2).toBe('172.31.243.0/24');
+            expect(cidrs.public1).toBe('172.31.250.0/24');  // Public range starts at 250
+            expect(cidrs.public2).toBe('172.31.251.0/24');
+        });
+
+        it('should find first available CIDR blocks when some in range are taken', () => {
+            const discoveredResources = {
+                subnets: [
+                    { CidrBlock: '172.31.240.0/24' },
+                    { CidrBlock: '172.31.242.0/24' },
+                    { CidrBlock: '172.31.244.0/24' },
+                ]
+            };
+            
+            const cidrs = vpcBuilder.generateSubnetCidrs('discover', discoveredResources);
+            
+            // Should use 241, 243 for private (filling gaps), 250, 251 for public
+            expect(cidrs.private1).toBe('172.31.241.0/24');
+            expect(cidrs.private2).toBe('172.31.243.0/24');
+            expect(cidrs.public1).toBe('172.31.250.0/24');   // Public range starts at 250
+            expect(cidrs.public2).toBe('172.31.251.0/24');
+        });
+
+        it('should handle missing discoveredResources gracefully', () => {
+            const cidrs = vpcBuilder.generateSubnetCidrs('discover', null);
+            
+            // Should fallback to default CIDRs
+            expect(cidrs.private1).toBe('172.31.240.0/24');
+            expect(cidrs.private2).toBe('172.31.241.0/24');
+        });
+
+        it('should handle discoveredResources without subnets array', () => {
+            const discoveredResources = { vpcId: 'vpc-123' };
+            
+            const cidrs = vpcBuilder.generateSubnetCidrs('discover', discoveredResources);
+            
+            // Should fallback to default CIDRs
+            expect(cidrs.private1).toBe('172.31.240.0/24');
+            expect(cidrs.private2).toBe('172.31.241.0/24');
+        });
+    });
+
     describe('Outputs', () => {
         it.skip('should generate VPC ID output', async () => {
             const appDefinition = {
