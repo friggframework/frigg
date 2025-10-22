@@ -62,8 +62,8 @@ function getGeneratedClientPackages(databaseConfig = {}) {
     const packages = [];
 
     // Check if MongoDB is enabled (via mongoDB or documentDB config)
-    const mongoEnabled = databaseConfig?.mongoDB?.enable === true || 
-                         databaseConfig?.documentDB?.enable === true;
+    const mongoEnabled = databaseConfig?.mongoDB?.enable === true ||
+        databaseConfig?.documentDB?.enable === true;
     if (mongoEnabled) {
         packages.push('generated/prisma-mongodb');
         log('Including MongoDB client (based on AppDefinition)', 'blue');
@@ -420,7 +420,7 @@ async function verifyLayerStructure(clientPackages) {
         '@prisma/client/runtime',
         '@prisma/client/index.d.ts',
     ];
-    
+
     // Add schema.prisma for each included client
     for (const pkg of clientPackages) {
         requiredPaths.push(`${pkg}/schema.prisma`);

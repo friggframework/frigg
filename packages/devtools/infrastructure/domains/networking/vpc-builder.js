@@ -732,7 +732,7 @@ class VpcBuilder extends InfrastructureBuilder {
         };
 
         // Create public routing (public subnets → Internet Gateway)
-        this.createPublicRouting(appDefinition, result);
+        this.createPublicRouting(appDefinition, discoveredResources, result);
 
         // Create routing for the new NAT Gateway (private subnets → NAT → IGW)
         this.createNatGatewayRouting(appDefinition, discoveredResources, result, { Ref: 'FriggNATGateway' });
@@ -744,7 +744,7 @@ class VpcBuilder extends InfrastructureBuilder {
      * Create public route table with Internet Gateway route
      * Required for NAT Gateway to have internet access
      */
-    createPublicRouting(appDefinition, result) {
+    createPublicRouting(appDefinition, discoveredResources, result) {
         // Public route table with Internet Gateway route
         result.resources.FriggPublicRouteTable = {
             Type: 'AWS::EC2::RouteTable',
@@ -768,11 +768,15 @@ class VpcBuilder extends InfrastructureBuilder {
             },
         };
 
+        // Use discovered public subnets or created ones
+        const publicSubnet1 = discoveredResources.publicSubnetId1 || { Ref: 'FriggPublicSubnet' };
+        const publicSubnet2 = discoveredResources.publicSubnetId2 || { Ref: 'FriggPublicSubnet2' };
+
         // Associate public subnets with public route table
         result.resources.FriggPublicSubnet1RouteTableAssociation = {
             Type: 'AWS::EC2::SubnetRouteTableAssociation',
             Properties: {
-                SubnetId: { Ref: 'FriggPublicSubnet' },
+                SubnetId: publicSubnet1,
                 RouteTableId: { Ref: 'FriggPublicRouteTable' },
             },
         };
@@ -780,7 +784,7 @@ class VpcBuilder extends InfrastructureBuilder {
         result.resources.FriggPublicSubnet2RouteTableAssociation = {
             Type: 'AWS::EC2::SubnetRouteTableAssociation',
             Properties: {
-                SubnetId: { Ref: 'FriggPublicSubnet2' },
+                SubnetId: publicSubnet2,
                 RouteTableId: { Ref: 'FriggPublicRouteTable' },
             },
         };
