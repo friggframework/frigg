@@ -147,6 +147,10 @@ class VpcBuilder extends InfrastructureBuilder {
                 // CloudFormation discovery sets 'defaultVpcId' (string) when found in stack
                 const hasStackVpc = discoveredResources?.defaultVpcId && typeof discoveredResources.defaultVpcId === 'string';
                 
+                // Debug logging
+                console.log(`  🔍 DEBUG: discoveredResources.defaultVpcId = ${discoveredResources?.defaultVpcId} (type: ${typeof discoveredResources?.defaultVpcId})`);
+                console.log(`  🔍 DEBUG: hasStackVpc = ${hasStackVpc}`);
+                
                 if (hasStackVpc) {
                     // Stack has VPC - reuse it (standard flow: stack → orphaned → create)
                     management = 'discover';
