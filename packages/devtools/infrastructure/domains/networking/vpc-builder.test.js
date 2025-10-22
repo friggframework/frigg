@@ -840,7 +840,7 @@ describe('VpcBuilder', () => {
             // Should create new isolated VPC
             expect(result.vpcId).toEqual({ Ref: 'FriggVPC' });
             expect(result.resources.FriggVPC).toBeDefined();
-            
+
             // Subnets should use CloudFormation Fn::Cidr
             expect(result.resources.FriggPrivateSubnet1.Properties.CidrBlock).toEqual({
                 'Fn::Select': [0, { 'Fn::Cidr': ['10.0.0.0/16', 4, 8] }]
@@ -875,7 +875,7 @@ describe('VpcBuilder', () => {
             // Should discover existing VPC
             expect(result.vpcId).toBe('vpc-existing');
             expect(result.resources.FriggVPC).toBeUndefined();
-            
+
             // Should create new stage-specific subnets
             expect(result.resources.FriggPrivateSubnet1).toBeDefined();
 
@@ -986,7 +986,7 @@ describe('VpcBuilder', () => {
     describe('generateSubnetCidrs()', () => {
         it('should use CloudFormation Fn::Cidr for create-new mode', () => {
             const cidrs = vpcBuilder.generateSubnetCidrs('create-new', {});
-            
+
             expect(cidrs.private1).toEqual({
                 'Fn::Select': [0, { 'Fn::Cidr': ['10.0.0.0/16', 4, 8] }]
             });
@@ -1005,9 +1005,9 @@ describe('VpcBuilder', () => {
             const discoveredResources = {
                 subnets: []
             };
-            
+
             const cidrs = vpcBuilder.generateSubnetCidrs('discover', discoveredResources);
-            
+
             expect(cidrs.private1).toBe('172.31.240.0/24');
             expect(cidrs.private2).toBe('172.31.241.0/24');
             expect(cidrs.public1).toBe('172.31.250.0/24');
@@ -1023,9 +1023,9 @@ describe('VpcBuilder', () => {
                     { CidrBlock: '172.31.16.0/20' },   // Default VPC subnet
                 ]
             };
-            
+
             const cidrs = vpcBuilder.generateSubnetCidrs('discover', discoveredResources);
-            
+
             // Should skip 240 and 241 (already taken), use 242-243 for private, 250-251 for public
             expect(cidrs.private1).toBe('172.31.242.0/24');
             expect(cidrs.private2).toBe('172.31.243.0/24');
@@ -1041,9 +1041,9 @@ describe('VpcBuilder', () => {
                     { CidrBlock: '172.31.244.0/24' },
                 ]
             };
-            
+
             const cidrs = vpcBuilder.generateSubnetCidrs('discover', discoveredResources);
-            
+
             // Should use 241, 243 for private (filling gaps), 250, 251 for public
             expect(cidrs.private1).toBe('172.31.241.0/24');
             expect(cidrs.private2).toBe('172.31.243.0/24');
@@ -1053,7 +1053,7 @@ describe('VpcBuilder', () => {
 
         it('should handle missing discoveredResources gracefully', () => {
             const cidrs = vpcBuilder.generateSubnetCidrs('discover', null);
-            
+
             // Should fallback to default CIDRs
             expect(cidrs.private1).toBe('172.31.240.0/24');
             expect(cidrs.private2).toBe('172.31.241.0/24');
@@ -1061,9 +1061,9 @@ describe('VpcBuilder', () => {
 
         it('should handle discoveredResources without subnets array', () => {
             const discoveredResources = { vpcId: 'vpc-123' };
-            
+
             const cidrs = vpcBuilder.generateSubnetCidrs('discover', discoveredResources);
-            
+
             // Should fallback to default CIDRs
             expect(cidrs.private1).toBe('172.31.240.0/24');
             expect(cidrs.private2).toBe('172.31.241.0/24');

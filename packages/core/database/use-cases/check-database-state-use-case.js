@@ -1,13 +1,13 @@
 /**
- * Check Migration Status Use Case
+ * Check Database State Use Case
  * 
- * Domain logic for checking if database has pending migrations.
- * Does NOT trigger migrations, just reports status.
+ * Domain logic for checking database state (pending migrations, errors, etc).
+ * Does NOT trigger migrations, just reports current state.
  * 
  * Architecture: Hexagonal/Clean
  * - Use Case (Domain Layer)
  * - Depends on prismaRunner (Infrastructure abstraction)
- * - Called by Router (Adapter Layer)
+ * - Called by Router or other Use Cases (Adapter Layer)
  */
 
 class ValidationError extends Error {
@@ -17,7 +17,7 @@ class ValidationError extends Error {
     }
 }
 
-class CheckMigrationStatusUseCase {
+class CheckDatabaseStateUseCase {
     /**
      * @param {Object} dependencies
      * @param {Object} dependencies.prismaRunner - Prisma runner utility
@@ -75,7 +75,7 @@ class CheckMigrationStatusUseCase {
 }
 
 module.exports = {
-    CheckMigrationStatusUseCase,
+    CheckDatabaseStateUseCase,
     ValidationError,
 };
 

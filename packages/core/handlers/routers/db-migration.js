@@ -28,11 +28,10 @@ const {
     ValidationError: GetValidationError,
     NotFoundError,
 } = require('../../database/use-cases/get-migration-status-use-case');
+const { LambdaInvoker } = require('../../database/adapters/lambda-invoker');
 const {
-    CheckMigrationStatusUseCase,
-    ValidationError: CheckValidationError,
-} = require('../../database/use-cases/check-migration-status-use-case');
-const prismaRunner = require('../../database/utils/prisma-runner');
+    GetDatabaseStateViaWorkerUseCase,
+} = require('../../database/use-cases/get-database-state-via-worker-use-case');
 
 const router = Router();
 
@@ -46,7 +45,16 @@ const triggerMigrationUseCase = new TriggerDatabaseMigrationUseCase({
     // Note: QueuerUtil is used directly in the use case (static utility)
 });
 const getStatusUseCase = new GetMigrationStatusUseCase({ migrationStatusRepository });
-const checkMigrationStatusUseCase = new CheckMigrationStatusUseCase({ prismaRunner });
+
+// Lambda invocation for database state check (keeps router lightweight)
+const lambdaInvoker = new LambdaInvoker();
+const workerFunctionName = process.env.WORKER_FUNCTION_NAME ||
+    `${process.env.SERVICE || 'unknown'}-${process.env.STAGE || 'production'}-dbMigrationWorker`;
+
+const getDatabaseStateUseCase = new GetDatabaseStateViaWorkerUseCase({
+    lambdaInvoker,
+    workerFunctionName,
+});
 
 /**
  * Admin API key validation middleware
@@ -147,25 +155,24 @@ router.get(
     '/db-migrate/status',
     catchAsyncError(async (req, res) => {
         const stage = req.query.stage || process.env.STAGE || 'production';
-        const dbType = process.env.DB_TYPE || 'postgresql'; // Hardcoded for PostgreSQL migrations
 
-        console.log(`Checking migration status: dbType=${dbType}, stage=${stage}`);
+        console.log(`Checking database state: stage=${stage}, worker=${workerFunctionName}`);
 
         try {
-            const status = await checkMigrationStatusUseCase.execute(dbType, stage);
+            // Invoke worker Lambda to check database state
+            const status = await getDatabaseStateUseCase.execute(stage);
 
             res.status(200).json(status);
         } catch (error) {
-            // Handle validation errors (400 Bad Request)
-            if (error instanceof CheckValidationError) {
-                return res.status(400).json({
-                    success: false,
-                    error: error.message,
-                });
-            }
+            // Log full error for debugging
+            console.error('Database state check failed:', error);
 
-            // Re-throw other errors for global error handler
-            throw error;
+            // Return sanitized error to client
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to check database state',
+                details: error.message,
+            });
         }
     })
 );

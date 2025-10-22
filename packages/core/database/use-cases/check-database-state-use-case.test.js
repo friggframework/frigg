@@ -1,14 +1,14 @@
 /**
- * Tests for CheckMigrationStatusUseCase
- * Domain layer - checks if database has pending migrations
+ * Tests for CheckDatabaseStateUseCase
+ * Domain layer - checks database state (pending migrations, errors, etc)
  */
 
 const {
-    CheckMigrationStatusUseCase,
+    CheckDatabaseStateUseCase,
     ValidationError,
-} = require('./check-migration-status-use-case');
+} = require('./check-database-state-use-case');
 
-describe('CheckMigrationStatusUseCase', () => {
+describe('CheckDatabaseStateUseCase', () => {
     let useCase;
     let mockPrismaRunner;
 
@@ -17,7 +17,7 @@ describe('CheckMigrationStatusUseCase', () => {
             checkDatabaseState: jest.fn(),
         };
 
-        useCase = new CheckMigrationStatusUseCase({
+        useCase = new CheckDatabaseStateUseCase({
             prismaRunner: mockPrismaRunner,
         });
     });
@@ -25,7 +25,7 @@ describe('CheckMigrationStatusUseCase', () => {
     describe('constructor', () => {
         it('should throw error if prismaRunner not provided', () => {
             expect(() => {
-                new CheckMigrationStatusUseCase({});
+                new CheckDatabaseStateUseCase({});
             }).toThrow('prismaRunner dependency is required');
         });
     });

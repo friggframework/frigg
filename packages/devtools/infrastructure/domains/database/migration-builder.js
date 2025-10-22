@@ -309,6 +309,17 @@ class MigrationBuilder extends InfrastructureBuilder {
 
         console.log('  ✓ Added S3_BUCKET_NAME, DB_MIGRATION_QUEUE_URL, and DB_TYPE environment variables');
 
+        // Add worker function name to router environment (for Lambda invocation)
+        // Router needs this to invoke worker for database state checks
+        if (!result.functions.dbMigrationRouter.environment) {
+            result.functions.dbMigrationRouter.environment = {};
+        }
+        result.functions.dbMigrationRouter.environment.WORKER_FUNCTION_NAME = {
+            Ref: 'DbMigrationWorkerLambdaFunction',
+        };
+
+        console.log('  ✓ Added WORKER_FUNCTION_NAME environment variable to router');
+
         // Add IAM permissions for SQS
         result.iamStatements.push({
             Effect: 'Allow',
@@ -353,6 +364,16 @@ class MigrationBuilder extends InfrastructureBuilder {
         });
 
         console.log('  ✓ Added S3 IAM permissions for migration status tracking');
+
+        // Add IAM permission for router to invoke worker Lambda
+        // Router invokes worker for database state checks (keeps router lightweight)
+        result.iamStatements.push({
+            Effect: 'Allow',
+            Action: ['lambda:InvokeFunction'],
+            Resource: { 'Fn::GetAtt': ['DbMigrationWorkerLambdaFunction', 'Arn'] },
+        });
+
+        console.log('  ✓ Added Lambda invocation permissions for router → worker');
 
         console.log(`[${this.name}] ✅ Migration infrastructure configuration completed`);
         return result;

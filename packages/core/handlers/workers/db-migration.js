@@ -47,6 +47,9 @@ const {
     ValidationError,
 } = require('../../database/use-cases/run-database-migration-use-case');
 const {
+    CheckDatabaseStateUseCase,
+} = require('../../database/use-cases/check-database-state-use-case');
+const {
     MigrationStatusRepositoryS3,
 } = require('../../database/repositories/migration-status-repository-s3');
 
@@ -150,6 +153,45 @@ exports.handler = async (event, context) => {
 
     // Extract migration parameters from event
     const { migrationId, dbType, stage } = extractMigrationParams(event);
+
+    // Check for action parameter (direct invocation for status checks)
+    const action = event.action || 'migrate'; // Default to migration
+
+    // Handle checkStatus action
+    if (action === 'checkStatus') {
+        console.log(`\n========================================`);
+        console.log(`Action: checkStatus (dbType=${dbType}, stage=${stage})`);
+        console.log(`========================================`);
+
+        try {
+            const checkDbStateUseCase = new CheckDatabaseStateUseCase({ prismaRunner });
+            const status = await checkDbStateUseCase.execute(dbType, stage);
+
+            console.log('✓ Database state check completed');
+            console.log(`  Up to date: ${status.upToDate}`);
+            console.log(`  Pending migrations: ${status.pendingMigrations}`);
+
+            return {
+                statusCode: 200,
+                body: status,
+            };
+        } catch (error) {
+            console.error('❌ Database state check failed:', error.message);
+            return {
+                statusCode: 500,
+                body: {
+                    success: false,
+                    error: sanitizeError(error.message),
+                    upToDate: false,
+                },
+            };
+        }
+    }
+
+    // Otherwise, handle migration (existing code)
+    console.log(`\n========================================`);
+    console.log(`Action: migrate (migrationId=${migrationId || 'new'})`);
+    console.log(`========================================`);
 
     // Get environment variables
     const databaseUrl = process.env.DATABASE_URL;

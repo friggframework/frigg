@@ -90,7 +90,7 @@ class VpcBuilder extends InfrastructureBuilder {
         if (appDefinition.vpc?.subnets?.management) ignoredOptions.push('vpc.subnets.management');
         if (appDefinition.vpc?.natGateway?.management) ignoredOptions.push('vpc.natGateway.management');
         if (appDefinition.vpc?.shareAcrossStages !== undefined) ignoredOptions.push('vpc.shareAcrossStages');
-        
+
         if (ignoredOptions.length > 0) {
             console.log(`  ⚠️  managementMode='managed' ignoring: ${ignoredOptions.join(', ')}`);
         }
@@ -134,13 +134,13 @@ class VpcBuilder extends InfrastructureBuilder {
         if (globalMode === 'managed') {
             // Warn about ignored granular options
             this.warnIgnoredOptions(appDefinition);
-            
+
             // Clear granular options to prevent conflicts
             delete appDefinition.vpc.management;
             if (appDefinition.vpc.subnets) delete appDefinition.vpc.subnets.management;
             if (appDefinition.vpc.natGateway) delete appDefinition.vpc.natGateway.management;
             delete appDefinition.vpc.shareAcrossStages;
-            
+
             // Set management based on isolation strategy
             if (vpcIsolation === 'isolated') {
                 management = 'create-new';
@@ -158,7 +158,7 @@ class VpcBuilder extends InfrastructureBuilder {
             // Legacy shareAcrossStages support (backwards compatibility)
             management = appDefinition.vpc.shareAcrossStages ? 'discover' : 'create-new';
             console.log(`  VPC Sharing: ${appDefinition.vpc.shareAcrossStages ? 'shared' : 'isolated'} (translated to ${management})`);
-            
+
             if (!appDefinition.vpc.shareAcrossStages && !appDefinition.vpc.natGateway?.management) {
                 appDefinition.vpc.natGateway = appDefinition.vpc.natGateway || {};
                 appDefinition.vpc.natGateway.management = 'createAndManage';
@@ -167,7 +167,7 @@ class VpcBuilder extends InfrastructureBuilder {
         } else {
             management = management || 'discover';
         }
-        
+
         console.log(`  VPC Management Mode: ${management}`);
 
         // Handle self-healing if enabled
@@ -611,7 +611,7 @@ class VpcBuilder extends InfrastructureBuilder {
         } else {
             // Find available CIDRs for existing VPC by checking existing subnets
             const existingCidrs = new Set();
-            
+
             // Collect all existing subnet CIDRs
             if (discoveredResources?.subnets) {
                 for (const subnet of discoveredResources.subnets) {
@@ -620,9 +620,9 @@ class VpcBuilder extends InfrastructureBuilder {
                     }
                 }
             }
-            
+
             console.log(`    Found ${existingCidrs.size} existing subnet CIDRs in VPC`);
-            
+
             // Generate candidates in the default VPC range (172.31.0.0/16)
             // Private subnets: 240-249, Public subnets: 250-255
             const findAvailableCidr = (startOctet, endOctet) => {
@@ -636,19 +636,19 @@ class VpcBuilder extends InfrastructureBuilder {
                 // Fallback if range exhausted
                 return `172.31.${startOctet}.0/24`;
             };
-            
+
             const privateRange = { start: 240, end: 249 };
             const publicRange = { start: 250, end: 255 };
-            
+
             const cidrs = {
                 private1: findAvailableCidr(privateRange.start, privateRange.end),
                 private2: findAvailableCidr(privateRange.start, privateRange.end),
                 public1: findAvailableCidr(publicRange.start, publicRange.end),
                 public2: findAvailableCidr(publicRange.start, publicRange.end),
             };
-            
+
             console.log(`    Using available CIDRs: ${Object.values(cidrs).join(', ')}`);
-            
+
             return cidrs;
         }
     }
