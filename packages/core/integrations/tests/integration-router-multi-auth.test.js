@@ -2,6 +2,7 @@ const { AuthenticateUser } = require('../../user/use-cases/authenticate-user');
 const { GetUserFromBearerToken } = require('../../user/use-cases/get-user-from-bearer-token');
 const { GetUserFromXFriggHeaders } = require('../../user/use-cases/get-user-from-x-frigg-headers');
 const { GetUserFromAdopterJwt } = require('../../user/use-cases/get-user-from-adopter-jwt');
+const { GetUserFromSharedSecret } = require('../../user/use-cases/get-user-from-shared-secret');
 const { User } = require('../../user/user');
 const Boom = require('@hapi/boom');
 
@@ -10,13 +11,14 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
     let mockGetUserFromBearerToken;
     let mockGetUserFromXFriggHeaders;
     let mockGetUserFromAdopterJwt;
+    let mockGetUserFromSharedSecret;
     let mockUserConfig;
     let mockUser;
 
     beforeEach(() => {
         mockUser = new User(
-            { id: 'user-123', username: 'testuser' },
-            null,
+            { id: 'user-123', username: 'testuser', appUserId: 'app-user-123' },
+            { id: 'org-123', appOrgId: 'app-org-456' },
             false,
             'individual',
             true,
@@ -35,10 +37,14 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
             execute: jest.fn().mockResolvedValue(mockUser),
         };
 
+        mockGetUserFromSharedSecret = {
+            execute: jest.fn().mockResolvedValue(mockUser),
+        };
+
         mockUserConfig = {
             authModes: {
                 friggToken: true,
-                xFriggHeaders: true,
+                sharedSecret: false,
                 adopterJwt: false,
             },
         };
@@ -47,14 +53,20 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
             getUserFromBearerToken: mockGetUserFromBearerToken,
             getUserFromXFriggHeaders: mockGetUserFromXFriggHeaders,
             getUserFromAdopterJwt: mockGetUserFromAdopterJwt,
+            getUserFromSharedSecret: mockGetUserFromSharedSecret,
             userConfig: mockUserConfig,
         });
     });
 
-    describe('Priority 1: X-Frigg Headers (Backend-to-Backend)', () => {
-        it('should authenticate with x-frigg-appUserId header', async () => {
+    describe('Priority 1: Shared Secret (Backend-to-Backend with API Key)', () => {
+        beforeEach(() => {
+            mockUserConfig.authModes.sharedSecret = true;
+        });
+
+        it('should authenticate with x-frigg-api-key and appUserId', async () => {
             const mockReq = {
                 headers: {
+                    'x-frigg-api-key': 'secret-key',
                     'x-frigg-appuserid': 'app-user-123',
                 },
             };
@@ -62,16 +74,18 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
             const result = await authenticateUser.execute(mockReq);
 
             expect(result).toBe(mockUser);
-            expect(mockGetUserFromXFriggHeaders.execute).toHaveBeenCalledWith(
+            expect(mockGetUserFromSharedSecret.execute).toHaveBeenCalledWith(
+                'secret-key',
                 'app-user-123',
                 undefined
             );
             expect(mockGetUserFromBearerToken.execute).not.toHaveBeenCalled();
         });
 
-        it('should authenticate with x-frigg-appOrgId header', async () => {
+        it('should authenticate with x-frigg-api-key and appOrgId', async () => {
             const mockReq = {
                 headers: {
+                    'x-frigg-api-key': 'secret-key',
                     'x-frigg-apporgid': 'app-org-456',
                 },
             };
@@ -79,16 +93,17 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
             const result = await authenticateUser.execute(mockReq);
 
             expect(result).toBe(mockUser);
-            expect(mockGetUserFromXFriggHeaders.execute).toHaveBeenCalledWith(
+            expect(mockGetUserFromSharedSecret.execute).toHaveBeenCalledWith(
+                'secret-key',
                 undefined,
                 'app-org-456'
             );
-            expect(mockGetUserFromBearerToken.execute).not.toHaveBeenCalled();
         });
 
-        it('should authenticate with both x-frigg headers when they match', async () => {
+        it('should authenticate with x-frigg-api-key and both user IDs', async () => {
             const mockReq = {
                 headers: {
+                    'x-frigg-api-key': 'secret-key',
                     'x-frigg-appuserid': 'app-user-123',
                     'x-frigg-apporgid': 'app-org-456',
                 },
@@ -97,44 +112,46 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
             const result = await authenticateUser.execute(mockReq);
 
             expect(result).toBe(mockUser);
-            expect(mockGetUserFromXFriggHeaders.execute).toHaveBeenCalledWith(
+            expect(mockGetUserFromSharedSecret.execute).toHaveBeenCalledWith(
+                'secret-key',
                 'app-user-123',
                 'app-org-456'
             );
         });
 
-        it('should reject conflicting x-frigg headers (delegated to use case)', async () => {
-            const mockReq = {
-                headers: {
-                    'x-frigg-appuserid': 'app-user-123',
-                    'x-frigg-apporgid': 'app-org-999',
-                },
-            };
-
-            const conflictError = Boom.badRequest('User ID mismatch');
-            mockGetUserFromXFriggHeaders.execute.mockRejectedValue(conflictError);
-
-            await expect(authenticateUser.execute(mockReq)).rejects.toThrow(
-                conflictError
-            );
-        });
-
-        it('should skip x-frigg headers when authModes.xFriggHeaders is false', async () => {
-            mockUserConfig.authModes.xFriggHeaders = false;
+        it('should skip shared secret when authModes.sharedSecret is false', async () => {
+            mockUserConfig.authModes.sharedSecret = false;
 
             const mockReq = {
                 headers: {
+                    'x-frigg-api-key': 'secret-key',
                     'x-frigg-appuserid': 'app-user-123',
-                    authorization: 'Bearer frigg-token-xyz',
+                    authorization: 'Bearer token',
                 },
             };
 
             await authenticateUser.execute(mockReq);
 
-            expect(mockGetUserFromXFriggHeaders.execute).not.toHaveBeenCalled();
-            expect(mockGetUserFromBearerToken.execute).toHaveBeenCalledWith(
-                'Bearer frigg-token-xyz'
-            );
+            expect(mockGetUserFromSharedSecret.execute).not.toHaveBeenCalled();
+            expect(mockGetUserFromBearerToken.execute).toHaveBeenCalled();
+        });
+
+        it('should prioritize shared secret over JWT and Frigg token', async () => {
+            mockUserConfig.authModes.adopterJwt = true;
+
+            const mockReq = {
+                headers: {
+                    'x-frigg-api-key': 'secret-key',
+                    'x-frigg-appuserid': 'app-user-123',
+                    authorization: 'Bearer jwt.part.here',
+                },
+            };
+
+            await authenticateUser.execute(mockReq);
+
+            expect(mockGetUserFromSharedSecret.execute).toHaveBeenCalled();
+            expect(mockGetUserFromAdopterJwt.execute).not.toHaveBeenCalled();
+            expect(mockGetUserFromBearerToken.execute).not.toHaveBeenCalled();
         });
     });
 
@@ -173,6 +190,48 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
             );
         });
 
+        it('should validate x-frigg headers match JWT user when both present', async () => {
+            const mockReq = {
+                headers: {
+                    authorization: 'Bearer eyJhbGci.eyJzdWIi.signature',
+                    'x-frigg-appuserid': 'app-user-123',
+                },
+            };
+
+            await authenticateUser.execute(mockReq);
+
+            expect(mockGetUserFromAdopterJwt.execute).toHaveBeenCalledWith(
+                'eyJhbGci.eyJzdWIi.signature'
+            );
+            // Validation happens after JWT auth succeeds
+        });
+
+        it('should throw forbidden when x-frigg-appuserid does not match JWT user', async () => {
+            const mockReq = {
+                headers: {
+                    authorization: 'Bearer eyJhbGci.eyJzdWIi.signature',
+                    'x-frigg-appuserid': 'different-user',
+                },
+            };
+
+            await expect(authenticateUser.execute(mockReq)).rejects.toThrow(
+                Boom.forbidden('x-frigg-appuserid header does not match authenticated user')
+            );
+        });
+
+        it('should throw forbidden when x-frigg-apporgid does not match JWT user', async () => {
+            const mockReq = {
+                headers: {
+                    authorization: 'Bearer eyJhbGci.eyJzdWIi.signature',
+                    'x-frigg-apporgid': 'different-org',
+                },
+            };
+
+            await expect(authenticateUser.execute(mockReq)).rejects.toThrow(
+                Boom.forbidden('x-frigg-apporgid header does not match authenticated user')
+            );
+        });
+
         it('should not try JWT when authModes.adopterJwt is false', async () => {
             mockUserConfig.authModes.adopterJwt = false;
 
@@ -192,7 +251,7 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
     });
 
     describe('Priority 3: Frigg Native Token (Fallback)', () => {
-        it('should fall back to Frigg token when no x-frigg headers', async () => {
+        it('should fall back to Frigg token when no other auth present', async () => {
             const mockReq = {
                 headers: {
                     authorization: 'Bearer frigg-token-123',
@@ -205,7 +264,49 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
             expect(mockGetUserFromBearerToken.execute).toHaveBeenCalledWith(
                 'Bearer frigg-token-123'
             );
-            expect(mockGetUserFromXFriggHeaders.execute).not.toHaveBeenCalled();
+            expect(mockGetUserFromSharedSecret.execute).not.toHaveBeenCalled();
+        });
+
+        it('should validate x-frigg headers match Frigg token user when both present', async () => {
+            const mockReq = {
+                headers: {
+                    authorization: 'Bearer frigg-token-123',
+                    'x-frigg-appuserid': 'app-user-123',
+                },
+            };
+
+            await authenticateUser.execute(mockReq);
+
+            expect(mockGetUserFromBearerToken.execute).toHaveBeenCalledWith(
+                'Bearer frigg-token-123'
+            );
+            // Validation happens after token auth succeeds
+        });
+
+        it('should throw forbidden when x-frigg-appuserid does not match Frigg token user', async () => {
+            const mockReq = {
+                headers: {
+                    authorization: 'Bearer frigg-token-123',
+                    'x-frigg-appuserid': 'different-user',
+                },
+            };
+
+            await expect(authenticateUser.execute(mockReq)).rejects.toThrow(
+                Boom.forbidden('x-frigg-appuserid header does not match authenticated user')
+            );
+        });
+
+        it('should throw forbidden when x-frigg-apporgid does not match Frigg token user', async () => {
+            const mockReq = {
+                headers: {
+                    authorization: 'Bearer frigg-token-123',
+                    'x-frigg-apporgid': 'different-org',
+                },
+            };
+
+            await expect(authenticateUser.execute(mockReq)).rejects.toThrow(
+                Boom.forbidden('x-frigg-apporgid header does not match authenticated user')
+            );
         });
 
         it('should skip Frigg token when authModes.friggToken is false', async () => {
@@ -226,20 +327,22 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
     });
 
     describe('Priority Ordering', () => {
-        it('should prioritize x-frigg headers over bearer token', async () => {
+        it('should prioritize shared secret over JWT over Frigg token', async () => {
+            mockUserConfig.authModes.sharedSecret = true;
+            mockUserConfig.authModes.adopterJwt = true;
+
             const mockReq = {
                 headers: {
+                    'x-frigg-api-key': 'secret-key',
                     'x-frigg-appuserid': 'app-user-123',
-                    authorization: 'Bearer frigg-token-xyz',
+                    authorization: 'Bearer jwt.token.here',
                 },
             };
 
             await authenticateUser.execute(mockReq);
 
-            expect(mockGetUserFromXFriggHeaders.execute).toHaveBeenCalledWith(
-                'app-user-123',
-                undefined
-            );
+            expect(mockGetUserFromSharedSecret.execute).toHaveBeenCalled();
+            expect(mockGetUserFromAdopterJwt.execute).not.toHaveBeenCalled();
             expect(mockGetUserFromBearerToken.execute).not.toHaveBeenCalled();
         });
 
@@ -259,14 +362,30 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
             );
             expect(mockGetUserFromBearerToken.execute).not.toHaveBeenCalled();
         });
+
+        it('should fall back to Frigg token when shared secret not present', async () => {
+            mockUserConfig.authModes.sharedSecret = true;
+
+            const mockReq = {
+                headers: {
+                    authorization: 'Bearer frigg-token',
+                },
+            };
+
+            await authenticateUser.execute(mockReq);
+
+            expect(mockGetUserFromSharedSecret.execute).not.toHaveBeenCalled();
+            expect(mockGetUserFromBearerToken.execute).toHaveBeenCalled();
+        });
     });
 
     describe('Auth Mode Configuration', () => {
-        it('should use default friggToken mode when authModes not configured', () => {
+        it('should use default friggToken mode when authModes not configured', async () => {
             const authWithDefaults = new AuthenticateUser({
                 getUserFromBearerToken: mockGetUserFromBearerToken,
                 getUserFromXFriggHeaders: mockGetUserFromXFriggHeaders,
                 getUserFromAdopterJwt: mockGetUserFromAdopterJwt,
+                getUserFromSharedSecret: mockGetUserFromSharedSecret,
                 userConfig: {}, // No authModes
             });
 
@@ -276,7 +395,7 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
                 },
             };
 
-            authWithDefaults.execute(mockReq);
+            await authWithDefaults.execute(mockReq);
 
             expect(mockGetUserFromBearerToken.execute).toHaveBeenCalled();
         });
@@ -298,7 +417,7 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
         it('should throw unauthorized when all auth modes disabled', async () => {
             mockUserConfig.authModes = {
                 friggToken: false,
-                xFriggHeaders: false,
+                sharedSecret: false,
                 adopterJwt: false,
             };
 
@@ -314,16 +433,68 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
         });
     });
 
-    describe('Error Handling', () => {
-        it('should propagate authentication errors from x-frigg headers', async () => {
+    describe('Validation Logic', () => {
+        it('should allow x-frigg headers without additional validation for shared secret', async () => {
+            mockUserConfig.authModes.sharedSecret = true;
+
             const mockReq = {
                 headers: {
-                    'x-frigg-appuserid': 'invalid-user',
+                    'x-frigg-api-key': 'secret-key',
+                    'x-frigg-appuserid': 'any-user',
                 },
             };
 
-            const customError = Boom.badRequest('Invalid user ID');
-            mockGetUserFromXFriggHeaders.execute.mockRejectedValue(customError);
+            await authenticateUser.execute(mockReq);
+
+            // Shared secret doesn't validate - it just uses the headers
+            expect(mockGetUserFromSharedSecret.execute).toHaveBeenCalled();
+        });
+
+        it('should validate when both JWT and x-frigg headers present', async () => {
+            mockUserConfig.authModes.adopterJwt = true;
+
+            const mockReq = {
+                headers: {
+                    authorization: 'Bearer jwt.token.here',
+                    'x-frigg-appuserid': 'app-user-123',
+                    'x-frigg-apporgid': 'app-org-456',
+                },
+            };
+
+            await authenticateUser.execute(mockReq);
+
+            // Both should match
+            expect(mockGetUserFromAdopterJwt.execute).toHaveBeenCalled();
+        });
+
+        it('should pass validation when x-frigg headers match authenticated user', async () => {
+            const mockReq = {
+                headers: {
+                    authorization: 'Bearer frigg-token',
+                    'x-frigg-appuserid': 'app-user-123',
+                    'x-frigg-apporgid': 'app-org-456',
+                },
+            };
+
+            const result = await authenticateUser.execute(mockReq);
+
+            expect(result).toBe(mockUser);
+        });
+    });
+
+    describe('Error Handling', () => {
+        it('should propagate authentication errors from shared secret', async () => {
+            mockUserConfig.authModes.sharedSecret = true;
+
+            const mockReq = {
+                headers: {
+                    'x-frigg-api-key': 'wrong-key',
+                    'x-frigg-appuserid': 'user-123',
+                },
+            };
+
+            const customError = Boom.unauthorized('Invalid API key');
+            mockGetUserFromSharedSecret.execute.mockRejectedValue(customError);
 
             await expect(authenticateUser.execute(mockReq)).rejects.toThrow(
                 customError
@@ -365,5 +536,3 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
         });
     });
 });
-
-

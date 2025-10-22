@@ -61,13 +61,13 @@ const getDatabaseStateUseCase = new GetDatabaseStateViaWorkerUseCase({
  * Matches pattern from health.js:72-88
  */
 const validateApiKey = (req, res, next) => {
-    const apiKey = req.headers['x-api-key'];
+    const apiKey = req.headers['x-frigg-admin-api-key'];
 
     if (!apiKey || apiKey !== process.env.ADMIN_API_KEY) {
         console.error('Unauthorized access attempt to db-migrate endpoint');
         return res.status(401).json({
             status: 'error',
-            message: 'Unauthorized',
+            message: 'Unauthorized - x-frigg-admin-api-key header required',
         });
     }
 

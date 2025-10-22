@@ -113,6 +113,11 @@ class MigrationBuilder extends InfrastructureBuilder {
         // Package configuration for migration WORKER (needs Prisma CLI with WASM)
         const migrationWorkerPackageConfig = {
             individually: true,
+            include: [
+                // Explicitly include Prisma CLI and WASM files (needed for migrate commands)
+                'node_modules/prisma/**',
+                'node_modules/.bin/prisma',
+            ],
             exclude: [
                 // Exclude Prisma runtime client - it's in the Lambda Layer
                 'node_modules/@prisma/client/**',

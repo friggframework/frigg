@@ -70,7 +70,7 @@ const checkIntegrationsHealthUseCase = new CheckIntegrationsHealthUseCase({
 });
 
 const validateApiKey = (req, res, next) => {
-    const apiKey = req.headers['x-api-key'];
+    const apiKey = req.headers['x-frigg-health-api-key'];
 
     if (req.path === '/health') {
         return next();
@@ -80,7 +80,7 @@ const validateApiKey = (req, res, next) => {
         console.error('Unauthorized access attempt to health endpoint');
         return res.status(401).json({
             status: 'error',
-            message: 'Unauthorized',
+            message: 'Unauthorized - x-frigg-health-api-key header required',
         });
     }
 

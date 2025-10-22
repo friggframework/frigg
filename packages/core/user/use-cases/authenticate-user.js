@@ -2,8 +2,15 @@ const Boom = require('@hapi/boom');
 
 /**
  * Use case for authenticating a user using multiple authentication strategies.
- * Supports Frigg native tokens, x-frigg headers, and adopter JWT (when implemented).
- * Tries authentication methods in priority order based on userConfig.authModes.
+ * 
+ * Supports three authentication modes in priority order:
+ * 1. Shared Secret (backend-to-backend with x-frigg-api-key + x-frigg headers)
+ * 2. Adopter JWT (custom JWT authentication)
+ * 3. Frigg Native Token (bearer token from /user/login)
+ * 
+ * x-frigg-appUserId and x-frigg-appOrgId headers are automatically supported
+ * for user identification with any auth mode. When present with JWT or Frigg
+ * tokens, they are validated to match the authenticated user.
  *
  * @class AuthenticateUser
  */
@@ -14,17 +21,20 @@ class AuthenticateUser {
      * @param {import('./get-user-from-bearer-token').GetUserFromBearerToken} params.getUserFromBearerToken - Use case for bearer token auth.
      * @param {import('./get-user-from-x-frigg-headers').GetUserFromXFriggHeaders} params.getUserFromXFriggHeaders - Use case for x-frigg header auth.
      * @param {import('./get-user-from-adopter-jwt').GetUserFromAdopterJwt} params.getUserFromAdopterJwt - Use case for adopter JWT auth.
+     * @param {import('./get-user-from-shared-secret').GetUserFromSharedSecret} params.getUserFromSharedSecret - Use case for shared secret auth.
      * @param {Object} params.userConfig - The user config in the app definition.
      */
     constructor({
         getUserFromBearerToken,
         getUserFromXFriggHeaders,
         getUserFromAdopterJwt,
+        getUserFromSharedSecret,
         userConfig,
     }) {
         this.getUserFromBearerToken = getUserFromBearerToken;
         this.getUserFromXFriggHeaders = getUserFromXFriggHeaders;
         this.getUserFromAdopterJwt = getUserFromAdopterJwt;
+        this.getUserFromSharedSecret = getUserFromSharedSecret;
         this.userConfig = userConfig;
     }
 
@@ -34,17 +44,20 @@ class AuthenticateUser {
      * @param {Object} req - Express request object with headers.
      * @returns {Promise<import('../user').User>} The authenticated user object.
      * @throws {Boom} Unauthorized if no valid authentication provided.
+     * @throws {Boom} Forbidden if x-frigg headers don't match authenticated user.
      */
     async execute(req) {
         const authModes = this.userConfig.authModes || { friggToken: true };
+        const appUserId = req.headers['x-frigg-appuserid'];
+        const appOrgId = req.headers['x-frigg-apporgid'];
+        let user = null;
 
-        // Priority 1: x-frigg headers (backend-to-backend)
-        if (authModes.xFriggHeaders !== false) {
-            const appUserId = req.headers['x-frigg-appuserid'];
-            const appOrgId = req.headers['x-frigg-apporgid'];
-
-            if (appUserId || appOrgId) {
-                return await this.getUserFromXFriggHeaders.execute(
+        // Priority 1: Shared Secret (backend-to-backend with API key)
+        if (authModes.sharedSecret !== false) {
+            const apiKey = req.headers['x-frigg-api-key'];
+            if (apiKey) {
+                return await this.getUserFromSharedSecret.execute(
+                    apiKey,
                     appUserId,
                     appOrgId
                 );
@@ -59,18 +72,51 @@ class AuthenticateUser {
             const token = req.headers.authorization.split(' ')[1];
             // Detect JWT format (3 parts separated by dots)
             if (token && token.split('.').length === 3) {
-                return await this.getUserFromAdopterJwt.execute(token);
+                user = await this.getUserFromAdopterJwt.execute(token);
+                // Validate x-frigg headers match JWT claims if present
+                if (appUserId || appOrgId) {
+                    this.validateUserMatch(user, appUserId, appOrgId);
+                }
+                return user;
             }
         }
 
         // Priority 3: Frigg native token (default)
-        if (authModes.friggToken !== false) {
-            return await this.getUserFromBearerToken.execute(
+        if (authModes.friggToken !== false && req.headers.authorization) {
+            user = await this.getUserFromBearerToken.execute(
                 req.headers.authorization
             );
+            // Validate x-frigg headers match token user if present
+            if (appUserId || appOrgId) {
+                this.validateUserMatch(user, appUserId, appOrgId);
+            }
+            return user;
         }
 
         throw Boom.unauthorized('No valid authentication provided');
+    }
+
+    /**
+     * Validates that x-frigg headers match authenticated user if provided.
+     * This ensures that when both authentication (via token/JWT) and
+     * x-frigg headers are present, they refer to the same user.
+     *
+     * @param {import('../user').User} user - The authenticated user
+     * @param {string} [appUserId] - The x-frigg-appuserid header value
+     * @param {string} [appOrgId] - The x-frigg-apporgid header value
+     * @throws {Boom} 403 Forbidden if headers don't match user
+     */
+    validateUserMatch(user, appUserId, appOrgId) {
+        if (appUserId && user.getAppUserId() !== appUserId) {
+            throw Boom.forbidden(
+                'x-frigg-appuserid header does not match authenticated user'
+            );
+        }
+        if (appOrgId && user.getAppOrgId() !== appOrgId) {
+            throw Boom.forbidden(
+                'x-frigg-apporgid header does not match authenticated user'
+            );
+        }
     }
 }
 

@@ -63,6 +63,9 @@ const {
     GetUserFromAdopterJwt,
 } = require('../user/use-cases/get-user-from-adopter-jwt');
 const {
+    GetUserFromSharedSecret,
+} = require('../user/use-cases/get-user-from-shared-secret');
+const {
     AuthenticateUser,
 } = require('../user/use-cases/authenticate-user');
 const {
@@ -92,10 +95,16 @@ function createIntegrationRouter() {
         userConfig,
     });
 
+    const getUserFromSharedSecret = new GetUserFromSharedSecret({
+        userRepository,
+        userConfig,
+    });
+
     const authenticateUser = new AuthenticateUser({
         getUserFromBearerToken,
         getUserFromXFriggHeaders,
         getUserFromAdopterJwt,
+        getUserFromSharedSecret,
         userConfig,
     });
 

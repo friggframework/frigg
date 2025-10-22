@@ -79,21 +79,21 @@
         },
         "authModes": {
           "type": "object",
-          "description": "Authentication mode configuration - enables multiple authentication strategies",
+          "description": "Authentication mode configuration - enables multiple authentication strategies. x-frigg-appUserId and x-frigg-appOrgId headers are automatically supported for user identification with any auth mode.",
           "properties": {
             "friggToken": {
               "type": "boolean",
               "description": "Enable Frigg native bearer token authentication (from /user/login)",
               "default": true
             },
-            "xFriggHeaders": {
+            "sharedSecret": {
               "type": "boolean",
-              "description": "Enable backend-to-backend authentication using x-frigg-appUserId and x-frigg-appOrgId headers",
+              "description": "Enable shared secret authentication for backend-to-backend communication (requires FRIGG_API_KEY env var and x-frigg-api-key header)",
               "default": false
             },
             "adopterJwt": {
               "type": "boolean",
-              "description": "Enable custom JWT authentication from adopter's auth system (NOT YET IMPLEMENTED)",
+              "description": "Enable custom JWT authentication from adopter's auth system (requires jwtConfig)",
               "default": false
             }
           },
