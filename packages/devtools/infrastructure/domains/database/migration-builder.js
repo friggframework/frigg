@@ -367,10 +367,13 @@ class MigrationBuilder extends InfrastructureBuilder {
 
         // Add IAM permission for router to invoke worker Lambda
         // Router invokes worker for database state checks (keeps router lightweight)
+        // Use Fn::Sub to avoid circular dependency (IAM role → Lambda → IAM role)
         result.iamStatements.push({
             Effect: 'Allow',
             Action: ['lambda:InvokeFunction'],
-            Resource: { 'Fn::GetAtt': ['DbMigrationWorkerLambdaFunction', 'Arn'] },
+            Resource: {
+                'Fn::Sub': 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${AWS::StackName}-dbMigrationWorker',
+            },
         });
 
         console.log('  ✓ Added Lambda invocation permissions for router → worker');

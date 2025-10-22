@@ -6,6 +6,32 @@ const { logger } = require('./encryption/logger');
 const { Cryptor } = require('../encrypt/Cryptor');
 const config = require('./config');
 
+/**
+ * Ensures DATABASE_URL is set for MongoDB connections
+ * Falls back to MONGO_URI if DATABASE_URL is not set
+ * Infrastructure layer concern - maps legacy MONGO_URI to Prisma's expected DATABASE_URL
+ * 
+ * Note: This should only be called when DB_TYPE is 'mongodb'
+ */
+function ensureMongoDbUrl() {
+    // If DATABASE_URL is already set, use it
+    if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim()) {
+        return;
+    }
+
+    // Fallback to MONGO_URI for backwards compatibility with DocumentDB deployments
+    if (process.env.MONGO_URI && process.env.MONGO_URI.trim()) {
+        process.env.DATABASE_URL = process.env.MONGO_URI;
+        logger.debug('Using MONGO_URI as DATABASE_URL for MongoDB connection');
+        return;
+    }
+
+    // Neither is set - error
+    throw new Error(
+        'DATABASE_URL or MONGO_URI environment variable must be set for MongoDB'
+    );
+}
+
 function getEncryptionConfig() {
     const STAGE = process.env.STAGE || process.env.NODE_ENV || 'development';
     const shouldBypassEncryption = ['dev', 'test', 'local'].includes(STAGE);
@@ -99,6 +125,8 @@ const prismaClientSingleton = () => {
     };
 
     if (config.DB_TYPE === 'mongodb') {
+        // Ensure DATABASE_URL is set (fallback to MONGO_URI if needed)
+        ensureMongoDbUrl();
         PrismaClient = loadPrismaClient('mongodb');
     } else if (config.DB_TYPE === 'postgresql') {
         PrismaClient = loadPrismaClient('postgresql');
@@ -181,4 +209,5 @@ module.exports = {
     connectPrisma,
     disconnectPrisma,
     getEncryptionConfig,
+    ensureMongoDbUrl, // Exported for testing
 };
