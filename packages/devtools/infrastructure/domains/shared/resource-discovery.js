@@ -96,8 +96,14 @@ async function gatherDiscoveredResources(appDefinition) {
             console.log('  ℹ Isolated mode: discovering KMS (shareable) but not VPC/Aurora (isolated)');
 
             // Still run KMS discovery - encryption keys are safe to share
+            // Pass serviceName and stage to search for stage-specific alias
             const kmsDiscovery = new KmsDiscovery(provider);
-            const kmsResult = await kmsDiscovery.discover();
+            const kmsConfig = {
+                serviceName: appDefinition.name || 'create-frigg-app',
+                stage,
+                keyAlias: `alias/${appDefinition.name || 'create-frigg-app'}-${stage}-frigg-kms`,
+            };
+            const kmsResult = await kmsDiscovery.discover(kmsConfig);
 
             if (kmsResult?.defaultKmsKeyId) {
                 console.log('  ✓ Found shared KMS key (can be reused across stages)');
@@ -105,7 +111,7 @@ async function gatherDiscoveredResources(appDefinition) {
                 return kmsResult;
             }
 
-            console.log('  ℹ No existing resources found - will create fresh infrastructure');
+            console.log('  ℹ No existing KMS key found - will create new one');
             console.log('✅ Cloud resource discovery completed successfully!');
             return {};
         }
