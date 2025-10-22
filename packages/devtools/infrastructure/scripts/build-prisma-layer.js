@@ -61,8 +61,9 @@ function findCorePackage(startDir) {
 function getGeneratedClientPackages(databaseConfig = {}) {
     const packages = [];
 
-    // Check if MongoDB is enabled
-    const mongoEnabled = databaseConfig?.mongodb?.enable === true;
+    // Check if MongoDB is enabled (via mongoDB or documentDB config)
+    const mongoEnabled = databaseConfig?.mongoDB?.enable === true || 
+                         databaseConfig?.documentDB?.enable === true;
     if (mongoEnabled) {
         packages.push('generated/prisma-mongodb');
         log('Including MongoDB client (based on AppDefinition)', 'blue');
@@ -544,4 +545,4 @@ if (require.main === module) {
         .catch(() => process.exit(1));
 }
 
-module.exports = { buildPrismaLayer };
+module.exports = { buildPrismaLayer, getGeneratedClientPackages };
