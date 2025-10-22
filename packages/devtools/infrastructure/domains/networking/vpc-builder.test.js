@@ -837,19 +837,24 @@ describe('VpcBuilder', () => {
     });
 
     describe('Management Mode (Simplified API)', () => {
-        it('should use managementMode=managed with vpcIsolation=isolated to create new VPC', async () => {
+        it('should reuse stack VPC when managementMode=managed + vpcIsolation=isolated AND stack has VPC', async () => {
             const appDefinition = {
                 managementMode: 'managed',
                 vpcIsolation: 'isolated',
                 vpc: {
                     enable: true,
-                    management: 'discover',  // Should be IGNORED
+                    management: 'create-new',  // Should be IGNORED
                 },
             };
 
+            // CloudFormation stack has VPC (from previous deployment of this stage)
             const discoveredResources = {
-                defaultVpcId: 'vpc-existing',
-                natGatewayId: 'nat-existing',
+                vpcId: 'vpc-stack-dev',  // String = from stack (not default VPC)
+                defaultVpcId: 'vpc-stack-dev',  // Also set for discover mode
+                privateSubnetId1: 'subnet-private-1',
+                privateSubnetId2: 'subnet-private-2',
+                publicSubnetId1: 'subnet-public-1',
+                publicSubnetId2: 'subnet-public-2',
             };
 
             const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
@@ -860,8 +865,52 @@ describe('VpcBuilder', () => {
             expect(consoleLogSpy).toHaveBeenCalledWith(
                 expect.stringContaining("managementMode='managed' ignoring")
             );
+
+            // Should log reusing stack VPC
             expect(consoleLogSpy).toHaveBeenCalledWith(
-                expect.stringContaining("vpc.management")
+                expect.stringContaining("stack has VPC, reusing")
+            );
+
+            // Should REUSE stack VPC (not create new)
+            expect(result.vpcId).toBe('vpc-stack-dev');
+            expect(result.resources.FriggVPC).toBeUndefined();
+
+            // Should REUSE stack subnets
+            expect(result.vpcConfig.subnetIds).toEqual([
+                'subnet-private-1',
+                'subnet-private-2'
+            ]);
+
+            consoleLogSpy.mockRestore();
+        });
+
+        it('should create new VPC when managementMode=managed + vpcIsolation=isolated AND stack has NO VPC', async () => {
+            const appDefinition = {
+                managementMode: 'managed',
+                vpcIsolation: 'isolated',
+                vpc: {
+                    enable: true,
+                    management: 'discover',  // Should be IGNORED
+                },
+            };
+
+            // No VPC in CloudFormation stack (fresh deployment)
+            const discoveredResources = {
+                defaultVpcId: 'vpc-default',  // Only default VPC exists (not from stack)
+            };
+
+            const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+
+            const result = await vpcBuilder.build(appDefinition, discoveredResources);
+
+            // Should warn about ignored options
+            expect(consoleLogSpy).toHaveBeenCalledWith(
+                expect.stringContaining("managementMode='managed' ignoring")
+            );
+
+            // Should log creating new VPC
+            expect(consoleLogSpy).toHaveBeenCalledWith(
+                expect.stringContaining("no stack VPC, creating new")
             );
 
             // Should create new isolated VPC

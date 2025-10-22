@@ -750,7 +750,53 @@ describe('AuroraBuilder', () => {
     });
 
     describe('Top-Level Management Mode', () => {
-        it('should use managementMode=managed with vpcIsolation=isolated to create new Aurora', async () => {
+        it('should reuse stack Aurora when managementMode=managed + vpcIsolation=isolated AND stack has Aurora', async () => {
+            const appDefinition = {
+                managementMode: 'managed',
+                vpcIsolation: 'isolated',
+                database: {
+                    postgres: {
+                        enable: true,
+                        management: 'managed',  // Should be IGNORED
+                        minCapacity: 0.5,
+                        maxCapacity: 1,
+                    },
+                },
+            };
+
+            // CloudFormation stack has Aurora (from previous deployment of this stage)
+            const discoveredResources = {
+                auroraEndpoint: 'stack-cluster-dev.us-east-1.rds.amazonaws.com',  // String = from stack
+                auroraClusterEndpoint: 'stack-cluster-dev.us-east-1.rds.amazonaws.com',  // Also set for discover mode
+                auroraPort: 5432,
+                auroraClusterPort: 5432,
+                auroraClusterIdentifier: 'stack-cluster-dev',
+                privateSubnetId1: 'subnet-1',
+                privateSubnetId2: 'subnet-2',
+            };
+
+            const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+
+            const result = await auroraBuilder.build(appDefinition, discoveredResources);
+
+            // Should warn about ignored options
+            expect(consoleLogSpy).toHaveBeenCalledWith(
+                expect.stringContaining("managementMode='managed' ignoring")
+            );
+
+            // Should log reusing stack Aurora
+            expect(consoleLogSpy).toHaveBeenCalledWith(
+                expect.stringContaining("stack has Aurora, reusing")
+            );
+
+            // Should REUSE stack Aurora (not create new)
+            expect(result.resources.FriggAuroraCluster).toBeUndefined();
+            expect(result.environment.DATABASE_URL).toBeDefined();
+
+            consoleLogSpy.mockRestore();
+        });
+
+        it('should create new Aurora when managementMode=managed + vpcIsolation=isolated AND stack has NO Aurora', async () => {
             const appDefinition = {
                 managementMode: 'managed',
                 vpcIsolation: 'isolated',
@@ -764,10 +810,11 @@ describe('AuroraBuilder', () => {
                 },
             };
 
+            // No Aurora in CloudFormation stack (fresh deployment)
             const discoveredResources = {
-                auroraClusterEndpoint: 'existing-cluster.us-east-1.rds.amazonaws.com',
                 privateSubnetId1: 'subnet-1',
                 privateSubnetId2: 'subnet-2',
+                // No auroraEndpoint
             };
 
             const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
@@ -777,6 +824,11 @@ describe('AuroraBuilder', () => {
             // Should warn about ignored options
             expect(consoleLogSpy).toHaveBeenCalledWith(
                 expect.stringContaining("managementMode='managed' ignoring")
+            );
+
+            // Should log creating new Aurora
+            expect(consoleLogSpy).toHaveBeenCalledWith(
+                expect.stringContaining("no stack Aurora, creating new")
             );
 
             // Should create new Aurora cluster (isolated mode)

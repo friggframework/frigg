@@ -141,12 +141,24 @@ class VpcBuilder extends InfrastructureBuilder {
             if (appDefinition.vpc.natGateway) delete appDefinition.vpc.natGateway.management;
             delete appDefinition.vpc.shareAcrossStages;
 
-            // Set management based on isolation strategy
+            // Set management based on isolation strategy AND existing stack resources
             if (vpcIsolation === 'isolated') {
-                management = 'create-new';
-                appDefinition.vpc.natGateway = appDefinition.vpc.natGateway || {};
-                appDefinition.vpc.natGateway.management = 'createAndManage';
-                console.log(`  managementMode='managed' + vpcIsolation='isolated' → creating new VPC`);
+                // Check if CloudFormation stack already has a VPC (stage-specific)
+                // Only string IDs mean resources are from stack (not CloudFormation refs)
+                const hasStackVpc = discoveredResources?.vpcId && typeof discoveredResources.vpcId === 'string';
+                
+                if (hasStackVpc) {
+                    // Stack has VPC - reuse it (standard flow: stack → orphaned → create)
+                    management = 'discover';
+                    appDefinition.vpc.selfHeal = true;
+                    console.log(`  managementMode='managed' + vpcIsolation='isolated' → stack has VPC, reusing`);
+                } else {
+                    // No stack VPC - create new isolated VPC for this stage
+                    management = 'create-new';
+                    appDefinition.vpc.natGateway = appDefinition.vpc.natGateway || {};
+                    appDefinition.vpc.natGateway.management = 'createAndManage';
+                    console.log(`  managementMode='managed' + vpcIsolation='isolated' → no stack VPC, creating new`);
+                }
             } else {
                 management = 'discover';
                 appDefinition.vpc.selfHeal = true;

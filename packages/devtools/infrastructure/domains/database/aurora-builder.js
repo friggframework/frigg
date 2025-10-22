@@ -99,10 +99,23 @@ class AuroraBuilder extends InfrastructureBuilder {
             // Clear granular option to prevent conflicts
             delete appDefinition.database.postgres.management;
 
-            // Set management based on isolation strategy
+            // Set management based on isolation strategy AND existing stack resources
             if (vpcIsolation === 'isolated') {
-                management = 'managed';  // New VPC = new Aurora
-                console.log(`  managementMode='managed' + vpcIsolation='isolated' → creating new Aurora`);
+                // Check if CloudFormation stack already has Aurora (stage-specific)
+                // Only string endpoints mean resources are from stack (not CloudFormation refs)
+                const hasStackAurora = discoveredResources?.auroraEndpoint && 
+                                     typeof discoveredResources.auroraEndpoint === 'string';
+                
+                if (hasStackAurora) {
+                    // Stack has Aurora - reuse it (standard flow: stack → orphaned → create)
+                    management = 'discover';
+                    appDefinition.database.postgres.autoCreateCredentials = true;
+                    console.log(`  managementMode='managed' + vpcIsolation='isolated' → stack has Aurora, reusing`);
+                } else {
+                    // No stack Aurora - create new isolated Aurora for this stage
+                    management = 'managed';
+                    console.log(`  managementMode='managed' + vpcIsolation='isolated' → no stack Aurora, creating new`);
+                }
             } else {
                 management = 'discover';  // Shared VPC = reuse Aurora
                 appDefinition.database.postgres.autoCreateCredentials = true;
