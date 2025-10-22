@@ -490,6 +490,40 @@ describe('Resource Discovery', () => {
             // Should call AWS API discovery (shared mode finds resources across stages)
             expect(mockVpcDiscovery.discover).toHaveBeenCalled();
         });
+
+        it('should search for specific KMS alias in isolated mode to find orphaned keys', async () => {
+            const appDefinition = {
+                name: 'quo-integrations',
+                managementMode: 'managed',
+                vpcIsolation: 'isolated',
+                encryption: { fieldLevelEncryptionMethod: 'kms' },
+            };
+
+            process.env.SLS_STAGE = 'dev';
+
+            // Mock KMS discovery finding key via alias search
+            mockKmsDiscovery.discover.mockResolvedValue({
+                defaultKmsKeyId: 'arn:aws:kms:us-east-1:123:key/found-via-alias',
+                kmsKeyAlias: 'alias/quo-integrations-dev-frigg-kms',
+            });
+
+            const result = await gatherDiscoveredResources(appDefinition);
+
+            // Should pass keyAlias to discover orphaned KMS keys
+            expect(mockKmsDiscovery.discover).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    serviceName: 'quo-integrations',
+                    stage: 'dev',
+                    keyAlias: 'alias/quo-integrations-dev-frigg-kms',
+                })
+            );
+
+            // Should return discovered KMS key (even if orphaned from stack)
+            expect(result).toEqual({
+                defaultKmsKeyId: 'arn:aws:kms:us-east-1:123:key/found-via-alias',
+                kmsKeyAlias: 'alias/quo-integrations-dev-frigg-kms',
+            });
+        });
     });
 });
 
