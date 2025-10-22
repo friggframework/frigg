@@ -427,7 +427,7 @@ describe('Resource Discovery', () => {
             };
 
             process.env.SLS_STAGE = 'dev';
-            
+
             // Mock KMS discovery returning a shared key
             mockKmsDiscovery.discover.mockResolvedValue({
                 defaultKmsKeyId: 'shared-kms-key-123',
@@ -462,7 +462,7 @@ describe('Resource Discovery', () => {
             };
 
             process.env.SLS_STAGE = 'dev';
-            
+
             // Mock KMS discovery finding nothing
             mockKmsDiscovery.discover.mockResolvedValue({});
 

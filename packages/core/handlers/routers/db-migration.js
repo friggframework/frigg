@@ -4,6 +4,7 @@
  * HTTP API for triggering and monitoring database migrations.
  *
  * Endpoints:
+ * - GET /db-migrate/status - Check if migrations are pending
  * - POST /db-migrate - Trigger async migration (queues job)
  * - GET /db-migrate/:processId - Check migration status
  *
@@ -27,6 +28,11 @@ const {
     ValidationError: GetValidationError,
     NotFoundError,
 } = require('../../database/use-cases/get-migration-status-use-case');
+const {
+    CheckMigrationStatusUseCase,
+    ValidationError: CheckValidationError,
+} = require('../../database/use-cases/check-migration-status-use-case');
+const prismaRunner = require('../../database/utils/prisma-runner');
 
 const router = Router();
 
@@ -40,6 +46,7 @@ const triggerMigrationUseCase = new TriggerDatabaseMigrationUseCase({
     // Note: QueuerUtil is used directly in the use case (static utility)
 });
 const getStatusUseCase = new GetMigrationStatusUseCase({ migrationStatusRepository });
+const checkMigrationStatusUseCase = new CheckMigrationStatusUseCase({ prismaRunner });
 
 /**
  * Admin API key validation middleware
@@ -106,6 +113,51 @@ router.post(
         } catch (error) {
             // Handle validation errors (400 Bad Request)
             if (error instanceof TriggerValidationError) {
+                return res.status(400).json({
+                    success: false,
+                    error: error.message,
+                });
+            }
+
+            // Re-throw other errors for global error handler
+            throw error;
+        }
+    })
+);
+
+/**
+ * GET /db-migrate/status
+ *
+ * Check if database has pending migrations
+ * 
+ * Query params:
+ * - stage: string (optional, defaults to STAGE env var or 'production')
+ *
+ * Response (200 OK):
+ * {
+ *   upToDate: boolean,
+ *   pendingMigrations: number,
+ *   dbType: 'postgresql',
+ *   stage: string,
+ *   recommendation?: string (if migrations pending),
+ *   error?: string (if database check failed)
+ * }
+ */
+router.get(
+    '/db-migrate/status',
+    catchAsyncError(async (req, res) => {
+        const stage = req.query.stage || process.env.STAGE || 'production';
+        const dbType = process.env.DB_TYPE || 'postgresql'; // Hardcoded for PostgreSQL migrations
+
+        console.log(`Checking migration status: dbType=${dbType}, stage=${stage}`);
+
+        try {
+            const status = await checkMigrationStatusUseCase.execute(dbType, stage);
+
+            res.status(200).json(status);
+        } catch (error) {
+            // Handle validation errors (400 Bad Request)
+            if (error instanceof CheckValidationError) {
                 return res.status(400).json({
                     success: false,
                     error: error.message,

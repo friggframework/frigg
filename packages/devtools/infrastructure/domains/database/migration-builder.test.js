@@ -165,6 +165,9 @@ describe('MigrationBuilder', () => {
             );
             expect(result.functions.dbMigrationRouter.timeout).toBe(30);
             expect(result.functions.dbMigrationRouter.events).toContainEqual({
+                httpApi: { path: '/db-migrate/status', method: 'GET' },
+            });
+            expect(result.functions.dbMigrationRouter.events).toContainEqual({
                 httpApi: { path: '/db-migrate', method: 'POST' },
             });
             expect(result.functions.dbMigrationRouter.events).toContainEqual({

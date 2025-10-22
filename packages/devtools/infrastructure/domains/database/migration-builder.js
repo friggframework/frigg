@@ -288,6 +288,7 @@ class MigrationBuilder extends InfrastructureBuilder {
                 // Note: Serverless will merge this with provider.environment
             },
             events: [
+                { httpApi: { path: '/db-migrate/status', method: 'GET' } },
                 { httpApi: { path: '/db-migrate', method: 'POST' } },
                 { httpApi: { path: '/db-migrate/{processId}', method: 'GET' } },
             ],
