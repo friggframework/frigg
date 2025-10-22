@@ -118,9 +118,16 @@ async function checkDatabaseState(dbType) {
         }
 
         const schemaPath = getPrismaSchemaPath(dbType);
+        const prismaBin = getPrismaBinaryPath();
+
+        // Use direct path instead of npx to avoid WASM file resolution issues
+        const isDirectBinary = prismaBin !== 'npx prisma';
+        const command = isDirectBinary
+            ? `${prismaBin} migrate status --schema=${schemaPath}`
+            : `npx prisma migrate status --schema=${schemaPath}`;
 
         const output = execSync(
-            `npx prisma migrate status --schema=${schemaPath}`,
+            command,
             {
                 encoding: 'utf8',
                 stdio: 'pipe',

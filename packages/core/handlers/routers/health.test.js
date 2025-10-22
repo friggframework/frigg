@@ -63,7 +63,7 @@ describe('Health Check Endpoints', () => {
             const req = mockRequest('/health');
             const res = mockResponse();
 
-            const routeHandler = router.stack.find(layer => 
+            const routeHandler = router.stack.find(layer =>
                 layer.route && layer.route.path === '/health'
             ).route.stack[0].handle;
 
@@ -89,12 +89,12 @@ describe('Health Check Endpoints', () => {
                 { name: 'npm', status: 'healthy', reachable: true, statusCode: 200, responseTime: 150 }
             ]);
 
-            const routeHandler = router.stack.find(layer => 
+            const routeHandler = router.stack.find(layer =>
                 layer.route && layer.route.path === '/health/detailed'
             ).route.stack[0].handle;
 
             await routeHandler(req, res);
-            
+
             Promise.all = originalPromiseAll;
 
             expect(res.status).toHaveBeenCalledWith(200);
@@ -133,12 +133,12 @@ describe('Health Check Endpoints', () => {
                 { name: 'npm', status: 'healthy', reachable: true, statusCode: 200, responseTime: 150 }
             ]);
 
-            const routeHandler = router.stack.find(layer => 
+            const routeHandler = router.stack.find(layer =>
                 layer.route && layer.route.path === '/health/detailed'
             ).route.stack[0].handle;
 
             await routeHandler(req, res);
-            
+
             Promise.all = originalPromiseAll;
 
             expect(res.status).toHaveBeenCalledWith(503);
@@ -153,7 +153,7 @@ describe('Health Check Endpoints', () => {
             const req = mockRequest('/health/live', { 'x-frigg-health-api-key': 'test-api-key' });
             const res = mockResponse();
 
-            const routeHandler = router.stack.find(layer => 
+            const routeHandler = router.stack.find(layer =>
                 layer.route && layer.route.path === '/health/live'
             ).route.stack[0].handle;
 
@@ -172,7 +172,7 @@ describe('Health Check Endpoints', () => {
             const req = mockRequest('/health/ready', { 'x-frigg-health-api-key': 'test-api-key' });
             const res = mockResponse();
 
-            const routeHandler = router.stack.find(layer => 
+            const routeHandler = router.stack.find(layer =>
                 layer.route && layer.route.path === '/health/ready'
             ).route.stack[0].handle;
 
@@ -195,7 +195,7 @@ describe('Health Check Endpoints', () => {
             const req = mockRequest('/health/ready', { 'x-frigg-health-api-key': 'test-api-key' });
             const res = mockResponse();
 
-            const routeHandler = router.stack.find(layer => 
+            const routeHandler = router.stack.find(layer =>
                 layer.route && layer.route.path === '/health/ready'
             ).route.stack[0].handle;
 

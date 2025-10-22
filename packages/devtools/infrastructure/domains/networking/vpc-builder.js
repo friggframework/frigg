@@ -435,21 +435,21 @@ class VpcBuilder extends InfrastructureBuilder {
         // - create-new mode: create
         // - discover mode without stack subnets: create (for stage isolation)
         let defaultSubnetManagement = 'create';
-        
+
         // Check if stack-managed subnets were discovered from CloudFormation
         // Only reuse if they're actual subnet IDs (strings), not CloudFormation Refs (objects)
-        const hasStackManagedSubnets = 
-            discoveredResources?.privateSubnetId1 && 
+        const hasStackManagedSubnets =
+            discoveredResources?.privateSubnetId1 &&
             discoveredResources?.privateSubnetId2 &&
             typeof discoveredResources.privateSubnetId1 === 'string' &&
             typeof discoveredResources.privateSubnetId2 === 'string';
-            
+
         if (hasStackManagedSubnets) {
             defaultSubnetManagement = 'discover';
         } else if (vpcManagement === 'use-existing' && appDefinition.vpc.subnets?.ids?.length >= 2) {
             defaultSubnetManagement = 'use-existing';
         }
-        
+
         const subnetManagement = appDefinition.vpc.subnets?.management || defaultSubnetManagement;
 
         console.log(`  Subnet Management Mode: ${subnetManagement} (default: ${defaultSubnetManagement}, explicit: ${appDefinition.vpc.subnets?.management})`);

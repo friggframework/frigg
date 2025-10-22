@@ -21,20 +21,20 @@ class AuthenticateUser {
      * @param {import('./get-user-from-bearer-token').GetUserFromBearerToken} params.getUserFromBearerToken - Use case for bearer token auth.
      * @param {import('./get-user-from-x-frigg-headers').GetUserFromXFriggHeaders} params.getUserFromXFriggHeaders - Use case for x-frigg header auth.
      * @param {import('./get-user-from-adopter-jwt').GetUserFromAdopterJwt} params.getUserFromAdopterJwt - Use case for adopter JWT auth.
-     * @param {import('./get-user-from-shared-secret').GetUserFromSharedSecret} params.getUserFromSharedSecret - Use case for shared secret auth.
+     * @param {import('./authenticate-with-shared-secret').AuthenticateWithSharedSecret} params.authenticateWithSharedSecret - Use case for validating shared secret.
      * @param {Object} params.userConfig - The user config in the app definition.
      */
     constructor({
         getUserFromBearerToken,
         getUserFromXFriggHeaders,
         getUserFromAdopterJwt,
-        getUserFromSharedSecret,
+        authenticateWithSharedSecret,
         userConfig,
     }) {
         this.getUserFromBearerToken = getUserFromBearerToken;
         this.getUserFromXFriggHeaders = getUserFromXFriggHeaders;
         this.getUserFromAdopterJwt = getUserFromAdopterJwt;
-        this.getUserFromSharedSecret = getUserFromSharedSecret;
+        this.authenticateWithSharedSecret = authenticateWithSharedSecret;
         this.userConfig = userConfig;
     }
 
@@ -56,8 +56,10 @@ class AuthenticateUser {
         if (authModes.sharedSecret !== false) {
             const apiKey = req.headers['x-frigg-api-key'];
             if (apiKey) {
-                return await this.getUserFromSharedSecret.execute(
-                    apiKey,
+                // Validate the API key (authentication)
+                await this.authenticateWithSharedSecret.execute(apiKey);
+                // Get user from x-frigg headers (authorization)
+                return await this.getUserFromXFriggHeaders.execute(
                     appUserId,
                     appOrgId
                 );
