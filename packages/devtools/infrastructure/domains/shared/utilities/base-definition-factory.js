@@ -34,6 +34,11 @@ function createBaseDefinition(
     // Package config for handlers that skip esbuild (need node_modules dependencies)
     // Include backend src/ and index.js since handlers load the app definition
     const skipEsbuildPackageConfig = {
+        // Explicitly include project files that handlers need
+        include: [
+            // Include security folder if DocumentDB TLS is configured
+            ...(AppDefinition.database?.documentDB?.enable ? ['security/**'] : []),
+        ],
         exclude: [
             // Exclude Prisma (provided via Lambda Layer)
             'node_modules/@prisma/**',
