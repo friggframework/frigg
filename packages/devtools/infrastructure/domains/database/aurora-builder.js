@@ -88,6 +88,10 @@ class AuroraBuilder extends InfrastructureBuilder {
         const globalMode = appDefinition.managementMode || 'discover';
         const vpcIsolation = appDefinition.vpcIsolation || 'shared';
 
+        // Debug logging
+        console.log(`  🔍 DEBUG: Aurora globalMode = '${globalMode}', vpcIsolation = '${vpcIsolation}'`);
+        console.log(`  🔍 DEBUG: Aurora discoveredResources.auroraClusterId = ${discoveredResources?.auroraClusterId}`);
+
         let management = dbConfig.management;
 
         if (globalMode === 'managed') {
@@ -105,6 +109,8 @@ class AuroraBuilder extends InfrastructureBuilder {
                 // CloudFormation discovery sets 'auroraClusterId' (string) when found in stack
                 const hasStackAurora = discoveredResources?.auroraClusterId &&
                     typeof discoveredResources.auroraClusterId === 'string';
+
+                console.log(`  🔍 DEBUG: Aurora hasStackAurora = ${hasStackAurora}`);
 
                 if (hasStackAurora) {
                     // Stack has Aurora - reuse it (standard flow: stack → orphaned → create)

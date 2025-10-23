@@ -137,9 +137,38 @@ class CloudFormationDiscovery {
                 }
             }
 
-            // Aurora cluster
+            // Aurora cluster - query AWS to get endpoint details
             if (LogicalResourceId === 'FriggAuroraCluster' && ResourceType === 'AWS::RDS::DBCluster') {
                 discovered.auroraClusterId = PhysicalResourceId;
+                console.log(`  ✓ Found Aurora cluster in stack: ${PhysicalResourceId}`);
+                
+                // Query RDS to get cluster endpoint
+                if (this.provider && !discovered.auroraClusterEndpoint) {
+                    try {
+                        console.log(`  Querying RDS to get Aurora endpoint...`);
+                        const { DescribeDBClustersCommand } = require('@aws-sdk/client-rds');
+                        const { RDSClient } = require('@aws-sdk/client-rds');
+                        
+                        const rdsClient = new RDSClient({ region: this.provider.region });
+                        const clusterDetails = await rdsClient.send(
+                            new DescribeDBClustersCommand({
+                                DBClusterIdentifier: PhysicalResourceId
+                            })
+                        );
+                        
+                        if (clusterDetails.DBClusters && clusterDetails.DBClusters.length > 0) {
+                            const cluster = clusterDetails.DBClusters[0];
+                            discovered.auroraClusterEndpoint = cluster.Endpoint;
+                            discovered.auroraClusterPort = cluster.Port;
+                            discovered.auroraClusterIdentifier = cluster.DBClusterIdentifier;
+                            console.log(`  ✓ Extracted Aurora endpoint: ${cluster.Endpoint}:${cluster.Port}`);
+                        } else {
+                            console.warn(`  ⚠️  RDS cluster query returned no results`);
+                        }
+                    } catch (error) {
+                        console.warn(`  ⚠️  Could not get endpoint from Aurora cluster: ${error.message}`);
+                    }
+                }
             }
 
             // Migration status bucket
