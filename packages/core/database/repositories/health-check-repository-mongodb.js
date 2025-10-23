@@ -38,6 +38,9 @@ class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface {
     }
 
     async createCredential(credentialData) {
+        // Note: Collection existence is ensured at application startup via
+        // initializeMongoDBSchema() in database/utils/mongodb-schema-init.js
+        // This prevents "Cannot create namespace in multi-document transaction" errors
         return await prisma.credential.create({
             data: credentialData,
         });
