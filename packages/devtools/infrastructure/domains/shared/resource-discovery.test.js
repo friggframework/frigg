@@ -392,6 +392,29 @@ describe('Resource Discovery', () => {
             );
         });
 
+        it('should read stage from SLS_STAGE environment variable for CLI integration', async () => {
+            // This test documents the contract between frigg CLI and discovery
+            // The CLI sets SLS_STAGE environment variable when user passes --stage flag
+            process.env.SLS_STAGE = 'qa';
+
+            const appDefinition = {
+                name: 'quo-integrations',
+                vpc: { enable: true },
+            };
+
+            await gatherDiscoveredResources(appDefinition);
+
+            // Verify stage is read from SLS_STAGE
+            expect(mockVpcDiscovery.discover).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    serviceName: 'quo-integrations',
+                    stage: 'qa',
+                })
+            );
+
+            delete process.env.SLS_STAGE;
+        });
+
         it('should include secrets in SSM discovery by default', async () => {
             const appDefinition = {
                 ssm: { enable: true },

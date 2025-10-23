@@ -157,6 +157,34 @@ describe('CLI Command: build', () => {
       delete process.env.TEST_VAR;
     });
 
+    it('should set SLS_STAGE environment variable to match stage option', async () => {
+      await buildCommand({ stage: 'qa' });
+
+      const call = spawnSync.mock.calls[0];
+      const options = call[2];
+
+      // Verify SLS_STAGE is set for discovery to use
+      expect(options.env.SLS_STAGE).toBe('qa');
+    });
+
+    it('should set SLS_STAGE for production stage', async () => {
+      await buildCommand({ stage: 'production' });
+
+      const call = spawnSync.mock.calls[0];
+      const options = call[2];
+
+      expect(options.env.SLS_STAGE).toBe('production');
+    });
+
+    it('should set SLS_STAGE for dev stage', async () => {
+      await buildCommand({ stage: 'dev' });
+
+      const call = spawnSync.mock.calls[0];
+      const options = call[2];
+
+      expect(options.env.SLS_STAGE).toBe('dev');
+    });
+
     it('should use infrastructure.js as config file', async () => {
       await buildCommand({ stage: 'dev' });
 
