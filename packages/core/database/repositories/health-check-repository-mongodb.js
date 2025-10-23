@@ -3,6 +3,9 @@ const { mongoose } = require('../mongoose');
 const {
     HealthCheckRepositoryInterface,
 } = require('./health-check-repository-interface');
+const {
+    ensureCollectionExists,
+} = require('../utils/mongodb-collection-utils');
 
 /**
  * MongoDB-specific Health Check Repository
@@ -38,6 +41,11 @@ class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface {
     }
 
     async createCredential(credentialData) {
+        // Ensure collection exists before creating document
+        // This prevents "Cannot create namespace in multi-document transaction" error
+        // See: https://github.com/prisma/prisma/issues/8305
+        await ensureCollectionExists('Credential');
+
         return await prisma.credential.create({
             data: credentialData,
         });
