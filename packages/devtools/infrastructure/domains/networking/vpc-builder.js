@@ -131,7 +131,8 @@ class VpcBuilder extends InfrastructureBuilder {
 
         // Debug logging
         console.log(`  🔍 DEBUG: globalMode = '${globalMode}', vpcIsolation = '${vpcIsolation}'`);
-        console.log(`  🔍 DEBUG: discoveredResources =`, JSON.stringify(discoveredResources, null, 2));
+        console.log(`  🔍 DEBUG: discoveredResources.defaultVpcId = ${discoveredResources?.defaultVpcId}`);
+        console.log(`  🔍 DEBUG: discoveredResources keys = ${Object.keys(discoveredResources || {}).join(', ')}`);
 
         let management = appDefinition.vpc.management;
 
