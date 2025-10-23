@@ -307,6 +307,98 @@ describe('CloudFormationDiscovery', () => {
 
             expect(result).toEqual({});
         });
+
+        it('should query EC2 for subnets when VPC found but no subnet resources in stack', async () => {
+            const mockStack = {
+                StackName: 'test-stack',
+                Outputs: [],
+            };
+
+            const mockResources = [
+                {
+                    LogicalResourceId: 'FriggLambdaSecurityGroup',
+                    PhysicalResourceId: 'sg-123',
+                    ResourceType: 'AWS::EC2::SecurityGroup',
+                },
+            ];
+
+            const mockEC2Client = {
+                send: jest.fn(),
+            };
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+            mockProvider.getEC2Client = jest.fn().mockReturnValue(mockEC2Client);
+
+            // Mock security group query for VPC ID
+            mockEC2Client.send.mockResolvedValueOnce({
+                SecurityGroups: [{ VpcId: 'vpc-123' }],
+            });
+
+            // Mock subnet query
+            mockEC2Client.send.mockResolvedValueOnce({
+                Subnets: [
+                    {
+                        SubnetId: 'subnet-private-1',
+                        MapPublicIpOnLaunch: false,
+                        Tags: [
+                            { Key: 'ManagedBy', Value: 'Frigg' },
+                            { Key: 'aws:cloudformation:logical-id', Value: 'FriggPrivateSubnet1' },
+                        ],
+                    },
+                    {
+                        SubnetId: 'subnet-private-2',
+                        MapPublicIpOnLaunch: false,
+                        Tags: [
+                            { Key: 'ManagedBy', Value: 'Frigg' },
+                            { Key: 'aws:cloudformation:logical-id', Value: 'FriggPrivateSubnet2' },
+                        ],
+                    },
+                ],
+            });
+
+            const result = await cfDiscovery.discoverFromStack('test-stack');
+
+            expect(result.privateSubnetId1).toBe('subnet-private-1');
+            expect(result.privateSubnetId2).toBe('subnet-private-2');
+            expect(mockEC2Client.send).toHaveBeenCalledTimes(2);
+        });
+
+        it('should handle EC2 subnet query errors gracefully', async () => {
+            const mockStack = {
+                StackName: 'test-stack',
+                Outputs: [],
+            };
+
+            const mockResources = [
+                {
+                    LogicalResourceId: 'FriggLambdaSecurityGroup',
+                    PhysicalResourceId: 'sg-123',
+                    ResourceType: 'AWS::EC2::SecurityGroup',
+                },
+            ];
+
+            const mockEC2Client = {
+                send: jest.fn(),
+            };
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+            mockProvider.getEC2Client = jest.fn().mockReturnValue(mockEC2Client);
+
+            // Mock security group query for VPC ID
+            mockEC2Client.send.mockResolvedValueOnce({
+                SecurityGroups: [{ VpcId: 'vpc-123' }],
+            });
+
+            // Mock subnet query failure
+            mockEC2Client.send.mockRejectedValueOnce(new Error('EC2 API Error'));
+
+            const result = await cfDiscovery.discoverFromStack('test-stack');
+
+            expect(result.defaultVpcId).toBe('vpc-123');
+            expect(result.privateSubnetId1).toBeUndefined();
+        });
     });
 });
 

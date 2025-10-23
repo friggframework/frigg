@@ -108,8 +108,14 @@ class CloudFormationDiscovery {
      * @param {Object} discovered - Object to populate with discovered resources
      */
     async _extractFromResources(resources, discovered) {
+        console.log(`  DEBUG: Processing ${resources.length} CloudFormation resources...`);
         for (const resource of resources) {
             const { LogicalResourceId, PhysicalResourceId, ResourceType } = resource;
+
+            // Debug Aurora detection
+            if (LogicalResourceId.includes('Aurora')) {
+                console.log(`  DEBUG: Found Aurora resource: ${LogicalResourceId} (${ResourceType})`);
+            }
 
             // Security Group - use to get VPC ID
             if (LogicalResourceId === 'FriggLambdaSecurityGroup' && ResourceType === 'AWS::EC2::SecurityGroup') {
@@ -141,21 +147,21 @@ class CloudFormationDiscovery {
             if (LogicalResourceId === 'FriggAuroraCluster' && ResourceType === 'AWS::RDS::DBCluster') {
                 discovered.auroraClusterId = PhysicalResourceId;
                 console.log(`  ✓ Found Aurora cluster in stack: ${PhysicalResourceId}`);
-                
+
                 // Query RDS to get cluster endpoint
                 if (this.provider && !discovered.auroraClusterEndpoint) {
                     try {
                         console.log(`  Querying RDS to get Aurora endpoint...`);
                         const { DescribeDBClustersCommand } = require('@aws-sdk/client-rds');
                         const { RDSClient } = require('@aws-sdk/client-rds');
-                        
+
                         const rdsClient = new RDSClient({ region: this.provider.region });
                         const clusterDetails = await rdsClient.send(
                             new DescribeDBClustersCommand({
                                 DBClusterIdentifier: PhysicalResourceId
                             })
                         );
-                        
+
                         if (clusterDetails.DBClusters && clusterDetails.DBClusters.length > 0) {
                             const cluster = clusterDetails.DBClusters[0];
                             discovered.auroraClusterEndpoint = cluster.Endpoint;
@@ -233,6 +239,58 @@ class CloudFormationDiscovery {
             }
             if (LogicalResourceId === 'FriggSQSVPCEndpoint' && ResourceType === 'AWS::EC2::VPCEndpoint') {
                 discovered.sqsVpcEndpointId = PhysicalResourceId;
+            }
+        }
+
+        // If we have a VPC ID but no subnet IDs, query EC2 for Frigg-managed subnets
+        if (discovered.defaultVpcId && this.provider && 
+            !discovered.privateSubnetId1 && !discovered.publicSubnetId1) {
+            try {
+                console.log('  Querying EC2 for Frigg-managed subnets...');
+                const { DescribeSubnetsCommand } = require('@aws-sdk/client-ec2');
+                const subnetResponse = await this.provider.getEC2Client().send(
+                    new DescribeSubnetsCommand({
+                        Filters: [
+                            { Name: 'vpc-id', Values: [discovered.defaultVpcId] },
+                            { Name: 'tag:ManagedBy', Values: ['Frigg'] },
+                        ],
+                    })
+                );
+
+                if (subnetResponse.Subnets && subnetResponse.Subnets.length > 0) {
+                    // Extract subnet IDs by logical ID from tags
+                    const subnets = subnetResponse.Subnets.map(subnet => ({
+                        subnetId: subnet.SubnetId,
+                        logicalId: subnet.Tags?.find(t => t.Key === 'aws:cloudformation:logical-id')?.Value,
+                        isPublic: subnet.MapPublicIpOnLaunch,
+                    }));
+
+                    // Find private subnets
+                    const privateSubnets = subnets.filter(s => !s.isPublic).sort((a, b) => 
+                        a.logicalId?.localeCompare(b.logicalId) || 0
+                    );
+                    if (privateSubnets.length >= 1) {
+                        discovered.privateSubnetId1 = privateSubnets[0].subnetId;
+                    }
+                    if (privateSubnets.length >= 2) {
+                        discovered.privateSubnetId2 = privateSubnets[1].subnetId;
+                    }
+
+                    // Find public subnets
+                    const publicSubnets = subnets.filter(s => s.isPublic).sort((a, b) => 
+                        a.logicalId?.localeCompare(b.logicalId) || 0
+                    );
+                    if (publicSubnets.length >= 1) {
+                        discovered.publicSubnetId1 = publicSubnets[0].subnetId;
+                    }
+                    if (publicSubnets.length >= 2) {
+                        discovered.publicSubnetId2 = publicSubnets[1].subnetId;
+                    }
+
+                    console.log(`  ✓ Found ${subnets.length} Frigg-managed subnets via EC2 query`);
+                }
+            } catch (error) {
+                console.warn(`  ⚠️  Could not query EC2 for subnets: ${error.message}`);
             }
         }
     }
