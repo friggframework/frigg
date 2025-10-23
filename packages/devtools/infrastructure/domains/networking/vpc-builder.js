@@ -989,7 +989,7 @@ class VpcBuilder extends InfrastructureBuilder {
         }
 
         // VPC Endpoint Security Group (only if KMS, Secrets Manager, or SQS are not stack-managed and missing)
-        const needsSecurityGroup = 
+        const needsSecurityGroup =
             (!stackManagedEndpoints.kms && !existingEndpoints.kms && appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms') ||
             (!stackManagedEndpoints.secretsManager && !existingEndpoints.secretsManager) ||
             (!stackManagedEndpoints.sqs && !existingEndpoints.sqs);
