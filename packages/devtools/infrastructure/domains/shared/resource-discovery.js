@@ -85,19 +85,26 @@ async function gatherDiscoveredResources(appDefinition) {
         const hasAuroraData = stackResources?.auroraClusterId;
         const hasSomeUsefulData = hasVpcData || hasKmsData || hasAuroraData;
 
+        // Check if we're in isolated mode (each stage gets its own VPC/Aurora)
+        const isIsolatedMode = appDefinition.managementMode === 'managed' &&
+                               appDefinition.vpcIsolation === 'isolated';
+
         if (stackResources && hasSomeUsefulData) {
             console.log('  ✓ Discovered resources from existing CloudFormation stack');
             console.log('✅ Cloud resource discovery completed successfully!');
             return stackResources;
         }
 
-        // In isolated mode, ONLY use CloudFormation discovery for VPC/Aurora
-        // But still discover KMS (encryption keys can be safely shared across stages)
-        if (appDefinition.managementMode === 'managed' && appDefinition.vpcIsolation === 'isolated') {
-            console.log('  ℹ Isolated mode: discovering KMS (shareable) but not VPC/Aurora (isolated)');
+        // In isolated mode, NEVER fall back to AWS discovery for VPC/Aurora
+        // These resources must be isolated per stage, so we either:
+        // 1. Use resources from THIS stage's CloudFormation stack (handled above)
+        // 2. Return empty to CREATE fresh isolated resources for this stage
+        if (isIsolatedMode) {
+            console.log('  ℹ Isolated mode: No CloudFormation stack or no VPC/Aurora in stack');
+            console.log('  ℹ Will create fresh isolated VPC/Aurora for this stage');
+            console.log('  ℹ Checking for shared KMS key...');
 
-            // Still run KMS discovery - encryption keys are safe to share
-            // Pass serviceName and stage to search for stage-specific alias
+            // KMS keys CAN be shared across stages (encryption keys are safe to reuse)
             const kmsDiscovery = new KmsDiscovery(provider);
             const kmsConfig = {
                 serviceName: appDefinition.name || 'create-frigg-app',
@@ -108,12 +115,12 @@ async function gatherDiscoveredResources(appDefinition) {
 
             if (kmsResult?.defaultKmsKeyId) {
                 console.log('  ✓ Found shared KMS key (can be reused across stages)');
-                console.log('✅ Cloud resource discovery completed successfully!');
+                console.log('✅ Cloud resource discovery completed - will create isolated VPC/Aurora!');
                 return kmsResult;
             }
 
             console.log('  ℹ No existing KMS key found - will create new one');
-            console.log('✅ Cloud resource discovery completed successfully!');
+            console.log('✅ Cloud resource discovery completed - will create fresh isolated resources!');
             return {};
         }
 

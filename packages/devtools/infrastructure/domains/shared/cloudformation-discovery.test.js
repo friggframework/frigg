@@ -253,6 +253,30 @@ describe('CloudFormationDiscovery', () => {
             });
         });
 
+        it('should extract VPC directly from stack resources', async () => {
+            const mockStack = {
+                StackName: 'test-stack',
+                Outputs: [],
+            };
+
+            const mockResources = [
+                {
+                    LogicalResourceId: 'FriggVPC',
+                    PhysicalResourceId: 'vpc-037ec55fe87aec1e7',
+                    ResourceType: 'AWS::EC2::VPC',
+                },
+            ];
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+
+            const result = await cfDiscovery.discoverFromStack('test-stack');
+
+            expect(result).toEqual({
+                defaultVpcId: 'vpc-037ec55fe87aec1e7',
+            });
+        });
+
         it('should combine outputs and resources correctly', async () => {
             const mockStack = {
                 StackName: 'test-stack',

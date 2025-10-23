@@ -122,18 +122,21 @@ class CloudFormationDiscovery {
             if (LogicalResourceId === 'FriggLambdaSecurityGroup' && ResourceType === 'AWS::EC2::SecurityGroup') {
                 discovered.securityGroupId = PhysicalResourceId;
                 console.log(`  ✓ Found security group in stack: ${PhysicalResourceId}`);
-                // Query security group to get VPC ID
-                if (this.provider && !discovered.defaultVpcId) {
+
+                // Query security group to get VPC ID (required because SG resource doesn't include VPC ID)
+                if (this.provider && this.provider.getEC2Client && !discovered.defaultVpcId) {
                     try {
-                        console.log(`  Querying security group to get VPC ID...`);
+                        console.log(`  Querying EC2 to get VPC ID from security group...`);
                         const { DescribeSecurityGroupsCommand } = require('@aws-sdk/client-ec2');
-                        const sgDetails = await this.provider.getEC2Client().send(
+                        const ec2Client = this.provider.getEC2Client();
+                        const sgDetails = await ec2Client.send(
                             new DescribeSecurityGroupsCommand({
                                 GroupIds: [PhysicalResourceId]
                             })
                         );
+
                         if (sgDetails.SecurityGroups && sgDetails.SecurityGroups.length > 0) {
-                            discovered.defaultVpcId = sgDetails.SecurityGroups[0].VpcId; // VpcBuilder expects 'defaultVpcId'
+                            discovered.defaultVpcId = sgDetails.SecurityGroups[0].VpcId;
                             console.log(`  ✓ Extracted VPC ID from security group: ${discovered.defaultVpcId}`);
                         } else {
                             console.warn(`  ⚠️  Security group query returned no results`);
@@ -191,6 +194,12 @@ class CloudFormationDiscovery {
             // NAT Gateway
             if (LogicalResourceId === 'FriggNatGateway' && ResourceType === 'AWS::EC2::NatGateway') {
                 discovered.natGatewayId = PhysicalResourceId;
+            }
+
+            // VPC - direct extraction (primary method)
+            if (LogicalResourceId === 'FriggVPC' && ResourceType === 'AWS::EC2::VPC') {
+                discovered.defaultVpcId = PhysicalResourceId;
+                console.log(`  ✓ Found VPC in stack: ${PhysicalResourceId}`);
             }
 
             // KMS Key (alternative to output)
