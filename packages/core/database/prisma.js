@@ -201,6 +201,12 @@ async function disconnectPrisma() {
 
 async function connectPrisma() {
     await getPrismaClient().$connect();
+
+    // Initialize MongoDB schema - ensure all collections exist
+    // This prevents "Cannot create namespace in multi-document transaction" errors
+    const { initializeMongoDBSchema } = require('./utils/mongodb-schema-init');
+    await initializeMongoDBSchema();
+
     return getPrismaClient();
 }
 
