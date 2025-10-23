@@ -14,8 +14,10 @@
  */
 
 class CloudFormationDiscovery {
-    constructor(provider) {
+    constructor(provider, config = {}) {
         this.provider = provider;
+        this.serviceName = config.serviceName;
+        this.stage = config.stage;
     }
 
     /**
@@ -41,9 +43,8 @@ class CloudFormationDiscovery {
             }
 
             // Extract from resources (now async to query AWS for details)
-            if (resources && resources.length > 0) {
-                await this._extractFromResources(resources, discovered);
-            }
+            // Always call this even if resources is empty, as it may query AWS for resources
+            await this._extractFromResources(resources || [], discovered);
 
             return discovered;
         } catch (error) {
@@ -200,6 +201,30 @@ class CloudFormationDiscovery {
                 }
             }
 
+            // KMS Key Alias - query to get the actual key ARN
+            if (LogicalResourceId === 'FriggKMSKeyAlias' && ResourceType === 'AWS::KMS::Alias') {
+                discovered.kmsKeyAlias = PhysicalResourceId;
+                console.log(`  ✓ Found KMS key alias in stack: ${PhysicalResourceId}`);
+
+                // Query KMS to get the key ARN that this alias points to
+                // Always query even if key is already set, to ensure consistency
+                if (this.provider && this.provider.describeKmsKey) {
+                    try {
+                        console.log(`  Querying KMS to get key ARN from alias...`);
+                        const keyMetadata = await this.provider.describeKmsKey(PhysicalResourceId);
+
+                        if (keyMetadata) {
+                            discovered.defaultKmsKeyId = keyMetadata.Arn;
+                            console.log(`  ✓ Extracted KMS key ARN from alias: ${discovered.defaultKmsKeyId}`);
+                        } else {
+                            console.warn(`  ⚠️  KMS key query returned no metadata`);
+                        }
+                    } catch (error) {
+                        console.warn(`  ⚠️  Could not get key ARN from alias: ${error.message}`);
+                    }
+                }
+            }
+
             // Subnets
             if (LogicalResourceId === 'FriggPrivateSubnet1' && ResourceType === 'AWS::EC2::Subnet') {
                 discovered.privateSubnetId1 = PhysicalResourceId;
@@ -291,6 +316,27 @@ class CloudFormationDiscovery {
                 }
             } catch (error) {
                 console.warn(`  ⚠️  Could not query EC2 for subnets: ${error.message}`);
+            }
+        }
+
+        // Check for KMS key alias via AWS API if not found in stack resources
+        // This handles cases where the alias was created outside CloudFormation
+        if (!discovered.defaultKmsKeyId && !discovered.kmsKeyAlias &&
+            this.provider && this.provider.describeKmsKey && this.serviceName && this.stage) {
+            try {
+                const aliasName = `alias/${this.serviceName}-${this.stage}-frigg-kms`;
+                console.log(`  Querying KMS for alias: ${aliasName}...`);
+
+                const keyMetadata = await this.provider.describeKmsKey(aliasName);
+
+                if (keyMetadata) {
+                    discovered.defaultKmsKeyId = keyMetadata.Arn;
+                    discovered.kmsKeyAlias = aliasName;
+                    console.log(`  ✓ Found KMS key via alias query: ${discovered.defaultKmsKeyId}`);
+                }
+            } catch (error) {
+                // Alias not found - this is expected if no KMS key exists yet
+                console.log(`  ℹ No KMS key alias found via AWS API`);
             }
         }
     }
