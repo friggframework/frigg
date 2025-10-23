@@ -196,6 +196,12 @@ class CloudFormationDiscovery {
                 discovered.natGatewayId = PhysicalResourceId;
             }
 
+            // VPC - direct extraction (primary method)
+            if (LogicalResourceId === 'FriggVPC' && ResourceType === 'AWS::EC2::VPC') {
+                discovered.defaultVpcId = PhysicalResourceId;
+                console.log(`  ✓ Found VPC in stack: ${PhysicalResourceId}`);
+            }
+
             // KMS Key (alternative to output)
             if (LogicalResourceId === 'FriggKMSKey' && ResourceType === 'AWS::KMS::Key') {
                 // Note: For KMS, we prefer the ARN from outputs, but this is a fallback
