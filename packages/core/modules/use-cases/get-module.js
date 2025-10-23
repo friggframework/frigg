@@ -45,7 +45,6 @@ class GetModule {
             id: module.entity.id,
             name: module.entity.name,
             moduleName: module.entity.moduleName,
-            subType: module.entity.subType,
             credential: module.credential,
             externalId: module.entity.externalId,
             userId: module.entity.user.toString(),

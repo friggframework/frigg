@@ -90,7 +90,6 @@ model Credential {
   id          Int      @id @default(autoincrement())
   userId      Int?
   user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  subType     String?
   authIsValid Boolean?
   externalId  String?
 
@@ -113,7 +112,6 @@ model Entity {
   id           Int         @id @default(autoincrement())
   credentialId Int?
   credential   Credential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
-  subType      String?
   userId       Int?
   user         User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
   name         String?
