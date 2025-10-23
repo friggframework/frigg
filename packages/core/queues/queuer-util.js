@@ -5,6 +5,11 @@ const awsConfigOptions = () => {
     const config = {};
     if (process.env.IS_OFFLINE) {
         console.log('Running in offline mode');
+        config.credentials = {
+            accessKeyId: 'test-aws-key',
+            secretAccessKey: 'test-aws-secret',
+        };
+        config.region = 'us-east-1';
     }
     if (process.env.AWS_ENDPOINT) {
         config.endpoint = process.env.AWS_ENDPOINT;
