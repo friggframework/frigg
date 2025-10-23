@@ -5,7 +5,6 @@ declare module "@friggframework/module-plugin" {
   export class Credential extends Model {
     userId: string;
     authIsValid: boolean;
-    subType: string;
     externalId: string;
   }
 
@@ -13,7 +12,6 @@ declare module "@friggframework/module-plugin" {
 
   export class Entity extends Model {
     credentialId: string;
-    subType: string;
     userId: string;
     name: string;
     externalId: string;

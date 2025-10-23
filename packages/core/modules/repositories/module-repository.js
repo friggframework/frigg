@@ -13,7 +13,7 @@ const { ModuleRepositoryInterface } = require('./module-repository-interface');
  * Migration from Mongoose:
  * - Constructor injection of Prisma client
  * - populate('credential') → include: { credential: true }
- * - entity.__t (discriminator) → entity.subType
+ * - Mongoose discriminator (__t) → moduleName field (module type: salesforce, hubspot, etc.)
  * - _id → id conversion automatic in Prisma
  */
 class ModuleRepository extends ModuleRepositoryInterface {
@@ -47,7 +47,6 @@ class ModuleRepository extends ModuleRepositoryInterface {
             userId: entity.userId,
             name: entity.name,
             externalId: entity.externalId,
-            type: entity.subType,
             moduleName: entity.moduleName,
         };
     }
@@ -72,7 +71,6 @@ class ModuleRepository extends ModuleRepositoryInterface {
             userId: e.userId,
             name: e.name,
             externalId: e.externalId,
-            type: e.subType,
             moduleName: e.moduleName,
         }));
     }
@@ -97,7 +95,6 @@ class ModuleRepository extends ModuleRepositoryInterface {
             userId: e.userId,
             name: e.name,
             externalId: e.externalId,
-            type: e.subType,
             moduleName: e.moduleName,
         }));
     }
@@ -126,7 +123,6 @@ class ModuleRepository extends ModuleRepositoryInterface {
             userId: e.userId,
             name: e.name,
             externalId: e.externalId,
-            type: e.subType,
             moduleName: e.moduleName,
         }));
     }
@@ -172,7 +168,6 @@ class ModuleRepository extends ModuleRepositoryInterface {
             userId: entity.userId,
             name: entity.name,
             externalId: entity.externalId,
-            type: entity.subType,
             moduleName: entity.moduleName,
         };
     }
@@ -189,7 +184,6 @@ class ModuleRepository extends ModuleRepositoryInterface {
         const data = {
             userId: entityData.user || entityData.userId,
             credentialId: entityData.credential || entityData.credentialId,
-            subType: entityData.type || entityData.subType,
             name: entityData.name,
             moduleName: entityData.moduleName,
             externalId: entityData.externalId,
@@ -208,7 +202,6 @@ class ModuleRepository extends ModuleRepositoryInterface {
             userId: entity.userId,
             name: entity.name,
             externalId: entity.externalId,
-            type: entity.subType,
             moduleName: entity.moduleName,
         };
     }
@@ -230,8 +223,6 @@ class ModuleRepository extends ModuleRepositoryInterface {
             data.credentialId = updates.credential;
         if (updates.credentialId !== undefined)
             data.credentialId = updates.credentialId;
-        if (updates.type !== undefined) data.subType = updates.type;
-        if (updates.subType !== undefined) data.subType = updates.subType;
         if (updates.name !== undefined) data.name = updates.name;
         if (updates.moduleName !== undefined)
             data.moduleName = updates.moduleName;
@@ -253,7 +244,6 @@ class ModuleRepository extends ModuleRepositoryInterface {
                 userId: entity.userId,
                 name: entity.name,
                 externalId: entity.externalId,
-                type: entity.subType,
                 moduleName: entity.moduleName,
             };
         } catch (error) {
@@ -318,7 +308,6 @@ class ModuleRepository extends ModuleRepositoryInterface {
         if (filter.name) where.name = filter.name;
         if (filter.moduleName) where.moduleName = filter.moduleName;
         if (filter.externalId) where.externalId = filter.externalId;
-        if (filter.subType) where.subType = filter.subType;
 
         return where;
     }

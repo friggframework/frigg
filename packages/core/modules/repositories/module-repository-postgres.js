@@ -136,7 +136,6 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             userId: entity.userId?.toString(),
             name: entity.name,
             externalId: entity.externalId,
-            type: entity.subType,
             moduleName: entity.moduleName,
         };
     }
@@ -165,7 +164,6 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             userId: e.userId?.toString(),
             name: e.name,
             externalId: e.externalId,
-            type: e.subType,
             moduleName: e.moduleName,
         }));
     }
@@ -194,7 +192,6 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             userId: e.userId?.toString(),
             name: e.name,
             externalId: e.externalId,
-            type: e.subType,
             moduleName: e.moduleName,
         }));
     }
@@ -227,7 +224,6 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             userId: e.userId?.toString(),
             name: e.name,
             externalId: e.externalId,
-            type: e.subType,
             moduleName: e.moduleName,
         }));
     }
@@ -275,7 +271,6 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             userId: entity.userId?.toString(),
             name: entity.name,
             externalId: entity.externalId,
-            type: entity.subType,
             moduleName: entity.moduleName,
         };
     }
@@ -293,7 +288,6 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             credentialId: this._convertId(
                 entityData.credential || entityData.credentialId
             ),
-            subType: entityData.type || entityData.subType,
             name: entityData.name,
             moduleName: entityData.moduleName,
             externalId: entityData.externalId,
@@ -313,7 +307,6 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             userId: entity.userId?.toString(),
             name: entity.name,
             externalId: entity.externalId,
-            type: entity.subType,
             moduleName: entity.moduleName,
         };
     }
@@ -336,8 +329,6 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             data.credentialId = this._convertId(updates.credential);
         if (updates.credentialId !== undefined)
             data.credentialId = this._convertId(updates.credentialId);
-        if (updates.type !== undefined) data.subType = updates.type;
-        if (updates.subType !== undefined) data.subType = updates.subType;
         if (updates.name !== undefined) data.name = updates.name;
         if (updates.moduleName !== undefined)
             data.moduleName = updates.moduleName;
@@ -362,7 +353,6 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
                 userId: entity.userId?.toString(),
                 name: entity.name,
                 externalId: entity.externalId,
-                type: entity.subType,
                 moduleName: entity.moduleName,
             };
         } catch (error) {
@@ -428,7 +418,6 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
         if (filter.name) where.name = filter.name;
         if (filter.moduleName) where.moduleName = filter.moduleName;
         if (filter.externalId) where.externalId = this._toString(filter.externalId);
-        if (filter.subType) where.subType = filter.subType;
 
         return where;
     }

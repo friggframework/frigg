@@ -32,7 +32,7 @@ class GetEntityOptionsById {
             );
         }
 
-        const entityType = entity.type;
+        const entityType = entity.moduleName;
         const moduleDefinition = this.moduleDefinitions.find((def) => {
             const modelName =
                 Module.getEntityModelFromDefinition(def).modelName;

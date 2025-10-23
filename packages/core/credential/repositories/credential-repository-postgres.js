@@ -61,7 +61,6 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
             userId: credential.userId?.toString(),
             externalId: credential.externalId,
             authIsValid: credential.authIsValid,
-            subType: credential.subType,
             ...data, // Spread OAuth tokens from JSON field
         };
     }
@@ -135,7 +134,7 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
         const { user, externalId } = identifiers;
 
         // Separate schema fields from dynamic OAuth data
-        const { authIsValid, subType, ...oauthData } = details;
+        const { authIsValid, ...oauthData } = details;
 
         const existing = await this.prisma.credential.findFirst({ where });
 
@@ -154,7 +153,6 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
                         authIsValid !== undefined
                             ? authIsValid
                             : existing.authIsValid,
-                    subType: subType !== undefined ? subType : existing.subType,
                     data: mergedData,
                 },
             });
@@ -173,7 +171,7 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
                 userId: this._convertId(user),
                 externalId,
                 authIsValid: authIsValid,
-                subType,
+                
                 data: oauthData,
             },
         });
@@ -242,7 +240,7 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
         }
 
         // Separate schema fields from OAuth data
-        const { user, authIsValid, subType, ...oauthData } =
+        const { user, authIsValid, ...oauthData } =
             updates;
 
         // Merge OAuth data with existing
@@ -256,7 +254,6 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
                     externalId !== undefined ? externalId : existing.externalId,
                 authIsValid:
                     authIsValid !== undefined ? authIsValid : existing.authIsValid,
-                subType: subType !== undefined ? subType : existing.subType,
                 data: mergedData,
             },
         });
@@ -289,7 +286,6 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
         if (identifiers.userId)
             where.userId = this._convertId(identifiers.userId);
         if (identifiers.externalId) where.externalId = identifiers.externalId;
-        if (identifiers.subType) where.subType = identifiers.subType;
 
         return where;
     }
@@ -309,7 +305,6 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
         if (filter.user) where.userId = this._convertId(filter.user);
         if (filter.userId) where.userId = this._convertId(filter.userId);
         if (filter.externalId) where.externalId = filter.externalId;
-        if (filter.subType) where.subType = filter.subType;
 
         return where;
     }

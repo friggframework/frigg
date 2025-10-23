@@ -92,7 +92,6 @@ model Credential {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   userId      String?  @db.ObjectId
   user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  subType     String?
   authIsValid Boolean?
   externalId  String?
 
@@ -116,7 +115,6 @@ model Entity {
   id           String      @id @default(auto()) @map("_id") @db.ObjectId
   credentialId String?     @db.ObjectId
   credential   Credential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
-  subType      String?
   userId       String?     @db.ObjectId
   user         User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
   name         String?
