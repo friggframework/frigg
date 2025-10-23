@@ -203,9 +203,12 @@ async function connectPrisma() {
     await getPrismaClient().$connect();
 
     // Initialize MongoDB schema - ensure all collections exist
+    // Only run for MongoDB/DocumentDB (not PostgreSQL)
     // This prevents "Cannot create namespace in multi-document transaction" errors
-    const { initializeMongoDBSchema } = require('./utils/mongodb-schema-init');
-    await initializeMongoDBSchema();
+    if (config.DB_TYPE === 'mongodb') {
+        const { initializeMongoDBSchema } = require('./utils/mongodb-schema-init');
+        await initializeMongoDBSchema();
+    }
 
     return getPrismaClient();
 }
