@@ -398,6 +398,59 @@ describe('VpcBuilder', () => {
             expect(result.resources.FriggS3VPCEndpoint.Properties.VpcId).toBe('vpc-123');
         });
 
+        it('should reuse stack-managed VPC endpoints without creating CloudFormation resources', async () => {
+            const appDefinition = {
+                vpc: { enable: true, enableVPCEndpoints: true },
+                encryption: { fieldLevelEncryptionMethod: 'kms' },
+                database: { postgres: { enable: true } },
+            };
+            const discoveredResources = {
+                defaultVpcId: 'vpc-123',
+                privateSubnetId1: 'subnet-1',
+                privateSubnetId2: 'subnet-2',
+                // VPC endpoints from CloudFormation stack (string IDs)
+                s3VpcEndpointId: 'vpce-s3-stack',
+                dynamoDbVpcEndpointId: 'vpce-ddb-stack',
+                kmsVpcEndpointId: 'vpce-kms-stack',
+                secretsManagerVpcEndpointId: 'vpce-sm-stack',
+                sqsVpcEndpointId: 'vpce-sqs-stack',
+            };
+
+            const result = await vpcBuilder.build(appDefinition, discoveredResources);
+
+            // Should NOT create CloudFormation resources (reuse stack endpoints)
+            expect(result.resources.FriggS3VPCEndpoint).toBeUndefined();
+            expect(result.resources.FriggDynamoDBVPCEndpoint).toBeUndefined();
+            expect(result.resources.FriggKMSVPCEndpoint).toBeUndefined();
+            expect(result.resources.FriggSecretsManagerVPCEndpoint).toBeUndefined();
+            expect(result.resources.FriggSQSVPCEndpoint).toBeUndefined();
+            
+            // Should still NOT create VPC Endpoint Security Group
+            expect(result.resources.FriggVPCEndpointSecurityGroup).toBeUndefined();
+        });
+
+        it('should create VPC endpoints when discovered from AWS but not stack', async () => {
+            const appDefinition = {
+                vpc: { enable: true, enableVPCEndpoints: true, selfHeal: true },
+                encryption: { fieldLevelEncryptionMethod: 'kms' },
+            };
+            const discoveredResources = {
+                defaultVpcId: 'vpc-123',
+                privateSubnetId1: 'subnet-1',
+                privateSubnetId2: 'subnet-2',
+                // No VPC endpoints in stack (would be strings)
+                // existingEndpoints will be passed as empty
+            };
+
+            const result = await vpcBuilder.build(appDefinition, discoveredResources);
+
+            // Should create CloudFormation resources (not in stack)
+            expect(result.resources.FriggS3VPCEndpoint).toBeDefined();
+            expect(result.resources.FriggDynamoDBVPCEndpoint).toBeDefined();
+            expect(result.resources.FriggKMSVPCEndpoint).toBeDefined();
+            expect(result.resources.FriggSecretsManagerVPCEndpoint).toBeDefined();
+        });
+
         it('should skip VPC endpoints when disabled', async () => {
             const appDefinition = {
                 vpc: {
@@ -416,6 +469,32 @@ describe('VpcBuilder', () => {
             const result = await vpcBuilder.build(appDefinition, discoveredResources);
 
             expect(result.resources.FriggS3VPCEndpoint).toBeUndefined();
+        });
+
+        it('should create route table associations when VPC endpoints exist but no NAT Gateway', async () => {
+            const appDefinition = {
+                vpc: { enable: true, enableVPCEndpoints: true, selfHeal: true },
+            };
+            const discoveredResources = {
+                defaultVpcId: 'vpc-123',
+                privateSubnetId1: 'subnet-1',
+                privateSubnetId2: 'subnet-2',
+                // No NAT Gateway, so associations won't be created by NAT Gateway routing
+            };
+
+            const result = await vpcBuilder.build(appDefinition, discoveredResources);
+
+            // Route table should be created for VPC endpoints
+            expect(result.resources.FriggLambdaRouteTable).toBeDefined();
+            expect(result.resources.FriggLambdaRouteTable.Type).toBe('AWS::EC2::RouteTable');
+
+            // Subnet associations should be created (healing)
+            expect(result.resources.FriggPrivateSubnet1RouteTableAssociation).toBeDefined();
+            expect(result.resources.FriggPrivateSubnet1RouteTableAssociation.Type).toBe('AWS::EC2::SubnetRouteTableAssociation');
+            expect(result.resources.FriggPrivateSubnet1RouteTableAssociation.Properties.SubnetId).toBe('subnet-1');
+
+            expect(result.resources.FriggPrivateSubnet2RouteTableAssociation).toBeDefined();
+            expect(result.resources.FriggPrivateSubnet2RouteTableAssociation.Properties.SubnetId).toBe('subnet-2');
         });
 
         it('should include IAM permissions for VPC operations', async () => {
@@ -894,8 +973,9 @@ describe('VpcBuilder', () => {
             };
 
             // No VPC in CloudFormation stack (fresh deployment)
+            // Default VPC might exist in AWS, but not stack-managed
             const discoveredResources = {
-                defaultVpcId: 'vpc-default',  // Only default VPC exists (not from stack)
+                // No defaultVpcId means no VPC in CloudFormation stack
             };
 
             const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();

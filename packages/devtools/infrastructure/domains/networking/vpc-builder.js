@@ -863,21 +863,80 @@ class VpcBuilder extends InfrastructureBuilder {
     }
 
     /**
+     * Ensure subnet associations with route table
+     * Called to heal missing associations when route table exists but associations don't
+     */
+    ensureSubnetAssociations(appDefinition, discoveredResources, result) {
+        // Skip if associations already created (by NAT Gateway routing)
+        if (result.resources.FriggPrivateSubnet1RouteTableAssociation) {
+            return; // Already handled by NAT Gateway routing
+        }
+
+        const routeTableId = discoveredResources.routeTableId || { Ref: 'FriggLambdaRouteTable' };
+        const subnet1Id = discoveredResources.privateSubnetId1 || { Ref: 'FriggPrivateSubnet1' };
+        const subnet2Id = discoveredResources.privateSubnetId2 || { Ref: 'FriggPrivateSubnet2' };
+
+        result.resources.FriggPrivateSubnet1RouteTableAssociation = {
+            Type: 'AWS::EC2::SubnetRouteTableAssociation',
+            Properties: {
+                SubnetId: subnet1Id,
+                RouteTableId: routeTableId,
+            },
+        };
+
+        result.resources.FriggPrivateSubnet2RouteTableAssociation = {
+            Type: 'AWS::EC2::SubnetRouteTableAssociation',
+            Properties: {
+                SubnetId: subnet2Id,
+                RouteTableId: routeTableId,
+            },
+        };
+
+        console.log('  ✓ Ensured subnet associations with route table');
+    }
+
+    /**
      * Build VPC Endpoints for AWS services
      */
     buildVpcEndpoints(appDefinition, discoveredResources, result, existingEndpoints = {}) {
+        // Check if endpoints are from CloudFormation stack (string IDs)
+        // Stack-managed resources should be reused, not recreated
+        const stackManagedEndpoints = {
+            s3: discoveredResources.s3VpcEndpointId && typeof discoveredResources.s3VpcEndpointId === 'string',
+            dynamodb: discoveredResources.dynamoDbVpcEndpointId && typeof discoveredResources.dynamoDbVpcEndpointId === 'string',
+            kms: discoveredResources.kmsVpcEndpointId && typeof discoveredResources.kmsVpcEndpointId === 'string',
+            secretsManager: discoveredResources.secretsManagerVpcEndpointId && typeof discoveredResources.secretsManagerVpcEndpointId === 'string',
+            sqs: discoveredResources.sqsVpcEndpointId && typeof discoveredResources.sqsVpcEndpointId === 'string',
+        };
+
+        // Build list of what needs creation (not stack-managed, not existing elsewhere)
         const missing = [];
-        if (!existingEndpoints.s3) missing.push('S3');
-        if (!existingEndpoints.dynamodb) missing.push('DynamoDB');
-        if (!existingEndpoints.kms && appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms') missing.push('KMS');
-        if (!existingEndpoints.secretsManager) missing.push('Secrets Manager');
+        if (!stackManagedEndpoints.s3 && !existingEndpoints.s3) missing.push('S3');
+        if (!stackManagedEndpoints.dynamodb && !existingEndpoints.dynamodb) missing.push('DynamoDB');
+        if (!stackManagedEndpoints.kms && !existingEndpoints.kms && appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms') missing.push('KMS');
+        if (!stackManagedEndpoints.secretsManager && !existingEndpoints.secretsManager) missing.push('Secrets Manager');
         // SQS endpoint needed for database migrations (migration queue)
-        if (!existingEndpoints.sqs && appDefinition.database?.postgres?.enable) missing.push('SQS');
+        if (!stackManagedEndpoints.sqs && !existingEndpoints.sqs && appDefinition.database?.postgres?.enable) missing.push('SQS');
+
+        // Log reused stack-managed endpoints
+        const reused = [];
+        if (stackManagedEndpoints.s3) reused.push('S3');
+        if (stackManagedEndpoints.dynamodb) reused.push('DynamoDB');
+        if (stackManagedEndpoints.kms) reused.push('KMS');
+        if (stackManagedEndpoints.secretsManager) reused.push('Secrets Manager');
+        if (stackManagedEndpoints.sqs) reused.push('SQS');
+
+        if (reused.length > 0) {
+            console.log(`  ✓ Reusing stack-managed VPC endpoints: ${reused.join(', ')}`);
+        }
 
         if (missing.length > 0) {
             console.log(`  Creating missing VPC Endpoints: ${missing.join(', ')}...`);
-        } else {
+        } else if (reused.length === 0) {
             console.log('  All required VPC Endpoints already exist - skipping creation');
+            return;
+        } else {
+            // All endpoints are stack-managed, no creation needed
             return;
         }
 
@@ -898,8 +957,13 @@ class VpcBuilder extends InfrastructureBuilder {
             };
         }
 
-        // S3 Gateway Endpoint (only if missing)
-        if (!existingEndpoints.s3) {
+        // Ensure subnet associations exist (healing for VPC endpoints without NAT Gateway)
+        if (result.resources.FriggLambdaRouteTable || discoveredResources.routeTableId) {
+            this.ensureSubnetAssociations(appDefinition, discoveredResources, result);
+        }
+
+        // S3 Gateway Endpoint (only if not stack-managed and missing)
+        if (!stackManagedEndpoints.s3 && !existingEndpoints.s3) {
             result.resources.FriggS3VPCEndpoint = {
                 Type: 'AWS::EC2::VPCEndpoint',
                 Properties: {
@@ -911,8 +975,8 @@ class VpcBuilder extends InfrastructureBuilder {
             };
         }
 
-        // DynamoDB Gateway Endpoint (only if missing)
-        if (!existingEndpoints.dynamodb) {
+        // DynamoDB Gateway Endpoint (only if not stack-managed and missing)
+        if (!stackManagedEndpoints.dynamodb && !existingEndpoints.dynamodb) {
             result.resources.FriggDynamoDBVPCEndpoint = {
                 Type: 'AWS::EC2::VPCEndpoint',
                 Properties: {
@@ -924,8 +988,13 @@ class VpcBuilder extends InfrastructureBuilder {
             };
         }
 
-        // VPC Endpoint Security Group (only if KMS, Secrets Manager, or SQS are missing)
-        if (!existingEndpoints.kms || !existingEndpoints.secretsManager || (!existingEndpoints.sqs && appDefinition.database?.postgres?.enable)) {
+        // VPC Endpoint Security Group (only if KMS, Secrets Manager, or SQS are not stack-managed and missing)
+        const needsSecurityGroup = 
+            (!stackManagedEndpoints.kms && !existingEndpoints.kms && appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms') ||
+            (!stackManagedEndpoints.secretsManager && !existingEndpoints.secretsManager) ||
+            (!stackManagedEndpoints.sqs && !existingEndpoints.sqs && appDefinition.database?.postgres?.enable);
+
+        if (needsSecurityGroup) {
             result.resources.FriggVPCEndpointSecurityGroup = {
                 Type: 'AWS::EC2::SecurityGroup',
                 Properties: {
@@ -948,8 +1017,8 @@ class VpcBuilder extends InfrastructureBuilder {
             };
         }
 
-        // KMS Interface Endpoint (only if missing AND KMS encryption is enabled)
-        if (!existingEndpoints.kms && appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms') {
+        // KMS Interface Endpoint (only if not stack-managed, missing, AND KMS encryption is enabled)
+        if (!stackManagedEndpoints.kms && !existingEndpoints.kms && appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms') {
             result.resources.FriggKMSVPCEndpoint = {
                 Type: 'AWS::EC2::VPCEndpoint',
                 Properties: {
@@ -963,8 +1032,8 @@ class VpcBuilder extends InfrastructureBuilder {
             };
         }
 
-        // Secrets Manager Interface Endpoint (only if missing)
-        if (!existingEndpoints.secretsManager) {
+        // Secrets Manager Interface Endpoint (only if not stack-managed and missing)
+        if (!stackManagedEndpoints.secretsManager && !existingEndpoints.secretsManager) {
             result.resources.FriggSecretsManagerVPCEndpoint = {
                 Type: 'AWS::EC2::VPCEndpoint',
                 Properties: {
@@ -978,8 +1047,8 @@ class VpcBuilder extends InfrastructureBuilder {
             };
         }
 
-        // SQS Interface Endpoint (only if missing AND database migrations are enabled)
-        if (!existingEndpoints.sqs && appDefinition.database?.postgres?.enable) {
+        // SQS Interface Endpoint (only if not stack-managed, missing, AND database migrations are enabled)
+        if (!stackManagedEndpoints.sqs && !existingEndpoints.sqs && appDefinition.database?.postgres?.enable) {
             result.resources.FriggSQSVPCEndpoint = {
                 Type: 'AWS::EC2::VPCEndpoint',
                 Properties: {
