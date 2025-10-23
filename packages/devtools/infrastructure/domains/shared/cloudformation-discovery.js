@@ -243,7 +243,7 @@ class CloudFormationDiscovery {
         }
 
         // If we have a VPC ID but no subnet IDs, query EC2 for Frigg-managed subnets
-        if (discovered.defaultVpcId && this.provider && 
+        if (discovered.defaultVpcId && this.provider &&
             !discovered.privateSubnetId1 && !discovered.publicSubnetId1) {
             try {
                 console.log('  Querying EC2 for Frigg-managed subnets...');
@@ -266,7 +266,7 @@ class CloudFormationDiscovery {
                     }));
 
                     // Find private subnets
-                    const privateSubnets = subnets.filter(s => !s.isPublic).sort((a, b) => 
+                    const privateSubnets = subnets.filter(s => !s.isPublic).sort((a, b) =>
                         a.logicalId?.localeCompare(b.logicalId) || 0
                     );
                     if (privateSubnets.length >= 1) {
@@ -277,7 +277,7 @@ class CloudFormationDiscovery {
                     }
 
                     // Find public subnets
-                    const publicSubnets = subnets.filter(s => s.isPublic).sort((a, b) => 
+                    const publicSubnets = subnets.filter(s => s.isPublic).sort((a, b) =>
                         a.logicalId?.localeCompare(b.logicalId) || 0
                     );
                     if (publicSubnets.length >= 1) {
