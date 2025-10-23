@@ -129,6 +129,10 @@ class VpcBuilder extends InfrastructureBuilder {
         const globalMode = appDefinition.managementMode || 'discover';
         const vpcIsolation = appDefinition.vpcIsolation || 'shared';
 
+        // Debug logging
+        console.log(`  🔍 DEBUG: globalMode = '${globalMode}', vpcIsolation = '${vpcIsolation}'`);
+        console.log(`  🔍 DEBUG: discoveredResources =`, JSON.stringify(discoveredResources, null, 2));
+
         let management = appDefinition.vpc.management;
 
         if (globalMode === 'managed') {
@@ -146,11 +150,11 @@ class VpcBuilder extends InfrastructureBuilder {
                 // Check if CloudFormation stack already has a VPC (stage-specific)
                 // CloudFormation discovery sets 'defaultVpcId' (string) when found in stack
                 const hasStackVpc = discoveredResources?.defaultVpcId && typeof discoveredResources.defaultVpcId === 'string';
-                
+
                 // Debug logging
                 console.log(`  🔍 DEBUG: discoveredResources.defaultVpcId = ${discoveredResources?.defaultVpcId} (type: ${typeof discoveredResources?.defaultVpcId})`);
                 console.log(`  🔍 DEBUG: hasStackVpc = ${hasStackVpc}`);
-                
+
                 if (hasStackVpc) {
                     // Stack has VPC - reuse it (standard flow: stack → orphaned → create)
                     management = 'discover';

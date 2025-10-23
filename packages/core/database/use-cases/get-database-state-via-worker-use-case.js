@@ -58,3 +58,4 @@ class GetDatabaseStateViaWorkerUseCase {
 
 module.exports = { GetDatabaseStateViaWorkerUseCase };
 
+

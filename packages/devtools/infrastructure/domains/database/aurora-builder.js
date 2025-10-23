@@ -103,9 +103,9 @@ class AuroraBuilder extends InfrastructureBuilder {
             if (vpcIsolation === 'isolated') {
                 // Check if CloudFormation stack already has Aurora (stage-specific)
                 // CloudFormation discovery sets 'auroraClusterId' (string) when found in stack
-                const hasStackAurora = discoveredResources?.auroraClusterId && 
-                                     typeof discoveredResources.auroraClusterId === 'string';
-                
+                const hasStackAurora = discoveredResources?.auroraClusterId &&
+                    typeof discoveredResources.auroraClusterId === 'string';
+
                 if (hasStackAurora) {
                     // Stack has Aurora - reuse it (standard flow: stack → orphaned → create)
                     management = 'discover';
