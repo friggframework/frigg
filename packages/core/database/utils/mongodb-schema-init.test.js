@@ -5,7 +5,6 @@
 const {
     initializeMongoDBSchema,
     getPrismaCollections,
-    PRISMA_COLLECTIONS,
 } = require('./mongodb-schema-init');
 
 // Mock dependencies
@@ -16,6 +15,11 @@ const mockMongoose = {
 };
 
 const mockEnsureCollectionsExist = jest.fn().mockResolvedValue(undefined);
+const mockGetCollectionsFromSchemaSync = jest.fn().mockReturnValue([
+    'User', 'Token', 'Credential', 'Entity', 'Integration',
+    'IntegrationMapping', 'Process', 'Sync', 'DataIdentifier',
+    'Association', 'AssociationObject', 'State', 'WebsocketConnection'
+]);
 
 jest.mock('../mongoose', () => ({
     mongoose: mockMongoose,
@@ -23,6 +27,10 @@ jest.mock('../mongoose', () => ({
 
 jest.mock('./mongodb-collection-utils', () => ({
     ensureCollectionsExist: mockEnsureCollectionsExist,
+}));
+
+jest.mock('./prisma-schema-parser', () => ({
+    getCollectionsFromSchemaSync: mockGetCollectionsFromSchemaSync,
 }));
 
 const mockConfig = {
@@ -38,13 +46,26 @@ describe('MongoDB Schema Initialization', () => {
         mockMongoose.connection.readyState = 1;
         console.log = jest.fn();
         console.error = jest.fn();
+        console.warn = jest.fn();
+
+        // Reset mock to default return value
+        mockGetCollectionsFromSchemaSync.mockReturnValue([
+            'User', 'Token', 'Credential', 'Entity', 'Integration',
+            'IntegrationMapping', 'Process', 'Sync', 'DataIdentifier',
+            'Association', 'AssociationObject', 'State', 'WebsocketConnection'
+        ]);
     });
 
     describe('initializeMongoDBSchema', () => {
-        it('should initialize all Prisma collections', async () => {
+        it('should dynamically parse and initialize all Prisma collections', async () => {
             await initializeMongoDBSchema();
 
-            expect(mockEnsureCollectionsExist).toHaveBeenCalledWith(PRISMA_COLLECTIONS);
+            expect(mockGetCollectionsFromSchemaSync).toHaveBeenCalled();
+            expect(mockEnsureCollectionsExist).toHaveBeenCalledWith([
+                'User', 'Token', 'Credential', 'Entity', 'Integration',
+                'IntegrationMapping', 'Process', 'Sync', 'DataIdentifier',
+                'Association', 'AssociationObject', 'State', 'WebsocketConnection'
+            ]);
             expect(console.log).toHaveBeenCalledWith(
                 expect.stringContaining('MongoDB schema initialization complete')
             );
@@ -92,12 +113,24 @@ describe('MongoDB Schema Initialization', () => {
                 expect.stringContaining('13 collections verified')
             );
         });
+
+        it('should skip initialization if no collections found in schema', async () => {
+            mockGetCollectionsFromSchemaSync.mockReturnValue([]);
+
+            await initializeMongoDBSchema();
+
+            expect(mockEnsureCollectionsExist).not.toHaveBeenCalled();
+            expect(console.warn).toHaveBeenCalledWith(
+                'No collections found in Prisma schema - skipping initialization'
+            );
+        });
     });
 
     describe('getPrismaCollections', () => {
-        it('should return array of collection names', () => {
+        it('should return array of collection names from schema parser', () => {
             const collections = getPrismaCollections();
 
+            expect(mockGetCollectionsFromSchemaSync).toHaveBeenCalled();
             expect(Array.isArray(collections)).toBe(true);
             expect(collections.length).toBe(13);
             expect(collections).toContain('User');
@@ -105,38 +138,18 @@ describe('MongoDB Schema Initialization', () => {
             expect(collections).toContain('Integration');
         });
 
-        it('should return a copy of the array', () => {
-            const collections1 = getPrismaCollections();
-            const collections2 = getPrismaCollections();
+        it('should return empty array and warn if schema parsing fails', () => {
+            mockGetCollectionsFromSchemaSync.mockImplementation(() => {
+                throw new Error('Schema file not found');
+            });
 
-            expect(collections1).toEqual(collections2);
-            expect(collections1).not.toBe(collections2);
-        });
-    });
+            const collections = getPrismaCollections();
 
-    describe('PRISMA_COLLECTIONS constant', () => {
-        it('should include all expected collections', () => {
-            const expectedCollections = [
-                'User',
-                'Token',
-                'Credential',
-                'Entity',
-                'Integration',
-                'IntegrationMapping',
-                'Process',
-                'Sync',
-                'DataIdentifier',
-                'Association',
-                'AssociationObject',
-                'State',
-                'WebsocketConnection',
-            ];
-
-            expect(PRISMA_COLLECTIONS).toEqual(expectedCollections);
-        });
-
-        it('should have correct count of collections', () => {
-            expect(PRISMA_COLLECTIONS.length).toBe(13);
+            expect(collections).toEqual([]);
+            expect(console.warn).toHaveBeenCalledWith(
+                'Could not parse Prisma collections:',
+                'Schema file not found'
+            );
         });
     });
 });
