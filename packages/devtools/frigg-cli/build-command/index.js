@@ -43,6 +43,7 @@ async function buildCommand(options) {
         env: {
             ...process.env,
             NODE_PATH: path.resolve(backendPath, 'node_modules'),
+            SLS_STAGE: options.stage, // Set stage for resource discovery
         }
     });
 
