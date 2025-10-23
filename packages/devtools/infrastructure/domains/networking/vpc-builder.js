@@ -915,8 +915,8 @@ class VpcBuilder extends InfrastructureBuilder {
         if (!stackManagedEndpoints.dynamodb && !existingEndpoints.dynamodb) missing.push('DynamoDB');
         if (!stackManagedEndpoints.kms && !existingEndpoints.kms && appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms') missing.push('KMS');
         if (!stackManagedEndpoints.secretsManager && !existingEndpoints.secretsManager) missing.push('Secrets Manager');
-        // SQS endpoint needed for database migrations (migration queue)
-        if (!stackManagedEndpoints.sqs && !existingEndpoints.sqs && appDefinition.database?.postgres?.enable) missing.push('SQS');
+        // SQS endpoint needed for job queues and async processing
+        if (!stackManagedEndpoints.sqs && !existingEndpoints.sqs) missing.push('SQS');
 
         // Log reused stack-managed endpoints
         const reused = [];
@@ -992,7 +992,7 @@ class VpcBuilder extends InfrastructureBuilder {
         const needsSecurityGroup = 
             (!stackManagedEndpoints.kms && !existingEndpoints.kms && appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms') ||
             (!stackManagedEndpoints.secretsManager && !existingEndpoints.secretsManager) ||
-            (!stackManagedEndpoints.sqs && !existingEndpoints.sqs && appDefinition.database?.postgres?.enable);
+            (!stackManagedEndpoints.sqs && !existingEndpoints.sqs);
 
         if (needsSecurityGroup) {
             result.resources.FriggVPCEndpointSecurityGroup = {
@@ -1047,8 +1047,9 @@ class VpcBuilder extends InfrastructureBuilder {
             };
         }
 
-        // SQS Interface Endpoint (only if not stack-managed, missing, AND database migrations are enabled)
-        if (!stackManagedEndpoints.sqs && !existingEndpoints.sqs && appDefinition.database?.postgres?.enable) {
+        // SQS Interface Endpoint (only if not stack-managed and missing)
+        // Used for job queues and async processing (not just database migrations)
+        if (!stackManagedEndpoints.sqs && !existingEndpoints.sqs) {
             result.resources.FriggSQSVPCEndpoint = {
                 Type: 'AWS::EC2::VPCEndpoint',
                 Properties: {

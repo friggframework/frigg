@@ -424,7 +424,7 @@ describe('VpcBuilder', () => {
             expect(result.resources.FriggKMSVPCEndpoint).toBeUndefined();
             expect(result.resources.FriggSecretsManagerVPCEndpoint).toBeUndefined();
             expect(result.resources.FriggSQSVPCEndpoint).toBeUndefined();
-            
+
             // Should still NOT create VPC Endpoint Security Group
             expect(result.resources.FriggVPCEndpointSecurityGroup).toBeUndefined();
         });
@@ -449,6 +449,7 @@ describe('VpcBuilder', () => {
             expect(result.resources.FriggDynamoDBVPCEndpoint).toBeDefined();
             expect(result.resources.FriggKMSVPCEndpoint).toBeDefined();
             expect(result.resources.FriggSecretsManagerVPCEndpoint).toBeDefined();
+            expect(result.resources.FriggSQSVPCEndpoint).toBeDefined();
         });
 
         it('should skip VPC endpoints when disabled', async () => {
