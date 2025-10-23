@@ -399,6 +399,143 @@ describe('CloudFormationDiscovery', () => {
             expect(result.defaultVpcId).toBe('vpc-123');
             expect(result.privateSubnetId1).toBeUndefined();
         });
+
+        it('should extract KMS key alias from stack resources and query for key ARN', async () => {
+            const mockStack = {
+                StackName: 'test-stack',
+                Outputs: [],
+            };
+
+            const mockResources = [
+                {
+                    LogicalResourceId: 'FriggKMSKeyAlias',
+                    PhysicalResourceId: 'alias/test-service-dev-frigg-kms',
+                    ResourceType: 'AWS::KMS::Alias',
+                },
+            ];
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+            mockProvider.describeKmsKey = jest.fn().mockResolvedValue({
+                KeyId: 'abc-123',
+                Arn: 'arn:aws:kms:us-east-1:123456789:key/abc-123',
+            });
+
+            const result = await cfDiscovery.discoverFromStack('test-stack');
+
+            expect(result.defaultKmsKeyId).toBe('arn:aws:kms:us-east-1:123456789:key/abc-123');
+            expect(result.kmsKeyAlias).toBe('alias/test-service-dev-frigg-kms');
+            expect(mockProvider.describeKmsKey).toHaveBeenCalledWith('alias/test-service-dev-frigg-kms');
+        });
+
+        it('should query AWS API for KMS alias when serviceName and stage are provided', async () => {
+            const mockStack = {
+                StackName: 'test-stack',
+                Outputs: [],
+            };
+
+            const mockResources = [];
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+            mockProvider.region = 'us-east-1';
+            mockProvider.describeKmsKey = jest.fn().mockResolvedValue({
+                KeyId: 'abc-123',
+                Arn: 'arn:aws:kms:us-east-1:123456789:key/abc-123',
+            });
+
+            // Pass serviceName and stage to discover alias
+            cfDiscovery.serviceName = 'test-service';
+            cfDiscovery.stage = 'dev';
+
+            const result = await cfDiscovery.discoverFromStack('test-stack');
+
+            expect(result.defaultKmsKeyId).toBe('arn:aws:kms:us-east-1:123456789:key/abc-123');
+            expect(result.kmsKeyAlias).toBe('alias/test-service-dev-frigg-kms');
+            expect(mockProvider.describeKmsKey).toHaveBeenCalledWith('alias/test-service-dev-frigg-kms');
+        });
+
+        it('should handle KMS alias not found gracefully', async () => {
+            const mockStack = {
+                StackName: 'test-stack',
+                Outputs: [],
+            };
+
+            const mockResources = [];
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+            mockProvider.region = 'us-east-1';
+            mockProvider.describeKmsKey = jest.fn().mockRejectedValue(
+                new Error('Alias/test-service-dev-frigg-kms is not found')
+            );
+
+            cfDiscovery.serviceName = 'test-service';
+            cfDiscovery.stage = 'dev';
+
+            const result = await cfDiscovery.discoverFromStack('test-stack');
+
+            expect(result.defaultKmsKeyId).toBeUndefined();
+            expect(result.kmsKeyAlias).toBeUndefined();
+        });
+
+        it('should prefer KMS key from stack resources over alias query', async () => {
+            const mockStack = {
+                StackName: 'test-stack',
+                Outputs: [],
+            };
+
+            const mockResources = [
+                {
+                    LogicalResourceId: 'FriggKMSKey',
+                    PhysicalResourceId: 'arn:aws:kms:us-east-1:123456789:key/xyz-789',
+                    ResourceType: 'AWS::KMS::Key',
+                },
+            ];
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+            mockProvider.describeKmsKey = jest.fn();
+
+            const result = await cfDiscovery.discoverFromStack('test-stack');
+
+            // Should use the key from stack resources, not query for alias
+            expect(result.defaultKmsKeyId).toBe('arn:aws:kms:us-east-1:123456789:key/xyz-789');
+            expect(mockProvider.describeKmsKey).not.toHaveBeenCalled();
+        });
+
+        it('should use KMS alias from stack resources even if key is also present', async () => {
+            const mockStack = {
+                StackName: 'test-stack',
+                Outputs: [],
+            };
+
+            const mockResources = [
+                {
+                    LogicalResourceId: 'FriggKMSKey',
+                    PhysicalResourceId: 'arn:aws:kms:us-east-1:123456789:key/xyz-789',
+                    ResourceType: 'AWS::KMS::Key',
+                },
+                {
+                    LogicalResourceId: 'FriggKMSKeyAlias',
+                    PhysicalResourceId: 'alias/test-service-dev-frigg-kms',
+                    ResourceType: 'AWS::KMS::Alias',
+                },
+            ];
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+            mockProvider.describeKmsKey = jest.fn().mockResolvedValue({
+                KeyId: 'xyz-789',
+                Arn: 'arn:aws:kms:us-east-1:123456789:key/xyz-789',
+            });
+
+            const result = await cfDiscovery.discoverFromStack('test-stack');
+
+            expect(result.defaultKmsKeyId).toBe('arn:aws:kms:us-east-1:123456789:key/xyz-789');
+            expect(result.kmsKeyAlias).toBe('alias/test-service-dev-frigg-kms');
+            expect(mockProvider.describeKmsKey).toHaveBeenCalledWith('alias/test-service-dev-frigg-kms');
+        });
     });
 });
 

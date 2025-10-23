@@ -470,8 +470,28 @@ class AWSProviderAdapter extends CloudProviderAdapter {
     }
 
     /**
+     * Describe KMS key by key ID or alias
+     *
+     * @param {string} keyIdOrAlias - Key ID or alias name
+     * @returns {Promise<Object>} Key metadata
+     */
+    async describeKmsKey(keyIdOrAlias) {
+        const kms = this.getKMSClient();
+
+        try {
+            const response = await kms.send(new DescribeKeyCommand({
+                KeyId: keyIdOrAlias,
+            }));
+
+            return response.KeyMetadata;
+        } catch (error) {
+            throw new Error(`Failed to describe KMS key ${keyIdOrAlias}: ${error.message}`);
+        }
+    }
+
+    /**
      * Describe CloudFormation stack
-     * 
+     *
      * @param {string} stackName - Name of the CloudFormation stack
      * @returns {Promise<Object>} Stack details including outputs
      */

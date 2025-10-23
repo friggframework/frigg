@@ -73,9 +73,10 @@ async function gatherDiscoveredResources(appDefinition) {
         // Build discovery configuration
         const stage = process.env.SLS_STAGE || 'dev';
         const stackName = `${appDefinition.name || 'create-frigg-app'}-${stage}`;
+        const serviceName = appDefinition.name || 'create-frigg-app';
 
         // Try CloudFormation-first discovery
-        const cfDiscovery = new CloudFormationDiscovery(provider);
+        const cfDiscovery = new CloudFormationDiscovery(provider, { serviceName, stage });
         const stackResources = await cfDiscovery.discoverFromStack(stackName);
 
         // Validate CF discovery results - only use if contains useful data
