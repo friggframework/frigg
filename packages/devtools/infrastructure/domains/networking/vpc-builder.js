@@ -233,7 +233,14 @@ class VpcBuilder extends InfrastructureBuilder {
             existingEndpoints.kms || existingEndpoints.secretsManager || existingEndpoints.sqs;
 
         if (appDefinition.vpc.enableVPCEndpoints !== false) {
-            if (vpcManagement === 'create-new') {
+            // Check if resources came from CloudFormation stack
+            const fromCfStack = discoveredResources.fromCloudFormationStack === true;
+            const existingLogicalIds = discoveredResources.existingLogicalIds || [];
+
+            if (fromCfStack && existingLogicalIds.length > 0 && allEndpointsExist) {
+                console.log('  All VPC endpoints exist in CloudFormation stack - skipping creation');
+                // Skip VPC endpoint creation entirely
+            } else if (vpcManagement === 'create-new') {
                 // Always create in create-new mode
                 this.buildVpcEndpoints(appDefinition, discoveredResources, result, existingEndpoints);
             } else if (vpcManagement === 'discover') {
@@ -417,6 +424,27 @@ class VpcBuilder extends InfrastructureBuilder {
         }
 
         result.vpcId = discoveredResources.defaultVpcId;
+
+        // Check if resources came from CloudFormation stack
+        const fromCfStack = discoveredResources.fromCloudFormationStack === true;
+        const existingLogicalIds = discoveredResources.existingLogicalIds || [];
+
+        if (fromCfStack && existingLogicalIds.length > 0) {
+            console.log(`  ✓ VPC discovered from CloudFormation stack: ${discoveredResources.stackName}`);
+            console.log(`  ✓ Found ${existingLogicalIds.length} existing resources in stack`);
+            console.log('  ℹ Skipping resource creation - will reuse existing CloudFormation resources');
+
+            // Set security group IDs from discovered resources
+            if (discoveredResources.securityGroupId) {
+                result.vpcConfig.securityGroupIds = [discoveredResources.securityGroupId];
+            }
+
+            // Don't create any new resources - they already exist in the CF stack
+            return;
+        }
+
+        // VPC discovered from AWS API (not from CF stack) - create needed resources
+        console.log('  ℹ VPC discovered from AWS API - will create Lambda security group');
 
         // Create a Lambda security group in the discovered VPC
         // This is needed even in discover mode so other resources can reference it
@@ -694,6 +722,15 @@ class VpcBuilder extends InfrastructureBuilder {
         const natManagement = appDefinition.vpc.natGateway?.management || 'discover';
 
         console.log(`  NAT Gateway Management: ${natManagement}`);
+
+        // Check if resources came from CloudFormation stack
+        const fromCfStack = discoveredResources.fromCloudFormationStack === true;
+        const existingLogicalIds = discoveredResources.existingLogicalIds || [];
+
+        if (fromCfStack && existingLogicalIds.length > 0) {
+            console.log('    Skipping NAT Gateway - will reuse from CloudFormation stack');
+            return;
+        }
 
         // Check if we should create NAT Gateway
         const needsNatGateway = natManagement === 'createAndManage' ||
