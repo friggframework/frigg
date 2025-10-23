@@ -149,7 +149,10 @@ function executeServerlessDeployment(environment, options) {
     const childProcess = spawn(COMMANDS.SERVERLESS, serverlessArgs, {
         cwd: path.resolve(process.cwd()),
         stdio: 'inherit',
-        env: environment,
+        env: {
+            ...environment,
+            SLS_STAGE: options.stage, // Set stage for resource discovery
+        },
     });
 
     childProcess.on('error', (error) => {
