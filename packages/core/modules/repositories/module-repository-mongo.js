@@ -8,7 +8,10 @@ const { ModuleRepositoryInterface } = require('./module-repository-interface');
  * MongoDB-specific characteristics:
  * - Uses String IDs (ObjectId)
  * - No ID conversion needed (IDs are already strings)
- * - entity.__t (discriminator) → entity.subType
+ *
+ * Prisma Migration Notes:
+ * - Mongoose discriminator (__t) → moduleName field (module type: salesforce, hubspot, etc.)
+ * - subType remains optional for adopter-specific distinctions between multiple instances
  */
 class ModuleRepositoryMongo extends ModuleRepositoryInterface {
     constructor() {
@@ -100,7 +103,7 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
             userId: entity.userId,
             name: entity.name,
             externalId: entity.externalId,
-            type: entity.subType,
+            subType: entity.subType,
             moduleName: entity.moduleName,
         };
     }
@@ -232,7 +235,7 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
             userId: entity.userId,
             name: entity.name,
             externalId: entity.externalId,
-            type: entity.subType,
+            subType: entity.subType,
             moduleName: entity.moduleName,
         };
     }
@@ -248,7 +251,7 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
         const data = {
             userId: entityData.user || entityData.userId,
             credentialId: entityData.credential || entityData.credentialId,
-            subType: entityData.type || entityData.subType,
+            subType: entityData.subType,
             name: entityData.name,
             moduleName: entityData.moduleName,
             externalId: entityData.externalId,
@@ -268,7 +271,7 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
             userId: entity.userId,
             name: entity.name,
             externalId: entity.externalId,
-            type: entity.subType,
+            subType: entity.subType,
             moduleName: entity.moduleName,
         };
     }
@@ -289,7 +292,6 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
             data.credentialId = updates.credential;
         if (updates.credentialId !== undefined)
             data.credentialId = updates.credentialId;
-        if (updates.type !== undefined) data.subType = updates.type;
         if (updates.subType !== undefined) data.subType = updates.subType;
         if (updates.name !== undefined) data.name = updates.name;
         if (updates.moduleName !== undefined)
@@ -313,7 +315,7 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
                 userId: entity.userId,
                 name: entity.name,
                 externalId: entity.externalId,
-                type: entity.subType,
+                subType: entity.subType,
                 moduleName: entity.moduleName,
             };
         } catch (error) {

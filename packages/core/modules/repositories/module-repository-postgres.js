@@ -136,7 +136,7 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             userId: entity.userId?.toString(),
             name: entity.name,
             externalId: entity.externalId,
-            type: entity.subType,
+            subType: entity.subType,
             moduleName: entity.moduleName,
         };
     }
@@ -275,7 +275,7 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             userId: entity.userId?.toString(),
             name: entity.name,
             externalId: entity.externalId,
-            type: entity.subType,
+            subType: entity.subType,
             moduleName: entity.moduleName,
         };
     }
@@ -293,7 +293,7 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             credentialId: this._convertId(
                 entityData.credential || entityData.credentialId
             ),
-            subType: entityData.type || entityData.subType,
+            subType: entityData.subType,
             name: entityData.name,
             moduleName: entityData.moduleName,
             externalId: entityData.externalId,
@@ -313,7 +313,7 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             userId: entity.userId?.toString(),
             name: entity.name,
             externalId: entity.externalId,
-            type: entity.subType,
+            subType: entity.subType,
             moduleName: entity.moduleName,
         };
     }
@@ -336,7 +336,6 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             data.credentialId = this._convertId(updates.credential);
         if (updates.credentialId !== undefined)
             data.credentialId = this._convertId(updates.credentialId);
-        if (updates.type !== undefined) data.subType = updates.type;
         if (updates.subType !== undefined) data.subType = updates.subType;
         if (updates.name !== undefined) data.name = updates.name;
         if (updates.moduleName !== undefined)
@@ -362,7 +361,7 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
                 userId: entity.userId?.toString(),
                 name: entity.name,
                 externalId: entity.externalId,
-                type: entity.subType,
+                subType: entity.subType,
                 moduleName: entity.moduleName,
             };
         } catch (error) {

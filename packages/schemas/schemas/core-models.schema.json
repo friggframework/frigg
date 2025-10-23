@@ -128,7 +128,7 @@
     "credentialModel": {
       "type": "object",
       "description": "Frigg Credential model schema",
-      "required": ["_id", "userId", "subType"],
+      "required": ["_id", "userId"],
       "properties": {
         "_id": {
           "$ref": "#/definitions/objectId",
@@ -140,7 +140,7 @@
         },
         "subType": {
           "type": "string",
-          "description": "Integration type for this credential",
+          "description": "Optional adopter-defined field to distinguish multiple credentials of the same module type. Example: 'salesforce-crm' vs 'salesforce-marketing' for different Salesforce integrations.",
           "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$",
           "maxLength": 100
         },
@@ -239,7 +239,7 @@
     "entityModel": {
       "type": "object",
       "description": "Frigg Entity model schema",
-      "required": ["_id", "credentialId", "userId", "subType"],
+      "required": ["_id", "credentialId", "userId"],
       "properties": {
         "_id": {
           "$ref": "#/definitions/objectId",
@@ -253,9 +253,15 @@
           "$ref": "#/definitions/objectId",
           "description": "Associated user ID"
         },
+        "moduleName": {
+          "type": "string",
+          "description": "Module type identifier (e.g., 'salesforce', 'hubspot', 'attio'). Represents the API/service being integrated. Historically mapped from Mongoose discriminator (__t).",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$",
+          "maxLength": 100
+        },
         "subType": {
           "type": "string",
-          "description": "Entity subtype or category",
+          "description": "Optional adopter-defined field to distinguish multiple entities of the same module type. Example: 'team-workspace' vs 'personal-workspace' for multiple Slack integrations.",
           "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$",
           "maxLength": 100
         },
