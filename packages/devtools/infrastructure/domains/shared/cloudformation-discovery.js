@@ -22,7 +22,7 @@ class CloudFormationDiscovery {
 
     /**
      * Discover resources from an existing CloudFormation stack
-     * 
+     *
      * @param {string} stackName - Name of the CloudFormation stack
      * @returns {Promise<Object|null>} Discovered resources or null if stack doesn't exist
      */
@@ -35,7 +35,12 @@ class CloudFormationDiscovery {
             const resources = await this.provider.listStackResources(stackName);
 
             // Extract discovered resources from outputs and resources
-            const discovered = {};
+            const discovered = {
+                // Metadata to indicate resources came from CloudFormation stack
+                fromCloudFormationStack: true,
+                stackName: stackName,
+                existingLogicalIds: []
+            };
 
             // Extract from outputs
             if (stack.Outputs && stack.Outputs.length > 0) {
@@ -45,6 +50,11 @@ class CloudFormationDiscovery {
             // Extract from resources (now async to query AWS for details)
             // Always call this even if resources is empty, as it may query AWS for resources
             await this._extractFromResources(resources || [], discovered);
+
+            // Clean up metadata if no resources were discovered
+            if (discovered.existingLogicalIds.length === 0) {
+                delete discovered.existingLogicalIds;
+            }
 
             return discovered;
         } catch (error) {
@@ -103,15 +113,25 @@ class CloudFormationDiscovery {
 
     /**
      * Extract discovered resources from CloudFormation stack resources
-     * 
+     *
      * @private
      * @param {Array} resources - CloudFormation stack resources
      * @param {Object} discovered - Object to populate with discovered resources
      */
     async _extractFromResources(resources, discovered) {
         console.log(`  DEBUG: Processing ${resources.length} CloudFormation resources...`);
+
+        // Initialize existingLogicalIds array if not present
+        if (!discovered.existingLogicalIds) {
+            discovered.existingLogicalIds = [];
+        }
         for (const resource of resources) {
             const { LogicalResourceId, PhysicalResourceId, ResourceType } = resource;
+
+            // Track Frigg-managed resources by logical ID
+            if (LogicalResourceId.startsWith('Frigg') || LogicalResourceId.includes('Migration')) {
+                discovered.existingLogicalIds.push(LogicalResourceId);
+            }
 
             // Debug Aurora detection
             if (LogicalResourceId.includes('Aurora')) {
