@@ -5,7 +5,7 @@
 
 <img src="docs/FriggLogo.svg" style="width:250px">
 
-**Frigg** is a **Framework** that powers **direct/native integrations** between your product and external software partners.
+**Frigg** is a **Framework** that powers **direct/native integrations** between your product and external software partners. It's full of opinionated structured code that gets you to integration development faster. Yup, another "don't rebuild the wheel. Build the car." thing. Better yet, build the rocket ship.
 
 Build enterprise-grade integrations as simply as _`create-frigg-app`_.
 
@@ -50,6 +50,45 @@ flexible enough to handle any workflow or use case thrown at it, able to scale f
 Best place to get started is to <a href="https://docs.friggframework.org">checkout our Docs</a>
 
 Feel free to reach out and <a href="https://friggframework.org/#contact">contact us, and/or join our Frigg community shared Slack channel.</a>
+
+## Command System
+
+Frigg provides a clean **Application Service Layer** for all database operations through the command system. This isolates your integration code from the underlying ORM and ensures future compatibility.
+
+### Why Use Commands?
+
+- **ORM Independence**: Commands abstract away Mongoose, allowing framework upgrades without breaking your code
+- **Hexagonal Architecture**: Commands act as the application service layer between your domain logic and infrastructure
+- **Future-Proof**: Maintains backward compatibility during framework updates
+- **Single Source of Truth**: Centralized database access with consistent error handling
+
+### Quick Example
+
+```javascript
+const { createFriggCommands } = require('@friggframework/core');
+
+// Initialize commands
+const commands = createFriggCommands({
+    integrationClass: MyIntegration
+});
+
+// Use commands for database operations
+const user = await commands.findUserByAppUserId('external-user-123');
+const credential = await commands.createCredential({
+    userId: user.id,
+    access_token: 'token',
+    moduleName: 'asana'
+});
+```
+
+### Available Command Categories
+
+- **User Commands**: Create, find, and update Frigg users
+- **Credential Commands**: Manage OAuth tokens and API credentials
+- **Entity Commands**: Handle module entities (connections to external services)
+- **Integration Commands**: Load full integration contexts with hydrated modules
+
+For complete documentation, see the [Commands README](packages/core/application/commands/README.md).
 
 ## Contributors ✨
 

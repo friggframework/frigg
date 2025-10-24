@@ -2,7 +2,7 @@
 **/node_modules
 
 # testing
-/coverage
+**/coverage
 
 # production
 /build
@@ -20,6 +20,18 @@ yarn-error.log*
 
 # webstorm local config
 .idea/
+
+# claude-flow sparc files
+.claude-flow/
+.sparc/
+sparc-memory/
+.sparc-cache/
+sparc-sessions/
+claude-flow.log
+
+# claude files
+.claude/
+.roomodes
 
 .env
 .npmrc
