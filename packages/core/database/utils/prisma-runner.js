@@ -18,9 +18,12 @@ const chalk = require('chalk');
 function getPrismaSchemaPath(dbType, projectRoot = process.cwd()) {
     // Try multiple locations for the schema file
     // Priority order:
-    // 1. Local node_modules (where @friggframework/core is installed - production scenario)
-    // 2. Parent node_modules (workspace/monorepo setup)
+    // 1. Lambda layer path (where the schema actually exists in deployed Lambda)
+    // 2. Local node_modules (where @friggframework/core is installed - production scenario)
+    // 3. Parent node_modules (workspace/monorepo setup)
     const possiblePaths = [
+        // Lambda layer path - this is where the schema actually exists in deployed Lambda
+        `/opt/nodejs/node_modules/generated/prisma-${dbType}/schema.prisma`,
         // Check where Frigg is installed via npm (production scenario)
         path.join(projectRoot, 'node_modules', '@friggframework', 'core', `prisma-${dbType}`, 'schema.prisma'),
         path.join(projectRoot, '..', 'node_modules', '@friggframework', 'core', `prisma-${dbType}`, 'schema.prisma')
