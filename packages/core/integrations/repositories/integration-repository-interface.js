@@ -110,6 +110,18 @@ class IntegrationRepositoryInterface {
     async findIntegrationByUserId(userId) {
         throw new Error('Method findIntegrationByUserId must be implemented by subclass');
     }
+
+    /**
+     * Update integration configuration
+     *
+     * @param {string|number} integrationId - Integration ID
+     * @param {Object} config - Updated configuration object
+     * @returns {Promise<Object>} Updated integration object
+     * @abstract
+     */
+    async updateIntegrationConfig(integrationId, config) {
+        throw new Error('Method updateIntegrationConfig must be implemented by subclass');
+    }
 }
 
 module.exports = { IntegrationRepositoryInterface };
