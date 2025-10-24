@@ -183,11 +183,20 @@ class AuroraBuilder extends InfrastructureBuilder {
             });
         } else {
             // Resources discovered from AWS API (external)
+            // Handle both cluster ID and endpoint
             if (flatDiscovery.auroraClusterId && typeof flatDiscovery.auroraClusterId === 'string') {
                 discovery.external.push({
                     physicalId: flatDiscovery.auroraClusterId,
                     resourceType: 'AWS::RDS::DBCluster',
                     source: 'aws-discovery'
+                });
+            } else if (flatDiscovery.auroraClusterEndpoint && typeof flatDiscovery.auroraClusterEndpoint === 'string') {
+                // Endpoint provided (discover mode) - treat as external
+                discovery.external.push({
+                    physicalId: flatDiscovery.auroraClusterEndpoint,
+                    resourceType: 'AWS::RDS::DBCluster',
+                    source: 'aws-discovery',
+                    properties: { Endpoint: flatDiscovery.auroraClusterEndpoint }
                 });
             }
 
@@ -267,22 +276,25 @@ class AuroraBuilder extends InfrastructureBuilder {
         }
 
         // Handle legacy database.postgres.management
+        // BUT: if managementMode (top-level) is set, it takes precedence
         const dbManagement = appDefinition.database?.postgres?.management;
-        if (dbManagement === 'managed') {
-            translated.database.postgres.ownership.cluster = 'stack';
-            translated.database.postgres.ownership.instance = 'stack';
-            translated.database.postgres.ownership.subnetGroup = 'stack';
-            translated.database.postgres.ownership.secret = 'stack';
-        } else if (dbManagement === 'use-existing') {
-            // For use-existing with endpoint, we bypass resolver entirely
-            // Mark this with a special flag
-            translated.database.postgres._useExistingEndpoint = true;
-            if (appDefinition.database.postgres.endpoint) {
-                translated.database.postgres.external.endpoint = appDefinition.database.postgres.endpoint;
+        if (dbManagement && globalMode !== 'managed' && globalMode !== 'existing') {
+            if (dbManagement === 'managed') {
+                translated.database.postgres.ownership.cluster = 'stack';
+                translated.database.postgres.ownership.instance = 'stack';
+                translated.database.postgres.ownership.subnetGroup = 'stack';
+                translated.database.postgres.ownership.secret = 'stack';
+            } else if (dbManagement === 'use-existing') {
+                // For use-existing with endpoint, we bypass resolver entirely
+                // Mark this with a special flag
+                translated.database.postgres._useExistingEndpoint = true;
+                if (appDefinition.database.postgres.endpoint) {
+                    translated.database.postgres.external.endpoint = appDefinition.database.postgres.endpoint;
+                }
+            } else if (dbManagement === 'discover') {
+                translated.database.postgres.ownership.cluster = 'auto';
+                translated.database.postgres.ownership.instance = 'auto';
             }
-        } else if (dbManagement === 'discover') {
-            translated.database.postgres.ownership.cluster = 'auto';
-            translated.database.postgres.ownership.instance = 'auto';
         }
 
         // Preserve other database config
@@ -303,24 +315,23 @@ class AuroraBuilder extends InfrastructureBuilder {
      * Build all Aurora resources based on ownership decisions
      */
     async buildFromDecisions(decisions, appDefinition, discoveredResources, result) {
-        // For now, map decisions to the existing helper methods
-        // In future, we can refactor these helpers to work directly with decisions
-
-        const dbConfig = appDefinition.database.postgres;
-
         // Determine build strategy from ownership decisions
+
         if (decisions.cluster.ownership === ResourceOwnership.EXTERNAL) {
-            // Use existing cluster (external)
-            await this.useExistingAurora(appDefinition, discoveredResources, result);
-        } else if (decisions.cluster.ownership === ResourceOwnership.STACK && !decisions.cluster.physicalId) {
-            // Create new cluster (stack, no existing)
-            await this.createNewAurora(appDefinition, discoveredResources, result);
+            // External cluster discovered - reference it without creating infrastructure
+            console.log('  → Discovering and referencing external Aurora cluster');
+            await this.discoverAurora(appDefinition, discoveredResources, result);
         } else if (decisions.cluster.ownership === ResourceOwnership.STACK && decisions.cluster.physicalId) {
             // Cluster exists in stack - add definitions (CloudFormation idempotency)
             console.log('  → Adding Aurora definitions to template (existing in stack)');
             await this.createNewAurora(appDefinition, discoveredResources, result);
+        } else if (decisions.cluster.ownership === ResourceOwnership.STACK && !decisions.cluster.physicalId) {
+            // Create new cluster (stack, no existing)
+            console.log('  → Creating new Aurora cluster in stack');
+            await this.createNewAurora(appDefinition, discoveredResources, result);
         } else {
-            // Discover and reference
+            // Fallback: discover mode
+            console.log('  → Discovering Aurora resources');
             await this.discoverAurora(appDefinition, discoveredResources, result);
         }
     }
