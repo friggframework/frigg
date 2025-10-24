@@ -515,57 +515,60 @@ class VpcBuilder extends InfrastructureBuilder {
 
     /**
      * Build VPC based on ownership decision
+     *
+     * For STACK ownership: ALWAYS add definitions to template.
+     * CloudFormation idempotency ensures existing resources aren't recreated.
      */
     buildVpcFromDecision(decision, appDefinition, result) {
         if (decision.ownership === ResourceOwnership.STACK) {
+            // For STACK ownership: ALWAYS create definitions (CloudFormation idempotency)
             if (decision.physicalId) {
-                // VPC exists in stack - use its ID
-                result.vpcId = decision.physicalId;
-                console.log(`  ✓ Using stack-managed VPC: ${decision.physicalId}`);
+                console.log(`  → Adding VPC definition to template (existing: ${decision.physicalId})`);
             } else {
-                // Create new VPC in stack
-                console.log('  → Creating new VPC in CloudFormation stack...');
-                const cidrBlock = appDefinition.vpc.cidrBlock || '10.0.0.0/16';
-
-                result.resources.FriggVPC = {
-                    Type: 'AWS::EC2::VPC',
-                    Properties: {
-                        CidrBlock: cidrBlock,
-                        EnableDnsHostnames: true,
-                        EnableDnsSupport: true,
-                        Tags: [
-                            { Key: 'Name', Value: '${self:service}-${self:provider.stage}-vpc' },
-                            { Key: 'ManagedBy', Value: 'Frigg' },
-                            { Key: 'Service', Value: '${self:service}' },
-                            { Key: 'Stage', Value: '${self:provider.stage}' },
-                        ],
-                    },
-                };
-
-                // Internet Gateway
-                result.resources.FriggInternetGateway = {
-                    Type: 'AWS::EC2::InternetGateway',
-                    Properties: {
-                        Tags: [
-                            { Key: 'Name', Value: '${self:service}-${self:provider.stage}-igw' },
-                            { Key: 'ManagedBy', Value: 'Frigg' },
-                        ],
-                    },
-                };
-
-                result.resources.FriggVPCGatewayAttachment = {
-                    Type: 'AWS::EC2::VPCGatewayAttachment',
-                    Properties: {
-                        VpcId: { Ref: 'FriggVPC' },
-                        InternetGatewayId: { Ref: 'FriggInternetGateway' },
-                    },
-                };
-
-                result.vpcId = { Ref: 'FriggVPC' };
-                console.log('  ✅ VPC resources added to template');
+                console.log('  → Adding VPC definition to template (new)');
             }
+
+            const cidrBlock = appDefinition.vpc?.config?.cidrBlock || appDefinition.vpc?.cidrBlock || '10.0.0.0/16';
+
+            result.resources.FriggVPC = {
+                Type: 'AWS::EC2::VPC',
+                Properties: {
+                    CidrBlock: cidrBlock,
+                    EnableDnsHostnames: true,
+                    EnableDnsSupport: true,
+                    Tags: [
+                        { Key: 'Name', Value: '${self:service}-${self:provider.stage}-vpc' },
+                        { Key: 'ManagedBy', Value: 'Frigg' },
+                        { Key: 'Service', Value: '${self:service}' },
+                        { Key: 'Stage', Value: '${self:provider.stage}' },
+                    ],
+                },
+            };
+
+            // Internet Gateway
+            result.resources.FriggInternetGateway = {
+                Type: 'AWS::EC2::InternetGateway',
+                Properties: {
+                    Tags: [
+                        { Key: 'Name', Value: '${self:service}-${self:provider.stage}-igw' },
+                        { Key: 'ManagedBy', Value: 'Frigg' },
+                    ],
+                },
+            };
+
+            result.resources.FriggVPCGatewayAttachment = {
+                Type: 'AWS::EC2::VPCGatewayAttachment',
+                Properties: {
+                    VpcId: { Ref: 'FriggVPC' },
+                    InternetGatewayId: { Ref: 'FriggInternetGateway' },
+                },
+            };
+
+            // Use Ref for stack-managed VPC
+            result.vpcId = { Ref: 'FriggVPC' };
+            console.log('  ✅ VPC definition added to template');
         } else if (decision.ownership === ResourceOwnership.EXTERNAL) {
-            // Use external VPC ID
+            // Use external VPC ID (no definition in template)
             result.vpcId = decision.physicalId;
             console.log(`  ✓ Using external VPC: ${decision.physicalId}`);
         }
@@ -616,31 +619,33 @@ class VpcBuilder extends InfrastructureBuilder {
      */
     buildSubnetsFromDecision(decision, appDefinition, discoveredResources, result) {
         if (decision.ownership === ResourceOwnership.STACK) {
-            if (decision.physicalIds && decision.physicalIds.length >= 2) {
-                // Subnets exist in stack - use their physical IDs directly
-                console.log(`  ✓ Using stack-managed subnets: ${decision.physicalIds.join(', ')}`);
-
-                // Use physical IDs for existing stack-managed subnets
-                result.vpcConfig.subnetIds = decision.physicalIds;
-
-                // Map to discovered resources for other builders
-                discoveredResources.privateSubnetId1 = decision.physicalIds[0];
-                discoveredResources.privateSubnetId2 = decision.physicalIds[1];
-            } else {
-                // Check if selfHeal is disabled - if so, throw error instead of creating
+            // Check if no subnets exist and selfHeal is disabled
+            if (!decision.physicalIds || decision.physicalIds.length < 2) {
                 const selfHeal = appDefinition.vpc?.config?.selfHeal !== false;
                 if (!selfHeal) {
                     throw new Error(
                         'No subnets discovered. Enable vpc.selfHeal, set subnets.management to "create", or provide subnet IDs.'
                     );
                 }
-
-                // Create new subnets
-                console.log('  → Creating new subnets in template...');
-                this.createSubnetsInTemplate(appDefinition, result, discoveredResources);
             }
+
+            // For STACK ownership: ALWAYS add definitions to template
+            // CloudFormation idempotency ensures existing resources won't be recreated
+            if (decision.physicalIds && decision.physicalIds.length >= 2) {
+                console.log(`  → Adding subnet definitions to template (existing: ${decision.physicalIds.join(', ')})`);
+            } else {
+                console.log('  → Adding subnet definitions to template (new)');
+            }
+
+            this.createSubnetsInTemplate(appDefinition, result, discoveredResources);
+
+            // Use Refs for stack-managed resources
+            result.vpcConfig.subnetIds = [
+                { Ref: 'FriggPrivateSubnet1' },
+                { Ref: 'FriggPrivateSubnet2' }
+            ];
         } else if (decision.ownership === ResourceOwnership.EXTERNAL) {
-            // Use external subnet IDs
+            // Use external subnet IDs directly (no definitions in template)
             result.vpcConfig.subnetIds = decision.physicalIds;
             console.log(`  ✓ Using external subnets: ${decision.physicalIds.join(', ')}`);
         }
