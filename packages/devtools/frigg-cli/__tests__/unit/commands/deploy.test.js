@@ -89,6 +89,45 @@ describe('CLI Command: deploy', () => {
       );
     });
 
+    it('should spawn serverless with --force flag when force option is true', async () => {
+      await deployCommand({ stage: 'dev', force: true });
+
+      expect(spawn).toHaveBeenCalledWith(
+        'osls',
+        ['deploy', '--config', 'infrastructure.js', '--stage', 'dev', '--force'],
+        expect.objectContaining({
+          cwd: expect.any(String),
+          stdio: 'inherit'
+        })
+      );
+    });
+
+    it('should spawn serverless without --force flag when force option is false', async () => {
+      await deployCommand({ stage: 'dev', force: false });
+
+      expect(spawn).toHaveBeenCalledWith(
+        'osls',
+        ['deploy', '--config', 'infrastructure.js', '--stage', 'dev'],
+        expect.objectContaining({
+          cwd: expect.any(String),
+          stdio: 'inherit'
+        })
+      );
+    });
+
+    it('should spawn serverless without --force flag when force option is undefined', async () => {
+      await deployCommand({ stage: 'dev' });
+
+      expect(spawn).toHaveBeenCalledWith(
+        'osls',
+        ['deploy', '--config', 'infrastructure.js', '--stage', 'dev'],
+        expect.objectContaining({
+          cwd: expect.any(String),
+          stdio: 'inherit'
+        })
+      );
+    });
+
     it('should use process.cwd() as working directory', async () => {
       await deployCommand({ stage: 'dev' });
 

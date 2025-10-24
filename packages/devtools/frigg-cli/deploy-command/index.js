@@ -146,6 +146,11 @@ function executeServerlessDeployment(environment, options) {
         options.stage,
     ];
 
+    // Add --force flag if force option is true
+    if (options.force === true) {
+        serverlessArgs.push('--force');
+    }
+
     const childProcess = spawn(COMMANDS.SERVERLESS, serverlessArgs, {
         cwd: path.resolve(process.cwd()),
         stdio: 'inherit',

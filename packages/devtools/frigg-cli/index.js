@@ -45,6 +45,7 @@ program
     .description('Deploy the serverless application')
     .option('-s, --stage <stage>', 'deployment stage', 'dev')
     .option('-v, --verbose', 'enable verbose output')
+    .option('-f, --force', 'force deployment (bypasses caching for layers and functions)')
     .action(deployCommand);
 
 program
