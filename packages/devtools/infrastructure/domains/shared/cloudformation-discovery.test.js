@@ -48,6 +48,8 @@ describe('CloudFormationDiscovery', () => {
             const result = await cfDiscovery.discoverFromStack('test-stack');
 
             expect(result).toEqual({
+                fromCloudFormationStack: true,
+                stackName: 'test-stack',
                 defaultVpcId: 'vpc-123', // VpcBuilder expects 'defaultVpcId', not 'vpcId'
                 privateSubnetIds: ['subnet-1', 'subnet-2'],
                 publicSubnetId: 'subnet-3',
@@ -69,6 +71,8 @@ describe('CloudFormationDiscovery', () => {
             const result = await cfDiscovery.discoverFromStack('test-stack');
 
             expect(result).toEqual({
+                fromCloudFormationStack: true,
+                stackName: 'test-stack',
                 defaultKmsKeyId: 'arn:aws:kms:us-east-1:123456789:key/abc',
             });
         });
@@ -137,7 +141,10 @@ describe('CloudFormationDiscovery', () => {
             const result = await cfDiscovery.discoverFromStack('test-stack');
 
             expect(result).toEqual({
+                fromCloudFormationStack: true,
+                stackName: 'test-stack',
                 auroraClusterId: 'test-cluster',
+                existingLogicalIds: ['FriggAuroraCluster'],
             });
         });
 
@@ -201,7 +208,10 @@ describe('CloudFormationDiscovery', () => {
             const result = await cfDiscovery.discoverFromStack('test-stack');
 
             expect(result).toEqual({
+                fromCloudFormationStack: true,
+                stackName: 'test-stack',
                 migrationStatusBucket: 'test-migration-bucket',
+                existingLogicalIds: ['FriggMigrationStatusBucket'],
             });
         });
 
@@ -225,7 +235,10 @@ describe('CloudFormationDiscovery', () => {
             const result = await cfDiscovery.discoverFromStack('test-stack');
 
             expect(result).toEqual({
+                fromCloudFormationStack: true,
+                stackName: 'test-stack',
                 migrationQueueUrl: 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue',
+                existingLogicalIds: ['DbMigrationQueue'],
             });
         });
 
@@ -249,7 +262,10 @@ describe('CloudFormationDiscovery', () => {
             const result = await cfDiscovery.discoverFromStack('test-stack');
 
             expect(result).toEqual({
+                fromCloudFormationStack: true,
+                stackName: 'test-stack',
                 natGatewayId: 'nat-0123456789',
+                existingLogicalIds: ['FriggNatGateway'],
             });
         });
 
@@ -273,7 +289,10 @@ describe('CloudFormationDiscovery', () => {
             const result = await cfDiscovery.discoverFromStack('test-stack');
 
             expect(result).toEqual({
+                fromCloudFormationStack: true,
+                stackName: 'test-stack',
                 defaultVpcId: 'vpc-037ec55fe87aec1e7',
+                existingLogicalIds: ['FriggVPC'],
             });
         });
 
@@ -305,10 +324,13 @@ describe('CloudFormationDiscovery', () => {
             const result = await cfDiscovery.discoverFromStack('test-stack');
 
             expect(result).toEqual({
+                fromCloudFormationStack: true,
+                stackName: 'test-stack',
                 defaultVpcId: 'vpc-123', // VpcBuilder expects 'defaultVpcId'
                 defaultKmsKeyId: 'arn:aws:kms:us-east-1:123456789:key/abc',
                 auroraClusterId: 'test-cluster',
                 natGatewayId: 'nat-123',
+                existingLogicalIds: ['FriggAuroraCluster', 'FriggNatGateway'],
             });
         });
 
@@ -329,7 +351,10 @@ describe('CloudFormationDiscovery', () => {
 
             const result = await cfDiscovery.discoverFromStack('test-stack');
 
-            expect(result).toEqual({});
+            expect(result).toEqual({
+                fromCloudFormationStack: true,
+                stackName: 'test-stack',
+            });
         });
 
         it('should query EC2 for subnets when VPC found but no subnet resources in stack', async () => {
