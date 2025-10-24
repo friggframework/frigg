@@ -13,6 +13,7 @@ const {
     resolveOwnership,
     findStackResource,
     findExternalResource,
+    findAllExternalResources,
     isResourceInStack
 } = require('./types');
 
@@ -37,6 +38,17 @@ class BaseResourceResolver {
      */
     findExternal(resourceType, discovery) {
         return findExternalResource(discovery, resourceType);
+    }
+
+    /**
+     * Find all external resources by type
+     * @protected
+     * @param {Object} discovery - Discovery result
+     * @param {string} resourceType - CloudFormation resource type
+     * @returns {Object[]} Array of external resources
+     */
+    findAllExternalResources(discovery, resourceType) {
+        return findAllExternalResources(discovery, resourceType);
     }
 
     /**
