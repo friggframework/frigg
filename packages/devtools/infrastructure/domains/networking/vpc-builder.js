@@ -19,6 +19,9 @@
  */
 
 const { InfrastructureBuilder, ValidationResult } = require('../shared/base-builder');
+const VpcResourceResolver = require('./vpc-resolver');
+const { createEmptyDiscoveryResult } = require('../shared/types/discovery-result');
+const { ResourceOwnership } = require('../shared/types/resource-ownership');
 
 class VpcBuilder extends InfrastructureBuilder {
     constructor() {
@@ -97,11 +100,285 @@ class VpcBuilder extends InfrastructureBuilder {
     }
 
     /**
-     * Build complete VPC infrastructure based on management mode
+     * Convert flat discovery result to structured discovery result
+     * Provides backwards compatibility for tests using old discovery format
+     */
+    convertFlatDiscoveryToStructured(flatDiscovery) {
+        const discovery = createEmptyDiscoveryResult();
+
+        if (!flatDiscovery) {
+            return discovery;
+        }
+
+        // Check if this came from CloudFormation stack
+        if (flatDiscovery.fromCloudFormationStack) {
+            discovery.fromCloudFormation = true;
+            discovery.stackName = flatDiscovery.stackName;
+
+            // Add resources to stackManaged array
+            const existingLogicalIds = flatDiscovery.existingLogicalIds || [];
+
+            existingLogicalIds.forEach(logicalId => {
+                // Find the resource type and physical ID
+                let resourceType = '';
+                let physicalId = '';
+
+                if (logicalId === 'FriggVPC') {
+                    resourceType = 'AWS::EC2::VPC';
+                    physicalId = flatDiscovery.defaultVpcId;
+                } else if (logicalId === 'FriggLambdaSecurityGroup') {
+                    resourceType = 'AWS::EC2::SecurityGroup';
+                    physicalId = flatDiscovery.defaultSecurityGroupId || flatDiscovery.securityGroupId;
+                } else if (logicalId === 'FriggPrivateSubnet1') {
+                    resourceType = 'AWS::EC2::Subnet';
+                    physicalId = flatDiscovery.privateSubnetId1;
+                } else if (logicalId === 'FriggPrivateSubnet2') {
+                    resourceType = 'AWS::EC2::Subnet';
+                    physicalId = flatDiscovery.privateSubnetId2;
+                } else if (logicalId === 'FriggNATGateway') {
+                    resourceType = 'AWS::EC2::NatGateway';
+                    physicalId = flatDiscovery.existingNatGatewayId;
+                } else if (logicalId === 'FriggS3VPCEndpoint') {
+                    resourceType = 'AWS::EC2::VPCEndpoint';
+                    physicalId = flatDiscovery.s3VpcEndpointId;
+                } else if (logicalId === 'FriggDynamoDBVPCEndpoint') {
+                    resourceType = 'AWS::EC2::VPCEndpoint';
+                    physicalId = flatDiscovery.dynamodbVpcEndpointId;
+                } else if (logicalId === 'FriggKMSVPCEndpoint') {
+                    resourceType = 'AWS::EC2::VPCEndpoint';
+                    physicalId = flatDiscovery.kmsVpcEndpointId;
+                } else if (logicalId === 'FriggSecretsManagerVPCEndpoint') {
+                    resourceType = 'AWS::EC2::VPCEndpoint';
+                    physicalId = flatDiscovery.secretsManagerVpcEndpointId;
+                } else if (logicalId === 'FriggSQSVPCEndpoint') {
+                    resourceType = 'AWS::EC2::VPCEndpoint';
+                    physicalId = flatDiscovery.sqsVpcEndpointId;
+                }
+
+                if (physicalId && typeof physicalId === 'string') {
+                    discovery.stackManaged.push({
+                        logicalId,
+                        physicalId,
+                        resourceType
+                    });
+                }
+            });
+        } else {
+            // Resources discovered from AWS API (not CloudFormation)
+            // These go into external array
+
+            if (flatDiscovery.defaultVpcId && typeof flatDiscovery.defaultVpcId === 'string') {
+                discovery.external.push({
+                    physicalId: flatDiscovery.defaultVpcId,
+                    resourceType: 'AWS::EC2::VPC',
+                    source: 'aws-discovery'
+                });
+            }
+
+            if (flatDiscovery.defaultSecurityGroupId && typeof flatDiscovery.defaultSecurityGroupId === 'string') {
+                discovery.external.push({
+                    physicalId: flatDiscovery.defaultSecurityGroupId,
+                    resourceType: 'AWS::EC2::SecurityGroup',
+                    source: 'aws-discovery'
+                });
+            }
+
+            if (flatDiscovery.privateSubnetId1 && typeof flatDiscovery.privateSubnetId1 === 'string') {
+                discovery.external.push({
+                    physicalId: flatDiscovery.privateSubnetId1,
+                    resourceType: 'AWS::EC2::Subnet',
+                    source: 'aws-discovery'
+                });
+            }
+
+            if (flatDiscovery.privateSubnetId2 && typeof flatDiscovery.privateSubnetId2 === 'string') {
+                discovery.external.push({
+                    physicalId: flatDiscovery.privateSubnetId2,
+                    resourceType: 'AWS::EC2::Subnet',
+                    source: 'aws-discovery'
+                });
+            }
+
+            if (flatDiscovery.natGatewayId && typeof flatDiscovery.natGatewayId === 'string') {
+                discovery.external.push({
+                    physicalId: flatDiscovery.natGatewayId,
+                    resourceType: 'AWS::EC2::NatGateway',
+                    source: 'aws-discovery'
+                });
+            }
+
+            if (flatDiscovery.existingNatGatewayId && typeof flatDiscovery.existingNatGatewayId === 'string') {
+                discovery.external.push({
+                    physicalId: flatDiscovery.existingNatGatewayId,
+                    resourceType: 'AWS::EC2::NatGateway',
+                    source: 'aws-discovery'
+                });
+            }
+        }
+
+        return discovery;
+    }
+
+    /**
+     * Translate legacy configuration (management modes) to new ownership-based configuration
+     * Provides backwards compatibility for existing app definitions
+     */
+    translateLegacyConfig(appDefinition, discoveredResources) {
+        // If already using new ownership schema, return as-is
+        if (appDefinition.vpc?.ownership) {
+            return appDefinition;
+        }
+
+        // Clone to avoid mutating original
+        const translated = JSON.parse(JSON.stringify(appDefinition));
+
+        // Initialize ownership and external sections
+        if (!translated.vpc.ownership) {
+            translated.vpc.ownership = {};
+        }
+        if (!translated.vpc.external) {
+            translated.vpc.external = {};
+        }
+        if (!translated.vpc.config) {
+            translated.vpc.config = {};
+        }
+
+        // Handle top-level managementMode
+        const globalMode = appDefinition.managementMode || 'discover';
+        const vpcIsolation = appDefinition.vpcIsolation || 'shared';
+
+        if (globalMode === 'managed') {
+            this.warnIgnoredOptions(appDefinition);
+
+            if (vpcIsolation === 'isolated') {
+                // Check if CloudFormation stack already has resources
+                const hasStackVpc = discoveredResources?.defaultVpcId && typeof discoveredResources.defaultVpcId === 'string';
+
+                if (hasStackVpc) {
+                    // Stack has VPC - reuse it
+                    translated.vpc.ownership.vpc = 'auto';
+                    translated.vpc.ownership.securityGroup = 'auto';
+                    translated.vpc.ownership.subnets = 'auto';
+                    translated.vpc.config.selfHeal = true;
+                } else {
+                    // No stack VPC - create new
+                    translated.vpc.ownership.vpc = 'stack';
+                    translated.vpc.ownership.securityGroup = 'stack';
+                    translated.vpc.ownership.subnets = 'stack';
+                    translated.vpc.ownership.natGateway = 'stack';
+                    translated.vpc.config.natGateway = { enable: true };
+                }
+            } else {
+                // Shared VPC
+                translated.vpc.ownership.vpc = 'auto';
+                translated.vpc.ownership.securityGroup = 'auto';
+                translated.vpc.ownership.subnets = 'auto';
+                translated.vpc.config.selfHeal = true;
+            }
+        } else if (globalMode === 'existing') {
+            translated.vpc.ownership.vpc = 'external';
+            translated.vpc.ownership.securityGroup = 'external';
+            translated.vpc.ownership.subnets = 'external';
+        }
+
+        // Handle legacy vpc.management modes
+        const vpcManagement = appDefinition.vpc?.management;
+        if (vpcManagement === 'create-new') {
+            translated.vpc.ownership.vpc = 'stack';
+            translated.vpc.ownership.securityGroup = 'stack';
+            translated.vpc.ownership.subnets = 'stack';
+        } else if (vpcManagement === 'use-existing') {
+            translated.vpc.ownership.vpc = 'external';
+            translated.vpc.external.vpcId = appDefinition.vpc.vpcId;
+
+            if (appDefinition.vpc.securityGroupIds) {
+                translated.vpc.ownership.securityGroup = 'external';
+                translated.vpc.external.securityGroupIds = appDefinition.vpc.securityGroupIds;
+            }
+
+            if (appDefinition.vpc.subnets?.ids) {
+                translated.vpc.ownership.subnets = 'external';
+                translated.vpc.external.subnetIds = appDefinition.vpc.subnets.ids;
+            }
+        } else if (vpcManagement === 'discover') {
+            // Discover mode - let auto-resolution handle it
+            translated.vpc.ownership.vpc = 'auto';
+            translated.vpc.ownership.securityGroup = 'auto';
+            translated.vpc.ownership.subnets = 'auto';
+        }
+
+        // Handle legacy shareAcrossStages
+        if (appDefinition.vpc?.shareAcrossStages !== undefined) {
+            if (appDefinition.vpc.shareAcrossStages) {
+                // Shared VPC - discover and reuse
+                translated.vpc.ownership.vpc = 'auto';
+                translated.vpc.ownership.subnets = 'auto';
+            } else {
+                // Isolated VPC - create stage-specific
+                translated.vpc.ownership.vpc = 'stack';
+                translated.vpc.ownership.subnets = 'stack';
+                translated.vpc.ownership.natGateway = 'stack';
+                translated.vpc.config.natGateway = { enable: true };
+            }
+        }
+
+        // Handle legacy NAT Gateway management
+        if (appDefinition.vpc?.natGateway?.management === 'createAndManage') {
+            translated.vpc.ownership.natGateway = 'stack';
+            translated.vpc.config.natGateway = { enable: true };
+        } else if (appDefinition.vpc?.natGateway?.id) {
+            translated.vpc.ownership.natGateway = 'external';
+            translated.vpc.external.natGatewayId = appDefinition.vpc.natGateway.id;
+        }
+
+        // Handle legacy subnet management
+        if (appDefinition.vpc?.subnets?.management === 'create') {
+            translated.vpc.ownership.subnets = 'stack';
+        } else if (appDefinition.vpc?.subnets?.management === 'use-existing' && appDefinition.vpc.subnets.ids) {
+            translated.vpc.ownership.subnets = 'external';
+            translated.vpc.external.subnetIds = appDefinition.vpc.subnets.ids;
+        }
+
+        // Preserve other VPC config
+        if (appDefinition.vpc?.cidrBlock) {
+            translated.vpc.config.cidrBlock = appDefinition.vpc.cidrBlock;
+        }
+        if (appDefinition.vpc?.enableVPCEndpoints !== undefined) {
+            translated.vpc.config.enableVpcEndpoints = appDefinition.vpc.enableVPCEndpoints;
+        }
+        if (appDefinition.vpc?.selfHeal !== undefined) {
+            translated.vpc.config.selfHeal = appDefinition.vpc.selfHeal;
+        }
+
+        return translated;
+    }
+
+    /**
+     * Build complete VPC infrastructure using ownership-based architecture
      */
     async build(appDefinition, discoveredResources) {
         console.log(`\n[${this.name}] Building VPC infrastructure...`);
 
+        // Backwards compatibility: Translate old schema to new ownership schema
+        appDefinition = this.translateLegacyConfig(appDefinition, discoveredResources);
+
+        // Get structured discovery result (or convert flat discovery to structured)
+        const discovery = discoveredResources._structured || this.convertFlatDiscoveryToStructured(discoveredResources);
+
+        // Use VpcResourceResolver to make ownership decisions
+        const resolver = new VpcResourceResolver();
+        const decisions = resolver.resolveAll(appDefinition, discovery);
+
+        console.log('\n  📋 Resource Ownership Decisions:');
+        console.log(`     VPC: ${decisions.vpc.ownership} - ${decisions.vpc.reason}`);
+        console.log(`     Security Group: ${decisions.securityGroup.ownership} - ${decisions.securityGroup.reason}`);
+        console.log(`     Subnets: ${decisions.subnets.ownership} - ${decisions.subnets.reason}`);
+        console.log(`     NAT Gateway: ${decisions.natGateway.ownership || 'disabled'} - ${decisions.natGateway.reason}`);
+        console.log(`     VPC Endpoints:`);
+        console.log(`       S3: ${decisions.vpcEndpoints.s3.ownership || 'disabled'} - ${decisions.vpcEndpoints.s3.reason}`);
+        console.log(`       DynamoDB: ${decisions.vpcEndpoints.dynamodb.ownership || 'disabled'} - ${decisions.vpcEndpoints.dynamodb.reason}`);
+
+        // Initialize result
         const result = {
             resources: {},
             vpcConfig: {
@@ -110,9 +387,42 @@ class VpcBuilder extends InfrastructureBuilder {
             },
             iamStatements: [],
             outputs: {},
+            environment: {},
         };
 
         // Add IAM permissions for VPC-enabled Lambda functions
+        this.addVpcIamPermissions(result);
+
+        // Build VPC based on ownership decision
+        this.buildVpcFromDecision(decisions.vpc, appDefinition, result);
+
+        // Build Security Group based on ownership decision
+        this.buildSecurityGroupFromDecision(decisions.securityGroup, appDefinition, result);
+
+        // Build Subnets based on ownership decision
+        this.buildSubnetsFromDecision(decisions.subnets, appDefinition, discoveredResources, result);
+
+        // Build NAT Gateway based on ownership decision
+        this.buildNatGatewayFromDecision(decisions.natGateway, appDefinition, discoveredResources, result);
+
+        // Build VPC Endpoints based on ownership decisions
+        this.buildVpcEndpointsFromDecisions(decisions.vpcEndpoints, appDefinition, result);
+
+        // Set VPC_ENABLED environment variable
+        result.environment.VPC_ENABLED = 'true';
+
+        console.log(`\n[${this.name}] ✅ VPC infrastructure built successfully`);
+        console.log(`  - VPC ID: ${result.vpcId || 'from discovery'}`);
+        console.log(`  - Subnets: ${result.vpcConfig.subnetIds.length}`);
+        console.log(`  - Security Groups: ${result.vpcConfig.securityGroupIds.length}`);
+
+        return result;
+    }
+
+    /**
+     * Add IAM permissions for VPC-enabled Lambda functions
+     */
+    addVpcIamPermissions(result) {
         result.iamStatements.push({
             Effect: 'Allow',
             Action: [
@@ -124,153 +434,484 @@ class VpcBuilder extends InfrastructureBuilder {
             ],
             Resource: '*',
         });
+    }
 
-        // Normalize top-level managementMode (simplified API)
-        const globalMode = appDefinition.managementMode || 'discover';
-        const vpcIsolation = appDefinition.vpcIsolation || 'shared';
-
-        // Debug logging
-        console.log(`  🔍 DEBUG: globalMode = '${globalMode}', vpcIsolation = '${vpcIsolation}'`);
-        console.log(`  🔍 DEBUG: discoveredResources.defaultVpcId = ${discoveredResources?.defaultVpcId}`);
-        console.log(`  🔍 DEBUG: discoveredResources keys = ${Object.keys(discoveredResources || {}).join(', ')}`);
-
-        let management = appDefinition.vpc.management;
-
-        if (globalMode === 'managed') {
-            // Warn about ignored granular options
-            this.warnIgnoredOptions(appDefinition);
-
-            // Clear granular options to prevent conflicts
-            delete appDefinition.vpc.management;
-            if (appDefinition.vpc.subnets) delete appDefinition.vpc.subnets.management;
-            if (appDefinition.vpc.natGateway) delete appDefinition.vpc.natGateway.management;
-            delete appDefinition.vpc.shareAcrossStages;
-
-            // Set management based on isolation strategy AND existing stack resources
-            if (vpcIsolation === 'isolated') {
-                // Check if CloudFormation stack already has a VPC (stage-specific)
-                // CloudFormation discovery sets 'defaultVpcId' (string) when found in stack
-                const hasStackVpc = discoveredResources?.defaultVpcId && typeof discoveredResources.defaultVpcId === 'string';
-
-                // Debug logging
-                console.log(`  🔍 DEBUG: discoveredResources.defaultVpcId = ${discoveredResources?.defaultVpcId} (type: ${typeof discoveredResources?.defaultVpcId})`);
-                console.log(`  🔍 DEBUG: hasStackVpc = ${hasStackVpc}`);
-
-                if (hasStackVpc) {
-                    // Stack has VPC - reuse it (standard flow: stack → orphaned → create)
-                    management = 'discover';
-                    appDefinition.vpc.selfHeal = true;
-                    console.log(`  managementMode='managed' + vpcIsolation='isolated' → stack has VPC, reusing`);
-                } else {
-                    // No stack VPC - create new isolated VPC for this stage
-                    management = 'create-new';
-                    appDefinition.vpc.natGateway = appDefinition.vpc.natGateway || {};
-                    appDefinition.vpc.natGateway.management = 'createAndManage';
-                    console.log(`  managementMode='managed' + vpcIsolation='isolated' → no stack VPC, creating new`);
-                }
+    /**
+     * Build VPC based on ownership decision
+     */
+    buildVpcFromDecision(decision, appDefinition, result) {
+        if (decision.ownership === ResourceOwnership.STACK) {
+            if (decision.physicalId) {
+                // VPC exists in stack - use its ID
+                result.vpcId = decision.physicalId;
+                console.log(`  ✓ Using stack-managed VPC: ${decision.physicalId}`);
             } else {
-                management = 'discover';
-                appDefinition.vpc.selfHeal = true;
-                console.log(`  managementMode='managed' + vpcIsolation='shared' → discovering VPC`);
+                // Create new VPC in stack
+                console.log('  → Creating new VPC in CloudFormation stack...');
+                const cidrBlock = appDefinition.vpc.cidrBlock || '10.0.0.0/16';
+
+                result.resources.FriggVPC = {
+                    Type: 'AWS::EC2::VPC',
+                    Properties: {
+                        CidrBlock: cidrBlock,
+                        EnableDnsHostnames: true,
+                        EnableDnsSupport: true,
+                        Tags: [
+                            { Key: 'Name', Value: '${self:service}-${self:provider.stage}-vpc' },
+                            { Key: 'ManagedBy', Value: 'Frigg' },
+                            { Key: 'Service', Value: '${self:service}' },
+                            { Key: 'Stage', Value: '${self:provider.stage}' },
+                        ],
+                    },
+                };
+
+                // Internet Gateway
+                result.resources.FriggInternetGateway = {
+                    Type: 'AWS::EC2::InternetGateway',
+                    Properties: {
+                        Tags: [
+                            { Key: 'Name', Value: '${self:service}-${self:provider.stage}-igw' },
+                            { Key: 'ManagedBy', Value: 'Frigg' },
+                        ],
+                    },
+                };
+
+                result.resources.FriggVPCGatewayAttachment = {
+                    Type: 'AWS::EC2::VPCGatewayAttachment',
+                    Properties: {
+                        VpcId: { Ref: 'FriggVPC' },
+                        InternetGatewayId: { Ref: 'FriggInternetGateway' },
+                    },
+                };
+
+                result.vpcId = { Ref: 'FriggVPC' };
+                console.log('  ✅ VPC resources added to template');
             }
-        } else if (globalMode === 'existing') {
-            management = 'use-existing';
-        } else if (!management && appDefinition.vpc.shareAcrossStages !== undefined) {
-            // Legacy shareAcrossStages support (backwards compatibility)
-            management = appDefinition.vpc.shareAcrossStages ? 'discover' : 'create-new';
-            console.log(`  VPC Sharing: ${appDefinition.vpc.shareAcrossStages ? 'shared' : 'isolated'} (translated to ${management})`);
+        } else if (decision.ownership === ResourceOwnership.EXTERNAL) {
+            // Use external VPC ID
+            result.vpcId = decision.physicalId;
+            console.log(`  ✓ Using external VPC: ${decision.physicalId}`);
+        }
+    }
 
-            if (!appDefinition.vpc.shareAcrossStages && !appDefinition.vpc.natGateway?.management) {
-                appDefinition.vpc.natGateway = appDefinition.vpc.natGateway || {};
-                appDefinition.vpc.natGateway.management = 'createAndManage';
-                console.log(`  NAT Gateway: creating isolated NAT (shareAcrossStages=false)`);
+    /**
+     * Build Security Group based on ownership decision
+     */
+    buildSecurityGroupFromDecision(decision, appDefinition, result) {
+        if (decision.ownership === ResourceOwnership.STACK) {
+            // Always create security group resource in template
+            // CloudFormation handles idempotency if it already exists
+            console.log('  → Adding Lambda Security Group to template...');
+
+            result.resources.FriggLambdaSecurityGroup = {
+                Type: 'AWS::EC2::SecurityGroup',
+                Properties: {
+                    GroupDescription: 'Security group for Frigg Lambda functions',
+                    VpcId: result.vpcId,
+                    SecurityGroupEgress: [
+                        { IpProtocol: 'tcp', FromPort: 443, ToPort: 443, CidrIp: '0.0.0.0/0', Description: 'HTTPS outbound' },
+                        { IpProtocol: 'tcp', FromPort: 80, ToPort: 80, CidrIp: '0.0.0.0/0', Description: 'HTTP outbound' },
+                        { IpProtocol: 'tcp', FromPort: 53, ToPort: 53, CidrIp: '0.0.0.0/0', Description: 'DNS TCP' },
+                        { IpProtocol: 'udp', FromPort: 53, ToPort: 53, CidrIp: '0.0.0.0/0', Description: 'DNS UDP' },
+                        { IpProtocol: 'tcp', FromPort: 5432, ToPort: 5432, CidrIp: '0.0.0.0/0', Description: 'PostgreSQL' },
+                        { IpProtocol: 'tcp', FromPort: 27017, ToPort: 27017, CidrIp: '0.0.0.0/0', Description: 'MongoDB' },
+                    ],
+                    Tags: [
+                        { Key: 'Name', Value: '${self:service}-${self:provider.stage}-lambda-sg' },
+                        { Key: 'ManagedBy', Value: 'Frigg' },
+                    ],
+                },
+            };
+
+            // Use CloudFormation Ref since resource is in template
+            result.vpcConfig.securityGroupIds = [{ Ref: 'FriggLambdaSecurityGroup' }];
+            console.log('  ✅ Security Group added to template');
+        } else if (decision.ownership === ResourceOwnership.EXTERNAL) {
+            // Use external security group IDs
+            const sgIds = Array.isArray(decision.physicalId) ? decision.physicalId : [decision.physicalId];
+            result.vpcConfig.securityGroupIds = sgIds;
+            console.log(`  ✓ Using external security group(s): ${sgIds.join(', ')}`);
+        }
+    }
+
+    /**
+     * Build Subnets based on ownership decision
+     */
+    buildSubnetsFromDecision(decision, appDefinition, discoveredResources, result) {
+        if (decision.ownership === ResourceOwnership.STACK) {
+            if (decision.physicalIds && decision.physicalIds.length >= 2) {
+                // Subnets exist in stack - add them to template for idempotency
+                console.log(`  → Adding existing subnets to template: ${decision.physicalIds.join(', ')}`);
+
+                // Use Refs for stack-managed subnets
+                result.vpcConfig.subnetIds = [
+                    { Ref: 'FriggPrivateSubnet1' },
+                    { Ref: 'FriggPrivateSubnet2' },
+                ];
+
+                // Map to discovered resources for other builders
+                discoveredResources.privateSubnetId1 = { Ref: 'FriggPrivateSubnet1' };
+                discoveredResources.privateSubnetId2 = { Ref: 'FriggPrivateSubnet2' };
+            } else {
+                // Create new subnets
+                console.log('  → Creating new subnets in template...');
+                this.createSubnetsInTemplate(appDefinition, result, discoveredResources);
             }
-        } else {
-            management = management || 'discover';
+        } else if (decision.ownership === ResourceOwnership.EXTERNAL) {
+            // Use external subnet IDs
+            result.vpcConfig.subnetIds = decision.physicalIds;
+            console.log(`  ✓ Using external subnets: ${decision.physicalIds.join(', ')}`);
         }
+    }
 
-        console.log(`  VPC Management Mode: ${management}`);
+    /**
+     * Create subnet resources in CloudFormation template
+     */
+    createSubnetsInTemplate(appDefinition, result, discoveredResources) {
+        // Determine VPC ID for subnets
+        const vpcId = result.vpcId;
 
-        // Handle self-healing if enabled
-        if (appDefinition.vpc.selfHeal) {
-            this.performSelfHealing(discoveredResources, appDefinition);
-        }
+        // Generate subnet CIDRs
+        const cidrs = this.generateSubnetCidrsForNewVpc(vpcId, discoveredResources);
 
-        // Build VPC based on management mode
-        switch (management) {
-            case 'create-new':
-                await this.buildNewVpc(appDefinition, discoveredResources, result);
-                break;
-            case 'use-existing':
-                await this.useExistingVpc(appDefinition, discoveredResources, result);
-                break;
-            case 'discover':
-            default:
-                await this.discoverVpc(appDefinition, discoveredResources, result);
-                break;
-        }
-
-        // Build subnets - pass normalized management mode for correct CIDR generation
-        await this.buildSubnets(appDefinition, discoveredResources, result, management);
-
-        // Build NAT Gateway if needed
-        await this.buildNatGateway(appDefinition, discoveredResources, result);
-
-        // Build VPC Endpoints if enabled
-        const vpcManagement = appDefinition.vpc.management || 'discover';
-        const selfHeal = appDefinition.vpc.selfHeal !== false;
-        // Check which VPC endpoints already exist
-        const existingEndpoints = {
-            s3: discoveredResources.s3VpcEndpointId,
-            dynamodb: discoveredResources.dynamodbVpcEndpointId,
-            kms: discoveredResources.kmsVpcEndpointId,
-            secretsManager: discoveredResources.secretsManagerVpcEndpointId,
-            sqs: discoveredResources.sqsVpcEndpointId,
+        // Private Subnet 1
+        result.resources.FriggPrivateSubnet1 = {
+            Type: 'AWS::EC2::Subnet',
+            DeletionPolicy: 'Retain',
+            Properties: {
+                VpcId: vpcId,
+                CidrBlock: cidrs.private1,
+                AvailabilityZone: { 'Fn::Select': [0, { 'Fn::GetAZs': '' }] },
+                Tags: [
+                    { Key: 'Name', Value: '${self:service}-${self:provider.stage}-private-1' },
+                    { Key: 'Type', Value: 'Private' },
+                    { Key: 'ManagedBy', Value: 'Frigg' },
+                ],
+            },
         };
-        const allEndpointsExist = existingEndpoints.s3 && existingEndpoints.dynamodb &&
-            existingEndpoints.kms && existingEndpoints.secretsManager && existingEndpoints.sqs;
-        const someEndpointsExist = existingEndpoints.s3 || existingEndpoints.dynamodb ||
-            existingEndpoints.kms || existingEndpoints.secretsManager || existingEndpoints.sqs;
 
-        if (appDefinition.vpc.enableVPCEndpoints !== false) {
-            // Check if resources came from CloudFormation stack
-            const fromCfStack = discoveredResources.fromCloudFormationStack === true;
-            const existingLogicalIds = discoveredResources.existingLogicalIds || [];
+        // Private Subnet 2
+        result.resources.FriggPrivateSubnet2 = {
+            Type: 'AWS::EC2::Subnet',
+            DeletionPolicy: 'Retain',
+            Properties: {
+                VpcId: vpcId,
+                CidrBlock: cidrs.private2,
+                AvailabilityZone: { 'Fn::Select': [1, { 'Fn::GetAZs': '' }] },
+                Tags: [
+                    { Key: 'Name', Value: '${self:service}-${self:provider.stage}-private-2' },
+                    { Key: 'Type', Value: 'Private' },
+                    { Key: 'ManagedBy', Value: 'Frigg' },
+                ],
+            },
+        };
 
-            if (fromCfStack && existingLogicalIds.length > 0 && allEndpointsExist) {
-                console.log('  All VPC endpoints exist in CloudFormation stack - skipping creation');
-                // Skip VPC endpoint creation entirely
-            } else if (vpcManagement === 'create-new') {
-                // Always create in create-new mode
-                this.buildVpcEndpoints(appDefinition, discoveredResources, result, existingEndpoints);
-            } else if (vpcManagement === 'discover') {
-                if (allEndpointsExist) {
-                    console.log('  All VPC endpoints already exist - skipping creation');
-                } else if (selfHeal) {
-                    if (someEndpointsExist) {
-                        console.log('  Some VPC endpoints found - selfHeal creating missing ones');
-                    } else {
-                        console.log('  No VPC endpoints found - selfHeal creating them');
-                    }
-                    this.buildVpcEndpoints(appDefinition, discoveredResources, result, existingEndpoints);
-                } else {
-                    console.log('  VPC endpoints not found and selfHeal disabled - skipping');
+        // Public Subnets (for NAT Gateway)
+        result.resources.FriggPublicSubnet = {
+            Type: 'AWS::EC2::Subnet',
+            Properties: {
+                VpcId: vpcId,
+                CidrBlock: cidrs.public1,
+                MapPublicIpOnLaunch: true,
+                AvailabilityZone: { 'Fn::Select': [0, { 'Fn::GetAZs': '' }] },
+                Tags: [
+                    { Key: 'Name', Value: '${self:service}-${self:provider.stage}-public-1' },
+                    { Key: 'Type', Value: 'Public' },
+                    { Key: 'ManagedBy', Value: 'Frigg' },
+                ],
+            },
+        };
+
+        result.resources.FriggPublicSubnet2 = {
+            Type: 'AWS::EC2::Subnet',
+            Properties: {
+                VpcId: vpcId,
+                CidrBlock: cidrs.public2,
+                MapPublicIpOnLaunch: true,
+                AvailabilityZone: { 'Fn::Select': [1, { 'Fn::GetAZs': '' }] },
+                Tags: [
+                    { Key: 'Name', Value: '${self:service}-${self:provider.stage}-public-2' },
+                    { Key: 'Type', Value: 'Public' },
+                    { Key: 'ManagedBy', Value: 'Frigg' },
+                ],
+            },
+        };
+
+        result.vpcConfig.subnetIds = [
+            { Ref: 'FriggPrivateSubnet1' },
+            { Ref: 'FriggPrivateSubnet2' },
+        ];
+
+        // Map to discovered resources for other builders
+        discoveredResources.privateSubnetId1 = { Ref: 'FriggPrivateSubnet1' };
+        discoveredResources.privateSubnetId2 = { Ref: 'FriggPrivateSubnet2' };
+        discoveredResources.publicSubnetId1 = { Ref: 'FriggPublicSubnet' };
+        discoveredResources.publicSubnetId2 = { Ref: 'FriggPublicSubnet2' };
+
+        console.log('  ✅ Subnet resources added to template');
+    }
+
+    /**
+     * Generate subnet CIDRs for new VPC or existing VPC
+     */
+    generateSubnetCidrsForNewVpc(vpcId, discoveredResources) {
+        // If VPC is a Ref (new VPC), use Fn::Cidr
+        if (typeof vpcId === 'object' && vpcId.Ref === 'FriggVPC') {
+            return {
+                private1: { 'Fn::Select': [0, { 'Fn::Cidr': ['10.0.0.0/16', 4, 8] }] },
+                private2: { 'Fn::Select': [1, { 'Fn::Cidr': ['10.0.0.0/16', 4, 8] }] },
+                public1: { 'Fn::Select': [2, { 'Fn::Cidr': ['10.0.0.0/16', 4, 8] }] },
+                public2: { 'Fn::Select': [3, { 'Fn::Cidr': ['10.0.0.0/16', 4, 8] }] },
+            };
+        }
+
+        // For existing VPC, find available CIDRs
+        const existingCidrs = new Set();
+        if (discoveredResources?.subnets) {
+            for (const subnet of discoveredResources.subnets) {
+                if (subnet.CidrBlock) {
+                    existingCidrs.add(subnet.CidrBlock);
                 }
             }
         }
 
-        // Set VPC_ENABLED environment variable so runtime can detect VPC configuration
-        if (!result.environment) {
-            result.environment = {};
+        const findAvailableCidr = (startOctet, endOctet) => {
+            for (let octet = startOctet; octet <= endOctet; octet++) {
+                const candidate = `172.31.${octet}.0/24`;
+                if (!existingCidrs.has(candidate)) {
+                    existingCidrs.add(candidate);
+                    return candidate;
+                }
+            }
+            return `172.31.${startOctet}.0/24`;
+        };
+
+        return {
+            private1: findAvailableCidr(240, 249),
+            private2: findAvailableCidr(240, 249),
+            public1: findAvailableCidr(250, 255),
+            public2: findAvailableCidr(250, 255),
+        };
+    }
+
+    /**
+     * Build NAT Gateway based on ownership decision
+     */
+    buildNatGatewayFromDecision(decision, appDefinition, discoveredResources, result) {
+        if (!decision.ownership) {
+            console.log('  ⊝ NAT Gateway disabled');
+            return;
         }
-        result.environment.VPC_ENABLED = 'true';
 
-        console.log(`[${this.name}] ✅ VPC infrastructure built successfully`);
-        console.log(`  - VPC ID: ${result.vpcId || 'from discovery'}`);
-        console.log(`  - Subnets: ${result.vpcConfig.subnetIds.length}`);
-        console.log(`  - Security Groups: ${result.vpcConfig.securityGroupIds.length}`);
+        if (decision.ownership === ResourceOwnership.STACK) {
+            if (decision.physicalId) {
+                // NAT Gateway exists in stack - CloudFormation will handle it
+                console.log(`  ✓ NAT Gateway in stack: ${decision.physicalId}`);
+                // Still need to ensure route tables are set up
+                this.createNatGatewayRouting(appDefinition, discoveredResources, result, { Ref: 'FriggNATGateway' });
+            } else {
+                // Create new NAT Gateway
+                console.log('  → Creating NAT Gateway in template...');
+                this.createNatGatewayInTemplate(appDefinition, discoveredResources, result);
+            }
+        } else if (decision.ownership === ResourceOwnership.EXTERNAL) {
+            // Use external NAT Gateway
+            console.log(`  ✓ Using external NAT Gateway: ${decision.physicalId}`);
+            result.natGatewayId = decision.physicalId;
+            this.createNatGatewayRouting(appDefinition, discoveredResources, result, decision.physicalId);
+        }
+    }
 
-        return result;
+    /**
+     * Create NAT Gateway resources in CloudFormation template
+     */
+    createNatGatewayInTemplate(appDefinition, discoveredResources, result) {
+        // Elastic IP for NAT Gateway
+        result.resources.FriggNATGatewayEIP = {
+            Type: 'AWS::EC2::EIP',
+            DeletionPolicy: 'Retain',
+            UpdateReplacePolicy: 'Retain',
+            Properties: {
+                Domain: 'vpc',
+                Tags: [
+                    { Key: 'Name', Value: '${self:service}-${self:provider.stage}-nat-eip' },
+                    { Key: 'ManagedBy', Value: 'Frigg' },
+                ],
+            },
+        };
+
+        // NAT Gateway in public subnet
+        result.resources.FriggNATGateway = {
+            Type: 'AWS::EC2::NatGateway',
+            DeletionPolicy: 'Retain',
+            UpdateReplacePolicy: 'Retain',
+            Properties: {
+                AllocationId: { 'Fn::GetAtt': ['FriggNATGatewayEIP', 'AllocationId'] },
+                SubnetId: discoveredResources.publicSubnetId1 || { Ref: 'FriggPublicSubnet' },
+                Tags: [
+                    { Key: 'Name', Value: '${self:service}-${self:provider.stage}-nat' },
+                    { Key: 'ManagedBy', Value: 'Frigg' },
+                ],
+            },
+        };
+
+        // Create public routing
+        this.createPublicRouting(appDefinition, discoveredResources, result);
+
+        // Create NAT routing
+        this.createNatGatewayRouting(appDefinition, discoveredResources, result, { Ref: 'FriggNATGateway' });
+
+        console.log('  ✅ NAT Gateway resources added to template');
+    }
+
+    /**
+     * Build VPC Endpoints based on ownership decisions
+     */
+    buildVpcEndpointsFromDecisions(decisions, appDefinition, result) {
+        const endpointsToCreate = [];
+        const endpointsInStack = [];
+        const externalEndpoints = [];
+
+        // Analyze decisions
+        Object.entries(decisions).forEach(([type, decision]) => {
+            if (decision.ownership === ResourceOwnership.STACK && !decision.physicalId) {
+                endpointsToCreate.push(type);
+            } else if (decision.ownership === ResourceOwnership.STACK && decision.physicalId) {
+                endpointsInStack.push(type);
+            } else if (decision.ownership === ResourceOwnership.EXTERNAL) {
+                externalEndpoints.push(type);
+            }
+        });
+
+        if (endpointsInStack.length > 0) {
+            console.log(`  ✓ VPC Endpoints in stack: ${endpointsInStack.join(', ')}`);
+        }
+
+        if (externalEndpoints.length > 0) {
+            console.log(`  ✓ External VPC Endpoints: ${externalEndpoints.join(', ')}`);
+        }
+
+        if (endpointsToCreate.length === 0) {
+            if (endpointsInStack.length === 0 && externalEndpoints.length === 0) {
+                console.log('  ⊝ VPC Endpoints disabled');
+            }
+            return;
+        }
+
+        console.log(`  → Creating VPC Endpoints: ${endpointsToCreate.join(', ')}...`);
+
+        const vpcId = result.vpcId;
+
+        // Create route table if needed
+        if (!result.resources.FriggLambdaRouteTable) {
+            result.resources.FriggLambdaRouteTable = {
+                Type: 'AWS::EC2::RouteTable',
+                Properties: {
+                    VpcId: vpcId,
+                    Tags: [
+                        { Key: 'Name', Value: '${self:service}-${self:provider.stage}-lambda-rt' },
+                        { Key: 'ManagedBy', Value: 'Frigg' },
+                    ],
+                },
+            };
+        }
+
+        // Ensure subnet associations
+        this.ensureSubnetAssociations(appDefinition, {}, result);
+
+        // Create endpoints
+        if (endpointsToCreate.includes('s3')) {
+            result.resources.FriggS3VPCEndpoint = {
+                Type: 'AWS::EC2::VPCEndpoint',
+                Properties: {
+                    VpcId: vpcId,
+                    ServiceName: 'com.amazonaws.${self:provider.region}.s3',
+                    VpcEndpointType: 'Gateway',
+                    RouteTableIds: [{ Ref: 'FriggLambdaRouteTable' }],
+                },
+            };
+        }
+
+        if (endpointsToCreate.includes('dynamodb')) {
+            result.resources.FriggDynamoDBVPCEndpoint = {
+                Type: 'AWS::EC2::VPCEndpoint',
+                Properties: {
+                    VpcId: vpcId,
+                    ServiceName: 'com.amazonaws.${self:provider.region}.dynamodb',
+                    VpcEndpointType: 'Gateway',
+                    RouteTableIds: [{ Ref: 'FriggLambdaRouteTable' }],
+                },
+            };
+        }
+
+        // Create security group for interface endpoints if needed
+        const needsInterfaceEndpoints = endpointsToCreate.some(type => ['kms', 'secretsManager', 'sqs'].includes(type));
+        if (needsInterfaceEndpoints) {
+            result.resources.FriggVPCEndpointSecurityGroup = {
+                Type: 'AWS::EC2::SecurityGroup',
+                Properties: {
+                    GroupDescription: 'Security group for VPC Endpoints',
+                    VpcId: vpcId,
+                    SecurityGroupIngress: [
+                        {
+                            IpProtocol: 'tcp',
+                            FromPort: 443,
+                            ToPort: 443,
+                            SourceSecurityGroupId: { Ref: 'FriggLambdaSecurityGroup' },
+                            Description: 'HTTPS from Lambda',
+                        },
+                    ],
+                    Tags: [
+                        { Key: 'Name', Value: '${self:service}-${self:provider.stage}-vpc-endpoint-sg' },
+                        { Key: 'ManagedBy', Value: 'Frigg' },
+                    ],
+                },
+            };
+        }
+
+        if (endpointsToCreate.includes('kms')) {
+            result.resources.FriggKMSVPCEndpoint = {
+                Type: 'AWS::EC2::VPCEndpoint',
+                Properties: {
+                    VpcId: vpcId,
+                    ServiceName: 'com.amazonaws.${self:provider.region}.kms',
+                    VpcEndpointType: 'Interface',
+                    SubnetIds: result.vpcConfig.subnetIds,
+                    SecurityGroupIds: [{ Ref: 'FriggVPCEndpointSecurityGroup' }],
+                    PrivateDnsEnabled: true,
+                },
+            };
+        }
+
+        if (endpointsToCreate.includes('secretsManager')) {
+            result.resources.FriggSecretsManagerVPCEndpoint = {
+                Type: 'AWS::EC2::VPCEndpoint',
+                Properties: {
+                    VpcId: vpcId,
+                    ServiceName: 'com.amazonaws.${self:provider.region}.secretsmanager',
+                    VpcEndpointType: 'Interface',
+                    SubnetIds: result.vpcConfig.subnetIds,
+                    SecurityGroupIds: [{ Ref: 'FriggVPCEndpointSecurityGroup' }],
+                    PrivateDnsEnabled: true,
+                },
+            };
+        }
+
+        if (endpointsToCreate.includes('sqs')) {
+            result.resources.FriggSQSVPCEndpoint = {
+                Type: 'AWS::EC2::VPCEndpoint',
+                Properties: {
+                    VpcId: vpcId,
+                    ServiceName: 'com.amazonaws.${self:provider.region}.sqs',
+                    VpcEndpointType: 'Interface',
+                    SubnetIds: result.vpcConfig.subnetIds,
+                    SecurityGroupIds: [{ Ref: 'FriggVPCEndpointSecurityGroup' }],
+                    PrivateDnsEnabled: true,
+                },
+            };
+        }
+
+        console.log(`  ✅ VPC Endpoint resources added to template`);
     }
 
     /**
