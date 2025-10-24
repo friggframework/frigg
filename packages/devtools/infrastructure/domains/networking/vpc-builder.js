@@ -432,22 +432,14 @@ class VpcBuilder extends InfrastructureBuilder {
         if (fromCfStack && existingLogicalIds.length > 0) {
             console.log(`  ✓ VPC discovered from CloudFormation stack: ${discoveredResources.stackName}`);
             console.log(`  ✓ Found ${existingLogicalIds.length} existing resources in stack`);
-            console.log('  ℹ Skipping resource creation - will reuse existing CloudFormation resources');
-
-            // Set security group IDs from discovered resources
-            if (discoveredResources.securityGroupId) {
-                result.vpcConfig.securityGroupIds = [discoveredResources.securityGroupId];
-            }
-
-            // Don't create any new resources - they already exist in the CF stack
-            return;
+            console.log('  ℹ Adding resources to template for idempotent deployment');
+        } else {
+            // VPC discovered from AWS API (not from CF stack)
+            console.log('  ℹ VPC discovered from AWS API - will create Lambda security group');
         }
 
-        // VPC discovered from AWS API (not from CF stack) - create needed resources
-        console.log('  ℹ VPC discovered from AWS API - will create Lambda security group');
-
-        // Create a Lambda security group in the discovered VPC
-        // This is needed even in discover mode so other resources can reference it
+        // Always create Lambda security group in template for idempotent deployments
+        // CloudFormation will recognize it already exists and won't recreate it
         result.resources.FriggLambdaSecurityGroup = {
             Type: 'AWS::EC2::SecurityGroup',
             Properties: {
@@ -468,6 +460,7 @@ class VpcBuilder extends InfrastructureBuilder {
             },
         };
 
+        // Always use Ref since resource is in template
         result.vpcConfig.securityGroupIds = [{ Ref: 'FriggLambdaSecurityGroup' }];
 
         console.log(`  ✅ Discovered VPC: ${result.vpcId}`);
