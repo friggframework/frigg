@@ -141,7 +141,7 @@ describe('VpcResourceResolver', () => {
 
             expect(decision.ownership).toBe(ResourceOwnership.STACK);
             expect(decision.physicalId).toBe('sg-069629001ade41c9a');
-            expect(decision.reason).toContain('Found in CloudFormation stack');
+            expect(decision.reason).toContain('Found FriggLambdaSecurityGroup in CloudFormation stack');
         });
     });
 
@@ -321,7 +321,10 @@ describe('VpcResourceResolver', () => {
         });
 
         it('should auto-resolve mixed: some in stack, some new', () => {
-            const appDefinition = { vpc: { ownership: { vpcEndpoints: 'auto' } } };
+            const appDefinition = {
+                vpc: { ownership: { vpcEndpoints: 'auto' } },
+                encryption: { fieldLevelEncryptionMethod: 'kms' }  // Enable KMS endpoint
+            };
             const discovery = {
                 stackManaged: [
                     { logicalId: 'FriggS3VPCEndpoint', physicalId: 'vpce-s3-stack', resourceType: 'AWS::EC2::VPCEndpoint' }
@@ -454,7 +457,7 @@ describe('VpcResourceResolver', () => {
 
             expect(decisions.securityGroup.ownership).toBe(ResourceOwnership.STACK);
             expect(decisions.securityGroup.physicalId).toBe('sg-069629001ade41c9a');
-            expect(decisions.securityGroup.reason).toContain('Found in CloudFormation stack');
+            expect(decisions.securityGroup.reason).toContain('Found FriggLambdaSecurityGroup in CloudFormation stack');
 
             expect(decisions.subnets.ownership).toBe(ResourceOwnership.STACK);
             expect(decisions.subnets.physicalIds).toEqual(['subnet-1', 'subnet-2']);

@@ -53,6 +53,11 @@ class VpcResourceResolver extends BaseResourceResolver {
 
     /**
      * Resolve Security Group ownership
+     *
+     * Special logic: We ALWAYS create our own FriggLambdaSecurityGroup with specific
+     * rules unless the user explicitly provides external SG IDs. The discovered
+     * defaultSecurityGroupId is the VPC's default SG, but we need our own Lambda SG.
+     *
      * @param {Object} appDefinition - App definition
      * @param {Object} discovery - Discovery result
      * @returns {Object} Resource decision
@@ -60,7 +65,7 @@ class VpcResourceResolver extends BaseResourceResolver {
     resolveSecurityGroup(appDefinition, discovery) {
         const userIntent = appDefinition.vpc?.ownership?.securityGroup || 'auto';
 
-        // Explicit external
+        // Explicit external - only use external SGs if user explicitly provides them
         if (userIntent === 'external') {
             this.requireExternalIds(
                 appDefinition.vpc?.external?.securityGroupIds,
@@ -72,21 +77,21 @@ class VpcResourceResolver extends BaseResourceResolver {
             );
         }
 
-        // Explicit stack
-        if (userIntent === 'stack') {
-            const inStack = this.findInStack('FriggLambdaSecurityGroup', discovery);
+        // For stack or auto: check if FriggLambdaSecurityGroup exists in stack
+        // If it does, reuse it. If not, create it. Never use discovered default SG.
+        const inStack = this.findInStack('FriggLambdaSecurityGroup', discovery);
+
+        if (inStack) {
             return this.createStackDecision(
-                inStack?.physicalId,
-                'User specified ownership=stack for security group'
+                inStack.physicalId,
+                'Found FriggLambdaSecurityGroup in CloudFormation stack'
             );
         }
 
-        // Auto-decide
-        return this.resolveResourceOwnership(
-            'auto',
-            'FriggLambdaSecurityGroup',
-            'AWS::EC2::SecurityGroup',
-            discovery
+        // Create new FriggLambdaSecurityGroup in stack
+        return this.createStackDecision(
+            null,
+            'No existing FriggLambdaSecurityGroup - will create in stack'
         );
     }
 
@@ -244,10 +249,16 @@ class VpcResourceResolver extends BaseResourceResolver {
             };
         }
 
+        // KMS endpoint only needed if encryption method is KMS
+        const encryptionMethod = appDefinition.encryption?.fieldLevelEncryptionMethod;
+        const needsKms = encryptionMethod === 'kms';
+
         const endpoints = {
             s3: this._resolveEndpoint('FriggS3VPCEndpoint', 's3', userIntent, appDefinition, discovery),
             dynamodb: this._resolveEndpoint('FriggDynamoDBVPCEndpoint', 'dynamodb', userIntent, appDefinition, discovery),
-            kms: this._resolveEndpoint('FriggKMSVPCEndpoint', 'kms', userIntent, appDefinition, discovery),
+            kms: needsKms
+                ? this._resolveEndpoint('FriggKMSVPCEndpoint', 'kms', userIntent, appDefinition, discovery)
+                : { ownership: null, reason: 'KMS endpoint not needed (encryption method is not KMS)' },
             secretsManager: this._resolveEndpoint('FriggSecretsManagerVPCEndpoint', 'secretsManager', userIntent, appDefinition, discovery),
             sqs: this._resolveEndpoint('FriggSQSVPCEndpoint', 'sqs', userIntent, appDefinition, discovery)
         };

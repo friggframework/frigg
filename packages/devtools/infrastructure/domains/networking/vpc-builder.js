@@ -102,21 +102,42 @@ class VpcBuilder extends InfrastructureBuilder {
     /**
      * Convert flat discovery result to structured discovery result
      * Provides backwards compatibility for tests using old discovery format
+     *
+     * @param {Object} flatDiscovery - Flat discovery object
+     * @param {Object} appDefinition - App definition (used to detect stack-managed resources)
      */
-    convertFlatDiscoveryToStructured(flatDiscovery) {
+    convertFlatDiscoveryToStructured(flatDiscovery, appDefinition = {}) {
         const discovery = createEmptyDiscoveryResult();
 
         if (!flatDiscovery) {
             return discovery;
         }
 
+        // Special case: managementMode='managed' + vpcIsolation='isolated' with existing resources
+        // These resources are from a previous deployment of this stack, so they're stack-managed
+        const isManagedIsolated = appDefinition.managementMode === 'managed' &&
+                                   (appDefinition.vpcIsolation === 'isolated' || !appDefinition.vpcIsolation);
+        const hasExistingStackResources = isManagedIsolated && flatDiscovery.defaultVpcId &&
+                                         typeof flatDiscovery.defaultVpcId === 'string';
+
         // Check if this came from CloudFormation stack
-        if (flatDiscovery.fromCloudFormationStack) {
+        if (flatDiscovery.fromCloudFormationStack || hasExistingStackResources) {
             discovery.fromCloudFormation = true;
-            discovery.stackName = flatDiscovery.stackName;
+            discovery.stackName = flatDiscovery.stackName || 'assumed-stack';
 
             // Add resources to stackManaged array
-            const existingLogicalIds = flatDiscovery.existingLogicalIds || [];
+            let existingLogicalIds = flatDiscovery.existingLogicalIds || [];
+
+            // If hasExistingStackResources but no existingLogicalIds provided,
+            // infer logical IDs from presence of physical IDs
+            if (hasExistingStackResources && existingLogicalIds.length === 0) {
+                existingLogicalIds = [];
+                if (flatDiscovery.defaultVpcId) existingLogicalIds.push('FriggVPC');
+                if (flatDiscovery.privateSubnetId1) existingLogicalIds.push('FriggPrivateSubnet1');
+                if (flatDiscovery.privateSubnetId2) existingLogicalIds.push('FriggPrivateSubnet2');
+                if (flatDiscovery.publicSubnetId1) existingLogicalIds.push('FriggPublicSubnet');
+                if (flatDiscovery.publicSubnetId2) existingLogicalIds.push('FriggPublicSubnet2');
+            }
 
             existingLogicalIds.forEach(logicalId => {
                 // Find the resource type and physical ID
@@ -199,7 +220,11 @@ class VpcBuilder extends InfrastructureBuilder {
                 });
             }
 
-            if (flatDiscovery.natGatewayId && typeof flatDiscovery.natGatewayId === 'string') {
+            // Only add NAT Gateway to external if it's NOT in a private subnet (properly placed)
+            // If natGatewayInPrivateSubnet is true, we need a new NAT Gateway
+            const natIsProperlyPlaced = flatDiscovery.natGatewayInPrivateSubnet !== true;
+
+            if (flatDiscovery.natGatewayId && typeof flatDiscovery.natGatewayId === 'string' && natIsProperlyPlaced) {
                 discovery.external.push({
                     physicalId: flatDiscovery.natGatewayId,
                     resourceType: 'AWS::EC2::NatGateway',
@@ -207,11 +232,57 @@ class VpcBuilder extends InfrastructureBuilder {
                 });
             }
 
-            if (flatDiscovery.existingNatGatewayId && typeof flatDiscovery.existingNatGatewayId === 'string') {
+            if (flatDiscovery.existingNatGatewayId && typeof flatDiscovery.existingNatGatewayId === 'string' && natIsProperlyPlaced) {
                 discovery.external.push({
                     physicalId: flatDiscovery.existingNatGatewayId,
                     resourceType: 'AWS::EC2::NatGateway',
                     source: 'aws-discovery'
+                });
+            }
+
+            // VPC Endpoints
+            if (flatDiscovery.s3VpcEndpointId && typeof flatDiscovery.s3VpcEndpointId === 'string') {
+                discovery.external.push({
+                    physicalId: flatDiscovery.s3VpcEndpointId,
+                    resourceType: 'AWS::EC2::VPCEndpoint',
+                    source: 'aws-discovery',
+                    properties: { ServiceName: 's3' }
+                });
+            }
+
+            if (flatDiscovery.dynamodbVpcEndpointId && typeof flatDiscovery.dynamodbVpcEndpointId === 'string') {
+                discovery.external.push({
+                    physicalId: flatDiscovery.dynamodbVpcEndpointId,
+                    resourceType: 'AWS::EC2::VPCEndpoint',
+                    source: 'aws-discovery',
+                    properties: { ServiceName: 'dynamodb' }
+                });
+            }
+
+            if (flatDiscovery.kmsVpcEndpointId && typeof flatDiscovery.kmsVpcEndpointId === 'string') {
+                discovery.external.push({
+                    physicalId: flatDiscovery.kmsVpcEndpointId,
+                    resourceType: 'AWS::EC2::VPCEndpoint',
+                    source: 'aws-discovery',
+                    properties: { ServiceName: 'kms' }
+                });
+            }
+
+            if (flatDiscovery.secretsManagerVpcEndpointId && typeof flatDiscovery.secretsManagerVpcEndpointId === 'string') {
+                discovery.external.push({
+                    physicalId: flatDiscovery.secretsManagerVpcEndpointId,
+                    resourceType: 'AWS::EC2::VPCEndpoint',
+                    source: 'aws-discovery',
+                    properties: { ServiceName: 'secretsmanager' }
+                });
+            }
+
+            if (flatDiscovery.sqsVpcEndpointId && typeof flatDiscovery.sqsVpcEndpointId === 'string') {
+                discovery.external.push({
+                    physicalId: flatDiscovery.sqsVpcEndpointId,
+                    resourceType: 'AWS::EC2::VPCEndpoint',
+                    source: 'aws-discovery',
+                    properties: { ServiceName: 'sqs' }
                 });
             }
         }
@@ -260,6 +331,7 @@ class VpcBuilder extends InfrastructureBuilder {
                     translated.vpc.ownership.securityGroup = 'auto';
                     translated.vpc.ownership.subnets = 'auto';
                     translated.vpc.config.selfHeal = true;
+                    console.log(`  managementMode='managed' + vpcIsolation='isolated' → stack has VPC, reusing`);
                 } else {
                     // No stack VPC - create new
                     translated.vpc.ownership.vpc = 'stack';
@@ -267,6 +339,7 @@ class VpcBuilder extends InfrastructureBuilder {
                     translated.vpc.ownership.subnets = 'stack';
                     translated.vpc.ownership.natGateway = 'stack';
                     translated.vpc.config.natGateway = { enable: true };
+                    console.log(`  managementMode='managed' + vpcIsolation='isolated' → no stack VPC, creating new`);
                 }
             } else {
                 // Shared VPC
@@ -324,7 +397,10 @@ class VpcBuilder extends InfrastructureBuilder {
 
         // Handle legacy NAT Gateway management
         if (appDefinition.vpc?.natGateway?.management === 'createAndManage') {
-            translated.vpc.ownership.natGateway = 'stack';
+            // Use 'auto' to allow discovering and reusing properly placed external NAT Gateways
+            // The resolver will check if there's a good external NAT Gateway and reuse it,
+            // or create a new one if needed (or if the existing one is misplaced)
+            translated.vpc.ownership.natGateway = 'auto';
             translated.vpc.config.natGateway = { enable: true };
         } else if (appDefinition.vpc?.natGateway?.id) {
             translated.vpc.ownership.natGateway = 'external';
@@ -363,7 +439,8 @@ class VpcBuilder extends InfrastructureBuilder {
         appDefinition = this.translateLegacyConfig(appDefinition, discoveredResources);
 
         // Get structured discovery result (or convert flat discovery to structured)
-        const discovery = discoveredResources._structured || this.convertFlatDiscoveryToStructured(discoveredResources);
+        // Pass appDefinition to help detect stack-managed resources in managementMode='managed'
+        const discovery = discoveredResources._structured || this.convertFlatDiscoveryToStructured(discoveredResources, appDefinition);
 
         // Use VpcResourceResolver to make ownership decisions
         const resolver = new VpcResourceResolver();
@@ -540,19 +617,24 @@ class VpcBuilder extends InfrastructureBuilder {
     buildSubnetsFromDecision(decision, appDefinition, discoveredResources, result) {
         if (decision.ownership === ResourceOwnership.STACK) {
             if (decision.physicalIds && decision.physicalIds.length >= 2) {
-                // Subnets exist in stack - add them to template for idempotency
-                console.log(`  → Adding existing subnets to template: ${decision.physicalIds.join(', ')}`);
+                // Subnets exist in stack - use their physical IDs directly
+                console.log(`  ✓ Using stack-managed subnets: ${decision.physicalIds.join(', ')}`);
 
-                // Use Refs for stack-managed subnets
-                result.vpcConfig.subnetIds = [
-                    { Ref: 'FriggPrivateSubnet1' },
-                    { Ref: 'FriggPrivateSubnet2' },
-                ];
+                // Use physical IDs for existing stack-managed subnets
+                result.vpcConfig.subnetIds = decision.physicalIds;
 
                 // Map to discovered resources for other builders
-                discoveredResources.privateSubnetId1 = { Ref: 'FriggPrivateSubnet1' };
-                discoveredResources.privateSubnetId2 = { Ref: 'FriggPrivateSubnet2' };
+                discoveredResources.privateSubnetId1 = decision.physicalIds[0];
+                discoveredResources.privateSubnetId2 = decision.physicalIds[1];
             } else {
+                // Check if selfHeal is disabled - if so, throw error instead of creating
+                const selfHeal = appDefinition.vpc?.config?.selfHeal !== false;
+                if (!selfHeal) {
+                    throw new Error(
+                        'No subnets discovered. Enable vpc.selfHeal, set subnets.management to "create", or provide subnet IDs.'
+                    );
+                }
+
                 // Create new subnets
                 console.log('  → Creating new subnets in template...');
                 this.createSubnetsInTemplate(appDefinition, result, discoveredResources);
