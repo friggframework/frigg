@@ -121,7 +121,10 @@ class KmsBuilder extends InfrastructureBuilder {
 
             // Infer logical IDs from physical IDs if needed
             if (hasExistingStackResources && existingLogicalIds.length === 0) {
-                if (flatDiscovery.defaultKmsKeyId) existingLogicalIds.push('FriggKMSKey');
+                if (flatDiscovery.defaultKmsKeyId) {
+                    existingLogicalIds.push('FriggKMSKey');
+                    existingLogicalIds.push('FriggKMSKeyAlias');
+                }
             }
 
             existingLogicalIds.forEach(logicalId => {
@@ -131,6 +134,12 @@ class KmsBuilder extends InfrastructureBuilder {
                 if (logicalId === 'FriggKMSKey') {
                     resourceType = 'AWS::KMS::Key';
                     physicalId = flatDiscovery.defaultKmsKeyId;
+                } else if (logicalId === 'FriggKMSKeyAlias') {
+                    resourceType = 'AWS::KMS::Alias';
+                    // Extract alias name from KMS key ARN or use default pattern
+                    const stackName = flatDiscovery.stackName || 'unknown';
+                    const stage = appDefinition.stage || 'dev';
+                    physicalId = `alias/${stackName.replace(`-${stage}`, '')}-${stage}-frigg-kms`;
                 }
 
                 if (physicalId && typeof physicalId === 'string') {
