@@ -1,5 +1,79 @@
 #!/usr/bin/env node
 
+// Version Detection Wrapper
+// This code runs when frigg-cli is installed globally
+// It checks for a local installation and prefers it if newer
+(function versionDetection() {
+    // Skip version detection if explicitly disabled (prevents recursion)
+    if (process.env.FRIGG_CLI_SKIP_VERSION_CHECK === 'true') {
+        return;
+    }
+
+    const path = require('path');
+    const fs = require('fs');
+    const semver = require('semver');
+    const { spawn } = require('child_process');
+
+    // Get the directory from which the command was invoked
+    const cwd = process.cwd();
+
+    // Try to find local frigg-cli installation
+    const localCliPath = path.join(cwd, 'node_modules', '@friggframework', 'frigg-cli');
+    const localCliPackageJson = path.join(localCliPath, 'package.json');
+    const localCliIndex = path.join(localCliPath, 'index.js');
+
+    // Get global version (this package)
+    const globalVersion = require('./package.json').version;
+
+    // Check if local installation exists
+    if (fs.existsSync(localCliPackageJson) && fs.existsSync(localCliIndex)) {
+        try {
+            const localPackage = JSON.parse(fs.readFileSync(localCliPackageJson, 'utf8'));
+            const localVersion = localPackage.version;
+
+            // Compare versions
+            const comparison = semver.compare(localVersion, globalVersion);
+
+            if (comparison >= 0) {
+                // Local version is newer or equal - use it
+                console.log(`Using local frigg-cli@${localVersion} (global: ${globalVersion})`);
+
+                // Execute local CLI as subprocess to avoid module resolution issues
+                const args = process.argv.slice(2); // Remove 'node' and script path
+                const child = spawn(process.execPath, [localCliIndex, ...args], {
+                    stdio: 'inherit',
+                    env: {
+                        ...process.env,
+                        FRIGG_CLI_SKIP_VERSION_CHECK: 'true', // Prevent recursion
+                    },
+                });
+
+                child.on('exit', (code) => {
+                    process.exit(code || 0);
+                });
+
+                // Signal that we've delegated to local CLI
+                process.on('SIGINT', () => {
+                    child.kill('SIGINT');
+                });
+
+                // Prevent further execution
+                return true; // Indicates we've delegated
+            } else {
+                // Global version is newer - warn user
+                console.warn(`⚠️  Version mismatch: global frigg-cli@${globalVersion} is newer than local frigg-cli@${localVersion}`);
+                console.warn(`   Consider updating local version: npm install @friggframework/frigg-cli@latest`);
+            }
+        } catch (error) {
+            // Failed to read local package.json or compare versions
+            // Continue with global version silently
+        }
+    }
+
+    // Return false to indicate we should continue with global version
+    return false;
+})();
+
 const { Command } = require('commander');
 const { initCommand } = require('./init-command');
 const { installCommand } = require('./install-command');

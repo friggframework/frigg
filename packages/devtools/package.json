@@ -52,9 +52,6 @@
     "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
     "test": "jest --passWithNoTests # TODO"
   },
-  "bin": {
-    "frigg": "./frigg-cli/index.js"
-  },
   "author": "",
   "license": "MIT",
   "main": "index.js",
