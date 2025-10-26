@@ -256,9 +256,8 @@ async function doctorCommand(stackName, options = {}) {
             stackName = await promptForStackSelection(region);
         }
 
-        if (verbose) {
-            console.log(`\n🔍 Running health check on stack: ${stackName} (${region})`);
-        }
+        // Show progress to user (always, not just verbose mode)
+        console.log(`\n🏥 Running health check on stack: ${stackName} (${region})\n`);
 
         // 1. Create stack identifier
         const stackIdentifier = new StackIdentifier({ stackName, region });
@@ -271,7 +270,7 @@ async function doctorCommand(stackName, options = {}) {
         const mismatchAnalyzer = new MismatchAnalyzer();
         const healthScoreCalculator = new HealthScoreCalculator();
 
-        // 4. Create and execute use case
+        // 4. Create and execute use case with progress logging
         const runHealthCheckUseCase = new RunHealthCheckUseCase({
             stackRepository,
             resourceDetector,
@@ -279,7 +278,21 @@ async function doctorCommand(stackName, options = {}) {
             healthScoreCalculator,
         });
 
-        const report = await runHealthCheckUseCase.execute({ stackIdentifier });
+        // Progress callback to show execution status
+        const progressCallback = (step, message) => {
+            if (verbose) {
+                console.log(`   ${message}`);
+            } else {
+                console.log(`${step} ${message}`);
+            }
+        };
+
+        const report = await runHealthCheckUseCase.execute({
+            stackIdentifier,
+            onProgress: progressCallback
+        });
+
+        console.log('✓ Health check complete!\n');
 
         // 5. Format and output results
         if (format === 'json') {

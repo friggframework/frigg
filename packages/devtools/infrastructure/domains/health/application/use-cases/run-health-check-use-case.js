@@ -55,16 +55,27 @@ class RunHealthCheckUseCase {
      *
      * @param {Object} params
      * @param {StackIdentifier} params.stackIdentifier - Stack to check
+     * @param {Function} params.onProgress - Optional progress callback (step, message)
      * @returns {Promise<StackHealthReport>} Comprehensive health report
      */
-    async execute({ stackIdentifier }) {
+    async execute({ stackIdentifier, onProgress }) {
+        // Helper to call progress callback if provided
+        const progress = (step, message) => {
+            if (onProgress) {
+                onProgress(step, message);
+            }
+        };
+
         // 1. Verify stack exists
+        progress('📋 Step 1/5:', 'Verifying stack exists...');
         await this.stackRepository.getStack(stackIdentifier);
 
         // 2. Detect stack-level drift
+        progress('🔍 Step 2/5:', 'Detecting stack drift...');
         const driftDetection = await this.stackRepository.detectStackDrift(stackIdentifier);
 
         // 3. Get all stack resources
+        progress('📊 Step 3/5:', 'Analyzing stack resources...');
         const stackResources = await this.stackRepository.listResources(stackIdentifier);
 
         // 4. Build resource entities with drift status
@@ -137,6 +148,7 @@ class RunHealthCheckUseCase {
         }
 
         // 5. Find orphaned resources (exist in cloud but not in stack)
+        progress('🔎 Step 4/5:', 'Checking for orphaned resources...');
         const orphanedResources = await this.resourceDetector.findOrphanedResources({
             stackIdentifier,
             stackResources,
@@ -164,6 +176,7 @@ class RunHealthCheckUseCase {
         }
 
         // 6. Calculate health score using domain service
+        progress('🧮 Step 5/5:', 'Calculating health score...');
         const healthScore = this.healthScoreCalculator.calculate({ resources, issues });
 
         // 7. Build comprehensive health report (aggregate root)

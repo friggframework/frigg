@@ -10,6 +10,7 @@
 const RunHealthCheckUseCase = require('../run-health-check-use-case');
 const StackIdentifier = require('../../../domain/value-objects/stack-identifier');
 const MismatchAnalyzer = require('../../../domain/services/mismatch-analyzer');
+const HealthScore = require('../../../domain/value-objects/health-score');
 
 describe('MismatchAnalyzer Method Name Bug Fix', () => {
     let useCase;
@@ -35,12 +36,7 @@ describe('MismatchAnalyzer Method Name Bug Fix', () => {
         };
 
         mockHealthScoreCalculator = {
-            calculate: jest.fn().mockReturnValue({
-                score: 100,
-                isHealthy: () => true,
-                isDegraded: () => false,
-                isUnhealthy: () => false,
-            }),
+            calculate: jest.fn().mockReturnValue(new HealthScore(100)),
         };
 
         useCase = new RunHealthCheckUseCase({
@@ -112,7 +108,7 @@ describe('MismatchAnalyzer Method Name Bug Fix', () => {
         expect(report.getDriftedResourceCount()).toBe(1);
     });
 
-    test('should throw error "analyzePropertyMismatches is not a function" with current buggy code', async () => {
+    test('should successfully execute when using correct analyze() method', async () => {
         // Arrange
         const stackIdentifier = new StackIdentifier({
             stackName: 'test-stack',
@@ -144,11 +140,13 @@ describe('MismatchAnalyzer Method Name Bug Fix', () => {
             physicalId: 's3-bucket-123',
             resourceType: 'AWS::S3::Bucket',
             driftStatus: 'MODIFIED',
+            expectedProperties: { BucketEncryption: { enabled: true } },
+            actualProperties: { BucketEncryption: { enabled: false } },
             propertyDifferences: [
                 {
-                    propertyPath: 'BucketEncryption',
-                    expectedValue: { enabled: true },
-                    actualValue: { enabled: false },
+                    propertyPath: 'BucketEncryption.enabled',
+                    expectedValue: true,
+                    actualValue: false,
                     differenceType: 'NOT_EQUAL',
                 },
             ],
@@ -157,11 +155,13 @@ describe('MismatchAnalyzer Method Name Bug Fix', () => {
         mockResourceDetector.detectResources.mockResolvedValue([]);
         mockResourceDetector.findOrphanedResources.mockResolvedValue([]);
 
-        // Act & Assert
-        // With buggy code calling analyzePropertyMismatches(), this will throw:
-        // "this.mismatchAnalyzer.analyzePropertyMismatches is not a function"
-        await expect(useCase.execute({ stackIdentifier })).rejects.toThrow(
-            /analyzePropertyMismatches is not a function|analyze is not a function/
-        );
+        // Act
+        // This succeeds because we're using the correct analyze() method
+        const report = await useCase.execute({ stackIdentifier });
+
+        // Assert
+        expect(report).toBeDefined();
+        expect(report.getDriftedResourceCount()).toBe(1);
+        expect(report.resources[0].state.value).toBe('DRIFTED');
     });
 });
