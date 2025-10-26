@@ -4,7 +4,7 @@ const { findNearestBackendPackageJson } = require('../utils/backend-path');
 const { select } = require('@inquirer/prompts');
 
 // Import generators for different formats
-const { generateCloudFormationTemplate } = require('../../infrastructure/domains/security/iam-generator');
+const { generateCloudFormationTemplate } = require('@friggframework/devtools/infrastructure/domains/security/iam-generator');
 const { generateTerraformTemplate } = require('./terraform-generator');
 const { generateAzureARMTemplate, generateAzureTerraformTemplate } = require('./azure-generator');
 const { generateGCPDeploymentManagerTemplate, generateGCPTerraformTemplate } = require('./gcp-generator');
