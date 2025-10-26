@@ -153,6 +153,19 @@ class StackIdentifier {
     }
 
     /**
+     * Serialize to JSON
+     *
+     * @returns {Object}
+     */
+    toJSON() {
+        return {
+            stackName: this.stackName,
+            region: this.region,
+            accountId: this.accountId,
+        };
+    }
+
+    /**
      * Create StackIdentifier from ARN
      *
      * @param {string} arn - CloudFormation stack ARN

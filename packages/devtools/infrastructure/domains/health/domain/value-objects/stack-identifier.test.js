@@ -195,6 +195,35 @@ describe('StackIdentifier', () => {
         });
     });
 
+    describe('toJSON', () => {
+        it('should serialize to JSON with account ID', () => {
+            const identifier = new StackIdentifier({
+                stackName: 'my-app-prod',
+                region: 'us-east-1',
+                accountId: '123456789012',
+            });
+
+            expect(identifier.toJSON()).toEqual({
+                stackName: 'my-app-prod',
+                region: 'us-east-1',
+                accountId: '123456789012',
+            });
+        });
+
+        it('should serialize to JSON without account ID', () => {
+            const identifier = new StackIdentifier({
+                stackName: 'my-app-prod',
+                region: 'us-east-1',
+            });
+
+            expect(identifier.toJSON()).toEqual({
+                stackName: 'my-app-prod',
+                region: 'us-east-1',
+                accountId: null,
+            });
+        });
+    });
+
     describe('immutability', () => {
         it('should not allow modification of stackName', () => {
             const identifier = new StackIdentifier({
