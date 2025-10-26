@@ -149,7 +149,7 @@ program
     .action(dbSetupCommand);
 
 program
-    .command('doctor <stackName>')
+    .command('doctor [stackName]')
     .description('Run health check on deployed CloudFormation stack')
     .option('-r, --region <region>', 'AWS region (defaults to AWS_REGION env var or us-east-1)')
     .option('-f, --format <format>', 'output format (console or json)', 'console')

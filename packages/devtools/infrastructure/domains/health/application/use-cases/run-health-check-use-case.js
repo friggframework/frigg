@@ -101,10 +101,12 @@ class RunHealthCheckUseCase {
                     resourceDrift.propertyDifferences &&
                     resourceDrift.propertyDifferences.length > 0
                 ) {
-                    const propertyMismatches = this.mismatchAnalyzer.analyzePropertyMismatches(
-                        resourceDrift.propertyDifferences,
-                        stackResource.resourceType
-                    );
+                    const propertyMismatches = this.mismatchAnalyzer.analyze({
+                        expected: resourceDrift.expectedProperties,
+                        actual: resourceDrift.actualProperties,
+                        propertyMutability: {},
+                        ignoreProperties: [],
+                    });
 
                     // Create issue for each property mismatch using factory method
                     for (const mismatch of propertyMismatches) {

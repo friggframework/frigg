@@ -33,7 +33,7 @@ describe('RunHealthCheckUseCase', () => {
         };
 
         mockMismatchAnalyzer = {
-            analyzePropertyMismatches: jest.fn(),
+            analyze: jest.fn(),
         };
 
         mockHealthScoreCalculator = {
@@ -149,7 +149,7 @@ describe('RunHealthCheckUseCase', () => {
                 mutability: PropertyMutability.MUTABLE,
             });
 
-            mockMismatchAnalyzer.analyzePropertyMismatches.mockReturnValue([propertyMismatch]);
+            mockMismatchAnalyzer.analyze.mockReturnValue([propertyMismatch]);
 
             mockResourceDetector.findOrphanedResources.mockResolvedValue([]);
 
@@ -323,7 +323,7 @@ describe('RunHealthCheckUseCase', () => {
                 mutability: PropertyMutability.MUTABLE,
             });
 
-            mockMismatchAnalyzer.analyzePropertyMismatches.mockReturnValue([propertyMismatch]);
+            mockMismatchAnalyzer.analyze.mockReturnValue([propertyMismatch]);
 
             // Mock orphaned resources
             mockResourceDetector.findOrphanedResources.mockResolvedValue([

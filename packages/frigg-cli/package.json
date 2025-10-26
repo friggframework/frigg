@@ -10,6 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@aws-sdk/client-cloudformation": "^3.705.0",
     "@babel/parser": "^7.25.3",
     "@babel/traverse": "^7.25.3",
     "@friggframework/core": "^2.0.0-next.0",
