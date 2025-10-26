@@ -1250,7 +1250,7 @@ When you run `frigg` (globally installed), the CLI:
 
 ```bash
 # Publish to npm
-cd packages/devtools/frigg-cli
+cd packages/frigg-cli
 npm version patch  # or minor, major
 npm publish
 

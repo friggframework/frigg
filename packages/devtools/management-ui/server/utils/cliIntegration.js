@@ -17,7 +17,7 @@ class FriggCLIIntegration {
     const possiblePaths = [
       path.resolve(process.cwd(), '../frigg-cli/index.js'),
       path.resolve(process.cwd(), '../../frigg-cli/index.js'),
-      path.resolve(process.cwd(), 'packages/devtools/frigg-cli/index.js'),
+      path.resolve(process.cwd(), 'packages/frigg-cli/index.js'),
       'frigg' // Global installation
     ]
 
