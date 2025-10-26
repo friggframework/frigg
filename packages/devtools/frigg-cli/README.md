@@ -1189,3 +1189,102 @@ frigg --version               # Show version
 - GitHub Issues: https://github.com/friggframework/frigg/issues
 - Documentation: https://docs.friggframework.org
 - Slack: Join via https://friggframework.org/#contact
+
+---
+
+## Package Structure & Global Installation
+
+### Overview
+
+The Frigg CLI is a standalone globally-installable npm package that can be installed via `npm i -g @friggframework/frigg-cli`. It includes version detection logic to automatically prefer local project installations when available.
+
+### Package Structure
+
+**@friggframework/frigg-cli** (standalone package)
+```
+├── package.json
+│   ├── dependencies: @friggframework/core@^2.0.0-next.0
+│   ├── dependencies: @friggframework/devtools@^2.0.0-next.0
+│   └── publishConfig: { access: "public" }
+└── index.js (with version detection wrapper)
+```
+
+**Key Changes from Previous Structure:**
+- ✅ Replaced `workspace:*` with concrete versions (`^2.0.0-next.0`)
+- ✅ Added `@friggframework/devtools` as dependency
+- ✅ Added `publishConfig` for public npm publishing
+- ✅ Removed bin entry from devtools package.json
+
+**Note:** Since `@friggframework/devtools` is a dependency, the global install size includes devtools. The main benefit is proper version resolution (no `workspace:*` errors) and automatic local CLI preference.
+
+### Version Detection Logic
+
+When you run `frigg` (globally installed), the CLI:
+
+1. **Checks for skip flag**
+   - If `FRIGG_CLI_SKIP_VERSION_CHECK=true`, skips detection (prevents recursion)
+
+2. **Looks for local installation**
+   - Searches for `node_modules/@friggframework/frigg-cli` in current directory
+
+3. **Compares versions**
+   - Uses `semver.compare(localVersion, globalVersion)`
+
+4. **Makes decision**:
+   - **Local ≥ Global**: Uses local CLI (spawns subprocess)
+   - **Global > Local**: Warns and uses global
+   - **No local**: Uses global silently
+
+### Benefits
+
+| Aspect | Before | After |
+|--------|--------|-------|
+| **Global Install** | `npm i -g @friggframework/devtools` | `npm i -g @friggframework/frigg-cli` |
+| **Dependencies** | workspace:* (broken) | Concrete versions (works) |
+| **Version Preference** | No detection | Automatic local preference |
+| **Version Warnings** | None | Mismatch alerts |
+| **Publishability** | ❌ Fails | ✅ Works |
+| **Local Project Isolation** | ❌ Uses global versions | ✅ Uses local versions when available |
+
+### Publishing Workflow
+
+```bash
+# Publish to npm
+cd packages/devtools/frigg-cli
+npm version patch  # or minor, major
+npm publish
+
+# Users can now install globally
+npm install -g @friggframework/frigg-cli
+
+# And it will automatically use local versions when available
+```
+
+### Migration Path
+
+**For existing users:**
+
+```bash
+# Step 1: Uninstall old global devtools
+npm uninstall -g @friggframework/devtools
+
+# Step 2: Install new global CLI
+npm install -g @friggframework/frigg-cli
+
+# Step 3: Update local project dependencies
+npm install @friggframework/frigg-cli@latest
+```
+
+**For new projects:**
+
+```bash
+# Global CLI (once per machine)
+npm install -g @friggframework/frigg-cli
+
+# Local project dependencies
+npx create-frigg-app my-app
+# (Will automatically include @friggframework/frigg-cli in package.json)
+```
+
+**Status:** ✅ Complete and tested (15 passing tests)
+
