@@ -10,6 +10,32 @@ The Frigg CLI provides tools for building, deploying, and managing serverless in
 
 ### Core Commands
 
+#### `frigg init [options]`
+
+**Status:** To be documented (command may not be merged yet)
+
+Initialize a new Frigg application with scaffolding and configuration.
+
+**Usage:**
+```bash
+frigg init
+frigg init my-app
+frigg init --template typescript
+```
+
+**What it does:**
+- TBD - Full documentation pending implementation merge
+
+**Options:**
+- TBD
+
+**Example Output:**
+- TBD
+
+> **Note**: This command may be part of an upcoming release. Documentation will be updated once the implementation is merged to the main branch.
+
+---
+
 #### `frigg install <module-name>`
 
 Install and configure an API integration module from the Frigg module library.
@@ -155,23 +181,30 @@ frigg deploy --stage production
 frigg deploy --region us-west-2
 frigg deploy --force
 frigg deploy --skip-env-validation
+frigg deploy --skip-doctor              # Skip health check (not recommended)
+frigg deploy --no-interactive           # CI/CD mode (no prompts, auto-repair safe issues)
 ```
 
 **What it does:**
-1. Loads app definition from index.js
-2. Validates required environment variables
-3. Discovers existing cloud resources (VPC, KMS, Aurora, etc.)
-4. Makes ownership decisions (STACK vs EXTERNAL)
-5. Generates CloudFormation resources
-6. Generates serverless.yml configuration
-7. Executes `osls deploy` with filtered environment
-8. Creates/updates stack in cloud provider
+1. **Runs health check** (`frigg doctor`) to detect infrastructure issues
+2. **Auto-repairs safe issues** (or prompts for confirmation in interactive mode)
+3. **Fails if critical issues found** (unless `--skip-doctor` flag used)
+4. Loads app definition from index.js
+5. Validates required environment variables
+6. Discovers existing cloud resources (VPC, KMS, Aurora, etc.)
+7. Makes ownership decisions (resources managed in CloudFormation stack)
+8. Generates CloudFormation resources
+9. Generates serverless.yml configuration
+10. Executes `osls deploy` with filtered environment
+11. Creates/updates stack in cloud provider
 
 **Options:**
 - `--stage <stage>` - Deployment stage (default: 'dev')
 - `--region <region>` - Cloud provider region (overrides app definition)
 - `--force` - Force deployment even if no changes detected
 - `--skip-env-validation` - Skip environment variable validation warnings
+- `--skip-doctor` - Skip infrastructure health check ⚠️ Not recommended
+- `--no-interactive` - Non-interactive mode for CI/CD (auto-repair safe issues, fail on risky changes)
 - `--verbose` - Enable verbose logging
 
 **Example Output:**
@@ -222,11 +255,33 @@ Deployment completed in 3m 42s
 - Validates required variables exist
 - Warns about missing optional variables
 
-**Resource Discovery:**
-- Queries CloudFormation for existing stack resources
-- Queries AWS APIs for VPC, subnets, security groups, KMS keys, Aurora clusters
-- Makes intelligent decisions about STACK vs EXTERNAL ownership
-- Uses AUTO logic to minimize user configuration
+**Resource Ownership:**
+- Resources can be marked as `STACK` (managed in CloudFormation) or `EXTERNAL` (use existing by ID)
+- Default behavior: manage resources in CloudFormation stack for full lifecycle control
+- Doctor/repair handles edge cases (orphaned resources, drift) before deployment
+- Explicit ownership in app definition recommended for production
+
+**CI/CD Deployment:**
+- Use `--no-interactive` flag to prevent prompts
+- Deployment will auto-fix safe issues (mutable property drift)
+- Deployment will **fail fast** on risky issues (orphaned resources, immutable property changes)
+- Prevents stack rollbacks and 2+ hour waits from bad deployments
+- Returns non-zero exit code if issues require manual intervention
+
+**Example CI/CD Pipeline:**
+```yaml
+# GitHub Actions / GitLab CI / etc.
+- name: Deploy to production
+  run: |
+    frigg deploy \
+      --stage production \
+      --no-interactive \
+      --skip-env-validation
+  env:
+    AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+    AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    DATABASE_URL: ${{ secrets.DATABASE_URL }}
+```
 
 ---
 
@@ -566,7 +621,7 @@ frigg repair                              # Interactive mode
 frigg repair --import                     # Import orphaned resources
 frigg repair --reconcile                  # Fix property mismatches
 frigg repair --clean-deploy               # Delete and recreate resources
-frigg repair --auto                       # Auto-fix all fixable issues
+frigg repair --auto                       # Auto-fix all fixable issues (CI/CD mode)
 frigg repair --dry-run                    # Show what would be fixed
 frigg repair --issue <id>                 # Fix specific issue only
 ```

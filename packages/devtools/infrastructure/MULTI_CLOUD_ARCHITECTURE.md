@@ -197,444 +197,128 @@ packages/devtools/infrastructure/
 
 ## Port Interfaces (Contracts)
 
-### IStackRepository
+Port interfaces define the contracts that provider-specific adapters must implement. These are the boundaries between the provider-agnostic domain layer and provider-specific infrastructure.
 
+**Source files**: `packages/devtools/infrastructure/domains/health/application/ports/`
+
+### Key Ports
+
+**IStackRepository** - Stack management operations (CloudFormation, Deployment Manager, ARM)
 ```javascript
-/**
- * Port: Stack Repository Interface
- *
- * Abstracts stack management operations (CloudFormation, Deployment Manager, ARM)
- */
-class IStackRepository {
-  /**
-   * Get stack by identifier
-   * @param {StackIdentifier} identifier
-   * @returns {Promise<Stack|null>}
-   */
-  async getStack(identifier) {
-    throw new Error('Not implemented');
-  }
-
-  /**
-   * List resources in stack
-   * @param {StackIdentifier} identifier
-   * @returns {Promise<Resource[]>}
-   */
-  async listResources(identifier) {
-    throw new Error('Not implemented');
-  }
-
-  /**
-   * Get stack outputs
-   * @param {StackIdentifier} identifier
-   * @returns {Promise<Object>}
-   */
-  async getOutputs(identifier) {
-    throw new Error('Not implemented');
-  }
-
-  /**
-   * Get stack parameters
-   * @param {StackIdentifier} identifier
-   * @returns {Promise<Object>}
-   */
-  async getParameters(identifier) {
-    throw new Error('Not implemented');
-  }
-
-  /**
-   * Check if stack exists
-   * @param {StackIdentifier} identifier
-   * @returns {Promise<boolean>}
-   */
-  async exists(identifier) {
-    throw new Error('Not implemented');
-  }
-}
+// Example methods:
+async getStack(identifier)
+async listResources(identifier)
+async getOutputs(identifier)
 ```
+📄 See: `application/ports/IStackRepository.js`
 
-### IResourceDetector
-
+**IResourceDetector** - Cloud resource discovery (AWS APIs, GCP APIs, Azure APIs)
 ```javascript
-/**
- * Port: Resource Detector Interface
- *
- * Abstracts cloud resource discovery (AWS APIs, GCP APIs, Azure APIs)
- */
-class IResourceDetector {
-  /**
-   * Detect VPCs/Networks
-   * @param {string} region
-   * @returns {Promise<NetworkResource[]>}
-   */
-  async detectNetworks(region) {
-    throw new Error('Not implemented');
-  }
-
-  /**
-   * Detect database instances
-   * @param {string} region
-   * @returns {Promise<DatabaseResource[]>}
-   */
-  async detectDatabases(region) {
-    throw new Error('Not implemented');
-  }
-
-  /**
-   * Detect encryption keys
-   * @param {string} region
-   * @returns {Promise<KeyResource[]>}
-   */
-  async detectKeys(region) {
-    throw new Error('Not implemented');
-  }
-
-  /**
-   * Detect resource by physical ID
-   * @param {string} physicalId
-   * @param {string} resourceType
-   * @returns {Promise<Resource|null>}
-   */
-  async detectResourceById(physicalId, resourceType) {
-    throw new Error('Not implemented');
-  }
-
-  /**
-   * Get resource properties
-   * @param {string} physicalId
-   * @param {string} resourceType
-   * @returns {Promise<Object>}
-   */
-  async getResourceProperties(physicalId, resourceType) {
-    throw new Error('Not implemented');
-  }
-}
+// Example methods:
+async detectNetworks(region)
+async detectDatabases(region)
+async detectKeys(region)
+async detectResourceById(physicalId, resourceType)
 ```
+📄 See: `application/ports/IResourceDetector.js`
 
-### IDriftDetector
-
+**IDriftDetector** - Compare desired state vs actual state
 ```javascript
-/**
- * Port: Drift Detector Interface
- *
- * Abstracts drift detection logic
- */
-class IDriftDetector {
-  /**
-   * Detect drift for a resource
-   * @param {Resource} resource - Resource from stack
-   * @param {Object} desiredProperties - Desired properties
-   * @returns {Promise<PropertyMismatch[]>}
-   */
-  async detectDrift(resource, desiredProperties) {
-    throw new Error('Not implemented');
-  }
-
-  /**
-   * Detect drift for entire stack
-   * @param {StackIdentifier} identifier
-   * @returns {Promise<DriftDetectionResult>}
-   */
-  async detectStackDrift(identifier) {
-    throw new Error('Not implemented');
-  }
-}
+// Example methods:
+async detectDrift(resource, desiredProperties)
+async detectStackDrift(identifier)
 ```
+📄 See: `application/ports/IDriftDetector.js`
 
-### IResourceImporter
-
+**IResourceImporter** - Import existing resources into stack
 ```javascript
-/**
- * Port: Resource Importer Interface
- *
- * Abstracts resource import operations
- */
-class IResourceImporter {
-  /**
-   * Check if resource type is importable
-   * @param {string} resourceType
-   * @returns {boolean}
-   */
-  isImportable(resourceType) {
-    throw new Error('Not implemented');
-  }
-
-  /**
-   * Create import change set
-   * @param {StackIdentifier} stackId
-   * @param {Resource[]} resources
-   * @returns {Promise<ImportChangeSet>}
-   */
-  async createImportChangeSet(stackId, resources) {
-    throw new Error('Not implemented');
-  }
-
-  /**
-   * Execute import operation
-   * @param {ImportChangeSet} changeSet
-   * @returns {Promise<ImportResult>}
-   */
-  async executeImport(changeSet) {
-    throw new Error('Not implemented');
-  }
-}
+// Example methods:
+isImportable(resourceType)
+async createImportChangeSet(stackId, resources)
+async executeImport(changeSet)
 ```
+📄 See: `application/ports/IResourceImporter.js`
 
-### IPropertyReconciler
-
+**IPropertyReconciler** - Fix property mismatches
 ```javascript
-/**
- * Port: Property Reconciler Interface
- *
- * Abstracts property reconciliation logic
- */
-class IPropertyReconciler {
-  /**
-   * Reconcile property mismatch
-   * @param {PropertyMismatch} mismatch
-   * @param {Resource} resource
-   * @returns {Promise<ReconciliationResult>}
-   */
-  async reconcile(mismatch, resource) {
-    throw new Error('Not implemented');
-  }
-
-  /**
-   * Plan reconciliation (dry run)
-   * @param {PropertyMismatch[]} mismatches
-   * @returns {Promise<ReconciliationPlan>}
-   */
-  async planReconciliation(mismatches) {
-    throw new Error('Not implemented');
-  }
-}
+// Example methods:
+async reconcile(mismatch, resource)
+async planReconciliation(mismatches)
 ```
+📄 See: `application/ports/IPropertyReconciler.js`
+
+> **Note**: Full interface definitions are maintained in source files. See the actual TypeScript/JSDoc definitions for complete method signatures and documentation.
 
 ---
 
 ## AWS Adapter Implementations
 
+AWS-specific implementations of the port interfaces using AWS SDK v3.
+
+**Source files**: `packages/devtools/infrastructure/domains/health/infrastructure/adapters/aws/`
+
 ### AWSStackRepository
 
-```javascript
-const { CloudFormationClient, DescribeStacksCommand, ListStackResourcesCommand } = require('@aws-sdk/client-cloudformation');
-const IStackRepository = require('../../application/ports/IStackRepository');
+Implements `IStackRepository` using CloudFormation API.
 
+```javascript
 class AWSStackRepository extends IStackRepository {
   constructor({ region }) {
-    super();
     this.client = new CloudFormationClient({ region });
   }
 
   async getStack(identifier) {
-    const command = new DescribeStacksCommand({
-      StackName: identifier.stackName,
-    });
-
-    try {
-      const response = await this.client.send(command);
-      return response.Stacks[0] || null;
-    } catch (error) {
-      if (error.name === 'ValidationError') {
-        return null; // Stack doesn't exist
-      }
-      throw error;
-    }
+    // Uses DescribeStacksCommand
+    // Returns Stack or null if not found
   }
 
   async listResources(identifier) {
-    const command = new ListStackResourcesCommand({
-      StackName: identifier.stackName,
-    });
-
-    const response = await this.client.send(command);
-
-    return response.StackResourceSummaries.map(resource => ({
-      logicalId: resource.LogicalResourceId,
-      physicalId: resource.PhysicalResourceId,
-      type: resource.ResourceType,
-      status: resource.ResourceStatus,
-      timestamp: resource.LastUpdatedTimestamp,
-    }));
-  }
-
-  async getOutputs(identifier) {
-    const stack = await this.getStack(identifier);
-    if (!stack) return {};
-
-    return (stack.Outputs || []).reduce((acc, output) => {
-      acc[output.OutputKey] = output.OutputValue;
-      return acc;
-    }, {});
-  }
-
-  async exists(identifier) {
-    return (await this.getStack(identifier)) !== null;
+    // Uses ListStackResourcesCommand
+    // Maps to standard resource format
   }
 }
-
-module.exports = AWSStackRepository;
 ```
+
+📄 See full implementation: `adapters/aws/AWSStackRepository.js`
 
 ### AWSResourceDetector
 
-```javascript
-const { EC2Client, DescribeVpcsCommand, DescribeSubnetsCommand } = require('@aws-sdk/client-ec2');
-const { RDSClient, DescribeDBClustersCommand } = require('@aws-sdk/client-rds');
-const { KMSClient, ListKeysCommand, DescribeKeyCommand } = require('@aws-sdk/client-kms');
-const IResourceDetector = require('../../application/ports/IResourceDetector');
+Implements `IResourceDetector` using AWS service APIs (EC2, RDS, KMS, etc.).
 
+```javascript
 class AWSResourceDetector extends IResourceDetector {
   constructor({ region }) {
-    super();
-    this.region = region;
     this.ec2 = new EC2Client({ region });
     this.rds = new RDSClient({ region });
     this.kms = new KMSClient({ region });
   }
 
   async detectNetworks(region) {
-    const command = new DescribeVpcsCommand({});
-    const response = await this.ec2.send(command);
-
-    return response.Vpcs.map(vpc => ({
-      type: 'AWS::EC2::VPC',
-      physicalId: vpc.VpcId,
-      properties: {
-        CidrBlock: vpc.CidrBlock,
-        Tags: vpc.Tags,
-        IsDefault: vpc.IsDefault,
-      },
-    }));
+    // Uses DescribeVpcsCommand
+    // Returns standardized network resources
   }
 
   async detectDatabases(region) {
-    const command = new DescribeDBClustersCommand({});
-    const response = await this.rds.send(command);
-
-    return response.DBClusters.map(cluster => ({
-      type: 'AWS::RDS::DBCluster',
-      physicalId: cluster.DBClusterIdentifier,
-      properties: {
-        Engine: cluster.Engine,
-        EngineVersion: cluster.EngineVersion,
-        DatabaseName: cluster.DatabaseName,
-        MasterUsername: cluster.MasterUsername,
-        Port: cluster.Port,
-      },
-    }));
+    // Uses DescribeDBClustersCommand
+    // Returns standardized database resources
   }
 
   async detectKeys(region) {
-    const listCommand = new ListKeysCommand({});
-    const response = await this.kms.send(listCommand);
-
-    const keys = [];
-    for (const key of response.Keys) {
-      const describeCommand = new DescribeKeyCommand({ KeyId: key.KeyId });
-      const keyDetails = await this.kms.send(describeCommand);
-
-      keys.push({
-        type: 'AWS::KMS::Key',
-        physicalId: keyDetails.KeyMetadata.KeyId,
-        properties: {
-          Description: keyDetails.KeyMetadata.Description,
-          Enabled: keyDetails.KeyMetadata.Enabled,
-          KeyUsage: keyDetails.KeyMetadata.KeyUsage,
-        },
-      });
-    }
-
-    return keys;
-  }
-
-  async detectResourceById(physicalId, resourceType) {
-    // Route to appropriate detector based on resource type
-    switch (resourceType) {
-      case 'AWS::EC2::VPC':
-        return this.detectVpcById(physicalId);
-      case 'AWS::RDS::DBCluster':
-        return this.detectClusterById(physicalId);
-      case 'AWS::KMS::Key':
-        return this.detectKeyById(physicalId);
-      default:
-        throw new Error(`Unsupported resource type: ${resourceType}`);
-    }
-  }
-
-  async getResourceProperties(physicalId, resourceType) {
-    const resource = await this.detectResourceById(physicalId, resourceType);
-    return resource ? resource.properties : null;
-  }
-
-  // Private helper methods
-  async detectVpcById(vpcId) {
-    const command = new DescribeVpcsCommand({ VpcIds: [vpcId] });
-    const response = await this.ec2.send(command);
-    const vpc = response.Vpcs[0];
-
-    if (!vpc) return null;
-
-    return {
-      type: 'AWS::EC2::VPC',
-      physicalId: vpc.VpcId,
-      properties: {
-        CidrBlock: vpc.CidrBlock,
-        Tags: vpc.Tags,
-        IsDefault: vpc.IsDefault,
-      },
-    };
-  }
-
-  async detectClusterById(clusterId) {
-    const command = new DescribeDBClustersCommand({ DBClusterIdentifier: clusterId });
-    try {
-      const response = await this.rds.send(command);
-      const cluster = response.DBClusters[0];
-
-      return {
-        type: 'AWS::RDS::DBCluster',
-        physicalId: cluster.DBClusterIdentifier,
-        properties: {
-          Engine: cluster.Engine,
-          EngineVersion: cluster.EngineVersion,
-          DatabaseName: cluster.DatabaseName,
-          MasterUsername: cluster.MasterUsername,
-          Port: cluster.Port,
-        },
-      };
-    } catch (error) {
-      if (error.name === 'DBClusterNotFoundFault') {
-        return null;
-      }
-      throw error;
-    }
-  }
-
-  async detectKeyById(keyId) {
-    const command = new DescribeKeyCommand({ KeyId: keyId });
-    try {
-      const response = await this.kms.send(command);
-      return {
-        type: 'AWS::KMS::Key',
-        physicalId: response.KeyMetadata.KeyId,
-        properties: {
-          Description: response.KeyMetadata.Description,
-          Enabled: response.KeyMetadata.Enabled,
-          KeyUsage: response.KeyMetadata.KeyUsage,
-        },
-      };
-    } catch (error) {
-      if (error.name === 'NotFoundException') {
-        return null;
-      }
-      throw error;
-    }
+    // Uses ListKeysCommand + DescribeKeyCommand
+    // Returns standardized key resources
   }
 }
-
-module.exports = AWSResourceDetector;
 ```
+
+📄 See full implementation: `adapters/aws/AWSResourceDetector.js`
+
+### Other AWS Adapters
+
+- **AWSDriftDetector** - Uses CloudFormation drift detection API
+- **AWSResourceImporter** - Uses CloudFormation import change sets
+- **AWSPropertyReconciler** - Uses CloudFormation update stacks
+
+📄 See: `adapters/aws/` directory for all implementations
 
 ---
 
