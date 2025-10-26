@@ -31,24 +31,48 @@ describe('PropertyMismatch', () => {
             }).toThrow('propertyPath is required');
         });
 
-        it('should require expectedValue', () => {
+        it('should require expectedValue parameter', () => {
             expect(() => {
                 new PropertyMismatch({
                     propertyPath: 'Properties.Name',
                     actualValue: 'value2',
                     mutability: PropertyMutability.MUTABLE,
                 });
-            }).toThrow('expectedValue is required');
+            }).toThrow('expectedValue must be provided');
         });
 
-        it('should require actualValue', () => {
+        it('should require actualValue parameter', () => {
             expect(() => {
                 new PropertyMismatch({
                     propertyPath: 'Properties.Name',
                     expectedValue: 'value1',
                     mutability: PropertyMutability.MUTABLE,
                 });
-            }).toThrow('actualValue is required');
+            }).toThrow('actualValue must be provided');
+        });
+
+        it('should accept undefined as expectedValue', () => {
+            const mismatch = new PropertyMismatch({
+                propertyPath: 'Properties.NewProperty',
+                expectedValue: undefined,
+                actualValue: 'new-value',
+                mutability: PropertyMutability.MUTABLE,
+            });
+
+            expect(mismatch.expectedValue).toBeUndefined();
+            expect(mismatch.actualValue).toBe('new-value');
+        });
+
+        it('should accept undefined as actualValue', () => {
+            const mismatch = new PropertyMismatch({
+                propertyPath: 'Properties.OldProperty',
+                expectedValue: 'old-value',
+                actualValue: undefined,
+                mutability: PropertyMutability.MUTABLE,
+            });
+
+            expect(mismatch.expectedValue).toBe('old-value');
+            expect(mismatch.actualValue).toBeUndefined();
         });
 
         it('should require mutability', () => {

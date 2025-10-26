@@ -23,12 +23,15 @@ class PropertyMismatch {
             throw new Error('propertyPath is required');
         }
 
-        if (expectedValue === undefined) {
-            throw new Error('expectedValue is required');
+        // Note: expectedValue and actualValue can be undefined (for missing properties)
+        // They can also be null (explicit null value)
+        // Only check if they're provided in the params object at all
+        if (!('expectedValue' in arguments[0])) {
+            throw new Error('expectedValue must be provided (can be null or undefined)');
         }
 
-        if (actualValue === undefined) {
-            throw new Error('actualValue is required');
+        if (!('actualValue' in arguments[0])) {
+            throw new Error('actualValue must be provided (can be null or undefined)');
         }
 
         if (!mutability) {
