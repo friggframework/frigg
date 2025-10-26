@@ -9,6 +9,8 @@ const { deployCommand } = require('./deploy-command');
 const { generateIamCommand } = require('./generate-iam-command');
 const { uiCommand } = require('./ui-command');
 const { dbSetupCommand } = require('./db-setup-command');
+const { doctorCommand } = require('./doctor-command');
+const { repairCommand } = require('./repair-command');
 
 const program = new Command();
 
@@ -71,6 +73,26 @@ program
     .option('-v, --verbose', 'enable verbose output')
     .action(dbSetupCommand);
 
+program
+    .command('doctor <stackName>')
+    .description('Run health check on deployed CloudFormation stack')
+    .option('-r, --region <region>', 'AWS region (defaults to AWS_REGION env var or us-east-1)')
+    .option('-f, --format <format>', 'output format (console or json)', 'console')
+    .option('-o, --output <path>', 'save report to file')
+    .option('-v, --verbose', 'enable verbose output')
+    .action(doctorCommand);
+
+program
+    .command('repair <stackName>')
+    .description('Repair infrastructure issues (import orphaned resources, reconcile property drift)')
+    .option('-r, --region <region>', 'AWS region (defaults to AWS_REGION env var or us-east-1)')
+    .option('--import', 'import orphaned resources into stack')
+    .option('--reconcile', 'reconcile property drift')
+    .option('--mode <mode>', 'reconciliation mode (template or resource)', 'template')
+    .option('-y, --yes', 'skip confirmation prompts')
+    .option('-v, --verbose', 'enable verbose output')
+    .action(repairCommand);
+
 program.parse(process.argv);
 
-module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, generateIamCommand, uiCommand, dbSetupCommand };
+module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, generateIamCommand, uiCommand, dbSetupCommand, doctorCommand, repairCommand };
