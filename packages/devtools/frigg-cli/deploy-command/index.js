@@ -2,6 +2,9 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
+// Import doctor command for post-deployment health check
+const { doctorCommand } = require('../doctor-command');
+
 // Configuration constants
 const PATHS = {
     APP_DEFINITION: 'index.js',
@@ -134,41 +137,134 @@ function validateAndBuildEnvironment(appDefinition, options) {
  * Executes the serverless deployment command
  * @param {Object} environment - Environment variables to pass to serverless
  * @param {Object} options - Deploy command options
+ * @returns {Promise<number>} Exit code
  */
 function executeServerlessDeployment(environment, options) {
-    console.log('🚀 Deploying serverless application...');
+    return new Promise((resolve, reject) => {
+        console.log('🚀 Deploying serverless application...');
 
-    const serverlessArgs = [
-        'deploy',
-        '--config',
-        PATHS.INFRASTRUCTURE,
-        '--stage',
-        options.stage,
-    ];
+        const serverlessArgs = [
+            'deploy',
+            '--config',
+            PATHS.INFRASTRUCTURE,
+            '--stage',
+            options.stage,
+        ];
 
-    // Add --force flag if force option is true
-    if (options.force === true) {
-        serverlessArgs.push('--force');
+        // Add --force flag if force option is true
+        if (options.force === true) {
+            serverlessArgs.push('--force');
+        }
+
+        const childProcess = spawn(COMMANDS.SERVERLESS, serverlessArgs, {
+            cwd: path.resolve(process.cwd()),
+            stdio: 'inherit',
+            env: {
+                ...environment,
+                SLS_STAGE: options.stage, // Set stage for resource discovery
+            },
+        });
+
+        childProcess.on('error', (error) => {
+            console.error(`Error executing command: ${error.message}`);
+            reject(error);
+        });
+
+        childProcess.on('close', (code) => {
+            if (code !== 0) {
+                console.log(`Child process exited with code ${code}`);
+                resolve(code);
+            } else {
+                resolve(0);
+            }
+        });
+    });
+}
+
+/**
+ * Get stack name from app definition
+ * @param {Object} appDefinition - App definition
+ * @param {Object} options - Deploy options
+ * @returns {string|null} Stack name
+ */
+function getStackName(appDefinition, options) {
+    // Try to get from app definition
+    if (appDefinition?.name) {
+        const stage = options.stage || 'dev';
+        return `${appDefinition.name}-${stage}`;
     }
 
-    const childProcess = spawn(COMMANDS.SERVERLESS, serverlessArgs, {
-        cwd: path.resolve(process.cwd()),
-        stdio: 'inherit',
-        env: {
-            ...environment,
-            SLS_STAGE: options.stage, // Set stage for resource discovery
-        },
-    });
-
-    childProcess.on('error', (error) => {
-        console.error(`Error executing command: ${error.message}`);
-    });
-
-    childProcess.on('close', (code) => {
-        if (code !== 0) {
-            console.log(`Child process exited with code ${code}`);
+    // Try to get from infrastructure.js
+    const infraPath = path.join(process.cwd(), PATHS.INFRASTRUCTURE);
+    if (fs.existsSync(infraPath)) {
+        try {
+            const infraModule = require(infraPath);
+            if (infraModule.service) {
+                const stage = options.stage || 'dev';
+                return `${infraModule.service}-${stage}`;
+            }
+        } catch (error) {
+            // Ignore errors reading infrastructure file
         }
-    });
+    }
+
+    return null;
+}
+
+/**
+ * Run post-deployment health check
+ * @param {string} stackName - CloudFormation stack name
+ * @param {Object} options - Deploy options
+ */
+async function runPostDeploymentHealthCheck(stackName, options) {
+    console.log('\n' + '═'.repeat(80));
+    console.log('Running post-deployment health check...');
+    console.log('═'.repeat(80));
+
+    try {
+        // Run doctor command (will exit process on its own)
+        // Note: We need to catch the exit to prevent deploy from exiting
+        const originalExit = process.exit;
+        let doctorExitCode = 0;
+
+        // Temporarily override process.exit to capture exit code
+        process.exit = (code) => {
+            doctorExitCode = code || 0;
+        };
+
+        try {
+            await doctorCommand(stackName, {
+                region: options.region,
+                format: 'console',
+                verbose: options.verbose,
+            });
+        } catch (error) {
+            console.log(`\n⚠️  Health check encountered an error: ${error.message}`);
+            if (options.verbose) {
+                console.error(error.stack);
+            }
+        } finally {
+            // Restore original process.exit
+            process.exit = originalExit;
+        }
+
+        // Inform user about health check results
+        if (doctorExitCode === 0) {
+            console.log('\n✓ Post-deployment health check: PASSED');
+        } else if (doctorExitCode === 2) {
+            console.log('\n⚠️  Post-deployment health check: DEGRADED');
+            console.log('   Run "frigg repair" to fix detected issues');
+        } else {
+            console.log('\n✗ Post-deployment health check: FAILED');
+            console.log('   Run "frigg doctor" for detailed report');
+            console.log('   Run "frigg repair" to fix detected issues');
+        }
+    } catch (error) {
+        console.log(`\n⚠️  Post-deployment health check failed: ${error.message}`);
+        if (options.verbose) {
+            console.error(error.stack);
+        }
+    }
 }
 
 async function deployCommand(options) {
@@ -177,7 +273,30 @@ async function deployCommand(options) {
     const appDefinition = loadAppDefinition();
     const environment = validateAndBuildEnvironment(appDefinition, options);
 
-    executeServerlessDeployment(environment, options);
+    // Execute deployment
+    const exitCode = await executeServerlessDeployment(environment, options);
+
+    // Check if deployment was successful
+    if (exitCode !== 0) {
+        console.error(`\n✗ Deployment failed with exit code ${exitCode}`);
+        process.exit(exitCode);
+    }
+
+    console.log('\n✓ Deployment completed successfully!');
+
+    // Run post-deployment health check (unless --skip-doctor)
+    if (!options.skipDoctor) {
+        const stackName = getStackName(appDefinition, options);
+
+        if (stackName) {
+            await runPostDeploymentHealthCheck(stackName, options);
+        } else {
+            console.log('\n⚠️  Could not determine stack name - skipping health check');
+            console.log('   Run "frigg doctor <stack-name>" manually to check stack health');
+        }
+    } else {
+        console.log('\n⏭️  Skipping post-deployment health check (--skip-doctor)');
+    }
 }
 
 module.exports = { deployCommand };
