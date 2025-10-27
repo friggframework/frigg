@@ -44,6 +44,7 @@ describe('Orphan Detection with Multiple Stacks (TDD)', () => {
     let detector;
     let mockEC2Send;
     let mockRDSSend;
+    let mockKMSSend;
     let mockCFSend;
 
     beforeEach(() => {
@@ -54,10 +55,15 @@ describe('Orphan Detection with Multiple Stacks (TDD)', () => {
         const { EC2Client } = require('@aws-sdk/client-ec2');
         EC2Client.mockImplementation(() => ({ send: mockEC2Send }));
 
-        // Mock RDS client
-        mockRDSSend = jest.fn();
+        // Mock RDS client - return empty arrays by default
+        mockRDSSend = jest.fn().mockResolvedValue({ DBClusters: [] });
         const { RDSClient } = require('@aws-sdk/client-rds');
         RDSClient.mockImplementation(() => ({ send: mockRDSSend }));
+
+        // Mock KMS client - return empty arrays by default
+        mockKMSSend = jest.fn().mockResolvedValue({ Keys: [] });
+        const { KMSClient } = require('@aws-sdk/client-kms');
+        KMSClient.mockImplementation(() => ({ send: mockKMSSend }));
 
         // Mock CloudFormation client
         mockCFSend = jest.fn();
@@ -258,7 +264,7 @@ describe('Orphan Detection with Multiple Stacks (TDD)', () => {
             expect(orphans).toEqual([]);
         });
 
-        test('should only check resource types that exist in stack template', async () => {
+        test('should check all supported resource types for orphans (not just types in stack)', async () => {
             const stackIdentifier = new StackIdentifier({
                 stackName: 'simple-stack',
                 region: 'us-east-1',
@@ -299,9 +305,11 @@ describe('Orphan Detection with Multiple Stacks (TDD)', () => {
                 stackResources,
             });
 
-            // Should ONLY call EC2 DescribeVpcs, NOT RDS or KMS
+            // Should check ALL resource types (EC2, RDS, KMS) even if stack only has VPC
+            // This is because orphaned resources by definition are NOT in the stack
             expect(mockEC2Send).toHaveBeenCalled();
-            expect(mockRDSSend).not.toHaveBeenCalled();
+            expect(mockRDSSend).toHaveBeenCalled(); // Changed: now checks all types
+            expect(mockKMSSend).toHaveBeenCalled(); // Changed: now checks all types
         });
 
         test('should filter out default VPCs', async () => {

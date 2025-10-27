@@ -212,9 +212,16 @@ class AWSResourceDetector extends IResourceDetector {
      * Find orphaned resources for a specific stack
      *
      * Orphaned resources are resources that:
-     * 1. Have frigg:stack tag matching the target stack name
-     * 2. Do NOT have aws:cloudformation:stack-name tag (not managed by CloudFormation)
+     * 1. Have aws:cloudformation:stack-name tag matching target stack
+     *    OR no CloudFormation tags but exist in region with stack resources
+     * 2. Physical ID is NOT in the actual CloudFormation stack resources
      * 3. Are not default AWS resources (default VPC, AWS-managed KMS keys)
+     *
+     * NOTE: We DON'T trust CloudFormation tags alone. Resources can have
+     * CloudFormation tags but not actually be in the stack (manual tagging,
+     * failed imports, removed from stack but tags remain, etc.)
+     *
+     * Instead, we compare against the actual physical IDs from the stack.
      *
      * @param {Object} params
      * @param {StackIdentifier} params.stackIdentifier - Target stack
@@ -224,13 +231,16 @@ class AWSResourceDetector extends IResourceDetector {
     async findOrphanedResources({ stackIdentifier, stackResources }) {
         const orphans = [];
 
-        // Extract unique resource types from stack template
-        const resourceTypesInStack = [...new Set(stackResources.map((r) => r.resourceType))];
-
-        // Only check resource types that exist in the stack template
-        const typesToCheck = resourceTypesInStack.filter((type) =>
-            AWSResourceDetector.SUPPORTED_TYPES.includes(type)
+        // Build Set of physical IDs that are actually IN the CloudFormation stack
+        // This is the source of truth - not the tags!
+        const stackPhysicalIds = new Set(
+            stackResources.map((r) => r.physicalId).filter(Boolean)
         );
+
+        // Check ALL supported resource types, not just types in stack
+        // Orphaned resources are by definition NOT in the stack, so we need
+        // to check all types that could potentially be orphaned
+        const typesToCheck = AWSResourceDetector.SUPPORTED_TYPES;
 
         for (const resourceType of typesToCheck) {
             const resources = await this.detectResources({
@@ -239,29 +249,48 @@ class AWSResourceDetector extends IResourceDetector {
             });
 
             for (const resource of resources) {
-                // Rule 1: Must have frigg:stack tag matching target stack
-                const friggStackTag = resource.tags?.['frigg:stack'];
-                if (friggStackTag !== stackIdentifier.stackName) {
+                // Rule 1: Check if resource claims to be in this stack
+                const cfnStackTag = resource.tags?.['aws:cloudformation:stack-name'];
+
+                // Skip resources from different stacks
+                if (cfnStackTag && cfnStackTag !== stackIdentifier.stackName) {
                     continue;
                 }
 
-                // Rule 2: Must NOT have aws:cloudformation:stack-name tag
-                const cfnStackTag = resource.tags?.['aws:cloudformation:stack-name'];
-                if (cfnStackTag) {
-                    continue; // Managed by CloudFormation - not orphaned
+                // Rule 2: If resource has CloudFormation tag for THIS stack,
+                // check if it's actually IN the stack by physical ID
+                if (cfnStackTag === stackIdentifier.stackName) {
+                    // Has CloudFormation tag - check if actually in stack
+                    if (!stackPhysicalIds.has(resource.physicalId)) {
+                        // Has tag but NOT in stack = ORPHAN!
+                        // This is the bug we're fixing
+                        orphans.push({
+                            ...resource,
+                            isOrphaned: true,
+                            reason: `Resource ${resource.physicalId} has CloudFormation tag for stack ${stackIdentifier.stackName} but is not actually managed by the stack.`,
+                        });
+                    }
+                    // If it IS in stack, skip it (not orphaned)
+                    continue;
                 }
 
-                // Rule 3: Filter out default AWS resources
+                // Rule 3: Filter out default AWS resources (no CloudFormation tag)
                 if (this._isDefaultAWSResource(resource)) {
                     continue;
                 }
 
-                // This resource has frigg:stack tag but is not in CloudFormation
-                orphans.push({
-                    ...resource,
-                    isOrphaned: true,
-                    reason: `Resource ${resource.physicalId} exists in the cloud but is not managed by CloudFormation stack ${stackIdentifier.stackName}.`,
-                });
+                // No CloudFormation tag - check for frigg:stack tag as fallback
+                const friggStackTag = resource.tags?.['frigg:stack'];
+                if (friggStackTag === stackIdentifier.stackName) {
+                    // Has frigg tag but no CloudFormation tag and not in stack = orphan
+                    if (!stackPhysicalIds.has(resource.physicalId)) {
+                        orphans.push({
+                            ...resource,
+                            isOrphaned: true,
+                            reason: `Resource ${resource.physicalId} has frigg:stack tag but is not managed by CloudFormation stack ${stackIdentifier.stackName}.`,
+                        });
+                    }
+                }
             }
         }
 
