@@ -439,23 +439,53 @@ describe('AWSResourceDetector', () => {
     });
 
     describe('findOrphanedResources', () => {
-        it('should find orphaned RDS DBCluster', async () => {
+        const StackIdentifier = require('../../domain/value-objects/stack-identifier');
+
+        it('should find orphaned RDS DBCluster with frigg:stack tag', async () => {
+            const stackIdentifier = new StackIdentifier({
+                stackName: 'my-app-prod',
+                region: 'us-east-1',
+            });
+
+            const stackResources = [
+                {
+                    logicalId: 'MyDBCluster',
+                    physicalId: 'managed-cluster',
+                    resourceType: 'AWS::RDS::DBCluster',
+                },
+            ];
+
             mockRDSSend.mockResolvedValue({
                 DBClusters: [
                     {
+                        // Managed by CloudFormation - not orphaned
+                        DBClusterIdentifier: 'managed-cluster',
+                        DBClusterArn: 'arn:aws:rds:us-east-1:123456789012:cluster:managed-cluster',
+                        Engine: 'aurora-postgresql',
+                        Status: 'available',
+                        ClusterCreateTime: new Date('2024-01-01T00:00:00Z'),
+                        TagList: [
+                            { Key: 'aws:cloudformation:stack-name', Value: 'my-app-prod' },
+                            { Key: 'frigg:stack', Value: 'my-app-prod' },
+                        ],
+                    },
+                    {
+                        // Has frigg:stack tag but no CloudFormation tag - orphaned
                         DBClusterIdentifier: 'orphan-cluster',
                         DBClusterArn: 'arn:aws:rds:us-east-1:123456789012:cluster:orphan-cluster',
                         Engine: 'aurora-postgresql',
                         Status: 'available',
                         ClusterCreateTime: new Date('2024-01-01T00:00:00Z'),
-                        TagList: [],
+                        TagList: [
+                            { Key: 'frigg:stack', Value: 'my-app-prod' },
+                        ],
                     },
                 ],
             });
 
             const orphans = await detector.findOrphanedResources({
-                region: 'us-east-1',
-                resourceTypes: ['AWS::RDS::DBCluster'],
+                stackIdentifier,
+                stackResources,
             });
 
             expect(orphans).toHaveLength(1);
@@ -464,22 +494,49 @@ describe('AWSResourceDetector', () => {
             expect(orphans[0].reason).toContain('not managed by CloudFormation');
         });
 
-        it('should exclude specified physical IDs', async () => {
+        it('should not return resources managed by CloudFormation', async () => {
+            const stackIdentifier = new StackIdentifier({
+                stackName: 'my-app-prod',
+                region: 'us-east-1',
+            });
+
+            const stackResources = [
+                {
+                    logicalId: 'MyVPC',
+                    physicalId: 'vpc-123',
+                    resourceType: 'AWS::EC2::VPC',
+                },
+            ];
+
             mockEC2Send.mockResolvedValue({
                 Vpcs: [
-                    { VpcId: 'vpc-123', CidrBlock: '10.0.0.0/16', State: 'available', Tags: [] },
-                    { VpcId: 'vpc-456', CidrBlock: '10.1.0.0/16', State: 'available', Tags: [] },
+                    {
+                        VpcId: 'vpc-123',
+                        CidrBlock: '10.0.0.0/16',
+                        State: 'available',
+                        Tags: [
+                            { Key: 'aws:cloudformation:stack-name', Value: 'my-app-prod' },
+                            { Key: 'frigg:stack', Value: 'my-app-prod' },
+                        ],
+                    },
+                    {
+                        VpcId: 'vpc-456',
+                        CidrBlock: '10.1.0.0/16',
+                        State: 'available',
+                        Tags: [
+                            { Key: 'aws:cloudformation:stack-name', Value: 'other-stack' },
+                        ],
+                    },
                 ],
             });
 
             const orphans = await detector.findOrphanedResources({
-                region: 'us-east-1',
-                resourceTypes: ['AWS::EC2::VPC'],
-                excludePhysicalIds: ['vpc-123'],
+                stackIdentifier,
+                stackResources,
             });
 
-            expect(orphans).toHaveLength(1);
-            expect(orphans[0].physicalId).toBe('vpc-456');
+            // Should not find any orphans - both VPCs are CloudFormation-managed
+            expect(orphans).toEqual([]);
         });
     });
 

@@ -209,32 +209,96 @@ class AWSResourceDetector extends IResourceDetector {
     }
 
     /**
-     * Find orphaned resources (exist in cloud but not in any stack)
+     * Find orphaned resources for a specific stack
+     *
+     * Orphaned resources are resources that:
+     * 1. Have frigg:stack tag matching the target stack name
+     * 2. Do NOT have aws:cloudformation:stack-name tag (not managed by CloudFormation)
+     * 3. Are not default AWS resources (default VPC, AWS-managed KMS keys)
+     *
+     * @param {Object} params
+     * @param {StackIdentifier} params.stackIdentifier - Target stack
+     * @param {Array} params.stackResources - Resources currently in stack template
+     * @returns {Promise<Array>} Orphaned resources
      */
-    async findOrphanedResources({ region, resourceTypes = [], excludePhysicalIds = [] }) {
-        const types = resourceTypes.length > 0 ? resourceTypes : AWSResourceDetector.SUPPORTED_TYPES;
-
+    async findOrphanedResources({ stackIdentifier, stackResources }) {
         const orphans = [];
 
-        for (const resourceType of types) {
-            const resources = await this.detectResources({ resourceType, region });
+        // Extract unique resource types from stack template
+        const resourceTypesInStack = [...new Set(stackResources.map((r) => r.resourceType))];
+
+        // Only check resource types that exist in the stack template
+        const typesToCheck = resourceTypesInStack.filter((type) =>
+            AWSResourceDetector.SUPPORTED_TYPES.includes(type)
+        );
+
+        for (const resourceType of typesToCheck) {
+            const resources = await this.detectResources({
+                resourceType,
+                region: stackIdentifier.region,
+            });
 
             for (const resource of resources) {
-                // Exclude specified physical IDs
-                if (excludePhysicalIds.includes(resource.physicalId)) {
+                // Rule 1: Must have frigg:stack tag matching target stack
+                const friggStackTag = resource.tags?.['frigg:stack'];
+                if (friggStackTag !== stackIdentifier.stackName) {
                     continue;
                 }
 
-                // Mark as orphaned (in real implementation, would check CloudFormation stacks)
+                // Rule 2: Must NOT have aws:cloudformation:stack-name tag
+                const cfnStackTag = resource.tags?.['aws:cloudformation:stack-name'];
+                if (cfnStackTag) {
+                    continue; // Managed by CloudFormation - not orphaned
+                }
+
+                // Rule 3: Filter out default AWS resources
+                if (this._isDefaultAWSResource(resource)) {
+                    continue;
+                }
+
+                // This resource has frigg:stack tag but is not in CloudFormation
                 orphans.push({
                     ...resource,
                     isOrphaned: true,
-                    reason: `Resource ${resource.physicalId} exists in cloud but is not managed by CloudFormation`,
+                    reason: `Resource ${resource.physicalId} exists in the cloud but is not managed by CloudFormation stack ${stackIdentifier.stackName}.`,
                 });
             }
         }
 
         return orphans;
+    }
+
+    /**
+     * Check if resource is a default AWS resource that should be ignored
+     * @private
+     */
+    _isDefaultAWSResource(resource) {
+        // Default VPC (172.31.0.0/16 CIDR block)
+        if (
+            resource.resourceType === 'AWS::EC2::VPC' &&
+            (resource.properties?.IsDefault === true ||
+                resource.properties?.CidrBlock === '172.31.0.0/16')
+        ) {
+            return true;
+        }
+
+        // AWS-managed KMS keys (KeyManager === 'AWS')
+        if (
+            resource.resourceType === 'AWS::KMS::Key' &&
+            resource.properties?.KeyManager === 'AWS'
+        ) {
+            return true;
+        }
+
+        // Default security groups (GroupName === 'default')
+        if (
+            resource.resourceType === 'AWS::EC2::SecurityGroup' &&
+            resource.properties?.GroupName === 'default'
+        ) {
+            return true;
+        }
+
+        return false;
     }
 
     // ========================================
@@ -262,6 +326,7 @@ class AWSResourceDetector extends IResourceDetector {
                     VpcId: vpc.VpcId,
                     CidrBlock: vpc.CidrBlock,
                     State: vpc.State,
+                    IsDefault: vpc.IsDefault,
                     EnableDnsHostnames: vpc.EnableDnsHostnames,
                     EnableDnsSupport: vpc.EnableDnsSupport,
                 },
