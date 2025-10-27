@@ -1,5 +1,27 @@
 /**
  * Tests for HealthScoreCalculator Domain Service
+ *
+ * ⚠️  TODO: These tests need updating for percentage-based health scoring
+ *
+ * As of 2025-10-26, health scoring was refactored from fixed penalties
+ * to percentage-based penalties weighted by resource criticality:
+ *
+ * OLD SYSTEM (Fixed Penalties):
+ * - Critical: 30 points, Warning: 10 points, Info: 5 points
+ * - Problem: 32 warnings = 320 points = 0/100 score (meaningless!)
+ *
+ * NEW SYSTEM (Percentage-Based):
+ * - Critical issues: up to 50 points (% of total resources)
+ * - Functional drift: up to 30 points (% of critical resources)
+ * - Infrastructure drift: up to 20 points (% of infra resources)
+ * - Example: 16/16 Lambdas drifted = 100% × 30 = 30 penalty → 70/100 ✅
+ *
+ * These tests fail because:
+ * 1. They use fixed penalty expectations (70, 80, etc.)
+ * 2. Most tests pass resources:[] which can't calculate percentages
+ * 3. Tests need realistic resource arrays to test new logic
+ *
+ * See health-score-percentage-based.test.js for examples of new test patterns.
  */
 
 const HealthScoreCalculator = require('./health-score-calculator');
