@@ -12,7 +12,11 @@
  * - Generate CloudFormation template snippets
  * - Execute import operations (single or batch)
  * - Track import operation status
+ * - Map orphaned resources to correct logical IDs using template comparison
  */
+
+const { TemplateParser } = require('../../domain/services/template-parser');
+const { LogicalIdMapper } = require('../../domain/services/logical-id-mapper');
 
 class RepairViaImportUseCase {
     /**
@@ -21,8 +25,11 @@ class RepairViaImportUseCase {
      * @param {Object} params
      * @param {IResourceImporter} params.resourceImporter - Resource import operations
      * @param {IResourceDetector} params.resourceDetector - Resource discovery and details
+     * @param {IStackRepository} params.stackRepository - CloudFormation stack operations
+     * @param {TemplateParser} params.templateParser - CloudFormation template parsing
+     * @param {LogicalIdMapper} params.logicalIdMapper - Logical ID mapping service
      */
-    constructor({ resourceImporter, resourceDetector }) {
+    constructor({ resourceImporter, resourceDetector, stackRepository, templateParser, logicalIdMapper }) {
         if (!resourceImporter) {
             throw new Error('resourceImporter is required');
         }
@@ -32,6 +39,9 @@ class RepairViaImportUseCase {
 
         this.resourceImporter = resourceImporter;
         this.resourceDetector = resourceDetector;
+        this.stackRepository = stackRepository;
+        this.templateParser = templateParser || new TemplateParser();
+        this.logicalIdMapper = logicalIdMapper || new LogicalIdMapper({ region: 'us-east-1' });
     }
 
     /**
@@ -223,6 +233,149 @@ class RepairViaImportUseCase {
             templateSnippet,
             properties: resourceDetails.properties,
         };
+    }
+
+    /**
+     * Import orphaned resources with automatic logical ID mapping
+     * Uses template comparison to find correct logical IDs
+     *
+     * @param {Object} params
+     * @param {StackIdentifier} params.stackIdentifier - Target stack
+     * @param {Array} params.orphanedResources - Orphaned resources to import
+     * @param {string} params.buildTemplatePath - Path to .serverless/cloudformation-template-update-stack.json
+     * @returns {Promise<Object>} Import result with mappings
+     */
+    async importWithLogicalIdMapping({ stackIdentifier, orphanedResources, buildTemplatePath }) {
+        // 1. Validate build template exists
+        if (!buildTemplatePath) {
+            throw new Error('buildTemplatePath is required');
+        }
+
+        const fs = require('fs');
+        if (!fs.existsSync(buildTemplatePath)) {
+            throw new Error(
+                `Build template not found at: ${buildTemplatePath}\n\n` +
+                `Please run one of:\n` +
+                `  • serverless package\n` +
+                `  • frigg build\n` +
+                `  • frigg deploy --stage dev\n\n` +
+                `Then try again:\n` +
+                `  frigg repair --import ${stackIdentifier.stackName}`
+            );
+        }
+
+        // 2. Parse build template
+        const buildTemplate = this.templateParser.parseTemplate(buildTemplatePath);
+
+        // 3. Get deployed template from CloudFormation
+        if (!this.stackRepository) {
+            throw new Error('stackRepository is required for template comparison');
+        }
+
+        const deployedTemplate = await this.stackRepository.getTemplate(stackIdentifier);
+
+        // 4. Map orphaned resources to logical IDs
+        const mappings = await this.logicalIdMapper.mapOrphanedResourcesToLogicalIds({
+            orphanedResources,
+            buildTemplate,
+            deployedTemplate,
+        });
+
+        // 5. Check for multiple resources of same type
+        const multiResourceWarnings = this._checkForMultipleResources(mappings);
+
+        // 6. Filter out unmapped resources and prepare for import
+        const mappedResources = mappings.filter((m) => m.logicalId !== null);
+        const unmappedResources = mappings.filter((m) => m.logicalId === null);
+
+        if (mappedResources.length === 0) {
+            return {
+                success: false,
+                message: 'No resources could be mapped to logical IDs',
+                unmappedCount: unmappedResources.length,
+                unmappedResources,
+            };
+        }
+
+        // 7. Generate import-resources.json format
+        const resourcesToImport = mappedResources.map((mapping) => ({
+            ResourceType: mapping.resourceType,
+            LogicalResourceId: mapping.logicalId,
+            ResourceIdentifier: this._getResourceIdentifier(mapping),
+        }));
+
+        // 8. Return result with warnings for user review
+        return {
+            success: true,
+            mappedCount: mappedResources.length,
+            unmappedCount: unmappedResources.length,
+            mappings: mappedResources,
+            unmappedResources,
+            resourcesToImport,
+            warnings: multiResourceWarnings,
+            buildTemplatePath,
+            deployedTemplatePath: 'CloudFormation (deployed)',
+        };
+    }
+
+    /**
+     * Check for multiple resources of same type
+     * Returns warnings when user needs to manually select
+     * @private
+     */
+    _checkForMultipleResources(mappings) {
+        const warnings = [];
+        const byType = {};
+
+        // Group by resource type
+        mappings.forEach((mapping) => {
+            if (!byType[mapping.resourceType]) {
+                byType[mapping.resourceType] = [];
+            }
+            byType[mapping.resourceType].push(mapping);
+        });
+
+        // Check for multiples
+        Object.entries(byType).forEach(([type, resources]) => {
+            if (resources.length > 1) {
+                const shortType = type.replace('AWS::EC2::', '');
+                warnings.push({
+                    type: 'MULTIPLE_RESOURCES',
+                    resourceType: type,
+                    count: resources.length,
+                    message: `Multiple ${shortType}s detected (${resources.length}). Review relationships before importing.`,
+                    resources: resources.map((r) => ({
+                        physicalId: r.physicalId,
+                        logicalId: r.logicalId,
+                        matchMethod: r.matchMethod,
+                        confidence: r.confidence,
+                    })),
+                });
+            }
+        });
+
+        return warnings;
+    }
+
+    /**
+     * Get CloudFormation resource identifier for import
+     * @private
+     */
+    _getResourceIdentifier(mapping) {
+        const { resourceType, physicalId } = mapping;
+
+        // Map resource types to their identifier format
+        const identifierMap = {
+            'AWS::EC2::VPC': { VpcId: physicalId },
+            'AWS::EC2::Subnet': { SubnetId: physicalId },
+            'AWS::EC2::SecurityGroup': { GroupId: physicalId },
+            'AWS::EC2::InternetGateway': { InternetGatewayId: physicalId },
+            'AWS::EC2::NatGateway': { NatGatewayId: physicalId },
+            'AWS::EC2::RouteTable': { RouteTableId: physicalId },
+            'AWS::EC2::VPCEndpoint': { VpcEndpointId: physicalId },
+        };
+
+        return identifierMap[resourceType] || { Id: physicalId };
     }
 }
 
