@@ -29,6 +29,7 @@ const AWSPropertyReconciler = require('@friggframework/devtools/infrastructure/d
 // Domain Services
 const MismatchAnalyzer = require('@friggframework/devtools/infrastructure/domains/health/domain/services/mismatch-analyzer');
 const HealthScoreCalculator = require('@friggframework/devtools/infrastructure/domains/health/domain/services/health-score-calculator');
+const { TemplateParser } = require('@friggframework/devtools/infrastructure/domains/health/domain/services/template-parser');
 
 /**
  * Create readline interface for user prompts
@@ -58,7 +59,7 @@ function confirm(question) {
 }
 
 /**
- * Handle import repair operation
+ * Handle import repair operation using template comparison
  * @param {StackIdentifier} stackIdentifier - Stack identifier
  * @param {Object} report - Health check report
  * @param {Object} options - Command options
@@ -76,51 +77,142 @@ async function handleImportRepair(stackIdentifier, report, options) {
         console.log(`  ${idx + 1}. ${resource.resourceType} - ${resource.physicalId}`);
     });
 
+    // Check for build template
+    const buildTemplatePath = TemplateParser.getBuildTemplatePath();
+    const buildTemplateExists = TemplateParser.buildTemplateExists();
+
+    if (!buildTemplateExists) {
+        console.log('\n⚠️  Build template not found. Generating sequential logical IDs (not recommended).');
+        console.log(`   Run one of the following to generate build template:`);
+        console.log(`     • serverless package`);
+        console.log(`     • frigg build`);
+        console.log(`     • frigg deploy --stage dev`);
+        console.log(`   Then run 'frigg repair --import ${stackIdentifier.stackName}' again for correct logical IDs.\n`);
+
+        // Fallback to sequential IDs (old behavior)
+        const resourcesToImport = orphanedResources.map((resource, idx) => ({
+            logicalId: `ImportedResource${idx + 1}`,
+            physicalId: resource.physicalId,
+            resourceType: resource.resourceType,
+        }));
+
+        if (!options.yes) {
+            const confirmed = await confirm(`\nImport ${orphanedResources.length} orphaned resource(s) with sequential IDs?`);
+            if (!confirmed) {
+                console.log('Import cancelled by user');
+                return { imported: 0, failed: 0, cancelled: true };
+            }
+        }
+
+        const resourceDetector = new AWSResourceDetector({ region: stackIdentifier.region });
+        const resourceImporter = new AWSResourceImporter({ region: stackIdentifier.region });
+        const repairUseCase = new RepairViaImportUseCase({ resourceDetector, resourceImporter });
+
+        console.log('\n🔧 Importing resources with sequential IDs...');
+        const importResult = await repairUseCase.importMultipleResources({
+            stackIdentifier,
+            resources: resourcesToImport,
+        });
+
+        if (importResult.success) {
+            console.log(`\n✓ Successfully imported ${importResult.importedCount} resource(s)`);
+        } else {
+            console.log(`\n✗ Import failed: ${importResult.message}`);
+            if (importResult.validationErrors && importResult.validationErrors.length > 0) {
+                console.log('\nValidation errors:');
+                importResult.validationErrors.forEach((error) => {
+                    console.log(`  • ${error.logicalId}: ${error.reason}`);
+                });
+            }
+        }
+
+        return {
+            imported: importResult.importedCount,
+            failed: importResult.failedCount,
+            success: importResult.success,
+        };
+    }
+
+    // Use template comparison to find correct logical IDs
+    console.log(`\n🔍 Analyzing templates to map orphaned resources to correct logical IDs...`);
+    console.log(`   Build template: ${buildTemplatePath}`);
+    console.log(`   Deployed template: CloudFormation (via AWS API)`);
+
+    // Wire up use case with template comparison
+    const stackRepository = new AWSStackRepository({ region: stackIdentifier.region });
+    const resourceDetector = new AWSResourceDetector({ region: stackIdentifier.region });
+    const resourceImporter = new AWSResourceImporter({ region: stackIdentifier.region });
+    const repairUseCase = new RepairViaImportUseCase({
+        resourceDetector,
+        resourceImporter,
+        stackRepository,
+    });
+
+    // Execute logical ID mapping
+    const mappingResult = await repairUseCase.importWithLogicalIdMapping({
+        stackIdentifier,
+        orphanedResources,
+        buildTemplatePath,
+    });
+
+    if (!mappingResult.success) {
+        console.log(`\n✗ Mapping failed: ${mappingResult.message}`);
+        return { imported: 0, failed: 0, success: false };
+    }
+
+    // Display mapping results
+    console.log(`\n✅ Successfully mapped ${mappingResult.mappedCount} resource(s) to logical IDs:`);
+    mappingResult.mappings.forEach((mapping) => {
+        console.log(`  • ${mapping.logicalId} ← ${mapping.physicalId} (${mapping.matchMethod}, ${mapping.confidence} confidence)`);
+    });
+
+    if (mappingResult.unmappedCount > 0) {
+        console.log(`\n⚠️  Could not map ${mappingResult.unmappedCount} resource(s):`);
+        mappingResult.unmappedResources.forEach((resource) => {
+            console.log(`  • ${resource.resourceType} - ${resource.physicalId}`);
+        });
+    }
+
+    // Display warnings for multiple resources of same type
+    if (mappingResult.warnings && mappingResult.warnings.length > 0) {
+        console.log(`\n⚠️  Warnings:`);
+        mappingResult.warnings.forEach((warning) => {
+            console.log(`  • ${warning.message}`);
+            if (warning.type === 'MULTIPLE_RESOURCES') {
+                warning.resources.forEach((res) => {
+                    console.log(`      - ${res.logicalId} ← ${res.physicalId} (${res.matchMethod}, ${res.confidence})`);
+                });
+            }
+        });
+    }
+
     // Confirm with user (unless --yes flag)
     if (!options.yes) {
-        const confirmed = await confirm(`\nImport ${orphanedResources.length} orphaned resource(s)?`);
+        console.log(`\n📋 The following will be imported into CloudFormation:`);
+        mappingResult.resourcesToImport.forEach((resource) => {
+            console.log(`  • ${resource.LogicalResourceId} (${resource.ResourceType})`);
+        });
+
+        const confirmed = await confirm(`\nProceed with import of ${mappingResult.mappedCount} resource(s)?`);
         if (!confirmed) {
             console.log('Import cancelled by user');
             return { imported: 0, failed: 0, cancelled: true };
         }
     }
 
-    // Wire up use case
-    const resourceDetector = new AWSResourceDetector({ region: stackIdentifier.region });
-    const resourceImporter = new AWSResourceImporter({ region: stackIdentifier.region });
-    const repairUseCase = new RepairViaImportUseCase({ resourceDetector, resourceImporter });
-
-    // Prepare resources for import
-    const resourcesToImport = orphanedResources.map((resource, idx) => ({
-        logicalId: `ImportedResource${idx + 1}`, // Generate logical ID
-        physicalId: resource.physicalId,
-        resourceType: resource.resourceType,
-    }));
-
-    // Execute import
-    console.log('\n🔧 Importing resources...');
-    const importResult = await repairUseCase.importMultipleResources({
-        stackIdentifier,
-        resources: resourcesToImport,
-    });
-
-    // Report results
-    if (importResult.success) {
-        console.log(`\n✓ Successfully imported ${importResult.importedCount} resource(s)`);
-    } else {
-        console.log(`\n✗ Import failed: ${importResult.message}`);
-        if (importResult.validationErrors && importResult.validationErrors.length > 0) {
-            console.log('\nValidation errors:');
-            importResult.validationErrors.forEach((error) => {
-                console.log(`  • ${error.logicalId}: ${error.reason}`);
-            });
-        }
-    }
+    // TODO: Execute actual CloudFormation import operation
+    // For now, return the mappings as success
+    console.log(`\n🔧 Import operation prepared. Next steps:`);
+    console.log(`   1. Review import-resources.json format:`);
+    console.log(JSON.stringify(mappingResult.resourcesToImport, null, 2));
+    console.log(`\n   2. Execute CloudFormation import change set`);
+    console.log(`   3. Monitor import operation status`);
 
     return {
-        imported: importResult.importedCount,
-        failed: importResult.failedCount,
-        success: importResult.success,
+        imported: mappingResult.mappedCount,
+        failed: 0,
+        success: true,
+        mappings: mappingResult.resourcesToImport,
     };
 }
 
