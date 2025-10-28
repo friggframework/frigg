@@ -1,0 +1,627 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.friggframework.org/app-definition.schema.json",
+  "title": "Frigg Application Definition",
+  "description": "Schema for defining a Frigg application configuration including integrations, infrastructure, security settings, and deployment options.",
+  "type": "object",
+  "required": ["integrations"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Service name for deployment (used as CloudFormation stack name prefix)",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9-]*$",
+      "minLength": 1,
+      "maxLength": 128,
+      "examples": ["my-frigg-app", "customer-integrations"]
+    },
+    "provider": {
+      "type": "string",
+      "description": "Cloud provider for deployment",
+      "enum": ["aws"],
+      "default": "aws"
+    },
+    "environment": {
+      "type": "object",
+      "description": "Environment variable configuration (key: true/false flags)",
+      "patternProperties": {
+        "^[A-Z][A-Z0-9_]*$": {
+          "type": "boolean",
+          "description": "Set to true to include this environment variable from process.env"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "NODE_ENV": true,
+          "API_KEY": true,
+          "DATABASE_URL": true
+        }
+      ]
+    },
+    "integrations": {
+      "type": "array",
+      "description": "Array of integration classes to enable in the application",
+      "items": {
+        "type": "object",
+        "description": "Integration class or configuration object"
+      },
+      "default": []
+    },
+    "user": {
+      "type": "object",
+      "description": "User management and authentication configuration",
+      "properties": {
+        "usePassword": {
+          "type": "boolean",
+          "description": "Enable password-based authentication for user login",
+          "default": true
+        },
+        "password": {
+          "type": "boolean",
+          "description": "DEPRECATED: Use 'usePassword' instead. Enable password-based authentication",
+          "default": true
+        },
+        "primary": {
+          "type": "string",
+          "description": "Primary user type for authentication",
+          "enum": ["individual", "organization"],
+          "default": "individual"
+        },
+        "individualUserRequired": {
+          "type": "boolean",
+          "description": "Require individual user for authentication",
+          "default": true
+        },
+        "organizationUserRequired": {
+          "type": "boolean",
+          "description": "Require organization user for authentication",
+          "default": false
+        },
+        "authModes": {
+          "type": "object",
+          "description": "Authentication mode configuration - enables multiple authentication strategies. x-frigg-appUserId and x-frigg-appOrgId headers are automatically supported for user identification with any auth mode.",
+          "properties": {
+            "friggToken": {
+              "type": "boolean",
+              "description": "Enable Frigg native bearer token authentication (from /user/login)",
+              "default": true
+            },
+            "sharedSecret": {
+              "type": "boolean",
+              "description": "Enable shared secret authentication for backend-to-backend communication (requires FRIGG_API_KEY env var and x-frigg-api-key header)",
+              "default": false
+            },
+            "adopterJwt": {
+              "type": "boolean",
+              "description": "Enable custom JWT authentication from adopter's auth system (requires jwtConfig)",
+              "default": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "jwtConfig": {
+          "type": "object",
+          "description": "JWT configuration for adopter JWT authentication mode (when authModes.adopterJwt is true)",
+          "properties": {
+            "secret": {
+              "type": "string",
+              "description": "JWT secret key for signature validation (should be set via environment variable)"
+            },
+            "userIdClaim": {
+              "type": "string",
+              "description": "JWT claim name containing the user ID",
+              "default": "sub"
+            },
+            "orgIdClaim": {
+              "type": "string",
+              "description": "JWT claim name containing the organization ID",
+              "default": "org_id"
+            },
+            "algorithm": {
+              "type": "string",
+              "description": "JWT signing algorithm",
+              "enum": ["HS256", "HS384", "HS512", "RS256", "RS384", "RS512"],
+              "default": "HS256"
+            }
+          },
+          "required": ["secret"],
+          "additionalProperties": false
+        },
+        "fields": {
+          "type": "array",
+          "description": "Additional user fields",
+          "items": {
+            "type": "string"
+          },
+          "examples": [["email", "firstName", "lastName"]]
+        },
+        "model": {
+          "type": "object",
+          "description": "Custom user model class"
+        }
+      },
+      "additionalProperties": false
+    },
+    "auth": {
+      "type": "object",
+      "description": "Authentication configuration for integrations",
+      "properties": {
+        "jwtSecret": {
+          "type": "string",
+          "description": "JWT secret key (should be set via environment variable)"
+        },
+        "tokenExpiry": {
+          "type": "string",
+          "description": "Token expiration time",
+          "pattern": "^\\d+[smhd]$",
+          "default": "24h"
+        },
+        "refreshTokenExpiry": {
+          "type": "string",
+          "description": "Refresh token expiration time", 
+          "pattern": "^\\d+[smhd]$",
+          "default": "7d"
+        }
+      },
+      "additionalProperties": false
+    },
+    "database": {
+      "type": "object",
+      "description": "Database configuration for MongoDB, PostgreSQL, or DocumentDB",
+      "properties": {
+        "uri": {
+          "type": "string",
+          "description": "Database connection URI (should be set via environment variable)",
+          "format": "uri"
+        },
+        "mongoDB": {
+          "type": "object",
+          "description": "MongoDB configuration",
+          "properties": {
+            "enable": {
+              "type": "boolean",
+              "description": "Enable MongoDB database",
+              "default": false
+            },
+            "uri": {
+              "type": "string",
+              "description": "MongoDB connection URI"
+            }
+          },
+          "additionalProperties": true
+        },
+        "documentDB": {
+          "type": "object",
+          "description": "AWS DocumentDB configuration (MongoDB-compatible)",
+          "properties": {
+            "enable": {
+              "type": "boolean",
+              "description": "Enable DocumentDB database",
+              "default": false
+            },
+            "tlsCAFile": {
+              "type": "string",
+              "description": "Path to TLS CA certificate file for DocumentDB",
+              "examples": ["./security/global-bundle.pem"]
+            }
+          },
+          "additionalProperties": true
+        },
+        "postgres": {
+          "type": "object",
+          "description": "PostgreSQL/Aurora configuration",
+          "properties": {
+            "enable": {
+              "type": "boolean",
+              "description": "Enable PostgreSQL database",
+              "default": false
+            },
+            "management": {
+              "type": "string",
+              "description": "How to manage the PostgreSQL database",
+              "enum": ["discover", "create-new", "existing"],
+              "default": "discover"
+            },
+            "endpoint": {
+              "type": "string",
+              "description": "Existing database endpoint (when management='existing')",
+              "examples": ["mydb.cluster-abc123.us-east-1.rds.amazonaws.com"]
+            },
+            "port": {
+              "type": "integer",
+              "description": "Database port",
+              "default": 5432
+            },
+            "database": {
+              "type": "string",
+              "description": "Database name",
+              "default": "frigg"
+            },
+            "username": {
+              "type": "string",
+              "description": "Database username",
+              "default": "postgres"
+            },
+            "selfHeal": {
+              "type": "boolean",
+              "description": "Automatically fix database configuration issues",
+              "default": true
+            },
+            "publiclyAccessible": {
+              "type": "boolean",
+              "description": "Make database publicly accessible (not recommended for production)",
+              "default": false
+            },
+            "autoCreateCredentials": {
+              "type": "boolean",
+              "description": "Automatically create Secrets Manager secret and rotate Aurora password when discovering existing cluster (only applies when management='discover')",
+              "default": false
+            },
+            "minCapacity": {
+              "type": "number",
+              "description": "Minimum Aurora Serverless capacity units (0.5-128)",
+              "minimum": 0.5,
+              "maximum": 128,
+              "default": 0.5
+            },
+            "maxCapacity": {
+              "type": "number",
+              "description": "Maximum Aurora Serverless capacity units (0.5-128)",
+              "minimum": 0.5,
+              "maximum": 128,
+              "default": 1
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "encryption": {
+      "type": "object",
+      "description": "Encryption settings for sensitive data",
+      "properties": {
+        "fieldLevelEncryptionMethod": {
+          "type": "string",
+          "description": "Method for field-level encryption",
+          "enum": ["kms", "aes"],
+          "default": "aes"
+        },
+        "createResourceIfNoneFound": {
+          "type": "boolean",
+          "description": "Create KMS key if none found during discovery",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "vpc": {
+      "type": "object",
+      "description": "Virtual Private Cloud settings for Lambda functions",
+      "properties": {
+        "enable": {
+          "type": "boolean",
+          "description": "Enable VPC for Lambda functions",
+          "default": false
+        },
+        "management": {
+          "type": "string",
+          "description": "How to manage VPC infrastructure",
+          "enum": ["discover", "create-new", "existing"],
+          "default": "discover"
+        },
+        "vpcId": {
+          "type": "string",
+          "description": "Existing VPC ID (when management='existing')",
+          "pattern": "^vpc-[a-z0-9]+$",
+          "examples": ["vpc-abc123"]
+        },
+        "cidrBlock": {
+          "type": "string",
+          "description": "CIDR block for VPC (when management='create-new')",
+          "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$",
+          "default": "10.0.0.0/16"
+        },
+        "securityGroupIds": {
+          "type": "array",
+          "description": "Security group IDs for Lambda functions",
+          "items": {
+            "type": "string",
+            "pattern": "^sg-[a-z0-9]+$"
+          },
+          "examples": [["sg-abc123", "sg-def456"]]
+        },
+        "subnets": {
+          "type": "object",
+          "description": "Subnet configuration",
+          "properties": {
+            "management": {
+              "type": "string",
+              "description": "How to manage subnets",
+              "enum": ["discover", "create-new", "existing"],
+              "default": "discover"
+            },
+            "ids": {
+              "type": "array",
+              "description": "Existing subnet IDs",
+              "items": {
+                "type": "string",
+                "pattern": "^subnet-[a-z0-9]+$"
+              },
+              "minItems": 2,
+              "examples": [["subnet-abc123", "subnet-def456"]]
+            }
+          },
+          "additionalProperties": false
+        },
+        "natGateway": {
+          "type": "object",
+          "description": "NAT Gateway configuration for private subnets",
+          "properties": {
+            "management": {
+              "type": "string",
+              "description": "How to manage NAT Gateway",
+              "enum": ["discover", "create-new", "existing"],
+              "default": "discover"
+            },
+            "id": {
+              "type": "string",
+              "description": "Existing NAT Gateway ID",
+              "pattern": "^nat-[a-z0-9]+$",
+              "examples": ["nat-abc123"]
+            }
+          },
+          "additionalProperties": false
+        },
+        "enableVPCEndpoints": {
+          "type": "boolean",
+          "description": "Create VPC endpoints for AWS services (S3, DynamoDB, KMS, Secrets Manager)",
+          "default": true
+        },
+        "selfHeal": {
+          "type": "boolean",
+          "description": "Automatically fix VPC configuration issues",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "ssm": {
+      "type": "object",
+      "description": "AWS Systems Manager Parameter Store configuration",
+      "properties": {
+        "enable": {
+          "type": "boolean",
+          "description": "Enable SSM Parameter Store for configuration",
+          "default": false
+        },
+        "parameters": {
+          "type": "object",
+          "description": "SSM parameter definitions",
+          "patternProperties": {
+            "^[a-zA-Z0-9/_.-]+$": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": ["String", "StringList", "SecureString"],
+                  "default": "String"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "secretsManager": {
+      "type": "object",
+      "description": "AWS Secrets Manager configuration",
+      "properties": {
+        "enable": {
+          "type": "boolean",
+          "description": "Enable AWS Secrets Manager for secure credential storage",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "websockets": {
+      "type": "object",
+      "description": "WebSocket API Gateway configuration",
+      "properties": {
+        "enable": {
+          "type": "boolean",
+          "description": "Enable WebSocket API Gateway",
+          "default": false
+        },
+        "routeSelectionExpression": {
+          "type": "string",
+          "description": "Route selection expression for WebSocket",
+          "default": "$request.body.action"
+        }
+      },
+      "additionalProperties": false
+    },
+    "security": {
+      "type": "object",
+      "description": "Security settings for the application",
+      "properties": {
+        "cors": {
+          "type": "object",
+          "description": "CORS (Cross-Origin Resource Sharing) settings",
+          "properties": {
+            "origin": {
+              "oneOf": [
+                {"type": "string"},
+                {"type": "array", "items": {"type": "string"}},
+                {"type": "boolean"}
+              ],
+              "description": "Allowed origins for CORS requests",
+              "default": "http://localhost:3000"
+            },
+            "credentials": {
+              "type": "boolean",
+              "description": "Allow credentials in CORS requests",
+              "default": true
+            },
+            "methods": {
+              "type": "array",
+              "description": "Allowed HTTP methods",
+              "items": {
+                "type": "string",
+                "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"]
+              }
+            },
+            "allowedHeaders": {
+              "type": "array",
+              "description": "Allowed request headers",
+              "items": {"type": "string"}
+            }
+          },
+          "additionalProperties": false
+        },
+        "rateLimit": {
+          "type": "object",
+          "description": "Rate limiting configuration",
+          "properties": {
+            "windowMs": {
+              "type": "integer",
+              "description": "Time window in milliseconds",
+              "minimum": 1000,
+              "default": 900000
+            },
+            "max": {
+              "type": "integer", 
+              "description": "Maximum requests per window",
+              "minimum": 1,
+              "default": 100
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "webhooks": {
+      "type": "object",
+      "description": "Webhook handling configuration",
+      "properties": {
+        "secret": {
+          "type": "string",
+          "description": "Webhook secret for signature verification"
+        },
+        "prefix": {
+          "type": "string",
+          "description": "Webhook endpoint prefix",
+          "pattern": "^/[a-zA-Z0-9/_-]*$",
+          "default": "/webhooks"
+        }
+      },
+      "additionalProperties": false
+    },
+    "logging": {
+      "type": "object",
+      "description": "Logging configuration",
+      "properties": {
+        "level": {
+          "type": "string",
+          "description": "Log level",
+          "enum": ["error", "warn", "info", "debug", "trace"],
+          "default": "info"
+        },
+        "format": {
+          "type": "string",
+          "description": "Log format",
+          "enum": ["json", "text", "combined"],
+          "default": "json"
+        }
+      },
+      "additionalProperties": false
+    },
+    "custom": {
+      "type": "object",
+      "description": "Custom application-specific configuration",
+      "properties": {
+        "appName": {
+          "type": "string",
+          "description": "Application display name",
+          "default": "My Frigg Application"
+        },
+        "version": {
+          "type": "string",
+          "description": "Application version",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.-]+)?$",
+          "default": "1.0.0"
+        },
+        "environment": {
+          "type": "string",
+          "description": "Deployment environment/stage",
+          "enum": ["development", "staging", "production", "test"],
+          "default": "development"
+        },
+        "features": {
+          "type": "object",
+          "description": "Feature flags and toggles",
+          "patternProperties": {
+            "^[a-zA-Z][a-zA-Z0-9_]*$": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "name": "my-frigg-app",
+      "provider": "aws",
+      "environment": {
+        "NODE_ENV": true,
+        "API_KEY": true
+      },
+      "integrations": [],
+      "user": {
+        "password": true
+      },
+      "database": {
+        "postgres": {
+          "enable": true,
+          "management": "create-new"
+        }
+      },
+      "encryption": {
+        "fieldLevelEncryptionMethod": "kms",
+        "createResourceIfNoneFound": true
+      },
+      "vpc": {
+        "enable": true,
+        "management": "create-new",
+        "cidrBlock": "10.0.0.0/16",
+        "enableVPCEndpoints": true
+      },
+      "ssm": {
+        "enable": true
+      },
+      "websockets": {
+        "enable": true
+      },
+      "security": {
+        "cors": {
+          "origin": "http://localhost:3000",
+          "credentials": true
+        }
+      },
+      "logging": {
+        "level": "info"
+      }
+    }
+  ]
+}

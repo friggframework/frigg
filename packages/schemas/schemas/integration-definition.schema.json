@@ -1,0 +1,304 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.friggframework.org/integration-definition.schema.json",
+  "title": "Frigg Integration Definition",
+  "description": "Schema for defining a Frigg integration including configuration, options, and display properties.",
+  "type": "object",
+  "required": ["name", "version"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Integration name identifier",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "version": {
+      "type": "string",
+      "description": "Integration version following semantic versioning",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.-]+)?$"
+    },
+    "supportedVersions": {
+      "type": "array",
+      "description": "List of supported Frigg framework versions",
+      "items": {
+        "type": "string",
+        "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.-]+)?$"
+      },
+      "uniqueItems": true
+    },
+    "events": {
+      "type": "array",
+      "description": "List of events this integration can emit or handle",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-zA-Z][a-zA-Z0-9._-]*$"
+      },
+      "uniqueItems": true
+    },
+    "options": {
+      "type": "object",
+      "description": "Integration configuration options",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Integration type classification",
+          "enum": ["api", "webhook", "sync", "transform", "custom"]
+        },
+        "hasUserConfig": {
+          "type": "boolean",
+          "description": "Whether integration requires user-specific configuration",
+          "default": false
+        },
+        "isMany": {
+          "type": "boolean", 
+          "description": "Whether multiple instances can exist per user",
+          "default": false
+        },
+        "requiresNewEntity": {
+          "type": "boolean",
+          "description": "Whether integration requires creating new entities",
+          "default": true
+        },
+        "display": {
+          "type": "object",
+          "description": "Display properties for UI representation",
+          "required": ["name", "description"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Human-readable display name",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": {
+              "type": "string",
+              "description": "Integration description",
+              "minLength": 1,
+              "maxLength": 1000
+            },
+            "detailsUrl": {
+              "type": "string",
+              "description": "URL to integration documentation or details",
+              "format": "uri"
+            },
+            "icon": {
+              "type": "string",
+              "description": "Icon identifier or URL for the integration",
+              "minLength": 1
+            },
+            "category": {
+              "type": "string",
+              "description": "Integration category for grouping",
+              "enum": [
+                "CRM", "Marketing", "Communication", "ECommerce", 
+                "Finance", "Analytics", "Storage", "Development",
+                "Productivity", "Social", "Other"
+              ]
+            },
+            "tags": {
+              "type": "array",
+              "description": "Tags for filtering and search",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_-]+$"
+              },
+              "uniqueItems": true
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "model": {
+      "type": "object",
+      "description": "Integration data model configuration",
+      "properties": {
+        "entities": {
+          "type": "array",
+          "description": "Entity types managed by this integration",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "userId": {
+          "type": "string",
+          "description": "User identifier field"
+        },
+        "status": {
+          "type": "string",
+          "description": "Integration status",
+          "enum": ["active", "inactive", "error", "pending", "disabled"]
+        },
+        "config": {
+          "type": "object",
+          "description": "Integration-specific configuration object"
+        },
+        "messages": {
+          "type": "object",
+          "description": "Integration messaging configuration",
+          "properties": {
+            "errors": {
+              "type": "array",
+              "description": "Error messages",
+              "items": {"type": "string"}
+            },
+            "warnings": {
+              "type": "array", 
+              "description": "Warning messages",
+              "items": {"type": "string"}
+            },
+            "info": {
+              "type": "array",
+              "description": "Informational messages", 
+              "items": {"type": "string"}
+            },
+            "logs": {
+              "type": "array",
+              "description": "Log messages",
+              "items": {"type": "string"}
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "capabilities": {
+      "type": "object",
+      "description": "Integration capabilities and features",
+      "properties": {
+        "auth": {
+          "type": "array",
+          "description": "Supported authentication methods",
+          "items": {
+            "type": "string",
+            "enum": ["oauth2", "api-key", "basic", "token", "custom"]
+          },
+          "uniqueItems": true
+        },
+        "webhooks": {
+          "type": "boolean",
+          "description": "Supports webhook functionality",
+          "default": false
+        },
+        "realtime": {
+          "type": "boolean",
+          "description": "Supports real-time data updates",
+          "default": false
+        },
+        "sync": {
+          "type": "object",
+          "description": "Data synchronization capabilities",
+          "properties": {
+            "bidirectional": {
+              "type": "boolean",
+              "description": "Supports bidirectional sync",
+              "default": false
+            },
+            "incremental": {
+              "type": "boolean",
+              "description": "Supports incremental sync",
+              "default": false
+            },
+            "batchSize": {
+              "type": "integer",
+              "description": "Maximum batch size for sync operations",
+              "minimum": 1,
+              "maximum": 10000
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "requirements": {
+      "type": "object",
+      "description": "Integration requirements and dependencies",
+      "properties": {
+        "environment": {
+          "type": "object",
+          "description": "Required environment variables",
+          "patternProperties": {
+            "^[A-Z][A-Z0-9_]*$": {
+              "type": "object",
+              "properties": {
+                "required": {"type": "boolean", "default": true},
+                "description": {"type": "string"},
+                "example": {"type": "string"}
+              },
+              "required": ["description"]
+            }
+          }
+        },
+        "permissions": {
+          "type": "array",
+          "description": "Required permissions or scopes",
+          "items": {"type": "string"},
+          "uniqueItems": true
+        },
+        "dependencies": {
+          "type": "object",
+          "description": "Package dependencies",
+          "patternProperties": {
+            "^[a-zA-Z0-9@/_-]+$": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "name": "hubspot",
+      "version": "2.0.0",
+      "supportedVersions": ["2.0.0", "1.9.0"],
+      "events": ["contact.created", "deal.updated"],
+      "options": {
+        "type": "api",
+        "hasUserConfig": true,
+        "isMany": false,
+        "requiresNewEntity": true,
+        "display": {
+          "name": "HubSpot CRM",
+          "description": "Integrate with HubSpot CRM for contacts, deals, and marketing automation",
+          "detailsUrl": "https://docs.frigg.dev/integrations/hubspot",
+          "icon": "hubspot",
+          "category": "CRM",
+          "tags": ["crm", "marketing", "sales"]
+        }
+      },
+      "capabilities": {
+        "auth": ["oauth2"],
+        "webhooks": true,
+        "realtime": false,
+        "sync": {
+          "bidirectional": true,
+          "incremental": true,
+          "batchSize": 100
+        }
+      },
+      "requirements": {
+        "environment": {
+          "HUBSPOT_CLIENT_ID": {
+            "required": true,
+            "description": "HubSpot OAuth client ID",
+            "example": "your-client-id"
+          },
+          "HUBSPOT_CLIENT_SECRET": {
+            "required": true,
+            "description": "HubSpot OAuth client secret",
+            "example": "your-client-secret"
+          }
+        },
+        "permissions": ["contacts", "deals", "companies"]
+      }
+    }
+  ]
+}

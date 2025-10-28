@@ -1,7 +1,7 @@
 // This line should be at the top of the webpacked output, so be sure to require createHandler first in any handlers.  "Soon" sourcemaps will be built into Node... after that, this package won't be needed.
-require('source-map-support').install();
+// REMOVING FOR NOW UNTIL WE ADD WEBPACK BACK IN
+// require('source-map-support').install();
 
-const { connectToDatabase } = require('../database/mongo');
 const { initDebugLog, flushDebugLog } = require('../logs');
 const { secretsToEnv } = require('./secrets-to-env');
 
@@ -10,7 +10,6 @@ const createHandler = (optionByName = {}) => {
         eventName = 'Event',
         isUserFacingResponse = true,
         method,
-        shouldUseDatabase = true,
     } = optionByName;
 
     if (!method) {
@@ -32,10 +31,6 @@ const createHandler = (optionByName = {}) => {
 
             // Helps mongoose reuse the connection.  Lowers response times.
             context.callbackWaitsForEmptyEventLoop = false;
-
-            if (shouldUseDatabase) {
-                await connectToDatabase();
-            }
 
             // Run the Lambda
             return await method(event, context);

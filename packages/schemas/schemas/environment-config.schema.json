@@ -1,0 +1,387 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.friggframework.org/environment-config.schema.json",
+  "title": "Frigg Environment Configuration",
+  "description": "Schema for environment variable configuration and validation in Frigg applications.",
+  "type": "object",
+  "properties": {
+    "environments": {
+      "type": "object",
+      "description": "Environment-specific configurations",
+      "patternProperties": {
+        "^(development|staging|production|test)$": {
+          "type": "object",
+          "description": "Environment configuration",
+          "properties": {
+            "variables": {
+              "type": "object",
+              "description": "Environment variables for this environment",
+              "patternProperties": {
+                "^[A-Z][A-Z0-9_]*$": {
+                  "type": "object",
+                  "description": "Environment variable configuration",
+                  "required": ["value"],
+                  "properties": {
+                    "value": {
+                      "type": "string",
+                      "description": "Variable value"
+                    },
+                    "required": {
+                      "type": "boolean",
+                      "description": "Whether this variable is required",
+                      "default": true
+                    },
+                    "sensitive": {
+                      "type": "boolean",
+                      "description": "Whether this variable contains sensitive data",
+                      "default": false
+                    },
+                    "description": {
+                      "type": "string",
+                      "description": "Human-readable description of the variable",
+                      "maxLength": 500
+                    },
+                    "validation": {
+                      "type": "object",
+                      "description": "Validation rules for the variable",
+                      "properties": {
+                        "pattern": {
+                          "type": "string",
+                          "description": "Regex pattern for validation"
+                        },
+                        "minLength": {
+                          "type": "integer",
+                          "description": "Minimum length",
+                          "minimum": 0
+                        },
+                        "maxLength": {
+                          "type": "integer",
+                          "description": "Maximum length",
+                          "minimum": 1
+                        },
+                        "enum": {
+                          "type": "array",
+                          "description": "Allowed values",
+                          "items": {"type": "string"},
+                          "uniqueItems": true
+                        },
+                        "format": {
+                          "type": "string",
+                          "description": "Expected format",
+                          "enum": ["url", "email", "uuid", "base64", "jwt", "arn"]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "defaultValue": {
+                      "type": "string",
+                      "description": "Default value if not provided"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "integrations": {
+              "type": "object",
+              "description": "Integration-specific environment requirements",
+              "patternProperties": {
+                "^[a-zA-Z][a-zA-Z0-9_-]*$": {
+                  "type": "object",
+                  "description": "Integration environment configuration",
+                  "properties": {
+                    "required": {
+                      "type": "array",
+                      "description": "Required environment variables for this integration",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[A-Z][A-Z0-9_]*$"
+                      },
+                      "uniqueItems": true
+                    },
+                    "optional": {
+                      "type": "array", 
+                      "description": "Optional environment variables for this integration",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[A-Z][A-Z0-9_]*$"
+                      },
+                      "uniqueItems": true
+                    },
+                    "prefix": {
+                      "type": "string",
+                      "description": "Common prefix for integration variables",
+                      "pattern": "^[A-Z][A-Z0-9_]*$"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "validation": {
+              "type": "object",
+              "description": "Environment-level validation rules",
+              "properties": {
+                "strict": {
+                  "type": "boolean",
+                  "description": "Whether to enforce strict validation",
+                  "default": false
+                },
+                "allowUndefined": {
+                  "type": "boolean",
+                  "description": "Whether to allow undefined variables",
+                  "default": true
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "global": {
+      "type": "object",
+      "description": "Global environment configuration",
+      "properties": {
+        "maskingPatterns": {
+          "type": "array",
+          "description": "Patterns for masking sensitive values in logs",
+          "items": {
+            "type": "object",
+            "required": ["pattern", "replacement"],
+            "properties": {
+              "pattern": {
+                "type": "string",
+                "description": "Regex pattern to match sensitive data"
+              },
+              "replacement": {
+                "type": "string",
+                "description": "Replacement string for matched patterns",
+                "default": "***"
+              },
+              "description": {
+                "type": "string",
+                "description": "Description of what this pattern matches"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "encryptionKeys": {
+          "type": "object",
+          "description": "Encryption key configuration",
+          "properties": {
+            "kmsKeyId": {
+              "type": "string",
+              "description": "AWS KMS key ID for encryption",
+              "pattern": "^[a-f0-9-]+$"
+            },
+            "algorithm": {
+              "type": "string",
+              "description": "Encryption algorithm",
+              "enum": ["AES-256-GCM", "AES-256-CBC"],
+              "default": "AES-256-GCM"
+            }
+          },
+          "additionalProperties": false
+        },
+        "auditLog": {
+          "type": "object",
+          "description": "Audit logging configuration",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Whether audit logging is enabled",
+              "default": true
+            },
+            "logChanges": {
+              "type": "boolean",
+              "description": "Whether to log environment variable changes",
+              "default": true
+            },
+            "logAccess": {
+              "type": "boolean",
+              "description": "Whether to log environment variable access",
+              "default": false
+            },
+            "retention": {
+              "type": "integer",
+              "description": "Audit log retention period in days",
+              "minimum": 1,
+              "maximum": 2557,
+              "default": 90
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "templates": {
+      "type": "object",
+      "description": "Environment variable templates for different integration types",
+      "patternProperties": {
+        "^[a-zA-Z][a-zA-Z0-9_-]*$": {
+          "type": "object",
+          "description": "Template for specific integration type",
+          "properties": {
+            "variables": {
+              "type": "array",
+              "description": "Required environment variables for this template",
+              "items": {
+                "type": "object",
+                "required": ["name", "description"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Variable name",
+                    "pattern": "^[A-Z][A-Z0-9_]*$"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Variable description"
+                  },
+                  "required": {
+                    "type": "boolean",
+                    "description": "Whether variable is required",
+                    "default": true
+                  },
+                  "sensitive": {
+                    "type": "boolean",
+                    "description": "Whether variable is sensitive",
+                    "default": false
+                  },
+                  "example": {
+                    "type": "string",
+                    "description": "Example value for documentation"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "description": {
+              "type": "string",
+              "description": "Template description"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "environments": {
+        "development": {
+          "variables": {
+            "DATABASE_URL": {
+              "value": "mongodb://localhost:27017/frigg-dev",
+              "required": true,
+              "sensitive": true,
+              "description": "MongoDB connection string",
+              "validation": {
+                "format": "url",
+                "pattern": "^mongodb://"
+              }
+            },
+            "JWT_SECRET": {
+              "value": "dev-secret-key",
+              "required": true,
+              "sensitive": true,
+              "description": "JWT signing secret",
+              "validation": {
+                "minLength": 32
+              }
+            },
+            "LOG_LEVEL": {
+              "value": "debug",
+              "required": false,
+              "description": "Application log level",
+              "validation": {
+                "enum": ["error", "warn", "info", "debug", "trace"]
+              },
+              "defaultValue": "info"
+            }
+          },
+          "integrations": {
+            "hubspot": {
+              "required": ["HUBSPOT_CLIENT_ID", "HUBSPOT_CLIENT_SECRET"],
+              "optional": ["HUBSPOT_SCOPE"],
+              "prefix": "HUBSPOT"
+            }
+          }
+        },
+        "production": {
+          "variables": {
+            "DATABASE_URL": {
+              "value": "${AWS_SSM:/frigg/prod/database-url}",
+              "required": true,
+              "sensitive": true,
+              "description": "MongoDB connection string from SSM"
+            },
+            "JWT_SECRET": {
+              "value": "${AWS_SSM:/frigg/prod/jwt-secret}",
+              "required": true,
+              "sensitive": true,
+              "description": "JWT signing secret from SSM"
+            }
+          },
+          "validation": {
+            "strict": true,
+            "allowUndefined": false
+          }
+        }
+      },
+      "global": {
+        "maskingPatterns": [
+          {
+            "pattern": "(?i)(password|secret|key|token)=([^\\s&]+)",
+            "replacement": "$1=***",
+            "description": "Mask password and secret parameters"
+          }
+        ],
+        "encryptionKeys": {
+          "kmsKeyId": "12345678-1234-1234-1234-123456789abc",
+          "algorithm": "AES-256-GCM"
+        },
+        "auditLog": {
+          "enabled": true,
+          "logChanges": true,
+          "retention": 90
+        }
+      },
+      "templates": {
+        "oauth2": {
+          "variables": [
+            {
+              "name": "CLIENT_ID",
+              "description": "OAuth2 client identifier",
+              "required": true,
+              "example": "your-client-id"
+            },
+            {
+              "name": "CLIENT_SECRET", 
+              "description": "OAuth2 client secret",
+              "required": true,
+              "sensitive": true,
+              "example": "your-client-secret"
+            },
+            {
+              "name": "REDIRECT_URI",
+              "description": "OAuth2 redirect URI",
+              "required": true,
+              "example": "https://your-app.com/auth/callback"
+            }
+          ],
+          "description": "Standard OAuth2 integration template"
+        }
+      }
+    }
+  ]
+}
