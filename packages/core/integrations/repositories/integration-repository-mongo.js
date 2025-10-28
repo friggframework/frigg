@@ -266,6 +266,38 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
             messages: integration.messages,
         };
     }
+
+    /**
+     * Update integration configuration
+     * Replaces: IntegrationModel.updateOne({ _id: integrationId }, { config })
+     *
+     * @param {string} integrationId - Integration ID (MongoDB ObjectId as string)
+     * @param {Object} config - Updated configuration object
+     * @returns {Promise<Object>} Updated integration object
+     */
+    async updateIntegrationConfig(integrationId, config) {
+        if (config === null || config === undefined) {
+            throw new Error('Config parameter is required');
+        }
+
+        const integration = await this.prisma.integration.update({
+            where: { id: integrationId },
+            data: { config },
+            include: {
+                entities: true,
+            },
+        });
+
+        return {
+            id: integration.id,
+            entitiesIds: integration.entities.map((e) => e.id),
+            userId: integration.userId,
+            config: integration.config,
+            version: integration.version,
+            status: integration.status,
+            messages: integration.messages,
+        };
+    }
 }
 
 module.exports = { IntegrationRepositoryMongo };

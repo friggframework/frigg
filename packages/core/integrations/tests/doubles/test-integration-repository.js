@@ -62,11 +62,11 @@ class TestIntegrationRepository {
         const rec = this.store.get(id);
         if (!rec) {
             this.operationHistory.push({ operation: 'updateConfig', id, success: false });
-            return false;
+            throw new Error(`Integration with id ${id} not found`);
         }
         rec.config = config;
         this.operationHistory.push({ operation: 'updateConfig', id, success: true });
-        return true;
+        return rec;
     }
 
     async deleteIntegrationById(id) {

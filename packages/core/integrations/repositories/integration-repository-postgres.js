@@ -314,6 +314,39 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
             messages: converted.messages,
         };
     }
+
+    /**
+     * Update integration configuration
+     *
+     * @param {string} integrationId - Integration ID (string from application layer)
+     * @param {Object} config - Updated configuration object
+     * @returns {Promise<Object>} Updated integration object with string IDs
+     */
+    async updateIntegrationConfig(integrationId, config) {
+        if (config === null || config === undefined) {
+            throw new Error('Config parameter is required');
+        }
+
+        const intId = this._convertId(integrationId);
+        const integration = await this.prisma.integration.update({
+            where: { id: intId },
+            data: { config },
+            include: {
+                entities: true,
+            },
+        });
+
+        const converted = this._convertIntegrationIds(integration);
+        return {
+            id: converted.id,
+            entitiesIds: converted.entities.map((e) => e.id),
+            userId: converted.userId,
+            config: converted.config,
+            version: converted.version,
+            status: converted.status,
+            messages: converted.messages,
+        };
+    }
 }
 
 module.exports = { IntegrationRepositoryPostgres };
