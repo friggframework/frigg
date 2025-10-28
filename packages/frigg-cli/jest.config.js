@@ -4,7 +4,8 @@ module.exports = {
     '<rootDir>/__tests__/**/*.test.js',
     '<rootDir>/__tests__/**/*.spec.js',
     '<rootDir>/**/start-command.test.js',
-    '<rootDir>/**/__tests__/**/*.test.js'
+    '<rootDir>/**/__tests__/**/*.test.js',
+    '<rootDir>/deploy-command/**/*.test.js'
   ],
   // Exclude utility files and config from being treated as tests
   testPathIgnorePatterns: [
