@@ -232,14 +232,32 @@ class KmsBuilder extends InfrastructureBuilder {
         // Check for environment variable fallback flag (legacy behavior)
         const useEnvVarFallback = appDefinition.encryption?._useEnvVarFallback;
 
+        // CRITICAL FIX: Check if KMS key exists OUTSIDE of stack (orphaned resource)
+        // If key exists but not in stack, we should use it as EXTERNAL, not try to create it
+        const externalKmsKey = discoveredResources?.defaultKmsKeyId ||
+                              discoveredResources?.kmsKeyArn ||
+                              discoveredResources?.kmsKeyId;
+
         if (decisions.key.ownership === ResourceOwnership.STACK && decisions.key.physicalId) {
             // Key exists in stack - add definitions (CloudFormation idempotency)
             console.log('  → Adding KMS definitions to template (existing in stack)');
             result.resources = this.createKmsKey(appDefinition);
             result.environment.KMS_KEY_ARN = { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] };
             console.log('  ✅ KMS key resources created');
+        } else if (decisions.key.ownership === ResourceOwnership.STACK && !decisions.key.physicalId && externalKmsKey) {
+            // ORPHANED KEY FIX: Key exists externally but not in stack
+            // Use it as external instead of trying to create (would fail with "already exists")
+            console.log('  ⚠️  KMS key exists externally but not in stack - using as external resource');
+            console.log(`  → Using external KMS key: ${externalKmsKey}`);
+
+            // Format as ARN if it's just a key ID
+            const kmsArn = externalKmsKey.startsWith('arn:')
+                ? externalKmsKey
+                : `arn:aws:kms:\${self:provider.region}:\${aws:accountId}:key/${externalKmsKey}`;
+
+            result.environment.KMS_KEY_ARN = kmsArn;
         } else if (decisions.key.ownership === ResourceOwnership.STACK && !decisions.key.physicalId && !useEnvVarFallback) {
-            // Create new KMS key (only if not using env var fallback)
+            // Create new KMS key (only if not using env var fallback and no external key found)
             console.log('  → Creating new KMS key in stack');
             result.resources = this.createKmsKey(appDefinition);
             result.environment.KMS_KEY_ARN = { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] };

@@ -400,7 +400,7 @@ class AuroraBuilder extends InfrastructureBuilder {
             Properties: {
                 Engine: 'aurora-postgresql',
                 EngineMode: 'provisioned',
-                EngineVersion: '15.5',
+                EngineVersion: dbConfig.engineVersion || '15.13', // Configurable, defaults to 15.13 (latest as of Oct 2025)
                 Port: 5432, // Explicitly set PostgreSQL port (AWS may not auto-detect)
                 DatabaseName: dbConfig.database || 'frigg',
                 MasterUsername: {
