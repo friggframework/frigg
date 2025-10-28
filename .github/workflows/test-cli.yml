@@ -4,12 +4,12 @@ on:
   push:
     branches: [ main, develop, create-frigg-app ]
     paths:
-      - 'packages/devtools/frigg-cli/**'
+      - 'packages/frigg-cli/**'
       - '.github/workflows/test-cli.yml'
   pull_request:
     branches: [ main, develop ]
     paths:
-      - 'packages/devtools/frigg-cli/**'
+      - 'packages/frigg-cli/**'
       - '.github/workflows/test-cli.yml'
 
 jobs:
@@ -36,33 +36,33 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd packages/devtools/frigg-cli
+          cd packages/frigg-cli
           npm ci
 
       - name: Run linting
         run: |
-          cd packages/devtools/frigg-cli
+          cd packages/frigg-cli
           npm run lint
 
       - name: Run unit tests
         run: |
-          cd packages/devtools/frigg-cli
+          cd packages/frigg-cli
           npm run test:unit
 
       - name: Run integration tests
         run: |
-          cd packages/devtools/frigg-cli
+          cd packages/frigg-cli
           npm run test:integration
 
       - name: Run coverage analysis
         run: |
-          cd packages/devtools/frigg-cli
+          cd packages/frigg-cli
           npm run test:coverage
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
-          file: ./packages/devtools/frigg-cli/coverage/lcov.info
+          file: ./packages/frigg-cli/coverage/lcov.info
           flags: cli
           name: cli-coverage
           fail_ci_if_error: true
@@ -73,8 +73,8 @@ jobs:
         with:
           name: test-results-${{ matrix.os }}-${{ matrix.node-version }}
           path: |
-            packages/devtools/frigg-cli/coverage/
-            packages/devtools/frigg-cli/coverage/junit.xml
+            packages/frigg-cli/coverage/
+            packages/frigg-cli/coverage/junit.xml
 
   e2e-tests:
     name: End-to-End CLI Tests
@@ -93,17 +93,17 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd packages/devtools/frigg-cli
+          cd packages/frigg-cli
           npm ci
 
       - name: Build CLI package
         run: |
-          cd packages/devtools/frigg-cli
+          cd packages/frigg-cli
           npm pack
 
       - name: Test CLI installation
         run: |
-          cd packages/devtools/frigg-cli
+          cd packages/frigg-cli
           npm install -g friggframework-cli-*.tgz
 
       - name: Test CLI commands
@@ -117,7 +117,7 @@ jobs:
 
       - name: Run E2E tests
         run: |
-          cd packages/devtools/frigg-cli
+          cd packages/frigg-cli
           npm run test:e2e
 
   quality-gates:
@@ -137,27 +137,27 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd packages/devtools/frigg-cli
+          cd packages/frigg-cli
           npm ci
 
       - name: Generate coverage report
         run: |
-          cd packages/devtools/frigg-cli
+          cd packages/frigg-cli
           npm run test:coverage
 
       - name: Check coverage thresholds
         run: |
-          cd packages/devtools/frigg-cli
+          cd packages/frigg-cli
           npx jest --config __tests__/jest.config.js --coverage --passWithNoTests --coverageThreshold='{"global":{"branches":85,"functions":85,"lines":85,"statements":85}}'
 
       - name: Security audit
         run: |
-          cd packages/devtools/frigg-cli
+          cd packages/frigg-cli
           npm audit --audit-level=moderate
 
       - name: Check for outdated dependencies
         run: |
-          cd packages/devtools/frigg-cli
+          cd packages/frigg-cli
           npm outdated || true
 
   performance-benchmarks:
@@ -177,12 +177,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd packages/devtools/frigg-cli
+          cd packages/frigg-cli
           npm ci
 
       - name: Run performance tests
         run: |
-          cd packages/devtools/frigg-cli
+          cd packages/frigg-cli
           time node index.js --help
           time node index.js install --help
           time node index.js build --help
@@ -192,7 +192,7 @@ jobs:
 
       - name: Memory usage benchmark
         run: |
-          cd packages/devtools/frigg-cli
+          cd packages/frigg-cli
           node -e "
             const { performance } = require('perf_hooks');
             const used = process.memoryUsage();

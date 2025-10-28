@@ -950,15 +950,19 @@ describe('VpcBuilder', () => {
                 expect.stringContaining("stack has VPC, reusing")
             );
 
-            // Should REUSE stack VPC (not create new)
-            expect(result.vpcId).toBe('vpc-stack-dev');
-            expect(result.resources.FriggVPC).toBeUndefined();
+            // Should keep VPC definition in template (CloudFormation idempotency)
+            // Even though VPC exists, we include the definition - CF won't recreate it
+            expect(result.vpcId).toEqual({ Ref: 'FriggVPC' });
+            expect(result.resources.FriggVPC).toBeDefined();
+            expect(result.resources.FriggVPC.Type).toBe('AWS::EC2::VPC');
 
-            // Should REUSE stack subnets
+            // Should keep subnet definitions in template and use Refs
             expect(result.vpcConfig.subnetIds).toEqual([
-                'subnet-private-1',
-                'subnet-private-2'
+                { Ref: 'FriggPrivateSubnet1' },
+                { Ref: 'FriggPrivateSubnet2' }
             ]);
+            expect(result.resources.FriggPrivateSubnet1).toBeDefined();
+            expect(result.resources.FriggPrivateSubnet2).toBeDefined();
 
             consoleLogSpy.mockRestore();
         });

@@ -788,8 +788,12 @@ describe('AuroraBuilder', () => {
                 expect.stringContaining("stack has Aurora, reusing")
             );
 
-            // Should REUSE stack Aurora (not create new)
-            expect(result.resources.FriggAuroraCluster).toBeUndefined();
+            // Should keep Aurora definitions in template (CloudFormation idempotency)
+            // Even though Aurora exists in stack, we include definitions - CF won't recreate
+            expect(result.resources.FriggAuroraCluster).toBeDefined();
+            expect(result.resources.FriggAuroraCluster.Type).toBe('AWS::RDS::DBCluster');
+            expect(result.resources.FriggAuroraInstance).toBeDefined();
+            expect(result.resources.FriggAuroraInstance.Type).toBe('AWS::RDS::DBInstance');
             expect(result.environment.DATABASE_URL).toBeDefined();
 
             consoleLogSpy.mockRestore();
@@ -853,6 +857,7 @@ describe('AuroraBuilder', () => {
                 auroraClusterEndpoint: 'existing-cluster.us-east-1.rds.amazonaws.com',
                 auroraClusterPort: 5432,
                 auroraClusterIdentifier: 'existing-cluster',
+                databaseSecretArn: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:shared-db-secret',
                 privateSubnetId1: 'subnet-1',
                 privateSubnetId2: 'subnet-2',
             };

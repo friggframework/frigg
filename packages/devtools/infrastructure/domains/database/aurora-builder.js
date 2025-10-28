@@ -1,22 +1,25 @@
 /**
  * Aurora PostgreSQL Builder
- * 
+ *
  * Domain Layer - Hexagonal Architecture
- * 
+ *
  * Responsible for:
  * - Aurora Serverless v2 cluster creation or discovery
  * - Database subnet groups
  * - Database security groups
  * - Secrets Manager integration for credentials
  * - Database connection environment variables
- * 
- * Supports three management modes:
- * 1. managed: Creates new Aurora cluster
- * 2. use-existing: Uses explicitly provided cluster
- * 3. discover (default): Discovers existing cluster
+ *
+ * Uses ownership-based architecture:
+ * - STACK: Resources in our CloudFormation template (definitions + Refs)
+ * - EXTERNAL: Resources outside our stack (reference by physical ID)
+ * - AUTO: System decides based on discovery
  */
 
 const { InfrastructureBuilder, ValidationResult } = require('../shared/base-builder');
+const AuroraResourceResolver = require('./aurora-resolver');
+const { createEmptyDiscoveryResult } = require('../shared/types/discovery-result');
+const { ResourceOwnership } = require('../shared/types/resource-ownership');
 
 class AuroraBuilder extends InfrastructureBuilder {
     constructor() {
@@ -77,86 +80,260 @@ class AuroraBuilder extends InfrastructureBuilder {
     }
 
     /**
-     * Build Aurora infrastructure
+     * Build Aurora infrastructure using ownership-based architecture
      */
     async build(appDefinition, discoveredResources) {
         console.log(`\n[${this.name}] Configuring Aurora PostgreSQL...`);
 
-        const dbConfig = appDefinition.database.postgres;
+        // Backwards compatibility: Translate old schema to new ownership schema
+        appDefinition = this.translateLegacyConfig(appDefinition, discoveredResources);
 
-        // Normalize top-level managementMode
-        const globalMode = appDefinition.managementMode || 'discover';
-        const vpcIsolation = appDefinition.vpcIsolation || 'shared';
-
-        // Debug logging
-        console.log(`  🔍 DEBUG: Aurora globalMode = '${globalMode}', vpcIsolation = '${vpcIsolation}'`);
-        console.log(`  🔍 DEBUG: Aurora discoveredResources.auroraClusterId = ${discoveredResources?.auroraClusterId}`);
-
-        let management = dbConfig.management;
-
-        if (globalMode === 'managed') {
-            // Warn about ignored granular options
-            if (dbConfig.management) {
-                console.log(`  ⚠️  managementMode='managed' ignoring: database.postgres.management`);
-            }
-
-            // Clear granular option to prevent conflicts
-            delete appDefinition.database.postgres.management;
-
-            // Set management based on isolation strategy AND existing stack resources
-            if (vpcIsolation === 'isolated') {
-                // Check if CloudFormation stack already has Aurora (stage-specific)
-                // CloudFormation discovery sets 'auroraClusterId' (string) when found in stack
-                const hasStackAurora = discoveredResources?.auroraClusterId &&
-                    typeof discoveredResources.auroraClusterId === 'string';
-
-                console.log(`  🔍 DEBUG: Aurora hasStackAurora = ${hasStackAurora}`);
-
-                if (hasStackAurora) {
-                    // Stack has Aurora - reuse it (standard flow: stack → orphaned → create)
-                    management = 'discover';
-                    appDefinition.database.postgres.autoCreateCredentials = true;
-                    console.log(`  managementMode='managed' + vpcIsolation='isolated' → stack has Aurora, reusing`);
-                } else {
-                    // No stack Aurora - create new isolated Aurora for this stage
-                    management = 'managed';
-                    console.log(`  managementMode='managed' + vpcIsolation='isolated' → no stack Aurora, creating new`);
-                }
-            } else {
-                management = 'discover';  // Shared VPC = reuse Aurora
-                appDefinition.database.postgres.autoCreateCredentials = true;
-                console.log(`  managementMode='managed' + vpcIsolation='shared' → discovering Aurora`);
-            }
-        } else if (globalMode === 'existing') {
-            management = 'existing';
-        } else {
-            management = management || 'discover';
-        }
-
-        console.log(`  PostgreSQL Management Mode: ${management}`);
-
+        // Initialize result
         const result = {
             resources: {},
             iamStatements: [],
             environment: {},
         };
 
-        // Handle different management modes
-        switch (management) {
-            case 'managed':
-                await this.createNewAurora(appDefinition, discoveredResources, result);
-                break;
-            case 'use-existing':
-                await this.useExistingAurora(appDefinition, discoveredResources, result);
-                break;
-            case 'discover':
-            default:
-                await this.discoverAurora(appDefinition, discoveredResources, result);
-                break;
+        // Special case: use-existing with endpoint (bypass resolver)
+        if (appDefinition.database?.postgres?._useExistingEndpoint) {
+            console.log('  Using provided database endpoint (use-existing mode)');
+            await this.useExistingAurora(appDefinition, discoveredResources, result);
+            console.log(`\n[${this.name}] ✅ Aurora PostgreSQL configuration completed`);
+            return result;
         }
 
-        console.log(`[${this.name}] ✅ Aurora PostgreSQL configuration completed`);
+        // Get structured discovery result
+        const discovery = discoveredResources._structured || this.convertFlatDiscoveryToStructured(discoveredResources, appDefinition);
+
+        // Use AuroraResourceResolver to make ownership decisions
+        const resolver = new AuroraResourceResolver();
+        const decisions = resolver.resolveAll(appDefinition, discovery);
+
+        console.log('\n  📋 Resource Ownership Decisions:');
+        console.log(`     Cluster: ${decisions.cluster.ownership} - ${decisions.cluster.reason}`);
+        console.log(`     Instance: ${decisions.instance.ownership} - ${decisions.instance.reason}`);
+        console.log(`     Subnet Group: ${decisions.subnetGroup.ownership} - ${decisions.subnetGroup.reason}`);
+        console.log(`     Secret: ${decisions.secret.ownership} - ${decisions.secret.reason}`);
+
+        // Build resources based on ownership decisions
+        await this.buildFromDecisions(decisions, appDefinition, discoveredResources, result);
+
+        console.log(`\n[${this.name}] ✅ Aurora PostgreSQL configuration completed`);
         return result;
+    }
+
+    /**
+     * Convert flat discovery to structured discovery
+     * Provides backwards compatibility for tests
+     */
+    convertFlatDiscoveryToStructured(flatDiscovery, appDefinition = {}) {
+        const discovery = createEmptyDiscoveryResult();
+
+        if (!flatDiscovery) {
+            return discovery;
+        }
+
+        // Check if resources are from CloudFormation stack
+        const isManagedIsolated = appDefinition.managementMode === 'managed' &&
+                                   (appDefinition.vpcIsolation === 'isolated' || !appDefinition.vpcIsolation);
+        const hasExistingStackResources = isManagedIsolated && flatDiscovery.auroraClusterId &&
+                                         typeof flatDiscovery.auroraClusterId === 'string';
+
+        if (flatDiscovery.fromCloudFormationStack || hasExistingStackResources) {
+            discovery.fromCloudFormation = true;
+            discovery.stackName = flatDiscovery.stackName || 'assumed-stack';
+
+            // Add stack-managed resources
+            let existingLogicalIds = flatDiscovery.existingLogicalIds || [];
+
+            // Infer logical IDs from physical IDs if needed
+            if (hasExistingStackResources && existingLogicalIds.length === 0) {
+                if (flatDiscovery.auroraClusterId) existingLogicalIds.push('FriggAuroraCluster');
+                if (flatDiscovery.auroraInstanceId) existingLogicalIds.push('FriggAuroraInstance');
+                if (flatDiscovery.dbSubnetGroupName) existingLogicalIds.push('FriggDBSubnetGroup');
+                if (flatDiscovery.dbSecretArn) existingLogicalIds.push('FriggDBSecret');
+            }
+
+            existingLogicalIds.forEach(logicalId => {
+                let resourceType = '';
+                let physicalId = '';
+
+                if (logicalId === 'FriggAuroraCluster') {
+                    resourceType = 'AWS::RDS::DBCluster';
+                    physicalId = flatDiscovery.auroraClusterId;
+                } else if (logicalId === 'FriggAuroraInstance') {
+                    resourceType = 'AWS::RDS::DBInstance';
+                    physicalId = flatDiscovery.auroraInstanceId;
+                } else if (logicalId === 'FriggDBSubnetGroup') {
+                    resourceType = 'AWS::RDS::DBSubnetGroup';
+                    physicalId = flatDiscovery.dbSubnetGroupName;
+                } else if (logicalId === 'FriggDBSecret') {
+                    resourceType = 'AWS::SecretsManager::Secret';
+                    physicalId = flatDiscovery.dbSecretArn;
+                }
+
+                if (physicalId && typeof physicalId === 'string') {
+                    discovery.stackManaged.push({
+                        logicalId,
+                        physicalId,
+                        resourceType
+                    });
+                }
+            });
+        } else {
+            // Resources discovered from AWS API (external)
+            // Handle both cluster ID and endpoint
+            if (flatDiscovery.auroraClusterId && typeof flatDiscovery.auroraClusterId === 'string') {
+                discovery.external.push({
+                    physicalId: flatDiscovery.auroraClusterId,
+                    resourceType: 'AWS::RDS::DBCluster',
+                    source: 'aws-discovery'
+                });
+            } else if (flatDiscovery.auroraClusterEndpoint && typeof flatDiscovery.auroraClusterEndpoint === 'string') {
+                // Endpoint provided (discover mode) - treat as external
+                discovery.external.push({
+                    physicalId: flatDiscovery.auroraClusterEndpoint,
+                    resourceType: 'AWS::RDS::DBCluster',
+                    source: 'aws-discovery',
+                    properties: { Endpoint: flatDiscovery.auroraClusterEndpoint }
+                });
+            }
+
+            if (flatDiscovery.auroraInstanceId && typeof flatDiscovery.auroraInstanceId === 'string') {
+                discovery.external.push({
+                    physicalId: flatDiscovery.auroraInstanceId,
+                    resourceType: 'AWS::RDS::DBInstance',
+                    source: 'aws-discovery'
+                });
+            }
+        }
+
+        return discovery;
+    }
+
+    /**
+     * Translate legacy configuration to ownership-based configuration
+     * Provides backwards compatibility
+     */
+    translateLegacyConfig(appDefinition, discoveredResources) {
+        // If already using ownership schema, return as-is
+        if (appDefinition.database?.postgres?.ownership) {
+            return appDefinition;
+        }
+
+        const translated = JSON.parse(JSON.stringify(appDefinition));
+
+        // Initialize ownership sections
+        if (!translated.database) translated.database = {};
+        if (!translated.database.postgres) translated.database.postgres = {};
+        if (!translated.database.postgres.ownership) {
+            translated.database.postgres.ownership = {};
+        }
+        if (!translated.database.postgres.external) {
+            translated.database.postgres.external = {};
+        }
+        if (!translated.database.postgres.config) {
+            translated.database.postgres.config = {};
+        }
+
+        // Handle top-level managementMode
+        const globalMode = appDefinition.managementMode || 'discover';
+        const vpcIsolation = appDefinition.vpcIsolation || 'shared';
+
+        if (globalMode === 'managed') {
+            if (appDefinition.database?.postgres?.management) {
+                console.log(`  ⚠️  managementMode='managed' ignoring: database.postgres.management`);
+            }
+
+            if (vpcIsolation === 'isolated') {
+                const hasStackAurora = discoveredResources?.auroraClusterId &&
+                    typeof discoveredResources.auroraClusterId === 'string';
+
+                if (hasStackAurora) {
+                    translated.database.postgres.ownership.cluster = 'auto';
+                    translated.database.postgres.ownership.instance = 'auto';
+                    translated.database.postgres.ownership.subnetGroup = 'auto';
+                    translated.database.postgres.ownership.secret = 'auto';
+                    console.log(`  managementMode='managed' + vpcIsolation='isolated' → stack has Aurora, reusing`);
+                } else {
+                    translated.database.postgres.ownership.cluster = 'stack';
+                    translated.database.postgres.ownership.instance = 'stack';
+                    translated.database.postgres.ownership.subnetGroup = 'stack';
+                    translated.database.postgres.ownership.secret = 'stack';
+                    console.log(`  managementMode='managed' + vpcIsolation='isolated' → no stack Aurora, creating new`);
+                }
+            } else {
+                translated.database.postgres.ownership.cluster = 'auto';
+                translated.database.postgres.ownership.instance = 'auto';
+                translated.database.postgres.ownership.subnetGroup = 'auto';
+                translated.database.postgres.ownership.secret = 'auto';
+                console.log(`  managementMode='managed' + vpcIsolation='shared' → discovering Aurora`);
+            }
+        } else if (globalMode === 'existing') {
+            translated.database.postgres.ownership.cluster = 'external';
+            translated.database.postgres.ownership.instance = 'external';
+        }
+
+        // Handle legacy database.postgres.management
+        // BUT: if managementMode (top-level) is set, it takes precedence
+        const dbManagement = appDefinition.database?.postgres?.management;
+        if (dbManagement && globalMode !== 'managed' && globalMode !== 'existing') {
+            if (dbManagement === 'managed') {
+                translated.database.postgres.ownership.cluster = 'stack';
+                translated.database.postgres.ownership.instance = 'stack';
+                translated.database.postgres.ownership.subnetGroup = 'stack';
+                translated.database.postgres.ownership.secret = 'stack';
+            } else if (dbManagement === 'use-existing') {
+                // For use-existing with endpoint, we bypass resolver entirely
+                // Mark this with a special flag
+                translated.database.postgres._useExistingEndpoint = true;
+                if (appDefinition.database.postgres.endpoint) {
+                    translated.database.postgres.external.endpoint = appDefinition.database.postgres.endpoint;
+                }
+            } else if (dbManagement === 'discover') {
+                translated.database.postgres.ownership.cluster = 'auto';
+                translated.database.postgres.ownership.instance = 'auto';
+            }
+        }
+
+        // Preserve other database config
+        if (appDefinition.database?.postgres?.minCapacity) {
+            translated.database.postgres.config.minCapacity = appDefinition.database.postgres.minCapacity;
+        }
+        if (appDefinition.database?.postgres?.maxCapacity) {
+            translated.database.postgres.config.maxCapacity = appDefinition.database.postgres.maxCapacity;
+        }
+        if (appDefinition.database?.postgres?.publiclyAccessible !== undefined) {
+            translated.database.postgres.config.publiclyAccessible = appDefinition.database.postgres.publiclyAccessible;
+        }
+
+        return translated;
+    }
+
+    /**
+     * Build all Aurora resources based on ownership decisions
+     */
+    async buildFromDecisions(decisions, appDefinition, discoveredResources, result) {
+        // Determine build strategy from ownership decisions
+
+        if (decisions.cluster.ownership === ResourceOwnership.EXTERNAL) {
+            // External cluster discovered - reference it without creating infrastructure
+            console.log('  → Discovering and referencing external Aurora cluster');
+            await this.discoverAurora(appDefinition, discoveredResources, result);
+        } else if (decisions.cluster.ownership === ResourceOwnership.STACK && decisions.cluster.physicalId) {
+            // Cluster exists in stack - add definitions (CloudFormation idempotency)
+            console.log('  → Adding Aurora definitions to template (existing in stack)');
+            await this.createNewAurora(appDefinition, discoveredResources, result);
+        } else if (decisions.cluster.ownership === ResourceOwnership.STACK && !decisions.cluster.physicalId) {
+            // Create new cluster (stack, no existing)
+            console.log('  → Creating new Aurora cluster in stack');
+            await this.createNewAurora(appDefinition, discoveredResources, result);
+        } else {
+            // Fallback: discover mode
+            console.log('  → Discovering Aurora resources');
+            await this.discoverAurora(appDefinition, discoveredResources, result);
+        }
     }
 
     /**
@@ -223,7 +400,7 @@ class AuroraBuilder extends InfrastructureBuilder {
             Properties: {
                 Engine: 'aurora-postgresql',
                 EngineMode: 'provisioned',
-                EngineVersion: '15.5',
+                EngineVersion: dbConfig.engineVersion || '15.13', // Configurable, defaults to 15.13 (latest as of Oct 2025)
                 Port: 5432, // Explicitly set PostgreSQL port (AWS may not auto-detect)
                 DatabaseName: dbConfig.database || 'frigg',
                 MasterUsername: {

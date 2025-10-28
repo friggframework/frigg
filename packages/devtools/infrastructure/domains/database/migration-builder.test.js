@@ -120,7 +120,7 @@ describe('MigrationBuilder', () => {
             expect(result.resources.DbMigrationQueue.Properties.VisibilityTimeout).toBe(900);
         });
 
-        it('should create migration worker function', async () => {
+        it('should create S3 migration status bucket', async () => {
             const appDef = {
                 database: {
                     postgres: {
@@ -131,84 +131,10 @@ describe('MigrationBuilder', () => {
 
             const result = await builder.build(appDef, {});
 
-            expect(result.functions.dbMigrationWorker).toBeDefined();
-            expect(result.functions.dbMigrationWorker.handler).toBe(
-                'node_modules/@friggframework/core/handlers/workers/db-migration.handler'
-            );
-            expect(result.functions.dbMigrationWorker.timeout).toBe(900);
-            expect(result.functions.dbMigrationWorker.memorySize).toBe(1024);
-            expect(result.functions.dbMigrationWorker.reservedConcurrency).toBe(1);
-            expect(result.functions.dbMigrationWorker.events).toEqual([
-                {
-                    sqs: {
-                        arn: { 'Fn::GetAtt': ['DbMigrationQueue', 'Arn'] },
-                        batchSize: 1,
-                    },
-                },
-            ]);
-        });
-
-        it('should create migration router function', async () => {
-            const appDef = {
-                database: {
-                    postgres: {
-                        enable: true,
-                    },
-                },
-            };
-
-            const result = await builder.build(appDef, {});
-
-            expect(result.functions.dbMigrationRouter).toBeDefined();
-            expect(result.functions.dbMigrationRouter.handler).toBe(
-                'node_modules/@friggframework/core/handlers/routers/db-migration.handler'
-            );
-            expect(result.functions.dbMigrationRouter.timeout).toBe(30);
-            expect(result.functions.dbMigrationRouter.events).toContainEqual({
-                httpApi: { path: '/db-migrate/status', method: 'GET' },
-            });
-            expect(result.functions.dbMigrationRouter.events).toContainEqual({
-                httpApi: { path: '/db-migrate', method: 'POST' },
-            });
-            expect(result.functions.dbMigrationRouter.events).toContainEqual({
-                httpApi: { path: '/db-migrate/{processId}', method: 'GET' },
-            });
-        });
-
-        it('should configure package exclusions for migration functions to reduce Lambda size', async () => {
-            const appDef = {
-                database: {
-                    postgres: {
-                        enable: true,
-                    },
-                },
-            };
-
-            const result = await builder.build(appDef, {});
-
-            // Worker and router now have DIFFERENT package configs (split for size optimization)
-            expect(result.functions.dbMigrationWorker.package).toBeDefined();
-            expect(result.functions.dbMigrationRouter.package).toBeDefined();
-            expect(result.functions.dbMigrationWorker.package).not.toBe(result.functions.dbMigrationRouter.package);
-
-            const workerPackage = result.functions.dbMigrationWorker.package;
-            const routerPackage = result.functions.dbMigrationRouter.package;
-
-            // Verify worker excludes Prisma client (in layer) but keeps CLI
-            expect(workerPackage.exclude).toContain('node_modules/@prisma/client/**');
-            expect(workerPackage.exclude).toContain('node_modules/@friggframework/core/generated/**');
-
-            // Verify router excludes ALL WASM files (doesn't run migrations)
-            expect(routerPackage.exclude).toContain('**/*.wasm*');
-
-            // Verify common exclusions for both
-            expect(workerPackage.exclude).toContain('node_modules/**/node_modules/**');
-            expect(workerPackage.exclude).toContain('**/*.test.js');
-            expect(workerPackage.exclude).toContain('src/**');
-
-            // Should NOT exclude migration handlers - they're needed!
-            expect(workerPackage.exclude).not.toContain('node_modules/@friggframework/core/handlers/routers/**');
-            expect(workerPackage.exclude).not.toContain('node_modules/@friggframework/core/handlers/workers/**');
+            expect(result.resources.FriggMigrationStatusBucket).toBeDefined();
+            expect(result.resources.FriggMigrationStatusBucket.Type).toBe('AWS::S3::Bucket');
+            expect(result.resources.FriggMigrationStatusBucket.DeletionPolicy).toBe('Retain');
+            expect(result.resources.FriggMigrationStatusBucket.Properties.VersioningConfiguration.Status).toBe('Enabled');
         });
 
         it('should add queue URL to environment', async () => {
@@ -285,7 +211,7 @@ describe('MigrationBuilder', () => {
             );
         });
 
-        it('should only include Prisma layer in worker (router doesn\'t need database)', async () => {
+        it('should create dbMigrationRouter function definition', async () => {
             const appDef = {
                 database: {
                     postgres: {
@@ -296,13 +222,26 @@ describe('MigrationBuilder', () => {
 
             const result = await builder.build(appDef, {});
 
-            // Worker needs Prisma layer for runtime client
-            expect(result.functions.dbMigrationWorker.layers).toEqual([{ Ref: 'PrismaLambdaLayer' }]);
-            // Router doesn't access database - no Prisma layer needed
-            expect(result.functions.dbMigrationRouter.layers).toBeUndefined();
+            expect(result.functions.dbMigrationRouter).toBeDefined();
+            expect(result.functions.dbMigrationRouter.handler).toBe(
+                'node_modules/@friggframework/core/handlers/routers/db-migration.handler'
+            );
+            expect(result.functions.dbMigrationRouter.skipEsbuild).toBe(true);
+            expect(result.functions.dbMigrationRouter.timeout).toBe(30);
+            expect(result.functions.dbMigrationRouter.memorySize).toBe(512);
+            expect(result.functions.dbMigrationRouter.events).toHaveLength(3);
+            expect(result.functions.dbMigrationRouter.events).toContainEqual({
+                httpApi: { path: '/db-migrate/status', method: 'GET' },
+            });
+            expect(result.functions.dbMigrationRouter.events).toContainEqual({
+                httpApi: { path: '/db-migrate', method: 'POST' },
+            });
+            expect(result.functions.dbMigrationRouter.events).toContainEqual({
+                httpApi: { path: '/db-migrate/{processId}', method: 'GET' },
+            });
         });
 
-        it('should set skipEsbuild for both functions', async () => {
+        it('should create dbMigrationWorker function definition', async () => {
             const appDef = {
                 database: {
                     postgres: {
@@ -313,8 +252,36 @@ describe('MigrationBuilder', () => {
 
             const result = await builder.build(appDef, {});
 
+            expect(result.functions.dbMigrationWorker).toBeDefined();
+            expect(result.functions.dbMigrationWorker.handler).toBe(
+                'node_modules/@friggframework/core/handlers/workers/db-migration.handler'
+            );
             expect(result.functions.dbMigrationWorker.skipEsbuild).toBe(true);
-            expect(result.functions.dbMigrationRouter.skipEsbuild).toBe(true);
+            expect(result.functions.dbMigrationWorker.reservedConcurrency).toBe(1);
+            expect(result.functions.dbMigrationWorker.timeout).toBe(900);
+            expect(result.functions.dbMigrationWorker.memorySize).toBe(1024);
+            expect(result.functions.dbMigrationWorker.layers).toEqual([{ Ref: 'PrismaLambdaLayer' }]);
+            expect(result.functions.dbMigrationWorker.events).toHaveLength(1);
+            expect(result.functions.dbMigrationWorker.events[0].sqs).toEqual({
+                arn: { 'Fn::GetAtt': ['DbMigrationQueue', 'Arn'] },
+                batchSize: 1,
+            });
+        });
+
+        it('should add WORKER_FUNCTION_NAME to router environment', async () => {
+            const appDef = {
+                database: {
+                    postgres: {
+                        enable: true,
+                    },
+                },
+            };
+
+            const result = await builder.build(appDef, {});
+
+            expect(result.functions.dbMigrationRouter.environment.WORKER_FUNCTION_NAME).toEqual({
+                Ref: 'DbMigrationWorkerLambdaFunction',
+            });
         });
     });
 
