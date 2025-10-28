@@ -237,10 +237,21 @@ class MigrationBuilder extends InfrastructureBuilder {
         console.log('  🔍 DEBUG: result.functions is:', typeof result.functions, result.functions);
         // Migration WORKER package config (needs Prisma CLI WASM files)
         const migrationWorkerPackageConfig = {
+            individually: true,
             exclude: [
+                // Exclude Prisma runtime client - it's in the Lambda Layer
+                'node_modules/@prisma/client/**',
+                'node_modules/.prisma/**',
+                'node_modules/@friggframework/core/generated/**',
+                // But KEEP node_modules/prisma/** (the CLI with WASM)
+
+                // Exclude ALL nested node_modules
+                'node_modules/**/node_modules/**',
+
                 // Exclude AWS SDK (provided by Lambda runtime)
                 'node_modules/aws-sdk/**',
                 'node_modules/@aws-sdk/**',
+
                 // Exclude build tools
                 'node_modules/esbuild/**',
                 'node_modules/@esbuild/**',
@@ -253,6 +264,8 @@ class MigrationBuilder extends InfrastructureBuilder {
                 'node_modules/serverless-offline-sqs/**',
                 'node_modules/serverless-dotenv-plugin/**',
                 'node_modules/serverless-kms-grants/**',
+
+                // Exclude dev dependencies
                 'node_modules/@friggframework/test/**',
                 'node_modules/@friggframework/eslint-config/**',
                 'node_modules/@friggframework/prettier-config/**',
@@ -261,23 +274,39 @@ class MigrationBuilder extends InfrastructureBuilder {
                 'node_modules/jest/**',
                 'node_modules/prettier/**',
                 'node_modules/eslint/**',
+
+                // Exclude non-essential Frigg core modules
                 'node_modules/@friggframework/core/generated/prisma-mongodb/**',
                 'node_modules/@friggframework/core/integrations/**',
                 'node_modules/@friggframework/core/user/**',
+
+                // Exclude other handlers we don't need (keep db-migration worker)
+                'node_modules/@friggframework/core/handlers/routers/auth.js',
+                'node_modules/@friggframework/core/handlers/routers/health.js',
+                'node_modules/@friggframework/core/handlers/routers/user.js',
+                'node_modules/@friggframework/core/handlers/routers/websocket.js',
+                'node_modules/@friggframework/core/handlers/routers/integration-*.js',
+                'node_modules/@friggframework/core/handlers/workers/integration-*.js',
+
+                // Exclude wrong OS binaries
                 '**/query-engine-darwin*',
                 '**/schema-engine-darwin*',
                 '**/libquery_engine-darwin*',
                 '**/*-darwin-arm64*',
                 '**/*-darwin*',
+
                 // Migration worker DOES need Prisma CLI WASM files (for migrate deploy)
                 // Only exclude runtime engine WASM (query engine internals)
                 '**/runtime/*.wasm',
+
                 // Additional size optimizations
                 '**/*.map',
                 '**/*.md',
+                '**/LICENSE*',
+                '**/*.d.ts',
+                '**/*.d.mts',
                 '**/examples/**',
                 '**/docs/**',
-                '**/*.d.ts',
                 'src/**',
                 'test/**',
                 'layers/**',
@@ -297,21 +326,37 @@ class MigrationBuilder extends InfrastructureBuilder {
 
         // Migration ROUTER package config (lighter, no Prisma CLI needed)
         const migrationRouterPackageConfig = {
+            individually: true,
             exclude: [
+                // Exclude Prisma runtime client - it's in the Lambda Layer
+                'node_modules/@prisma/client/**',
+                'node_modules/.prisma/**',
+                'node_modules/@friggframework/core/generated/**',
+
+                // Router doesn't need Prisma CLI at all
+                'node_modules/prisma/**',
+
+                // Exclude ALL nested node_modules
+                'node_modules/**/node_modules/**',
+
                 // Exclude AWS SDK (provided by Lambda runtime)
                 'node_modules/aws-sdk/**',
                 'node_modules/@aws-sdk/**',
+
                 // Exclude build tools
                 'node_modules/esbuild/**',
                 'node_modules/@esbuild/**',
                 'node_modules/typescript/**',
                 'node_modules/webpack/**',
+                'node_modules/osls/**',
                 'node_modules/serverless-esbuild/**',
                 'node_modules/serverless-jetpack/**',
                 'node_modules/serverless-offline/**',
                 'node_modules/serverless-offline-sqs/**',
                 'node_modules/serverless-dotenv-plugin/**',
                 'node_modules/serverless-kms-grants/**',
+
+                // Exclude dev dependencies
                 'node_modules/@friggframework/test/**',
                 'node_modules/@friggframework/eslint-config/**',
                 'node_modules/@friggframework/prettier-config/**',
@@ -320,25 +365,42 @@ class MigrationBuilder extends InfrastructureBuilder {
                 'node_modules/jest/**',
                 'node_modules/prettier/**',
                 'node_modules/eslint/**',
+
+                // Exclude non-essential Frigg core modules
                 'node_modules/@friggframework/core/generated/prisma-mongodb/**',
+                'node_modules/@friggframework/core/integrations/**',
                 'node_modules/@friggframework/core/user/**',
+
+                // Exclude other handlers we don't need (keep db-migration router)
+                'node_modules/@friggframework/core/handlers/routers/auth.js',
+                'node_modules/@friggframework/core/handlers/routers/health.js',
+                'node_modules/@friggframework/core/handlers/routers/user.js',
+                'node_modules/@friggframework/core/handlers/routers/websocket.js',
+                'node_modules/@friggframework/core/handlers/routers/integration-*.js',
+                'node_modules/@friggframework/core/handlers/workers/**',
+
+                // Exclude wrong OS binaries
                 '**/query-engine-darwin*',
                 '**/schema-engine-darwin*',
                 '**/libquery_engine-darwin*',
                 '**/*-darwin-arm64*',
                 '**/*-darwin*',
+
                 // Router doesn't run migrations - exclude ALL WASM files
                 '**/runtime/*.wasm',
                 '**/*.wasm*',
+
                 // Additional size optimizations
                 '**/*.map',
                 '**/*.md',
+                '**/LICENSE*',
+                '**/*.d.ts',
+                '**/*.d.mts',
                 '**/test/**',
                 '**/tests/**',
                 '**/__tests__/**',
                 '**/examples/**',
                 '**/docs/**',
-                '**/*.d.ts',
                 'src/**',
                 'test/**',
                 'layers/**',
