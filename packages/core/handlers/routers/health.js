@@ -1,6 +1,16 @@
 const { Router } = require('express');
-const { moduleFactory, integrationFactory } = require('./../backend-utils');
 const { createAppHandler } = require('./../app-handler-helpers');
+const { loadAppDefinition } = require('./../app-definition-loader');
+const { ModuleFactory } = require('../../modules/module-factory');
+const {
+    getModulesDefinitionFromIntegrationClasses,
+} = require('../../integrations/utils/map-integration-dto');
+const {
+    createModuleRepository,
+} = require('../../modules/repositories/module-repository-factory');
+const {
+    createIntegrationRepository,
+} = require('../../integrations/repositories/integration-repository-factory');
 const {
     createHealthCheckRepository,
 } = require('../../database/repositories/health-check-repository-factory');
@@ -22,6 +32,28 @@ const {
 
 const router = Router();
 const healthCheckRepository = createHealthCheckRepository();
+
+// Load integrations and create factories just like auth router does
+// This verifies the system can properly load integrations
+let moduleFactory, integrationClasses;
+try {
+    const appDef = loadAppDefinition();
+    integrationClasses = appDef.integrations || [];
+
+    const moduleRepository = createModuleRepository();
+    const moduleDefinitions = getModulesDefinitionFromIntegrationClasses(integrationClasses);
+
+    moduleFactory = new ModuleFactory({
+        moduleRepository,
+        moduleDefinitions,
+    });
+} catch (error) {
+    console.error('Failed to load integrations for health check:', error.message);
+    // Factories will be undefined, health check will report unhealthy
+    moduleFactory = undefined;
+    integrationClasses = [];
+}
+
 const testEncryptionUseCase = new TestEncryptionUseCase({
     healthCheckRepository,
 });
@@ -34,11 +66,11 @@ const checkEncryptionHealthUseCase = new CheckEncryptionHealthUseCase({
 const checkExternalApisHealthUseCase = new CheckExternalApisHealthUseCase();
 const checkIntegrationsHealthUseCase = new CheckIntegrationsHealthUseCase({
     moduleFactory,
-    integrationFactory,
+    integrationClasses,
 });
 
 const validateApiKey = (req, res, next) => {
-    const apiKey = req.headers['x-api-key'];
+    const apiKey = req.headers['x-frigg-health-api-key'];
 
     if (req.path === '/health') {
         return next();
@@ -48,7 +80,7 @@ const validateApiKey = (req, res, next) => {
         console.error('Unauthorized access attempt to health endpoint');
         return res.status(401).json({
             status: 'error',
-            message: 'Unauthorized',
+            message: 'Unauthorized - x-frigg-health-api-key header required',
         });
     }
 
@@ -141,8 +173,11 @@ const detectVpcConfiguration = async () => {
             }
         }
 
-        results.isInVpc =
-            !results.hasInternetAccess || results.vpcEndpoints.length > 0;
+        // Check if Lambda is in VPC using VPC_ENABLED env var set by infrastructure
+        results.isInVpc = process.env.VPC_ENABLED === 'true' ||
+            (!results.hasInternetAccess && results.canResolvePublicDns) ||
+            results.vpcEndpoints.length > 0;
+
         results.canConnectToAws =
             results.hasInternetAccess || results.vpcEndpoints.length > 0;
     } catch (error) {

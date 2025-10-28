@@ -32,7 +32,7 @@
         "runtime": {
           "type": "string",
           "description": "Runtime environment",
-          "enum": ["nodejs18.x", "nodejs20.x", "python3.9", "python3.10", "python3.11"]
+          "enum": ["nodejs20.x", "nodejs22.x", "python3.9", "python3.10", "python3.11", "python3.12"]
         },
         "timeout": {
           "type": "integer",
@@ -352,7 +352,7 @@
       "service": "frigg-backend",
       "provider": {
         "name": "aws",
-        "runtime": "nodejs20.x",
+        "runtime": "nodejs22.x",
         "timeout": 30,
         "region": "us-east-1",
         "environment": {

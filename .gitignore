@@ -37,6 +37,8 @@ claude-flow.log
 .npmrc
 .autorc
 /.nx/
-
+/packages/devtools/management-ui/dist
+/packages/devtools/management-ui/.claude-flow
+CLAUDE.md
 /.claude
 /.claude-flow

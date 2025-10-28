@@ -1,8 +1,15 @@
-import AWS from 'aws-sdk';
+import {
+  SSMClient,
+  GetParametersByPathCommand,
+  PutParameterCommand,
+  DeleteParameterCommand,
+  DescribeParametersCommand,
+  GetParameterHistoryCommand,
+} from '@aws-sdk/client-ssm';
 
 class AWSParameterStore {
   constructor(config = {}) {
-    this.ssm = new AWS.SSM({
+    this.ssm = new SSMClient({
       region: config.region || process.env.AWS_REGION || 'us-east-1',
       ...config.awsConfig
     });
@@ -20,16 +27,16 @@ class AWSParameterStore {
 
     try {
       do {
-        const params = {
+        const command = new GetParametersByPathCommand({
           Path: path,
           Recursive: true,
           WithDecryption: true,
           MaxResults: 10,
           NextToken: nextToken
-        };
+        });
 
-        const response = await this.ssm.getParametersByPath(params).promise();
-        
+        const response = await this.ssm.send(command);
+
         for (const param of response.Parameters) {
           const key = this.extractKeyFromPath(param.Name, environment);
           parameters.push({
@@ -60,7 +67,7 @@ class AWSParameterStore {
    */
   async setParameter(environment, variable) {
     const parameterName = `${this.prefix}/${environment}/${variable.key}`;
-    
+
     try {
       const params = {
         Name: parameterName,
@@ -89,8 +96,9 @@ class AWSParameterStore {
         params.KeyId = this.kmsKeyId;
       }
 
-      const response = await this.ssm.putParameter(params).promise();
-      
+      const command = new PutParameterCommand(params);
+      const response = await this.ssm.send(command);
+
       return {
         success: true,
         version: response.Version,
@@ -107,9 +115,10 @@ class AWSParameterStore {
    */
   async deleteParameter(environment, key) {
     const parameterName = `${this.prefix}/${environment}/${key}`;
-    
+
     try {
-      await this.ssm.deleteParameter({ Name: parameterName }).promise();
+      const command = new DeleteParameterCommand({ Name: parameterName });
+      await this.ssm.send(command);
       return { success: true };
     } catch (error) {
       if (error.code === 'ParameterNotFound') {
@@ -142,7 +151,7 @@ class AWSParameterStore {
         try {
           const existing = existingParams.find(p => p.key === variable.key);
           const result = await this.setParameter(environment, variable);
-          
+
           if (existing) {
             results.updated.push({ key: variable.key, ...result });
           } else {
@@ -201,7 +210,8 @@ class AWSParameterStore {
   async validateAccess() {
     try {
       // Try to list parameters to check access
-      await this.ssm.describeParameters({ MaxResults: 1 }).promise();
+      const command = new DescribeParametersCommand({ MaxResults: 1 });
+      await this.ssm.send(command);
       return { valid: true };
     } catch (error) {
       return {
@@ -221,12 +231,12 @@ class AWSParameterStore {
     content += `# Generated on ${new Date().toISOString()}\n\n`;
 
     const sorted = parameters.sort((a, b) => a.key.localeCompare(b.key));
-    
+
     for (const param of sorted) {
       if (param.description) {
         content += `# ${param.description}\n`;
       }
-      
+
       // Mask secret values in export
       const value = param.isSecret ? '**REDACTED**' : param.value;
       content += `${param.key}=${value}\n\n`;
@@ -240,13 +250,14 @@ class AWSParameterStore {
    */
   async getParameterHistory(environment, key, maxResults = 10) {
     const parameterName = `${this.prefix}/${environment}/${key}`;
-    
+
     try {
-      const response = await this.ssm.getParameterHistory({
+      const command = new GetParameterHistoryCommand({
         Name: parameterName,
         WithDecryption: false,
         MaxResults: maxResults
-      }).promise();
+      });
+      const response = await this.ssm.send(command);
 
       return response.Parameters.map(p => ({
         version: p.Version,

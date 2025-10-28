@@ -17,7 +17,9 @@
     "userModel": {
       "type": "object",
       "description": "Frigg User model schema",
-      "required": ["_id"],
+      "required": [
+        "_id"
+      ],
       "properties": {
         "_id": {
           "$ref": "#/definitions/objectId",
@@ -47,7 +49,12 @@
         "role": {
           "type": "string",
           "description": "User role",
-          "enum": ["admin", "user", "developer", "viewer"],
+          "enum": [
+            "admin",
+            "user",
+            "developer",
+            "viewer"
+          ],
           "default": "user"
         },
         "permissions": {
@@ -56,10 +63,18 @@
           "items": {
             "type": "string",
             "enum": [
-              "integrations:read", "integrations:write", "integrations:delete",
-              "entities:read", "entities:write", "entities:delete",
-              "credentials:read", "credentials:write", "credentials:delete",
-              "users:read", "users:write", "users:delete",
+              "integrations:read",
+              "integrations:write",
+              "integrations:delete",
+              "entities:read",
+              "entities:write",
+              "entities:delete",
+              "credentials:read",
+              "credentials:write",
+              "credentials:delete",
+              "users:read",
+              "users:write",
+              "users:delete",
               "admin:all"
             ]
           },
@@ -71,7 +86,11 @@
           "properties": {
             "theme": {
               "type": "string",
-              "enum": ["light", "dark", "auto"],
+              "enum": [
+                "light",
+                "dark",
+                "auto"
+              ],
               "default": "light"
             },
             "language": {
@@ -128,7 +147,10 @@
     "credentialModel": {
       "type": "object",
       "description": "Frigg Credential model schema",
-      "required": ["_id", "userId", "subType"],
+      "required": [
+        "_id",
+        "userId"
+      ],
       "properties": {
         "_id": {
           "$ref": "#/definitions/objectId",
@@ -137,12 +159,6 @@
         "userId": {
           "$ref": "#/definitions/objectId",
           "description": "Associated user ID"
-        },
-        "subType": {
-          "type": "string",
-          "description": "Integration type for this credential",
-          "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$",
-          "maxLength": 100
         },
         "externalId": {
           "type": "string",
@@ -169,7 +185,11 @@
             "token_type": {
               "type": "string",
               "description": "Token type",
-              "enum": ["Bearer", "Basic", "API-Key"],
+              "enum": [
+                "Bearer",
+                "Basic",
+                "API-Key"
+              ],
               "default": "Bearer"
             },
             "expires_at": {
@@ -214,7 +234,10 @@
                     "description": "Error code"
                   }
                 },
-                "required": ["error", "timestamp"]
+                "required": [
+                  "error",
+                  "timestamp"
+                ]
               }
             }
           },
@@ -239,7 +262,11 @@
     "entityModel": {
       "type": "object",
       "description": "Frigg Entity model schema",
-      "required": ["_id", "credentialId", "userId", "subType"],
+      "required": [
+        "_id",
+        "credentialId",
+        "userId"
+      ],
       "properties": {
         "_id": {
           "$ref": "#/definitions/objectId",
@@ -253,9 +280,9 @@
           "$ref": "#/definitions/objectId",
           "description": "Associated user ID"
         },
-        "subType": {
+        "moduleName": {
           "type": "string",
-          "description": "Entity subtype or category",
+          "description": "Module type identifier (e.g., 'salesforce', 'hubspot', 'attio'). Represents the API/service being integrated. Historically mapped from Mongoose discriminator (__t).",
           "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$",
           "maxLength": 100
         },
@@ -286,13 +313,23 @@
             "sync_direction": {
               "type": "string",
               "description": "Synchronization direction",
-              "enum": ["incoming", "outgoing", "bidirectional"],
+              "enum": [
+                "incoming",
+                "outgoing",
+                "bidirectional"
+              ],
               "default": "bidirectional"
             },
             "sync_frequency": {
               "type": "string",
               "description": "Synchronization frequency",
-              "enum": ["real-time", "hourly", "daily", "weekly", "manual"],
+              "enum": [
+                "real-time",
+                "hourly",
+                "daily",
+                "weekly",
+                "manual"
+              ],
               "default": "hourly"
             },
             "field_mappings": {
@@ -311,7 +348,13 @@
         "status": {
           "type": "string",
           "description": "Entity status",
-          "enum": ["active", "inactive", "error", "syncing", "pending"],
+          "enum": [
+            "active",
+            "inactive",
+            "error",
+            "syncing",
+            "pending"
+          ],
           "default": "active"
         },
         "lastSync": {
@@ -342,7 +385,10 @@
                 "default": true
               }
             },
-            "required": ["error", "timestamp"]
+            "required": [
+              "error",
+              "timestamp"
+            ]
           }
         },
         "isActive": {
@@ -383,7 +429,10 @@
         "lastName": "Doe",
         "organization": "Example Corp",
         "role": "user",
-        "permissions": ["integrations:read", "integrations:write"],
+        "permissions": [
+          "integrations:read",
+          "integrations:write"
+        ],
         "preferences": {
           "theme": "dark",
           "language": "en",
@@ -399,7 +448,6 @@
       "credential": {
         "_id": "507f1f77bcf86cd799439012",
         "userId": "507f1f77bcf86cd799439011",
-        "subType": "hubspot",
         "externalId": "12345",
         "auth_is_valid": true,
         "authData": {
@@ -421,7 +469,6 @@
         "_id": "507f1f77bcf86cd799439013",
         "credentialId": "507f1f77bcf86cd799439012",
         "userId": "507f1f77bcf86cd799439011",
-        "subType": "contact",
         "name": "HubSpot Contacts",
         "externalId": "hubspot_contacts_12345",
         "config": {

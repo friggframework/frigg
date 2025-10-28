@@ -57,6 +57,18 @@ const {
     GetUserFromBearerToken,
 } = require('../user/use-cases/get-user-from-bearer-token');
 const {
+    GetUserFromXFriggHeaders,
+} = require('../user/use-cases/get-user-from-x-frigg-headers');
+const {
+    GetUserFromAdopterJwt,
+} = require('../user/use-cases/get-user-from-adopter-jwt');
+const {
+    AuthenticateWithSharedSecret,
+} = require('../user/use-cases/authenticate-with-shared-secret');
+const {
+    AuthenticateUser,
+} = require('../user/use-cases/authenticate-user');
+const {
     ProcessAuthorizationCallback,
 } = require('../modules/use-cases/process-authorization-callback');
 
@@ -70,6 +82,26 @@ function createIntegrationRouter() {
 
     const getUserFromBearerToken = new GetUserFromBearerToken({
         userRepository,
+        userConfig,
+    });
+
+    const getUserFromXFriggHeaders = new GetUserFromXFriggHeaders({
+        userRepository,
+        userConfig,
+    });
+
+    const getUserFromAdopterJwt = new GetUserFromAdopterJwt({
+        userRepository,
+        userConfig,
+    });
+
+    const authenticateWithSharedSecret = new AuthenticateWithSharedSecret();
+
+    const authenticateUser = new AuthenticateUser({
+        getUserFromBearerToken,
+        getUserFromXFriggHeaders,
+        getUserFromAdopterJwt,
+        authenticateWithSharedSecret,
         userConfig,
     });
 
@@ -165,7 +197,7 @@ function createIntegrationRouter() {
 
     const router = express();
 
-    setIntegrationRoutes(router, getUserFromBearerToken, {
+    setIntegrationRoutes(router, authenticateUser, {
         createIntegration,
         deleteIntegrationForUser,
         getIntegrationsForUser,
@@ -174,7 +206,7 @@ function createIntegrationRouter() {
         updateIntegration,
         getPossibleIntegrations,
     });
-    setEntityRoutes(router, getUserFromBearerToken, {
+    setEntityRoutes(router, authenticateUser, {
         getCredentialForUser,
         getModuleInstanceFromType,
         getEntityOptionsByType,
@@ -201,10 +233,8 @@ function checkRequiredParams(params, requiredKeys) {
 
     if (missingKeys.length > 0) {
         throw Boom.badRequest(
-            `Missing Parameter${
-                missingKeys.length === 1 ? '' : 's'
-            }: ${missingKeys.join(', ')} ${
-                missingKeys.length === 1 ? 'is' : 'are'
+            `Missing Parameter${missingKeys.length === 1 ? '' : 's'
+            }: ${missingKeys.join(', ')} ${missingKeys.length === 1 ? 'is' : 'are'
             } required.`
         );
     }
@@ -214,10 +244,10 @@ function checkRequiredParams(params, requiredKeys) {
 /**
  * Sets up integration-related routes on the provided Express router
  * @param {express.Router} router - Express router instance to add routes to
- * @param {import('../user/use-cases/get-user-from-bearer-token').GetUserFromBearerToken} getUserFromBearerToken - Use case for retrieving a user from a bearer token
+ * @param {import('../user/use-cases/authenticate-user').AuthenticateUser} authenticateUser - Use case for multi-mode user authentication
  * @param {Object} useCases - use cases for integration management
  */
-function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
+function setIntegrationRoutes(router, authenticateUser, useCases) {
     const {
         createIntegration,
         deleteIntegrationForUser,
@@ -229,9 +259,7 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
     } = useCases;
     router.route('/api/integrations').get(
         catchAsyncError(async (req, res) => {
-            const user = await getUserFromBearerToken.execute(
-                req.headers.authorization
-            );
+            const user = await authenticateUser.execute(req);
             const userId = user.getId();
             const integrations = await getIntegrationsForUser.execute(userId);
             const results = {
@@ -248,9 +276,7 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
 
     router.route('/api/integrations').post(
         catchAsyncError(async (req, res) => {
-            const user = await getUserFromBearerToken.execute(
-                req.headers.authorization
-            );
+            const user = await authenticateUser.execute(req);
             const userId = user.getId();
             const params = checkRequiredParams(req.body, [
                 'entities',
@@ -271,9 +297,7 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
 
     router.route('/api/integrations/:integrationId').patch(
         catchAsyncError(async (req, res) => {
-            const user = await getUserFromBearerToken.execute(
-                req.headers.authorization
-            );
+            const user = await authenticateUser.execute(req);
             const userId = user.getId();
             const params = checkRequiredParams(req.body, ['config']);
 
@@ -288,9 +312,7 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
 
     router.route('/api/integrations/:integrationId').delete(
         catchAsyncError(async (req, res) => {
-            const user = await getUserFromBearerToken.execute(
-                req.headers.authorization
-            );
+            const user = await authenticateUser.execute(req);
             const params = checkRequiredParams(req.params, ['integrationId']);
             await deleteIntegrationForUser.execute(
                 params.integrationId,
@@ -302,9 +324,7 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
 
     router.route('/api/integrations/:integrationId/config/options').get(
         catchAsyncError(async (req, res) => {
-            const user = await getUserFromBearerToken.execute(
-                req.headers.authorization
-            );
+            const user = await authenticateUser.execute(req);
             const params = checkRequiredParams(req.params, ['integrationId']);
             const integration = await getIntegrationInstance.execute(
                 params.integrationId,
@@ -318,9 +338,7 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
         .route('/api/integrations/:integrationId/config/options/refresh')
         .post(
             catchAsyncError(async (req, res) => {
-                const user = await getUserFromBearerToken.execute(
-                    req.headers.authorization
-                );
+                const user = await authenticateUser.execute(req);
                 const params = checkRequiredParams(req.params, [
                     'integrationId',
                 ]);
@@ -336,9 +354,7 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
         );
     router.route('/api/integrations/:integrationId/actions').all(
         catchAsyncError(async (req, res) => {
-            const user = await getUserFromBearerToken.execute(
-                req.headers.authorization
-            );
+            const user = await authenticateUser.execute(req);
             const params = checkRequiredParams(req.params, ['integrationId']);
             const integration = await getIntegrationInstance.execute(
                 params.integrationId,
@@ -352,9 +368,7 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
         .route('/api/integrations/:integrationId/actions/:actionId/options')
         .all(
             catchAsyncError(async (req, res) => {
-                const user = await getUserFromBearerToken.execute(
-                    req.headers.authorization
-                );
+                const user = await authenticateUser.execute(req);
                 const params = checkRequiredParams(req.params, [
                     'integrationId',
                     'actionId',
@@ -379,9 +393,7 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
         )
         .post(
             catchAsyncError(async (req, res) => {
-                const user = await getUserFromBearerToken.execute(
-                    req.headers.authorization
-                );
+                const user = await authenticateUser.execute(req);
                 const params = checkRequiredParams(req.params, [
                     'integrationId',
                     'actionId',
@@ -402,9 +414,7 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
 
     router.route('/api/integrations/:integrationId/actions/:actionId').post(
         catchAsyncError(async (req, res) => {
-            const user = await getUserFromBearerToken.execute(
-                req.headers.authorization
-            );
+            const user = await authenticateUser.execute(req);
             const params = checkRequiredParams(req.params, [
                 'integrationId',
                 'actionId',
@@ -419,9 +429,7 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
 
     router.route('/api/integrations/:integrationId').get(
         catchAsyncError(async (req, res) => {
-            const user = await getUserFromBearerToken.execute(
-                req.headers.authorization
-            );
+            const user = await authenticateUser.execute(req);
 
             if (!user) {
                 throw Boom.forbidden('User not found');
@@ -446,9 +454,7 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
 
     router.route('/api/integrations/:integrationId/test-auth').get(
         catchAsyncError(async (req, res) => {
-            const user = await getUserFromBearerToken.execute(
-                req.headers.authorization
-            );
+            const user = await authenticateUser.execute(req);
             const params = checkRequiredParams(req.params, ['integrationId']);
             const instance = await getIntegrationInstance.execute(
                 params.integrationId,
@@ -478,9 +484,9 @@ function setIntegrationRoutes(router, getUserFromBearerToken, useCases) {
 /**
  * Sets up entity-related routes for the integration router
  * @param {Object} router - Express router instance
- * @param {import('../user/use-cases/get-user-from-bearer-token').GetUserFromBearerToken} getUserFromBearerToken - Use case for retrieving a user from a bearer token
+ * @param {import('../user/use-cases/authenticate-user').AuthenticateUser} authenticateUser - Use case for multi-mode user authentication
  */
-function setEntityRoutes(router, getUserFromBearerToken, useCases) {
+function setEntityRoutes(router, authenticateUser, useCases) {
     const {
         getCredentialForUser,
         getModuleInstanceFromType,
@@ -494,9 +500,7 @@ function setEntityRoutes(router, getUserFromBearerToken, useCases) {
 
     router.route('/api/authorize').get(
         catchAsyncError(async (req, res) => {
-            const user = await getUserFromBearerToken.execute(
-                req.headers.authorization
-            );
+            const user = await authenticateUser.execute(req);
             const userId = user.getId();
             const params = checkRequiredParams(req.query, ['entityType']);
             const module = await getModuleInstanceFromType.execute(
@@ -517,9 +521,7 @@ function setEntityRoutes(router, getUserFromBearerToken, useCases) {
 
     router.route('/api/authorize').post(
         catchAsyncError(async (req, res) => {
-            const user = await getUserFromBearerToken.execute(
-                req.headers.authorization
-            );
+            const user = await authenticateUser.execute(req);
             const userId = user.getId();
             const params = checkRequiredParams(req.body, [
                 'entityType',
@@ -538,9 +540,7 @@ function setEntityRoutes(router, getUserFromBearerToken, useCases) {
 
     router.route('/api/entity').post(
         catchAsyncError(async (req, res) => {
-            const user = await getUserFromBearerToken.execute(
-                req.headers.authorization
-            );
+            const user = await authenticateUser.execute(req);
             const userId = user.getId();
             const params = checkRequiredParams(req.body, [
                 'entityType',
@@ -575,9 +575,7 @@ function setEntityRoutes(router, getUserFromBearerToken, useCases) {
 
     router.route('/api/entity/options/:credentialId').get(
         catchAsyncError(async (req, res) => {
-            const user = await getUserFromBearerToken.execute(
-                req.headers.authorization
-            );
+            const user = await authenticateUser.execute(req);
             const userId = user.getId();
             // TODO May want to pass along the user ID as well so credential ID's can't be fished???
             // TODO **flagging this for review** -MW
@@ -601,9 +599,7 @@ function setEntityRoutes(router, getUserFromBearerToken, useCases) {
 
     router.route('/api/entities/:entityId/test-auth').get(
         catchAsyncError(async (req, res) => {
-            const user = await getUserFromBearerToken.execute(
-                req.headers.authorization
-            );
+            const user = await authenticateUser.execute(req);
             const userId = user.getId();
             const params = checkRequiredParams(req.params, ['entityId']);
             const testAuthResponse = await testModuleAuth.execute(
@@ -630,9 +626,7 @@ function setEntityRoutes(router, getUserFromBearerToken, useCases) {
 
     router.route('/api/entities/:entityId').get(
         catchAsyncError(async (req, res) => {
-            const user = await getUserFromBearerToken.execute(
-                req.headers.authorization
-            );
+            const user = await authenticateUser.execute(req);
             const userId = user.getId();
             const params = checkRequiredParams(req.params, ['entityId']);
             const module = await getModule.execute(params.entityId, userId);
@@ -643,9 +637,7 @@ function setEntityRoutes(router, getUserFromBearerToken, useCases) {
 
     router.route('/api/entities/:entityId/options').post(
         catchAsyncError(async (req, res) => {
-            const user = await getUserFromBearerToken.execute(
-                req.headers.authorization
-            );
+            const user = await authenticateUser.execute(req);
             const userId = user.getId();
             const params = checkRequiredParams(req.params, ['entityId']);
 
@@ -660,9 +652,7 @@ function setEntityRoutes(router, getUserFromBearerToken, useCases) {
 
     router.route('/api/entities/:entityId/options/refresh').post(
         catchAsyncError(async (req, res) => {
-            const user = await getUserFromBearerToken.execute(
-                req.headers.authorization
-            );
+            const user = await authenticateUser.execute(req);
             const userId = user.getId();
             const params = checkRequiredParams(req.params, ['entityId']);
             const updatedOptions = await refreshEntityOptions.execute(

@@ -1,0 +1,13 @@
+# Include generated Prisma clients in published package
+# (This overrides .gitignore which excludes them from git)
+!generated/
+
+# Exclude development files
+*.test.js
+*.spec.js
+__tests__/
+coverage/
+.env
+.env.test
+
+

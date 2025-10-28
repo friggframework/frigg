@@ -142,6 +142,25 @@ function createIntegrationCommands({ integrationClass } = {}) {
                 return mapErrorToResponse(error);
             }
         },
+
+        /**
+         * Update integration configuration
+         * @param {Object} params
+         * @param {string} params.integrationId - Integration ID
+         * @param {Object} params.config - Updated config object
+         * @returns {Promise<Object>} Updated integration
+         */
+        async updateIntegrationConfig({ integrationId, config }) {
+            try {
+                const integration = await integrationRepository.updateIntegrationConfig(
+                    integrationId,
+                    config
+                );
+                return integration;
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
     };
 }
 

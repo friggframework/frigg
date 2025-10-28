@@ -72,6 +72,22 @@ class User {
     getOrganizationUser() {
         return this.organizationUser;
     }
+
+    /**
+     * Gets the appUserId from the individual user if present.
+     * @returns {string|null} The app user ID or null
+     */
+    getAppUserId() {
+        return this.individualUser?.appUserId || null;
+    }
+
+    /**
+     * Gets the appOrgId from the organization user if present.
+     * @returns {string|null} The app organization ID or null
+     */
+    getAppOrgId() {
+        return this.organizationUser?.appOrgId || null;
+    }
 }
 
 module.exports = { User }; 

@@ -4,13 +4,22 @@
  */
 
 /**
- * Determines database type from app definition
- * Reads backend/index.js Definition.database configuration
+ * Determines database type from environment or app definition
+ * 
+ * Detection order:
+ * 1. DB_TYPE environment variable (set for migration handlers)
+ * 2. App definition (backend/index.js Definition.database configuration)
  *
  * @returns {'mongodb'|'postgresql'} Database type
  * @throws {Error} If database type cannot be determined or app definition missing
  */
 function getDatabaseType() {
+    // First, check DB_TYPE environment variable (migration handlers set this)
+    if (process.env.DB_TYPE) {
+        return process.env.DB_TYPE;
+    }
+
+    // Fallback: Load app definition
     try {
         const path = require('node:path');
         const fs = require('node:fs');

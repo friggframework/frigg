@@ -1,19 +1,31 @@
 class CheckIntegrationsHealthUseCase {
-    constructor({ moduleFactory, integrationFactory }) {
+    constructor({ moduleFactory, integrationClasses }) {
         this.moduleFactory = moduleFactory;
-        this.integrationFactory = integrationFactory;
+        this.integrationClasses = integrationClasses;
     }
 
     execute() {
-        const moduleTypes = Array.isArray(this.moduleFactory.moduleTypes)
-            ? this.moduleFactory.moduleTypes
+        const moduleDefinitions = (this.moduleFactory && this.moduleFactory.moduleDefinitions)
+            ? this.moduleFactory.moduleDefinitions
             : [];
 
-        const integrationTypes = Array.isArray(
-            this.integrationFactory.integrationTypes
-        )
-            ? this.integrationFactory.integrationTypes
+        const integrationClasses = Array.isArray(this.integrationClasses)
+            ? this.integrationClasses
             : [];
+
+        // Extract module names from definitions
+        const moduleTypes = Array.isArray(moduleDefinitions)
+            ? moduleDefinitions.map(def => def.moduleName || def.name || def.label || 'Unknown')
+            : [];
+
+        // Extract integration names from classes
+        const integrationNames = integrationClasses.map(IntegrationClass => {
+            try {
+                return IntegrationClass.Definition?.name || IntegrationClass.name || 'Unknown';
+            } catch {
+                return 'Unknown';
+            }
+        });
 
         return {
             status: 'healthy',
@@ -22,8 +34,8 @@ class CheckIntegrationsHealthUseCase {
                 available: moduleTypes,
             },
             integrations: {
-                count: integrationTypes.length,
-                available: integrationTypes,
+                count: integrationNames.length,
+                available: integrationNames,
             },
         };
     }

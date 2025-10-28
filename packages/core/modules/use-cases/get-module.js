@@ -22,7 +22,7 @@ class GetModule {
             );
         }
 
-        const entityType = entity.type;
+        const entityType = entity.moduleName;
         const moduleDefinition = this.moduleDefinitions.find((def) => {
             const modelName = Module.getEntityModelFromDefinition(def).modelName;
             return entityType === modelName;
@@ -44,7 +44,6 @@ class GetModule {
         return {
             id: module.entity.id,
             name: module.entity.name,
-            type: module.entity.moduleName,
             moduleName: module.entity.moduleName,
             credential: module.credential,
             externalId: module.entity.externalId,

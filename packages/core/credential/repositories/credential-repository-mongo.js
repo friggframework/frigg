@@ -44,7 +44,6 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
             userId: credential.userId,
             externalId: credential.externalId,
             authIsValid: credential.authIsValid,
-            subType: credential.subType,
             ...data, // Spread OAuth tokens from JSON field
         };
     }
@@ -100,6 +99,17 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
         if (!identifiers)
             throw new Error('identifiers required to upsert credential');
 
+        if (!identifiers.user && !identifiers.userId) {
+            throw new Error('user or userId required in identifiers');
+        }
+        if (!identifiers.externalId) {
+            throw new Error(
+                'externalId required in identifiers to prevent credential collision. ' +
+                'When multiple credentials exist for the same user, both userId and externalId ' +
+                'are needed to uniquely identify which credential to update.'
+            );
+        }
+
         // Build where clause from identifiers
         const where = this._convertIdentifiersToWhere(identifiers);
 
@@ -109,7 +119,7 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
             userId,
             externalId,
             authIsValid,
-            subType,
+            
             ...oauthData
         } = details;
 
@@ -132,7 +142,6 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
                         authIsValid !== undefined
                             ? authIsValid
                             : existing.authIsValid,
-                    subType: subType !== undefined ? subType : existing.subType,
                     data: mergedData,
                 },
             });
@@ -152,7 +161,7 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
                 userId: userId || user,
                 externalId,
                 authIsValid: authIsValid,
-                subType,
+                
                 data: oauthData,
             },
         });
@@ -225,7 +234,7 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
             userId,
             externalId,
             authIsValid,
-            subType,
+            
             ...oauthData
         } = updates;
 
@@ -240,7 +249,6 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
                     externalId !== undefined ? externalId : existing.externalId,
                 authIsValid:
                     authIsValid !== undefined ? authIsValid : existing.authIsValid,
-                subType: subType !== undefined ? subType : existing.subType,
                 data: mergedData,
             },
         });
@@ -273,7 +281,6 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
         if (identifiers.user) where.userId = identifiers.user;
         if (identifiers.userId) where.userId = identifiers.userId;
         if (identifiers.externalId) where.externalId = identifiers.externalId;
-        if (identifiers.subType) where.subType = identifiers.subType;
 
         return where;
     }
@@ -292,7 +299,6 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
         if (filter.user) where.userId = filter.user;
         if (filter.userId) where.userId = filter.userId;
         if (filter.externalId) where.externalId = filter.externalId;
-        if (filter.subType) where.subType = filter.subType;
 
         return where;
     }

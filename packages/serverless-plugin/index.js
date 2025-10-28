@@ -28,6 +28,18 @@ class FriggServerlessPlugin {
   async asyncInit() {
     this.serverless.cli.log("Initializing Frigg Serverless Plugin...");
     console.log("Hello from Frigg Serverless Plugin!");
+    
+    // CRITICAL: Create .esbuild/.serverless directory before serverless-esbuild needs it
+    // This prevents ENOENT errors during packaging
+    const fs = require('fs');
+    const path = require('path');
+    const esbuildDir = path.join(this.serverless.config.servicePath || process.cwd(), '.esbuild', '.serverless');
+
+    if (!fs.existsSync(esbuildDir)) {
+      fs.mkdirSync(esbuildDir, { recursive: true });
+      console.log(`✓ Created ${esbuildDir} directory for serverless-esbuild`);
+    }
+    
     if (this.serverless.processedInput.commands.includes("offline")) {
       console.log("Running in offline mode. Making queues!");
       const queues = Object.keys(this.serverless.service.custom)
@@ -42,16 +54,24 @@ class FriggServerlessPlugin {
 
       const AWS = require("aws-sdk");
 
-      const endpointUrl = "localhost:4566"; // Assuming localstack is running on port 4
-      const region = "us-east-1";
+      const endpointUrl = process.env.AWS_ENDPOINT || "http://localhost:4566"; // LocalStack SQS endpoint
+      const region = process.env.AWS_REGION || "us-east-1";
+      const accessKeyId = process.env.AWS_ACCESS_KEY_ID || "root"; // LocalStack default
+      const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY || "root"; // LocalStack default
 
-      // Configure AWS SDK
+      // Configure AWS SDK for LocalStack
       AWS.config.update({
         region: region,
         endpoint: endpointUrl,
+        accessKeyId: accessKeyId,
+        secretAccessKey: secretAccessKey,
+        s3ForcePathStyle: true, // Required for LocalStack
+        sslEnabled: false, // Disable SSL for LocalStack
       });
 
-      const sqs = new AWS.SQS();
+      const sqs = new AWS.SQS({
+        sslEnabled: false, // Disable SSL validation for LocalStack
+      });
       // Find the environment variables that we need to override and create an easy map
       const environmentMap = {};
       const environment = this.serverless.service.provider.environment;
@@ -107,13 +127,35 @@ class FriggServerlessPlugin {
     // AWS discovery is now handled directly in serverless-template.js
     // This hook remains for potential future use or other pre-package tasks
     this.serverless.cli.log("Frigg Serverless Plugin: Pre-package hook");
+
+    // Ensure .esbuild/.serverless directory exists to prevent ENOENT errors
+    // serverless-esbuild may try to access this directory during packaging
+    const fs = require('fs');
+    const path = require('path');
+    const esbuildDir = path.join(this.serverless.config.servicePath || process.cwd(), '.esbuild', '.serverless');
+
+    if (!fs.existsSync(esbuildDir)) {
+      fs.mkdirSync(esbuildDir, { recursive: true });
+    }
   }
 
 
   /**
-   * Initialization hook (currently empty)
+   * Initialization hook - runs very early, before packaging
+   * Create .esbuild/.serverless directory to prevent ENOENT errors
    */
-  init() { }
+  init() {
+    // Ensure .esbuild/.serverless directory exists to prevent ENOENT errors
+    // serverless-esbuild may try to access this directory during packaging
+    const fs = require('fs');
+    const path = require('path');
+    const esbuildDir = path.join(this.serverless.config.servicePath || process.cwd(), '.esbuild', '.serverless');
+
+    if (!fs.existsSync(esbuildDir)) {
+      fs.mkdirSync(esbuildDir, { recursive: true });
+      console.log(`Created ${esbuildDir} directory for serverless-esbuild`);
+    }
+  }
   /**
    * Hook that runs after serverless package
    */
