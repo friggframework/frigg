@@ -26,12 +26,16 @@ describe('LogicalIdMapper', () => {
       // Arrange
       const orphanedResources = [
         {
-          physicalId: 'vpc-0eadd96976d29ede7',
+          physicalId: 'vpc-12345678',
           resourceType: 'AWS::EC2::VPC',
-          tags: [
-            { Key: 'aws:cloudformation:stack-name', Value: 'acme-integrations-dev' },
-            { Key: 'aws:cloudformation:logical-id', Value: 'FriggVPC' },
-          ],
+          properties: {
+            VpcId: 'vpc-12345678',
+            CidrBlock: '10.0.0.0/16',
+            tags: {
+              'aws:cloudformation:stack-name': 'acme-integrations-dev',
+              'aws:cloudformation:logical-id': 'FriggVPC',
+            },
+          },
         },
       ];
 
@@ -49,7 +53,7 @@ describe('LogicalIdMapper', () => {
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({
         logicalId: 'FriggVPC',
-        physicalId: 'vpc-0eadd96976d29ede7',
+        physicalId: 'vpc-12345678',
         resourceType: 'AWS::EC2::VPC',
         matchMethod: 'tag',
         confidence: 'high',
@@ -60,9 +64,13 @@ describe('LogicalIdMapper', () => {
       // Arrange
       const orphanedResources = [
         {
-          physicalId: 'vpc-0eadd96976d29ede7',
+          physicalId: 'vpc-12345678',
           resourceType: 'AWS::EC2::VPC',
-          tags: [],
+          properties: {
+            VpcId: 'vpc-12345678',
+            CidrBlock: '10.0.0.0/16',
+            tags: {},
+          },
         },
       ];
 
@@ -89,7 +97,7 @@ describe('LogicalIdMapper', () => {
             Type: 'AWS::Lambda::Function',
             Properties: {
               VpcConfig: {
-                SubnetIds: ['subnet-00ab9e0502e66aac3', 'subnet-00d085a52937aaf91'],
+                SubnetIds: ['subnet-11111111', 'subnet-22222222'],
               },
             },
           },
@@ -99,8 +107,8 @@ describe('LogicalIdMapper', () => {
       // Mock EC2 describe-subnets response
       mockEc2Client.send.mockResolvedValueOnce({
         Subnets: [
-          { SubnetId: 'subnet-00ab9e0502e66aac3', VpcId: 'vpc-0eadd96976d29ede7' },
-          { SubnetId: 'subnet-00d085a52937aaf91', VpcId: 'vpc-0eadd96976d29ede7' },
+          { SubnetId: 'subnet-11111111', VpcId: 'vpc-12345678' },
+          { SubnetId: 'subnet-22222222', VpcId: 'vpc-12345678' },
         ],
       });
 
@@ -115,7 +123,7 @@ describe('LogicalIdMapper', () => {
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({
         logicalId: 'FriggVPC',
-        physicalId: 'vpc-0eadd96976d29ede7',
+        physicalId: 'vpc-12345678',
         resourceType: 'AWS::EC2::VPC',
         matchMethod: 'contained-resources',
         confidence: 'high',
@@ -126,9 +134,13 @@ describe('LogicalIdMapper', () => {
       // Arrange
       const orphanedResources = [
         {
-          physicalId: 'subnet-00ab9e0502e66aac3',
+          physicalId: 'subnet-11111111',
           resourceType: 'AWS::EC2::Subnet',
-          tags: [],
+          properties: {
+            SubnetId: 'subnet-11111111',
+            VpcId: 'vpc-12345678',
+            tags: {},
+          },
         },
       ];
 
@@ -152,7 +164,7 @@ describe('LogicalIdMapper', () => {
             Type: 'AWS::Lambda::Function',
             Properties: {
               VpcConfig: {
-                SubnetIds: ['subnet-00ab9e0502e66aac3'],
+                SubnetIds: ['subnet-11111111'],
               },
             },
           },
@@ -170,7 +182,7 @@ describe('LogicalIdMapper', () => {
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({
         logicalId: 'FriggPrivateSubnet1',
-        physicalId: 'subnet-00ab9e0502e66aac3',
+        physicalId: 'subnet-11111111',
         resourceType: 'AWS::EC2::Subnet',
         matchMethod: 'vpc-usage',
         confidence: 'high',
@@ -183,7 +195,10 @@ describe('LogicalIdMapper', () => {
         {
           physicalId: 'sg-07c01370e830b6ad6',
           resourceType: 'AWS::EC2::SecurityGroup',
-          tags: [],
+          properties: {
+            GroupId: 'sg-07c01370e830b6ad6',
+            tags: {},
+          },
         },
       ];
 
@@ -238,7 +253,10 @@ describe('LogicalIdMapper', () => {
         {
           physicalId: 'vpc-unknown',
           resourceType: 'AWS::EC2::VPC',
-          tags: [],
+          properties: {
+            VpcId: 'vpc-unknown',
+            tags: {},
+          },
         },
       ];
 
@@ -267,14 +285,23 @@ describe('LogicalIdMapper', () => {
       // Arrange
       const orphanedResources = [
         {
-          physicalId: 'vpc-0eadd96976d29ede7',
+          physicalId: 'vpc-12345678',
           resourceType: 'AWS::EC2::VPC',
-          tags: [{ Key: 'aws:cloudformation:logical-id', Value: 'FriggVPC' }],
+          properties: {
+            VpcId: 'vpc-12345678',
+            tags: {
+              'aws:cloudformation:logical-id': 'FriggVPC',
+            },
+          },
         },
         {
-          physicalId: 'subnet-00ab9e0502e66aac3',
+          physicalId: 'subnet-11111111',
           resourceType: 'AWS::EC2::Subnet',
-          tags: [],
+          properties: {
+            SubnetId: 'subnet-11111111',
+            VpcId: 'vpc-12345678',
+            tags: {},
+          },
         },
       ];
 
@@ -298,7 +325,7 @@ describe('LogicalIdMapper', () => {
             Type: 'AWS::Lambda::Function',
             Properties: {
               VpcConfig: {
-                SubnetIds: ['subnet-00ab9e0502e66aac3'],
+                SubnetIds: ['subnet-11111111'],
               },
             },
           },
@@ -374,7 +401,7 @@ describe('LogicalIdMapper', () => {
     it('should match VPC that contains all expected subnets', async () => {
       // Arrange
       const vpc = {
-        physicalId: 'vpc-0eadd96976d29ede7',
+        physicalId: 'vpc-12345678',
         resourceType: 'AWS::EC2::VPC',
       };
 
@@ -400,9 +427,9 @@ describe('LogicalIdMapper', () => {
       // Mock EC2 describe-subnets response
       mockEc2Client.send.mockResolvedValueOnce({
         Subnets: [
-          { SubnetId: 'subnet-111', VpcId: 'vpc-0eadd96976d29ede7' },
-          { SubnetId: 'subnet-222', VpcId: 'vpc-0eadd96976d29ede7' },
-          { SubnetId: 'subnet-333', VpcId: 'vpc-0eadd96976d29ede7' },
+          { SubnetId: 'subnet-111', VpcId: 'vpc-12345678' },
+          { SubnetId: 'subnet-222', VpcId: 'vpc-12345678' },
+          { SubnetId: 'subnet-333', VpcId: 'vpc-12345678' },
         ],
       });
 
@@ -465,7 +492,7 @@ describe('LogicalIdMapper', () => {
     it('should return null if no expected subnets in deployed template', async () => {
       // Arrange
       const vpc = {
-        physicalId: 'vpc-0eadd96976d29ede7',
+        physicalId: 'vpc-12345678',
         resourceType: 'AWS::EC2::VPC',
       };
 

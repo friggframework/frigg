@@ -19,6 +19,7 @@ const StackHealthReport = require('../../domain/entities/stack-health-report');
 const Resource = require('../../domain/entities/resource');
 const Issue = require('../../domain/entities/issue');
 const ResourceState = require('../../domain/value-objects/resource-state');
+const { getPropertyMutability } = require('../../domain/services/property-mutability-config');
 
 class RunHealthCheckUseCase {
     /**
@@ -112,10 +113,21 @@ class RunHealthCheckUseCase {
                     resourceDrift.propertyDifferences &&
                     resourceDrift.propertyDifferences.length > 0
                 ) {
+                    // Build property mutability map for this resource type
+                    // AWS drift detection returns property paths, we need to provide mutability for each
+                    const propertyMutabilityMap = {};
+                    for (const propDiff of resourceDrift.propertyDifferences) {
+                        const propertyPath = propDiff.PropertyPath.replace(/^\//, ''); // Remove leading slash
+                        propertyMutabilityMap[propertyPath] = getPropertyMutability(
+                            stackResource.resourceType,
+                            propertyPath
+                        );
+                    }
+
                     const propertyMismatches = this.mismatchAnalyzer.analyze({
                         expected: resourceDrift.expectedProperties,
                         actual: resourceDrift.actualProperties,
-                        propertyMutability: {},
+                        propertyMutability: propertyMutabilityMap,
                         ignoreProperties: [],
                     });
 
@@ -156,11 +168,17 @@ class RunHealthCheckUseCase {
 
         for (const orphan of orphanedResources) {
             // Create resource entity for orphan
+            // IMPORTANT: Include both properties AND tags for template comparison
+            // Tags are stored in properties.tags for logical ID mapping
             const orphanResource = new Resource({
                 logicalId: null, // No logical ID (not in template)
                 physicalId: orphan.physicalId,
                 resourceType: orphan.resourceType,
                 state: ResourceState.ORPHANED,
+                properties: {
+                    ...(orphan.properties || {}), // Include AWS properties
+                    tags: orphan.tags || {}, // Include tags for logical ID matching
+                },
             });
 
             resources.push(orphanResource);

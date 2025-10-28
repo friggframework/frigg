@@ -414,4 +414,115 @@ describe('Issue', () => {
             expect(issue.canAutoFix).toBe(false); // Can't auto-fix immutable
         });
     });
+
+    describe('_formatValue', () => {
+        it('should format primitive values', () => {
+            expect(Issue._formatValue('test')).toBe('test');
+            expect(Issue._formatValue(123)).toBe('123');
+            expect(Issue._formatValue(true)).toBe('true');
+            expect(Issue._formatValue(null)).toBe('null');
+            expect(Issue._formatValue(undefined)).toBe('undefined');
+        });
+
+        it('should format simple arrays', () => {
+            expect(Issue._formatValue(['a', 'b', 'c'])).toBe('["a","b","c"]');
+            expect(Issue._formatValue([1, 2, 3])).toBe('[1,2,3]');
+        });
+
+        it('should format arrays of objects (like Tags)', () => {
+            const tags = [
+                { Key: 'Name', Value: 'test' },
+                { Key: 'Environment', Value: 'prod' },
+            ];
+            const result = Issue._formatValue(tags);
+            expect(result).toContain('Key');
+            expect(result).toContain('Name');
+            expect(result).toContain('test');
+        });
+
+        it('should truncate long arrays of objects', () => {
+            const manyTags = [
+                { Key: 'Tag1', Value: 'val1' },
+                { Key: 'Tag2', Value: 'val2' },
+                { Key: 'Tag3', Value: 'val3' },
+                { Key: 'Tag4', Value: 'val4' },
+            ];
+            const result = Issue._formatValue(manyTags);
+            expect(result).toContain('4 total');
+            expect(result).toContain('...');
+        });
+
+        it('should format small objects', () => {
+            const obj = { a: 1, b: 2 };
+            expect(Issue._formatValue(obj)).toBe('{"a":1,"b":2}');
+        });
+
+        it('should truncate large objects', () => {
+            const largeObj = { a: 1, b: 2, c: 3, d: 4, e: 5 };
+            const result = Issue._formatValue(largeObj);
+            expect(result).toContain('5 keys total');
+            expect(result).toContain('...');
+        });
+
+        it('should format empty collections', () => {
+            expect(Issue._formatValue([])).toBe('[]');
+            expect(Issue._formatValue({})).toBe('{}');
+        });
+    });
+
+    describe('propertyMismatch with formatted values', () => {
+        it('should format Tags arrays correctly in description', () => {
+            const mismatch = new PropertyMismatch({
+                propertyPath: 'Properties.Tags',
+                expectedValue: [
+                    { Key: 'Name', Value: 'test' },
+                    { Key: 'Environment', Value: 'prod' },
+                ],
+                actualValue: [
+                    { Key: 'Name', Value: 'test' },
+                    { Key: 'Environment', Value: 'prod' },
+                    { Key: 'ManagedBy', Value: 'Frigg' },
+                ],
+                mutability: PropertyMutability.MUTABLE,
+            });
+
+            const issue = Issue.propertyMismatch({
+                resourceType: 'AWS::EC2::Subnet',
+                resourceId: 'subnet-123',
+                mismatch,
+            });
+
+            // Should not contain [object Object]
+            expect(issue.description).not.toContain('[object Object]');
+            // Should contain JSON representation
+            expect(issue.description).toContain('Key');
+            expect(issue.description).toContain('Name');
+        });
+
+        it('should handle complex nested objects', () => {
+            const mismatch = new PropertyMismatch({
+                propertyPath: 'Properties.VpcConfig',
+                expectedValue: {
+                    SubnetIds: ['subnet-1', 'subnet-2'],
+                    SecurityGroupIds: ['sg-1'],
+                },
+                actualValue: {
+                    SubnetIds: ['subnet-3', 'subnet-4'],
+                    SecurityGroupIds: ['sg-2'],
+                },
+                mutability: PropertyMutability.MUTABLE,
+            });
+
+            const issue = Issue.propertyMismatch({
+                resourceType: 'AWS::Lambda::Function',
+                resourceId: 'my-function',
+                mismatch,
+            });
+
+            // Should not contain [object Object]
+            expect(issue.description).not.toContain('[object Object]');
+            // Should contain structured representation
+            expect(issue.description).toContain('SubnetIds');
+        });
+    });
 });

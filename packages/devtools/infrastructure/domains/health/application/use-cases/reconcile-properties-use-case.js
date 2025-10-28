@@ -67,6 +67,8 @@ class ReconcilePropertiesUseCase {
      * @param {Object} params
      * @param {StackIdentifier} params.stackIdentifier - Stack identifier
      * @param {string} params.logicalId - Logical resource ID
+     * @param {string} [params.physicalId] - Physical resource ID (required for resource mode)
+     * @param {string} [params.resourceType] - Resource type (required for resource mode)
      * @param {PropertyMismatch[]} params.mismatches - Property mismatches to reconcile
      * @param {string} [params.mode='template'] - Reconciliation mode
      * @returns {Promise<Object>} Batch reconciliation result
@@ -74,6 +76,8 @@ class ReconcilePropertiesUseCase {
     async reconcileMultipleProperties({
         stackIdentifier,
         logicalId,
+        physicalId,
+        resourceType,
         mismatches,
         mode = 'template',
     }) {
@@ -107,6 +111,8 @@ class ReconcilePropertiesUseCase {
         const batchResult = await this.propertyReconciler.reconcileMultipleProperties({
             stackIdentifier,
             logicalId,
+            physicalId,
+            resourceType,
             mismatches: reconcilableProperties,
             mode,
         });

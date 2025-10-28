@@ -19,6 +19,7 @@ const StackIdentifier = require('@friggframework/devtools/infrastructure/domains
 const RunHealthCheckUseCase = require('@friggframework/devtools/infrastructure/domains/health/application/use-cases/run-health-check-use-case');
 const RepairViaImportUseCase = require('@friggframework/devtools/infrastructure/domains/health/application/use-cases/repair-via-import-use-case');
 const ReconcilePropertiesUseCase = require('@friggframework/devtools/infrastructure/domains/health/application/use-cases/reconcile-properties-use-case');
+const ExecuteResourceImportUseCase = require('@friggframework/devtools/infrastructure/domains/health/application/use-cases/execute-resource-import-use-case');
 
 // Infrastructure Layer - AWS Adapters
 const AWSStackRepository = require('@friggframework/devtools/infrastructure/domains/health/infrastructure/adapters/aws-stack-repository');
@@ -30,6 +31,8 @@ const AWSPropertyReconciler = require('@friggframework/devtools/infrastructure/d
 const MismatchAnalyzer = require('@friggframework/devtools/infrastructure/domains/health/domain/services/mismatch-analyzer');
 const HealthScoreCalculator = require('@friggframework/devtools/infrastructure/domains/health/domain/services/health-score-calculator');
 const { TemplateParser } = require('@friggframework/devtools/infrastructure/domains/health/domain/services/template-parser');
+const { ImportTemplateGenerator } = require('@friggframework/devtools/infrastructure/domains/health/domain/services/import-template-generator');
+const { ImportProgressMonitor } = require('@friggframework/devtools/infrastructure/domains/health/domain/services/import-progress-monitor');
 
 /**
  * Create readline interface for user prompts
@@ -200,20 +203,89 @@ async function handleImportRepair(stackIdentifier, report, options) {
         }
     }
 
-    // TODO: Execute actual CloudFormation import operation
-    // For now, return the mappings as success
-    console.log(`\n🔧 Import operation prepared. Next steps:`);
-    console.log(`   1. Review import-resources.json format:`);
-    console.log(JSON.stringify(mappingResult.resourcesToImport, null, 2));
-    console.log(`\n   2. Execute CloudFormation import change set`);
-    console.log(`   3. Monitor import operation status`);
+    // Execute actual CloudFormation import operation
+    console.log(`\n🔧 Preparing CloudFormation import operation...`);
 
-    return {
-        imported: mappingResult.mappedCount,
-        failed: 0,
-        success: true,
-        mappings: mappingResult.resourcesToImport,
-    };
+    // Wire up ExecuteResourceImportUseCase
+    const templateParser = new TemplateParser();
+    const importTemplateGenerator = new ImportTemplateGenerator({
+        stackRepository,
+        templateParser,
+        resourceDetector,
+    });
+    const importProgressMonitor = new ImportProgressMonitor({
+        cloudFormationRepository: stackRepository,
+    });
+    const executeImportUseCase = new ExecuteResourceImportUseCase({
+        importTemplateGenerator,
+        importProgressMonitor,
+        cloudFormationRepository: stackRepository,
+        stackRepository,
+    });
+
+    // Convert mappings to resourcesToImport format
+    const resourcesToImport = mappingResult.mappings.map((mapping) => ({
+        logicalId: mapping.logicalId,
+        physicalId: mapping.physicalId,
+        resourceType: mapping.resourceType,
+    }));
+
+    // Execute import with progress reporting
+    const importResult = await executeImportUseCase.execute({
+        stackIdentifier,
+        resourcesToImport,
+        buildTemplatePath,
+        onProgress: (progress) => {
+            if (progress.step === 'generate_template' && progress.status === 'in_progress') {
+                console.log('  • Generating import template...');
+            } else if (progress.step === 'generate_template' && progress.status === 'complete') {
+                console.log('  ✓ Template generated');
+            } else if (progress.step === 'create_change_set' && progress.status === 'in_progress') {
+                console.log('  • Creating CloudFormation change set...');
+            } else if (progress.step === 'create_change_set' && progress.status === 'complete') {
+                console.log(`  ✓ Change set created: ${progress.changeSetName}`);
+            } else if (progress.step === 'wait_change_set' && progress.status === 'in_progress') {
+                console.log('  • Waiting for change set...');
+            } else if (progress.step === 'wait_change_set' && progress.status === 'complete') {
+                console.log('  ✓ Change set ready');
+            } else if (progress.step === 'execute_import' && progress.status === 'in_progress') {
+                if (progress.resourceProgress) {
+                    const { logicalId, status, progress: resourceProgress, total } = progress.resourceProgress;
+                    console.log(`  • Importing resource ${resourceProgress}/${total}: ${logicalId} (${status})`);
+                } else {
+                    console.log('  • Executing import operation...');
+                }
+            } else if (progress.step === 'execute_import' && progress.status === 'complete') {
+                console.log('  ✓ Import operation complete');
+            } else if (progress.step === 'verify' && progress.status === 'in_progress') {
+                console.log('  • Verifying imported resources...');
+            } else if (progress.step === 'verify' && progress.status === 'complete') {
+                console.log('  ✓ Verification complete');
+            }
+        },
+    });
+
+    if (importResult.success) {
+        console.log(`\n✅ Successfully imported ${importResult.importedCount} resource(s) into CloudFormation!`);
+        console.log(`   Stack status: ${importResult.stackStatus}`);
+        console.log(`   Change set: ${importResult.changeSetName}`);
+
+        return {
+            imported: importResult.importedCount,
+            failed: 0,
+            success: true,
+        };
+    } else {
+        console.error(`\n❌ Import operation failed: ${importResult.error}`);
+        console.error(`   Failed at step: ${importResult.step}`);
+
+        return {
+            imported: 0,
+            failed: mappingResult.mappedCount,
+            success: false,
+            error: importResult.error,
+        };
+    }
 }
 
 /**
@@ -265,14 +337,20 @@ async function handleReconcileRepair(stackIdentifier, report, options) {
         }
     }
 
-    // Wire up use case
-    const propertyReconciler = new AWSPropertyReconciler({ region: stackIdentifier.region });
+    // Wire up use case with CloudFormation repository for monitoring
+    const stackRepository = new AWSStackRepository({ region: stackIdentifier.region });
+    const propertyReconciler = new AWSPropertyReconciler({
+        region: stackIdentifier.region,
+        cloudFormationRepository: stackRepository
+    });
     const reconcileUseCase = new ReconcilePropertiesUseCase({ propertyReconciler });
 
     // Execute reconciliation for each drifted resource
     console.log('\n🔧 Reconciling property drift...');
     let reconciledCount = 0;
     let failedCount = 0;
+    let skippedImmutableCount = 0;
+    const immutableProperties = [];
 
     for (const resource of driftedResources) {
         // Get property mismatches for this resource
@@ -288,26 +366,79 @@ async function handleReconcileRepair(stackIdentifier, report, options) {
             const result = await reconcileUseCase.reconcileMultipleProperties({
                 stackIdentifier,
                 logicalId: resource.logicalId,
+                physicalId: resource.physicalId,
+                resourceType: resource.resourceType,
                 mismatches,
                 mode,
             });
 
             reconciledCount += result.reconciledCount;
             failedCount += result.failedCount;
+            skippedImmutableCount += result.skippedCount || 0;
+
+            // Track immutable properties for reporting
+            if (result.skippedCount > 0) {
+                const skippedMismatches = mismatches.filter(m => m.requiresReplacement());
+                skippedMismatches.forEach(m => {
+                    immutableProperties.push({
+                        logicalId: resource.logicalId,
+                        resourceType: resource.resourceType,
+                        physicalId: resource.physicalId,
+                        propertyPath: m.propertyPath,
+                        expectedValue: m.expectedValue,
+                        actualValue: m.actualValue,
+                    });
+                });
+            }
 
             console.log(`  ✓ ${resource.logicalId}: Reconciled ${result.reconciledCount} property(ies)`);
             if (result.skippedCount > 0) {
-                console.log(`    (Skipped ${result.skippedCount} immutable property(ies))`);
+                console.log(`    ⚠ Skipped ${result.skippedCount} immutable property(ies) - requires manual intervention`);
+            }
+
+            // Debug: Log full result if reconciledCount is 0 but we expected properties
+            if (process.env.DEBUG_RECONCILE && result.reconciledCount === 0 && mismatches.length > 0) {
+                console.log(`    [DEBUG] Expected ${mismatches.length} mismatches, got result:`, JSON.stringify(result, null, 2));
             }
         } catch (error) {
-            failedCount++;
+            // Count failed properties, not just the resource
+            failedCount += mismatches.length;
             console.log(`  ✗ ${resource.logicalId}: ${error.message}`);
+
+            // Debug: Log full error
+            if (process.env.DEBUG_RECONCILE) {
+                console.log(`    [DEBUG] Error stack:`, error.stack);
+            }
         }
     }
 
     // Report results
-    if (failedCount === 0) {
-        console.log(`\n✓ Successfully reconciled ${reconciledCount} property mismatch(es)`);
+    console.log(''); // Blank line before summary
+
+    if (reconciledCount > 0) {
+        console.log(`✅ Reconciled ${reconciledCount} property(ies)`);
+    }
+
+    if (skippedImmutableCount > 0) {
+        console.log(`\n⚠ ${skippedImmutableCount} immutable property(ies) require manual intervention:`);
+        immutableProperties.forEach(prop => {
+            console.log(`  • ${prop.logicalId}.${prop.propertyPath}`);
+            console.log(`    Template: ${JSON.stringify(prop.expectedValue)}`);
+            console.log(`    Actual:   ${JSON.stringify(prop.actualValue)}`);
+        });
+
+        console.log(`\n💡 To resolve immutable property drift:`);
+        console.log(`   1. These properties require resource replacement (cannot be updated in place)`);
+        console.log(`   2. Options:`);
+        console.log(`      a) Accept the drift - update your local template to match actual values`);
+        console.log(`      b) Replace the resource - delete and recreate via CloudFormation`);
+        console.log(`      c) Use import workflow - remove from stack, then re-import with correct values`);
+        console.log(`\n   For automated import workflow (coming soon):`);
+        console.log(`      frigg repair --import-drift ${stackIdentifier.stackName}`);
+    }
+
+    if (failedCount === 0 && skippedImmutableCount === 0) {
+        console.log(`✓ Successfully reconciled all ${reconciledCount} property mismatch(es)`);
     } else {
         console.log(`\n⚠ Reconciled ${reconciledCount} property(ies), ${failedCount} failed`);
     }

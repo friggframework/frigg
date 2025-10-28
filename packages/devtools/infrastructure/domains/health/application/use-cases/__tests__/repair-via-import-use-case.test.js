@@ -120,19 +120,27 @@ describe('RepairViaImportUseCase - importWithLogicalIdMapping', () => {
 
       const orphanedResources = [
         {
-          physicalId: 'vpc-0eadd96976d29ede7',
+          physicalId: 'vpc-12345678',
           resourceType: 'AWS::EC2::VPC',
-          tags: [
-            { Key: 'aws:cloudformation:stack-name', Value: 'acme-integrations-dev' },
-            { Key: 'aws:cloudformation:logical-id', Value: 'FriggVPC' },
-          ],
+          properties: {
+            VpcId: 'vpc-12345678',
+            CidrBlock: '10.0.0.0/16',
+            tags: {
+              'aws:cloudformation:stack-name': 'acme-integrations-dev',
+              'aws:cloudformation:logical-id': 'FriggVPC',
+            },
+          },
         },
         {
-          physicalId: 'subnet-00ab9e0502e66aac3',
+          physicalId: 'subnet-11111111',
           resourceType: 'AWS::EC2::Subnet',
-          tags: [
-            { Key: 'aws:cloudformation:stack-name', Value: 'acme-integrations-dev' },
-          ],
+          properties: {
+            SubnetId: 'subnet-11111111',
+            VpcId: 'vpc-12345678',
+            tags: {
+              'aws:cloudformation:stack-name': 'acme-integrations-dev',
+            },
+          },
         },
       ];
 
@@ -150,7 +158,7 @@ describe('RepairViaImportUseCase - importWithLogicalIdMapping', () => {
             Type: 'AWS::Lambda::Function',
             Properties: {
               VpcConfig: {
-                SubnetIds: ['subnet-00ab9e0502e66aac3'],
+                SubnetIds: ['subnet-11111111'],
               },
             },
           },
@@ -160,14 +168,14 @@ describe('RepairViaImportUseCase - importWithLogicalIdMapping', () => {
       const mappings = [
         {
           logicalId: 'FriggVPC',
-          physicalId: 'vpc-0eadd96976d29ede7',
+          physicalId: 'vpc-12345678',
           resourceType: 'AWS::EC2::VPC',
           matchMethod: 'tag',
           confidence: 'high',
         },
         {
           logicalId: 'FriggPrivateSubnet1',
-          physicalId: 'subnet-00ab9e0502e66aac3',
+          physicalId: 'subnet-11111111',
           resourceType: 'AWS::EC2::Subnet',
           matchMethod: 'vpc-usage',
           confidence: 'high',
@@ -219,9 +227,13 @@ describe('RepairViaImportUseCase - importWithLogicalIdMapping', () => {
 
       const orphanedResources = [
         {
-          physicalId: 'vpc-0eadd96976d29ede7',
+          physicalId: 'vpc-12345678',
           resourceType: 'AWS::EC2::VPC',
-          tags: [],
+          properties: {
+            VpcId: 'vpc-12345678',
+            CidrBlock: '10.0.0.0/16',
+            tags: {},
+          },
         },
       ];
 
@@ -231,7 +243,7 @@ describe('RepairViaImportUseCase - importWithLogicalIdMapping', () => {
       const mappings = [
         {
           logicalId: 'FriggVPC',
-          physicalId: 'vpc-0eadd96976d29ede7',
+          physicalId: 'vpc-12345678',
           resourceType: 'AWS::EC2::VPC',
           matchMethod: 'tag',
           confidence: 'high',
@@ -257,7 +269,7 @@ describe('RepairViaImportUseCase - importWithLogicalIdMapping', () => {
         {
           ResourceType: 'AWS::EC2::VPC',
           LogicalResourceId: 'FriggVPC',
-          ResourceIdentifier: { VpcId: 'vpc-0eadd96976d29ede7' },
+          ResourceIdentifier: { VpcId: 'vpc-12345678' },
         },
       ]);
     });
@@ -270,10 +282,41 @@ describe('RepairViaImportUseCase - importWithLogicalIdMapping', () => {
       };
 
       const orphanedResources = [
-        { physicalId: 'vpc-123', resourceType: 'AWS::EC2::VPC', tags: [] },
-        { physicalId: 'subnet-456', resourceType: 'AWS::EC2::Subnet', tags: [] },
-        { physicalId: 'sg-789', resourceType: 'AWS::EC2::SecurityGroup', tags: [] },
-        { physicalId: 'igw-abc', resourceType: 'AWS::EC2::InternetGateway', tags: [] },
+        {
+          physicalId: 'vpc-123',
+          resourceType: 'AWS::EC2::VPC',
+          properties: {
+            VpcId: 'vpc-123',
+            CidrBlock: '10.0.0.0/16',
+            tags: {},
+          },
+        },
+        {
+          physicalId: 'subnet-456',
+          resourceType: 'AWS::EC2::Subnet',
+          properties: {
+            SubnetId: 'subnet-456',
+            VpcId: 'vpc-123',
+            tags: {},
+          },
+        },
+        {
+          physicalId: 'sg-789',
+          resourceType: 'AWS::EC2::SecurityGroup',
+          properties: {
+            GroupId: 'sg-789',
+            VpcId: 'vpc-123',
+            tags: {},
+          },
+        },
+        {
+          physicalId: 'igw-abc',
+          resourceType: 'AWS::EC2::InternetGateway',
+          properties: {
+            InternetGatewayId: 'igw-abc',
+            tags: {},
+          },
+        },
       ];
 
       const buildTemplate = { resources: {} };
@@ -357,9 +400,33 @@ describe('RepairViaImportUseCase - importWithLogicalIdMapping', () => {
       };
 
       const orphanedResources = [
-        { physicalId: 'vpc-123', resourceType: 'AWS::EC2::VPC', tags: [] },
-        { physicalId: 'vpc-456', resourceType: 'AWS::EC2::VPC', tags: [] }, // No match
-        { physicalId: 'subnet-789', resourceType: 'AWS::EC2::Subnet', tags: [] },
+        {
+          physicalId: 'vpc-123',
+          resourceType: 'AWS::EC2::VPC',
+          properties: {
+            VpcId: 'vpc-123',
+            CidrBlock: '10.0.0.0/16',
+            tags: {},
+          },
+        },
+        {
+          physicalId: 'vpc-456',
+          resourceType: 'AWS::EC2::VPC',
+          properties: {
+            VpcId: 'vpc-456',
+            CidrBlock: '10.0.0.0/16',
+            tags: {},
+          },
+        }, // No match
+        {
+          physicalId: 'subnet-789',
+          resourceType: 'AWS::EC2::Subnet',
+          properties: {
+            SubnetId: 'subnet-789',
+            VpcId: 'vpc-123',
+            tags: {},
+          },
+        },
       ];
 
       const buildTemplate = { resources: {} };
@@ -420,8 +487,24 @@ describe('RepairViaImportUseCase - importWithLogicalIdMapping', () => {
       };
 
       const orphanedResources = [
-        { physicalId: 'vpc-123', resourceType: 'AWS::EC2::VPC', tags: [] },
-        { physicalId: 'vpc-456', resourceType: 'AWS::EC2::VPC', tags: [] },
+        {
+          physicalId: 'vpc-123',
+          resourceType: 'AWS::EC2::VPC',
+          properties: {
+            VpcId: 'vpc-123',
+            CidrBlock: '10.0.0.0/16',
+            tags: {},
+          },
+        },
+        {
+          physicalId: 'vpc-456',
+          resourceType: 'AWS::EC2::VPC',
+          properties: {
+            VpcId: 'vpc-456',
+            CidrBlock: '10.0.0.0/16',
+            tags: {},
+          },
+        },
       ];
 
       const buildTemplate = { resources: {} };
@@ -473,9 +556,33 @@ describe('RepairViaImportUseCase - importWithLogicalIdMapping', () => {
       };
 
       const orphanedResources = [
-        { physicalId: 'vpc-123', resourceType: 'AWS::EC2::VPC', tags: [] },
-        { physicalId: 'vpc-456', resourceType: 'AWS::EC2::VPC', tags: [] },
-        { physicalId: 'vpc-789', resourceType: 'AWS::EC2::VPC', tags: [] },
+        {
+          physicalId: 'vpc-123',
+          resourceType: 'AWS::EC2::VPC',
+          properties: {
+            VpcId: 'vpc-123',
+            CidrBlock: '10.0.0.0/16',
+            tags: {},
+          },
+        },
+        {
+          physicalId: 'vpc-456',
+          resourceType: 'AWS::EC2::VPC',
+          properties: {
+            VpcId: 'vpc-456',
+            CidrBlock: '10.0.0.0/16',
+            tags: {},
+          },
+        },
+        {
+          physicalId: 'vpc-789',
+          resourceType: 'AWS::EC2::VPC',
+          properties: {
+            VpcId: 'vpc-789',
+            CidrBlock: '10.0.0.0/16',
+            tags: {},
+          },
+        },
       ];
 
       const buildTemplate = { resources: {} };
@@ -538,7 +645,15 @@ describe('RepairViaImportUseCase - importWithLogicalIdMapping', () => {
       };
 
       const orphanedResources = [
-        { physicalId: 'vpc-123', resourceType: 'AWS::EC2::VPC', tags: [] },
+        {
+          physicalId: 'vpc-123',
+          resourceType: 'AWS::EC2::VPC',
+          properties: {
+            VpcId: 'vpc-123',
+            CidrBlock: '10.0.0.0/16',
+            tags: {},
+          },
+        },
       ];
 
       const buildTemplate = { resources: { FriggVPC: { Type: 'AWS::EC2::VPC' } } };
@@ -757,6 +872,259 @@ describe('RepairViaImportUseCase - importWithLogicalIdMapping', () => {
       expect(warnings[0].count).toBe(2);
       expect(warnings[1].resourceType).toBe('AWS::EC2::Subnet');
       expect(warnings[1].count).toBe(2);
+    });
+  });
+
+  describe('_deduplicateResourcesByLogicalId', () => {
+    it('should select ONE resource per logical ID when multiple map to same ID', () => {
+      // Arrange: 3 VPCs all tagged with "FriggVPC", but only vpc-123 is in deployed template
+      const mappedResources = [
+        {
+          logicalId: 'FriggVPC',
+          physicalId: 'vpc-123',
+          resourceType: 'AWS::EC2::VPC',
+          matchMethod: 'tag',
+          confidence: 'high',
+        },
+        {
+          logicalId: 'FriggVPC',
+          physicalId: 'vpc-456',
+          resourceType: 'AWS::EC2::VPC',
+          matchMethod: 'tag',
+          confidence: 'high',
+        },
+        {
+          logicalId: 'FriggVPC',
+          physicalId: 'vpc-789',
+          resourceType: 'AWS::EC2::VPC',
+          matchMethod: 'tag',
+          confidence: 'high',
+        },
+      ];
+
+      const deployedTemplate = {
+        resources: {
+          MyLambda: {
+            Type: 'AWS::Lambda::Function',
+            Properties: {
+              VpcConfig: {
+                SubnetIds: ['subnet-in-vpc-123'], // This subnet belongs to vpc-123
+                SecurityGroupIds: [],
+              },
+            },
+          },
+        },
+      };
+
+      // Act
+      const result = useCase._deduplicateResourcesByLogicalId(
+        mappedResources,
+        deployedTemplate
+      );
+
+      // Assert: Should select ONLY the VPC that's actually referenced
+      expect(result.selectedResources).toHaveLength(1);
+      expect(result.selectedResources[0].physicalId).toBe('vpc-123');
+      expect(result.selectedResources[0].logicalId).toBe('FriggVPC');
+
+      // The other 2 VPCs should be marked as duplicates
+      expect(result.duplicates).toHaveLength(2);
+      expect(result.duplicates.map((d) => d.physicalId)).toEqual(
+        expect.arrayContaining(['vpc-456', 'vpc-789'])
+      );
+    });
+
+    it('should keep all resources when they have unique logical IDs', () => {
+      // Arrange: Different logical IDs, no duplication
+      const mappedResources = [
+        {
+          logicalId: 'FriggVPC',
+          physicalId: 'vpc-123',
+          resourceType: 'AWS::EC2::VPC',
+        },
+        {
+          logicalId: 'FriggPrivateSubnet1',
+          physicalId: 'subnet-456',
+          resourceType: 'AWS::EC2::Subnet',
+        },
+        {
+          logicalId: 'FriggLambdaSecurityGroup',
+          physicalId: 'sg-789',
+          resourceType: 'AWS::EC2::SecurityGroup',
+        },
+      ];
+
+      const deployedTemplate = { resources: {} };
+
+      // Act
+      const result = useCase._deduplicateResourcesByLogicalId(
+        mappedResources,
+        deployedTemplate
+      );
+
+      // Assert: All 3 resources should be selected
+      expect(result.selectedResources).toHaveLength(3);
+      expect(result.duplicates).toHaveLength(0);
+    });
+
+    it('should use deployed template references to select correct resource', () => {
+      // Arrange: 5 subnets with same logical ID, need to pick the ones in deployed template
+      const mappedResources = [
+        {
+          logicalId: 'FriggPrivateSubnet1',
+          physicalId: 'subnet-111',
+          resourceType: 'AWS::EC2::Subnet',
+        },
+        {
+          logicalId: 'FriggPrivateSubnet1',
+          physicalId: 'subnet-222', // THIS ONE is in deployed template
+          resourceType: 'AWS::EC2::Subnet',
+        },
+        {
+          logicalId: 'FriggPrivateSubnet1',
+          physicalId: 'subnet-333',
+          resourceType: 'AWS::EC2::Subnet',
+        },
+        {
+          logicalId: 'FriggPrivateSubnet1',
+          physicalId: 'subnet-444',
+          resourceType: 'AWS::EC2::Subnet',
+        },
+        {
+          logicalId: 'FriggPrivateSubnet1',
+          physicalId: 'subnet-555',
+          resourceType: 'AWS::EC2::Subnet',
+        },
+      ];
+
+      const deployedTemplate = {
+        resources: {
+          MyLambda: {
+            Type: 'AWS::Lambda::Function',
+            Properties: {
+              VpcConfig: {
+                SubnetIds: ['subnet-222', 'subnet-other'], // subnet-222 is THE correct one
+                SecurityGroupIds: [],
+              },
+            },
+          },
+        },
+      };
+
+      // Act
+      const result = useCase._deduplicateResourcesByLogicalId(
+        mappedResources,
+        deployedTemplate
+      );
+
+      // Assert: Should select subnet-222 because it's in deployed template
+      expect(result.selectedResources).toHaveLength(1);
+      expect(result.selectedResources[0].physicalId).toBe('subnet-222');
+
+      // Other 4 subnets should be duplicates
+      expect(result.duplicates).toHaveLength(4);
+    });
+
+    it('should handle multiple logical IDs with duplicates', () => {
+      // Arrange: 3 VPCs + 2 SecurityGroups, all duplicates
+      // Note: VPC selection falls back to first when no direct reference exists
+      const mappedResources = [
+        {
+          logicalId: 'FriggVPC',
+          physicalId: 'vpc-111', // Will be selected (fallback to first)
+          resourceType: 'AWS::EC2::VPC',
+        },
+        {
+          logicalId: 'FriggVPC',
+          physicalId: 'vpc-222',
+          resourceType: 'AWS::EC2::VPC',
+        },
+        {
+          logicalId: 'FriggVPC',
+          physicalId: 'vpc-333',
+          resourceType: 'AWS::EC2::VPC',
+        },
+        {
+          logicalId: 'FriggLambdaSecurityGroup',
+          physicalId: 'sg-aaa', // Will be selected (in deployed template)
+          resourceType: 'AWS::EC2::SecurityGroup',
+        },
+        {
+          logicalId: 'FriggLambdaSecurityGroup',
+          physicalId: 'sg-bbb',
+          resourceType: 'AWS::EC2::SecurityGroup',
+        },
+      ];
+
+      const deployedTemplate = {
+        resources: {
+          MyLambda: {
+            Type: 'AWS::Lambda::Function',
+            Properties: {
+              VpcConfig: {
+                SubnetIds: ['subnet-xxx'], // Not matching any VPC
+                SecurityGroupIds: ['sg-aaa'], // sg-aaa is the correct one
+              },
+            },
+          },
+        },
+      };
+
+      // Act
+      const result = useCase._deduplicateResourcesByLogicalId(
+        mappedResources,
+        deployedTemplate
+      );
+
+      // Assert: Should select ONE of each logical ID
+      expect(result.selectedResources).toHaveLength(2);
+      expect(result.selectedResources.map((r) => r.physicalId)).toEqual(
+        expect.arrayContaining(['vpc-111', 'sg-aaa']) // VPC fallback + SG match
+      );
+
+      // 3 resources should be duplicates (2 VPCs + 1 SG)
+      expect(result.duplicates).toHaveLength(3);
+    });
+
+    it('should fall back to first resource if none match deployed template', () => {
+      // Arrange: Multiple resources but none are in deployed template
+      const mappedResources = [
+        {
+          logicalId: 'FriggVPC',
+          physicalId: 'vpc-111',
+          resourceType: 'AWS::EC2::VPC',
+        },
+        {
+          logicalId: 'FriggVPC',
+          physicalId: 'vpc-222',
+          resourceType: 'AWS::EC2::VPC',
+        },
+      ];
+
+      const deployedTemplate = {
+        resources: {
+          MyLambda: {
+            Type: 'AWS::Lambda::Function',
+            Properties: {
+              VpcConfig: {
+                SubnetIds: ['subnet-other'], // Different VPC
+                SecurityGroupIds: [],
+              },
+            },
+          },
+        },
+      };
+
+      // Act
+      const result = useCase._deduplicateResourcesByLogicalId(
+        mappedResources,
+        deployedTemplate
+      );
+
+      // Assert: Should pick first one as fallback
+      expect(result.selectedResources).toHaveLength(1);
+      expect(result.selectedResources[0].physicalId).toBe('vpc-111');
+      expect(result.duplicates).toHaveLength(1);
     });
   });
 });

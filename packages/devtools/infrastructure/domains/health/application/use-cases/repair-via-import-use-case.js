@@ -281,10 +281,7 @@ class RepairViaImportUseCase {
             deployedTemplate,
         });
 
-        // 5. Check for multiple resources of same type
-        const multiResourceWarnings = this._checkForMultipleResources(mappings);
-
-        // 6. Filter out unmapped resources and prepare for import
+        // 5. Filter out unmapped resources
         const mappedResources = mappings.filter((m) => m.logicalId !== null);
         const unmappedResources = mappings.filter((m) => m.logicalId === null);
 
@@ -297,25 +294,181 @@ class RepairViaImportUseCase {
             };
         }
 
-        // 7. Generate import-resources.json format
-        const resourcesToImport = mappedResources.map((mapping) => ({
+        // 6. Deduplicate: Select ONE resource per logical ID based on deployed template
+        const { selectedResources, duplicates } = this._deduplicateResourcesByLogicalId(
+            mappedResources,
+            deployedTemplate
+        );
+
+        // 7. Check for warnings
+        const multiResourceWarnings = this._checkForMultipleResources(duplicates);
+
+        // 8. Generate import-resources.json format using SELECTED resources
+        const resourcesToImport = selectedResources.map((mapping) => ({
             ResourceType: mapping.resourceType,
             LogicalResourceId: mapping.logicalId,
             ResourceIdentifier: this._getResourceIdentifier(mapping),
         }));
 
-        // 8. Return result with warnings for user review
+        // 9. Return result with deduplication info
         return {
             success: true,
-            mappedCount: mappedResources.length,
+            mappedCount: selectedResources.length,
             unmappedCount: unmappedResources.length,
-            mappings: mappedResources,
+            duplicatesRemoved: duplicates.length,
+            mappings: selectedResources,
             unmappedResources,
+            duplicates, // Resources that were filtered out
             resourcesToImport,
             warnings: multiResourceWarnings,
             buildTemplatePath,
             deployedTemplatePath: 'CloudFormation (deployed)',
         };
+    }
+
+    /**
+     * Deduplicate resources: Select ONE resource per logical ID
+     * When multiple resources have the same logical ID, pick the one that's
+     * actually referenced in the deployed template.
+     *
+     * @param {Array} mappedResources - Resources with logical IDs
+     * @param {Object} deployedTemplate - Deployed CloudFormation template
+     * @returns {Object} { selectedResources, duplicates }
+     * @private
+     */
+    _deduplicateResourcesByLogicalId(mappedResources, deployedTemplate) {
+        // Group resources by logical ID
+        const byLogicalId = {};
+        mappedResources.forEach((resource) => {
+            if (!byLogicalId[resource.logicalId]) {
+                byLogicalId[resource.logicalId] = [];
+            }
+            byLogicalId[resource.logicalId].push(resource);
+        });
+
+        // Extract all physical IDs referenced in deployed template
+        const referencedIds = this._extractReferencedIdsFromTemplate(deployedTemplate);
+
+        const selectedResources = [];
+        const duplicates = [];
+
+        // For each logical ID, select ONE resource
+        Object.entries(byLogicalId).forEach(([logicalId, resources]) => {
+            if (resources.length === 1) {
+                // Only one resource - select it
+                selectedResources.push(resources[0]);
+            } else {
+                // Multiple resources - pick the one in deployed template
+                let selected = null;
+
+                // Try to find resource that's actually referenced
+                for (const resource of resources) {
+                    if (this._isResourceReferenced(resource, referencedIds)) {
+                        selected = resource;
+                        break;
+                    }
+                }
+
+                // Fallback: If none are referenced, pick first one
+                if (!selected) {
+                    selected = resources[0];
+                }
+
+                selectedResources.push(selected);
+
+                // Mark others as duplicates
+                resources.forEach((r) => {
+                    if (r.physicalId !== selected.physicalId) {
+                        duplicates.push(r);
+                    }
+                });
+            }
+        });
+
+        return { selectedResources, duplicates };
+    }
+
+    /**
+     * Extract all physical resource IDs referenced in deployed template
+     * Looks for hardcoded IDs in Lambda VPC configs, security group rules, etc.
+     * @private
+     */
+    _extractReferencedIdsFromTemplate(template) {
+        const referenced = {
+            vpcIds: new Set(),
+            subnetIds: new Set(),
+            securityGroupIds: new Set(),
+        };
+
+        if (!template || !template.resources) {
+            return referenced;
+        }
+
+        // Traverse all resources in template
+        Object.values(template.resources).forEach((resource) => {
+            // Lambda VPC config contains hardcoded IDs
+            if (
+                resource.Type === 'AWS::Lambda::Function' &&
+                resource.Properties?.VpcConfig
+            ) {
+                const { SubnetIds, SecurityGroupIds } = resource.Properties.VpcConfig;
+
+                if (SubnetIds) {
+                    SubnetIds.forEach((id) => {
+                        if (typeof id === 'string' && id.startsWith('subnet-')) {
+                            referenced.subnetIds.add(id);
+                        }
+                    });
+                }
+
+                if (SecurityGroupIds) {
+                    SecurityGroupIds.forEach((id) => {
+                        if (typeof id === 'string' && id.startsWith('sg-')) {
+                            referenced.securityGroupIds.add(id);
+                        }
+                    });
+                }
+            }
+
+            // Security group rules may reference other security groups
+            if (resource.Type === 'AWS::EC2::SecurityGroupIngress' ||
+                resource.Type === 'AWS::EC2::SecurityGroupEgress') {
+                const groupId = resource.Properties?.GroupId;
+                const sourceSecurityGroupId = resource.Properties?.SourceSecurityGroupId;
+
+                if (typeof groupId === 'string' && groupId.startsWith('sg-')) {
+                    referenced.securityGroupIds.add(groupId);
+                }
+                if (typeof sourceSecurityGroupId === 'string' && sourceSecurityGroupId.startsWith('sg-')) {
+                    referenced.securityGroupIds.add(sourceSecurityGroupId);
+                }
+            }
+        });
+
+        return referenced;
+    }
+
+    /**
+     * Check if a resource is referenced in the deployed template
+     * @private
+     */
+    _isResourceReferenced(resource, referencedIds) {
+        const { resourceType, physicalId } = resource;
+
+        if (resourceType === 'AWS::EC2::VPC') {
+            return referencedIds.vpcIds.has(physicalId);
+        }
+
+        if (resourceType === 'AWS::EC2::Subnet') {
+            return referencedIds.subnetIds.has(physicalId);
+        }
+
+        if (resourceType === 'AWS::EC2::SecurityGroup') {
+            return referencedIds.securityGroupIds.has(physicalId);
+        }
+
+        // For other resource types, we can't determine
+        return false;
     }
 
     /**

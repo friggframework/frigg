@@ -213,6 +213,51 @@ class Issue {
     }
 
     /**
+     * Format a value for display in issue descriptions
+     * Handles arrays, objects, and primitive types
+     *
+     * @private
+     * @param {*} value - Value to format
+     * @returns {string} Formatted value
+     */
+    static _formatValue(value) {
+        if (value === null || value === undefined) {
+            return String(value);
+        }
+
+        // Handle arrays
+        if (Array.isArray(value)) {
+            // For arrays of objects (like Tags), show count and first few items
+            if (value.length > 0 && typeof value[0] === 'object') {
+                if (value.length <= 3) {
+                    return JSON.stringify(value);
+                }
+                // Show first 2 items + count for long arrays
+                const preview = value.slice(0, 2);
+                return `${JSON.stringify(preview).slice(0, -1)}, ... (${value.length} total)]`;
+            }
+            // For simple arrays, stringify
+            return JSON.stringify(value);
+        }
+
+        // Handle objects
+        if (typeof value === 'object') {
+            const keys = Object.keys(value);
+            if (keys.length === 0) {
+                return '{}';
+            }
+            if (keys.length <= 3) {
+                return JSON.stringify(value);
+            }
+            // For large objects, show keys count
+            return `{${keys.slice(0, 3).join(', ')}, ... (${keys.length} keys total)}`;
+        }
+
+        // Primitives
+        return String(value);
+    }
+
+    /**
      * Create a property mismatch issue
      *
      * @param {Object} params
@@ -228,7 +273,11 @@ class Issue {
 
         const canAutoFix = mismatch.canAutoFix();
 
-        const description = `Property mismatch: ${mismatch.propertyPath} (expected: ${mismatch.expectedValue}, actual: ${mismatch.actualValue})`;
+        // Format expected and actual values for display
+        const formattedExpected = Issue._formatValue(mismatch.expectedValue);
+        const formattedActual = Issue._formatValue(mismatch.actualValue);
+
+        const description = `Property mismatch: ${mismatch.propertyPath} (expected: ${formattedExpected}, actual: ${formattedActual})`;
 
         const resolution = canAutoFix
             ? 'Can be auto-fixed using frigg repair --reconcile'

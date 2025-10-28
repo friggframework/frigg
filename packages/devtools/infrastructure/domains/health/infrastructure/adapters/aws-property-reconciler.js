@@ -14,6 +14,7 @@ const IPropertyReconciler = require('../../application/ports/IPropertyReconciler
 // Lazy-loaded AWS SDK clients
 let CloudFormationClient, UpdateStackCommand, GetTemplateCommand;
 let EC2Client, ModifyVpcAttributeCommand;
+let LambdaClient, UpdateFunctionConfigurationCommand;
 
 /**
  * Lazy load CloudFormation SDK
@@ -35,6 +36,17 @@ function loadEC2() {
         const ec2Module = require('@aws-sdk/client-ec2');
         EC2Client = ec2Module.EC2Client;
         ModifyVpcAttributeCommand = ec2Module.ModifyVpcAttributeCommand;
+    }
+}
+
+/**
+ * Lazy load Lambda SDK
+ */
+function loadLambda() {
+    if (!LambdaClient) {
+        const lambdaModule = require('@aws-sdk/client-lambda');
+        LambdaClient = lambdaModule.LambdaClient;
+        UpdateFunctionConfigurationCommand = lambdaModule.UpdateFunctionConfigurationCommand;
     }
 }
 
@@ -80,6 +92,16 @@ class AWSPropertyReconciler extends IPropertyReconciler {
             recommendedMode: 'template',
             limitations: ['Key policy changes must be done via CloudFormation'],
         },
+        'AWS::Lambda::Function': {
+            templateUpdate: true,
+            resourceUpdate: true,
+            recommendedMode: 'template',
+            limitations: [
+                'VpcConfig changes may take several minutes to propagate',
+                'Code updates are handled separately via UpdateFunctionCode',
+                'Environment variable changes may cause brief invocation errors during update',
+            ],
+        },
     };
 
     /**
@@ -87,12 +109,15 @@ class AWSPropertyReconciler extends IPropertyReconciler {
      *
      * @param {Object} [config={}]
      * @param {string} [config.region] - AWS region (defaults to AWS_REGION env var)
+     * @param {Object} [config.cloudFormationRepository] - CloudFormation repository for monitoring
      */
     constructor(config = {}) {
         super();
         this.region = config.region || process.env.AWS_REGION || 'us-east-1';
         this.cfClient = null;
         this.ec2Client = null;
+        this.lambdaClient = null;
+        this.cfRepo = config.cloudFormationRepository || null;
     }
 
     /**
@@ -117,6 +142,18 @@ class AWSPropertyReconciler extends IPropertyReconciler {
             this.ec2Client = new EC2Client({ region: this.region });
         }
         return this.ec2Client;
+    }
+
+    /**
+     * Get or create Lambda client
+     * @private
+     */
+    _getLambdaClient() {
+        if (!this.lambdaClient) {
+            loadLambda();
+            this.lambdaClient = new LambdaClient({ region: this.region });
+        }
+        return this.lambdaClient;
     }
 
     /**
@@ -154,48 +191,186 @@ class AWSPropertyReconciler extends IPropertyReconciler {
 
     /**
      * Reconcile multiple property mismatches for a resource
+     *
+     * IMPORTANT: Batches all property updates into a SINGLE UpdateStack call
+     * to avoid "stack is already updating" errors from CloudFormation.
+     *
+     * MONITORING: After calling UpdateStack, monitors the stack until UPDATE_COMPLETE
+     * or UPDATE_FAILED to ensure the update actually succeeded.
      */
     async reconcileMultipleProperties({
         stackIdentifier,
         logicalId,
+        physicalId,
+        resourceType,
         mismatches,
         mode = 'template',
+        progressMonitor = null, // Optional UpdateProgressMonitor for async tracking
     }) {
+        // Route to appropriate reconciliation method based on mode
+        if (mode === 'resource') {
+            return await this._reconcileMultiplePropertiesViaResource({
+                stackIdentifier,
+                logicalId,
+                physicalId,
+                resourceType,
+                mismatches,
+            });
+        }
+
+        // Template mode (original implementation)
         const results = [];
         let reconciledCount = 0;
         let failedCount = 0;
 
-        for (const mismatch of mismatches) {
-            try {
-                const result = await this.reconcileProperty({
-                    stackIdentifier,
-                    logicalId,
-                    mismatch,
-                    mode,
-                });
+        try {
+            const client = this._getCFClient();
 
-                results.push(result);
-                if (result.success) {
+            // 1. Get current template ONCE
+            const getTemplateCommand = new GetTemplateCommand({
+                StackName: stackIdentifier.stackName,
+                TemplateStage: 'Original',
+            });
+
+            const templateResponse = await client.send(getTemplateCommand);
+            const template = JSON.parse(templateResponse.TemplateBody);
+
+            // 2. Apply ALL property changes to the template
+            for (const mismatch of mismatches) {
+                try {
+                    // Navigate to the property in the template
+                    // AWS drift detection returns paths without 'Properties.' prefix (e.g., 'VpcConfig.SubnetIds')
+                    // But CloudFormation templates have 'Properties' section, so we need to navigate there
+                    const pathParts = mismatch.propertyPath.split('.');
+                    let current = template.Resources[logicalId];
+
+                    // Ensure Properties section exists
+                    if (!current.Properties) {
+                        current.Properties = {};
+                    }
+
+                    // Start navigation at Properties level
+                    current = current.Properties;
+
+                    // Create nested objects if they don't exist
+                    for (let i = 0; i < pathParts.length - 1; i++) {
+                        if (!current[pathParts[i]]) {
+                            current[pathParts[i]] = {};
+                        }
+                        current = current[pathParts[i]];
+                    }
+
+                    // Update the property value
+                    const lastPart = pathParts[pathParts.length - 1];
+                    current[lastPart] = mismatch.actualValue;
+
+                    // Track as pending (will be confirmed by monitor)
+                    results.push({
+                        success: true,
+                        mode: 'template',
+                        propertyPath: mismatch.propertyPath,
+                        oldValue: mismatch.expectedValue,
+                        newValue: mismatch.actualValue,
+                        message: 'Property updated in template',
+                    });
                     reconciledCount++;
-                } else {
+                } catch (error) {
+                    // Track as failed
+                    results.push({
+                        success: false,
+                        mode: 'template',
+                        propertyPath: mismatch.propertyPath,
+                        message: `Failed to update property: ${error.message}`,
+                    });
                     failedCount++;
                 }
-            } catch (error) {
-                results.push({
-                    success: false,
-                    mode,
-                    propertyPath: mismatch.propertyPath,
-                    message: error.message,
-                });
-                failedCount++;
             }
+
+            // 3. If any properties were updated, call UpdateStack ONCE with all changes
+            if (reconciledCount > 0) {
+                const templateBody = JSON.stringify(template);
+                const templateSize = templateBody.length;
+                const TEMPLATE_SIZE_LIMIT = 51200; // CloudFormation inline template limit
+
+                // Use S3 for large templates, inline for small templates
+                const updateParams = {
+                    StackName: stackIdentifier.stackName,
+                };
+
+                if (templateSize > TEMPLATE_SIZE_LIMIT && this.cfRepo) {
+                    // Upload template to S3 and use TemplateURL
+                    const templateUrl = await this.cfRepo.uploadTemplate({
+                        stackName: stackIdentifier.stackName,
+                        templateBody,
+                    });
+                    updateParams.TemplateURL = templateUrl;
+                } else {
+                    // Use inline template body
+                    updateParams.TemplateBody = templateBody;
+                }
+
+                // Add capabilities required for IAM resources
+                updateParams.Capabilities = ['CAPABILITY_NAMED_IAM'];
+
+                const updateCommand = new UpdateStackCommand(updateParams);
+                await client.send(updateCommand);
+
+                // 4. Monitor UpdateStack operation if CloudFormation repository available
+                if (this.cfRepo) {
+                    const { UpdateProgressMonitor } = require('../../domain/services/update-progress-monitor');
+                    const monitor = new UpdateProgressMonitor({
+                        cloudFormationRepository: this.cfRepo,
+                    });
+
+                    const monitorResult = await monitor.monitorUpdate({
+                        stackIdentifier,
+                        resourceLogicalIds: [logicalId],
+                        onProgress: (progress) => {
+                            // Progress callback for UI updates (optional)
+                            if (progress.status === 'FAILED') {
+                                console.log(`  ⚠ ${progress.logicalId}: Update failed - ${progress.reason}`);
+                            }
+                        },
+                    });
+
+                    // If monitoring detected failures, update results
+                    if (!monitorResult.success) {
+                        reconciledCount = 0;
+                        failedCount = mismatches.length;
+                        results.forEach(r => {
+                            r.success = false;
+                            r.message = 'CloudFormation update failed';
+                        });
+
+                        return {
+                            reconciledCount,
+                            failedCount,
+                            results,
+                            message: `Update failed: ${monitorResult.failedResources.map(f => f.reason).join(', ')}`,
+                        };
+                    }
+                }
+            }
+        } catch (error) {
+            // If UpdateStack fails, mark all as failed
+            return {
+                reconciledCount: 0,
+                failedCount: mismatches.length,
+                results: mismatches.map(m => ({
+                    success: false,
+                    mode: 'template',
+                    propertyPath: m.propertyPath,
+                    message: `UpdateStack failed: ${error.message}`,
+                })),
+                message: `UpdateStack failed: ${error.message}`,
+            };
         }
 
         return {
             reconciledCount,
             failedCount,
             results,
-            message: `Reconciled ${reconciledCount} of ${mismatches.length} properties`,
+            message: `Reconciled ${reconciledCount} of ${mismatches.length} properties in single UpdateStack call`,
         };
     }
 
@@ -261,6 +436,7 @@ class AWSPropertyReconciler extends IPropertyReconciler {
         const updateCommand = new UpdateStackCommand({
             StackName: stackIdentifier.stackName,
             TemplateBody: JSON.stringify(template),
+            Capabilities: ['CAPABILITY_NAMED_IAM'],
         });
 
         const updateResponse = await client.send(updateCommand);
@@ -390,6 +566,217 @@ class AWSPropertyReconciler extends IPropertyReconciler {
             success: true,
             message: `VPC property ${propertyPath} updated successfully`,
             updatedAt: new Date(),
+        };
+    }
+
+    /**
+     * Reconcile multiple properties via resource update (resource mode)
+     *
+     * Domain Service - Hexagonal Architecture
+     * Coordinates AWS API calls to update cloud resources directly
+     *
+     * @private
+     */
+    async _reconcileMultiplePropertiesViaResource({
+        stackIdentifier,
+        logicalId,
+        physicalId,
+        resourceType,
+        mismatches,
+    }) {
+        // Validate resource type supports resource mode
+        if (resourceType !== 'AWS::Lambda::Function') {
+            throw new Error(`Resource mode reconciliation not supported for ${resourceType}`);
+        }
+
+        const results = [];
+        let reconciledCount = 0;
+        let failedCount = 0;
+        let skippedCount = 0;
+
+        try {
+            // Separate mutable from immutable properties
+            const mutableMismatches = [];
+            const mutableIndexMap = new Map(); // Track original index for mutable properties
+
+            for (let i = 0; i < mismatches.length; i++) {
+                const mismatch = mismatches[i];
+                if (mismatch.requiresReplacement()) {
+                    skippedCount++;
+                } else {
+                    mutableIndexMap.set(mismatch, i);
+                    mutableMismatches.push(mismatch);
+                }
+            }
+
+            // If no mutable properties, return early with all marked as skipped
+            if (mutableMismatches.length === 0) {
+                const skippedResults = mismatches.map(m => ({
+                    success: false,
+                    mode: 'resource',
+                    propertyPath: m.propertyPath,
+                    message: `Skipped: Property is immutable and cannot be updated without replacement`,
+                }));
+
+                return {
+                    reconciledCount: 0,
+                    failedCount: 0,
+                    skippedCount,
+                    results: skippedResults,
+                    message: `All ${mismatches.length} properties are immutable and cannot be reconciled in resource mode`,
+                };
+            }
+
+            // Route to resource-specific updater
+            let lambdaResults = [];
+            if (resourceType === 'AWS::Lambda::Function') {
+                const lambdaResult = await this._updateLambdaFunction({
+                    physicalId,
+                    mismatches: mutableMismatches,
+                });
+
+                reconciledCount = lambdaResult.reconciledCount;
+                failedCount = lambdaResult.failedCount;
+                lambdaResults = lambdaResult.results;
+            }
+
+            // Build results array in original input order
+            for (let i = 0; i < mismatches.length; i++) {
+                const mismatch = mismatches[i];
+                if (mismatch.requiresReplacement()) {
+                    // Immutable - add skip result
+                    results.push({
+                        success: false,
+                        mode: 'resource',
+                        propertyPath: mismatch.propertyPath,
+                        message: `Skipped: Property is immutable and cannot be updated without replacement`,
+                    });
+                } else {
+                    // Mutable - find corresponding result from Lambda update
+                    const lambdaResult = lambdaResults.find(r => r.propertyPath === mismatch.propertyPath);
+                    if (lambdaResult) {
+                        results.push(lambdaResult);
+                    }
+                }
+            }
+        } catch (error) {
+            // If update fails, mark all as failed
+            return {
+                reconciledCount: 0,
+                failedCount: mismatches.length,
+                skippedCount: 0,
+                results: mismatches.map(m => ({
+                    success: false,
+                    mode: 'resource',
+                    propertyPath: m.propertyPath,
+                    message: `Failed to update Lambda: ${error.message}`,
+                })),
+                message: `Failed to update Lambda: ${error.message}`,
+            };
+        }
+
+        // Determine appropriate message based on outcome
+        let message;
+        if (failedCount > 0 && reconciledCount === 0) {
+            message = `Failed to update Lambda: ${results.find(r => !r.success)?.message || 'Unknown error'}`;
+        } else if (failedCount > 0) {
+            message = `Partially updated Lambda VpcConfig (${reconciledCount} succeeded, ${failedCount} failed)`;
+        } else {
+            message = `Lambda VpcConfig updated via UpdateFunctionConfiguration (${reconciledCount} properties reconciled)`;
+        }
+
+        return {
+            reconciledCount,
+            failedCount,
+            skippedCount,
+            results,
+            message,
+        };
+    }
+
+    /**
+     * Update Lambda function configuration via AWS Lambda API
+     *
+     * Infrastructure Adapter
+     * Translates domain mismatches to AWS Lambda UpdateFunctionConfiguration call
+     *
+     * @private
+     */
+    async _updateLambdaFunction({ physicalId, mismatches }) {
+        const client = this._getLambdaClient();
+        const results = [];
+        let reconciledCount = 0;
+        let failedCount = 0;
+
+        try {
+            // Build VpcConfig update from mismatches
+            const vpcConfigUpdate = {};
+            const vpcConfigMismatches = mismatches.filter(m =>
+                m.propertyPath.startsWith('VpcConfig')
+            );
+
+            for (const mismatch of vpcConfigMismatches) {
+                // Property path format: "VpcConfig.SubnetIds" or "VpcConfig.SecurityGroupIds"
+                const parts = mismatch.propertyPath.split('.');
+                if (parts.length === 2 && parts[0] === 'VpcConfig') {
+                    vpcConfigUpdate[parts[1]] = mismatch.expectedValue;
+                }
+            }
+
+            // If we have VpcConfig updates, call UpdateFunctionConfiguration
+            if (Object.keys(vpcConfigUpdate).length > 0) {
+                const command = new UpdateFunctionConfigurationCommand({
+                    FunctionName: physicalId,
+                    VpcConfig: vpcConfigUpdate,
+                });
+
+                await client.send(command);
+
+                // Mark all VpcConfig properties as successful
+                for (const mismatch of vpcConfigMismatches) {
+                    results.push({
+                        success: true,
+                        mode: 'resource',
+                        propertyPath: mismatch.propertyPath,
+                        oldValue: mismatch.actualValue,
+                        newValue: mismatch.expectedValue,
+                        message: 'Lambda VpcConfig updated successfully',
+                    });
+                    reconciledCount++;
+                }
+            }
+
+            // Handle non-VpcConfig properties (currently unsupported)
+            const otherMismatches = mismatches.filter(m =>
+                !m.propertyPath.startsWith('VpcConfig')
+            );
+            for (const mismatch of otherMismatches) {
+                results.push({
+                    success: false,
+                    mode: 'resource',
+                    propertyPath: mismatch.propertyPath,
+                    message: `Property ${mismatch.propertyPath} updates not yet supported in resource mode`,
+                });
+                failedCount++;
+            }
+        } catch (error) {
+            // If Lambda API call fails, mark all as failed
+            for (const mismatch of mismatches) {
+                results.push({
+                    success: false,
+                    mode: 'resource',
+                    propertyPath: mismatch.propertyPath,
+                    message: `Lambda update failed: ${error.message}`,
+                });
+                failedCount++;
+            }
+            reconciledCount = 0;
+        }
+
+        return {
+            reconciledCount,
+            failedCount,
+            results,
         };
     }
 }

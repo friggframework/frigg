@@ -210,6 +210,79 @@ describe('MigrationBuilder', () => {
                 })
             );
         });
+
+        it('should create dbMigrationRouter function definition', async () => {
+            const appDef = {
+                database: {
+                    postgres: {
+                        enable: true,
+                    },
+                },
+            };
+
+            const result = await builder.build(appDef, {});
+
+            expect(result.functions.dbMigrationRouter).toBeDefined();
+            expect(result.functions.dbMigrationRouter.handler).toBe(
+                'node_modules/@friggframework/core/handlers/routers/db-migration.handler'
+            );
+            expect(result.functions.dbMigrationRouter.skipEsbuild).toBe(true);
+            expect(result.functions.dbMigrationRouter.timeout).toBe(30);
+            expect(result.functions.dbMigrationRouter.memorySize).toBe(512);
+            expect(result.functions.dbMigrationRouter.events).toHaveLength(3);
+            expect(result.functions.dbMigrationRouter.events).toContainEqual({
+                httpApi: { path: '/db-migrate/status', method: 'GET' },
+            });
+            expect(result.functions.dbMigrationRouter.events).toContainEqual({
+                httpApi: { path: '/db-migrate', method: 'POST' },
+            });
+            expect(result.functions.dbMigrationRouter.events).toContainEqual({
+                httpApi: { path: '/db-migrate/{processId}', method: 'GET' },
+            });
+        });
+
+        it('should create dbMigrationWorker function definition', async () => {
+            const appDef = {
+                database: {
+                    postgres: {
+                        enable: true,
+                    },
+                },
+            };
+
+            const result = await builder.build(appDef, {});
+
+            expect(result.functions.dbMigrationWorker).toBeDefined();
+            expect(result.functions.dbMigrationWorker.handler).toBe(
+                'node_modules/@friggframework/core/handlers/workers/db-migration.handler'
+            );
+            expect(result.functions.dbMigrationWorker.skipEsbuild).toBe(true);
+            expect(result.functions.dbMigrationWorker.reservedConcurrency).toBe(1);
+            expect(result.functions.dbMigrationWorker.timeout).toBe(900);
+            expect(result.functions.dbMigrationWorker.memorySize).toBe(1024);
+            expect(result.functions.dbMigrationWorker.layers).toEqual([{ Ref: 'PrismaLambdaLayer' }]);
+            expect(result.functions.dbMigrationWorker.events).toHaveLength(1);
+            expect(result.functions.dbMigrationWorker.events[0].sqs).toEqual({
+                arn: { 'Fn::GetAtt': ['DbMigrationQueue', 'Arn'] },
+                batchSize: 1,
+            });
+        });
+
+        it('should add WORKER_FUNCTION_NAME to router environment', async () => {
+            const appDef = {
+                database: {
+                    postgres: {
+                        enable: true,
+                    },
+                },
+            };
+
+            const result = await builder.build(appDef, {});
+
+            expect(result.functions.dbMigrationRouter.environment.WORKER_FUNCTION_NAME).toEqual({
+                Ref: 'DbMigrationWorkerLambdaFunction',
+            });
+        });
     });
 
     describe('getName', () => {

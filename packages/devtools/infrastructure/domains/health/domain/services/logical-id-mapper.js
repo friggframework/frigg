@@ -33,7 +33,9 @@ class LogicalIdMapper {
 
     for (const orphan of orphanedResources) {
       // Strategy 1: Check CloudFormation tags for logical ID
-      const logicalIdFromTag = this._getLogicalIdFromTags(orphan.tags);
+      // Tags are stored in orphan.properties.tags (Resource entity structure)
+      const tags = orphan.properties?.tags || orphan.tags; // Support both formats
+      const logicalIdFromTag = this._getLogicalIdFromTags(tags);
 
       if (logicalIdFromTag) {
         mappings.push({
@@ -116,15 +118,28 @@ class LogicalIdMapper {
 
   /**
    * Extract logical ID from CloudFormation tags
+   * Supports both formats:
+   * - AWS array format: [{Key: 'aws:cloudformation:logical-id', Value: 'FriggVPC'}]
+   * - Parsed object format: {'aws:cloudformation:logical-id': 'FriggVPC'}
    * @private
    */
   _getLogicalIdFromTags(tags) {
-    if (!tags || !Array.isArray(tags)) return null;
+    if (!tags) return null;
 
-    const logicalIdTag = tags.find(
-      (t) => t.Key === 'aws:cloudformation:logical-id'
-    );
-    return logicalIdTag ? logicalIdTag.Value : null;
+    // Handle AWS array format [{Key, Value}]
+    if (Array.isArray(tags)) {
+      const logicalIdTag = tags.find(
+        (t) => t.Key === 'aws:cloudformation:logical-id'
+      );
+      return logicalIdTag ? logicalIdTag.Value : null;
+    }
+
+    // Handle parsed object format {key: value}
+    if (typeof tags === 'object') {
+      return tags['aws:cloudformation:logical-id'] || null;
+    }
+
+    return null;
   }
 
   /**

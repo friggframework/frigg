@@ -58,6 +58,7 @@ class MigrationBuilder extends InfrastructureBuilder {
         appDefinition = this.translateLegacyConfig(appDefinition, discoveredResources);
 
         const result = {
+            functions: {}, // Lambda function definitions
             resources: {},
             iamStatements: [],
             environment: {},
@@ -228,10 +229,207 @@ class MigrationBuilder extends InfrastructureBuilder {
     }
 
     /**
+     * Create Lambda function definitions for database migrations
+     * Based on refactor/add-better-support-for-commands branch implementation
+     */
+    async createFunctionDefinitions(result) {
+        console.log('  🔍 DEBUG: createFunctionDefinitions called');
+        console.log('  🔍 DEBUG: result.functions is:', typeof result.functions, result.functions);
+        // Migration WORKER package config (needs Prisma CLI WASM files)
+        const migrationWorkerPackageConfig = {
+            exclude: [
+                // Exclude AWS SDK (provided by Lambda runtime)
+                'node_modules/aws-sdk/**',
+                'node_modules/@aws-sdk/**',
+                // Exclude build tools
+                'node_modules/esbuild/**',
+                'node_modules/@esbuild/**',
+                'node_modules/typescript/**',
+                'node_modules/webpack/**',
+                'node_modules/osls/**',
+                'node_modules/serverless-esbuild/**',
+                'node_modules/serverless-jetpack/**',
+                'node_modules/serverless-offline/**',
+                'node_modules/serverless-offline-sqs/**',
+                'node_modules/serverless-dotenv-plugin/**',
+                'node_modules/serverless-kms-grants/**',
+                'node_modules/@friggframework/test/**',
+                'node_modules/@friggframework/eslint-config/**',
+                'node_modules/@friggframework/prettier-config/**',
+                'node_modules/@friggframework/devtools/**',
+                'node_modules/@friggframework/serverless-plugin/**',
+                'node_modules/jest/**',
+                'node_modules/prettier/**',
+                'node_modules/eslint/**',
+                'node_modules/@friggframework/core/generated/prisma-mongodb/**',
+                'node_modules/@friggframework/core/integrations/**',
+                'node_modules/@friggframework/core/user/**',
+                '**/query-engine-darwin*',
+                '**/schema-engine-darwin*',
+                '**/libquery_engine-darwin*',
+                '**/*-darwin-arm64*',
+                '**/*-darwin*',
+                // Migration worker DOES need Prisma CLI WASM files (for migrate deploy)
+                // Only exclude runtime engine WASM (query engine internals)
+                '**/runtime/*.wasm',
+                // Additional size optimizations
+                '**/*.map',
+                '**/*.md',
+                '**/examples/**',
+                '**/docs/**',
+                '**/*.d.ts',
+                'src/**',
+                'test/**',
+                'layers/**',
+                'coverage/**',
+                'deploy.log',
+                '.env.backup',
+                'docker-compose.yml',
+                'jest.config.js',
+                'jest.unit.config.js',
+                'package-lock.json',
+                '**/*.test.js',
+                '**/*.spec.js',
+                '**/.claude-flow/**',
+                '**/.swarm/**',
+            ],
+        };
+
+        // Migration ROUTER package config (lighter, no Prisma CLI needed)
+        const migrationRouterPackageConfig = {
+            exclude: [
+                // Exclude AWS SDK (provided by Lambda runtime)
+                'node_modules/aws-sdk/**',
+                'node_modules/@aws-sdk/**',
+                // Exclude build tools
+                'node_modules/esbuild/**',
+                'node_modules/@esbuild/**',
+                'node_modules/typescript/**',
+                'node_modules/webpack/**',
+                'node_modules/serverless-esbuild/**',
+                'node_modules/serverless-jetpack/**',
+                'node_modules/serverless-offline/**',
+                'node_modules/serverless-offline-sqs/**',
+                'node_modules/serverless-dotenv-plugin/**',
+                'node_modules/serverless-kms-grants/**',
+                'node_modules/@friggframework/test/**',
+                'node_modules/@friggframework/eslint-config/**',
+                'node_modules/@friggframework/prettier-config/**',
+                'node_modules/@friggframework/devtools/**',
+                'node_modules/@friggframework/serverless-plugin/**',
+                'node_modules/jest/**',
+                'node_modules/prettier/**',
+                'node_modules/eslint/**',
+                'node_modules/@friggframework/core/generated/prisma-mongodb/**',
+                'node_modules/@friggframework/core/user/**',
+                '**/query-engine-darwin*',
+                '**/schema-engine-darwin*',
+                '**/libquery_engine-darwin*',
+                '**/*-darwin-arm64*',
+                '**/*-darwin*',
+                // Router doesn't run migrations - exclude ALL WASM files
+                '**/runtime/*.wasm',
+                '**/*.wasm*',
+                // Additional size optimizations
+                '**/*.map',
+                '**/*.md',
+                '**/test/**',
+                '**/tests/**',
+                '**/__tests__/**',
+                '**/examples/**',
+                '**/docs/**',
+                '**/*.d.ts',
+                'src/**',
+                'test/**',
+                'layers/**',
+                'coverage/**',
+                'deploy.log',
+                '.env.backup',
+                'docker-compose.yml',
+                'jest.config.js',
+                'jest.unit.config.js',
+                'package-lock.json',
+                '**/*.test.js',
+                '**/*.spec.js',
+                '**/.claude-flow/**',
+                '**/.swarm/**',
+            ],
+        };
+
+        // Create migration worker Lambda (triggered by SQS)
+        console.log('  🔍 DEBUG: About to create dbMigrationWorker...');
+        result.functions.dbMigrationWorker = {
+            handler: 'node_modules/@friggframework/core/handlers/workers/db-migration.handler',
+            layers: [{ Ref: 'PrismaLambdaLayer' }], // Use layer for Prisma client runtime
+            skipEsbuild: true,
+            timeout: 900, // 15 minutes for long migrations
+            memorySize: 1024, // Extra memory for Prisma operations
+            reservedConcurrency: 1, // Process one migration at a time (critical for safety)
+            description: 'Database migration worker (triggered by SQS queue)',
+            package: migrationWorkerPackageConfig,
+            environment: {
+                // Ensure migration functions get DATABASE_URL from provider.environment
+                // Note: Serverless will merge this with provider.environment
+            },
+            events: [
+                {
+                    sqs: {
+                        arn: { 'Fn::GetAtt': ['DbMigrationQueue', 'Arn'] },
+                        batchSize: 1, // Process one migration at a time
+                    },
+                },
+            ],
+        };
+        console.log('  ✓ Created dbMigrationWorker function');
+        console.log('  🔍 DEBUG: result.functions.dbMigrationWorker is:', !!result.functions.dbMigrationWorker);
+
+        // Create migration router Lambda (HTTP API)
+        console.log('  🔍 DEBUG: About to create dbMigrationRouter...');
+        result.functions.dbMigrationRouter = {
+            handler: 'node_modules/@friggframework/core/handlers/routers/db-migration.handler',
+            // No Prisma layer needed - router doesn't access database
+            skipEsbuild: true,
+            timeout: 30, // Router just queues jobs, doesn't run migrations
+            memorySize: 512,
+            description: 'Database migration HTTP API (POST to trigger, GET to check status)',
+            package: migrationRouterPackageConfig,
+            environment: {
+                // Ensure migration functions get DATABASE_URL from provider.environment
+                // Note: Serverless will merge this with provider.environment
+            },
+            events: [
+                { httpApi: { path: '/db-migrate/status', method: 'GET' } },
+                { httpApi: { path: '/db-migrate', method: 'POST' } },
+                { httpApi: { path: '/db-migrate/{processId}', method: 'GET' } },
+            ],
+        };
+        console.log('  ✓ Created dbMigrationRouter function');
+
+        // Add worker function name to router environment (for Lambda invocation)
+        // Router needs this to invoke worker for database state checks
+        if (!result.functions.dbMigrationRouter.environment) {
+            result.functions.dbMigrationRouter.environment = {};
+        }
+        result.functions.dbMigrationRouter.environment.WORKER_FUNCTION_NAME = {
+            Ref: 'DbMigrationWorkerLambdaFunction',
+        };
+        console.log('  ✓ Added WORKER_FUNCTION_NAME environment variable to router');
+        console.log('  🔍 DEBUG: result.functions keys:', Object.keys(result.functions));
+        console.log('  🔍 DEBUG: Exiting createFunctionDefinitions');
+    }
+
+    /**
      * Create migration infrastructure CloudFormation resources
-     * Only creates S3 bucket and SQS queue - Lambda functions are defined in serverless.yml
+     * Creates S3 bucket, SQS queue, and Lambda function definitions
      */
     async createMigrationInfrastructure(appDefinition, result) {
+        console.log('  🔍 DEBUG: createMigrationInfrastructure called');
+        console.log('  🔍 DEBUG: result object before createFunctionDefinitions:', Object.keys(result));
+
+        // Create Lambda function definitions first (they reference the queue)
+        await this.createFunctionDefinitions(result);
+
+        console.log('  🔍 DEBUG: result.functions after createFunctionDefinitions:', Object.keys(result.functions || {}));
 
         // Create S3 bucket for migration status tracking
         result.resources.FriggMigrationStatusBucket = {
