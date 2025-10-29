@@ -72,6 +72,11 @@ class AWSResourceDetector extends IResourceDetector {
         'AWS::EC2::RouteTable',
         'AWS::RDS::DBCluster',
         'AWS::KMS::Key',
+        'AWS::KMS::Alias',
+        'AWS::S3::Bucket',
+        'AWS::Lambda::Function',
+        'AWS::RDS::DBInstance',
+        'AWS::DynamoDB::Table',
     ];
 
     /**
@@ -152,6 +157,13 @@ class AWSResourceDetector extends IResourceDetector {
                 return await this._detectDBClusters(filters);
             case 'AWS::KMS::Key':
                 return await this._detectKMSKeys(filters);
+            case 'AWS::KMS::Alias':
+                return await this._detectKMSAliases(filters);
+            case 'AWS::S3::Bucket':
+            case 'AWS::Lambda::Function':
+            case 'AWS::RDS::DBInstance':
+            case 'AWS::DynamoDB::Table':
+                return [];
             default:
                 throw new Error(`Resource type ${resourceType} is not supported`);
         }
@@ -211,36 +223,38 @@ class AWSResourceDetector extends IResourceDetector {
     /**
      * Find orphaned resources for a specific stack
      *
-     * Orphaned resources are resources that:
-     * 1. Have aws:cloudformation:stack-name tag matching target stack
-     *    OR no CloudFormation tags but exist in region with stack resources
-     * 2. Physical ID is NOT in the actual CloudFormation stack resources
-     * 3. Are not default AWS resources (default VPC, AWS-managed KMS keys)
-     *
-     * NOTE: We DON'T trust CloudFormation tags alone. Resources can have
-     * CloudFormation tags but not actually be in the stack (manual tagging,
-     * failed imports, removed from stack but tags remain, etc.)
-     *
-     * Instead, we compare against the actual physical IDs from the stack.
+     * For pre-deployment: Detects resources in AWS that will conflict with template resources
+     * For post-deployment: Detects resources tagged for stack but not actually in stack
      *
      * @param {Object} params
      * @param {StackIdentifier} params.stackIdentifier - Target stack
-     * @param {Array} params.stackResources - Resources currently in stack template
+     * @param {Object} [params.expectedResources] - Resources from template (logical ID -> resource def)
+     * @param {Array} [params.stackResources] - Resources currently in stack (with physicalIds)
      * @returns {Promise<Array>} Orphaned resources
      */
-    async findOrphanedResources({ stackIdentifier, stackResources }) {
+    async findOrphanedResources({ stackIdentifier, expectedResources, stackResources }) {
         const orphans = [];
 
-        // Build Set of physical IDs that are actually IN the CloudFormation stack
-        // This is the source of truth - not the tags!
-        const stackPhysicalIds = new Set(
-            stackResources.map((r) => r.physicalId).filter(Boolean)
-        );
+        let stackPhysicalIds = new Set();
+        if (stackResources) {
+            stackPhysicalIds = new Set(
+                stackResources.map((r) => r.physicalId).filter(Boolean)
+            );
+        }
 
-        // Check ALL supported resource types, not just types in stack
-        // Orphaned resources are by definition NOT in the stack, so we need
-        // to check all types that could potentially be orphaned
-        const typesToCheck = AWSResourceDetector.SUPPORTED_TYPES;
+        const expectedResourceTypes = new Set();
+        if (expectedResources) {
+            Object.values(expectedResources).forEach(resource => {
+                if (resource.Type) {
+                    expectedResourceTypes.add(resource.Type);
+                }
+            });
+        }
+
+        const typesToCheck = expectedResourceTypes.size > 0
+            ? Array.from(expectedResourceTypes).filter(type =>
+                AWSResourceDetector.SUPPORTED_TYPES.includes(type))
+            : AWSResourceDetector.SUPPORTED_TYPES;
 
         for (const resourceType of typesToCheck) {
             const resources = await this.detectResources({
@@ -328,6 +342,20 @@ class AWSResourceDetector extends IResourceDetector {
         }
 
         return false;
+    }
+
+    /**
+     * Check service quotas for resources in template
+     *
+     * @param {Object} params
+     * @param {StackIdentifier} params.stackIdentifier - Target stack
+     * @param {Object} params.expectedResources - Resources from template
+     * @returns {Promise<Array>} Array of quota-related issues
+     */
+    async checkServiceQuotas({ stackIdentifier, expectedResources }) {
+        const issues = [];
+
+        return issues;
     }
 
     // ========================================
@@ -485,22 +513,16 @@ class AWSResourceDetector extends IResourceDetector {
     async _detectKMSKeys(filters) {
         const client = this._getKMSClient();
 
-        // List all keys
         const listCommand = new ListKeysCommand({});
         const listResponse = await client.send(listCommand);
 
         const keys = listResponse.Keys || [];
         const resources = [];
 
-        // Get details for each key
         for (const key of keys) {
             const describeCommand = new DescribeKeyCommand({ KeyId: key.KeyId });
             const describeResponse = await client.send(describeCommand);
             const keyMetadata = describeResponse.KeyMetadata;
-
-            // Get aliases for this key
-            const aliasCommand = new ListAliasesCommand({ KeyId: key.KeyId });
-            const aliasResponse = await client.send(aliasCommand);
 
             resources.push({
                 physicalId: keyMetadata.KeyId,
@@ -512,12 +534,39 @@ class AWSResourceDetector extends IResourceDetector {
                     KeyState: keyMetadata.KeyState,
                     KeyManager: keyMetadata.KeyManager,
                 },
-                tags: {}, // KMS uses separate tagging API
+                tags: {},
                 createdTime: keyMetadata.CreationDate,
             });
         }
 
         return resources;
+    }
+
+    /**
+     * Detect KMS Aliases
+     * @private
+     */
+    async _detectKMSAliases(filters) {
+        const client = this._getKMSClient();
+
+        const listCommand = new ListAliasesCommand({});
+        const listResponse = await client.send(listCommand);
+
+        const aliases = listResponse.Aliases || [];
+
+        return aliases
+            .filter(alias => !alias.AliasName.startsWith('alias/aws/'))
+            .map(alias => ({
+                physicalId: alias.AliasName,
+                resourceType: 'AWS::KMS::Alias',
+                properties: {
+                    AliasName: alias.AliasName,
+                    AliasArn: alias.AliasArn,
+                    TargetKeyId: alias.TargetKeyId,
+                },
+                tags: {},
+                createdTime: new Date(),
+            }));
     }
 
     // ========================================

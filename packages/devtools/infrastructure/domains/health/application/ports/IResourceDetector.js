@@ -107,9 +107,9 @@ class IResourceDetector {
      * Find orphaned resources (exist in cloud but not in any stack)
      *
      * @param {Object} params
-     * @param {string} params.region - AWS region
-     * @param {string[]} [params.resourceTypes] - Optional: limit to specific resource types
-     * @param {string[]} [params.excludePhysicalIds=[]] - Physical IDs to exclude from orphan check
+     * @param {StackIdentifier} params.stackIdentifier - Target stack
+     * @param {Object} [params.expectedResources] - Resources from template (logical ID -> resource def)
+     * @param {Array} [params.stackResources] - Resources currently in stack (with physicalIds)
      * @returns {Promise<Array<Object>>} Array of orphaned resources
      * @returns {Promise<Array<Object>>} Resources with properties:
      *   - physicalId: string
@@ -119,9 +119,23 @@ class IResourceDetector {
      *   - isOrphaned: boolean (always true)
      *   - reason: string (explanation of why it's orphaned)
      */
-    async findOrphanedResources({ region, resourceTypes = [], excludePhysicalIds = [] }) {
+    async findOrphanedResources({ stackIdentifier, expectedResources, stackResources }) {
         throw new Error(
             'IResourceDetector.findOrphanedResources() must be implemented by adapter'
+        );
+    }
+
+    /**
+     * Check service quotas for resources in template
+     *
+     * @param {Object} params
+     * @param {StackIdentifier} params.stackIdentifier - Target stack
+     * @param {Object} params.expectedResources - Resources from template (logical ID -> resource def)
+     * @returns {Promise<Array<Object>>} Array of quota-related issues
+     */
+    async checkServiceQuotas({ stackIdentifier, expectedResources }) {
+        throw new Error(
+            'IResourceDetector.checkServiceQuotas() must be implemented by adapter'
         );
     }
 }
