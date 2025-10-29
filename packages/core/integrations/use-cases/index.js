@@ -6,6 +6,7 @@ const { CreateProcess } = require('./create-process');
 const { UpdateProcessState } = require('./update-process-state');
 const { UpdateProcessMetrics } = require('./update-process-metrics');
 const { GetProcess } = require('./get-process');
+const { HandleProcessUpdate } = require('./handle-process-update');
 
 module.exports = {
     GetIntegrationsForUser,
@@ -16,4 +17,5 @@ module.exports = {
     UpdateProcessState,
     UpdateProcessMetrics,
     GetProcess,
+    HandleProcessUpdate,
 }; 

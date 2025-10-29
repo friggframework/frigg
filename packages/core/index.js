@@ -64,6 +64,19 @@ const {
 const {
     GetProcess,
 } = require('./integrations/use-cases/get-process');
+const {
+    HandleProcessUpdate,
+} = require('./integrations/use-cases/handle-process-update');
+const {
+    ProcessQueueService,
+} = require('./integrations/services/process-queue-service');
+const {
+    ProcessUpdateMessage,
+    ProcessUpdateOperation,
+} = require('./integrations/domain/process-update-message');
+const {
+    queueProcessUpdate,
+} = require('./integrations/utils/queue-process-update');
 const { Cryptor } = require('./encrypt');
 const {
     BaseError,
@@ -158,6 +171,13 @@ module.exports = {
     UpdateProcessState,
     UpdateProcessMetrics,
     GetProcess,
+    HandleProcessUpdate,
+
+    // process management queue
+    ProcessQueueService,
+    ProcessUpdateMessage,
+    ProcessUpdateOperation,
+    queueProcessUpdate,
 
     // application - Command factories for integration developers
     application,
