@@ -75,6 +75,12 @@ const {
     ProcessUpdateOperation,
 } = require('./integrations/domain/process-update-message');
 const {
+    ProcessState,
+    isValidTransition,
+    validateTransition,
+    getValidNextStates,
+} = require('./integrations/domain/process-state-machine');
+const {
     queueProcessUpdate,
 } = require('./integrations/utils/queue-process-update');
 const { Cryptor } = require('./encrypt');
@@ -179,6 +185,12 @@ module.exports = {
     ProcessUpdateOperation,
     queueProcessUpdate,
 
+    // process state machine
+    ProcessState,
+    isValidTransition,
+    validateTransition,
+    getValidNextStates,
+
     // application - Command factories for integration developers
     application,
     createFriggCommands: application.createFriggCommands,
@@ -186,6 +198,7 @@ module.exports = {
     createUserCommands: application.createUserCommands,
     createEntityCommands: application.createEntityCommands,
     createCredentialCommands: application.createCredentialCommands,
+    createProcessCommands: application.createProcessCommands,
     findIntegrationContextByExternalEntityId:
         application.findIntegrationContextByExternalEntityId,
     integrationCommands: application.integrationCommands,

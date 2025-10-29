@@ -7,6 +7,7 @@ const { createEntityCommands } = require('./commands/entity-commands');
 const {
     createCredentialCommands,
 } = require('./commands/credential-commands');
+const { createProcessCommands } = require('./commands/process-commands');
 
 /**
  * Create a unified command factory with all CRUD operations
@@ -20,8 +21,15 @@ const {
  *
  * @example
  * const commands = createFriggCommands({ integrationClass: MyIntegration });
+ *
+ * // User/credential/entity commands (direct CRUD)
  * const user = await commands.createUser({ username: 'user@example.com' });
  * const credential = await commands.createCredential({ userId: user.id, ... });
+ *
+ * // Process commands (queued operations for state machine)
+ * await commands.process.queueStateUpdate(processId, 'RUNNING', { step: 1 });
+ * await commands.process.queueMetricsUpdate(processId, { totalProcessed: 100 });
+ * await commands.process.queueCompletion(processId);
  */
 function createFriggCommands({ integrationClass } = {}) {
     // All commands use Frigg's default repositories and use cases
@@ -32,6 +40,8 @@ function createFriggCommands({ integrationClass } = {}) {
     const entityCommands = createEntityCommands();
 
     const credentialCommands = createCredentialCommands();
+
+    const processCommands = createProcessCommands();
 
     return {
         // Integration commands
@@ -45,6 +55,9 @@ function createFriggCommands({ integrationClass } = {}) {
 
         // Credential commands
         ...credentialCommands,
+
+        // Process commands (nested namespace for state machine operations)
+        process: processCommands,
     };
 }
 
@@ -57,6 +70,7 @@ module.exports = {
     createUserCommands,
     createEntityCommands,
     createCredentialCommands,
+    createProcessCommands,
 
     // Legacy standalone function
     findIntegrationContextByExternalEntityId,
