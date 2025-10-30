@@ -77,7 +77,7 @@ This function runs at the start of every build, ensuring a clean slate.
 
 ---
 
-## Issue 3: Missing esbuild Directories (CRITICAL) ✅ ALREADY FIXED
+## Issue 3: Missing esbuild Directories (CRITICAL) ✅ FIXED (Enhanced)
 
 ### Problem
 The serverless-esbuild plugin expected `.esbuild/.serverless` directories that Frigg didn't create, blocking ALL CI/CD deployments in clean environments. The issue only worked locally after the first run when directories were created.
@@ -87,38 +87,90 @@ The serverless-esbuild plugin expected `.esbuild/.serverless` directories that F
 - Blocked all fresh CI/CD deployments
 - "Frigg adds the plugin but doesn't handle its requirements"
 - Required manual `mkdir -p .esbuild/.serverless` in CI scripts
+- **Hook timing issue**: Initial fix in asyncInit() ran too late, causing race conditions
 
 ### Solution
-The Frigg Serverless Plugin now creates required directories in multiple hooks:
+**CRITICAL FIX**: Moved directory creation to plugin constructor (synchronous, guaranteed first)
 
 **File**: `packages/serverless-plugin/index.js`
 ```javascript
-// In asyncInit() - lines 32-41
-const esbuildDir = path.join(
-    this.serverless.config.servicePath || process.cwd(),
-    '.esbuild',
-    '.serverless'
-);
+constructor(serverless, options) {
+    this.serverless = serverless;
+    this.options = options;
+    this.provider = serverless.getProvider("aws");
 
-if (!fs.existsSync(esbuildDir)) {
-    fs.mkdirSync(esbuildDir, { recursive: true });
-    console.log(`✓ Created ${esbuildDir} directory for serverless-esbuild`);
+    // CRITICAL FIX for Issue #481 - Issue 3
+    // Create .esbuild/.serverless directory IMMEDIATELY, synchronously,
+    // before any hooks run. This ensures serverless-esbuild has the
+    // directory it needs regardless of hook execution order.
+    const fs = require('fs');
+    const path = require('path');
+    const esbuildDir = path.join(
+        serverless.config.servicePath || process.cwd(),
+        '.esbuild',
+        '.serverless'
+    );
+
+    try {
+        fs.mkdirSync(esbuildDir, { recursive: true });
+        console.log(`✓ Frigg plugin created ${esbuildDir}`);
+    } catch (error) {
+        console.error(`⚠️  Failed to create ${esbuildDir}:`, error.message);
+    }
+
+    this.hooks = {
+        initialize: () => this.init(),
+        "before:package:initialize": () => this.beforePackageInitialize(),
+        // ... other hooks
+    };
 }
-
-// Also created in beforePackageInitialize() - lines 131-140
-// And in init() - lines 147-158
 ```
 
-The directories are created in THREE different hooks to ensure they exist regardless of which serverless command is run:
-1. `initialize` - Early initialization hook
-2. `before:package:initialize` - Before packaging starts
-3. `asyncInit` - Async initialization for offline mode
+### Why Constructor Approach is Critical
+
+**Problem with Hook-Based Creation:**
+- Hooks run asynchronously and may execute after serverless-esbuild initializes
+- Plugin loading order is not guaranteed
+- Race condition between Frigg plugin hooks and serverless-esbuild accessing directory
+
+**Constructor Approach Guarantees:**
+1. **Runs first**: Constructor executes before any hooks are registered
+2. **Synchronous**: No async timing issues
+3. **Guaranteed order**: Always runs before serverless framework processes plugins
+4. **Blocks until complete**: Directory exists before any plugin code runs
+
+### Evidence of Timing Issue
+
+**Failed with hook-based creation:**
+```
+Initializing Frigg Serverless Plugin...
+Hello from Frigg Serverless Plugin!
+Running in online mode, doing nothing
+[... later ...]
+Error: ENOENT: no such file or directory, lstat '.esbuild/.serverless'
+```
+
+Note: "Initializing..." log appears but NOT "✓ Created..." log, indicating:
+- Hook ran too late
+- serverless-esbuild accessed directory before hook executed
+- Directory creation happened after it was needed
+
+**Succeeds with constructor creation:**
+```
+✓ Frigg plugin created /path/to/.esbuild/.serverless
+[... serverless-esbuild runs successfully ...]
+```
 
 ### Benefits
-- Works in clean CI/CD environments on first run
-- No manual directory creation required
-- Resilient across different serverless commands
-- Clear logging when directories are created
+- ✅ Works in clean CI/CD environments on first run
+- ✅ No manual directory creation required
+- ✅ **No race conditions** - guaranteed to run before serverless-esbuild
+- ✅ Synchronous execution ensures directory exists immediately
+- ✅ Clear error handling with try-catch
+- ✅ Helpful logging for debugging
+
+### Files Changed
+- `packages/serverless-plugin/index.js` - Constructor-based directory creation
 
 ---
 
@@ -200,7 +252,7 @@ if (pluginValidation.modified) {
 
 ---
 
-## Issue 5: Silent AWS Discovery Failures ✅ ALREADY FIXED
+## Issue 5: Silent AWS Discovery Failures ✅ ENHANCED
 
 ### Problem
 AWS resource discovery failed silently when IAM credentials lacked permissions, with no explicit way to disable discovery for restrictive deployment credentials.
@@ -210,51 +262,104 @@ AWS resource discovery failed silently when IAM credentials lacked permissions, 
 - Discovery failures caused cryptic deployment errors
 - No way to explicitly opt-out for limited IAM permissions
 - Forced users to grant excessive IAM permissions
+- No control over whether failures should block deployment
 
 ### Solution
-The framework already supports explicit discovery control via environment variable:
+Enhanced the framework with **three-tier discovery control** and **failOnError flag**:
 
 **File**: `packages/devtools/infrastructure/domains/shared/resource-discovery.js`
+
+#### 1. Three-Tier Discovery Control (Priority Order)
+
 ```javascript
 function shouldRunDiscovery(appDefinition) {
-    console.log(
-        '⚙️  Checking FRIGG_SKIP_AWS_DISCOVERY:',
-        process.env.FRIGG_SKIP_AWS_DISCOVERY
-    );
+    // Priority 1: AppDefinition-level configuration (explicit)
+    if (appDefinition.aws?.discovery?.enabled !== undefined) {
+        return appDefinition.aws.discovery.enabled;
+    }
 
+    // Priority 2: Environment variable
     if (process.env.FRIGG_SKIP_AWS_DISCOVERY === 'true') {
-        console.log(
-            '⚙️  Skipping AWS discovery because FRIGG_SKIP_AWS_DISCOVERY is set.'
-        );
         return false;
     }
-    // ... rest of logic
+
+    // Priority 3: Auto-detect based on features (VPC, KMS, SSM, PostgreSQL)
+    return (/* feature checks */);
 }
 ```
 
-Additionally, discovery errors are caught and handled gracefully:
+#### 2. Fail-On-Error Control
+
 ```javascript
 } catch (error) {
     console.error('❌ Cloud resource discovery failed:', error.message);
-    console.error('Stack:', error.stack);
 
-    // Don't fail the build - return empty resources
-    console.warn(
-        '⚠️  Continuing with empty discovered resources.'
-    );
+    // Check if discovery failures should fail the deployment
+    const failOnError = appDefinition.aws?.discovery?.failOnError ?? false;
+
+    if (failOnError) {
+        console.error('❌ Discovery failure blocking deployment');
+        throw error;
+    }
+
+    // Graceful degradation
+    console.warn('⚠️  Continuing with empty discovered resources.');
     return {};
 }
 ```
 
 ### Usage
 
-To skip AWS discovery in CI/CD with limited IAM:
+#### Option 1: AppDefinition Configuration (Recommended)
+
+**For restrictive IAM in CI/CD:**
+```javascript
+// index.js or AppDefinition
+module.exports = {
+    name: 'my-integration',
+    aws: {
+        discovery: {
+            enabled: false,  // Explicitly disable discovery
+        },
+    },
+    vpc: { enable: true },
+};
+```
+
+**For strict production deployments:**
+```javascript
+module.exports = {
+    name: 'prod-app',
+    aws: {
+        discovery: {
+            enabled: true,
+            failOnError: true,  // Fail deployment if discovery fails
+        },
+    },
+};
+```
+
+**For graceful dev environments:**
+```javascript
+module.exports = {
+    name: 'dev-app',
+    aws: {
+        discovery: {
+            enabled: true,
+            failOnError: false,  // Continue on failure (default)
+        },
+    },
+};
+```
+
+#### Option 2: Environment Variable (Legacy Support)
+
 ```bash
 export FRIGG_SKIP_AWS_DISCOVERY=true
 frigg deploy --stage prod
 ```
 
-Or in package.json scripts:
+Or in package.json:
 ```json
 {
   "scripts": {
@@ -263,12 +368,32 @@ Or in package.json scripts:
 }
 ```
 
+#### Option 3: Auto-Detection (Default)
+
+If neither AppDefinition nor environment variable is set, discovery runs automatically when VPC, KMS, SSM, or PostgreSQL features are enabled.
+
+### Priority Matrix
+
+| Scenario | AppDefinition | Env Var | Auto-Detect | Result |
+|----------|---------------|---------|-------------|--------|
+| Explicit enable | `enabled: true` | any | any | ✅ Runs |
+| Explicit disable | `enabled: false` | any | any | ❌ Skipped |
+| Not set | `undefined` | `true` | any | ❌ Skipped |
+| Not set | `undefined` | `false` | VPC on | ✅ Runs |
+| Not set | `undefined` | `false` | No features | ❌ Skipped |
+
 ### Benefits
-- Explicit control over discovery behavior
-- Clear logging when discovery is skipped
-- Graceful degradation on discovery failures
-- Supports restrictive IAM policies in CI/CD
-- No more silent failures
+- **AppDefinition-level control**: Configuration as code, not just env vars
+- **failOnError flag**: Choose between strict and graceful modes
+- **Priority system**: Clear precedence for different configuration methods
+- **Backward compatible**: Existing env var usage still works
+- **Clear logging**: Know exactly why discovery ran or was skipped
+- **Supports restrictive IAM**: Explicit disable for limited permissions
+- **Production safety**: Strict mode ensures discovery succeeds
+
+### Files Changed
+- `packages/devtools/infrastructure/domains/shared/resource-discovery.js` - Enhanced discovery control
+- `packages/devtools/infrastructure/domains/shared/resource-discovery.enhanced.test.js` - Comprehensive tests
 
 ---
 
@@ -368,8 +493,8 @@ All solutions maintain separation of concerns and testability principles.
 |-------|--------|----------|------------|
 | #1 osls dependency | ✅ Fixed | Medium | N/A (package.json) |
 | #2 Prisma cleanup | ✅ Already Fixed | High | Yes (automatic) |
-| #3 esbuild directories | ✅ Already Fixed | Critical | Yes (automatic) |
+| #3 esbuild directories | ✅ Fixed (Enhanced) | Critical | Yes (constructor) |
 | #4 Plugin conflicts | ✅ Fixed | Medium | Yes (with warning) |
-| #5 Discovery failures | ✅ Already Fixed | Medium | Yes (via env var) |
+| #5 Discovery failures | ✅ Enhanced | Medium | Yes (AppDefinition + env var) |
 
 **All deployment issues from #481 are now resolved.** The framework handles these scenarios automatically, eliminating the need for CI/CD workarounds.

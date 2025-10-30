@@ -13,6 +13,26 @@ class FriggServerlessPlugin {
     this.serverless = serverless;
     this.options = options;
     this.provider = serverless.getProvider("aws");
+
+    // CRITICAL FIX for Issue #481 - Issue 3
+    // Create .esbuild/.serverless directory IMMEDIATELY, synchronously,
+    // before any hooks run. This ensures serverless-esbuild has the
+    // directory it needs regardless of hook execution order.
+    const fs = require('fs');
+    const path = require('path');
+    const esbuildDir = path.join(
+      serverless.config.servicePath || process.cwd(),
+      '.esbuild',
+      '.serverless'
+    );
+
+    try {
+      fs.mkdirSync(esbuildDir, { recursive: true });
+      console.log(`✓ Frigg plugin created ${esbuildDir}`);
+    } catch (error) {
+      console.error(`⚠️  Failed to create ${esbuildDir}:`, error.message);
+    }
+
     this.hooks = {
       initialize: () => this.init(),
       "before:package:initialize": () => this.beforePackageInitialize(),
