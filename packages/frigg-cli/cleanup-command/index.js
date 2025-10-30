@@ -20,20 +20,9 @@ function formatConsoleOutput(result, options = {}) {
     const lines = [];
     const { deletionPlan } = result;
 
-    lines.push('');
-    lines.push('═'.repeat(80));
-    lines.push('  🧹 FRIGG CLEANUP - Orphaned Resources');
-    lines.push('═'.repeat(80));
-    lines.push('');
-
-    if (result.dryRun) {
-        lines.push('Mode: DRY-RUN (no resources will be deleted)');
-    } else {
-        lines.push('Mode: EXECUTE (resources WILL be deleted)');
-    }
-    lines.push('');
-
     if (!deletionPlan) {
+        lines.push('');
+        lines.push('─'.repeat(80));
         lines.push(result.message || 'No orphaned resources found');
         lines.push('');
         return lines.join('\n');
@@ -109,8 +98,8 @@ function formatConsoleOutput(result, options = {}) {
     if (result.dryRun) {
         lines.push('─'.repeat(80));
         lines.push('');
-        lines.push('To delete these resources, run:');
-        lines.push('  frigg cleanup --orphaned --execute');
+        lines.push('💡 To delete these resources, run:');
+        lines.push(`  frigg cleanup ${result.stackName || '<stack-name>'} --execute`);
         lines.push('');
     } else {
         lines.push('─'.repeat(80));
@@ -201,18 +190,33 @@ async function confirmDeletion(deletionPlan, stackName) {
     return confirmationText === `delete ${stackName}`;
 }
 
-async function runCleanupCommand(argv) {
-    const stackName = argv._[1];
-    const region = argv.region || process.env.AWS_REGION || 'us-east-1';
-    const dryRun = !argv.execute;
-    const autoConfirm = argv.yes || false;
-    const outputFormat = argv.output || argv.format || 'console';
-    const resourceTypeFilter = argv['resource-type'] || null;
-    const logicalIdPattern = argv['logical-id'] || null;
+async function runCleanupCommand(stackName, options) {
+    const region = options.region || process.env.AWS_REGION || 'us-east-1';
+    const dryRun = !options.execute;
+    const autoConfirm = options.yes || false;
+    const outputFormat = options.output || options.format || 'console';
+    const resourceTypeFilter = options['resourceType'] || null;
+    const logicalIdPattern = options['logicalId'] || null;
+
+    if (outputFormat === 'console') {
+        console.log('');
+        console.log('═'.repeat(80));
+        console.log('  🧹 FRIGG CLEANUP - Orphaned Resources');
+        console.log('═'.repeat(80));
+        console.log('');
+    }
 
     let resolvedStackName = stackName;
     if (!resolvedStackName) {
         resolvedStackName = await selectStackInteractively(region);
+    }
+
+    if (outputFormat === 'console') {
+        console.log('');
+        console.log(`Stack:  ${resolvedStackName}`);
+        console.log(`Region: ${region}`);
+        console.log(`Mode:   ${dryRun ? 'DRY-RUN (no resources will be deleted)' : 'EXECUTE (resources WILL be deleted)'}`);
+        console.log('');
     }
 
     const stackIdentifier = new StackIdentifier({
@@ -240,6 +244,9 @@ async function runCleanupCommand(argv) {
     });
 
     if (!dryRun && outputFormat === 'console') {
+        console.log('Analyzing orphaned resources...');
+        console.log('');
+
         const dryRunResult = await useCase.execute({
             stackIdentifier,
             dryRun: true,
@@ -255,6 +262,8 @@ async function runCleanupCommand(argv) {
             return;
         }
 
+        console.log(formatConsoleOutput(dryRunResult));
+
         if (!autoConfirm) {
             const confirmed = await confirmDeletion(
                 dryRunResult.deletionPlan,
@@ -267,6 +276,9 @@ async function runCleanupCommand(argv) {
                 return;
             }
         }
+
+        console.log('');
+        console.log('Starting deletion...');
     }
 
     const progressHandler =
@@ -283,6 +295,11 @@ async function runCleanupCommand(argv) {
               }
             : null;
 
+    if (dryRun && outputFormat === 'console') {
+        console.log('Analyzing orphaned resources...');
+        console.log('');
+    }
+
     const result = await useCase.execute({
         stackIdentifier,
         dryRun,
@@ -297,8 +314,8 @@ async function runCleanupCommand(argv) {
         console.log(formatConsoleOutput(result));
     }
 
-    if (argv['output-file']) {
-        const outputPath = path.resolve(argv['output-file']);
+    if (options.outputFile) {
+        const outputPath = path.resolve(options.outputFile);
         const content =
             outputFormat === 'json'
                 ? formatJsonOutput(result)

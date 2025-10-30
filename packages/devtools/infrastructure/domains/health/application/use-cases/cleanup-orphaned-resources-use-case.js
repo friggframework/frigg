@@ -76,6 +76,8 @@ class CleanupOrphanedResourcesUseCase {
             return {
                 dryRun: true,
                 deletionPlan,
+                stackName: stackIdentifier.stackName,
+                region: stackIdentifier.region,
                 message: 'Dry-run complete. No resources were deleted.',
             };
         }

@@ -173,7 +173,6 @@ program
     .command('cleanup [stackName]')
     .description('Clean up duplicate orphaned resources not in current stack template')
     .option('-r, --region <region>', 'AWS region (defaults to AWS_REGION env var or us-east-1)')
-    .option('--orphaned', 'clean up orphaned resources (required flag for safety)')
     .option('--execute', 'execute deletion (default is dry-run)')
     .option('--resource-type <type>', 'filter by resource type (e.g., AWS::EC2::VPC)')
     .option('--logical-id <pattern>', 'filter by logical ID pattern (supports * wildcard)')
