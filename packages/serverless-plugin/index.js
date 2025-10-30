@@ -14,7 +14,6 @@ class FriggServerlessPlugin {
     this.options = options;
     this.provider = serverless.getProvider("aws");
 
-    // CRITICAL FIX for Issue #481 - Issue 3
     // Create .esbuild/.serverless directory IMMEDIATELY, synchronously,
     // before any hooks run. This ensures serverless-esbuild has the
     // directory it needs regardless of hook execution order.
