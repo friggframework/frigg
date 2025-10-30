@@ -21,6 +21,7 @@ const { IntegrationBuilder } = require('./domains/integration/integration-builde
 const { modifyHandlerPaths } = require('./domains/shared/utilities/handler-path-resolver');
 const { createBaseDefinition } = require('./domains/shared/utilities/base-definition-factory');
 const { ensurePrismaLayerExists } = require('./domains/shared/utilities/prisma-layer-manager');
+const { validateAndCleanPlugins, validatePackagingConfiguration } = require('./domains/shared/validation/plugin-validator');
 
 /**
  * Compose serverless definition using domain builders
@@ -75,6 +76,27 @@ const composeServerlessDefinition = async (AppDefinition) => {
     });
 
     Object.assign(definition.custom, merged.custom);
+
+    // Validate and clean plugins (detect conflicts, auto-fix if needed)
+    const pluginValidation = validateAndCleanPlugins(definition.plugins, {
+        autoFix: true,
+        silent: false,
+    });
+
+    if (pluginValidation.modified) {
+        definition.plugins = pluginValidation.plugins;
+        console.log('   ✓ Plugin configuration auto-fixed');
+    }
+
+    // Validate packaging configuration
+    const packagingValidation = validatePackagingConfiguration(definition);
+    if (!packagingValidation.valid) {
+        console.warn('⚠️  Packaging configuration issues detected:');
+        packagingValidation.errors.forEach(err => console.warn(`   ✗ ${err}`));
+    }
+    if (packagingValidation.warnings.length > 0) {
+        packagingValidation.warnings.forEach(warn => console.warn(`   ℹ ${warn}`));
+    }
 
     // Modify handler paths for offline mode
     definition.functions = modifyHandlerPaths(definition.functions);
