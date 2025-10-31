@@ -179,6 +179,144 @@ describe('Prisma Layer Manager', () => {
                 expect(buildPrismaLayer).not.toHaveBeenCalled();
             });
 
+            it('should wait for active build process to complete (TDD)', async () => {
+                jest.useFakeTimers();
+
+                // Mock active lock file with running process
+                const activePid = 12345;
+                let completionMarkerExists = false;
+                fs.existsSync = jest.fn((path) => {
+                    if (path.endsWith('.build-complete')) return completionMarkerExists;
+                    if (path.endsWith('.build-lock')) return true;
+                    if (path.endsWith('layers/prisma')) return true;
+                    return false;
+                });
+                fs.readFileSync = jest.fn().mockReturnValue(activePid.toString());
+                fs.writeFileSync = jest.fn();
+                fs.rmSync = jest.fn();
+
+                // Mock process.kill to simulate running process, then completion
+                let killCallCount = 0;
+                const originalKill = process.kill;
+                process.kill = jest.fn((pid, signal) => {
+                    killCallCount++;
+                    if (killCallCount >= 3) {
+                        // After 3 seconds, build completes
+                        completionMarkerExists = true;
+                    }
+                    return true; // Process is running
+                });
+
+                const promise = ensurePrismaLayerExists();
+
+                // Fast-forward through the wait loop
+                for (let i = 0; i < 5; i++) {
+                    jest.advanceTimersByTime(1000);
+                    await Promise.resolve();
+                }
+
+                await promise;
+
+                // Should not rebuild (waited for concurrent build)
+                expect(buildPrismaLayer).not.toHaveBeenCalled();
+
+                process.kill = originalKill;
+                jest.useRealTimers();
+            });
+
+            it('should clean stale lock file if process not running (TDD)', async () => {
+                // Mock stale lock file (process not running)
+                fs.existsSync = jest.fn((path) => {
+                    if (path.endsWith('.build-complete')) return false;
+                    if (path.endsWith('.build-lock')) return true;
+                    if (path.endsWith('layers/prisma')) return false;
+                    return false;
+                });
+                fs.readFileSync = jest.fn().mockReturnValue('99999');
+                fs.writeFileSync = jest.fn();
+                fs.mkdirSync = jest.fn();
+                fs.rmSync = jest.fn();
+
+                // Mock process.kill to throw (process not running)
+                const originalKill = process.kill;
+                process.kill = jest.fn(() => {
+                    throw new Error('ESRCH');
+                });
+
+                buildPrismaLayer.mockResolvedValue();
+
+                await ensurePrismaLayerExists();
+
+                // Should remove stale lock
+                expect(fs.rmSync).toHaveBeenCalledWith('/project/layers/prisma/.build-lock', { force: true });
+                // Should proceed with build
+                expect(buildPrismaLayer).toHaveBeenCalled();
+
+                process.kill = originalKill;
+            });
+
+            it('should create and remove lock file during build (TDD)', async () => {
+                // Mock to simulate successful build flow
+                fs.existsSync = jest.fn((path) => {
+                    // Completion marker doesn't exist initially
+                    if (path.endsWith('.build-complete')) return false;
+                    // Lock file exists in finally block (after writeFileSync)
+                    if (path.endsWith('.build-lock')) return true;
+                    // Directory doesn't exist initially
+                    if (path.endsWith('layers/prisma')) return false;
+                    return false;
+                });
+                fs.writeFileSync = jest.fn();
+                fs.mkdirSync = jest.fn();
+                fs.rmSync = jest.fn();
+                buildPrismaLayer.mockResolvedValue();
+
+                await ensurePrismaLayerExists();
+
+                // Should create directory for lock file
+                expect(fs.mkdirSync).toHaveBeenCalledWith('/project/layers/prisma', { recursive: true });
+
+                // Should create lock file with PID
+                expect(fs.writeFileSync).toHaveBeenCalledWith(
+                    '/project/layers/prisma/.build-lock',
+                    expect.any(String)
+                );
+
+                // Should create completion marker
+                expect(fs.writeFileSync).toHaveBeenCalledWith(
+                    '/project/layers/prisma/.build-complete',
+                    expect.any(String)
+                );
+
+                // Should remove lock file in finally block
+                expect(fs.rmSync).toHaveBeenCalledWith(
+                    '/project/layers/prisma/.build-lock',
+                    { force: true }
+                );
+            });
+
+            it('should remove lock file even if build fails (TDD)', async () => {
+                mockFs.noBuild();
+                fs.mkdirSync = jest.fn();
+                buildPrismaLayer.mockRejectedValue(new Error('Build failed'));
+
+                // After failure, directory exists
+                fs.existsSync = jest.fn((path) => {
+                    if (path.endsWith('.build-complete')) return false;
+                    if (path.endsWith('.build-lock')) return true;
+                    if (path.endsWith('layers/prisma')) return true;
+                    return false;
+                });
+
+                await expect(ensurePrismaLayerExists()).rejects.toThrow('Build failed');
+
+                // Should remove lock file in finally block
+                expect(fs.rmSync).toHaveBeenCalledWith(
+                    '/project/layers/prisma/.build-lock',
+                    { force: true }
+                );
+            });
+
             it('should wait and rebuild if directory exists without completion marker (TDD)', async () => {
                 jest.useFakeTimers();
                 mockFs.incompleteBuild();
@@ -258,29 +396,46 @@ describe('Prisma Layer Manager', () => {
             it('should detect when concurrent process completes during wait (TDD)', async () => {
                 jest.useFakeTimers();
 
-                // After 1 second, completion marker appears (concurrent process finished)
-                let callCount = 0;
+                // Simulate lock file existing with completion happening during wait
+                let completionMarkerExists = false;
+                let lockFileExists = true;
                 fs.existsSync = jest.fn((path) => {
-                    callCount++;
-                    if (path.endsWith('.build-complete')) {
-                        return callCount > 2; // Appears after setTimeout
-                    }
+                    if (path.endsWith('.build-complete')) return completionMarkerExists;
+                    if (path.endsWith('.build-lock')) return lockFileExists;
                     if (path.endsWith('layers/prisma')) return true;
                     return false;
                 });
+                fs.readFileSync = jest.fn().mockReturnValue('12345');
                 fs.writeFileSync = jest.fn();
                 fs.rmSync = jest.fn();
 
+                // Mock process.kill to simulate active process
+                let killCallCount = 0;
+                const originalKill = process.kill;
+                process.kill = jest.fn((pid, signal) => {
+                    killCallCount++;
+                    if (killCallCount >= 3) {
+                        // After 3 checks, build completes
+                        completionMarkerExists = true;
+                        lockFileExists = false;
+                    }
+                    return true; // Process is running
+                });
+
                 const promise = ensurePrismaLayerExists();
 
-                // Fast-forward through the wait
-                jest.advanceTimersByTime(1000);
+                // Fast-forward through the wait loop
+                for (let i = 0; i < 5; i++) {
+                    jest.advanceTimersByTime(1000);
+                    await Promise.resolve();
+                }
 
                 await promise;
 
                 // Should not rebuild (concurrent process completed)
                 expect(buildPrismaLayer).not.toHaveBeenCalled();
 
+                process.kill = originalKill;
                 jest.useRealTimers();
             });
         });
