@@ -179,17 +179,20 @@ describe('Prisma Layer Manager', () => {
                 expect(buildPrismaLayer).not.toHaveBeenCalled();
             });
 
-            it('should clean and rebuild if directory exists without completion marker (TDD)', async () => {
+            it('should wait and rebuild if directory exists without completion marker (TDD)', async () => {
+                jest.useFakeTimers();
                 mockFs.incompleteBuild();
                 buildPrismaLayer.mockResolvedValue();
 
-                await ensurePrismaLayerExists();
+                const promise = ensurePrismaLayerExists();
 
-                // Should clean incomplete build
-                expect(fs.rmSync).toHaveBeenCalledWith(
-                    '/project/layers/prisma',
-                    { recursive: true, force: true }
-                );
+                // Fast-forward through the wait
+                jest.advanceTimersByTime(1000);
+
+                await promise;
+
+                // Should NOT manually clean (buildPrismaLayer handles this)
+                expect(fs.rmSync).not.toHaveBeenCalled();
                 // Should rebuild
                 expect(buildPrismaLayer).toHaveBeenCalled();
                 // Should create completion marker
@@ -197,6 +200,8 @@ describe('Prisma Layer Manager', () => {
                     '/project/layers/prisma/.build-complete',
                     expect.any(String)
                 );
+
+                jest.useRealTimers();
             });
 
             it('should create completion marker after successful build (TDD)', async () => {
@@ -214,50 +219,44 @@ describe('Prisma Layer Manager', () => {
             it('should clean up partial build on failure (TDD)', async () => {
                 mockFs.noBuild();
                 buildPrismaLayer.mockRejectedValue(new Error('Build failed'));
+
+                // After build attempt fails, directory exists
                 fs.existsSync = jest.fn((path) => {
-                    // After build starts, directory exists
+                    if (path.endsWith('.build-complete')) return false;
                     if (path.endsWith('layers/prisma')) return true;
                     return false;
                 });
 
                 await expect(ensurePrismaLayerExists()).rejects.toThrow('Build failed');
 
+                // Should clean up after failure
                 expect(fs.rmSync).toHaveBeenCalledWith(
                     '/project/layers/prisma',
                     { recursive: true, force: true }
                 );
             });
 
-            it('should handle cleanup errors gracefully and attempt rebuild (TDD)', async () => {
+            it('should wait for potential concurrent build before rebuilding (TDD)', async () => {
+                jest.useFakeTimers();
                 mockFs.incompleteBuild();
-                fs.rmSync = jest.fn().mockImplementation(() => {
-                    throw new Error('EBUSY: resource busy');
-                });
                 buildPrismaLayer.mockResolvedValue();
 
-                const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+                const promise = ensurePrismaLayerExists();
 
-                await ensurePrismaLayerExists();
+                // Fast-forward through the wait
+                jest.advanceTimersByTime(1000);
 
-                // Should log warning about cleanup failure
-                expect(consoleWarnSpy).toHaveBeenCalledWith(
-                    expect.stringContaining('Could not clean'),
-                    expect.any(String)
-                );
+                await promise;
+
+                // Should wait before rebuilding
                 // Should still attempt to build
                 expect(buildPrismaLayer).toHaveBeenCalled();
 
-                consoleWarnSpy.mockRestore();
+                jest.useRealTimers();
             });
 
-            it('should wait and check for concurrent process completion (TDD)', async () => {
+            it('should detect when concurrent process completes during wait (TDD)', async () => {
                 jest.useFakeTimers();
-                mockFs.incompleteBuild();
-
-                // First cleanup fails
-                fs.rmSync = jest.fn().mockImplementation(() => {
-                    throw new Error('EBUSY: resource busy');
-                });
 
                 // After 1 second, completion marker appears (concurrent process finished)
                 let callCount = 0;
@@ -269,6 +268,8 @@ describe('Prisma Layer Manager', () => {
                     if (path.endsWith('layers/prisma')) return true;
                     return false;
                 });
+                fs.writeFileSync = jest.fn();
+                fs.rmSync = jest.fn();
 
                 const promise = ensurePrismaLayerExists();
 

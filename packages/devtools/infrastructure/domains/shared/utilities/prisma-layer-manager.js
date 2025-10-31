@@ -40,30 +40,20 @@ async function ensurePrismaLayerExists(databaseConfig = {}) {
 
     // Check if incomplete build exists (directory without marker)
     if (fs.existsSync(layerPath)) {
-        console.log('⚠ Incomplete Prisma layer detected - cleaning...');
-        try {
-            fs.rmSync(layerPath, { recursive: true, force: true });
-            console.log('✓ Cleaned incomplete build');
-        } catch (cleanupError) {
-            // EBUSY error means another process might be building
-            if (cleanupError.code === 'EBUSY' || cleanupError.message.includes('EBUSY')) {
-                console.warn('⏳ Could not clean (EBUSY) - waiting for concurrent build...', cleanupError.message);
+        console.log('⚠ Incomplete Prisma layer detected');
 
-                // Wait 1 second and check if concurrent process completed
-                await new Promise(resolve => setTimeout(resolve, 1000));
+        // Wait briefly to see if another process completes the build
+        console.log('⏳ Checking if concurrent build is in progress...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
-                // Check if concurrent build completed
-                if (fs.existsSync(completionMarkerPath)) {
-                    console.log('✓ Concurrent build completed');
-                    return;
-                }
-
-                // Concurrent build didn't complete, proceed with our build
-                console.log('⚠ Concurrent build incomplete, proceeding with rebuild');
-            } else {
-                throw cleanupError;
-            }
+        // Check if concurrent build completed while we waited
+        if (fs.existsSync(completionMarkerPath)) {
+            console.log('✓ Concurrent build completed');
+            return;
         }
+
+        // Incomplete build still exists - will be cleaned by buildPrismaLayer()
+        console.log('⚠ Proceeding with rebuild (buildPrismaLayer will clean incomplete build)');
     }
 
     // Build layer
