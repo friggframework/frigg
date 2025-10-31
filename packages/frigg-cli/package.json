@@ -31,7 +31,7 @@
     "validate-npm-package-name": "^5.0.0"
   },
   "peerDependencies": {
-    "@friggframework/devtools": "^2.0.0-next.0"
+    "@friggframework/devtools": ">=2.0.0-next.0"
   },
   "devDependencies": {
     "@friggframework/devtools": "^2.0.0-next.0",
