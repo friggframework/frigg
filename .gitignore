@@ -33,6 +33,10 @@ claude-flow.log
 .claude/
 .roomodes
 
+# frigg infrastructure cache files
+.frigg-infrastructure-cache.json
+.frigg-infrastructure-lock
+
 .env
 .npmrc
 .autorc
