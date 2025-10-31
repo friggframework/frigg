@@ -113,6 +113,7 @@ function createIntegrationRouter() {
     const deleteIntegrationForUser = new DeleteIntegrationForUser({
         integrationRepository,
         integrationClasses,
+        moduleFactory,
     });
 
     const getIntegrationsForUser = new GetIntegrationsForUser({
