@@ -30,12 +30,8 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
         run: |
-          # Workaround for npm workspace bug with optional dependencies
-          # See: https://github.com/npm/cli/issues/4828
-          # npm ci doesn't properly install optional deps in workspaces
-          npm install --no-save
+          npm ci
           cd packages/ui
-          npm install --no-save
           npm run build
           cd ../..
           npx auto shipit

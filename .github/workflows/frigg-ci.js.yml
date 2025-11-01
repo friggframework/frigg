@@ -48,15 +48,11 @@ jobs:
             ${{ runner.os }}-
 
       - name: Install Dependencies 🛠
-        run: |
-          # Workaround for npm workspace bug with optional dependencies
-          # See: https://github.com/npm/cli/issues/4828
-          npm install --no-save
+        run: npm ci
 
       - name: Build UI Package 🏗
         run: |
           cd packages/ui
-          npm install --no-save
           npm run build
 
       - name: Tests 🧪
