@@ -15,24 +15,24 @@ const path = require('path');
 const readline = require('readline');
 
 // Domain and Application Layer
-const StackIdentifier = require('@friggframework/devtools/infrastructure/domains/health/domain/value-objects/stack-identifier');
-const RunHealthCheckUseCase = require('@friggframework/devtools/infrastructure/domains/health/application/use-cases/run-health-check-use-case');
-const RepairViaImportUseCase = require('@friggframework/devtools/infrastructure/domains/health/application/use-cases/repair-via-import-use-case');
-const ReconcilePropertiesUseCase = require('@friggframework/devtools/infrastructure/domains/health/application/use-cases/reconcile-properties-use-case');
-const ExecuteResourceImportUseCase = require('@friggframework/devtools/infrastructure/domains/health/application/use-cases/execute-resource-import-use-case');
+const StackIdentifier = require('../../infrastructure/domains/health/domain/value-objects/stack-identifier');
+const RunHealthCheckUseCase = require('../../infrastructure/domains/health/application/use-cases/run-health-check-use-case');
+const RepairViaImportUseCase = require('../../infrastructure/domains/health/application/use-cases/repair-via-import-use-case');
+const ReconcilePropertiesUseCase = require('../../infrastructure/domains/health/application/use-cases/reconcile-properties-use-case');
+const ExecuteResourceImportUseCase = require('../../infrastructure/domains/health/application/use-cases/execute-resource-import-use-case');
 
 // Infrastructure Layer - AWS Adapters
-const AWSStackRepository = require('@friggframework/devtools/infrastructure/domains/health/infrastructure/adapters/aws-stack-repository');
-const AWSResourceDetector = require('@friggframework/devtools/infrastructure/domains/health/infrastructure/adapters/aws-resource-detector');
-const AWSResourceImporter = require('@friggframework/devtools/infrastructure/domains/health/infrastructure/adapters/aws-resource-importer');
-const AWSPropertyReconciler = require('@friggframework/devtools/infrastructure/domains/health/infrastructure/adapters/aws-property-reconciler');
+const AWSStackRepository = require('../../infrastructure/domains/health/infrastructure/adapters/aws-stack-repository');
+const AWSResourceDetector = require('../../infrastructure/domains/health/infrastructure/adapters/aws-resource-detector');
+const AWSResourceImporter = require('../../infrastructure/domains/health/infrastructure/adapters/aws-resource-importer');
+const AWSPropertyReconciler = require('../../infrastructure/domains/health/infrastructure/adapters/aws-property-reconciler');
 
 // Domain Services
-const MismatchAnalyzer = require('@friggframework/devtools/infrastructure/domains/health/domain/services/mismatch-analyzer');
-const HealthScoreCalculator = require('@friggframework/devtools/infrastructure/domains/health/domain/services/health-score-calculator');
-const { TemplateParser } = require('@friggframework/devtools/infrastructure/domains/health/domain/services/template-parser');
-const { ImportTemplateGenerator } = require('@friggframework/devtools/infrastructure/domains/health/domain/services/import-template-generator');
-const { ImportProgressMonitor } = require('@friggframework/devtools/infrastructure/domains/health/domain/services/import-progress-monitor');
+const MismatchAnalyzer = require('../../infrastructure/domains/health/domain/services/mismatch-analyzer');
+const HealthScoreCalculator = require('../../infrastructure/domains/health/domain/services/health-score-calculator');
+const { TemplateParser } = require('../../infrastructure/domains/health/domain/services/template-parser');
+const { ImportTemplateGenerator } = require('../../infrastructure/domains/health/domain/services/import-template-generator');
+const { ImportProgressMonitor } = require('../../infrastructure/domains/health/domain/services/import-progress-monitor');
 
 /**
  * Create readline interface for user prompts

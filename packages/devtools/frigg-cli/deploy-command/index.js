@@ -113,7 +113,7 @@ function validateAndBuildEnvironment(appDefinition, options) {
 
     // Try to use the env-validator if available
     try {
-        const { validateEnvironmentVariables } = require('@friggframework/devtools/infrastructure/env-validator');
+        const { validateEnvironmentVariables } = require('../../infrastructure/env-validator');
         const validation = validateEnvironmentVariables(appDefinition);
 
         handleValidationWarnings(validation, options);

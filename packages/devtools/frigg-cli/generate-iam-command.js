@@ -1,7 +1,7 @@
 const fs = require('fs-extra');
 const path = require('path');
 const { findNearestBackendPackageJson } = require('@friggframework/core');
-const { generateIAMCloudFormation, getFeatureSummary } = require('@friggframework/devtools/infrastructure/domains/security/iam-generator');
+const { generateIAMCloudFormation, getFeatureSummary } = require('../infrastructure/domains/security/iam-generator');
 
 /**
  * Generate IAM CloudFormation stack based on current app definition
