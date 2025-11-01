@@ -30,8 +30,9 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
         run: |
-          npm ci
-          npm install  # Fix npm optional dependency bug with rollup
+          # Fix npm optional dependency bug with rollup (https://github.com/npm/cli/issues/4828)
+          rm -rf node_modules package-lock.json
+          npm install
           cd packages/ui
           npm run build
           cd ../..
