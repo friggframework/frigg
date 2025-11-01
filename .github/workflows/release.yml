@@ -31,6 +31,7 @@ jobs:
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
         run: |
           npm ci
+          npm install  # Fix npm optional dependency bug with rollup
           cd packages/ui
           npm run build
           cd ../..
