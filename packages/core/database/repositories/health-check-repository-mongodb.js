@@ -1,29 +1,27 @@
-const { prisma } = require('../prisma');
 const { mongoose } = require('../mongoose');
 const {
     HealthCheckRepositoryInterface,
 } = require('./health-check-repository-interface');
 
-/**
- * MongoDB-specific Health Check Repository
- *
- * Provides MongoDB-specific database operations for health testing.
- * Uses Prisma for MongoDB operations (Mongoose is legacy/unused).
- */
 class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface {
-    constructor() {
+    /**
+     * @param {Object} params
+     * @param {Object} params.prismaClient - Prisma client instance
+     */
+    constructor({ prismaClient }) {
         super();
+        this.prisma = prismaClient;
     }
 
+    /**
+     * @returns {Promise<{readyState: number, stateName: string, isConnected: boolean}>}
+     */
     async getDatabaseConnectionState() {
-        // Prisma doesn't expose connection state like Mongoose
-        // We need to actually test the connection
         let isConnected = false;
         let stateName = 'unknown';
         
         try {
-            // Try a quick query to see if we're connected
-            await prisma.$runCommandRaw({ ping: 1 });
+            await this.prisma.$runCommandRaw({ ping: 1 });
             isConnected = true;
             stateName = 'connected';
         } catch (error) {
@@ -37,36 +35,33 @@ class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface {
         };
     }
 
+    /**
+     * @param {number} maxTimeMS
+     * @returns {Promise<number>} Response time in milliseconds
+     */
     async pingDatabase(maxTimeMS = 2000) {
         const pingStart = Date.now();
-        // Use Prisma's $queryRaw to execute a ping command
-        await prisma.$queryRaw`SELECT 1`.catch(() => {
-            // For MongoDB, use runCommandRaw instead
-            return prisma.$runCommandRaw({ ping: 1 });
+        await this.prisma.$queryRaw`SELECT 1`.catch(() => {
+            return this.prisma.$runCommandRaw({ ping: 1 });
         });
         return Date.now() - pingStart;
     }
 
     async createCredential(credentialData) {
-        // Note: Collection existence is ensured at application startup via
-        // initializeMongoDBSchema() in database/utils/mongodb-schema-init.js
-        // This prevents "Cannot create namespace in multi-document transaction" errors
-        return await prisma.credential.create({
+        return await this.prisma.credential.create({
             data: credentialData,
         });
     }
 
     async findCredentialById(id) {
-        return await prisma.credential.findUnique({
+        return await this.prisma.credential.findUnique({
             where: { id },
         });
     }
 
     /**
-     * Get raw credential from MongoDB bypassing Prisma encryption extension
-     * Uses Mongoose to access raw MongoDB collection
-     * @param {string} id - Credential ID
-     * @returns {Promise<Object|null>} Raw credential from database
+     * @param {string} id
+     * @returns {Promise<Object|null>}
      */
     async getRawCredentialById(id) {
         const { ObjectId } = require('mongodb');
@@ -76,7 +71,7 @@ class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface {
     }
 
     async deleteCredential(id) {
-        await prisma.credential.delete({
+        await this.prisma.credential.delete({
             where: { id },
         });
     }

@@ -1,31 +1,22 @@
-/**
- * Tests for HealthCheckRepositoryPostgreSQL
- * 
- * Tests database connection state detection and ping functionality
- */
-
 const { HealthCheckRepositoryPostgreSQL } = require('./health-check-repository-postgres');
-
-// Mock the prisma module
-jest.mock('../prisma', () => ({
-    prisma: {
-        $queryRaw: jest.fn(),
-    },
-}));
-
-const { prisma } = require('../prisma');
 
 describe('HealthCheckRepositoryPostgreSQL', () => {
     let repository;
+    let mockPrismaClient;
 
     beforeEach(() => {
-        repository = new HealthCheckRepositoryPostgreSQL();
-        jest.clearAllMocks();
+        mockPrismaClient = {
+            $queryRaw: jest.fn(),
+        };
+        
+        repository = new HealthCheckRepositoryPostgreSQL({ 
+            prismaClient: mockPrismaClient 
+        });
     });
 
     describe('getDatabaseConnectionState()', () => {
         it('should return connected state when query succeeds', async () => {
-            prisma.$queryRaw.mockResolvedValue([{ '?column?': 1 }]);
+            mockPrismaClient.$queryRaw.mockResolvedValue([{ '?column?': 1 }]);
 
             const result = await repository.getDatabaseConnectionState();
 
@@ -34,11 +25,11 @@ describe('HealthCheckRepositoryPostgreSQL', () => {
                 stateName: 'connected',
                 isConnected: true,
             });
-            expect(prisma.$queryRaw).toHaveBeenCalled();
+            expect(mockPrismaClient.$queryRaw).toHaveBeenCalled();
         });
 
         it('should return disconnected state when query fails', async () => {
-            prisma.$queryRaw.mockRejectedValue(new Error('Connection failed'));
+            mockPrismaClient.$queryRaw.mockRejectedValue(new Error('Connection failed'));
 
             const result = await repository.getDatabaseConnectionState();
 
@@ -50,7 +41,7 @@ describe('HealthCheckRepositoryPostgreSQL', () => {
         });
 
         it('should return disconnected state when database is unreachable', async () => {
-            prisma.$queryRaw.mockRejectedValue(new Error('ECONNREFUSED'));
+            mockPrismaClient.$queryRaw.mockRejectedValue(new Error('ECONNREFUSED'));
 
             const result = await repository.getDatabaseConnectionState();
 
@@ -59,7 +50,7 @@ describe('HealthCheckRepositoryPostgreSQL', () => {
         });
 
         it('should return disconnected state on authentication error', async () => {
-            prisma.$queryRaw.mockRejectedValue(new Error('Authentication failed'));
+            mockPrismaClient.$queryRaw.mockRejectedValue(new Error('Authentication failed'));
 
             const result = await repository.getDatabaseConnectionState();
 
@@ -73,24 +64,24 @@ describe('HealthCheckRepositoryPostgreSQL', () => {
 
     describe('pingDatabase()', () => {
         it('should return response time when ping succeeds', async () => {
-            prisma.$queryRaw.mockResolvedValue([{ '?column?': 1 }]);
+            mockPrismaClient.$queryRaw.mockResolvedValue([{ '?column?': 1 }]);
 
             const responseTime = await repository.pingDatabase(2000);
 
             expect(typeof responseTime).toBe('number');
             expect(responseTime).toBeGreaterThanOrEqual(0);
-            expect(prisma.$queryRaw).toHaveBeenCalled();
+            expect(mockPrismaClient.$queryRaw).toHaveBeenCalled();
         });
 
         it('should throw error when ping fails', async () => {
             const error = new Error('Database unreachable');
-            prisma.$queryRaw.mockRejectedValue(error);
+            mockPrismaClient.$queryRaw.mockRejectedValue(error);
 
             await expect(repository.pingDatabase(2000)).rejects.toThrow('Database unreachable');
         });
 
         it('should measure actual response time', async () => {
-            prisma.$queryRaw.mockImplementation(() => 
+            mockPrismaClient.$queryRaw.mockImplementation(() => 
                 new Promise(resolve => setTimeout(() => resolve([{ '?column?': 1 }]), 30))
             );
 

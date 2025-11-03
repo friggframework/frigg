@@ -1,9 +1,3 @@
-/**
- * Tests for CheckDatabaseHealthUseCase
- * 
- * Tests business logic for database health checking
- */
-
 const { CheckDatabaseHealthUseCase } = require('./check-database-health-use-case');
 
 describe('CheckDatabaseHealthUseCase', () => {

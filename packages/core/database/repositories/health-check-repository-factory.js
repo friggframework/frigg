@@ -1,27 +1,22 @@
 const { HealthCheckRepositoryMongoDB } = require('./health-check-repository-mongodb');
 const { HealthCheckRepositoryPostgreSQL } = require('./health-check-repository-postgres');
+const { prisma } = require('../prisma');
 const config = require('../config');
 
 /**
- * Health Check Repository Factory
- * Creates the appropriate repository adapter based on database type
- *
- * Usage:
- * ```javascript
- * const repository = createHealthCheckRepository();
- * ```
- *
- * @returns {HealthCheckRepositoryInterface} Configured repository adapter
+ * @param {Object} [options]
+ * @param {Object} [options.prismaClient] - Prisma client (defaults to singleton)
+ * @returns {HealthCheckRepositoryInterface}
  */
-function createHealthCheckRepository() {
+function createHealthCheckRepository({ prismaClient = prisma } = {}) {
     const dbType = config.DB_TYPE;
 
     switch (dbType) {
         case 'mongodb':
-            return new HealthCheckRepositoryMongoDB();
+            return new HealthCheckRepositoryMongoDB({ prismaClient });
 
         case 'postgresql':
-            return new HealthCheckRepositoryPostgreSQL();
+            return new HealthCheckRepositoryPostgreSQL({ prismaClient });
 
         default:
             throw new Error(
@@ -32,7 +27,6 @@ function createHealthCheckRepository() {
 
 module.exports = {
     createHealthCheckRepository,
-    // Export adapters for direct testing
     HealthCheckRepositoryMongoDB,
     HealthCheckRepositoryPostgreSQL,
 };
