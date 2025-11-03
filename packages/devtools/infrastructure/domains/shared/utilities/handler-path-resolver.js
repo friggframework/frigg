@@ -116,13 +116,20 @@ function modifyHandlerPaths(functions) {
         return { ...functions };
     }
 
-    // In offline mode, don't modify the handler paths at all
-    // serverless-offline will resolve node_modules paths from the working directory
-    console.log('Offline mode detected - keeping original handler paths for serverless-offline');
+    console.log('Offline mode: Adjusting handler paths for workspace setup');
 
-    // Return deep copy to prevent mutations (DDD immutability principle)
+    // In offline mode, adjust node_modules paths for workspace structure
+    // Backend working directory: /backend
+    // node_modules location: ../node_modules (workspace root)
     return Object.entries(functions).reduce((acc, [key, value]) => {
-        acc[key] = { ...value };
+        if (value.handler && value.handler.startsWith('node_modules/')) {
+            // Workspace: node_modules is in parent directory
+            const adjustedHandler = '../' + value.handler;
+            console.log(`  ${key}: ${value.handler} -> ${adjustedHandler}`);
+            acc[key] = { ...value, handler: adjustedHandler };
+        } else {
+            acc[key] = { ...value };
+        }
         return acc;
     }, {});
 }
