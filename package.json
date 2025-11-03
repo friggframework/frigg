@@ -16,6 +16,14 @@
     "node": ">=22",
     "npm": ">=10"
   },
+  "overrides": {
+    "rollup": {
+      "@rollup/rollup-linux-x64-gnu": "4.52.5",
+      "@rollup/rollup-darwin-x64": "4.52.5",
+      "@rollup/rollup-darwin-arm64": "4.52.5",
+      "@rollup/rollup-win32-x64-msvc": "4.52.5"
+    }
+  },
   "author": "seanspeaks <sean.matthews@lefthook.co>",
   "license": "MIT",
   "workspaces": [

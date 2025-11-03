@@ -224,7 +224,7 @@ function createBaseDefinition(
                 ],
                 packager: 'npm',
                 keepNames: true,
-                keepOutputDirectory: false,  // Clean up .esbuild directory after packaging
+                keepOutputDirectory: true,  // Keep .esbuild directory to prevent ENOENT errors during packaging
                 exclude: [
                     'aws-sdk',
                     '@aws-sdk/*',

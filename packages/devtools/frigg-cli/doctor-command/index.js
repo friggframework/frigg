@@ -17,16 +17,16 @@ const { select } = require('@inquirer/prompts');
 const { CloudFormationClient, ListStacksCommand } = require('@aws-sdk/client-cloudformation');
 
 // Domain and Application Layer
-const StackIdentifier = require('@friggframework/devtools/infrastructure/domains/health/domain/value-objects/stack-identifier');
-const RunHealthCheckUseCase = require('@friggframework/devtools/infrastructure/domains/health/application/use-cases/run-health-check-use-case');
+const StackIdentifier = require('../../infrastructure/domains/health/domain/value-objects/stack-identifier');
+const RunHealthCheckUseCase = require('../../infrastructure/domains/health/application/use-cases/run-health-check-use-case');
 
 // Infrastructure Layer - AWS Adapters
-const AWSStackRepository = require('@friggframework/devtools/infrastructure/domains/health/infrastructure/adapters/aws-stack-repository');
-const AWSResourceDetector = require('@friggframework/devtools/infrastructure/domains/health/infrastructure/adapters/aws-resource-detector');
+const AWSStackRepository = require('../../infrastructure/domains/health/infrastructure/adapters/aws-stack-repository');
+const AWSResourceDetector = require('../../infrastructure/domains/health/infrastructure/adapters/aws-resource-detector');
 
 // Domain Services
-const MismatchAnalyzer = require('@friggframework/devtools/infrastructure/domains/health/domain/services/mismatch-analyzer');
-const HealthScoreCalculator = require('@friggframework/devtools/infrastructure/domains/health/domain/services/health-score-calculator');
+const MismatchAnalyzer = require('../../infrastructure/domains/health/domain/services/mismatch-analyzer');
+const HealthScoreCalculator = require('../../infrastructure/domains/health/domain/services/health-score-calculator');
 
 /**
  * Format health report for console output
