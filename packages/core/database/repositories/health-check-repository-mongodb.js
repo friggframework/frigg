@@ -8,32 +8,42 @@ const {
  * MongoDB-specific Health Check Repository
  *
  * Provides MongoDB-specific database operations for health testing.
- * Uses Mongoose for MongoDB-specific operations (raw access, ping).
+ * Uses Prisma for MongoDB operations (Mongoose is legacy/unused).
  */
 class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface {
     constructor() {
         super();
     }
 
-    getDatabaseConnectionState() {
-        const stateMap = {
-            0: 'disconnected',
-            1: 'connected',
-            2: 'connecting',
-            3: 'disconnecting',
-        };
-        const readyState = mongoose.connection.readyState;
+    async getDatabaseConnectionState() {
+        // Prisma doesn't expose connection state like Mongoose
+        // We need to actually test the connection
+        let isConnected = false;
+        let stateName = 'unknown';
+        
+        try {
+            // Try a quick query to see if we're connected
+            await prisma.$runCommandRaw({ ping: 1 });
+            isConnected = true;
+            stateName = 'connected';
+        } catch (error) {
+            stateName = 'disconnected';
+        }
 
         return {
-            readyState,
-            stateName: stateMap[readyState],
-            isConnected: readyState === 1,
+            readyState: isConnected ? 1 : 0,
+            stateName,
+            isConnected,
         };
     }
 
     async pingDatabase(maxTimeMS = 2000) {
         const pingStart = Date.now();
-        await mongoose.connection.db.admin().ping({ maxTimeMS });
+        // Use Prisma's $queryRaw to execute a ping command
+        await prisma.$queryRaw`SELECT 1`.catch(() => {
+            // For MongoDB, use runCommandRaw instead
+            return prisma.$runCommandRaw({ ping: 1 });
+        });
         return Date.now() - pingStart;
     }
 

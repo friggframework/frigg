@@ -14,14 +14,25 @@ class HealthCheckRepositoryPostgreSQL extends HealthCheckRepositoryInterface {
         super();
     }
 
-    getDatabaseConnectionState() {
+    async getDatabaseConnectionState() {
         // PostgreSQL connection state via Prisma
-        // Note: Prisma doesn't expose connection state like Mongoose
-        // We check if prisma is connected by attempting a query
+        // Prisma doesn't expose connection state, so we test it
+        let isConnected = false;
+        let stateName = 'unknown';
+        
+        try {
+            // Try a quick query to see if we're connected
+            await prisma.$queryRaw`SELECT 1`;
+            isConnected = true;
+            stateName = 'connected';
+        } catch (error) {
+            stateName = 'disconnected';
+        }
+
         return {
-            readyState: 1, // Assume connected if Prisma instance exists
-            stateName: 'connected',
-            isConnected: true,
+            readyState: isConnected ? 1 : 0,
+            stateName,
+            isConnected,
         };
     }
 
