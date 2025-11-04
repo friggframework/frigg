@@ -536,6 +536,29 @@ class AWSProviderAdapter extends CloudProviderAdapter {
             return [];
         }
     }
+
+    /**
+     * Describe a specific stack resource to get its full details including properties
+     * @param {string} stackName - Stack name
+     * @param {string} logicalResourceId - Logical resource ID
+     * @returns {Promise<Object>} Resource details
+     */
+    async describeStackResource(stackName, logicalResourceId) {
+        const cf = this.getCloudFormationClient();
+        
+        try {
+            const { DescribeStackResourceCommand } = require('@aws-sdk/client-cloudformation');
+            const response = await cf.send(new DescribeStackResourceCommand({
+                StackName: stackName,
+                LogicalResourceId: logicalResourceId,
+            }));
+            
+            return response.StackResourceDetail || null;
+        } catch (error) {
+            console.warn(`Failed to describe stack resource ${logicalResourceId}:`, error.message);
+            return null;
+        }
+    }
 }
 
 module.exports = {

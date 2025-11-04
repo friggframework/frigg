@@ -112,6 +112,74 @@ class CloudFormationDiscovery {
     }
 
     /**
+     * Extract external resource references from stack resource properties
+     * 
+     * When VPC/subnets/NAT are external, they're referenced in routing resources' properties.
+     * We query EC2 to get the actual VPC ID, NAT Gateway ID, and subnet IDs from the route table.
+     * 
+     * @private
+     * @param {string} stackName - Stack name  
+     * @param {Array} resources - CloudFormation stack resources
+     * @param {Object} discovered - Object to populate with discovered resources
+     */
+    async _extractExternalReferencesFromStackResources(stackName, resources, discovered) {
+        if (!this.provider || !this.provider.getEC2Client) {
+            console.log('  ℹ Skipping external reference extraction (EC2 client not available)');
+            return;
+        }
+
+        try {
+            // If we found a route table in the stack, query EC2 for its details
+            // This gives us VPC ID, NAT Gateway ID, and subnet IDs
+            if (discovered.routeTableId) {
+                try {
+                    console.log(`  ℹ Querying route table ${discovered.routeTableId} for external references...`);
+                    const { DescribeRouteTablesCommand } = require('@aws-sdk/client-ec2');
+                    const ec2 = this.provider.getEC2Client();
+                    const rtResponse = await ec2.send(new DescribeRouteTablesCommand({
+                        RouteTableIds: [discovered.routeTableId]
+                    }));
+                    
+                    if (rtResponse.RouteTables && rtResponse.RouteTables.length > 0) {
+                        const routeTable = rtResponse.RouteTables[0];
+                        
+                        // Extract VPC ID
+                        if (routeTable.VpcId && !discovered.defaultVpcId) {
+                            discovered.defaultVpcId = routeTable.VpcId;
+                            console.log(`  ✓ Extracted VPC ID from route table: ${routeTable.VpcId}`);
+                        }
+                        
+                        // Extract NAT Gateway ID from routes
+                        const natRoute = routeTable.Routes?.find(r => r.NatGatewayId);
+                        if (natRoute && natRoute.NatGatewayId && !discovered.natGatewayId) {
+                            discovered.natGatewayId = natRoute.NatGatewayId;
+                            discovered.existingNatGatewayId = natRoute.NatGatewayId;
+                            console.log(`  ✓ Extracted NAT Gateway ID from routes: ${natRoute.NatGatewayId}`);
+                        }
+                        
+                        // Extract subnet IDs from route table associations
+                        const associations = routeTable.Associations || [];
+                        const subnetAssociations = associations.filter(a => a.SubnetId);
+                        
+                        if (subnetAssociations.length >= 1 && !discovered.privateSubnetId1) {
+                            discovered.privateSubnetId1 = subnetAssociations[0].SubnetId;
+                            console.log(`  ✓ Extracted private subnet 1 from associations: ${subnetAssociations[0].SubnetId}`);
+                        }
+                        if (subnetAssociations.length >= 2 && !discovered.privateSubnetId2) {
+                            discovered.privateSubnetId2 = subnetAssociations[1].SubnetId;
+                            console.log(`  ✓ Extracted private subnet 2 from associations: ${subnetAssociations[1].SubnetId}`);
+                        }
+                    }
+                } catch (error) {
+                    console.warn(`  ⚠️  Could not query route table for external references: ${error.message}`);
+                }
+            }
+        } catch (error) {
+            console.warn(`  ⚠️  Error extracting external references: ${error.message}`);
+        }
+    }
+
+    /**
      * Extract discovered resources from CloudFormation stack resources
      *
      * @private
@@ -341,6 +409,10 @@ class CloudFormationDiscovery {
                 discovered.vpcEndpoints.sqs = PhysicalResourceId;
             }
         }
+
+        // Extract VPC ID and other external references from routing resource properties
+        // This handles the pattern where VPC is external but routing is in the stack
+        await this._extractExternalReferencesFromStackResources(stackName, resources, discovered);
 
         // If we have a VPC ID but no subnet IDs, query EC2 for Frigg-managed subnets
         if (discovered.defaultVpcId && this.provider &&
