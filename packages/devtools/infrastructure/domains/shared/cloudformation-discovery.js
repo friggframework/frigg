@@ -28,6 +28,9 @@ class CloudFormationDiscovery {
      */
     async discoverFromStack(stackName) {
         try {
+            // Store stack name for use in helper methods
+            this.currentStackName = stackName;
+            
             // Try to get the stack
             const stack = await this.provider.describeStack(stackName);
 
@@ -118,11 +121,10 @@ class CloudFormationDiscovery {
      * We query EC2 to get the actual VPC ID, NAT Gateway ID, and subnet IDs from the route table.
      * 
      * @private
-     * @param {string} stackName - Stack name  
      * @param {Array} resources - CloudFormation stack resources
      * @param {Object} discovered - Object to populate with discovered resources
      */
-    async _extractExternalReferencesFromStackResources(stackName, resources, discovered) {
+    async _extractExternalReferencesFromStackResources(resources, discovered) {
         if (!this.provider || !this.provider.getEC2Client) {
             console.log('  ℹ Skipping external reference extraction (EC2 client not available)');
             return;
@@ -444,7 +446,7 @@ class CloudFormationDiscovery {
 
         // Extract VPC ID and other external references from routing resource properties
         // This handles the pattern where VPC is external but routing is in the stack
-        await this._extractExternalReferencesFromStackResources(stackName, resources, discovered);
+        await this._extractExternalReferencesFromStackResources(resources, discovered);
 
         // If we have a VPC ID but no subnet IDs, query EC2 for Frigg-managed subnets
         if (discovered.defaultVpcId && this.provider &&
