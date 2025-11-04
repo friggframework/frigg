@@ -501,8 +501,9 @@ database: {
 # Run encryption tests
 npm test -- database/encryption/
 
-# Tests use explicit database type parameter for testing:
-# createHealthCheckRepository('mongodb')
+# Tests use explicit prismaClient injection:
+# const { prisma } = require('../prisma');
+# const repository = createHealthCheckRepository({ prismaClient: prisma });
 ```
 
 ## Error Handling & Logging

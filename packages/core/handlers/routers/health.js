@@ -14,6 +14,7 @@ const {
 const {
     createHealthCheckRepository,
 } = require('../../database/repositories/health-check-repository-factory');
+const { prisma } = require('../../database/prisma');
 const {
     TestEncryptionUseCase,
 } = require('../../database/use-cases/test-encryption-use-case');
@@ -31,7 +32,7 @@ const {
 } = require('../use-cases/check-integrations-health-use-case');
 
 const router = Router();
-const healthCheckRepository = createHealthCheckRepository();
+const healthCheckRepository = createHealthCheckRepository({ prismaClient: prisma });
 
 // Load integrations and create factories just like auth router does
 // This verifies the system can properly load integrations

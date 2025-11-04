@@ -76,9 +76,10 @@ class HealthCheckRepositoryInterface {
     /**
      * Get database connection state
      *
-     * @returns {Object} Connection state info
+     * @returns {Promise<Object>} Connection state info
+     * @abstract
      */
-    getDatabaseConnectionState() {
+    async getDatabaseConnectionState() {
         throw new Error('Method getDatabaseConnectionState must be implemented by subclass');
     }
 }
