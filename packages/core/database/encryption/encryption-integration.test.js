@@ -49,9 +49,28 @@ const { createHealthCheckRepository } = require('../repositories/health-check-re
 const { mongoose } = require('../mongoose');
 
 describe('Field-Level Encryption Integration Tests', () => {
-    // Use externalId for test identification (works with both MongoDB and PostgreSQL)
     const testExternalId = 'test-encryption-integration-id';
     let repository;
+
+    describe('Factory Dependency Injection', () => {
+        it('should require explicit prismaClient parameter', () => {
+            expect(() => {
+                createHealthCheckRepository();
+            }).toThrow('prismaClient is required');
+        });
+
+        it('should reject null prismaClient', () => {
+            expect(() => {
+                createHealthCheckRepository({ prismaClient: null });
+            }).toThrow('prismaClient is required');
+        });
+
+        it('should accept explicit prismaClient', () => {
+            const repo = createHealthCheckRepository({ prismaClient: prisma });
+            expect(repo).toBeDefined();
+            expect(repo.prisma).toBe(prisma);
+        });
+    });
 
     beforeAll(async () => {
         await connectPrisma();
@@ -59,9 +78,7 @@ describe('Field-Level Encryption Integration Tests', () => {
         if (mongoose.connection.readyState === 0) {
             await mongoose.connect(process.env.DATABASE_URL);
         }
-        // Create database-specific repository for raw access
-        // Pass explicit database type for testing
-        repository = createHealthCheckRepository('mongodb');
+        repository = createHealthCheckRepository({ prismaClient: prisma });
     });
 
     afterAll(async () => {
