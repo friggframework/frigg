@@ -311,18 +311,21 @@ class CloudFormationDiscovery {
                 console.log(`  ✓ Found route table in stack: ${PhysicalResourceId}`);
             }
 
-            // NAT Route (proves NAT configuration exists)
-            if (LogicalResourceId === 'FriggNATRoute' && ResourceType === 'AWS::EC2::Route') {
+            // NAT Route (proves NAT configuration exists) - support both naming patterns
+            if ((LogicalResourceId === 'FriggNATRoute' || LogicalResourceId === 'FriggPrivateRoute') && 
+                ResourceType === 'AWS::EC2::Route') {
                 discovered.natRoute = PhysicalResourceId;
-                console.log(`  ✓ Found NAT route in stack`);
+                console.log(`  ✓ Found NAT route in stack: ${LogicalResourceId}`);
             }
 
             // Route Table Associations (links subnets to route table)
-            if (LogicalResourceId.includes('RouteAssociation') && ResourceType === 'AWS::EC2::SubnetRouteTableAssociation') {
+            if (LogicalResourceId.includes('RouteAssociation') && 
+                ResourceType === 'AWS::EC2::SubnetRouteTableAssociation') {
                 if (!discovered.routeTableAssociations) {
                     discovered.routeTableAssociations = [];
                 }
                 discovered.routeTableAssociations.push(PhysicalResourceId);
+                console.log(`  ✓ Found route table association: ${LogicalResourceId}`);
             }
 
             // VPC - direct extraction (primary method)
@@ -385,6 +388,13 @@ class CloudFormationDiscovery {
             // VPC Endpoint Security Group
             if (LogicalResourceId === 'FriggVPCEndpointSecurityGroup' && ResourceType === 'AWS::EC2::SecurityGroup') {
                 discovered.vpcEndpointSecurityGroupId = PhysicalResourceId;
+                console.log(`  ✓ Found VPC endpoint security group in stack: ${PhysicalResourceId}`);
+            }
+            
+            // Lambda Security Group (if created in stack)
+            if (LogicalResourceId === 'FriggLambdaSecurityGroup' && ResourceType === 'AWS::EC2::SecurityGroup') {
+                discovered.lambdaSecurityGroupId = PhysicalResourceId;
+                console.log(`  ✓ Found Lambda security group in stack: ${PhysicalResourceId}`);
             }
 
             // VPC Endpoints - support both old and new naming conventions

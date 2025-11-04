@@ -99,8 +99,18 @@ class VpcResourceResolver extends BaseResourceResolver {
             );
         }
 
-        // Check for discovered default security group (from old canary pattern)
+        // Also check flat discovery for lambdaSecurityGroupId (from CloudFormation extraction)
         const structured = discovery._structured || discovery;
+        const lambdaSgId = structured.lambdaSecurityGroupId || discovery.lambdaSecurityGroupId;
+        
+        if (lambdaSgId) {
+            return this.createStackDecision(
+                lambdaSgId,
+                'Found FriggLambdaSecurityGroup in CloudFormation stack - must keep in template'
+            );
+        }
+
+        // Check for discovered default security group (from external VPC pattern)
         const defaultSgId = structured.defaultSecurityGroupId || discovery.defaultSecurityGroupId;
         
         if (defaultSgId) {
