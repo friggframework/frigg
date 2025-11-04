@@ -58,8 +58,11 @@ When routing resources are found in stack, query the route table (by ID) to extr
 - **VPC ID** from route table's VpcId property
 - **NAT Gateway ID** from route table's NAT routes
 - **Subnet IDs** from route table's subnet associations
+- **Default Security Group** from VPC's default SG
 
-This uses ONE minimal EC2 API call: `ec2:DescribeRouteTables` on a specific route table ID.
+This uses TWO minimal EC2 API calls:
+- `ec2:DescribeRouteTables` on specific route table ID
+- `ec2:DescribeSecurityGroups` for default SG in that VPC
 
 ## Expected Deployment Flow
 
@@ -79,6 +82,7 @@ This uses ONE minimal EC2 API call: `ec2:DescribeRouteTables` on a specific rout
   ✓ Extracted NAT Gateway ID from routes: nat-05a536cbe7056325f
   ✓ Extracted private subnet 1 from associations: subnet-0bbca02e9981df72c
   ✓ Extracted private subnet 2 from associations: subnet-005f7092b91efaaeb
+  ✓ Extracted default security group: sg-0c5e0d0e4a2f5efcf
   ✓ Discovered resources from existing CloudFormation stack
 ✅ Cloud resource discovery completed successfully!
 ```
@@ -89,7 +93,7 @@ This uses ONE minimal EC2 API call: `ec2:DescribeRouteTables` on a specific rout
 
   📋 Resource Ownership Decisions:
      VPC: external - Found external resource via discovery
-     Security Group: stack - No existing FriggLambdaSecurityGroup - will create in stack
+     Security Group: external - Found default security group via discovery - will reuse (matches canary behavior)
      Subnets: external - Found external resources via discovery  
      NAT Gateway: external - Found external resource via discovery
      VPC Endpoints:
@@ -100,13 +104,19 @@ This uses ONE minimal EC2 API call: `ec2:DescribeRouteTables` on a specific rout
 **3. CloudFormation Template Generated:**
 
 Resources in template (same as canary version):
-- ✅ `FriggLambdaSecurityGroup` (created, uses external VPC ID)
 - ✅ `FriggLambdaRouteTable` (already exists, kept in template)
 - ✅ `FriggNATRoute` (already exists, kept in template)
 - ✅ `FriggSubnet1RouteAssociation` (already exists, kept in template)
 - ✅ `FriggSubnet2RouteAssociation` (already exists, kept in template)
 - ✅ `VPCEndpointS3` (already exists, kept in template)
 - ✅ `VPCEndpointDynamoDB` (already exists, kept in template)
+
+Resources NOT in template (external/discovered):
+- ❌ VPC (uses `vpc-01cd124575c683a17`)
+- ❌ Security Group (uses `sg-0c5e0d0e4a2f5efcf` - default SG)
+- ❌ Subnets (uses `subnet-0bbca02e9981df72c`, `subnet-005f7092b91efaaeb`)
+- ❌ NAT Gateway (uses `nat-05a536cbe7056325f`)
+- ❌ KMS Key (uses existing key)
 
 CloudFormation will see these resources already exist with same properties and **make no changes**.
 
@@ -136,7 +146,8 @@ CloudFormation will see these resources already exist with same properties and *
     {
       "Effect": "Allow",
       "Action": [
-        "ec2:DescribeRouteTables"
+        "ec2:DescribeRouteTables",
+        "ec2:DescribeSecurityGroups"
       ],
       "Resource": "*"
     }
