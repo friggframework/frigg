@@ -64,7 +64,7 @@ class GetIntegrationsForUser {
                 modules.push(moduleInstance);
             }
 
-            const integrationInstance = new integrationClass({
+            const integrationData = {
                 id: integrationRecord.id,
                 userId: integrationRecord.userId,
                 entities: entities,
@@ -73,10 +73,11 @@ class GetIntegrationsForUser {
                 version: integrationRecord.version,
                 messages: integrationRecord.messages,
                 modules,
-            });
+                options: integrationClass.getOptionDetails(),
+            };
 
             integrations.push(
-                mapIntegrationClassToIntegrationDTO(integrationInstance)
+                mapIntegrationClassToIntegrationDTO(integrationData)
             );
         }
 
