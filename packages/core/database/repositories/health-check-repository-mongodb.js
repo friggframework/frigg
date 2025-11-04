@@ -41,8 +41,8 @@ class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface {
      */
     async pingDatabase(maxTimeMS = 2000) {
         const pingStart = Date.now();
-        await this.prisma.$queryRaw`SELECT 1`.catch(() => {
-            return this.prisma.$runCommandRaw({ ping: 1 });
+        await this.prisma.$queryRaw`SELECT 1`.catch(async () => {
+            return await this.prisma.$runCommandRaw({ ping: 1 });
         });
         return Date.now() - pingStart;
     }
