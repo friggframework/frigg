@@ -586,5 +586,113 @@ describe('CloudFormationDiscovery', () => {
             expect(mockProvider.describeKmsKey).toHaveBeenCalledWith('alias/test-service-dev-frigg-kms');
         });
     });
+
+    describe('External VPC with routing infrastructure pattern', () => {
+        it('should discover routing resources when VPC is external', async () => {
+            // This tests the Frontify pattern: external VPC/subnets/KMS,
+            // but stack creates routing infrastructure (route table, NAT route, VPC endpoints)
+            const mockStack = {
+                StackName: 'create-frigg-app-production',
+                Outputs: [],
+            };
+
+            const mockResources = [
+                {
+                    LogicalResourceId: 'FriggLambdaRouteTable',
+                    PhysicalResourceId: 'rtb-0b83aca77ccde20a6',
+                    ResourceType: 'AWS::EC2::RouteTable',
+                    ResourceStatus: 'UPDATE_COMPLETE',
+                },
+                {
+                    LogicalResourceId: 'FriggNATRoute',
+                    PhysicalResourceId: 'rtb-0b83aca77ccde20a6|0.0.0.0/0',
+                    ResourceType: 'AWS::EC2::Route',
+                    ResourceStatus: 'UPDATE_COMPLETE',
+                },
+                {
+                    LogicalResourceId: 'FriggSubnet1RouteAssociation',
+                    PhysicalResourceId: 'rtbassoc-07245da0b447ca469',
+                    ResourceType: 'AWS::EC2::SubnetRouteTableAssociation',
+                    ResourceStatus: 'CREATE_COMPLETE',
+                },
+                {
+                    LogicalResourceId: 'FriggSubnet2RouteAssociation',
+                    PhysicalResourceId: 'rtbassoc-0806f9783c4ea181f',
+                    ResourceType: 'AWS::EC2::SubnetRouteTableAssociation',
+                    ResourceStatus: 'CREATE_COMPLETE',
+                },
+                {
+                    LogicalResourceId: 'VPCEndpointS3',
+                    PhysicalResourceId: 'vpce-0352ceac2124c14be',
+                    ResourceType: 'AWS::EC2::VPCEndpoint',
+                    ResourceStatus: 'CREATE_COMPLETE',
+                },
+                {
+                    LogicalResourceId: 'VPCEndpointDynamoDB',
+                    PhysicalResourceId: 'vpce-0b06c4f631199ea68',
+                    ResourceType: 'AWS::EC2::VPCEndpoint',
+                    ResourceStatus: 'CREATE_COMPLETE',
+                },
+            ];
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+
+            const result = await cfDiscovery.discoverFromStack('create-frigg-app-production');
+
+            // Verify routing infrastructure was discovered
+            expect(result.routeTableId).toBe('rtb-0b83aca77ccde20a6');
+            expect(result.privateRouteTableId).toBe('rtb-0b83aca77ccde20a6');
+            expect(result.natRoute).toBe('rtb-0b83aca77ccde20a6|0.0.0.0/0');
+            expect(result.routeTableAssociations).toEqual([
+                'rtbassoc-07245da0b447ca469',
+                'rtbassoc-0806f9783c4ea181f',
+            ]);
+
+            // Verify VPC endpoints were discovered (both naming conventions)
+            expect(result.vpcEndpoints).toBeDefined();
+            expect(result.vpcEndpoints.s3).toBe('vpce-0352ceac2124c14be');
+            expect(result.vpcEndpoints.dynamodb).toBe('vpce-0b06c4f631199ea68');
+            expect(result.s3VpcEndpointId).toBe('vpce-0352ceac2124c14be');
+            expect(result.dynamoDbVpcEndpointId).toBe('vpce-0b06c4f631199ea68');
+
+            // Verify NO VPC/KMS resources (they're external)
+            expect(result.defaultVpcId).toBeUndefined();
+            expect(result.defaultKmsKeyId).toBeUndefined();
+        });
+
+        it('should work with legacy VPC endpoint naming (FriggS3VPCEndpoint)', async () => {
+            const mockStack = {
+                StackName: 'test-stack',
+                Outputs: [],
+            };
+
+            const mockResources = [
+                {
+                    LogicalResourceId: 'FriggS3VPCEndpoint',
+                    PhysicalResourceId: 'vpce-legacy-s3',
+                    ResourceType: 'AWS::EC2::VPCEndpoint',
+                    ResourceStatus: 'CREATE_COMPLETE',
+                },
+                {
+                    LogicalResourceId: 'FriggDynamoDBVPCEndpoint',
+                    PhysicalResourceId: 'vpce-legacy-ddb',
+                    ResourceType: 'AWS::EC2::VPCEndpoint',
+                    ResourceStatus: 'CREATE_COMPLETE',
+                },
+            ];
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+
+            const result = await cfDiscovery.discoverFromStack('test-stack');
+
+            // Both naming conventions should work
+            expect(result.vpcEndpoints.s3).toBe('vpce-legacy-s3');
+            expect(result.vpcEndpoints.dynamodb).toBe('vpce-legacy-ddb');
+            expect(result.s3VpcEndpointId).toBe('vpce-legacy-s3');
+            expect(result.dynamoDbVpcEndpointId).toBe('vpce-legacy-ddb');
+        });
+    });
 });
 

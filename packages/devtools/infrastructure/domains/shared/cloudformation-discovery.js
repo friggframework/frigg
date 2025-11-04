@@ -216,6 +216,27 @@ class CloudFormationDiscovery {
                 discovered.natGatewayId = PhysicalResourceId;
             }
 
+            // Route Table (Lambda route table for external VPC pattern)
+            if (LogicalResourceId === 'FriggLambdaRouteTable' && ResourceType === 'AWS::EC2::RouteTable') {
+                discovered.routeTableId = PhysicalResourceId;
+                discovered.privateRouteTableId = PhysicalResourceId;
+                console.log(`  ✓ Found route table in stack: ${PhysicalResourceId}`);
+            }
+
+            // NAT Route (proves NAT configuration exists)
+            if (LogicalResourceId === 'FriggNATRoute' && ResourceType === 'AWS::EC2::Route') {
+                discovered.natRoute = PhysicalResourceId;
+                console.log(`  ✓ Found NAT route in stack`);
+            }
+
+            // Route Table Associations (links subnets to route table)
+            if (LogicalResourceId.includes('RouteAssociation') && ResourceType === 'AWS::EC2::SubnetRouteTableAssociation') {
+                if (!discovered.routeTableAssociations) {
+                    discovered.routeTableAssociations = [];
+                }
+                discovered.routeTableAssociations.push(PhysicalResourceId);
+            }
+
             // VPC - direct extraction (primary method)
             if (LogicalResourceId === 'FriggVPC' && ResourceType === 'AWS::EC2::VPC') {
                 discovered.defaultVpcId = PhysicalResourceId;
@@ -278,21 +299,46 @@ class CloudFormationDiscovery {
                 discovered.vpcEndpointSecurityGroupId = PhysicalResourceId;
             }
 
-            // VPC Endpoints
-            if (LogicalResourceId === 'FriggS3VPCEndpoint' && ResourceType === 'AWS::EC2::VPCEndpoint') {
+            // VPC Endpoints - support both old and new naming conventions
+            // Initialize vpcEndpoints object for structured access
+            if (!discovered.vpcEndpoints) {
+                discovered.vpcEndpoints = {};
+            }
+
+            // S3 Endpoint (both naming patterns)
+            if ((LogicalResourceId === 'FriggS3VPCEndpoint' || LogicalResourceId === 'VPCEndpointS3') && 
+                ResourceType === 'AWS::EC2::VPCEndpoint') {
                 discovered.s3VpcEndpointId = PhysicalResourceId;
+                discovered.vpcEndpoints.s3 = PhysicalResourceId;
+                console.log(`  ✓ Found S3 VPC endpoint in stack: ${PhysicalResourceId}`);
             }
-            if (LogicalResourceId === 'FriggDynamoDBVPCEndpoint' && ResourceType === 'AWS::EC2::VPCEndpoint') {
+            
+            // DynamoDB Endpoint (both naming patterns)
+            if ((LogicalResourceId === 'FriggDynamoDBVPCEndpoint' || LogicalResourceId === 'VPCEndpointDynamoDB') && 
+                ResourceType === 'AWS::EC2::VPCEndpoint') {
                 discovered.dynamoDbVpcEndpointId = PhysicalResourceId;
+                discovered.vpcEndpoints.dynamodb = PhysicalResourceId;
+                console.log(`  ✓ Found DynamoDB VPC endpoint in stack: ${PhysicalResourceId}`);
             }
-            if (LogicalResourceId === 'FriggKMSVPCEndpoint' && ResourceType === 'AWS::EC2::VPCEndpoint') {
+            
+            // KMS Endpoint (both naming patterns)
+            if ((LogicalResourceId === 'FriggKMSVPCEndpoint' || LogicalResourceId === 'VPCEndpointKMS') && 
+                ResourceType === 'AWS::EC2::VPCEndpoint') {
                 discovered.kmsVpcEndpointId = PhysicalResourceId;
+                discovered.vpcEndpoints.kms = PhysicalResourceId;
+                console.log(`  ✓ Found KMS VPC endpoint in stack: ${PhysicalResourceId}`);
             }
+            
+            // Secrets Manager Endpoint
             if (LogicalResourceId === 'FriggSecretsManagerVPCEndpoint' && ResourceType === 'AWS::EC2::VPCEndpoint') {
                 discovered.secretsManagerVpcEndpointId = PhysicalResourceId;
+                discovered.vpcEndpoints.secretsManager = PhysicalResourceId;
             }
+            
+            // SQS Endpoint
             if (LogicalResourceId === 'FriggSQSVPCEndpoint' && ResourceType === 'AWS::EC2::VPCEndpoint') {
                 discovered.sqsVpcEndpointId = PhysicalResourceId;
+                discovered.vpcEndpoints.sqs = PhysicalResourceId;
             }
         }
 

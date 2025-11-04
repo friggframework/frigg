@@ -397,6 +397,81 @@ If neither AppDefinition nor environment variable is set, discovery runs automat
 
 ---
 
+## CloudFormation Discovery with External Resources
+
+### Issue: Stack found but discovery falls back to AWS API
+
+**Symptom**: Deployment logs show `"Stack found but contains no usable resources - running AWS API discovery..."` followed by IAM permission errors.
+
+**Root Cause**: CloudFormation discovery only recognized stacks with VPC/KMS/Aurora **resources** in them. Stacks using **external VPC/KMS** with **stack-managed routing infrastructure** were incorrectly treated as "not useful".
+
+### Pattern: External VPC with Stack-Managed Routing
+
+Some deployments (like Frontify) use this pattern:
+
+**External Resources (discovered at runtime, not in CloudFormation):**
+- VPC (default or pre-existing)
+- Subnets (existing private/public subnets)
+- Security Groups (existing)
+- NAT Gateway (existing)
+- KMS Key (existing)
+
+**Stack-Managed Resources (created in CloudFormation):**
+- `FriggLambdaRouteTable` - Route table for Lambda subnets
+- `FriggNATRoute` - NAT route (0.0.0.0/0 → NAT Gateway)  
+- `FriggSubnet1RouteAssociation`, `FriggSubnet2RouteAssociation` - Link subnets to route table
+- `VPCEndpointS3`, `VPCEndpointDynamoDB` - VPC endpoints for AWS services
+
+### Solution
+
+**Enhanced CloudFormation discovery** (v2.0.0+) now recognizes routing infrastructure as proof of VPC configuration:
+
+```javascript
+// OLD Logic (WRONG):
+const hasVpcData = stackResources?.defaultVpcId;  // Only VPC RESOURCE
+const hasKmsData = stackResources?.defaultKmsKeyId;  // Only KMS RESOURCE
+const hasSomeUsefulData = hasVpcData || hasKmsData || hasAuroraData;
+
+// NEW Logic (CORRECT):
+const hasRoutingInfra = stackResources?.routeTableId ||  // FriggLambdaRouteTable
+                       stackResources?.natRoute ||        // FriggNATRoute  
+                       stackResources?.vpcEndpoints?.s3 || // VPC endpoints
+                       stackResources?.vpcEndpoints?.dynamodb;
+
+const hasSomeUsefulData = hasVpcData || hasKmsData || hasAuroraData || hasRoutingInfra;
+```
+
+**Result**: Stack with routing infrastructure is recognized as "useful" and discovery completes **without** falling back to AWS API calls that require additional IAM permissions.
+
+### Verification
+
+When fix is applied, you'll see:
+```
+✓ Found VPC routing infrastructure in stack (external VPC pattern)
+  ✓ Found route table in stack: rtb-0b83aca77ccde20a6
+  ✓ Found NAT route in stack
+  ✓ Found S3 VPC endpoint in stack: vpce-0352ceac2124c14be
+  ✓ Found DynamoDB VPC endpoint in stack: vpce-0b06c4f631199ea68
+✓ Discovered resources from existing CloudFormation stack
+✅ Cloud resource discovery completed successfully!
+```
+
+**No more**: `"Stack found but contains no usable resources - running AWS API discovery..."`
+
+### Benefits
+
+- ✅ **No IAM permission errors** - No fallback to AWS API discovery
+- ✅ **Works with restrictive IAM** - Only needs `cloudformation:DescribeStacks` and `cloudformation:ListStackResources`
+- ✅ **Backward compatible** - Still works with stacks that have VPC/KMS resources
+- ✅ **Faster deployments** - Uses CloudFormation data instead of multiple AWS API calls
+
+### Files Changed
+- `packages/devtools/infrastructure/domains/shared/resource-discovery.js` - Enhanced "useful data" detection
+- `packages/devtools/infrastructure/domains/shared/cloudformation-discovery.js` - Extract routing resources
+- `packages/devtools/infrastructure/domains/shared/cloudformation-discovery.test.js` - Test external VPC pattern
+
+---
+
 ## Testing
 
 All fixes include comprehensive test coverage following TDD best practices:
