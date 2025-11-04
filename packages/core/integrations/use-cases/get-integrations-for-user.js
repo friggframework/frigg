@@ -71,7 +71,7 @@ class GetIntegrationsForUser {
                 config: integrationRecord.config,
                 status: integrationRecord.status,
                 version: integrationRecord.version,
-                messages: integrationRecord.messages,
+                messages: integrationRecord.messages || { errors: [], warnings: [] },
                 modules,
                 options: integrationClass.getOptionDetails(),
             };
