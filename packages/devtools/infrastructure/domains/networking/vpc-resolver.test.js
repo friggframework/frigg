@@ -109,6 +109,46 @@ describe('VpcResourceResolver', () => {
             expect(decision.physicalId).toBeUndefined();
             expect(decision.reason).toContain('No existing resource found');
         });
+
+        it('should throw error when auto mode finds no VPC and management is not create-new', () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    // No management specified - defaults to discover
+                    // No ownership specified - defaults to auto
+                }
+            };
+            const discovery = { 
+                stackManaged: [], 
+                external: [], 
+                fromCloudFormation: false 
+            };
+
+            // Should throw error instead of trying to create VPC
+            expect(() => resolver.resolveVpc(appDefinition, discovery)).toThrow(
+                'VPC discovery failed: No VPC found'
+            );
+        });
+
+        it('should allow creating VPC when management is create-new', () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'create-new'
+                }
+            };
+            const discovery = { 
+                stackManaged: [], 
+                external: [], 
+                fromCloudFormation: false 
+            };
+
+            // Should NOT throw - create-new explicitly allows VPC creation
+            const decision = resolver.resolveVpc(appDefinition, discovery);
+            
+            expect(decision.ownership).toBe(ResourceOwnership.STACK);
+            expect(decision.physicalId).toBeNull();
+        });
     });
 
     describe('resolveSecurityGroup', () => {

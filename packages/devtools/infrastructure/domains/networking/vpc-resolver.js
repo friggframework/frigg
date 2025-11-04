@@ -23,6 +23,7 @@ class VpcResourceResolver extends BaseResourceResolver {
      */
     resolveVpc(appDefinition, discovery) {
         const userIntent = appDefinition.vpc?.ownership?.vpc || 'auto';
+        const vpcManagement = appDefinition.vpc?.management; // Legacy config
 
         // Explicit external
         if (userIntent === 'external') {
@@ -43,12 +44,26 @@ class VpcResourceResolver extends BaseResourceResolver {
         }
 
         // Auto-decide
-        return this.resolveResourceOwnership(
+        const decision = this.resolveResourceOwnership(
             'auto',
             'FriggVPC',
             'AWS::EC2::VPC',
             discovery
         );
+
+        // CRITICAL: If auto-resolution wants to create a VPC but management mode is 'discover' (or undefined),
+        // throw an error instead. Creating a VPC is expensive and should be explicit.
+        if (decision.ownership === ResourceOwnership.STACK && 
+            !decision.physicalId && 
+            vpcManagement !== 'create-new' &&
+            userIntent === 'auto') {
+            throw new Error(
+                'VPC discovery failed: No VPC found. ' +
+                'Either set vpc.management to "create-new" or provide vpc.vpcId with vpc.management "use-existing".'
+            );
+        }
+
+        return decision;
     }
 
     /**
