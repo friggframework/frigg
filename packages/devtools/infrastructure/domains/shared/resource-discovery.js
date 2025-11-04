@@ -15,6 +15,7 @@ const { VpcDiscovery } = require('../networking/vpc-discovery');
 const { KmsDiscovery } = require('../security/kms-discovery');
 const { AuroraDiscovery } = require('../database/aurora-discovery');
 const { SsmDiscovery } = require('../parameters/ssm-discovery');
+const { resolveStackName } = require('./utilities/stack-name-resolver');
 
 /**
  * Determine if AWS discovery should run
@@ -72,7 +73,8 @@ async function gatherDiscoveredResources(appDefinition) {
 
         // Build discovery configuration
         const stage = process.env.SLS_STAGE || 'dev';
-        const stackName = `${appDefinition.name || 'create-frigg-app'}-${stage}`;
+        // Use shared stack name resolver for consistency with deploy command
+        const stackName = resolveStackName(appDefinition, { stage });
         const serviceName = appDefinition.name || 'create-frigg-app';
 
         // Try CloudFormation-first discovery

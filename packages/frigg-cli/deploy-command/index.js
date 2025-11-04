@@ -4,6 +4,8 @@ const fs = require('fs');
 
 // Import doctor command for post-deployment health check
 const { doctorCommand } = require('../doctor-command');
+// Import stack name resolver for consistent naming
+const { resolveStackName } = require('@friggframework/devtools/infrastructure/domains/shared/utilities/stack-name-resolver');
 
 // Configuration constants
 const PATHS = {
@@ -182,33 +184,17 @@ function executeServerlessDeployment(environment, options) {
 }
 
 /**
- * Get stack name from app definition
+ * Get stack name using shared resolver utility
+ *
+ * This function now delegates to the shared resolveStackName utility
+ * to ensure consistent stack naming across deploy and discovery flows.
+ *
  * @param {Object} appDefinition - App definition
  * @param {Object} options - Deploy options
- * @returns {string|null} Stack name
+ * @returns {string} Stack name (always returns a value with fallback)
  */
 function getStackName(appDefinition, options) {
-    // Try to get from app definition
-    if (appDefinition?.name) {
-        const stage = options.stage || 'dev';
-        return `${appDefinition.name}-${stage}`;
-    }
-
-    // Try to get from infrastructure.js
-    const infraPath = path.join(process.cwd(), PATHS.INFRASTRUCTURE);
-    if (fs.existsSync(infraPath)) {
-        try {
-            const infraModule = require(infraPath);
-            if (infraModule.service) {
-                const stage = options.stage || 'dev';
-                return `${infraModule.service}-${stage}`;
-            }
-        } catch (error) {
-            // Ignore errors reading infrastructure file
-        }
-    }
-
-    return null;
+    return resolveStackName(appDefinition, options);
 }
 
 /**
@@ -287,13 +273,7 @@ async function deployCommand(options) {
     // Run post-deployment health check (unless --skip-doctor)
     if (!options.skipDoctor) {
         const stackName = getStackName(appDefinition, options);
-
-        if (stackName) {
-            await runPostDeploymentHealthCheck(stackName, options);
-        } else {
-            console.log('\n⚠️  Could not determine stack name - skipping health check');
-            console.log('   Run "frigg doctor <stack-name>" manually to check stack health');
-        }
+        await runPostDeploymentHealthCheck(stackName, options);
     } else {
         console.log('\n⏭️  Skipping post-deployment health check (--skip-doctor)');
     }
