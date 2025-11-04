@@ -169,6 +169,26 @@ class CloudFormationDiscovery {
                             discovered.privateSubnetId2 = subnetAssociations[1].SubnetId;
                             console.log(`  ✓ Extracted private subnet 2 from associations: ${subnetAssociations[1].SubnetId}`);
                         }
+
+                        // Query for default security group in the VPC (matches canary behavior)
+                        if (routeTable.VpcId && !discovered.defaultSecurityGroupId) {
+                            try {
+                                const { DescribeSecurityGroupsCommand } = require('@aws-sdk/client-ec2');
+                                const sgResponse = await ec2.send(new DescribeSecurityGroupsCommand({
+                                    Filters: [
+                                        { Name: 'vpc-id', Values: [routeTable.VpcId] },
+                                        { Name: 'group-name', Values: ['default'] }
+                                    ]
+                                }));
+                                
+                                if (sgResponse.SecurityGroups && sgResponse.SecurityGroups.length > 0) {
+                                    discovered.defaultSecurityGroupId = sgResponse.SecurityGroups[0].GroupId;
+                                    console.log(`  ✓ Extracted default security group: ${discovered.defaultSecurityGroupId}`);
+                                }
+                            } catch (error) {
+                                console.warn(`  ⚠️  Could not query default security group: ${error.message}`);
+                            }
+                        }
                     }
                 } catch (error) {
                     console.warn(`  ⚠️  Could not query route table for external references: ${error.message}`);

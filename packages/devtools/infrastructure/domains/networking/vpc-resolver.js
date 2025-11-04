@@ -54,9 +54,10 @@ class VpcResourceResolver extends BaseResourceResolver {
     /**
      * Resolve Security Group ownership
      *
-     * Special logic: We ALWAYS create our own FriggLambdaSecurityGroup with specific
-     * rules unless the user explicitly provides external SG IDs. The discovered
-     * defaultSecurityGroupId is the VPC's default SG, but we need our own Lambda SG.
+     * Logic:
+     * - If FriggLambdaSecurityGroup exists in stack → STACK (keep it)
+     * - If default SG discovered from VPC → EXTERNAL (use it)
+     * - Otherwise → STACK (create FriggLambdaSecurityGroup)
      *
      * @param {Object} appDefinition - App definition
      * @param {Object} discovery - Discovery result
@@ -65,7 +66,7 @@ class VpcResourceResolver extends BaseResourceResolver {
     resolveSecurityGroup(appDefinition, discovery) {
         const userIntent = appDefinition.vpc?.ownership?.securityGroup || 'auto';
 
-        // Explicit external - only use external SGs if user explicitly provides them
+        // Explicit external - use provided SG IDs
         if (userIntent === 'external') {
             this.requireExternalIds(
                 appDefinition.vpc?.external?.securityGroupIds,
@@ -77,21 +78,42 @@ class VpcResourceResolver extends BaseResourceResolver {
             );
         }
 
-        // For stack or auto: check if FriggLambdaSecurityGroup exists in stack
-        // If it does, reuse it. If not, create it. Never use discovered default SG.
+        // Explicit stack - always create FriggLambdaSecurityGroup
+        if (userIntent === 'stack') {
+            const inStack = this.findInStack('FriggLambdaSecurityGroup', discovery);
+            return this.createStackDecision(
+                inStack?.physicalId,
+                inStack 
+                    ? 'Found FriggLambdaSecurityGroup in CloudFormation stack'
+                    : 'User specified ownership=stack - will create FriggLambdaSecurityGroup'
+            );
+        }
+
+        // Auto mode: Check stack first, then check for discovered default SG
         const inStack = this.findInStack('FriggLambdaSecurityGroup', discovery);
 
         if (inStack) {
             return this.createStackDecision(
                 inStack.physicalId,
-                'Found FriggLambdaSecurityGroup in CloudFormation stack'
+                'Found FriggLambdaSecurityGroup in CloudFormation stack - must keep in template'
             );
         }
 
-        // Create new FriggLambdaSecurityGroup in stack
+        // Check for discovered default security group (from old canary pattern)
+        const structured = discovery._structured || discovery;
+        const defaultSgId = structured.defaultSecurityGroupId || discovery.defaultSecurityGroupId;
+        
+        if (defaultSgId) {
+            return this.createExternalDecision(
+                [defaultSgId],
+                'Found default security group via discovery - will reuse (matches canary behavior)'
+            );
+        }
+
+        // No SG found anywhere - create new FriggLambdaSecurityGroup
         return this.createStackDecision(
             null,
-            'No existing FriggLambdaSecurityGroup - will create in stack'
+            'No security group found - will create FriggLambdaSecurityGroup in stack'
         );
     }
 
