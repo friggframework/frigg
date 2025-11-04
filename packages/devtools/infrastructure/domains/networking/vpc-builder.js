@@ -149,7 +149,7 @@ class VpcBuilder extends InfrastructureBuilder {
                     physicalId = flatDiscovery.defaultVpcId;
                 } else if (logicalId === 'FriggLambdaSecurityGroup') {
                     resourceType = 'AWS::EC2::SecurityGroup';
-                    physicalId = flatDiscovery.defaultSecurityGroupId || flatDiscovery.securityGroupId;
+                    physicalId = flatDiscovery.lambdaSecurityGroupId || flatDiscovery.defaultSecurityGroupId || flatDiscovery.securityGroupId;
                 } else if (logicalId === 'FriggPrivateSubnet1') {
                     resourceType = 'AWS::EC2::Subnet';
                     physicalId = flatDiscovery.privateSubnetId1;
