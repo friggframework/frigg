@@ -640,7 +640,6 @@ class VpcBuilder extends InfrastructureBuilder {
     buildSecurityGroupFromDecision(decision, appDefinition, result) {
         if (decision.ownership === ResourceOwnership.STACK) {
             // Always create security group resource in template
-            // CloudFormation handles idempotency if it already exists
             console.log('  → Adding Lambda Security Group to template...');
 
             result.resources.FriggLambdaSecurityGroup = {
@@ -690,7 +689,6 @@ class VpcBuilder extends InfrastructureBuilder {
             }
 
             // For STACK ownership: ALWAYS add definitions to template
-            // CloudFormation idempotency ensures existing resources won't be recreated
             if (decision.physicalIds && decision.physicalIds.length >= 2) {
                 console.log(`  → Adding subnet definitions to template (existing: ${decision.physicalIds.join(', ')})`);
             } else {
