@@ -10,8 +10,8 @@
  * The CLI is only needed for migrations and is packaged separately with the dbMigrate function.
  *
  * The layer is configured based on AppDefinition database settings:
- * - PostgreSQL: Includes PostgreSQL client + query engine only
- * - MongoDB: Includes MongoDB client + query engine only (if needed)
+ * - PostgreSQL: Includes PostgreSQL client + query engine + migrations
+ * - MongoDB: Includes MongoDB client + query engine + migrations (if needed)
  * - Defaults to PostgreSQL only if not specified
  *
  * Usage:
@@ -22,7 +22,11 @@
  *   layers/prisma/nodejs/node_modules/
  *   ├── @prisma/client (runtime only, ~10-15MB)
  *   ├── generated/prisma-postgresql (if PostgreSQL enabled)
+ *   │   ├── schema.prisma
+ *   │   └── migrations/
  *   └── generated/prisma-mongodb (if MongoDB enabled)
+ *       ├── schema.prisma
+ *       └── migrations/
  *
  * See: LAMBDA-LAYER-PRISMA.md for complete documentation
  */
@@ -83,6 +87,27 @@ function getGeneratedClientPackages(databaseConfig = {}) {
     }
 
     return packages;
+}
+
+function getMigrationsPackages(clientPackages) {
+    return clientPackages.map(pkg => ({
+        dbType: pkg.replace('generated/prisma-', ''),
+        clientPackage: pkg
+    }));
+}
+
+function getMigrationSourcePath(searchPaths, dbType) {
+    for (const searchPath of searchPaths) {
+        const candidatePath = path.join(searchPath, `prisma-${dbType}`, 'migrations');
+        if (fs.existsSync(candidatePath)) {
+            return candidatePath;
+        }
+    }
+    return null;
+}
+
+function getMigrationDestinationPath(layerNodeModules, clientPackage) {
+    return path.join(layerNodeModules, clientPackage, 'migrations');
 }
 
 // Configuration
@@ -299,11 +324,47 @@ async function copyPrismaPackages(clientPackages) {
     logSuccess(`Copied ${copiedCount} generated client packages from @friggframework/core`);
 }
 
+async function copyMigrations(clientPackages) {
+    logStep(5, 'Copying migrations from @friggframework/core');
+
+    const workspaceNodeModules = path.join(path.dirname(CORE_PACKAGE_PATH), '..');
+    const searchPaths = [
+        path.join(CORE_PACKAGE_PATH, 'node_modules'),
+        path.join(PROJECT_ROOT, 'node_modules'),
+        workspaceNodeModules,
+        CORE_PACKAGE_PATH,
+    ];
+
+    const migrations = getMigrationsPackages(clientPackages);
+    let copiedCount = 0;
+
+    for (const { dbType, clientPackage } of migrations) {
+        const sourcePath = getMigrationSourcePath(searchPaths, dbType);
+
+        if (sourcePath) {
+            const destPath = getMigrationDestinationPath(LAYER_NODE_MODULES, clientPackage);
+            await fs.copy(sourcePath, destPath, { dereference: true });
+            
+            const fromLocation = sourcePath.includes('@friggframework/core/prisma')
+                ? 'core package'
+                : 'workspace';
+            logSuccess(`Copied migrations for ${dbType} (from ${fromLocation})`);
+            copiedCount++;
+        } else {
+            logWarning(`Migrations not found for ${dbType} - this may cause migration failures`);
+        }
+    }
+
+    if (copiedCount > 0) {
+        logSuccess(`Copied migrations for ${copiedCount} database ${copiedCount === 1 ? 'type' : 'types'}`);
+    }
+}
+
 /**
  * Remove unnecessary files to reduce layer size
  */
 async function removeUnnecessaryFiles() {
-    logStep(5, 'Removing unnecessary files (source maps, docs, tests)');
+    logStep(6, 'Removing unnecessary files (source maps, docs, tests)');
 
     let removedCount = 0;
     let totalSize = 0;
@@ -341,7 +402,7 @@ async function removeUnnecessaryFiles() {
  * Remove non-rhel engine binaries to reduce layer size
  */
 async function removeNonRhelBinaries() {
-    logStep(6, 'Removing non-rhel engine binaries');
+    logStep(7, 'Removing non-rhel engine binaries');
 
     let removedCount = 0;
     let totalSize = 0;
@@ -380,7 +441,7 @@ async function removeNonRhelBinaries() {
  * @param {Array} expectedClients - List of client packages that should have binaries
  */
 async function verifyRhelBinaries(expectedClients) {
-    logStep(7, 'Verifying rhel-openssl-3.0.x binaries are present');
+    logStep(8, 'Verifying rhel-openssl-3.0.x binaries are present');
 
     try {
         const findCmd = `find "${LAYER_NODE_MODULES}" -name "*rhel-openssl-3.0.x*" 2>/dev/null || true`;
@@ -414,7 +475,7 @@ async function verifyRhelBinaries(expectedClients) {
  * @param {Array} clientPackages - Generated client packages that were included
  */
 async function verifyLayerStructure(clientPackages) {
-    logStep(8, 'Verifying layer structure (runtime only)');
+    logStep(9, 'Verifying layer structure (runtime only)');
 
     const requiredPaths = [
         '@prisma/client/runtime',
@@ -424,6 +485,11 @@ async function verifyLayerStructure(clientPackages) {
     // Add schema.prisma for each included client
     for (const pkg of clientPackages) {
         requiredPaths.push(`${pkg}/schema.prisma`);
+    }
+
+    // Add migrations directory for each included client
+    for (const pkg of clientPackages) {
+        requiredPaths.push(`${pkg}/migrations/migration_lock.toml`);
     }
 
     // Verify CLI is NOT present (keeps layer small)
@@ -463,7 +529,7 @@ async function verifyLayerStructure(clientPackages) {
  * Calculate and display final layer size
  */
 async function displayLayerSummary() {
-    logStep(9, 'Layer build summary');
+    logStep(10, 'Layer build summary');
 
     const layerSizeMB = getDirectorySize(LAYER_OUTPUT_PATH);
 
@@ -514,6 +580,7 @@ async function buildPrismaLayer(databaseConfig = {}) {
         await createLayerStructure();
         await installPrismaPackages();              // Install runtime client only (NO CLI)
         await copyPrismaPackages(clientPackages);   // Copy generated clients from core
+        await copyMigrations(clientPackages);       // Copy migrations from core
         await removeUnnecessaryFiles();             // Remove source maps, docs, tests (37MB+)
         await removeNonRhelBinaries();              // Remove non-Linux binaries
         await verifyRhelBinaries(clientPackages);   // Verify query engines present
@@ -550,4 +617,10 @@ if (require.main === module) {
         .catch(() => process.exit(1));
 }
 
-module.exports = { buildPrismaLayer, getGeneratedClientPackages };
+module.exports = { 
+    buildPrismaLayer, 
+    getGeneratedClientPackages,
+    getMigrationsPackages,
+    getMigrationSourcePath,
+    getMigrationDestinationPath
+};
