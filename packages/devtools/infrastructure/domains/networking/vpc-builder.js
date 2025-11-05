@@ -1193,6 +1193,17 @@ class VpcBuilder extends InfrastructureBuilder {
         );
 
         if (hasInterfaceEndpoints && !result.resources.FriggVPCEndpointSecurityGroup) {
+            // Determine source security group for ingress rule
+            // If Lambda SG is stack-managed, use CloudFormation Ref
+            // If Lambda SG is external, use the physical ID directly
+            let sourceSgId;
+            if (decisions.securityGroup.ownership === ResourceOwnership.STACK) {
+                sourceSgId = { Ref: 'FriggLambdaSecurityGroup' };
+            } else {
+                // External - use the physical ID
+                sourceSgId = decisions.securityGroup.physicalIds[0];
+            }
+
             result.resources.FriggVPCEndpointSecurityGroup = {
                 Type: 'AWS::EC2::SecurityGroup',
                 Properties: {
@@ -1203,7 +1214,7 @@ class VpcBuilder extends InfrastructureBuilder {
                             IpProtocol: 'tcp',
                             FromPort: 443,
                             ToPort: 443,
-                            SourceSecurityGroupId: { Ref: 'FriggLambdaSecurityGroup' }
+                            SourceSecurityGroupId: sourceSgId
                         }
                     ],
                     Tags: [
