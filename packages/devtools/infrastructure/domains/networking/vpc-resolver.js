@@ -27,10 +27,31 @@ class VpcResourceResolver extends BaseResourceResolver {
 
         // Explicit external
         if (userIntent === 'external') {
-            this.requireExternalIds(appDefinition.vpc?.external?.vpcId, 'vpcId');
-            return this.createExternalDecision(
-                appDefinition.vpc.external.vpcId,
-                'User specified ownership=external for VPC'
+            const externalVpcId = appDefinition.vpc?.external?.vpcId;
+            
+            // If hardcoded ID provided, use it
+            if (externalVpcId) {
+                return this.createExternalDecision(
+                    externalVpcId,
+                    'User specified ownership=external with hardcoded vpcId'
+                );
+            }
+            
+            // No hardcoded ID - try discovery
+            const discoveredVpcId = discovery.defaultVpcId;
+            
+            if (discoveredVpcId) {
+                return this.createExternalDecision(
+                    discoveredVpcId,
+                    'User specified ownership=external - using discovered VPC'
+                );
+            }
+            
+            // Discovery found nothing - error
+            throw new Error(
+                "ownership='external' for VPC requires either:\n" +
+                "  1. Hardcoded external.vpcId, OR\n" +
+                "  2. A VPC discovered via AWS discovery"
             );
         }
 
@@ -81,15 +102,34 @@ class VpcResourceResolver extends BaseResourceResolver {
     resolveSecurityGroup(appDefinition, discovery) {
         const userIntent = appDefinition.vpc?.ownership?.securityGroup || 'auto';
 
-        // Explicit external - use provided SG IDs
+        // Explicit external
         if (userIntent === 'external') {
-            this.requireExternalIds(
-                appDefinition.vpc?.external?.securityGroupIds,
-                'securityGroupIds'
-            );
-            return this.createExternalDecision(
-                appDefinition.vpc.external.securityGroupIds,
-                'User specified ownership=external for security group'
+            const externalIds = appDefinition.vpc?.external?.securityGroupIds;
+            
+            // If hardcoded IDs provided, use those
+            if (externalIds && externalIds.length > 0) {
+                return this.createExternalDecision(
+                    externalIds,
+                    'User specified ownership=external with hardcoded securityGroupIds'
+                );
+            }
+            
+            // No hardcoded IDs - try discovery
+            const structured = discovery._structured || discovery;
+            const defaultSgId = structured.defaultSecurityGroupId || discovery.defaultSecurityGroupId;
+            
+            if (defaultSgId) {
+                return this.createExternalDecision(
+                    [defaultSgId],
+                    'User specified ownership=external - using discovered default security group'
+                );
+            }
+            
+            // Discovery found nothing - error
+            throw new Error(
+                "ownership='external' for securityGroup requires either:\n" +
+                "  1. Hardcoded external.securityGroupIds array, OR\n" +
+                "  2. A default security group discovered via AWS discovery"
             );
         }
 
@@ -153,13 +193,32 @@ class VpcResourceResolver extends BaseResourceResolver {
 
         // Explicit external
         if (userIntent === 'external') {
-            this.requireExternalIds(
-                appDefinition.vpc?.external?.subnetIds,
-                'subnetIds'
-            );
-            return this.createExternalDecision(
-                appDefinition.vpc.external.subnetIds,
-                'User specified ownership=external for subnets'
+            const externalSubnetIds = appDefinition.vpc?.external?.subnetIds;
+            
+            // If hardcoded IDs provided, use those
+            if (externalSubnetIds && externalSubnetIds.length >= 2) {
+                return this.createExternalDecision(
+                    externalSubnetIds,
+                    'User specified ownership=external with hardcoded subnetIds'
+                );
+            }
+            
+            // No hardcoded IDs - try discovery
+            const discoveredSubnet1 = discovery.privateSubnetId1;
+            const discoveredSubnet2 = discovery.privateSubnetId2;
+            
+            if (discoveredSubnet1 && discoveredSubnet2) {
+                return this.createExternalDecision(
+                    [discoveredSubnet1, discoveredSubnet2],
+                    'User specified ownership=external - using discovered subnets'
+                );
+            }
+            
+            // Discovery found nothing - error
+            throw new Error(
+                "ownership='external' for subnets requires either:\n" +
+                "  1. Hardcoded external.subnetIds array (minimum 2), OR\n" +
+                "  2. At least 2 subnets discovered via AWS discovery"
             );
         }
 
@@ -247,13 +306,31 @@ class VpcResourceResolver extends BaseResourceResolver {
 
         // Explicit external
         if (userIntent === 'external') {
-            this.requireExternalIds(
-                appDefinition.vpc?.external?.natGatewayId,
-                'natGatewayId'
-            );
-            return this.createExternalDecision(
-                appDefinition.vpc.external.natGatewayId,
-                'User specified ownership=external for NAT gateway'
+            const externalNatId = appDefinition.vpc?.external?.natGatewayId;
+            
+            // If hardcoded ID provided, use it
+            if (externalNatId) {
+                return this.createExternalDecision(
+                    externalNatId,
+                    'User specified ownership=external with hardcoded natGatewayId'
+                );
+            }
+            
+            // No hardcoded ID - try discovery
+            const discoveredNatId = discovery.natGatewayId;
+            
+            if (discoveredNatId) {
+                return this.createExternalDecision(
+                    discoveredNatId,
+                    'User specified ownership=external - using discovered NAT gateway'
+                );
+            }
+            
+            // Discovery found nothing - error
+            throw new Error(
+                "ownership='external' for NAT gateway requires either:\n" +
+                "  1. Hardcoded external.natGatewayId, OR\n" +
+                "  2. A NAT gateway discovered via AWS discovery"
             );
         }
 

@@ -9,7 +9,7 @@ describe('VpcResourceResolver', () => {
     });
 
     describe('resolveVpc', () => {
-        it('should resolve to EXTERNAL when user specifies external', () => {
+        it('should resolve to EXTERNAL with hardcoded vpcId', () => {
             const appDefinition = {
                 vpc: {
                     ownership: { vpc: 'external' },
@@ -22,20 +22,46 @@ describe('VpcResourceResolver', () => {
 
             expect(decision.ownership).toBe(ResourceOwnership.EXTERNAL);
             expect(decision.physicalId).toBe('vpc-external-123');
-            expect(decision.reason).toContain('User specified ownership=external');
+            expect(decision.reason).toContain('hardcoded vpcId');
         });
 
-        it('should throw when external specified but vpcId missing', () => {
+        it('should resolve to EXTERNAL using discovered VPC when no hardcoded ID', () => {
             const appDefinition = {
                 vpc: {
-                    ownership: { vpc: 'external' },
-                    external: {}
+                    ownership: { vpc: 'external' }
+                    // No external.vpcId provided
                 }
             };
-            const discovery = { stackManaged: [], external: [], fromCloudFormation: false };
+            const discovery = {
+                stackManaged: [],
+                external: [],
+                fromCloudFormation: false,
+                defaultVpcId: 'vpc-discovered-123'
+            };
+
+            const decision = resolver.resolveVpc(appDefinition, discovery);
+
+            expect(decision.ownership).toBe(ResourceOwnership.EXTERNAL);
+            expect(decision.physicalId).toBe('vpc-discovered-123');
+            expect(decision.reason).toContain('discovered VPC');
+        });
+
+        it('should throw when external specified but no vpcId and no discovery', () => {
+            const appDefinition = {
+                vpc: {
+                    ownership: { vpc: 'external' }
+                    // No external.vpcId provided
+                }
+            };
+            const discovery = {
+                stackManaged: [],
+                external: [],
+                fromCloudFormation: false
+                // No defaultVpcId discovered
+            };
 
             expect(() => resolver.resolveVpc(appDefinition, discovery)).toThrow(
-                "ownership='external' for vpcId requires external.vpcId"
+                /ownership='external' for VPC requires either/
             );
         });
 
@@ -97,17 +123,17 @@ describe('VpcResourceResolver', () => {
             expect(decision.physicalId).toBe('vpc-external');
         });
 
-        it('should auto-resolve to STACK when not found (create new)', () => {
+        it('should throw error when auto mode finds no VPC (changed behavior)', () => {
             const appDefinition = {
                 vpc: { ownership: { vpc: 'auto' } }
+                // No management specified - defaults to discover
             };
             const discovery = { stackManaged: [], external: [], fromCloudFormation: false };
 
-            const decision = resolver.resolveVpc(appDefinition, discovery);
-
-            expect(decision.ownership).toBe(ResourceOwnership.STACK);
-            expect(decision.physicalId).toBeUndefined();
-            expect(decision.reason).toContain('No existing resource found');
+            // NEW BEHAVIOR: Auto mode with no VPC found should throw error (prevent accidental VPC creation)
+            expect(() => resolver.resolveVpc(appDefinition, discovery)).toThrow(
+                'VPC discovery failed: No VPC found'
+            );
         });
 
         it('should throw error when auto mode finds no VPC and management is not create-new', () => {
@@ -134,7 +160,8 @@ describe('VpcResourceResolver', () => {
             const appDefinition = {
                 vpc: {
                     enable: true,
-                    management: 'create-new'
+                    management: 'create-new',
+                    ownership: { vpc: 'auto' }
                 }
             };
             const discovery = { 
@@ -147,12 +174,12 @@ describe('VpcResourceResolver', () => {
             const decision = resolver.resolveVpc(appDefinition, discovery);
             
             expect(decision.ownership).toBe(ResourceOwnership.STACK);
-            expect(decision.physicalId).toBeNull();
+            expect(decision.physicalId).toBeUndefined(); // resolveResourceOwnership returns undefined, not null
         });
     });
 
     describe('resolveSecurityGroup', () => {
-        it('should resolve to EXTERNAL with user-provided IDs', () => {
+        it('should resolve to EXTERNAL with user-provided hardcoded IDs', () => {
             const appDefinition = {
                 vpc: {
                     ownership: { securityGroup: 'external' },
@@ -165,6 +192,47 @@ describe('VpcResourceResolver', () => {
 
             expect(decision.ownership).toBe(ResourceOwnership.EXTERNAL);
             expect(decision.physicalIds).toEqual(['sg-1', 'sg-2']);
+            expect(decision.reason).toContain('hardcoded');
+        });
+
+        it('should resolve to EXTERNAL using discovered default SG when no hardcoded IDs', () => {
+            const appDefinition = {
+                vpc: {
+                    ownership: { securityGroup: 'external' }
+                    // No external.securityGroupIds provided
+                }
+            };
+            const discovery = {
+                stackManaged: [],
+                external: [],
+                fromCloudFormation: false,
+                defaultSecurityGroupId: 'sg-discovered-default'
+            };
+
+            const decision = resolver.resolveSecurityGroup(appDefinition, discovery);
+
+            expect(decision.ownership).toBe(ResourceOwnership.EXTERNAL);
+            expect(decision.physicalIds).toEqual(['sg-discovered-default']);
+            expect(decision.reason).toContain('discovered default security group');
+        });
+
+        it('should throw error when ownership=external but no IDs and no discovery', () => {
+            const appDefinition = {
+                vpc: {
+                    ownership: { securityGroup: 'external' }
+                    // No external.securityGroupIds provided
+                }
+            };
+            const discovery = {
+                stackManaged: [],
+                external: [],
+                fromCloudFormation: false
+                // No defaultSecurityGroupId discovered
+            };
+
+            expect(() => resolver.resolveSecurityGroup(appDefinition, discovery)).toThrow(
+                /ownership='external' for securityGroup requires either/
+            );
         });
 
         it('should auto-resolve to STACK when FriggLambdaSecurityGroup in stack', () => {
@@ -186,7 +254,7 @@ describe('VpcResourceResolver', () => {
     });
 
     describe('resolveSubnets', () => {
-        it('should resolve to EXTERNAL with user-provided subnet IDs', () => {
+        it('should resolve to EXTERNAL with user-provided hardcoded subnet IDs', () => {
             const appDefinition = {
                 vpc: {
                     ownership: { subnets: 'external' },
@@ -199,6 +267,48 @@ describe('VpcResourceResolver', () => {
 
             expect(decision.ownership).toBe(ResourceOwnership.EXTERNAL);
             expect(decision.physicalIds).toEqual(['subnet-1', 'subnet-2', 'subnet-3']);
+            expect(decision.reason).toContain('hardcoded');
+        });
+
+        it('should resolve to EXTERNAL using discovered subnets when no hardcoded IDs', () => {
+            const appDefinition = {
+                vpc: {
+                    ownership: { subnets: 'external' }
+                    // No external.subnetIds provided
+                }
+            };
+            const discovery = {
+                stackManaged: [],
+                external: [],
+                fromCloudFormation: false,
+                privateSubnetId1: 'subnet-discovered-1',
+                privateSubnetId2: 'subnet-discovered-2'
+            };
+
+            const decision = resolver.resolveSubnets(appDefinition, discovery);
+
+            expect(decision.ownership).toBe(ResourceOwnership.EXTERNAL);
+            expect(decision.physicalIds).toEqual(['subnet-discovered-1', 'subnet-discovered-2']);
+            expect(decision.reason).toContain('discovered subnets');
+        });
+
+        it('should throw error when ownership=external but no IDs and no discovery', () => {
+            const appDefinition = {
+                vpc: {
+                    ownership: { subnets: 'external' }
+                    // No external.subnetIds provided
+                }
+            };
+            const discovery = {
+                stackManaged: [],
+                external: [],
+                fromCloudFormation: false
+                // No privateSubnetId1/2 discovered
+            };
+
+            expect(() => resolver.resolveSubnets(appDefinition, discovery)).toThrow(
+                /ownership='external' for subnets requires either/
+            );
         });
 
         it('should resolve to STACK when subnets found in stack', () => {
@@ -267,7 +377,7 @@ describe('VpcResourceResolver', () => {
             expect(decision.reason).toContain('NAT Gateway disabled');
         });
 
-        it('should resolve to EXTERNAL with user-provided ID', () => {
+        it('should resolve to EXTERNAL with user-provided hardcoded ID', () => {
             const appDefinition = {
                 vpc: {
                     ownership: { natGateway: 'external' },
@@ -280,6 +390,47 @@ describe('VpcResourceResolver', () => {
 
             expect(decision.ownership).toBe(ResourceOwnership.EXTERNAL);
             expect(decision.physicalId).toBe('nat-external-123');
+            expect(decision.reason).toContain('hardcoded');
+        });
+
+        it('should resolve to EXTERNAL using discovered NAT when no hardcoded ID', () => {
+            const appDefinition = {
+                vpc: {
+                    ownership: { natGateway: 'external' }
+                    // No external.natGatewayId provided
+                }
+            };
+            const discovery = {
+                stackManaged: [],
+                external: [],
+                fromCloudFormation: false,
+                natGatewayId: 'nat-discovered-123'
+            };
+
+            const decision = resolver.resolveNatGateway(appDefinition, discovery);
+
+            expect(decision.ownership).toBe(ResourceOwnership.EXTERNAL);
+            expect(decision.physicalId).toBe('nat-discovered-123');
+            expect(decision.reason).toContain('discovered NAT gateway');
+        });
+
+        it('should throw error when ownership=external but no ID and no discovery', () => {
+            const appDefinition = {
+                vpc: {
+                    ownership: { natGateway: 'external' }
+                    // No external.natGatewayId provided
+                }
+            };
+            const discovery = {
+                stackManaged: [],
+                external: [],
+                fromCloudFormation: false
+                // No natGatewayId discovered
+            };
+
+            expect(() => resolver.resolveNatGateway(appDefinition, discovery)).toThrow(
+                /ownership='external' for NAT gateway requires either/
+            );
         });
 
         it('should auto-resolve to STACK when found in stack', () => {
@@ -404,7 +555,8 @@ describe('VpcResourceResolver', () => {
                             dynamodb: 'vpce-ddb-456'
                         }
                     }
-                }
+                },
+                database: { dynamodb: { enable: true } } // Enable DynamoDB
             };
             const discovery = { stackManaged: [], external: [], fromCloudFormation: false };
 
@@ -418,7 +570,10 @@ describe('VpcResourceResolver', () => {
         });
 
         it('should auto-resolve to STACK when endpoints found in stack', () => {
-            const appDefinition = { vpc: { ownership: { vpcEndpoints: 'auto' } } };
+            const appDefinition = {
+                vpc: { ownership: { vpcEndpoints: 'auto' } },
+                database: { dynamodb: { enable: true } } // Enable DynamoDB
+            };
             const discovery = {
                 stackManaged: [
                     { logicalId: 'FriggS3VPCEndpoint', physicalId: 'vpce-s3-stack', resourceType: 'AWS::EC2::VPCEndpoint' },
@@ -439,7 +594,8 @@ describe('VpcResourceResolver', () => {
         it('should auto-resolve mixed: some in stack, some new', () => {
             const appDefinition = {
                 vpc: { ownership: { vpcEndpoints: 'auto' } },
-                encryption: { fieldLevelEncryptionMethod: 'kms' }  // Enable KMS endpoint
+                encryption: { fieldLevelEncryptionMethod: 'kms' },  // Enable KMS endpoint
+                database: { dynamodb: { enable: true } }  // Enable DynamoDB
             };
             const discovery = {
                 stackManaged: [
@@ -536,7 +692,11 @@ describe('VpcResourceResolver', () => {
     describe('real-world scenarios', () => {
         it('scenario: fresh deploy, no resources exist', () => {
             const appDefinition = {
-                vpc: { enable: true, ownership: {} }
+                vpc: { 
+                    enable: true, 
+                    ownership: {},
+                    management: 'create-new' // Explicitly allow VPC creation
+                }
             };
             const discovery = { stackManaged: [], external: [], fromCloudFormation: false };
 
