@@ -118,16 +118,8 @@ class VpcResourceResolver extends BaseResourceResolver {
             const structured = discovery._structured || discovery;
             
             // When ownership='external', use ONLY the default SG, not the stack-managed lambda SG
-            // Check for lambdaSecurityGroupId first to avoid using it
             const lambdaSgId = structured.lambdaSecurityGroupId || discovery.lambdaSecurityGroupId;
             const defaultSgId = structured.defaultSecurityGroupId || discovery.defaultSecurityGroupId;
-            
-            // Debug logging to understand what's happening
-            console.log(`  DEBUG: resolveSecurityGroup - ownership='external'`);
-            console.log(`    lambdaSgId: ${lambdaSgId}`);
-            console.log(`    defaultSgId: ${defaultSgId}`);
-            console.log(`    discovery keys: ${Object.keys(discovery).join(', ')}`);
-            console.log(`    structured keys: ${Object.keys(structured).join(', ')}`);
             
             // If we have a default SG AND it's different from the lambda SG, use the default
             if (defaultSgId && defaultSgId !== lambdaSgId) {
