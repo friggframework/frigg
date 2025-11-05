@@ -295,6 +295,15 @@ class VpcBuilder extends InfrastructureBuilder {
             }
         }
 
+        // Add flat discovery properties directly to discovery object for resolver access
+        // The resolver checks both discovery.defaultSecurityGroupId and discovery.external array
+        discovery.defaultVpcId = flatDiscovery.defaultVpcId;
+        discovery.defaultSecurityGroupId = flatDiscovery.defaultSecurityGroupId;
+        discovery.privateSubnetId1 = flatDiscovery.privateSubnetId1;
+        discovery.privateSubnetId2 = flatDiscovery.privateSubnetId2;
+        discovery.natGatewayId = flatDiscovery.natGatewayId;
+        discovery.lambdaSecurityGroupId = flatDiscovery.lambdaSecurityGroupId;
+
         return discovery;
     }
 

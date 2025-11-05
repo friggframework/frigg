@@ -1448,6 +1448,30 @@ describe('VpcBuilder', () => {
         });
     });
 
+    describe('convertFlatDiscoveryToStructured - Direct Properties', () => {
+        it('should copy flat discovery properties to structured discovery for resolver access', () => {
+            const flatDiscovery = {
+                fromCloudFormationStack: true,
+                defaultVpcId: 'vpc-123',
+                defaultSecurityGroupId: 'sg-default-456',
+                lambdaSecurityGroupId: 'sg-lambda-789',
+                privateSubnetId1: 'subnet-1',
+                privateSubnetId2: 'subnet-2',
+                natGatewayId: 'nat-123'
+            };
+
+            const result = vpcBuilder.convertFlatDiscoveryToStructured(flatDiscovery);
+
+            // Direct properties should be copied for resolver access
+            expect(result.defaultVpcId).toBe('vpc-123');
+            expect(result.defaultSecurityGroupId).toBe('sg-default-456');
+            expect(result.lambdaSecurityGroupId).toBe('sg-lambda-789');
+            expect(result.privateSubnetId1).toBe('subnet-1');
+            expect(result.privateSubnetId2).toBe('subnet-2');
+            expect(result.natGatewayId).toBe('nat-123');
+        });
+    });
+
     describe('convertFlatDiscoveryToStructured - VPC Endpoints from CloudFormation', () => {
         it('should add VPC endpoints to stackManaged when in existingLogicalIds', () => {
             const flatDiscovery = {
