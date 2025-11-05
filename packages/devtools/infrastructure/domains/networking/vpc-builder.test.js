@@ -398,19 +398,33 @@ describe('VpcBuilder', () => {
             expect(result.resources.FriggS3VPCEndpoint.Properties.VpcId).toBe('vpc-123');
         });
 
-        it('should reuse stack-managed VPC endpoints without creating CloudFormation resources', async () => {
+        it('should add stack-managed VPC endpoints back to template to prevent deletion', async () => {
             const appDefinition = {
-                vpc: { enable: true, enableVPCEndpoints: true },
+                vpc: { enable: true },
                 encryption: { fieldLevelEncryptionMethod: 'kms' },
-                database: { postgres: { enable: true } },
             };
+            
+            // Structured discovery from CloudFormation
             const discoveredResources = {
+                fromCloudFormationStack: true,
+                stackName: 'test-stack',
+                existingLogicalIds: [
+                    'FriggLambdaSecurityGroup',
+                    'FriggLambdaRouteTable',
+                    'FriggS3VPCEndpoint',
+                    'FriggDynamoDBVPCEndpoint',
+                    'FriggKMSVPCEndpoint',
+                    'FriggSecretsManagerVPCEndpoint',
+                    'FriggSQSVPCEndpoint'
+                ],
                 defaultVpcId: 'vpc-123',
                 privateSubnetId1: 'subnet-1',
                 privateSubnetId2: 'subnet-2',
-                // VPC endpoints from CloudFormation stack (string IDs)
+                routeTableId: 'rtb-123',
+                lambdaSecurityGroupId: 'sg-123',
+                // VPC endpoints discovered in stack
                 s3VpcEndpointId: 'vpce-s3-stack',
-                dynamoDbVpcEndpointId: 'vpce-ddb-stack',
+                dynamodbVpcEndpointId: 'vpce-ddb-stack',
                 kmsVpcEndpointId: 'vpce-kms-stack',
                 secretsManagerVpcEndpointId: 'vpce-sm-stack',
                 sqsVpcEndpointId: 'vpce-sqs-stack',
@@ -418,15 +432,30 @@ describe('VpcBuilder', () => {
 
             const result = await vpcBuilder.build(appDefinition, discoveredResources);
 
-            // Should NOT create CloudFormation resources (reuse stack endpoints)
-            expect(result.resources.FriggS3VPCEndpoint).toBeUndefined();
-            expect(result.resources.FriggDynamoDBVPCEndpoint).toBeUndefined();
-            expect(result.resources.FriggKMSVPCEndpoint).toBeUndefined();
-            expect(result.resources.FriggSecretsManagerVPCEndpoint).toBeUndefined();
-            expect(result.resources.FriggSQSVPCEndpoint).toBeUndefined();
+            // CRITICAL: Must RE-ADD stack-managed endpoints to template or CloudFormation will DELETE them
+            expect(result.resources.FriggS3VPCEndpoint).toBeDefined();
+            expect(result.resources.FriggS3VPCEndpoint.Type).toBe('AWS::EC2::VPCEndpoint');
+            expect(result.resources.FriggS3VPCEndpoint.Properties.VpcEndpointType).toBe('Gateway');
+            
+            expect(result.resources.FriggDynamoDBVPCEndpoint).toBeDefined();
+            expect(result.resources.FriggDynamoDBVPCEndpoint.Type).toBe('AWS::EC2::VPCEndpoint');
+            expect(result.resources.FriggDynamoDBVPCEndpoint.Properties.VpcEndpointType).toBe('Gateway');
+            
+            expect(result.resources.FriggKMSVPCEndpoint).toBeDefined();
+            expect(result.resources.FriggKMSVPCEndpoint.Type).toBe('AWS::EC2::VPCEndpoint');
+            expect(result.resources.FriggKMSVPCEndpoint.Properties.VpcEndpointType).toBe('Interface');
+            
+            expect(result.resources.FriggSecretsManagerVPCEndpoint).toBeDefined();
+            expect(result.resources.FriggSecretsManagerVPCEndpoint.Type).toBe('AWS::EC2::VPCEndpoint');
+            expect(result.resources.FriggSecretsManagerVPCEndpoint.Properties.VpcEndpointType).toBe('Interface');
+            
+            expect(result.resources.FriggSQSVPCEndpoint).toBeDefined();
+            expect(result.resources.FriggSQSVPCEndpoint.Type).toBe('AWS::EC2::VPCEndpoint');
+            expect(result.resources.FriggSQSVPCEndpoint.Properties.VpcEndpointType).toBe('Interface');
 
-            // Should still NOT create VPC Endpoint Security Group
-            expect(result.resources.FriggVPCEndpointSecurityGroup).toBeUndefined();
+            // Should create VPC Endpoint Security Group for interface endpoints
+            expect(result.resources.FriggVPCEndpointSecurityGroup).toBeDefined();
+            expect(result.resources.FriggVPCEndpointSecurityGroup.Type).toBe('AWS::EC2::SecurityGroup');
         });
 
         it('should create VPC endpoints when discovered from AWS but not stack', async () => {
