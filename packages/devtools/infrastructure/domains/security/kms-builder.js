@@ -78,8 +78,20 @@ class KmsBuilder extends InfrastructureBuilder {
         const resolver = new KmsResourceResolver();
         const decisions = resolver.resolveAll(appDefinition, discovery);
 
+        // Check if external key exists (for accurate logging)
+        const externalKmsKey = discoveredResources?.defaultKmsKeyId ||
+                              discoveredResources?.kmsKeyArn ||
+                              discoveredResources?.kmsKeyId;
+        const willUseExternal = decisions.key.ownership === ResourceOwnership.STACK && 
+                                !decisions.key.physicalId && 
+                                externalKmsKey;
+
         console.log('\n  📋 Resource Ownership Decisions:');
-        console.log(`     Key: ${decisions.key.ownership} - ${decisions.key.reason}`);
+        if (willUseExternal) {
+            console.log(`     Key: external - Found external KMS key (not in stack)`);
+        } else {
+            console.log(`     Key: ${decisions.key.ownership} - ${decisions.key.reason}`);
+        }
 
         // Build resources based on ownership decisions
         await this.buildFromDecisions(decisions, appDefinition, discoveredResources, result);
@@ -247,7 +259,6 @@ class KmsBuilder extends InfrastructureBuilder {
         } else if (decisions.key.ownership === ResourceOwnership.STACK && !decisions.key.physicalId && externalKmsKey) {
             // ORPHANED KEY FIX: Key exists externally but not in stack
             // Use it as external instead of trying to create (would fail with "already exists")
-            console.log('  ⚠️  KMS key exists externally but not in stack - using as external resource');
             console.log(`  → Using external KMS key: ${externalKmsKey}`);
 
             // Format as ARN if it's just a key ID
