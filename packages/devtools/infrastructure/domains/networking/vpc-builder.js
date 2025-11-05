@@ -184,6 +184,11 @@ class VpcBuilder extends InfrastructureBuilder {
                     });
                 }
             });
+
+            // Also check for external resources extracted via CloudFormation queries
+            // (e.g., VPC ID from security group query, subnets from route table associations)
+            // These are NOT in the stack but were discovered through stack resources
+            this._addExternalResourcesFromCloudFormationQueries(flatDiscovery, discovery, existingLogicalIds);
         } else {
             // Resources discovered from AWS API (not CloudFormation)
             // These go into external array
@@ -288,6 +293,58 @@ class VpcBuilder extends InfrastructureBuilder {
         }
 
         return discovery;
+    }
+
+    /**
+     * Add external resources that were discovered via CloudFormation queries
+     * (e.g., VPC ID extracted from security group, subnets from route table associations)
+     * 
+     * @private
+     */
+    _addExternalResourcesFromCloudFormationQueries(flatDiscovery, discovery, existingLogicalIds) {
+        // VPC ID extracted from SG or route table (NOT a stack resource)
+        if (flatDiscovery.defaultVpcId && 
+            typeof flatDiscovery.defaultVpcId === 'string' &&
+            !existingLogicalIds.includes('FriggVPC')) {
+            discovery.external.push({
+                physicalId: flatDiscovery.defaultVpcId,
+                resourceType: 'AWS::EC2::VPC',
+                source: 'cloudformation-query'
+            });
+        }
+
+        // Subnets extracted from route table associations (NOT stack resources)
+        if (flatDiscovery.privateSubnetId1 && 
+            typeof flatDiscovery.privateSubnetId1 === 'string' &&
+            !existingLogicalIds.includes('FriggPrivateSubnet1')) {
+            discovery.external.push({
+                physicalId: flatDiscovery.privateSubnetId1,
+                resourceType: 'AWS::EC2::Subnet',
+                source: 'cloudformation-query'
+            });
+        }
+
+        if (flatDiscovery.privateSubnetId2 && 
+            typeof flatDiscovery.privateSubnetId2 === 'string' &&
+            !existingLogicalIds.includes('FriggPrivateSubnet2')) {
+            discovery.external.push({
+                physicalId: flatDiscovery.privateSubnetId2,
+                resourceType: 'AWS::EC2::Subnet',
+                source: 'cloudformation-query'
+            });
+        }
+
+        // NAT Gateway extracted from route table routes
+        if (flatDiscovery.existingNatGatewayId && 
+            typeof flatDiscovery.existingNatGatewayId === 'string' &&
+            !existingLogicalIds.includes('FriggNATGateway') &&
+            !existingLogicalIds.includes('FriggNatGateway')) {
+            discovery.external.push({
+                physicalId: flatDiscovery.existingNatGatewayId,
+                resourceType: 'AWS::EC2::NatGateway',
+                source: 'cloudformation-query'
+            });
+        }
     }
 
     /**
