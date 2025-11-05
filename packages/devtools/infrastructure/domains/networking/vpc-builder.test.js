@@ -1258,5 +1258,145 @@ describe('VpcBuilder', () => {
             expect(result.outputs.PrivateSubnet2Id).toBeDefined();
         });
     });
+
+    describe('convertFlatDiscoveryToStructured - CloudFormation query results', () => {
+        it('should add VPC from CloudFormation query to external array', () => {
+            const flatDiscovery = {
+                fromCloudFormationStack: true,
+                stackName: 'test-stack',
+                existingLogicalIds: ['FriggLambdaRouteTable', 'FriggLambdaSecurityGroup'],
+                // VPC ID was extracted from security group query (NOT a stack resource)
+                defaultVpcId: 'vpc-extracted-from-sg',
+                lambdaSecurityGroupId: 'sg-123',
+                routeTableId: 'rtb-123'
+            };
+
+            const result = vpcBuilder.convertFlatDiscoveryToStructured(flatDiscovery);
+
+            // VPC should be in external array (discovered via query, not in stack)
+            const vpcExternal = result.external.find(r => r.resourceType === 'AWS::EC2::VPC');
+            expect(vpcExternal).toBeDefined();
+            expect(vpcExternal.physicalId).toBe('vpc-extracted-from-sg');
+            expect(vpcExternal.source).toBe('cloudformation-query');
+
+            // Security group SHOULD be in stackManaged (is in stack)
+            const sgStack = result.stackManaged.find(r => r.logicalId === 'FriggLambdaSecurityGroup');
+            expect(sgStack).toBeDefined();
+            expect(sgStack.physicalId).toBe('sg-123');
+        });
+
+        it('should add subnets from route table associations to external array', () => {
+            const flatDiscovery = {
+                fromCloudFormationStack: true,
+                stackName: 'test-stack',
+                existingLogicalIds: ['FriggLambdaRouteTable'],
+                routeTableId: 'rtb-123',
+                // Subnets extracted from route table associations (NOT stack resources)
+                privateSubnetId1: 'subnet-1',
+                privateSubnetId2: 'subnet-2'
+            };
+
+            const result = vpcBuilder.convertFlatDiscoveryToStructured(flatDiscovery);
+
+            // Subnets should be in external array
+            const subnet1 = result.external.find(r => r.physicalId === 'subnet-1');
+            const subnet2 = result.external.find(r => r.physicalId === 'subnet-2');
+            
+            expect(subnet1).toBeDefined();
+            expect(subnet1.resourceType).toBe('AWS::EC2::Subnet');
+            expect(subnet1.source).toBe('cloudformation-query');
+            
+            expect(subnet2).toBeDefined();
+            expect(subnet2.resourceType).toBe('AWS::EC2::Subnet');
+            expect(subnet2.source).toBe('cloudformation-query');
+        });
+
+        it('should add NAT Gateway from route table queries to external array', () => {
+            const flatDiscovery = {
+                fromCloudFormationStack: true,
+                stackName: 'test-stack',
+                existingLogicalIds: ['FriggLambdaRouteTable', 'FriggPrivateRoute'],
+                routeTableId: 'rtb-123',
+                // NAT Gateway extracted from route table routes (NOT a stack resource)
+                existingNatGatewayId: 'nat-extracted'
+            };
+
+            const result = vpcBuilder.convertFlatDiscoveryToStructured(flatDiscovery);
+
+            // NAT should be in external array
+            const natExternal = result.external.find(r => r.resourceType === 'AWS::EC2::NatGateway');
+            expect(natExternal).toBeDefined();
+            expect(natExternal.physicalId).toBe('nat-extracted');
+            expect(natExternal.source).toBe('cloudformation-query');
+        });
+
+        it('should NOT add resources to external if they are in stack', () => {
+            const flatDiscovery = {
+                fromCloudFormationStack: true,
+                stackName: 'test-stack',
+                existingLogicalIds: ['FriggVPC', 'FriggPrivateSubnet1'],
+                // These ARE in the stack
+                defaultVpcId: 'vpc-in-stack',
+                privateSubnetId1: 'subnet-in-stack'
+            };
+
+            const result = vpcBuilder.convertFlatDiscoveryToStructured(flatDiscovery);
+
+            // Should be in stackManaged, NOT external
+            expect(result.stackManaged.some(r => r.logicalId === 'FriggVPC')).toBe(true);
+            expect(result.stackManaged.some(r => r.logicalId === 'FriggPrivateSubnet1')).toBe(true);
+            
+            // Should NOT be in external
+            expect(result.external.some(r => r.physicalId === 'vpc-in-stack')).toBe(false);
+            expect(result.external.some(r => r.physicalId === 'subnet-in-stack')).toBe(false);
+        });
+
+        it('should handle Frontify pattern: stack resources + queried external references', () => {
+            const flatDiscovery = {
+                fromCloudFormationStack: true,
+                stackName: 'create-frigg-app-production',
+                existingLogicalIds: [
+                    'FriggLambdaSecurityGroup',
+                    'FriggLambdaRouteTable',
+                    'FriggPrivateRoute',
+                    'FriggPrivateSubnet1RouteTableAssociation',
+                    'FriggPrivateSubnet2RouteTableAssociation',
+                    'FriggS3VPCEndpoint',
+                    'FriggDynamoDBVPCEndpoint',
+                    'FriggKMSVPCEndpoint'
+                ],
+                // Stack resources
+                lambdaSecurityGroupId: 'sg-01002240c6a446202',
+                routeTableId: 'rtb-08af43bbf0775602d',
+                s3VpcEndpointId: 'vpce-s3',
+                // External resources (discovered via queries)
+                defaultVpcId: 'vpc-0cd17c0e06cb28b28',
+                privateSubnetId1: 'subnet-034f6562dbbc16348',
+                privateSubnetId2: 'subnet-0b8be2b82aeb5cdec',
+                existingNatGatewayId: 'nat-022660c36a47e2d79'
+            };
+
+            const result = vpcBuilder.convertFlatDiscoveryToStructured(flatDiscovery);
+
+            // Stack resources should be in stackManaged
+            expect(result.stackManaged).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({ logicalId: 'FriggLambdaSecurityGroup', physicalId: 'sg-01002240c6a446202' }),
+                    expect.objectContaining({ logicalId: 'FriggLambdaRouteTable', physicalId: 'rtb-08af43bbf0775602d' }),
+                    expect.objectContaining({ logicalId: 'FriggS3VPCEndpoint' })
+                ])
+            );
+
+            // External resources should be in external array
+            expect(result.external).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({ physicalId: 'vpc-0cd17c0e06cb28b28', resourceType: 'AWS::EC2::VPC', source: 'cloudformation-query' }),
+                    expect.objectContaining({ physicalId: 'subnet-034f6562dbbc16348', resourceType: 'AWS::EC2::Subnet', source: 'cloudformation-query' }),
+                    expect.objectContaining({ physicalId: 'subnet-0b8be2b82aeb5cdec', resourceType: 'AWS::EC2::Subnet', source: 'cloudformation-query' }),
+                    expect.objectContaining({ physicalId: 'nat-022660c36a47e2d79', resourceType: 'AWS::EC2::NatGateway', source: 'cloudformation-query' })
+                ])
+            );
+        });
+    });
 });
 
