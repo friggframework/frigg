@@ -398,6 +398,66 @@ describe('VpcBuilder', () => {
             expect(result.resources.FriggS3VPCEndpoint.Properties.VpcId).toBe('vpc-123');
         });
 
+        it('should add stack-managed security group back to template to prevent deletion', async () => {
+            const appDefinition = {
+                vpc: { enable: true },
+            };
+            
+            const discoveredResources = {
+                fromCloudFormationStack: true,
+                stackName: 'test-stack',
+                existingLogicalIds: ['FriggLambdaSecurityGroup'],
+                defaultVpcId: 'vpc-123',
+                privateSubnetId1: 'subnet-1',
+                privateSubnetId2: 'subnet-2',
+                lambdaSecurityGroupId: 'sg-existing-stack', // Existing in stack
+            };
+
+            const result = await vpcBuilder.build(appDefinition, discoveredResources);
+
+            // CRITICAL: Must RE-ADD stack-managed SG to template or CloudFormation will DELETE it
+            expect(result.resources.FriggLambdaSecurityGroup).toBeDefined();
+            expect(result.resources.FriggLambdaSecurityGroup.Type).toBe('AWS::EC2::SecurityGroup');
+            expect(result.resources.FriggLambdaSecurityGroup.Properties.VpcId).toBe('vpc-123');
+            expect(result.resources.FriggLambdaSecurityGroup.Properties.GroupDescription).toBeDefined();
+            
+            // Should use Ref in Lambda config (not recreating)
+            expect(result.vpcConfig.securityGroupIds).toContainEqual({ Ref: 'FriggLambdaSecurityGroup' });
+        });
+
+        it('should add stack-managed subnets back to template to prevent deletion', async () => {
+            const appDefinition = {
+                vpc: { enable: true },
+            };
+            
+            const discoveredResources = {
+                fromCloudFormationStack: true,
+                stackName: 'test-stack',
+                existingLogicalIds: ['FriggPrivateSubnet1', 'FriggPrivateSubnet2'],
+                defaultVpcId: 'vpc-123',
+                // Subnets exist in stack with specific IDs
+                privateSubnetId1: 'subnet-existing-1',
+                privateSubnetId2: 'subnet-existing-2',
+            };
+
+            const result = await vpcBuilder.build(appDefinition, discoveredResources);
+
+            // CRITICAL: Must RE-ADD stack-managed subnets to template or CloudFormation will DELETE them
+            expect(result.resources.FriggPrivateSubnet1).toBeDefined();
+            expect(result.resources.FriggPrivateSubnet1.Type).toBe('AWS::EC2::Subnet');
+            expect(result.resources.FriggPrivateSubnet1.Properties.VpcId).toBe('vpc-123');
+            
+            expect(result.resources.FriggPrivateSubnet2).toBeDefined();
+            expect(result.resources.FriggPrivateSubnet2.Type).toBe('AWS::EC2::Subnet');
+            expect(result.resources.FriggPrivateSubnet2.Properties.VpcId).toBe('vpc-123');
+            
+            // Should use Refs (not external IDs)
+            expect(result.vpcConfig.subnetIds).toEqual([
+                { Ref: 'FriggPrivateSubnet1' },
+                { Ref: 'FriggPrivateSubnet2' }
+            ]);
+        });
+
         it('should add stack-managed VPC endpoints back to template to prevent deletion', async () => {
             const appDefinition = {
                 vpc: { enable: true },
