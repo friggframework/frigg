@@ -355,7 +355,7 @@ describe('VpcResourceResolver', () => {
             expect(decisions.dynamodb.ownership).toBe('stack'); // DynamoDB needed
         });
 
-        it('should preserve DynamoDB endpoint if exists in stack even when not needed', () => {
+        it('should allow deletion of DynamoDB endpoint when not needed', () => {
             const appDefinition = {
                 vpc: { ownership: { vpcEndpoints: 'auto' } },
                 database: { mongoDB: { enable: true } }, // Using MongoDB (DynamoDB not needed)
@@ -370,9 +370,9 @@ describe('VpcResourceResolver', () => {
 
             const decisions = resolver.resolveVpcEndpoints(appDefinition, discovery);
 
-            // Should preserve (not delete) even though not actively needed
-            expect(decisions.dynamodb.ownership).toBe('stack');
-            expect(decisions.dynamodb.physicalId).toBe('vpce-ddb-legacy');
+            // Should return null (allow CloudFormation to delete it since not needed)
+            expect(decisions.dynamodb.ownership).toBeNull();
+            expect(decisions.dynamodb.reason).toContain('MongoDB/PostgreSQL');
         });
 
 

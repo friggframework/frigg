@@ -302,21 +302,14 @@ class VpcResourceResolver extends BaseResourceResolver {
 
         // DynamoDB endpoint only needed if using DynamoDB (not MongoDB or PostgreSQL)
         // Currently framework only supports MongoDB (via Prisma) and PostgreSQL (via Aurora)
-        // DynamoDB support is not implemented, so endpoint is not needed
+        // If not using DynamoDB, skip the endpoint (CloudFormation will delete if it exists)
         const usesDynamoDB = appDefinition.database?.dynamodb?.enable === true;
-        
-        // Special case: If DynamoDB endpoint exists in stack but not needed, preserve it
-        // to avoid deletion (user may have enabled it previously)
-        const dynamoDbInStack = this.isInStack('FriggDynamoDBVPCEndpoint', discovery);
-        const shouldPreserveDynamoDB = !usesDynamoDB && dynamoDbInStack;
 
         const endpoints = {
             s3: this._resolveEndpoint('FriggS3VPCEndpoint', 's3', userIntent, appDefinition, discovery),
             dynamodb: usesDynamoDB
                 ? this._resolveEndpoint('FriggDynamoDBVPCEndpoint', 'dynamodb', userIntent, appDefinition, discovery)
-                : shouldPreserveDynamoDB
-                    ? this._resolveEndpoint('FriggDynamoDBVPCEndpoint', 'dynamodb', userIntent, appDefinition, discovery)
-                    : { ownership: null, reason: 'DynamoDB endpoint not needed (application uses MongoDB/PostgreSQL, not DynamoDB)' },
+                : { ownership: null, reason: 'DynamoDB endpoint not needed (application uses MongoDB/PostgreSQL, not DynamoDB)' },
             kms: needsKms
                 ? this._resolveEndpoint('FriggKMSVPCEndpoint', 'kms', userIntent, appDefinition, discovery)
                 : { ownership: null, reason: 'KMS endpoint not needed (encryption method is not KMS)' },
