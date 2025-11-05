@@ -159,6 +159,9 @@ class VpcBuilder extends InfrastructureBuilder {
                 } else if (logicalId === 'FriggNATGateway') {
                     resourceType = 'AWS::EC2::NatGateway';
                     physicalId = flatDiscovery.existingNatGatewayId;
+                } else if (logicalId === 'FriggLambdaRouteTable') {
+                    resourceType = 'AWS::EC2::RouteTable';
+                    physicalId = flatDiscovery.routeTableId;
                 } else if (logicalId === 'FriggS3VPCEndpoint') {
                     resourceType = 'AWS::EC2::VPCEndpoint';
                     physicalId = flatDiscovery.s3VpcEndpointId;
