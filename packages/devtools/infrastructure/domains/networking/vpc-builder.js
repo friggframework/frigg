@@ -577,11 +577,10 @@ class VpcBuilder extends InfrastructureBuilder {
      * Build VPC based on ownership decision
      *
      * For STACK ownership: ALWAYS add definitions to template.
-     * CloudFormation idempotency ensures existing resources aren't recreated.
      */
     buildVpcFromDecision(decision, appDefinition, result) {
         if (decision.ownership === ResourceOwnership.STACK) {
-            // For STACK ownership: ALWAYS create definitions (CloudFormation idempotency)
+            // For STACK ownership: ALWAYS create definitions
             if (decision.physicalId) {
                 console.log(`  → Adding VPC definition to template (existing: ${decision.physicalId})`);
             } else {
