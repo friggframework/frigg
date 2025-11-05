@@ -300,6 +300,82 @@ describe('VpcResourceResolver', () => {
     });
 
     describe('resolveVpcEndpoints', () => {
+        it('should skip DynamoDB endpoint when application uses MongoDB', () => {
+            const appDefinition = {
+                vpc: { ownership: { vpcEndpoints: 'auto' } },
+                database: { mongoDB: { enable: true } }, // Using MongoDB, not DynamoDB
+                encryption: { fieldLevelEncryptionMethod: 'kms' }
+            };
+            const discovery = {
+                stackManaged: [],
+                external: [],
+                fromCloudFormation: false
+            };
+
+            const decisions = resolver.resolveVpcEndpoints(appDefinition, discovery);
+
+            expect(decisions.s3.ownership).toBe('stack'); // S3 always needed
+            expect(decisions.dynamodb.ownership).toBeNull(); // DynamoDB NOT needed
+            expect(decisions.dynamodb.reason).toContain('MongoDB/PostgreSQL');
+            expect(decisions.kms.ownership).toBe('stack'); // KMS needed (encryption enabled)
+            expect(decisions.secretsManager.ownership).toBe('stack'); // SM always needed
+            expect(decisions.sqs.ownership).toBe('stack'); // SQS always needed
+        });
+
+        it('should skip DynamoDB endpoint when application uses PostgreSQL', () => {
+            const appDefinition = {
+                vpc: { ownership: { vpcEndpoints: 'auto' } },
+                database: { postgres: { enable: true } }, // Using PostgreSQL, not DynamoDB
+            };
+            const discovery = {
+                stackManaged: [],
+                external: [],
+                fromCloudFormation: false
+            };
+
+            const decisions = resolver.resolveVpcEndpoints(appDefinition, discovery);
+
+            expect(decisions.dynamodb.ownership).toBeNull();
+            expect(decisions.dynamodb.reason).toContain('MongoDB/PostgreSQL');
+        });
+
+        it('should create DynamoDB endpoint when explicitly enabled', () => {
+            const appDefinition = {
+                vpc: { ownership: { vpcEndpoints: 'auto' } },
+                database: { dynamodb: { enable: true } }, // Explicitly using DynamoDB
+            };
+            const discovery = {
+                stackManaged: [],
+                external: [],
+                fromCloudFormation: false
+            };
+
+            const decisions = resolver.resolveVpcEndpoints(appDefinition, discovery);
+
+            expect(decisions.dynamodb.ownership).toBe('stack'); // DynamoDB needed
+        });
+
+        it('should preserve DynamoDB endpoint if exists in stack even when not needed', () => {
+            const appDefinition = {
+                vpc: { ownership: { vpcEndpoints: 'auto' } },
+                database: { mongoDB: { enable: true } }, // Using MongoDB (DynamoDB not needed)
+            };
+            const discovery = {
+                stackManaged: [
+                    { logicalId: 'FriggDynamoDBVPCEndpoint', physicalId: 'vpce-ddb-legacy', resourceType: 'AWS::EC2::VPCEndpoint' }
+                ],
+                external: [],
+                fromCloudFormation: true
+            };
+
+            const decisions = resolver.resolveVpcEndpoints(appDefinition, discovery);
+
+            // Should preserve (not delete) even though not actively needed
+            expect(decisions.dynamodb.ownership).toBe('stack');
+            expect(decisions.dynamodb.physicalId).toBe('vpce-ddb-legacy');
+        });
+
+
         it('should return null decisions when endpoints disabled', () => {
             const appDefinition = {
                 vpc: {

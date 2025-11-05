@@ -300,9 +300,23 @@ class VpcResourceResolver extends BaseResourceResolver {
         const encryptionMethod = appDefinition.encryption?.fieldLevelEncryptionMethod;
         const needsKms = encryptionMethod === 'kms';
 
+        // DynamoDB endpoint only needed if using DynamoDB (not MongoDB or PostgreSQL)
+        // Currently framework only supports MongoDB (via Prisma) and PostgreSQL (via Aurora)
+        // DynamoDB support is not implemented, so endpoint is not needed
+        const usesDynamoDB = appDefinition.database?.dynamodb?.enable === true;
+        
+        // Special case: If DynamoDB endpoint exists in stack but not needed, preserve it
+        // to avoid deletion (user may have enabled it previously)
+        const dynamoDbInStack = this.isInStack('FriggDynamoDBVPCEndpoint', discovery);
+        const shouldPreserveDynamoDB = !usesDynamoDB && dynamoDbInStack;
+
         const endpoints = {
             s3: this._resolveEndpoint('FriggS3VPCEndpoint', 's3', userIntent, appDefinition, discovery),
-            dynamodb: this._resolveEndpoint('FriggDynamoDBVPCEndpoint', 'dynamodb', userIntent, appDefinition, discovery),
+            dynamodb: usesDynamoDB
+                ? this._resolveEndpoint('FriggDynamoDBVPCEndpoint', 'dynamodb', userIntent, appDefinition, discovery)
+                : shouldPreserveDynamoDB
+                    ? this._resolveEndpoint('FriggDynamoDBVPCEndpoint', 'dynamodb', userIntent, appDefinition, discovery)
+                    : { ownership: null, reason: 'DynamoDB endpoint not needed (application uses MongoDB/PostgreSQL, not DynamoDB)' },
             kms: needsKms
                 ? this._resolveEndpoint('FriggKMSVPCEndpoint', 'kms', userIntent, appDefinition, discovery)
                 : { ownership: null, reason: 'KMS endpoint not needed (encryption method is not KMS)' },
@@ -340,13 +354,27 @@ class VpcResourceResolver extends BaseResourceResolver {
             );
         }
 
-        // Auto-decide
-        return this.resolveResourceOwnership(
+        // Auto-decide - check if in stack first for more informative logging
+        const inStack = this.isInStack(logicalId, discovery);
+        const stackResource = inStack ? this.findInStack(logicalId, discovery) : null;
+        
+        const decision = this.resolveResourceOwnership(
             'auto',
             logicalId,
             'AWS::EC2::VPCEndpoint',
             discovery
         );
+        
+        // Override reason with more detailed explanation
+        if (decision.ownership === 'stack' && decision.physicalId) {
+            decision.reason = `Found in CloudFormation stack (must keep in template to avoid deletion)`;
+        } else if (decision.ownership === 'stack' && !decision.physicalId) {
+            decision.reason = `No existing ${endpointType} endpoint found - will create in stack`;
+        } else if (decision.ownership === 'external') {
+            decision.reason = `Found external ${endpointType} endpoint via discovery`;
+        }
+        
+        return decision;
     }
 
     /**
