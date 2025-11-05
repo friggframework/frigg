@@ -235,6 +235,30 @@ describe('VpcResourceResolver', () => {
             );
         });
 
+        it('should prefer default SG over stack-managed SG when ownership=external and both discovered', () => {
+            const appDefinition = {
+                vpc: {
+                    ownership: { securityGroup: 'external' }
+                }
+            };
+            const discovery = {
+                stackManaged: [
+                    { logicalId: 'FriggLambdaSecurityGroup', physicalId: 'sg-stack-managed', resourceType: 'AWS::EC2::SecurityGroup' }
+                ],
+                external: [],
+                fromCloudFormation: true,
+                lambdaSecurityGroupId: 'sg-stack-managed', // Stack-managed SG
+                defaultSecurityGroupId: 'sg-default-vpc'   // Default VPC SG
+            };
+
+            const decision = resolver.resolveSecurityGroup(appDefinition, discovery);
+
+            // Should use default SG, NOT the stack-managed one
+            expect(decision.ownership).toBe(ResourceOwnership.EXTERNAL);
+            expect(decision.physicalIds).toEqual(['sg-default-vpc']);
+            expect(decision.reason).toContain('discovered default security group');
+        });
+
         it('should auto-resolve to STACK when FriggLambdaSecurityGroup in stack', () => {
             const appDefinition = { vpc: { ownership: { securityGroup: 'auto' } } };
             const discovery = {
