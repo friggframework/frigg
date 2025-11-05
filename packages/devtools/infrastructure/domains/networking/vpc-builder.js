@@ -1721,7 +1721,7 @@ class VpcBuilder extends InfrastructureBuilder {
         // Stack-managed resources should be reused, not recreated
         const stackManagedEndpoints = {
             s3: discoveredResources.s3VpcEndpointId && typeof discoveredResources.s3VpcEndpointId === 'string',
-            dynamodb: discoveredResources.dynamoDbVpcEndpointId && typeof discoveredResources.dynamoDbVpcEndpointId === 'string',
+            dynamodb: discoveredResources.dynamodbVpcEndpointId && typeof discoveredResources.dynamodbVpcEndpointId === 'string',
             kms: discoveredResources.kmsVpcEndpointId && typeof discoveredResources.kmsVpcEndpointId === 'string',
             secretsManager: discoveredResources.secretsManagerVpcEndpointId && typeof discoveredResources.secretsManagerVpcEndpointId === 'string',
             sqs: discoveredResources.sqsVpcEndpointId && typeof discoveredResources.sqsVpcEndpointId === 'string',

@@ -418,7 +418,7 @@ class CloudFormationDiscovery {
             // DynamoDB Endpoint (both naming patterns)
             if ((LogicalResourceId === 'FriggDynamoDBVPCEndpoint' || LogicalResourceId === 'VPCEndpointDynamoDB') && 
                 ResourceType === 'AWS::EC2::VPCEndpoint') {
-                discovered.dynamoDbVpcEndpointId = PhysicalResourceId;
+                discovered.dynamodbVpcEndpointId = PhysicalResourceId; // Note: all lowercase for consistency
                 discovered.vpcEndpoints.dynamodb = PhysicalResourceId;
                 console.log(`  ✓ Found DynamoDB VPC endpoint in stack: ${PhysicalResourceId}`);
             }
