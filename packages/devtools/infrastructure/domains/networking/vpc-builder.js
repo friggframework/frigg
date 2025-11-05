@@ -932,6 +932,8 @@ class VpcBuilder extends InfrastructureBuilder {
 
         if (endpointsInStack.length > 0) {
             console.log(`  ✓ VPC Endpoints in stack: ${endpointsInStack.join(', ')}`);
+            // CRITICAL: Must add stack-managed endpoints back to template or CloudFormation will DELETE them!
+            this._addStackManagedEndpointsToTemplate(decisions, result);
         }
 
         if (externalEndpoints.length > 0) {
@@ -1110,6 +1112,101 @@ class VpcBuilder extends InfrastructureBuilder {
         }
 
         return healingReport;
+    }
+
+    /**
+     * Add stack-managed VPC endpoints back to template
+     * 
+     * CRITICAL: CloudFormation will DELETE resources that exist in the previous template
+     * but are missing from the new template. We must re-add discovered stack-managed
+     * endpoints to prevent CloudFormation from deleting them.
+     * 
+     * @private
+     */
+    _addStackManagedEndpointsToTemplate(decisions, result) {
+        const vpcId = result.vpcId;
+        const logicalIdMap = {
+            s3: 'FriggS3VPCEndpoint',
+            dynamodb: 'FriggDynamoDBVPCEndpoint',
+            kms: 'FriggKMSVPCEndpoint',
+            secretsManager: 'FriggSecretsManagerVPCEndpoint',
+            sqs: 'FriggSQSVPCEndpoint'
+        };
+
+        Object.entries(decisions).forEach(([type, decision]) => {
+            if (decision.ownership === ResourceOwnership.STACK && decision.physicalId) {
+                const logicalId = logicalIdMap[type];
+                
+                // Determine endpoint type and properties based on service
+                if (type === 's3') {
+                    result.resources[logicalId] = {
+                        Type: 'AWS::EC2::VPCEndpoint',
+                        Properties: {
+                            VpcId: vpcId,
+                            ServiceName: 'com.amazonaws.${self:provider.region}.s3',
+                            VpcEndpointType: 'Gateway',
+                            RouteTableIds: [{ Ref: 'FriggLambdaRouteTable' }]
+                        }
+                    };
+                } else if (type === 'dynamodb') {
+                    result.resources[logicalId] = {
+                        Type: 'AWS::EC2::VPCEndpoint',
+                        Properties: {
+                            VpcId: vpcId,
+                            ServiceName: 'com.amazonaws.${self:provider.region}.dynamodb',
+                            VpcEndpointType: 'Gateway',
+                            RouteTableIds: [{ Ref: 'FriggLambdaRouteTable' }]
+                        }
+                    };
+                } else {
+                    // Interface endpoints (KMS, Secrets Manager, SQS)
+                    const serviceMap = {
+                        kms: 'kms',
+                        secretsManager: 'secretsmanager',
+                        sqs: 'sqs'
+                    };
+                    
+                    result.resources[logicalId] = {
+                        Type: 'AWS::EC2::VPCEndpoint',
+                        Properties: {
+                            VpcId: vpcId,
+                            ServiceName: `com.amazonaws.\${self:provider.region}.${serviceMap[type]}`,
+                            VpcEndpointType: 'Interface',
+                            SubnetIds: result.vpcConfig.subnetIds,
+                            SecurityGroupIds: [{ Ref: 'FriggVPCEndpointSecurityGroup' }],
+                            PrivateDnsEnabled: true
+                        }
+                    };
+                }
+            }
+        });
+
+        // If any interface endpoints exist, ensure security group is in template
+        const hasInterfaceEndpoints = ['kms', 'secretsManager', 'sqs'].some(
+            type => decisions[type]?.ownership === ResourceOwnership.STACK && decisions[type]?.physicalId
+        );
+
+        if (hasInterfaceEndpoints && !result.resources.FriggVPCEndpointSecurityGroup) {
+            result.resources.FriggVPCEndpointSecurityGroup = {
+                Type: 'AWS::EC2::SecurityGroup',
+                Properties: {
+                    GroupDescription: 'Security group for VPC Endpoints',
+                    VpcId: vpcId,
+                    SecurityGroupIngress: [
+                        {
+                            IpProtocol: 'tcp',
+                            FromPort: 443,
+                            ToPort: 443,
+                            SourceSecurityGroupId: { Ref: 'FriggLambdaSecurityGroup' }
+                        }
+                    ],
+                    Tags: [
+                        { Key: 'Name', Value: '${self:service}-${self:provider.stage}-vpc-endpoint-sg' },
+                        { Key: 'ManagedBy', Value: 'Frigg' }
+                    ]
+                }
+            };
+        }
     }
 
     /**
