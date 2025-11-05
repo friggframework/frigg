@@ -552,7 +552,7 @@ class VpcBuilder extends InfrastructureBuilder {
         this.buildNatGatewayFromDecision(decisions.natGateway, appDefinition, discoveredResources, result);
 
         // Build VPC Endpoints based on ownership decisions
-        this.buildVpcEndpointsFromDecisions(decisions.vpcEndpoints, appDefinition, result);
+        this.buildVpcEndpointsFromDecisions(decisions.vpcEndpoints, decisions.securityGroup, appDefinition, result);
 
         // Set VPC_ENABLED environment variable
         result.environment.VPC_ENABLED = 'true';
@@ -920,7 +920,8 @@ class VpcBuilder extends InfrastructureBuilder {
     /**
      * Build VPC Endpoints based on ownership decisions
      */
-    buildVpcEndpointsFromDecisions(decisions, appDefinition, result) {
+    buildVpcEndpointsFromDecisions(endpointDecisions, securityGroupDecision, appDefinition, result) {
+        const decisions = endpointDecisions; // For backwards compatibility with existing code
         const endpointsToCreate = [];
         const endpointsInStack = [];
         const externalEndpoints = [];
@@ -939,7 +940,7 @@ class VpcBuilder extends InfrastructureBuilder {
         if (endpointsInStack.length > 0) {
             console.log(`  ✓ VPC Endpoints in stack: ${endpointsInStack.join(', ')}`);
             // CRITICAL: Must add stack-managed endpoints back to template or CloudFormation will DELETE them!
-            this._addStackManagedEndpointsToTemplate(decisions, result);
+            this._addStackManagedEndpointsToTemplate(decisions, securityGroupDecision, result);
         }
 
         if (externalEndpoints.length > 0) {
@@ -1002,6 +1003,15 @@ class VpcBuilder extends InfrastructureBuilder {
         // Create security group for interface endpoints if needed
         const needsInterfaceEndpoints = endpointsToCreate.some(type => ['kms', 'secretsManager', 'sqs'].includes(type));
         if (needsInterfaceEndpoints) {
+            // Determine source security group for ingress rule
+            let sourceSgId;
+            if (securityGroupDecision.ownership === ResourceOwnership.STACK) {
+                sourceSgId = { Ref: 'FriggLambdaSecurityGroup' };
+            } else {
+                // External - use the physical ID
+                sourceSgId = securityGroupDecision.physicalIds[0];
+            }
+
             result.resources.FriggVPCEndpointSecurityGroup = {
                 Type: 'AWS::EC2::SecurityGroup',
                 Properties: {
@@ -1012,7 +1022,7 @@ class VpcBuilder extends InfrastructureBuilder {
                             IpProtocol: 'tcp',
                             FromPort: 443,
                             ToPort: 443,
-                            SourceSecurityGroupId: { Ref: 'FriggLambdaSecurityGroup' },
+                            SourceSecurityGroupId: sourceSgId,
                             Description: 'HTTPS from Lambda',
                         },
                     ],
@@ -1129,7 +1139,8 @@ class VpcBuilder extends InfrastructureBuilder {
      * 
      * @private
      */
-    _addStackManagedEndpointsToTemplate(decisions, result) {
+    _addStackManagedEndpointsToTemplate(endpointDecisions, securityGroupDecision, result) {
+        const decisions = endpointDecisions; // For backwards compatibility
         const vpcId = result.vpcId;
         const logicalIdMap = {
             s3: 'FriggS3VPCEndpoint',
@@ -1197,11 +1208,11 @@ class VpcBuilder extends InfrastructureBuilder {
             // If Lambda SG is stack-managed, use CloudFormation Ref
             // If Lambda SG is external, use the physical ID directly
             let sourceSgId;
-            if (decisions.securityGroup.ownership === ResourceOwnership.STACK) {
+            if (securityGroupDecision.ownership === ResourceOwnership.STACK) {
                 sourceSgId = { Ref: 'FriggLambdaSecurityGroup' };
             } else {
                 // External - use the physical ID
-                sourceSgId = decisions.securityGroup.physicalIds[0];
+                sourceSgId = securityGroupDecision.physicalIds[0];
             }
 
             result.resources.FriggVPCEndpointSecurityGroup = {

@@ -1472,6 +1472,76 @@ describe('VpcBuilder', () => {
         });
     });
 
+    describe('VPC Endpoint Security Group with External Lambda SG', () => {
+        it('should use external Lambda SG ID (not Ref) for VPC endpoint SG when Lambda SG is external', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    enableVPCEndpoints: true,
+                    ownership: {
+                        securityGroup: 'external' // External Lambda SG
+                    }
+                },
+                encryption: { fieldLevelEncryptionMethod: 'kms' }
+            };
+            const discoveredResources = {
+                fromCloudFormationStack: true,
+                defaultVpcId: 'vpc-123',
+                defaultSecurityGroupId: 'sg-default-456', // Default VPC SG
+                lambdaSecurityGroupId: 'sg-stack-789',    // Stack-managed SG (will be ignored)
+                privateSubnetId1: 'subnet-1',
+                privateSubnetId2: 'subnet-2',
+                natGatewayId: 'nat-123',
+                existingLogicalIds: ['FriggS3VPCEndpoint', 'FriggKMSVPCEndpoint'],
+                s3VpcEndpointId: 'vpce-s3-stack',
+                kmsVpcEndpointId: 'vpce-kms-stack'
+            };
+
+            const result = await vpcBuilder.build(appDefinition, discoveredResources);
+
+            // VPC Endpoint SG should be created
+            expect(result.resources.FriggVPCEndpointSecurityGroup).toBeDefined();
+            
+            // CRITICAL: Should use external Lambda SG ID directly, NOT a CloudFormation Ref
+            const ingressRule = result.resources.FriggVPCEndpointSecurityGroup.Properties.SecurityGroupIngress[0];
+            expect(ingressRule.SourceSecurityGroupId).toBe('sg-default-456'); // Direct ID, not { Ref: 'FriggLambdaSecurityGroup' }
+            expect(typeof ingressRule.SourceSecurityGroupId).toBe('string');
+            
+            // Verify FriggLambdaSecurityGroup is NOT in the template
+            expect(result.resources.FriggLambdaSecurityGroup).toBeUndefined();
+        });
+
+        it('should use CloudFormation Ref when Lambda SG is stack-managed', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    enableVPCEndpoints: true,
+                    ownership: {
+                        securityGroup: 'stack' // Stack-managed Lambda SG
+                    }
+                },
+                encryption: { fieldLevelEncryptionMethod: 'kms' }
+            };
+            const discoveredResources = {
+                defaultVpcId: 'vpc-123',
+                privateSubnetId1: 'subnet-1',
+                privateSubnetId2: 'subnet-2'
+            };
+
+            const result = await vpcBuilder.build(appDefinition, discoveredResources);
+
+            // VPC Endpoint SG should be created
+            expect(result.resources.FriggVPCEndpointSecurityGroup).toBeDefined();
+            
+            // Should use CloudFormation Ref when Lambda SG is in stack
+            const ingressRule = result.resources.FriggVPCEndpointSecurityGroup.Properties.SecurityGroupIngress[0];
+            expect(ingressRule.SourceSecurityGroupId).toEqual({ Ref: 'FriggLambdaSecurityGroup' });
+            
+            // Verify FriggLambdaSecurityGroup IS in the template
+            expect(result.resources.FriggLambdaSecurityGroup).toBeDefined();
+        });
+    });
+
     describe('convertFlatDiscoveryToStructured - VPC Endpoints from CloudFormation', () => {
         it('should add VPC endpoints to stackManaged when in existingLogicalIds', () => {
             const flatDiscovery = {
