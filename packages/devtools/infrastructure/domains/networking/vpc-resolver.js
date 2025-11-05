@@ -122,6 +122,13 @@ class VpcResourceResolver extends BaseResourceResolver {
             const lambdaSgId = structured.lambdaSecurityGroupId || discovery.lambdaSecurityGroupId;
             const defaultSgId = structured.defaultSecurityGroupId || discovery.defaultSecurityGroupId;
             
+            // Debug logging to understand what's happening
+            console.log(`  DEBUG: resolveSecurityGroup - ownership='external'`);
+            console.log(`    lambdaSgId: ${lambdaSgId}`);
+            console.log(`    defaultSgId: ${defaultSgId}`);
+            console.log(`    discovery keys: ${Object.keys(discovery).join(', ')}`);
+            console.log(`    structured keys: ${Object.keys(structured).join(', ')}`);
+            
             // If we have a default SG AND it's different from the lambda SG, use the default
             if (defaultSgId && defaultSgId !== lambdaSgId) {
                 return this.createExternalDecision(
@@ -130,7 +137,7 @@ class VpcResourceResolver extends BaseResourceResolver {
                 );
             }
             
-            // If only lambdaSgId exists, that means defaultSgId wasn't discovered
+            // If only defaultSgId exists (no lambdaSgId), use it
             if (defaultSgId && !lambdaSgId) {
                 return this.createExternalDecision(
                     [defaultSgId],
