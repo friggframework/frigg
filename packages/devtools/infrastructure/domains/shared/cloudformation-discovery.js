@@ -246,8 +246,31 @@ class CloudFormationDiscovery {
                         );
 
                         if (sgDetails.SecurityGroups && sgDetails.SecurityGroups.length > 0) {
-                            discovered.defaultVpcId = sgDetails.SecurityGroups[0].VpcId;
-                            console.log(`  ✓ Extracted VPC ID from security group: ${discovered.defaultVpcId}`);
+                            const vpcId = sgDetails.SecurityGroups[0].VpcId;
+                            discovered.defaultVpcId = vpcId;
+                            console.log(`  ✓ Extracted VPC ID from security group: ${vpcId}`);
+                            
+                            // Now query for the default security group in this VPC
+                            if (!discovered.defaultSecurityGroupId) {
+                                try {
+                                    console.log(`  Querying for default security group in VPC...`);
+                                    const defaultSgResponse = await ec2Client.send(
+                                        new DescribeSecurityGroupsCommand({
+                                            Filters: [
+                                                { Name: 'vpc-id', Values: [vpcId] },
+                                                { Name: 'group-name', Values: ['default'] }
+                                            ]
+                                        })
+                                    );
+                                    
+                                    if (defaultSgResponse.SecurityGroups && defaultSgResponse.SecurityGroups.length > 0) {
+                                        discovered.defaultSecurityGroupId = defaultSgResponse.SecurityGroups[0].GroupId;
+                                        console.log(`  ✓ Discovered default security group: ${discovered.defaultSecurityGroupId}`);
+                                    }
+                                } catch (error) {
+                                    console.warn(`  ⚠️  Could not query default security group: ${error.message}`);
+                                }
+                            }
                         } else {
                             console.warn(`  ⚠️  Security group query returned no results`);
                         }
