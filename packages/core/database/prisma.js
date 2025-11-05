@@ -104,14 +104,27 @@ const prismaClientSingleton = () => {
 
     // Helper to try loading Prisma client from multiple locations
     const loadPrismaClient = (dbType) => {
-        const paths = [
-            // Lambda layer location (when using Prisma Lambda layer)
-            `/opt/nodejs/node_modules/generated/prisma-${dbType}`,
-            // Local development location (relative to core package)
+        const fs = require('fs');
+        const layerPath = `/opt/nodejs/node_modules/generated/prisma-${dbType}`;
+        
+        // Check if layer exists (when usePrismaLambdaLayer=true)
+        if (fs.existsSync(layerPath)) {
+            try {
+                return require(layerPath).PrismaClient;
+            } catch (err) {
+                // Layer exists but failed to load - fall through to bundled paths
+            }
+        }
+        
+        // Layer doesn't exist or failed - use bundled/local paths (when usePrismaLambdaLayer=false)
+        const localPaths = [
+            // Bundled with function (when usePrismaLambdaLayer=false)
+            `@friggframework/core/generated/prisma-${dbType}`,
+            // Local development (relative to core package)
             `../generated/prisma-${dbType}`,
         ];
 
-        for (const path of paths) {
+        for (const path of localPaths) {
             try {
                 return require(path).PrismaClient;
             } catch (err) {
@@ -120,7 +133,8 @@ const prismaClientSingleton = () => {
         }
 
         throw new Error(
-            `Cannot find Prisma client for ${dbType}. Tried paths: ${paths.join(', ')}`
+            `Cannot find Prisma client for ${dbType}. ` +
+            `Tried layer path: ${layerPath}, local paths: ${localPaths.join(', ')}`
         );
     };
 

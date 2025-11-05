@@ -62,6 +62,9 @@ class IntegrationBuilder extends InfrastructureBuilder {
         console.log(`\n[${this.name}] Configuring integrations...`);
         console.log(`  Processing ${appDefinition.integrations.length} integrations...`);
 
+        // Determine if using Prisma Lambda Layer
+        const usePrismaLayer = appDefinition.usePrismaLambdaLayer !== false;
+
         const result = {
             functions: {},
             resources: {},
@@ -87,7 +90,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
         });
 
         // Build resources based on ownership decisions
-        await this.buildFromDecisions(decisions, appDefinition, result);
+        await this.buildFromDecisions(decisions, appDefinition, result, usePrismaLayer);
 
         console.log(`[${this.name}] ✅ Integration configuration completed`);
         return result;
@@ -142,7 +145,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
     /**
      * Build integration resources based on ownership decisions
      */
-    async buildFromDecisions(decisions, appDefinition, result) {
+    async buildFromDecisions(decisions, appDefinition, result, usePrismaLayer = true) {
         // Create InternalErrorQueue if ownership = STACK
         const shouldCreateInternalErrorQueue = decisions.internalErrorQueue.ownership === ResourceOwnership.STACK;
 
@@ -155,7 +158,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
         }
 
         // Create Lambda function definitions and queue resources for each integration
-        const functionPackageConfig = this.createFunctionPackageConfig();
+        const functionPackageConfig = this.createFunctionPackageConfig(usePrismaLayer);
 
         for (const integration of appDefinition.integrations) {
             const integrationName = integration.Definition.name;
@@ -164,7 +167,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
             console.log(`\n    Adding integration: ${integrationName}`);
 
             // Create Lambda function definitions (serverless template code)
-            await this.createFunctionDefinitions(integration, functionPackageConfig, result);
+            await this.createFunctionDefinitions(integration, functionPackageConfig, result, usePrismaLayer);
 
             // Create or reference SQS queue based on ownership decision
             const shouldCreateQueue = queueDecision.ownership === ResourceOwnership.STACK;
@@ -182,18 +185,20 @@ class IntegrationBuilder extends InfrastructureBuilder {
     /**
      * Create function package exclusion configuration
      */
-    createFunctionPackageConfig() {
+    createFunctionPackageConfig(usePrismaLayer = true) {
         return {
             exclude: [
                 // Exclude AWS SDK (provided by Lambda runtime)
                 'node_modules/aws-sdk/**',
                 'node_modules/@aws-sdk/**',
 
-                // Exclude Prisma (provided via Lambda Layer)
-                'node_modules/@prisma/**',
-                'node_modules/.prisma/**',
-                'node_modules/prisma/**',
-                'node_modules/@friggframework/core/generated/**',
+                // Conditionally exclude Prisma (only if using Lambda Layer)
+                ...(usePrismaLayer ? [
+                    'node_modules/@prisma/**',
+                    'node_modules/.prisma/**',
+                    'node_modules/prisma/**',
+                    'node_modules/@friggframework/core/generated/**',
+                ] : []),
 
                 // Exclude ALL nested node_modules
                 'node_modules/**/node_modules/**',
@@ -249,7 +254,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
      * Create Lambda function definitions for an integration
      * These are serverless framework template function definitions
      */
-    async createFunctionDefinitions(integration, functionPackageConfig, result) {
+    async createFunctionDefinitions(integration, functionPackageConfig, result, usePrismaLayer = true) {
         const integrationName = integration.Definition.name;
 
         // Add webhook handler if enabled (BEFORE catch-all proxy route)
@@ -261,6 +266,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
 
             result.functions[webhookFunctionName] = {
                 handler: `node_modules/@friggframework/core/handlers/routers/integration-webhook-routers.handlers.${integrationName}Webhook.handler`,
+                ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),
                 skipEsbuild: true,  // Nested exports in node_modules - skip esbuild bundling
                 package: functionPackageConfig,
                 events: [
@@ -284,6 +290,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
         // Create HTTP API handler for integration (catch-all route AFTER webhooks)
         result.functions[integrationName] = {
             handler: `node_modules/@friggframework/core/handlers/routers/integration-defined-routers.handlers.${integrationName}.handler`,
+            ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),
             skipEsbuild: true,  // Nested exports in node_modules - skip esbuild bundling
             package: functionPackageConfig,
             events: [
@@ -301,6 +308,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
         const queueWorkerName = `${integrationName}QueueWorker`;
         result.functions[queueWorkerName] = {
             handler: `node_modules/@friggframework/core/handlers/workers/integration-defined-workers.handlers.${integrationName}.queueWorker`,
+            ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),
             skipEsbuild: true,  // Nested exports in node_modules - skip esbuild bundling
             package: functionPackageConfig,
             reservedConcurrency: 5,

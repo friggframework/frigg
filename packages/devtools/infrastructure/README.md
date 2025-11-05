@@ -257,6 +257,34 @@ aws lambda get-function-configuration \
   --query 'Layers[*].Arn'
 ```
 
+**Disabling Prisma Layer (Bundle with Functions):**
+
+By default, Frigg uses a Lambda Layer for Prisma. You can disable this and bundle Prisma directly with each function:
+
+```javascript
+const appDefinition = {
+    name: 'my-app',
+    usePrismaLambdaLayer: false,  // Bundle Prisma with each function
+    integrations: [{ Definition: { name: 'asana' } }],
+};
+```
+
+**When to disable the Prisma Layer:**
+
+-   ✅ CI/CD IAM user lacks `lambda:PublishLayerVersion` permission
+-   ✅ Deploying to environments with Lambda layer restrictions
+-   ✅ Prefer simpler deployment without layer management
+-   ✅ Debugging Prisma client loading issues
+
+**Trade-offs:**
+
+| Mode | Function Size | Deploy Speed | IAM Permissions Required |
+|------|--------------|--------------|-------------------------|
+| **Layer (default)** | ~45MB per function | Faster (layer cached) | `lambda:PublishLayerVersion` |
+| **Bundled** | ~80MB per function | Slower (Prisma uploaded 5x) | None (layer-related) |
+
+**Note:** When `usePrismaLambdaLayer: false`, Prisma client automatically detects the bundled location at runtime. No additional configuration needed.
+
 ## Usage Examples
 
 ### Basic Deployment

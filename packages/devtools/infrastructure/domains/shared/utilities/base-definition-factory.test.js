@@ -243,6 +243,79 @@ describe('Base Definition Factory', () => {
             expect(result.useDotenv).toBeDefined();
             expect(typeof result.useDotenv).toBe('boolean');
         });
+
+        describe('usePrismaLayer configuration', () => {
+            it('should include Prisma layer by default (usePrismaLayer=true)', () => {
+                const result = createBaseDefinition({}, {}, {}, true);
+
+                // Layer definition should exist
+                expect(result.layers.prisma).toBeDefined();
+                expect(result.layers.prisma.path).toBe('layers/prisma');
+
+                // Functions should reference the layer
+                expect(result.functions.auth.layers).toEqual([{ Ref: 'PrismaLambdaLayer' }]);
+                expect(result.functions.user.layers).toEqual([{ Ref: 'PrismaLambdaLayer' }]);
+                expect(result.functions.health.layers).toEqual([{ Ref: 'PrismaLambdaLayer' }]);
+
+                // Prisma should be excluded from packages
+                expect(result.functions.auth.package.exclude).toEqual(
+                    expect.arrayContaining([
+                        'node_modules/@prisma/**',
+                        'node_modules/.prisma/**',
+                        'node_modules/prisma/**',
+                        'node_modules/@friggframework/core/generated/**',
+                    ])
+                );
+
+                // Prisma should be external in esbuild
+                expect(result.custom.esbuild.external).toContain('@prisma/client');
+                expect(result.custom.esbuild.external).toContain('prisma');
+                expect(result.custom.esbuild.exclude).toContain('@prisma/client');
+                expect(result.custom.esbuild.exclude).toContain('prisma');
+            });
+
+            it('should NOT include Prisma layer when usePrismaLayer=false', () => {
+                const result = createBaseDefinition({}, {}, {}, false);
+
+                // Layer definition should NOT exist
+                expect(result.layers).toEqual({});
+
+                // Functions should NOT have layer references
+                expect(result.functions.auth.layers).toBeUndefined();
+                expect(result.functions.user.layers).toBeUndefined();
+                expect(result.functions.health.layers).toBeUndefined();
+            });
+
+            it('should bundle Prisma with functions when usePrismaLayer=false', () => {
+                const result = createBaseDefinition({}, {}, {}, false);
+
+                // Prisma should NOT be excluded from packages
+                expect(result.functions.auth.package.exclude).not.toEqual(
+                    expect.arrayContaining([
+                        'node_modules/@prisma/**',
+                        'node_modules/.prisma/**',
+                        'node_modules/prisma/**',
+                        'node_modules/@friggframework/core/generated/**',
+                    ])
+                );
+
+                // Prisma should NOT be external in esbuild
+                expect(result.custom.esbuild.external).not.toContain('@prisma/client');
+                expect(result.custom.esbuild.external).not.toContain('prisma');
+                expect(result.custom.esbuild.external).not.toContain('.prisma/*');
+                expect(result.custom.esbuild.exclude).not.toContain('@prisma/client');
+                expect(result.custom.esbuild.exclude).not.toContain('prisma');
+            });
+
+            it('should default to usePrismaLayer=true when parameter not provided', () => {
+                // Call without 4th parameter
+                const result = createBaseDefinition({}, {}, {});
+
+                // Should behave as if usePrismaLayer=true
+                expect(result.layers.prisma).toBeDefined();
+                expect(result.functions.auth.layers).toEqual([{ Ref: 'PrismaLambdaLayer' }]);
+            });
+        });
     });
 });
 

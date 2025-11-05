@@ -290,5 +290,62 @@ describe('MigrationBuilder', () => {
             expect(builder.getName()).toBe('MigrationBuilder');
         });
     });
+
+    describe('usePrismaLayer configuration', () => {
+        it('should include Prisma layer in migration worker when usePrismaLayer=true (default)', async () => {
+            const appDef = {
+                database: {
+                    postgres: { enable: true },
+                },
+                usePrismaLambdaLayer: true,
+            };
+
+            const result = await builder.build(appDef, {});
+
+            expect(result.functions.dbMigrationWorker.layers).toEqual([{ Ref: 'PrismaLambdaLayer' }]);
+            
+            // Prisma client should be excluded from package (but not CLI)
+            expect(result.functions.dbMigrationWorker.package.exclude).toEqual(
+                expect.arrayContaining([
+                    'node_modules/@prisma/client/**',
+                    'node_modules/.prisma/**',
+                    'node_modules/@friggframework/core/generated/**',
+                ])
+            );
+        });
+
+        it('should NOT include Prisma layer when usePrismaLayer=false', async () => {
+            const appDef = {
+                database: {
+                    postgres: { enable: true },
+                },
+                usePrismaLambdaLayer: false,
+            };
+
+            const result = await builder.build(appDef, {});
+
+            expect(result.functions.dbMigrationWorker.layers).toBeUndefined();
+        });
+
+        it('should bundle Prisma CLI with migration worker when usePrismaLayer=false', async () => {
+            const appDef = {
+                database: {
+                    postgres: { enable: true },
+                },
+                usePrismaLambdaLayer: false,
+            };
+
+            const result = await builder.build(appDef, {});
+
+            // Prisma should NOT be excluded from package (will be bundled)
+            expect(result.functions.dbMigrationWorker.package.exclude).not.toEqual(
+                expect.arrayContaining([
+                    'node_modules/@prisma/client/**',
+                    'node_modules/.prisma/**',
+                    'node_modules/@friggframework/core/generated/**',
+                ])
+            );
+        });
+    });
 });
 

@@ -32,8 +32,15 @@ const { validateAndCleanPlugins, validatePackagingConfiguration } = require('./d
 const composeServerlessDefinition = async (AppDefinition) => {
     console.log('🏗️  Composing serverless definition with domain builders...');
 
-    // Ensure Prisma layer exists (minimal, runtime only)
-    await ensurePrismaLayerExists(AppDefinition.database || {});
+    // Determine if using Prisma Lambda Layer (default true)
+    const usePrismaLayer = AppDefinition.usePrismaLambdaLayer !== false;
+
+    // Ensure Prisma layer exists only if using layer mode
+    if (usePrismaLayer) {
+        await ensurePrismaLayerExists(AppDefinition.database || {});
+    } else {
+        console.log('📦 Skipping Prisma Lambda Layer (usePrismaLambdaLayer=false - will bundle with functions)');
+    }
 
     // Create orchestrator with all domain builders
     const orchestrator = new BuilderOrchestrator([
@@ -55,7 +62,8 @@ const composeServerlessDefinition = async (AppDefinition) => {
     const definition = createBaseDefinition(
         AppDefinition,
         appEnvironmentVars,
-        discoveredResources
+        discoveredResources,
+        usePrismaLayer
     );
 
     // Merge builder results into definition
