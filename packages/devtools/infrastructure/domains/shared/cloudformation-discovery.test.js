@@ -589,7 +589,7 @@ describe('CloudFormationDiscovery', () => {
 
     describe('External VPC with routing infrastructure pattern', () => {
         it('should discover routing resources when VPC is external', async () => {
-            // This tests the Frontify pattern: external VPC/subnets/KMS,
+            // This tests the external VPC pattern: external VPC/subnets/KMS,
             // but stack creates routing infrastructure (route table, NAT route, VPC endpoints)
             const mockStack = {
                 StackName: 'create-frigg-app-production',

@@ -1348,18 +1348,19 @@ describe('VpcBuilder', () => {
         });
     });
 
-    describe('Full Frontify deployment pattern integration test', () => {
-        it('should correctly handle Frontify production scenario: external VPC + stack routing', async () => {
-            // This test replicates the EXACT Frontify production deployment scenario
+    describe('External VPC with stack-managed routing infrastructure pattern', () => {
+        it('should correctly handle external VPC with stack-managed routing infrastructure', async () => {
+            // This pattern occurs when VPC/subnets/NAT are external but routing (route tables,
+            // VPC endpoints, security groups) are managed by CloudFormation stack
             const appDefinition = {
                 vpc: { enable: true },
                 encryption: { fieldLevelEncryptionMethod: 'kms' },
             };
             
-            // Actual Frontify discovery results (from production logs)
+            // Discovery results from real-world production scenario
             const discoveredResources = {
                 fromCloudFormationStack: true,
-                stackName: 'create-frigg-app-production',
+                stackName: 'test-production-stack',
                 existingLogicalIds: [
                     'FriggLambdaSecurityGroup',
                     'FriggLambdaRouteTable',
@@ -1655,10 +1656,10 @@ describe('VpcBuilder', () => {
             expect(result.external.some(r => r.physicalId === 'subnet-in-stack')).toBe(false);
         });
 
-        it('should handle Frontify pattern: stack resources + queried external references', () => {
+        it('should handle external VPC pattern: stack resources + queried external references', () => {
             const flatDiscovery = {
                 fromCloudFormationStack: true,
-                stackName: 'create-frigg-app-production',
+                stackName: 'test-production-stack',
                 existingLogicalIds: [
                     'FriggLambdaSecurityGroup',
                     'FriggLambdaRouteTable',
@@ -1670,14 +1671,14 @@ describe('VpcBuilder', () => {
                     'FriggKMSVPCEndpoint'
                 ],
                 // Stack resources
-                lambdaSecurityGroupId: 'sg-01002240c6a446202',
-                routeTableId: 'rtb-08af43bbf0775602d',
-                s3VpcEndpointId: 'vpce-s3',
+                lambdaSecurityGroupId: 'sg-stack-123',
+                routeTableId: 'rtb-stack-456',
+                s3VpcEndpointId: 'vpce-s3-stack',
                 // External resources (discovered via queries)
-                defaultVpcId: 'vpc-0cd17c0e06cb28b28',
-                privateSubnetId1: 'subnet-034f6562dbbc16348',
-                privateSubnetId2: 'subnet-0b8be2b82aeb5cdec',
-                existingNatGatewayId: 'nat-022660c36a47e2d79'
+                defaultVpcId: 'vpc-external-123',
+                privateSubnetId1: 'subnet-external-1',
+                privateSubnetId2: 'subnet-external-2',
+                existingNatGatewayId: 'nat-external-789'
             };
 
             const result = vpcBuilder.convertFlatDiscoveryToStructured(flatDiscovery);
@@ -1685,19 +1686,19 @@ describe('VpcBuilder', () => {
             // Stack resources should be in stackManaged
             expect(result.stackManaged).toEqual(
                 expect.arrayContaining([
-                    expect.objectContaining({ logicalId: 'FriggLambdaSecurityGroup', physicalId: 'sg-01002240c6a446202' }),
-                    expect.objectContaining({ logicalId: 'FriggLambdaRouteTable', physicalId: 'rtb-08af43bbf0775602d' }),
-                    expect.objectContaining({ logicalId: 'FriggS3VPCEndpoint' })
+                    expect.objectContaining({ logicalId: 'FriggLambdaSecurityGroup', physicalId: 'sg-stack-123' }),
+                    expect.objectContaining({ logicalId: 'FriggLambdaRouteTable', physicalId: 'rtb-stack-456' }),
+                    expect.objectContaining({ logicalId: 'FriggS3VPCEndpoint', physicalId: 'vpce-s3-stack' })
                 ])
             );
 
             // External resources should be in external array
             expect(result.external).toEqual(
                 expect.arrayContaining([
-                    expect.objectContaining({ physicalId: 'vpc-0cd17c0e06cb28b28', resourceType: 'AWS::EC2::VPC', source: 'cloudformation-query' }),
-                    expect.objectContaining({ physicalId: 'subnet-034f6562dbbc16348', resourceType: 'AWS::EC2::Subnet', source: 'cloudformation-query' }),
-                    expect.objectContaining({ physicalId: 'subnet-0b8be2b82aeb5cdec', resourceType: 'AWS::EC2::Subnet', source: 'cloudformation-query' }),
-                    expect.objectContaining({ physicalId: 'nat-022660c36a47e2d79', resourceType: 'AWS::EC2::NatGateway', source: 'cloudformation-query' })
+                    expect.objectContaining({ physicalId: 'vpc-external-123', resourceType: 'AWS::EC2::VPC', source: 'cloudformation-query' }),
+                    expect.objectContaining({ physicalId: 'subnet-external-1', resourceType: 'AWS::EC2::Subnet', source: 'cloudformation-query' }),
+                    expect.objectContaining({ physicalId: 'subnet-external-2', resourceType: 'AWS::EC2::Subnet', source: 'cloudformation-query' }),
+                    expect.objectContaining({ physicalId: 'nat-external-789', resourceType: 'AWS::EC2::NatGateway', source: 'cloudformation-query' })
                 ])
             );
         });
