@@ -89,16 +89,32 @@ async function dbSetupCommand(options = {}) {
         const clientCheck = checkPrismaClientGenerated(dbType);
         const forceRegenerate = options.force || false;
 
-        if (clientCheck.generated && !forceRegenerate) {
-            // Client already exists and --force not specified
-            console.log(chalk.green('✓ Prisma client already exists (skipping generation)\n'));
+        // Determine if we need to generate/regenerate
+        const needsGeneration = !clientCheck.generated ||
+                               clientCheck.needsRegeneration ||
+                               forceRegenerate;
+
+        if (!needsGeneration) {
+            // Client already exists with correct platform binaries
+            console.log(chalk.green('✓ Prisma client already exists with correct platform binaries\n'));
             if (verbose) {
-                console.log(chalk.gray(`  Client location: ${clientCheck.path}\n`));
+                console.log(chalk.gray(`  Client location: ${clientCheck.path}`));
+                if (clientCheck.platformBinary) {
+                    console.log(chalk.gray(`  Platform binary: ${clientCheck.platformBinary}\n`));
+                }
             }
         } else {
-            // Client doesn't exist OR --force specified - generate it
+            // Determine the reason for generation
             if (forceRegenerate && clientCheck.generated) {
                 console.log(chalk.yellow('⚠️  Forcing Prisma client regeneration...'));
+            } else if (clientCheck.needsRegeneration) {
+                console.log(chalk.yellow('⚠️  Regenerating Prisma client for your platform...'));
+                if (verbose && clientCheck.availableTargets && clientCheck.availableTargets.length > 0) {
+                    console.log(chalk.gray(`   Existing binaries: ${clientCheck.availableTargets.join(', ')}`));
+                }
+                if (verbose && clientCheck.requiredTarget) {
+                    console.log(chalk.gray(`   Required binary: ${clientCheck.requiredTarget}`));
+                }
             } else {
                 console.log(chalk.cyan('Generating Prisma client...'));
             }
@@ -113,7 +129,7 @@ async function dbSetupCommand(options = {}) {
                 process.exit(1);
             }
 
-            console.log(chalk.green('✓ Prisma client generated\n'));
+            console.log(chalk.green('✓ Prisma client generated with platform-specific binaries\n'));
         }
 
         // Step 4: Check database state

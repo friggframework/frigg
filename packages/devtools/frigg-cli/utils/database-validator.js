@@ -2,6 +2,8 @@ const path = require('path');
 const fs = require('fs');
 const { getDatabaseType: getDatabaseTypeFromCore } = require('@friggframework/core/database/config');
 const { connectPrisma, disconnectPrisma } = require('@friggframework/core/database/prisma');
+const { validatePrismaClient } = require('@friggframework/core/database/utils/binary-validator');
+const { getPlatformDescription } = require('@friggframework/core/database/utils/platform-detector');
 
 /**
  * Database Validation Utility
@@ -106,12 +108,12 @@ async function testDatabaseConnection(databaseUrl, dbType, timeout = 5000) {
 }
 
 /**
- * Checks if Prisma client is generated for the database type
- * Checks for the generated client directory in @friggframework/core/generated
+ * Checks if Prisma client is generated for the database type AND has platform-specific binaries
+ * This is critical for cross-platform support (e.g., macOS users installing from npm packages built on Linux)
  *
  * @param {'mongodb'|'postgresql'} dbType - Database type
  * @param {string} projectRoot - Project root directory (used for require.resolve context)
- * @returns {Object} { generated: boolean, path?: string, error?: string }
+ * @returns {Object} { generated: boolean, path?: string, error?: string, needsRegeneration?: boolean, suggestion?: string }
  */
 function checkPrismaClientGenerated(dbType, projectRoot = process.cwd()) {
     try {
@@ -124,18 +126,50 @@ function checkPrismaClientGenerated(dbType, projectRoot = process.cwd()) {
 
         // Check for the generated client directory (same path core uses)
         const clientPath = path.join(corePackageDir, 'generated', `prisma-${dbType}`);
-        const clientIndexPath = path.join(clientPath, 'index.js');
 
-        if (fs.existsSync(clientIndexPath)) {
+        // Use the comprehensive binary validator to check client and platform binaries
+        const validation = validatePrismaClient(clientPath);
+
+        // If validation passed, client is fully generated for this platform
+        if (validation.valid) {
             return {
                 generated: true,
-                path: clientPath
+                path: clientPath,
+                platformBinary: validation.requiredTarget
             };
         }
 
+        // If client directory doesn't exist at all
+        if (!validation.clientExists) {
+            return {
+                generated: false,
+                error: `Prisma client for ${dbType} not found at ${clientPath}. Run 'frigg db:setup' to generate it.`
+            };
+        }
+
+        // Client exists but platform binary is missing (common issue on macOS)
+        // This happens when package is installed from npm with pre-built binaries for a different platform
+        if (validation.clientExists && !validation.platformBinaryExists) {
+            const platform = getPlatformDescription();
+            const availableInfo = validation.availableTargets && validation.availableTargets.length > 0
+                ? ` Found binaries for: ${validation.availableTargets.join(', ')}.`
+                : '';
+
+            return {
+                generated: false,
+                needsRegeneration: true,
+                clientPath,
+                requiredTarget: validation.requiredTarget,
+                availableTargets: validation.availableTargets,
+                error: `Prisma client for ${dbType} exists but is missing binaries for your platform (${platform}).${availableInfo}`,
+                suggestion: validation.suggestion || 'Run \'frigg db:setup\' to regenerate the client for your platform.'
+            };
+        }
+
+        // Unknown validation failure
         return {
             generated: false,
-            error: `Prisma client for ${dbType} not found at ${clientPath}. Run 'frigg db:setup' to generate it.`
+            error: validation.error || 'Prisma client validation failed'
         };
 
     } catch (error) {
