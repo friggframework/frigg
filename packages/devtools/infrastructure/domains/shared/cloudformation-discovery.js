@@ -419,8 +419,7 @@ class CloudFormationDiscovery {
             // Lambda Security Group (if created in stack)
             if (LogicalResourceId === 'FriggLambdaSecurityGroup' && ResourceType === 'AWS::EC2::SecurityGroup') {
                 discovered.lambdaSecurityGroupId = PhysicalResourceId;
-                // Also set as defaultSecurityGroupId so converter recognizes it
-                discovered.defaultSecurityGroupId = PhysicalResourceId;
+                // DO NOT overwrite defaultSecurityGroupId - that should only be the VPC's default SG
                 console.log(`  ✓ Found Lambda security group in stack: ${PhysicalResourceId}`);
             }
 
