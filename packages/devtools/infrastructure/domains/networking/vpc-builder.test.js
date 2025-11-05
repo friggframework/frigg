@@ -1447,6 +1447,122 @@ describe('VpcBuilder', () => {
         });
     });
 
+    describe('convertFlatDiscoveryToStructured - VPC Endpoints from CloudFormation', () => {
+        it('should add VPC endpoints to stackManaged when in existingLogicalIds', () => {
+            const flatDiscovery = {
+                fromCloudFormationStack: true,
+                stackName: 'test-stack',
+                existingLogicalIds: [
+                    'FriggS3VPCEndpoint',
+                    'FriggDynamoDBVPCEndpoint',
+                    'FriggKMSVPCEndpoint'
+                ],
+                s3VpcEndpointId: 'vpce-s3-stack',
+                dynamodbVpcEndpointId: 'vpce-ddb-stack',
+                kmsVpcEndpointId: 'vpce-kms-stack'
+            };
+
+            const result = vpcBuilder.convertFlatDiscoveryToStructured(flatDiscovery);
+
+            // VPC endpoints should be in stackManaged (not external)
+            expect(result.stackManaged).toContainEqual(
+                expect.objectContaining({
+                    logicalId: 'FriggS3VPCEndpoint',
+                    physicalId: 'vpce-s3-stack',
+                    resourceType: 'AWS::EC2::VPCEndpoint'
+                })
+            );
+            expect(result.stackManaged).toContainEqual(
+                expect.objectContaining({
+                    logicalId: 'FriggDynamoDBVPCEndpoint',
+                    physicalId: 'vpce-ddb-stack',
+                    resourceType: 'AWS::EC2::VPCEndpoint'
+                })
+            );
+            expect(result.stackManaged).toContainEqual(
+                expect.objectContaining({
+                    logicalId: 'FriggKMSVPCEndpoint',
+                    physicalId: 'vpce-kms-stack',
+                    resourceType: 'AWS::EC2::VPCEndpoint'
+                })
+            );
+
+            // Should NOT be in external array
+            expect(result.external.some(r => r.physicalId === 'vpce-s3-stack')).toBe(false);
+            expect(result.external.some(r => r.physicalId === 'vpce-ddb-stack')).toBe(false);
+            expect(result.external.some(r => r.physicalId === 'vpce-kms-stack')).toBe(false);
+        });
+
+        it('should add VPC endpoints to external when NOT in existingLogicalIds', () => {
+            const flatDiscovery = {
+                fromCloudFormationStack: false, // AWS API discovery
+                s3VpcEndpointId: 'vpce-s3-external',
+                dynamodbVpcEndpointId: 'vpce-ddb-external'
+            };
+
+            const result = vpcBuilder.convertFlatDiscoveryToStructured(flatDiscovery);
+
+            // Should be in external (AWS discovery)
+            expect(result.external).toContainEqual(
+                expect.objectContaining({
+                    physicalId: 'vpce-s3-external',
+                    resourceType: 'AWS::EC2::VPCEndpoint',
+                    source: 'aws-discovery'
+                })
+            );
+
+            // Should NOT be in stackManaged
+            expect(result.stackManaged.some(r => r.physicalId === 'vpce-s3-external')).toBe(false);
+        });
+
+        it('should preserve existing VPC endpoints and only create missing ones', async () => {
+            const appDefinition = {
+                vpc: { enable: true },
+                encryption: { fieldLevelEncryptionMethod: 'kms' },
+            };
+            
+            const discoveredResources = {
+                fromCloudFormationStack: true,
+                stackName: 'test-stack',
+                existingLogicalIds: [
+                    'FriggS3VPCEndpoint',      // In stack
+                    'FriggDynamoDBVPCEndpoint', // In stack
+                    'FriggKMSVPCEndpoint'       // In stack
+                    // SecretsManager and SQS NOT in stack (were deleted)
+                ],
+                defaultVpcId: 'vpc-123',
+                privateSubnetId1: 'subnet-1',
+                privateSubnetId2: 'subnet-2',
+                lambdaSecurityGroupId: 'sg-123',
+                routeTableId: 'rtb-123',
+                // Endpoints in stack
+                s3VpcEndpointId: 'vpce-s3-existing',
+                dynamodbVpcEndpointId: 'vpce-ddb-existing',
+                kmsVpcEndpointId: 'vpce-kms-existing'
+                // secretsManagerVpcEndpointId and sqsVpcEndpointId NOT present
+            };
+
+            const result = await vpcBuilder.build(appDefinition, discoveredResources);
+
+            // Existing endpoints MUST be in template (re-added)
+            expect(result.resources.FriggS3VPCEndpoint).toBeDefined();
+            expect(result.resources.FriggS3VPCEndpoint.Properties.VpcId).toBe('vpc-123');
+            
+            expect(result.resources.FriggDynamoDBVPCEndpoint).toBeDefined();
+            expect(result.resources.FriggDynamoDBVPCEndpoint.Properties.VpcId).toBe('vpc-123');
+            
+            expect(result.resources.FriggKMSVPCEndpoint).toBeDefined();
+            expect(result.resources.FriggKMSVPCEndpoint.Properties.VpcId).toBe('vpc-123');
+
+            // Missing endpoints should also be created
+            expect(result.resources.FriggSecretsManagerVPCEndpoint).toBeDefined();
+            expect(result.resources.FriggSQSVPCEndpoint).toBeDefined();
+            
+            // VPC Endpoint Security Group should be created
+            expect(result.resources.FriggVPCEndpointSecurityGroup).toBeDefined();
+        });
+    });
+
     describe('convertFlatDiscoveryToStructured - CloudFormation query results', () => {
         it('should add VPC from CloudFormation query to external array', () => {
             const flatDiscovery = {
