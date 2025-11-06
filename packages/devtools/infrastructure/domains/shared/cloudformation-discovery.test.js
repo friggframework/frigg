@@ -873,13 +873,113 @@ describe('CloudFormationDiscovery', () => {
         });
     });
 
-    describe('Subnet extraction from route table associations', () => {
-        it.skip('should extract subnet IDs from route table associations when route table Associations array is empty', async () => {
-            // TODO: This test needs proper mock setup for EC2 client
-            // The code already exists (lines 563-608 in cloudformation-discovery.js)
-            // Skipping until we can properly mock the EC2 client chain
+    describe('Subnet extraction from VPC query (OLD reliable approach)', () => {
+        it('should extract subnets by querying ALL subnets in VPC then filtering by route table', async () => {
+            // CRITICAL: Frontify production scenario - the OLD proven method from aws-discovery.js
+            // 1. Query ALL subnets in VPC using vpc-id filter (not association filter!)
+            // 2. Query route table by ID (RouteTableIds parameter, not Filters!)
+            // 3. Extract subnet IDs from route table's Associations array
+            
+            const mockStack = {
+                StackName: 'test-stack',
+                Outputs: []
+            };
+
+            const mockResources = [
+                { LogicalResourceId: 'FriggLambdaRouteTable', PhysicalResourceId: 'rtb-123', ResourceType: 'AWS::EC2::RouteTable' },
+                { LogicalResourceId: 'FriggVPC', PhysicalResourceId: 'vpc-456', ResourceType: 'AWS::EC2::VPC' }
+            ];
+
+            const sendMock = jest.fn();
+            sendMock
+                .mockResolvedValueOnce({
+                    RouteTables: [{
+                        RouteTableId: 'rtb-123',
+                        VpcId: 'vpc-456',
+                        Associations: [],
+                        Routes: [{ NatGatewayId: 'nat-789', DestinationCidrBlock: '0.0.0.0/0' }]
+                    }]
+                })
+                .mockResolvedValueOnce({ SecurityGroups: [{ GroupId: 'sg-default' }] })
+                .mockResolvedValueOnce({
+                    Subnets: [
+                        { SubnetId: 'subnet-aaa', VpcId: 'vpc-456', AvailabilityZone: 'us-east-1a' },
+                        { SubnetId: 'subnet-bbb', VpcId: 'vpc-456', AvailabilityZone: 'us-east-1b' },
+                        { SubnetId: 'subnet-ccc', VpcId: 'vpc-456', AvailabilityZone: 'us-east-1c' }
+                    ]
+                })
+                .mockResolvedValueOnce({
+                    RouteTables: [{
+                        RouteTableId: 'rtb-123',
+                        Associations: [
+                            { RouteTableAssociationId: 'rtbassoc-111', SubnetId: 'subnet-aaa' },
+                            { RouteTableAssociationId: 'rtbassoc-222', SubnetId: 'subnet-bbb' }
+                        ]
+                    }]
+                });
+            
+            const mockEC2Client = { send: sendMock };
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+            mockProvider.getEC2Client = jest.fn().mockReturnValue(mockEC2Client);
+
+            const result = await cfDiscovery.discoverFromStack('test-stack');
+
+            // Should have extracted subnets using VPC query approach
+            expect(result.privateSubnetId1).toBe('subnet-aaa');
+            expect(result.privateSubnetId2).toBe('subnet-bbb');
         });
 
+        it('should handle VPC with only 1 associated subnet (use second as fallback)', async () => {
+            const mockStack = {
+                StackName: 'test-stack',
+                Outputs: []
+            };
+
+            const mockResources = [
+                { LogicalResourceId: 'FriggLambdaRouteTable', PhysicalResourceId: 'rtb-123', ResourceType: 'AWS::EC2::RouteTable' },
+                { LogicalResourceId: 'FriggVPC', PhysicalResourceId: 'vpc-456', ResourceType: 'AWS::EC2::VPC' }
+            ];
+
+            const sendMock = jest.fn();
+            sendMock
+                .mockResolvedValueOnce({
+                    RouteTables: [{
+                        RouteTableId: 'rtb-123',
+                        VpcId: 'vpc-456',
+                        Associations: [],
+                        Routes: [{ NatGatewayId: 'nat-789', DestinationCidrBlock: '0.0.0.0/0' }]
+                    }]
+                })
+                .mockResolvedValueOnce({ SecurityGroups: [{ GroupId: 'sg-default' }] })
+                .mockResolvedValueOnce({
+                    Subnets: [
+                        { SubnetId: 'subnet-aaa', VpcId: 'vpc-456' },
+                        { SubnetId: 'subnet-bbb', VpcId: 'vpc-456' }
+                    ]
+                })
+                .mockResolvedValueOnce({
+                    RouteTables: [{
+                        RouteTableId: 'rtb-123',
+                        Associations: [
+                            { RouteTableAssociationId: 'rtbassoc-111', SubnetId: 'subnet-aaa' }
+                        ]
+                    }]
+                });
+            
+            const mockEC2Client = { send: sendMock };
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+            mockProvider.getEC2Client = jest.fn().mockReturnValue(mockEC2Client);
+
+            const result = await cfDiscovery.discoverFromStack('test-stack');
+
+            // Should use first from route table, second from fallback
+            expect(result.privateSubnetId1).toBe('subnet-aaa');
+            expect(result.privateSubnetId2).toBe('subnet-bbb');
+        });
     });
 });
 
