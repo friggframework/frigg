@@ -164,6 +164,7 @@ class CloudFormationDiscovery {
                         const subnetAssociations = associations.filter(a => a.SubnetId);
                         
                         console.log(`  DEBUG: Route table has ${associations.length} associations, ${subnetAssociations.length} with SubnetId`);
+                        console.log(`  DEBUG: Route table structure:`, JSON.stringify(routeTable, null, 2).substring(0, 500));
                         console.log(`  DEBUG: discovered.privateSubnetId1 = ${discovered.privateSubnetId1}, discovered.privateSubnetId2 = ${discovered.privateSubnetId2}`);
                         
                         if (subnetAssociations.length >= 1 && !discovered.privateSubnetId1) {
@@ -371,6 +372,18 @@ class CloudFormationDiscovery {
                 }
                 discovered.routeTableAssociations.push(PhysicalResourceId);
                 console.log(`  ✓ Found route table association: ${LogicalResourceId}`);
+                
+                // CRITICAL: Extract subnet ID from association physical ID by querying EC2
+                // Physical ID is the association ID (rtbassoc-xxx), need to query to get subnet
+                if (this.provider && this.provider.getEC2Client && 
+                    (LogicalResourceId === 'FriggSubnet1RouteAssociation' || LogicalResourceId === 'FriggPrivateSubnet1RouteTableAssociation')) {
+                    // Store association ID to query later (after loop)
+                    discovered._subnet1AssociationId = PhysicalResourceId;
+                }
+                if (this.provider && this.provider.getEC2Client && 
+                    (LogicalResourceId === 'FriggSubnet2RouteAssociation' || LogicalResourceId === 'FriggPrivateSubnet2RouteTableAssociation')) {
+                    discovered._subnet2AssociationId = PhysicalResourceId;
+                }
             }
 
             // VPC - direct extraction (primary method)
