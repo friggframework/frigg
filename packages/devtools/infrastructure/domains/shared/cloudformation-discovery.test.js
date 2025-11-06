@@ -804,5 +804,73 @@ describe('CloudFormationDiscovery', () => {
             expect(result).toBeDefined();
         });
     });
+
+    describe('existingLogicalIds tracking', () => {
+        it('should track OLD VPC endpoint logical IDs (VPCEndpointS3 pattern) for backwards compatibility', async () => {
+            // CRITICAL: Frontify production uses OLD naming convention
+            const mockStack = {
+                StackName: 'create-frigg-app-production',
+                Outputs: []
+            };
+
+            const mockResources = [
+                { LogicalResourceId: 'FriggLambdaRouteTable', PhysicalResourceId: 'rtb-123', ResourceType: 'AWS::EC2::RouteTable' },
+                { LogicalResourceId: 'FriggNATRoute', PhysicalResourceId: 'rtb-123|0.0.0.0/0', ResourceType: 'AWS::EC2::Route' },
+                { LogicalResourceId: 'FriggSubnet1RouteAssociation', PhysicalResourceId: 'rtbassoc-1', ResourceType: 'AWS::EC2::SubnetRouteTableAssociation' },
+                { LogicalResourceId: 'FriggSubnet2RouteAssociation', PhysicalResourceId: 'rtbassoc-2', ResourceType: 'AWS::EC2::SubnetRouteTableAssociation' },
+                { LogicalResourceId: 'VPCEndpointS3', PhysicalResourceId: 'vpce-s3-123', ResourceType: 'AWS::EC2::VPCEndpoint' },
+                { LogicalResourceId: 'VPCEndpointDynamoDB', PhysicalResourceId: 'vpce-ddb-123', ResourceType: 'AWS::EC2::VPCEndpoint' }
+            ];
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+
+            const result = await cfDiscovery.discoverFromStack('create-frigg-app-production');
+
+            // CRITICAL: existingLogicalIds MUST contain old VPC endpoint names
+            expect(result.existingLogicalIds).toBeDefined();
+            expect(result.existingLogicalIds).toContain('FriggNATRoute');
+            expect(result.existingLogicalIds).toContain('FriggSubnet1RouteAssociation');
+            expect(result.existingLogicalIds).toContain('FriggSubnet2RouteAssociation');
+            expect(result.existingLogicalIds).toContain('VPCEndpointS3');  // OLD naming
+            expect(result.existingLogicalIds).toContain('VPCEndpointDynamoDB');  // OLD naming
+
+            // Should also have the flat discovery properties
+            expect(result.routeTableId).toBe('rtb-123');
+            expect(result.natRoute).toBe('rtb-123|0.0.0.0/0');
+            expect(result.s3VpcEndpointId).toBe('vpce-s3-123');
+            expect(result.dynamodbVpcEndpointId).toBe('vpce-ddb-123');
+        });
+
+        it('should track NEW VPC endpoint logical IDs (FriggS3VPCEndpoint pattern) for newer stacks', async () => {
+            const mockStack = {
+                StackName: 'test-stack',
+                Outputs: []
+            };
+
+            const mockResources = [
+                { LogicalResourceId: 'FriggLambdaRouteTable', PhysicalResourceId: 'rtb-456', ResourceType: 'AWS::EC2::RouteTable' },
+                { LogicalResourceId: 'FriggPrivateRoute', PhysicalResourceId: 'rtb-456|0.0.0.0/0', ResourceType: 'AWS::EC2::Route' },
+                { LogicalResourceId: 'FriggS3VPCEndpoint', PhysicalResourceId: 'vpce-s3-456', ResourceType: 'AWS::EC2::VPCEndpoint' },
+                { LogicalResourceId: 'FriggDynamoDBVPCEndpoint', PhysicalResourceId: 'vpce-ddb-456', ResourceType: 'AWS::EC2::VPCEndpoint' },
+                { LogicalResourceId: 'FriggKMSVPCEndpoint', PhysicalResourceId: 'vpce-kms-456', ResourceType: 'AWS::EC2::VPCEndpoint' }
+            ];
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+
+            const result = await cfDiscovery.discoverFromStack('test-stack');
+
+            // Should track NEW naming pattern in existingLogicalIds
+            expect(result.existingLogicalIds).toContain('FriggPrivateRoute');
+            expect(result.existingLogicalIds).toContain('FriggS3VPCEndpoint');
+            expect(result.existingLogicalIds).toContain('FriggDynamoDBVPCEndpoint');
+            expect(result.existingLogicalIds).toContain('FriggKMSVPCEndpoint');
+            
+            // Should NOT contain old naming patterns
+            expect(result.existingLogicalIds).not.toContain('FriggNATRoute');
+            expect(result.existingLogicalIds).not.toContain('VPCEndpointS3');
+        });
+    });
 });
 
