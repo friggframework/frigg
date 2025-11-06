@@ -1,19 +1,74 @@
-// This line should be at the top of the webpacked output, so be sure to require createHandler first in any handlers.  "Soon" sourcemaps will be built into Node... after that, this package won't be needed.
-// REMOVING FOR NOW UNTIL WE ADD WEBPACK BACK IN
-// require('source-map-support').install();
-
 const { initDebugLog, flushDebugLog } = require('../logs');
 const { secretsToEnv } = require('./secrets-to-env');
 
+let databaseInitializer = null;
+let databaseInitialized = false;
+let databaseInitPromise = null;
+
+function setDatabaseInitializer(initializer) {
+    databaseInitializer = initializer;
+}
+
+function getDefaultDatabaseInitializer() {
+    if (!databaseInitializer) {
+        const { connectPrisma } = require('../database/prisma');
+        databaseInitializer = connectPrisma;
+    }
+    return databaseInitializer;
+}
+
+async function ensureDatabaseInitialized() {
+    if (databaseInitialized) {
+        return;
+    }
+    
+    if (!databaseInitPromise) {
+        databaseInitPromise = (async () => {
+            try {
+                const initializer = getDefaultDatabaseInitializer();
+                await initializer();
+                databaseInitialized = true;
+                console.log('✓ Database initialized successfully');
+            } catch (error) {
+                console.error('Failed to initialize database:', error.message);
+                databaseInitPromise = null;
+                throw error;
+            }
+        })();
+    }
+    
+    return databaseInitPromise;
+}
+
+/**
+ * Creates a Lambda handler with database initialization.
+ * 
+ * Follows hexagonal architecture: database initialization is a port that can be injected.
+ * Default adapter uses Prisma's connectPrisma(), which handles both PostgreSQL and MongoDB.
+ * 
+ * @param {Object} options
+ * @param {string} options.eventName - Event name for logging
+ * @param {boolean} options.isUserFacingResponse - Whether to hide error details (default: true)
+ * @param {Function} options.method - The handler method to execute
+ * @param {boolean} options.shouldUseDatabase - Whether to initialize database (default: true)
+ * @param {Function} options.databaseInitializer - Optional custom database initializer
+ * @returns {Function} Lambda handler
+ */
 const createHandler = (optionByName = {}) => {
     const {
         eventName = 'Event',
         isUserFacingResponse = true,
         method,
+        shouldUseDatabase = true,
+        databaseInitializer: customInitializer = null,
     } = optionByName;
 
     if (!method) {
         throw new Error('Method is required for handler.');
+    }
+
+    if (customInitializer) {
+        setDatabaseInitializer(customInitializer);
     }
 
     return async (event, context) => {
@@ -26,18 +81,18 @@ const createHandler = (optionByName = {}) => {
                 console.info(`${requestMethod} ${requestPath}`);
             }
 
-            // If enabled (i.e. if SECRET_ARN is set in process.env) Fetch secrets from AWS Secrets Manager, and set them as environment variables.
             await secretsToEnv();
 
-            // Helps mongoose reuse the connection.  Lowers response times.
+            if (shouldUseDatabase) {
+                await ensureDatabaseInitialized();
+            }
+
             context.callbackWaitsForEmptyEventLoop = false;
 
-            // Run the Lambda
             return await method(event, context);
         } catch (error) {
             flushDebugLog(error);
 
-            // Don't leak implementation details to end users.
             if (isUserFacingResponse) {
                 return {
                     statusCode: 500,
@@ -47,14 +102,10 @@ const createHandler = (optionByName = {}) => {
                 };
             }
 
-            // Handle server-to-server responses.
-
-            // Halt errors are logged but suceed and won't be retried.
             if (error.isHaltError === true) {
                 return;
             }
 
-            // Here we can just rethrow and let AWS build the response.
             throw error;
         }
     };
