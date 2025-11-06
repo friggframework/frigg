@@ -441,6 +441,7 @@ class CloudFormationDiscovery {
                 discovered.s3VpcEndpointId = PhysicalResourceId;
                 discovered.vpcEndpoints.s3 = PhysicalResourceId;
                 console.log(`  ✓ Found S3 VPC endpoint in stack: ${PhysicalResourceId}`);
+                console.log(`  DEBUG: S3 VPC endpoint LogicalResourceId = "${LogicalResourceId}"`);
             }
             
             // DynamoDB Endpoint (both naming patterns)
