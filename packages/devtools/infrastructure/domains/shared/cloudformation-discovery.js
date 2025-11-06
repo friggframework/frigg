@@ -550,7 +550,55 @@ class CloudFormationDiscovery {
             }
         }
 
-        // Extract subnet IDs from route table associations (if route table query didn't populate them)
+        // If we have VPC but no subnets, query ALL subnets in VPC and filter by route table
+        // This is the OLD approach from aws-discovery.js that worked reliably
+        if (discovered.defaultVpcId && !discovered.privateSubnetId1 && !discovered.privateSubnetId2 && 
+            discovered.routeTableId && this.provider && this.provider.getEC2Client) {
+            try {
+                console.log(`  Querying ALL subnets in VPC ${discovered.defaultVpcId}...`);
+                const { DescribeSubnetsCommand } = require('@aws-sdk/client-ec2');
+                const ec2 = this.provider.getEC2Client();
+                
+                const subnetsResponse = await ec2.send(new DescribeSubnetsCommand({
+                    Filters: [{ Name: 'vpc-id', Values: [discovered.defaultVpcId] }]
+                }));
+                
+                console.log(`  Found ${subnetsResponse.Subnets?.length || 0} total subnets in VPC`);
+                
+                if (subnetsResponse.Subnets && subnetsResponse.Subnets.length > 0) {
+                    // Get route table to find associated subnets
+                    const { DescribeRouteTablesCommand } = require('@aws-sdk/client-ec2');
+                    const rtResponse = await ec2.send(new DescribeRouteTablesCommand({
+                        RouteTableIds: [discovered.routeTableId]
+                    }));
+                    
+                    if (rtResponse.RouteTables && rtResponse.RouteTables[0]) {
+                        const associations = rtResponse.RouteTables[0].Associations || [];
+                        const associatedSubnetIds = associations
+                            .filter(a => a.SubnetId)
+                            .map(a => a.SubnetId);
+                        
+                        console.log(`  Route table has ${associatedSubnetIds.length} associated subnets: ${associatedSubnetIds.join(', ')}`);
+                        
+                        // Use the associated subnets
+                        if (associatedSubnetIds.length >= 2) {
+                            discovered.privateSubnetId1 = associatedSubnetIds[0];
+                            discovered.privateSubnetId2 = associatedSubnetIds[1];
+                            console.log(`  ✓ Extracted subnets from VPC query: ${discovered.privateSubnetId1}, ${discovered.privateSubnetId2}`);
+                        } else if (associatedSubnetIds.length === 1) {
+                            // Only 1 associated subnet, use first available subnet as backup
+                            discovered.privateSubnetId1 = associatedSubnetIds[0];
+                            discovered.privateSubnetId2 = subnetsResponse.Subnets.find(s => s.SubnetId !== associatedSubnetIds[0])?.SubnetId;
+                            console.log(`  ✓ Extracted subnets (1 from route table, 1 fallback): ${discovered.privateSubnetId1}, ${discovered.privateSubnetId2}`);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.warn(`  ⚠️  Could not query subnets from VPC: ${error.message}`);
+            }
+        }
+        
+        // FALLBACK: Extract subnet IDs from route table associations (if VPC query didn't work)
         // Query EC2 to describe the association and get the subnet ID
         console.log(`  DEBUG: Checking subnet association extraction - _subnet1AssociationId: ${discovered._subnet1AssociationId}, _subnet2AssociationId: ${discovered._subnet2AssociationId}`);
         
