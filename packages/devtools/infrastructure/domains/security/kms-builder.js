@@ -253,6 +253,17 @@ class KmsBuilder extends InfrastructureBuilder {
         if (decisions.key.ownership === ResourceOwnership.STACK && decisions.key.physicalId) {
             // Key exists in stack - add definitions (CloudFormation idempotency)
             console.log('  → Adding KMS definitions to template (existing in stack)');
+            
+            // Check if alias exists in stack before trying to create it
+            const aliasExistsInStack = discoveredResources?.existingLogicalIds?.includes('FriggKMSKeyAlias');
+            if (!aliasExistsInStack && appDefinition.encryption?.kmsKeyAlias !== false) {
+                // Alias doesn't exist and user didn't explicitly disable it
+                // Set kmsKeyAlias: false to avoid trying to create it (permission issues)
+                console.log('  ℹ KMS alias not found in stack - skipping alias creation to avoid permission errors');
+                appDefinition.encryption = appDefinition.encryption || {};
+                appDefinition.encryption.kmsKeyAlias = false;
+            }
+            
             result.resources = this.createKmsKey(appDefinition);
             result.environment.KMS_KEY_ARN = { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] };
             console.log('  ✅ KMS key resources created');
@@ -307,7 +318,7 @@ class KmsBuilder extends InfrastructureBuilder {
      * Create KMS key CloudFormation resources
      */
     createKmsKey(appDefinition) {
-        return {
+        const resources = {
             FriggKMSKey: {
                 Type: 'AWS::KMS::Key',
                 DeletionPolicy: 'Retain',
@@ -361,15 +372,24 @@ class KmsBuilder extends InfrastructureBuilder {
                     ],
                 },
             },
-            FriggKMSKeyAlias: {
+        };
+
+        // Only create alias if explicitly enabled (default: true for backwards compatibility)
+        const createAlias = appDefinition.encryption?.kmsKeyAlias !== false;
+        if (createAlias) {
+            resources.FriggKMSKeyAlias = {
                 Type: 'AWS::KMS::Alias',
                 DeletionPolicy: 'Retain',
                 Properties: {
                     AliasName: 'alias/${self:service}-${self:provider.stage}-frigg-kms',
                     TargetKeyId: { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] },
                 },
-            },
-        };
+            };
+        } else {
+            console.log('  ℹ Skipping KMS key alias creation (kmsKeyAlias: false)');
+        }
+
+        return resources;
     }
 }
 
