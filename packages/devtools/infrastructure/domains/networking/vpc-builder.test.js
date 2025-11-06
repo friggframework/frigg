@@ -1355,6 +1355,9 @@ describe('VpcBuilder', () => {
             const appDefinition = {
                 vpc: { enable: true },
                 encryption: { fieldLevelEncryptionMethod: 'kms' },
+                database: {
+                    dynamodb: { enable: true }  // Enable DynamoDB to create DynamoDB VPC endpoint
+                }
             };
             
             // Discovery results from real-world production scenario

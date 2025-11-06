@@ -1151,7 +1151,7 @@ class VpcBuilder extends InfrastructureBuilder {
         };
 
         Object.entries(decisions).forEach(([type, decision]) => {
-            if (decision.ownership === ResourceOwnership.STACK && decision.physicalId) {
+            if (decision.ownership === ResourceOwnership.STACK) {
                 const logicalId = logicalIdMap[type];
                 
                 // Determine endpoint type and properties based on service
