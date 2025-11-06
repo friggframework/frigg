@@ -219,7 +219,10 @@ class CloudFormationDiscovery {
             const { LogicalResourceId, PhysicalResourceId, ResourceType } = resource;
 
             // Track Frigg-managed resources by logical ID
-            if (LogicalResourceId.startsWith('Frigg') || LogicalResourceId.includes('Migration')) {
+            // Include VPC endpoints with legacy naming (VPCEndpointS3, VPCEndpointDynamoDB, etc.)
+            if (LogicalResourceId.startsWith('Frigg') || 
+                LogicalResourceId.includes('Migration') ||
+                LogicalResourceId.startsWith('VPCEndpoint')) {
                 discovered.existingLogicalIds.push(LogicalResourceId);
             }
 

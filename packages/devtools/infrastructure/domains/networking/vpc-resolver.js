@@ -411,9 +411,20 @@ class VpcResourceResolver extends BaseResourceResolver {
 
     /**
      * Resolve individual VPC endpoint
+     * Checks both old and new logical ID patterns for backwards compatibility
      * @private
      */
     _resolveEndpoint(logicalId, endpointType, userIntent, appDefinition, discovery) {
+        // Map of old logical IDs (for backwards compatibility with stacks created before naming standardization)
+        const oldLogicalIdMap = {
+            'FriggS3VPCEndpoint': 'VPCEndpointS3',
+            'FriggDynamoDBVPCEndpoint': 'VPCEndpointDynamoDB',
+            'FriggKMSVPCEndpoint': 'VPCEndpointKMS',
+            'FriggSecretsManagerVPCEndpoint': 'VPCEndpointSecretsManager',
+            'FriggSQSVPCEndpoint': 'VPCEndpointSQS'
+        };
+        const oldLogicalId = oldLogicalIdMap[logicalId];
+
         // Explicit external
         if (userIntent === 'external') {
             const externalId = appDefinition.vpc?.external?.vpcEndpointIds?.[endpointType];
@@ -427,22 +438,35 @@ class VpcResourceResolver extends BaseResourceResolver {
             return { ownership: null, reason: `External ${endpointType} endpoint ID not provided` };
         }
 
-        // Explicit stack
+        // Explicit stack - check both old and new logical IDs
         if (userIntent === 'stack') {
-            const inStack = this.findInStack(logicalId, discovery);
+            let inStack = this.findInStack(logicalId, discovery);
+            if (!inStack && oldLogicalId) {
+                inStack = this.findInStack(oldLogicalId, discovery);
+            }
             return this.createStackDecision(
                 inStack?.physicalId,
                 `User specified ownership=stack for ${endpointType} endpoint`
             );
         }
 
-        // Auto-decide - check if in stack first for more informative logging
-        const inStack = this.isInStack(logicalId, discovery);
-        const stackResource = inStack ? this.findInStack(logicalId, discovery) : null;
+        // Auto-decide - check if in stack first (try both old and new logical IDs)
+        let inStack = this.isInStack(logicalId, discovery);
+        let stackResource = inStack ? this.findInStack(logicalId, discovery) : null;
+        let actualLogicalId = logicalId;  // Track which ID we found
+        
+        // If not found with new ID, try old ID pattern
+        if (!inStack && oldLogicalId) {
+            inStack = this.isInStack(oldLogicalId, discovery);
+            stackResource = inStack ? this.findInStack(oldLogicalId, discovery) : null;
+            if (inStack) {
+                actualLogicalId = oldLogicalId;  // Found with old ID - use that for resolution
+            }
+        }
         
         const decision = this.resolveResourceOwnership(
             'auto',
-            logicalId,
+            actualLogicalId,  // Use the actual ID we found (old or new)
             'AWS::EC2::VPCEndpoint',
             discovery
         );

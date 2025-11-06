@@ -534,6 +534,7 @@ class VpcBuilder extends InfrastructureBuilder {
             iamStatements: [],
             outputs: {},
             environment: {},
+            discovery: discoveredResources,  // Store for backwards compatibility checks
         };
 
         // Add IAM permissions for VPC-enabled Lambda functions
@@ -552,7 +553,7 @@ class VpcBuilder extends InfrastructureBuilder {
         this.buildNatGatewayFromDecision(decisions.natGateway, appDefinition, discoveredResources, result);
 
         // Build VPC Endpoints based on ownership decisions
-        this.buildVpcEndpointsFromDecisions(decisions.vpcEndpoints, decisions.securityGroup, appDefinition, result);
+        this.buildVpcEndpointsFromDecisions(decisions.vpcEndpoints, decisions.securityGroup, appDefinition, discoveredResources, result);
 
         // Set VPC_ENABLED environment variable
         result.environment.VPC_ENABLED = 'true';
@@ -920,7 +921,7 @@ class VpcBuilder extends InfrastructureBuilder {
     /**
      * Build VPC Endpoints based on ownership decisions
      */
-    buildVpcEndpointsFromDecisions(endpointDecisions, securityGroupDecision, appDefinition, result) {
+    buildVpcEndpointsFromDecisions(endpointDecisions, securityGroupDecision, appDefinition, discoveredResources, result) {
         const decisions = endpointDecisions; // For backwards compatibility with existing code
         const endpointsToCreate = [];
         const endpointsInStack = [];
@@ -940,7 +941,7 @@ class VpcBuilder extends InfrastructureBuilder {
         if (endpointsInStack.length > 0) {
             console.log(`  ✓ VPC Endpoints in stack: ${endpointsInStack.join(', ')}`);
             // CRITICAL: Must add stack-managed endpoints back to template or CloudFormation will DELETE them!
-            this._addStackManagedEndpointsToTemplate(decisions, securityGroupDecision, result);
+            this._addStackManagedEndpointsToTemplate(decisions, securityGroupDecision, discoveredResources, result);
         }
 
         if (externalEndpoints.length > 0) {
@@ -1139,15 +1140,20 @@ class VpcBuilder extends InfrastructureBuilder {
      * 
      * @private
      */
-    _addStackManagedEndpointsToTemplate(endpointDecisions, securityGroupDecision, result) {
+    _addStackManagedEndpointsToTemplate(endpointDecisions, securityGroupDecision, discoveredResources, result) {
         const decisions = endpointDecisions; // For backwards compatibility
         const vpcId = result.vpcId;
+        
+        // Determine logical IDs based on what exists in stack for backwards compatibility
+        // CRITICAL: Frontify production uses OLD naming (VPCEndpointS3, not FriggS3VPCEndpoint)
+        const existingLogicalIds = discoveredResources?.existingLogicalIds || [];
+        
         const logicalIdMap = {
-            s3: 'FriggS3VPCEndpoint',
-            dynamodb: 'FriggDynamoDBVPCEndpoint',
-            kms: 'FriggKMSVPCEndpoint',
-            secretsManager: 'FriggSecretsManagerVPCEndpoint',
-            sqs: 'FriggSQSVPCEndpoint'
+            s3: existingLogicalIds.includes('VPCEndpointS3') ? 'VPCEndpointS3' : 'FriggS3VPCEndpoint',
+            dynamodb: existingLogicalIds.includes('VPCEndpointDynamoDB') ? 'VPCEndpointDynamoDB' : 'FriggDynamoDBVPCEndpoint',
+            kms: existingLogicalIds.includes('VPCEndpointKMS') ? 'VPCEndpointKMS' : 'FriggKMSVPCEndpoint',
+            secretsManager: existingLogicalIds.includes('VPCEndpointSecretsManager') ? 'VPCEndpointSecretsManager' : 'FriggSecretsManagerVPCEndpoint',
+            sqs: existingLogicalIds.includes('VPCEndpointSQS') ? 'VPCEndpointSQS' : 'FriggSQSVPCEndpoint'
         };
 
         Object.entries(decisions).forEach(([type, decision]) => {
@@ -1757,11 +1763,29 @@ class VpcBuilder extends InfrastructureBuilder {
     /**
      * Create route table and associations for NAT Gateway
      * Always adds to template - CloudFormation handles idempotency
+     * Uses existing logical IDs from stack to prevent AlreadyExists errors
      */
     createNatGatewayRouting(appDefinition, discoveredResources, result, natGatewayId) {
         // Note: We always add routing resources to the template.
         // CloudFormation's idempotency ensures existing resources are updated, not recreated.
         // Removing resources from the template causes CloudFormation to try CREATE on next deploy → AlreadyExists error
+
+        // Determine which logical ID to use for the NAT route based on what exists in stack
+        // Older stacks use 'FriggNATRoute', newer ones use 'FriggPrivateRoute'
+        // CRITICAL: Must check existingLogicalIds to avoid AlreadyExists errors on logical ID mismatch
+        const existingLogicalIds = discoveredResources?.existingLogicalIds || [];
+        
+        const routeLogicalId = existingLogicalIds.includes('FriggNATRoute') 
+            ? 'FriggNATRoute'  // Use existing logical ID from stack (backwards compatibility)
+            : 'FriggPrivateRoute';  // Default for new stacks
+
+        // Determine logical IDs for subnet associations (similar backwards compatibility)
+        const subnet1AssocLogicalId = existingLogicalIds.includes('FriggSubnet1RouteAssociation')
+            ? 'FriggSubnet1RouteAssociation'  // Use existing (backwards compatibility)
+            : 'FriggPrivateSubnet1RouteTableAssociation';  // Default for new stacks
+        const subnet2AssocLogicalId = existingLogicalIds.includes('FriggSubnet2RouteAssociation')
+            ? 'FriggSubnet2RouteAssociation'  // Use existing (backwards compatibility)
+            : 'FriggPrivateSubnet2RouteTableAssociation';  // Default for new stacks
 
         // Private route table with NAT Gateway route
         if (!result.resources.FriggLambdaRouteTable) {
@@ -1777,7 +1801,7 @@ class VpcBuilder extends InfrastructureBuilder {
             };
         }
 
-        result.resources.FriggPrivateRoute = {
+        result.resources[routeLogicalId] = {
             Type: 'AWS::EC2::Route',
             Properties: {
                 RouteTableId: { Ref: 'FriggLambdaRouteTable' },
@@ -1791,7 +1815,7 @@ class VpcBuilder extends InfrastructureBuilder {
         const subnet1Id = discoveredResources.privateSubnetId1 || { Ref: 'FriggPrivateSubnet1' };
         const subnet2Id = discoveredResources.privateSubnetId2 || { Ref: 'FriggPrivateSubnet2' };
 
-        result.resources.FriggPrivateSubnet1RouteTableAssociation = {
+        result.resources[subnet1AssocLogicalId] = {
             Type: 'AWS::EC2::SubnetRouteTableAssociation',
             Properties: {
                 SubnetId: subnet1Id,
@@ -1799,7 +1823,7 @@ class VpcBuilder extends InfrastructureBuilder {
             },
         };
 
-        result.resources.FriggPrivateSubnet2RouteTableAssociation = {
+        result.resources[subnet2AssocLogicalId] = {
             Type: 'AWS::EC2::SubnetRouteTableAssociation',
             Properties: {
                 SubnetId: subnet2Id,
@@ -1816,7 +1840,9 @@ class VpcBuilder extends InfrastructureBuilder {
      */
     ensureSubnetAssociations(appDefinition, discoveredResources, result) {
         // Skip if associations already created (by NAT Gateway routing)
-        if (result.resources.FriggPrivateSubnet1RouteTableAssociation) {
+        // Check for both old and new logical ID patterns
+        if (result.resources.FriggPrivateSubnet1RouteTableAssociation ||
+            result.resources.FriggSubnet1RouteAssociation) {
             return; // Already handled by NAT Gateway routing
         }
 
