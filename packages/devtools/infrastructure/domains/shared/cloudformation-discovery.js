@@ -224,6 +224,9 @@ class CloudFormationDiscovery {
                 LogicalResourceId.includes('Migration') ||
                 LogicalResourceId.startsWith('VPCEndpoint')) {
                 discovered.existingLogicalIds.push(LogicalResourceId);
+                if (LogicalResourceId.includes('Route') || LogicalResourceId.includes('VPCEndpoint')) {
+                    console.log(`  DEBUG: Added to existingLogicalIds: ${LogicalResourceId}`);
+                }
             }
 
             // Debug Aurora detection
