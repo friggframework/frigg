@@ -20,7 +20,7 @@ let KMSClient, ListKeysCommand, DescribeKeyCommand, ListAliasesCommand;
 let RDSClient, DescribeDBClustersCommand, DescribeDBInstancesCommand;
 let SSMClient, GetParameterCommand, GetParametersByPathCommand;
 let SecretsManagerClient, ListSecretsCommand, GetSecretValueCommand;
-let CloudFormationClient, DescribeStacksCommand, ListStackResourcesCommand;
+let CloudFormationClient, DescribeStacksCommand, ListStackResourcesCommand, GetTemplateCommand;
 
 /**
  * Lazy load EC2 SDK

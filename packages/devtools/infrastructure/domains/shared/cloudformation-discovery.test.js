@@ -875,7 +875,7 @@ describe('CloudFormationDiscovery', () => {
 
     describe('Subnet extraction from VPC query (OLD reliable approach)', () => {
         it('should extract subnets by querying ALL subnets in VPC then filtering by route table', async () => {
-            // CRITICAL: Frontify production scenario - the OLD proven method from aws-discovery.js
+            // Tests the proven method from aws-discovery.js
             // 1. Query ALL subnets in VPC using vpc-id filter (not association filter!)
             // 2. Query route table by ID (RouteTableIds parameter, not Filters!)
             // 3. Extract subnet IDs from route table's Associations array

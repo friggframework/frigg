@@ -550,9 +550,10 @@ class CloudFormationDiscovery {
             }
         }
 
-        // If we have VPC but no subnets, query ALL subnets in VPC and filter by route table
-        // This is the OLD approach from aws-discovery.js that worked reliably
-        if (discovered.defaultVpcId && !discovered.privateSubnetId1 && !discovered.privateSubnetId2 && 
+        // If we have VPC and route table but no subnets, query VPC for all subnets and filter by route table
+        // This approach queries by VPC ID (vpc-id filter) and route table ID (RouteTableIds parameter)
+        // Handles edge case where route table Associations array is empty in DescribeRouteTables response
+        if (discovered.defaultVpcId && !discovered.privateSubnetId1 && 
             discovered.routeTableId && this.provider && this.provider.getEC2Client) {
             try {
                 console.log(`  Querying ALL subnets in VPC ${discovered.defaultVpcId}...`);
@@ -584,19 +585,19 @@ class CloudFormationDiscovery {
                         if (associatedSubnetIds.length >= 2) {
                             discovered.privateSubnetId1 = associatedSubnetIds[0];
                             discovered.privateSubnetId2 = associatedSubnetIds[1];
-                            console.log(`  ✓ Extracted subnets from VPC query: ${discovered.privateSubnetId1}, ${discovered.privateSubnetId2}`);
+                            console.log(`  ✓ Extracted subnets from route table associations: ${discovered.privateSubnetId1}, ${discovered.privateSubnetId2}`);
                         } else if (associatedSubnetIds.length === 1) {
-                            // Only 1 associated subnet, use first available subnet as backup
+                            // Only 1 associated subnet, use another subnet from VPC as backup
                             discovered.privateSubnetId1 = associatedSubnetIds[0];
                             discovered.privateSubnetId2 = subnetsResponse.Subnets.find(s => s.SubnetId !== associatedSubnetIds[0])?.SubnetId;
                             console.log(`  ✓ Extracted subnets (1 from route table, 1 fallback): ${discovered.privateSubnetId1}, ${discovered.privateSubnetId2}`);
                         } else if (subnetsResponse.Subnets.length >= 2) {
-                            // CRITICAL: Frontify scenario - route table Associations array is EMPTY even when queried by ID!
-                            // But we have subnet associations in CloudFormation stack
-                            // Fallback: Use first 2 subnets from VPC (they're all in the same VPC so should work)
+                            // Edge case: route table Associations array is empty even when queried by ID
+                            // This can happen when associations exist in CloudFormation but AWS API doesn't return them
+                            // Fallback: Use first 2 subnets from VPC (all subnets in same VPC should work)
                             discovered.privateSubnetId1 = subnetsResponse.Subnets[0].SubnetId;
                             discovered.privateSubnetId2 = subnetsResponse.Subnets[1].SubnetId;
-                            console.log(`  ✓ Extracted subnets from VPC (route table Associations empty, using first 2): ${discovered.privateSubnetId1}, ${discovered.privateSubnetId2}`);
+                            console.log(`  ✓ Using first 2 subnets from VPC (route table Associations empty): ${discovered.privateSubnetId1}, ${discovered.privateSubnetId2}`);
                         }
                     }
                 }
