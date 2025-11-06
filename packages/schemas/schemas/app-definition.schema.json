@@ -20,6 +20,11 @@
       "enum": ["aws"],
       "default": "aws"
     },
+    "usePrismaLambdaLayer": {
+      "type": "boolean",
+      "description": "Use Lambda Layer for Prisma client (requires lambda:PublishLayerVersion permission). If false, Prisma is bundled with each function.",
+      "default": true
+    },
     "environment": {
       "type": "object",
       "description": "Environment variable configuration (key: true/false flags)",
@@ -291,9 +296,44 @@
           "type": "boolean",
           "description": "Create KMS key if none found during discovery",
           "default": false
+        },
+        "kmsKeyAlias": {
+          "type": "boolean",
+          "description": "Create KMS key alias (requires kms:CreateAlias permission). Set to false to skip alias creation and avoid permission errors.",
+          "default": true
+        },
+        "schema": {
+          "type": "object",
+          "description": "Field-level encryption schema defining which model fields should be encrypted",
+          "patternProperties": {
+            "^[A-Z][a-zA-Z0-9]*$": {
+              "type": "object",
+              "properties": {
+                "fields": {
+                  "type": "array",
+                  "description": "Array of field paths to encrypt (supports dot notation for nested fields)",
+                  "items": {
+                    "type": "string"
+                  },
+                  "examples": [["password", "apiKey", "data.secretToken"]]
+                }
+              },
+              "required": ["fields"],
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": true,
+          "examples": [{
+            "User": {
+              "fields": ["password", "apiKey"]
+            },
+            "Credential": {
+              "fields": ["access_token", "refresh_token"]
+            }
+          }]
         }
       },
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "vpc": {
       "type": "object",
@@ -382,6 +422,74 @@
           "type": "boolean",
           "description": "Automatically fix VPC configuration issues",
           "default": false
+        },
+        "ownership": {
+          "type": "object",
+          "description": "Resource ownership configuration - controls whether infrastructure components are managed by CloudFormation stack or external",
+          "properties": {
+            "vpc": {
+              "type": "string",
+              "enum": ["stack", "external", "auto"],
+              "description": "VPC ownership: 'stack' (create/manage in CloudFormation), 'external' (use existing), 'auto' (discover and decide)",
+              "default": "auto"
+            },
+            "subnets": {
+              "type": "string",
+              "enum": ["stack", "external", "auto"],
+              "description": "Subnet ownership: 'stack' (create/manage in CloudFormation), 'external' (use existing), 'auto' (discover and decide)",
+              "default": "auto"
+            },
+            "securityGroup": {
+              "type": "string",
+              "enum": ["stack", "external", "auto"],
+              "description": "Security group ownership: 'stack' (create/manage in CloudFormation), 'external' (use existing), 'auto' (discover and decide)",
+              "default": "auto"
+            },
+            "natGateway": {
+              "type": "string",
+              "enum": ["stack", "external", "auto"],
+              "description": "NAT Gateway ownership: 'stack' (create/manage in CloudFormation), 'external' (use existing), 'auto' (discover and decide)",
+              "default": "auto"
+            }
+          },
+          "additionalProperties": false
+        },
+        "external": {
+          "type": "object",
+          "description": "External resource IDs when using ownership='external'",
+          "properties": {
+            "vpcId": {
+              "type": "string",
+              "pattern": "^vpc-[a-z0-9]+$",
+              "description": "External VPC ID"
+            },
+            "subnetIds": {
+              "type": "array",
+              "description": "External subnet IDs (minimum 2 for high availability)",
+              "items": {
+                "type": "string",
+                "pattern": "^subnet-[a-z0-9]+$"
+              },
+              "minItems": 2,
+              "examples": [["subnet-abc123", "subnet-def456"]]
+            },
+            "securityGroupIds": {
+              "type": "array",
+              "description": "External security group IDs",
+              "items": {
+                "type": "string",
+                "pattern": "^sg-[a-z0-9]+$"
+              },
+              "minItems": 1,
+              "examples": [["sg-abc123"]]
+            },
+            "natGatewayId": {
+              "type": "string",
+              "pattern": "^nat-[a-z0-9]+$",
+              "description": "External NAT Gateway ID"
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -543,6 +651,18 @@
       },
       "additionalProperties": false
     },
+    "deployment": {
+      "type": "object",
+      "description": "Deployment configuration and options",
+      "properties": {
+        "skipPostDeploymentHealthCheck": {
+          "type": "boolean",
+          "description": "Skip post-deployment health check (frigg doctor). Useful when cloudformation:DetectStackResourceDrift permission is not available.",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
     "custom": {
       "type": "object",
       "description": "Custom application-specific configuration",
@@ -583,6 +703,7 @@
     {
       "name": "my-frigg-app",
       "provider": "aws",
+      "usePrismaLambdaLayer": false,
       "environment": {
         "NODE_ENV": true,
         "API_KEY": true
@@ -599,13 +720,28 @@
       },
       "encryption": {
         "fieldLevelEncryptionMethod": "kms",
-        "createResourceIfNoneFound": true
+        "createResourceIfNoneFound": true,
+        "kmsKeyAlias": false,
+        "schema": {
+          "User": {
+            "fields": ["password"]
+          }
+        }
       },
       "vpc": {
         "enable": true,
         "management": "create-new",
         "cidrBlock": "10.0.0.0/16",
-        "enableVPCEndpoints": true
+        "enableVPCEndpoints": true,
+        "ownership": {
+          "securityGroup": "external"
+        },
+        "external": {
+          "securityGroupIds": ["sg-abc123"]
+        }
+      },
+      "deployment": {
+        "skipPostDeploymentHealthCheck": true
       },
       "ssm": {
         "enable": true
