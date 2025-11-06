@@ -254,14 +254,21 @@ class KmsBuilder extends InfrastructureBuilder {
             // Key exists in stack - add definitions (CloudFormation idempotency)
             console.log('  → Adding KMS definitions to template (existing in stack)');
             
-            // Check if alias exists in stack before trying to create it
+            // CRITICAL: Check if alias exists in stack before trying to create it
+            // Matches old serverless-template.js behavior: only create alias if it doesn't exist
             const aliasExistsInStack = discoveredResources?.existingLogicalIds?.includes('FriggKMSKeyAlias');
-            if (!aliasExistsInStack && appDefinition.encryption?.kmsKeyAlias !== false) {
-                // Alias doesn't exist and user didn't explicitly disable it
-                // Set kmsKeyAlias: false to avoid trying to create it (permission issues)
-                console.log('  ℹ KMS alias not found in stack - skipping alias creation to avoid permission errors');
-                appDefinition.encryption = appDefinition.encryption || {};
-                appDefinition.encryption.kmsKeyAlias = false;
+            if (!aliasExistsInStack) {
+                if (appDefinition.encryption?.kmsKeyAlias !== true) {
+                    // Alias doesn't exist in stack - skip creation unless explicitly enabled
+                    // This avoids kms:CreateAlias permission errors
+                    console.log('  ℹ KMS alias not in stack - skipping creation (set kmsKeyAlias: true to force)');
+                    appDefinition.encryption = appDefinition.encryption || {};
+                    appDefinition.encryption.kmsKeyAlias = false;
+                } else {
+                    console.log('  → Will create KMS alias (kmsKeyAlias: true explicitly set)');
+                }
+            } else {
+                console.log('  ✓ KMS alias found in stack - will keep in template');
             }
             
             result.resources = this.createKmsKey(appDefinition);
@@ -281,6 +288,17 @@ class KmsBuilder extends InfrastructureBuilder {
         } else if (decisions.key.ownership === ResourceOwnership.STACK && !decisions.key.physicalId && !useEnvVarFallback) {
             // Create new KMS key (only if not using env var fallback and no external key found)
             console.log('  → Creating new KMS key in stack');
+            
+            // CRITICAL: Don't create alias by default to avoid kms:CreateAlias permission errors
+            // Matches old serverless-template.js behavior: only create alias if explicitly requested
+            if (appDefinition.encryption?.kmsKeyAlias !== true) {
+                console.log('  ℹ Skipping KMS alias creation by default (set kmsKeyAlias: true to enable)');
+                appDefinition.encryption = appDefinition.encryption || {};
+                appDefinition.encryption.kmsKeyAlias = false;
+            } else {
+                console.log('  → Will create KMS alias (kmsKeyAlias: true explicitly set)');
+            }
+            
             result.resources = this.createKmsKey(appDefinition);
             result.environment.KMS_KEY_ARN = { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] };
             console.log('  ✅ KMS key resources created');

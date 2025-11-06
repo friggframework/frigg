@@ -209,11 +209,12 @@ describe('KmsBuilder', () => {
             expect(result.resources.FriggKMSKey.Type).toBe('AWS::KMS::Key');
         });
 
-        it('should create KMS key alias', async () => {
+        it('should create KMS key alias when explicitly enabled', async () => {
             const appDefinition = {
                 encryption: {
                     fieldLevelEncryptionMethod: 'kms',
                     createResourceIfNoneFound: true,
+                    kmsKeyAlias: true,  // Explicitly enable alias creation
                 },
             };
 
