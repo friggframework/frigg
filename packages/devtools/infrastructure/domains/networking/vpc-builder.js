@@ -1756,8 +1756,13 @@ class VpcBuilder extends InfrastructureBuilder {
 
     /**
      * Create route table and associations for NAT Gateway
+     * Always adds to template - CloudFormation handles idempotency
      */
     createNatGatewayRouting(appDefinition, discoveredResources, result, natGatewayId) {
+        // Note: We always add routing resources to the template.
+        // CloudFormation's idempotency ensures existing resources are updated, not recreated.
+        // Removing resources from the template causes CloudFormation to try CREATE on next deploy → AlreadyExists error
+
         // Private route table with NAT Gateway route
         if (!result.resources.FriggLambdaRouteTable) {
             result.resources.FriggLambdaRouteTable = {
