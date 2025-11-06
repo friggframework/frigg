@@ -563,7 +563,7 @@ class CloudFormationDiscovery {
                 // Query route table by association ID to get subnet
                 const rtResponse = await ec2.send(new DescribeRouteTablesCommand({
                     Filters: [
-                        { Name: 'association.association-id', Values: [discovered._subnet1AssociationId] }
+                        { Name: 'association.route-table-association-id', Values: [discovered._subnet1AssociationId] }
                     ]
                 }));
                 
@@ -588,7 +588,7 @@ class CloudFormationDiscovery {
                 
                 const rtResponse = await ec2.send(new DescribeRouteTablesCommand({
                     Filters: [
-                        { Name: 'association.association-id', Values: [discovered._subnet2AssociationId] }
+                        { Name: 'association.route-table-association-id', Values: [discovered._subnet2AssociationId] }
                     ]
                 }));
                 
