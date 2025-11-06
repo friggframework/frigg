@@ -163,6 +163,9 @@ class CloudFormationDiscovery {
                         const associations = routeTable.Associations || [];
                         const subnetAssociations = associations.filter(a => a.SubnetId);
                         
+                        console.log(`  DEBUG: Route table has ${associations.length} associations, ${subnetAssociations.length} with SubnetId`);
+                        console.log(`  DEBUG: discovered.privateSubnetId1 = ${discovered.privateSubnetId1}, discovered.privateSubnetId2 = ${discovered.privateSubnetId2}`);
+                        
                         if (subnetAssociations.length >= 1 && !discovered.privateSubnetId1) {
                             discovered.privateSubnetId1 = subnetAssociations[0].SubnetId;
                             console.log(`  ✓ Extracted private subnet 1 from associations: ${subnetAssociations[0].SubnetId}`);
