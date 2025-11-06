@@ -567,14 +567,21 @@ class CloudFormationDiscovery {
                     ]
                 }));
                 
+                console.log(`  DEBUG: Query returned ${rtResponse.RouteTables?.length || 0} route tables`);
                 if (rtResponse.RouteTables && rtResponse.RouteTables[0]) {
+                    console.log(`  DEBUG: First route table has ${rtResponse.RouteTables[0].Associations?.length || 0} associations`);
                     const assoc = rtResponse.RouteTables[0].Associations.find(a => 
                         a.RouteTableAssociationId === discovered._subnet1AssociationId
                     );
+                    console.log(`  DEBUG: Found matching association: ${!!assoc}, has SubnetId: ${!!assoc?.SubnetId}`);
                     if (assoc && assoc.SubnetId) {
                         discovered.privateSubnetId1 = assoc.SubnetId;
                         console.log(`  ✓ Extracted private subnet 1 from association query: ${assoc.SubnetId}`);
+                    } else {
+                        console.warn(`  ⚠️  Association found but no SubnetId in response`);
                     }
+                } else {
+                    console.warn(`  ⚠️  No route tables returned for association ${discovered._subnet1AssociationId}`);
                 }
             } catch (error) {
                 console.warn(`  ⚠️  Could not query subnet from association: ${error.message}`);
@@ -592,14 +599,21 @@ class CloudFormationDiscovery {
                     ]
                 }));
                 
+                console.log(`  DEBUG: Query returned ${rtResponse.RouteTables?.length || 0} route tables for subnet 2`);
                 if (rtResponse.RouteTables && rtResponse.RouteTables[0]) {
+                    console.log(`  DEBUG: First route table has ${rtResponse.RouteTables[0].Associations?.length || 0} associations`);
                     const assoc = rtResponse.RouteTables[0].Associations.find(a => 
                         a.RouteTableAssociationId === discovered._subnet2AssociationId
                     );
+                    console.log(`  DEBUG: Found matching association for subnet 2: ${!!assoc}, has SubnetId: ${!!assoc?.SubnetId}`);
                     if (assoc && assoc.SubnetId) {
                         discovered.privateSubnetId2 = assoc.SubnetId;
                         console.log(`  ✓ Extracted private subnet 2 from association query: ${assoc.SubnetId}`);
+                    } else {
+                        console.warn(`  ⚠️  Association found but no SubnetId in response for subnet 2`);
                     }
+                } else {
+                    console.warn(`  ⚠️  No route tables returned for association ${discovered._subnet2AssociationId}`);
                 }
             } catch (error) {
                 console.warn(`  ⚠️  Could not query subnet from association: ${error.message}`);
