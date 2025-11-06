@@ -163,9 +163,6 @@ class CloudFormationDiscovery {
                         const associations = routeTable.Associations || [];
                         const subnetAssociations = associations.filter(a => a.SubnetId);
                         
-                        console.log(`  DEBUG: Route table has ${associations.length} associations, ${subnetAssociations.length} with SubnetId`);
-                        console.log(`  DEBUG: Route table structure:`, JSON.stringify(routeTable, null, 2).substring(0, 500));
-                        console.log(`  DEBUG: discovered.privateSubnetId1 = ${discovered.privateSubnetId1}, discovered.privateSubnetId2 = ${discovered.privateSubnetId2}`);
                         
                         if (subnetAssociations.length >= 1 && !discovered.privateSubnetId1) {
                             discovered.privateSubnetId1 = subnetAssociations[0].SubnetId;
@@ -213,7 +210,6 @@ class CloudFormationDiscovery {
      * @param {Object} discovered - Object to populate with discovered resources
      */
     async _extractFromResources(resources, discovered) {
-        console.log(`  DEBUG: Processing ${resources.length} CloudFormation resources...`);
 
         // Initialize existingLogicalIds array if not present
         if (!discovered.existingLogicalIds) {
@@ -231,10 +227,6 @@ class CloudFormationDiscovery {
                 discovered.existingLogicalIds.push(LogicalResourceId);
             }
 
-            // Debug Aurora detection
-            if (LogicalResourceId.includes('Aurora')) {
-                console.log(`  DEBUG: Found Aurora resource: ${LogicalResourceId} (${ResourceType})`);
-            }
 
             // Security Group - use to get VPC ID
             if (LogicalResourceId === 'FriggLambdaSecurityGroup' && ResourceType === 'AWS::EC2::SecurityGroup') {
@@ -360,21 +352,14 @@ class CloudFormationDiscovery {
                 discovered.routeTableAssociations.push(PhysicalResourceId);
                 console.log(`  ✓ Found route table association: ${LogicalResourceId}`);
                 
-                // CRITICAL: Extract subnet ID from association physical ID by querying EC2
-                // Physical ID is the association ID (rtbassoc-xxx), need to query to get subnet
-                console.log(`  DEBUG: Checking if this is subnet 1 association: LogicalResourceId="${LogicalResourceId}", matches=${LogicalResourceId === 'FriggSubnet1RouteAssociation' || LogicalResourceId === 'FriggPrivateSubnet1RouteTableAssociation'}`);
-                console.log(`  DEBUG: this.provider=${!!this.provider}, getEC2Client=${!!(this.provider && this.provider.getEC2Client)}`);
-                
+                // Store association ID to query later for subnet extraction (after loop)
                 if (this.provider && this.provider.getEC2Client && 
                     (LogicalResourceId === 'FriggSubnet1RouteAssociation' || LogicalResourceId === 'FriggPrivateSubnet1RouteTableAssociation')) {
-                    // Store association ID to query later (after loop)
                     discovered._subnet1AssociationId = PhysicalResourceId;
-                    console.log(`  DEBUG: Set _subnet1AssociationId = ${PhysicalResourceId}`);
                 }
                 if (this.provider && this.provider.getEC2Client && 
                     (LogicalResourceId === 'FriggSubnet2RouteAssociation' || LogicalResourceId === 'FriggPrivateSubnet2RouteTableAssociation')) {
                     discovered._subnet2AssociationId = PhysicalResourceId;
-                    console.log(`  DEBUG: Set _subnet2AssociationId = ${PhysicalResourceId}`);
                 }
             }
 
@@ -460,9 +445,6 @@ class CloudFormationDiscovery {
                 discovered.s3VpcEndpointId = PhysicalResourceId;
                 discovered.vpcEndpoints.s3 = PhysicalResourceId;
                 console.log(`  ✓ Found S3 VPC endpoint in stack: ${PhysicalResourceId}`);
-                console.log(`  DEBUG: S3 VPC endpoint LogicalResourceId = "${LogicalResourceId}"`);
-                console.log(`  DEBUG: Should have been added to existingLogicalIds at top of loop!`);
-                console.log(`  DEBUG: existingLogicalIds.includes('VPCEndpointS3') = ${discovered.existingLogicalIds.includes('VPCEndpointS3')}`);
             }
             
             // DynamoDB Endpoint (both naming patterns)
@@ -607,9 +589,6 @@ class CloudFormationDiscovery {
         }
         
         // FALLBACK: Extract subnet IDs from route table associations (if VPC query didn't work)
-        // Query EC2 to describe the association and get the subnet ID
-        console.log(`  DEBUG: Checking subnet association extraction - _subnet1AssociationId: ${discovered._subnet1AssociationId}, _subnet2AssociationId: ${discovered._subnet2AssociationId}`);
-        
         if (!discovered.privateSubnetId1 && discovered._subnet1AssociationId && this.provider && this.provider.getEC2Client) {
             try {
                 console.log(`  Querying EC2 for subnet from association ${discovered._subnet1AssociationId}...`);
@@ -623,21 +602,14 @@ class CloudFormationDiscovery {
                     ]
                 }));
                 
-                console.log(`  DEBUG: Query returned ${rtResponse.RouteTables?.length || 0} route tables`);
                 if (rtResponse.RouteTables && rtResponse.RouteTables[0]) {
-                    console.log(`  DEBUG: First route table has ${rtResponse.RouteTables[0].Associations?.length || 0} associations`);
                     const assoc = rtResponse.RouteTables[0].Associations.find(a => 
                         a.RouteTableAssociationId === discovered._subnet1AssociationId
                     );
-                    console.log(`  DEBUG: Found matching association: ${!!assoc}, has SubnetId: ${!!assoc?.SubnetId}`);
                     if (assoc && assoc.SubnetId) {
                         discovered.privateSubnetId1 = assoc.SubnetId;
                         console.log(`  ✓ Extracted private subnet 1 from association query: ${assoc.SubnetId}`);
-                    } else {
-                        console.warn(`  ⚠️  Association found but no SubnetId in response`);
                     }
-                } else {
-                    console.warn(`  ⚠️  No route tables returned for association ${discovered._subnet1AssociationId}`);
                 }
             } catch (error) {
                 console.warn(`  ⚠️  Could not query subnet from association: ${error.message}`);
@@ -655,21 +627,14 @@ class CloudFormationDiscovery {
                     ]
                 }));
                 
-                console.log(`  DEBUG: Query returned ${rtResponse.RouteTables?.length || 0} route tables for subnet 2`);
                 if (rtResponse.RouteTables && rtResponse.RouteTables[0]) {
-                    console.log(`  DEBUG: First route table has ${rtResponse.RouteTables[0].Associations?.length || 0} associations`);
                     const assoc = rtResponse.RouteTables[0].Associations.find(a => 
                         a.RouteTableAssociationId === discovered._subnet2AssociationId
                     );
-                    console.log(`  DEBUG: Found matching association for subnet 2: ${!!assoc}, has SubnetId: ${!!assoc?.SubnetId}`);
                     if (assoc && assoc.SubnetId) {
                         discovered.privateSubnetId2 = assoc.SubnetId;
                         console.log(`  ✓ Extracted private subnet 2 from association query: ${assoc.SubnetId}`);
-                    } else {
-                        console.warn(`  ⚠️  Association found but no SubnetId in response for subnet 2`);
                     }
-                } else {
-                    console.warn(`  ⚠️  No route tables returned for association ${discovered._subnet2AssociationId}`);
                 }
             } catch (error) {
                 console.warn(`  ⚠️  Could not query subnet from association: ${error.message}`);

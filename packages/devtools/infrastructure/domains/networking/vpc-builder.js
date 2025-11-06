@@ -1151,7 +1151,6 @@ class VpcBuilder extends InfrastructureBuilder {
         // CRITICAL: Frontify production uses OLD naming (VPCEndpointS3, not FriggS3VPCEndpoint)
         const existingLogicalIds = discoveredResources?.existingLogicalIds || [];
         
-        console.log(`    DEBUG: existingLogicalIds for VPC endpoints = ${JSON.stringify(existingLogicalIds.filter(id => id.includes('VPCEndpoint')))}`);
         
         const logicalIdMap = {
             s3: existingLogicalIds.includes('VPCEndpointS3') ? 'VPCEndpointS3' : 'FriggS3VPCEndpoint',
