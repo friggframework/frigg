@@ -362,14 +362,19 @@ class CloudFormationDiscovery {
                 
                 // CRITICAL: Extract subnet ID from association physical ID by querying EC2
                 // Physical ID is the association ID (rtbassoc-xxx), need to query to get subnet
+                console.log(`  DEBUG: Checking if this is subnet 1 association: LogicalResourceId="${LogicalResourceId}", matches=${LogicalResourceId === 'FriggSubnet1RouteAssociation' || LogicalResourceId === 'FriggPrivateSubnet1RouteTableAssociation'}`);
+                console.log(`  DEBUG: this.provider=${!!this.provider}, getEC2Client=${!!(this.provider && this.provider.getEC2Client)}`);
+                
                 if (this.provider && this.provider.getEC2Client && 
                     (LogicalResourceId === 'FriggSubnet1RouteAssociation' || LogicalResourceId === 'FriggPrivateSubnet1RouteTableAssociation')) {
                     // Store association ID to query later (after loop)
                     discovered._subnet1AssociationId = PhysicalResourceId;
+                    console.log(`  DEBUG: Set _subnet1AssociationId = ${PhysicalResourceId}`);
                 }
                 if (this.provider && this.provider.getEC2Client && 
                     (LogicalResourceId === 'FriggSubnet2RouteAssociation' || LogicalResourceId === 'FriggPrivateSubnet2RouteTableAssociation')) {
                     discovered._subnet2AssociationId = PhysicalResourceId;
+                    console.log(`  DEBUG: Set _subnet2AssociationId = ${PhysicalResourceId}`);
                 }
             }
 
