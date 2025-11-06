@@ -215,6 +215,17 @@ class CloudFormationDiscovery {
         if (!discovered.existingLogicalIds) {
             discovered.existingLogicalIds = [];
         }
+        
+        // DEBUG: Log all VPC-related resources CloudFormation returns
+        console.log('  DEBUG: VPC-related resources from CloudFormation:');
+        resources.filter(r => 
+            r.LogicalResourceId.includes('VPCEndpoint') || 
+            r.LogicalResourceId.includes('Route') ||
+            r.LogicalResourceId.includes('RouteTable')
+        ).forEach(r => {
+            console.log(`    - ${r.LogicalResourceId} (${r.ResourceType}): ${r.PhysicalResourceId}`);
+        });
+        
         for (const resource of resources) {
             const { LogicalResourceId, PhysicalResourceId, ResourceType } = resource;
 
