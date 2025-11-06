@@ -518,19 +518,31 @@ class AWSProviderAdapter extends CloudProviderAdapter {
 
     /**
      * List CloudFormation stack resources
+     * Handles pagination to retrieve all resources (CloudFormation limits to 1 MB per page)
      * 
      * @param {string} stackName - Name of the CloudFormation stack
-     * @returns {Promise<Array>} List of stack resources
+     * @returns {Promise<Array>} List of all stack resources across all pages
      */
     async listStackResources(stackName) {
         const cf = this.getCloudFormationClient();
+        const allResources = [];
+        let nextToken = null;
         
         try {
-            const response = await cf.send(new ListStackResourcesCommand({
-                StackName: stackName,
-            }));
+            do {
+                const response = await cf.send(new ListStackResourcesCommand({
+                    StackName: stackName,
+                    NextToken: nextToken
+                }));
+                
+                if (response.StackResourceSummaries) {
+                    allResources.push(...response.StackResourceSummaries);
+                }
+                
+                nextToken = response.NextToken || null;
+            } while (nextToken);
             
-            return response.StackResourceSummaries || [];
+            return allResources;
         } catch (error) {
             console.warn(`Failed to list stack resources for ${stackName}:`, error.message);
             return [];

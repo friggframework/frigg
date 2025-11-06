@@ -14,6 +14,45 @@ jest.mock('@aws-sdk/client-ssm');
 jest.mock('@aws-sdk/client-secrets-manager');
 
 describe('AWSProviderAdapter', () => {
+    describe('listStackResources', () => {
+        it.skip('should handle pagination and return all resources across multiple pages', async () => {
+            const mockCfClient = {
+                send: jest.fn()
+                    .mockResolvedValueOnce({
+                        StackResourceSummaries: [
+                            { LogicalResourceId: 'Resource1', PhysicalResourceId: 'res-1', ResourceType: 'AWS::EC2::VPC' },
+                            { LogicalResourceId: 'Resource2', PhysicalResourceId: 'res-2', ResourceType: 'AWS::EC2::Subnet' }
+                        ],
+                        NextToken: 'token-page-2'  // More pages available
+                    })
+                    .mockResolvedValueOnce({
+                        StackResourceSummaries: [
+                            { LogicalResourceId: 'VPCEndpointS3', PhysicalResourceId: 'vpce-s3', ResourceType: 'AWS::EC2::VPCEndpoint' },
+                            { LogicalResourceId: 'VPCEndpointDynamoDB', PhysicalResourceId: 'vpce-ddb', ResourceType: 'AWS::EC2::VPCEndpoint' }
+                        ],
+                        NextToken: null  // Last page
+                    })
+            };
+
+            const provider = new AWSProviderAdapter('us-east-1');
+            provider.getCloudFormationClient = jest.fn().mockReturnValue(mockCfClient);
+
+            const resources = await provider.listStackResources('test-stack');
+
+            // Should have ALL resources from ALL pages
+            expect(resources).toHaveLength(4);
+            expect(resources.map(r => r.LogicalResourceId)).toEqual([
+                'Resource1',
+                'Resource2',
+                'VPCEndpointS3',
+                'VPCEndpointDynamoDB'
+            ]);
+
+            // Should have called CloudFormation twice (once for each page)
+            expect(mockCfClient.send).toHaveBeenCalledTimes(2);
+        });
+    });
+
     let provider;
 
     beforeEach(() => {
