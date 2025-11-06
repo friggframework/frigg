@@ -162,21 +162,24 @@ class VpcBuilder extends InfrastructureBuilder {
                 } else if (logicalId === 'FriggLambdaRouteTable') {
                     resourceType = 'AWS::EC2::RouteTable';
                     physicalId = flatDiscovery.routeTableId;
-                } else if (logicalId === 'FriggS3VPCEndpoint') {
+                } else if (logicalId === 'FriggS3VPCEndpoint' || logicalId === 'VPCEndpointS3') {
                     resourceType = 'AWS::EC2::VPCEndpoint';
                     physicalId = flatDiscovery.s3VpcEndpointId;
-                } else if (logicalId === 'FriggDynamoDBVPCEndpoint') {
+                } else if (logicalId === 'FriggDynamoDBVPCEndpoint' || logicalId === 'VPCEndpointDynamoDB') {
                     resourceType = 'AWS::EC2::VPCEndpoint';
                     physicalId = flatDiscovery.dynamodbVpcEndpointId;
-                } else if (logicalId === 'FriggKMSVPCEndpoint') {
+                } else if (logicalId === 'FriggKMSVPCEndpoint' || logicalId === 'VPCEndpointKMS') {
                     resourceType = 'AWS::EC2::VPCEndpoint';
                     physicalId = flatDiscovery.kmsVpcEndpointId;
-                } else if (logicalId === 'FriggSecretsManagerVPCEndpoint') {
+                } else if (logicalId === 'FriggSecretsManagerVPCEndpoint' || logicalId === 'VPCEndpointSecretsManager') {
                     resourceType = 'AWS::EC2::VPCEndpoint';
                     physicalId = flatDiscovery.secretsManagerVpcEndpointId;
-                } else if (logicalId === 'FriggSQSVPCEndpoint') {
+                } else if (logicalId === 'FriggSQSVPCEndpoint' || logicalId === 'VPCEndpointSQS') {
                     resourceType = 'AWS::EC2::VPCEndpoint';
                     physicalId = flatDiscovery.sqsVpcEndpointId;
+                } else if (logicalId === 'FriggNATRoute' || logicalId === 'FriggPrivateRoute') {
+                    resourceType = 'AWS::EC2::Route';
+                    physicalId = flatDiscovery.natRoute;
                 }
 
                 if (physicalId && typeof physicalId === 'string') {

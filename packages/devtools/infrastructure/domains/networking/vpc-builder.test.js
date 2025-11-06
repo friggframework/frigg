@@ -1535,6 +1535,47 @@ describe('VpcBuilder', () => {
             // Route table should still be created
             expect(result.resources.FriggLambdaRouteTable).toBeDefined();
         });
+
+        it('should convert OLD logical IDs to structured discovery stackManaged array', () => {
+            // TDD test: Verify that VPCEndpointS3 in existingLogicalIds gets added to stackManaged
+            const flatDiscovery = {
+                fromCloudFormationStack: true,
+                stackName: 'create-frigg-app-production',
+                existingLogicalIds: [
+                    'VPCEndpointS3',        // OLD naming
+                    'VPCEndpointDynamoDB',  // OLD naming
+                    'FriggNATRoute'         // OLD naming
+                ],
+                s3VpcEndpointId: 'vpce-0352ceac2124c14be',
+                dynamodbVpcEndpointId: 'vpce-0b06c4f631199ea68',
+                natRoute: 'rtb-xxx|0.0.0.0/0'
+            };
+
+            const structured = vpcBuilder.convertFlatDiscoveryToStructured(flatDiscovery);
+
+            // CRITICAL: Old logical IDs should be in stackManaged array
+            expect(structured.stackManaged).toContainEqual(
+                expect.objectContaining({
+                    logicalId: 'VPCEndpointS3',
+                    physicalId: 'vpce-0352ceac2124c14be',
+                    resourceType: 'AWS::EC2::VPCEndpoint'
+                })
+            );
+            expect(structured.stackManaged).toContainEqual(
+                expect.objectContaining({
+                    logicalId: 'VPCEndpointDynamoDB',
+                    physicalId: 'vpce-0b06c4f631199ea68',
+                    resourceType: 'AWS::EC2::VPCEndpoint'
+                })
+            );
+            expect(structured.stackManaged).toContainEqual(
+                expect.objectContaining({
+                    logicalId: 'FriggNATRoute',
+                    physicalId: 'rtb-xxx|0.0.0.0/0',
+                    resourceType: 'AWS::EC2::Route'
+                })
+            );
+        });
     });
 
     describe('convertFlatDiscoveryToStructured - Direct Properties', () => {
