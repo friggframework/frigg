@@ -64,10 +64,17 @@ class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface {
      * @returns {Promise<Object|null>}
      */
     async getRawCredentialById(id) {
-        const { ObjectId } = require('mongodb');
-        return await mongoose.connection.db
-            .collection('Credential')
-            .findOne({ _id: new ObjectId(id) });
+        const result = await this.prisma.$runCommandRaw({
+            find: 'Credential',
+            filter: { _id: { $oid: id } },
+            limit: 1,
+        });
+        
+        if (!result.cursor || !result.cursor.firstBatch || result.cursor.firstBatch.length === 0) {
+            return null;
+        }
+        
+        return result.cursor.firstBatch[0];
     }
 
     async deleteCredential(id) {
