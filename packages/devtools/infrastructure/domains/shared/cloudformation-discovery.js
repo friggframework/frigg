@@ -558,6 +558,66 @@ class CloudFormationDiscovery {
             }
         }
 
+        // Extract subnet IDs from route table associations (if route table query didn't populate them)
+        // Query EC2 to describe the association and get the subnet ID
+        console.log(`  DEBUG: Checking subnet association extraction - _subnet1AssociationId: ${discovered._subnet1AssociationId}, _subnet2AssociationId: ${discovered._subnet2AssociationId}`);
+        
+        if (!discovered.privateSubnetId1 && discovered._subnet1AssociationId && this.provider && this.provider.getEC2Client) {
+            try {
+                console.log(`  Querying EC2 for subnet from association ${discovered._subnet1AssociationId}...`);
+                const { DescribeRouteTablesCommand } = require('@aws-sdk/client-ec2');
+                const ec2 = this.provider.getEC2Client();
+                
+                // Query route table by association ID to get subnet
+                const rtResponse = await ec2.send(new DescribeRouteTablesCommand({
+                    Filters: [
+                        { Name: 'association.association-id', Values: [discovered._subnet1AssociationId] }
+                    ]
+                }));
+                
+                if (rtResponse.RouteTables && rtResponse.RouteTables[0]) {
+                    const assoc = rtResponse.RouteTables[0].Associations.find(a => 
+                        a.RouteTableAssociationId === discovered._subnet1AssociationId
+                    );
+                    if (assoc && assoc.SubnetId) {
+                        discovered.privateSubnetId1 = assoc.SubnetId;
+                        console.log(`  ✓ Extracted private subnet 1 from association query: ${assoc.SubnetId}`);
+                    }
+                }
+            } catch (error) {
+                console.warn(`  ⚠️  Could not query subnet from association: ${error.message}`);
+            }
+        }
+
+        if (!discovered.privateSubnetId2 && discovered._subnet2AssociationId && this.provider && this.provider.getEC2Client) {
+            try {
+                const { DescribeRouteTablesCommand } = require('@aws-sdk/client-ec2');
+                const ec2 = this.provider.getEC2Client();
+                
+                const rtResponse = await ec2.send(new DescribeRouteTablesCommand({
+                    Filters: [
+                        { Name: 'association.association-id', Values: [discovered._subnet2AssociationId] }
+                    ]
+                }));
+                
+                if (rtResponse.RouteTables && rtResponse.RouteTables[0]) {
+                    const assoc = rtResponse.RouteTables[0].Associations.find(a => 
+                        a.RouteTableAssociationId === discovered._subnet2AssociationId
+                    );
+                    if (assoc && assoc.SubnetId) {
+                        discovered.privateSubnetId2 = assoc.SubnetId;
+                        console.log(`  ✓ Extracted private subnet 2 from association query: ${assoc.SubnetId}`);
+                    }
+                }
+            } catch (error) {
+                console.warn(`  ⚠️  Could not query subnet from association: ${error.message}`);
+            }
+        }
+
+        // Clean up temporary association IDs
+        delete discovered._subnet1AssociationId;
+        delete discovered._subnet2AssociationId;
+
         // Check for KMS key alias via AWS API if not found in stack resources
         // This handles cases where the alias was created outside CloudFormation
         if (!discovered.defaultKmsKeyId && !discovered.kmsKeyAlias &&
