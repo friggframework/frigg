@@ -220,16 +220,6 @@ class CloudFormationDiscovery {
             discovered.existingLogicalIds = [];
         }
         
-        // DEBUG: Log all VPC-related resources CloudFormation returns
-        console.log('  DEBUG: VPC-related resources from CloudFormation:');
-        resources.filter(r => 
-            r.LogicalResourceId.includes('VPCEndpoint') || 
-            r.LogicalResourceId.includes('Route') ||
-            r.LogicalResourceId.includes('RouteTable')
-        ).forEach(r => {
-            console.log(`    - ${r.LogicalResourceId} (${r.ResourceType}): ${r.PhysicalResourceId}`);
-        });
-        
         for (const resource of resources) {
             const { LogicalResourceId, PhysicalResourceId, ResourceType } = resource;
 
@@ -239,9 +229,6 @@ class CloudFormationDiscovery {
                 LogicalResourceId.includes('Migration') ||
                 LogicalResourceId.startsWith('VPCEndpoint')) {
                 discovered.existingLogicalIds.push(LogicalResourceId);
-                if (LogicalResourceId.includes('Route') || LogicalResourceId.includes('VPCEndpoint')) {
-                    console.log(`  DEBUG: Added to existingLogicalIds: ${LogicalResourceId}`);
-                }
             }
 
             // Debug Aurora detection

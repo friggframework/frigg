@@ -872,5 +872,14 @@ describe('CloudFormationDiscovery', () => {
             expect(result.existingLogicalIds).not.toContain('VPCEndpointS3');
         });
     });
+
+    describe('Subnet extraction from route table associations', () => {
+        it.skip('should extract subnet IDs from route table associations when route table Associations array is empty', async () => {
+            // TODO: This test needs proper mock setup for EC2 client
+            // The code already exists (lines 563-608 in cloudformation-discovery.js)
+            // Skipping until we can properly mock the EC2 client chain
+        });
+
+    });
 });
 
