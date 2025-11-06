@@ -16,7 +16,6 @@
  * @see https://www.mongodb.com/docs/manual/core/transactions/#transactions-and-operations
  */
 
-const { mongoose } = require('../mongoose');
 const { ensureCollectionsExist } = require('./mongodb-collection-utils');
 const { getCollectionsFromSchemaSync } = require('./prisma-schema-parser');
 const config = require('../config');
@@ -24,11 +23,14 @@ const config = require('../config');
 /**
  * Initialize MongoDB schema by ensuring all collections exist
  *
- * This should be called once at application startup, after the database
- * connection is established but before handling any requests.
+ * This should be called once at application startup, after Prisma connection
+ * is established but before handling any requests.
  *
  * Dynamically parses the Prisma schema to extract collection names,
  * ensuring automatic sync with schema changes.
+ *
+ * Uses Prisma's $runCommandRaw to create collections, which works with both
+ * MongoDB and DocumentDB without requiring mongoose connection.
  *
  * Benefits:
  * - Prevents transaction namespace creation errors
@@ -36,13 +38,14 @@ const config = require('../config');
  * - Ensures consistent state across all instances
  * - Idempotent - safe to run multiple times
  * - Automatically syncs with Prisma schema changes
+ * - No mongoose dependency required
  *
  * @returns {Promise<void>}
  *
  * @example
  * ```js
  * await connectPrisma();
- * await initializeMongoDBSchema(); // Run after connection
+ * await initializeMongoDBSchema(); // Run after Prisma connection
  * // Now safe to handle requests
  * ```
  */
@@ -51,14 +54,6 @@ async function initializeMongoDBSchema() {
     if (config.DB_TYPE !== 'mongodb') {
         console.log('Schema initialization skipped - not using MongoDB');
         return;
-    }
-
-    // Check if database is connected
-    if (mongoose.connection.readyState !== 1) {
-        throw new Error(
-            'Cannot initialize MongoDB schema - database not connected. ' +
-            'Call connectPrisma() before initializeMongoDBSchema()'
-        );
     }
 
     console.log('Initializing MongoDB schema - ensuring all collections exist...');

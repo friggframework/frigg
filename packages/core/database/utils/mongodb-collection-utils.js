@@ -5,11 +5,14 @@
  * handling the constraint that collections cannot be created inside
  * multi-document transactions.
  *
+ * Uses Prisma's $runCommandRaw to send native MongoDB commands directly,
+ * avoiding the need for mongoose connection.
+ *
  * @see https://github.com/prisma/prisma/issues/8305
  * @see https://www.mongodb.com/docs/manual/core/transactions/#transactions-and-operations
  */
 
-const { mongoose } = require('../mongoose');
+const { prisma } = require('../prisma');
 
 /**
  * Ensures a MongoDB collection exists
@@ -17,6 +20,9 @@ const { mongoose } = require('../mongoose');
  * MongoDB doesn't allow creating collections (namespaces) inside multi-document
  * transactions. This function checks if a collection exists and creates it if needed,
  * preventing "Cannot create namespace in multi-document transaction" errors.
+ *
+ * Uses Prisma's $runCommandRaw to send native MongoDB commands, which works with
+ * both MongoDB and DocumentDB.
  *
  * @param {string} collectionName - Name of the collection to ensure exists
  * @returns {Promise<void>}
@@ -30,23 +36,24 @@ const { mongoose } = require('../mongoose');
  */
 async function ensureCollectionExists(collectionName) {
     try {
-        const collections = await mongoose.connection.db
-            .listCollections({ name: collectionName })
-            .toArray();
+        // Check if collection exists using Prisma's $runCommandRaw
+        const collections = await prisma.$runCommandRaw({
+            listCollections: 1,
+            filter: { name: collectionName }
+        });
 
-        if (collections.length === 0) {
-            // Collection doesn't exist, create it outside of any transaction
-            await mongoose.connection.db.createCollection(collectionName);
-            console.log(`Created MongoDB collection: ${collectionName}`);
+        if (collections.cursor.firstBatch.length === 0) {
+            // Collection doesn't exist, create it
+            await prisma.$runCommandRaw({
+                create: collectionName
+            });
+            console.log(`✓ Created collection: ${collectionName}`);
         }
     } catch (error) {
-        // Collection might already exist due to race condition, or other error
-        // Log warning but don't fail - let subsequent operations handle errors
-        if (error.codeName === 'NamespaceExists') {
-            // This is expected in race conditions, silently continue
-            return;
+        // Ignore "already exists" errors (code 48: NamespaceExists)
+        if (error.code !== 48 && error.codeName !== 'NamespaceExists') {
+            console.warn(`Warning: Could not ensure collection ${collectionName}:`, error.message);
         }
-        console.warn(`Error ensuring collection ${collectionName} exists:`, error.message);
     }
 }
 
@@ -73,11 +80,12 @@ async function ensureCollectionsExist(collectionNames) {
  */
 async function collectionExists(collectionName) {
     try {
-        const collections = await mongoose.connection.db
-            .listCollections({ name: collectionName })
-            .toArray();
+        const collections = await prisma.$runCommandRaw({
+            listCollections: 1,
+            filter: { name: collectionName }
+        });
 
-        return collections.length > 0;
+        return collections.cursor.firstBatch.length > 0;
     } catch (error) {
         console.error(`Error checking if collection ${collectionName} exists:`, error.message);
         return false;
