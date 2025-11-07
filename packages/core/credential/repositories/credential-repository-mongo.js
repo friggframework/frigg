@@ -2,6 +2,7 @@ const { prisma } = require('../../database/prisma');
 const {
     CredentialRepositoryInterface,
 } = require('./credential-repository-interface');
+const { removeUndefinedValues } = require('../../database/utils/documentdb-compatibility');
 
 /**
  * MongoDB Credential Repository Adapter
@@ -156,14 +157,16 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
         }
 
         // Create new credential
+        // Remove undefined values to prevent Prisma from using $$REMOVE (DocumentDB unsupported)
+        const credentialData = removeUndefinedValues({
+            userId: userId || user,
+            externalId,
+            authIsValid: authIsValid,
+            data: oauthData,
+        });
+        
         const created = await this.prisma.credential.create({
-            data: {
-                userId: userId || user,
-                externalId,
-                authIsValid: authIsValid,
-                
-                data: oauthData,
-            },
+            data: credentialData,
         });
 
         return {
