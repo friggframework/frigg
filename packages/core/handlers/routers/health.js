@@ -32,7 +32,14 @@ const {
 } = require('../use-cases/check-integrations-health-use-case');
 
 const router = Router();
-const healthCheckRepository = createHealthCheckRepository({ prismaClient: prisma });
+
+let healthCheckRepository;
+function getHealthCheckRepository() {
+    if (!healthCheckRepository) {
+        healthCheckRepository = createHealthCheckRepository({ prismaClient: prisma });
+    }
+    return healthCheckRepository;
+}
 
 // Load integrations and create factories just like auth router does
 // This verifies the system can properly load integrations
@@ -55,15 +62,23 @@ try {
     integrationClasses = [];
 }
 
-const testEncryptionUseCase = new TestEncryptionUseCase({
-    healthCheckRepository,
-});
-const checkDatabaseHealthUseCase = new CheckDatabaseHealthUseCase({
-    healthCheckRepository,
-});
-const checkEncryptionHealthUseCase = new CheckEncryptionHealthUseCase({
-    testEncryptionUseCase,
-});
+function getTestEncryptionUseCase() {
+    return new TestEncryptionUseCase({
+        healthCheckRepository: getHealthCheckRepository(),
+    });
+}
+
+function getCheckDatabaseHealthUseCase() {
+    return new CheckDatabaseHealthUseCase({
+        healthCheckRepository: getHealthCheckRepository(),
+    });
+}
+
+function getCheckEncryptionHealthUseCase() {
+    return new CheckEncryptionHealthUseCase({
+        testEncryptionUseCase: getTestEncryptionUseCase(),
+    });
+}
 const checkExternalApisHealthUseCase = new CheckExternalApisHealthUseCase();
 const checkIntegrationsHealthUseCase = new CheckIntegrationsHealthUseCase({
     moduleFactory,
@@ -418,7 +433,7 @@ router.get('/health/detailed', async (_req, res) => {
     }
 
     try {
-        response.checks.database = await checkDatabaseHealthUseCase.execute();
+        response.checks.database = await getCheckDatabaseHealthUseCase().execute();
         if (response.checks.database.status === 'unhealthy') {
             response.status = 'unhealthy';
         }
@@ -433,7 +448,7 @@ router.get('/health/detailed', async (_req, res) => {
     }
 
     try {
-        response.checks.encryption = await checkEncryptionHealthUseCase.execute();
+        response.checks.encryption = await getCheckEncryptionHealthUseCase().execute();
         if (response.checks.encryption.status === 'unhealthy') {
             response.status = 'unhealthy';
         }
@@ -496,7 +511,7 @@ router.get('/health/live', (_req, res) => {
 });
 
 router.get('/health/ready', async (_req, res) => {
-    const dbHealth = await checkDatabaseHealthUseCase.execute();
+    const dbHealth = await getCheckDatabaseHealthUseCase().execute();
     const isDbReady = dbHealth.status === 'healthy';
 
     const integrationsHealth = checkIntegrationsHealthUseCase.execute();
