@@ -263,6 +263,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
                 handler: `node_modules/@friggframework/core/handlers/routers/integration-webhook-routers.handlers.${integrationName}Webhook.handler`,
                 skipEsbuild: true,  // Nested exports in node_modules - skip esbuild bundling
                 package: functionPackageConfig,
+                layers: [{ Ref: 'PrismaLambdaLayer' }],  // Webhook handlers need Prisma for credential lookups
                 events: [
                     {
                         httpApi: {
@@ -286,6 +287,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
             handler: `node_modules/@friggframework/core/handlers/routers/integration-defined-routers.handlers.${integrationName}.handler`,
             skipEsbuild: true,  // Nested exports in node_modules - skip esbuild bundling
             package: functionPackageConfig,
+            layers: [{ Ref: 'PrismaLambdaLayer' }],  // HTTP handlers need Prisma for integration queries
             events: [
                 {
                     httpApi: {
@@ -303,6 +305,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
             handler: `node_modules/@friggframework/core/handlers/workers/integration-defined-workers.handlers.${integrationName}.queueWorker`,
             skipEsbuild: true,  // Nested exports in node_modules - skip esbuild bundling
             package: functionPackageConfig,
+            layers: [{ Ref: 'PrismaLambdaLayer' }],  // Queue workers need Prisma for database operations
             reservedConcurrency: 5,
             events: [
                 {
