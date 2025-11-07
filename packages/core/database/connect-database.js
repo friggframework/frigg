@@ -13,6 +13,10 @@ async function connectDatabase() {
         const nativeClient = getNativeMongoClient();
         await nativeClient.connect();
         logger.info('✓ Native MongoDB client connected');
+        
+        const { initializeMongoDBSchema } = require('./utils/mongodb-schema-init');
+        await initializeMongoDBSchema();
+        logger.info('✓ MongoDB schema initialized');
     } else {
         logger.info('Connecting using Prisma...');
         const { connectPrisma } = require('./prisma');

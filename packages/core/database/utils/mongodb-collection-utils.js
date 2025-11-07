@@ -1,18 +1,10 @@
 /**
  * MongoDB Collection Utilities
- *
- * Provides utilities for managing MongoDB collections, particularly for
- * handling the constraint that collections cannot be created inside
- * multi-document transactions.
- *
- * Uses Prisma's $runCommandRaw to send native MongoDB commands directly,
- * avoiding the need for mongoose connection.
- *
- * @see https://github.com/prisma/prisma/issues/8305
- * @see https://www.mongodb.com/docs/manual/core/transactions/#transactions-and-operations
+ * Works with both Prisma and native MongoDB driver
  */
 
 const { prisma } = require('../prisma');
+const { isDocumentDB } = require('./documentdb-compatibility');
 
 /**
  * Ensures a MongoDB collection exists
@@ -36,17 +28,31 @@ const { prisma } = require('../prisma');
  */
 async function ensureCollectionExists(collectionName) {
     try {
-        // Check if collection exists using Prisma's $runCommandRaw
-        const collections = await prisma.$runCommandRaw({
-            listCollections: 1,
-            filter: { name: collectionName }
-        });
+        let collections;
+        
+        if (isDocumentDB()) {
+            const { getNativeMongoClient } = require('../mongodb-native-client');
+            const nativeClient = getNativeMongoClient();
+            
+            collections = await nativeClient.runCommand({
+                listCollections: 1,
+                filter: { name: collectionName }
+            });
+        } else {
+            collections = await prisma.$runCommandRaw({
+                listCollections: 1,
+                filter: { name: collectionName }
+            });
+        }
 
         if (collections.cursor.firstBatch.length === 0) {
-            // Collection doesn't exist, create it
-            await prisma.$runCommandRaw({
-                create: collectionName
-            });
+            if (isDocumentDB()) {
+                const { getNativeMongoClient } = require('../mongodb-native-client');
+                const nativeClient = getNativeMongoClient();
+                await nativeClient.runCommand({ create: collectionName });
+            } else {
+                await prisma.$runCommandRaw({ create: collectionName });
+            }
             console.log(`✓ Created collection: ${collectionName}`);
         }
     } catch (error) {
