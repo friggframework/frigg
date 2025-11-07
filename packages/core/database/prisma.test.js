@@ -35,13 +35,31 @@ describe('Prisma MongoDB Adapter', () => {
             expect(process.env.DATABASE_URL).toBe('mongodb://localhost:27017/test?replicaSet=rs0&readPreference=primary');
         });
 
-        it('should not add readPreference if already present', () => {
+        it('should override readPreference=secondaryPreferred to primary', () => {
+            process.env.DATABASE_URL = 'mongodb://localhost:27017/test?readPreference=secondaryPreferred&replicaSet=rs0';
+            delete process.env.MONGO_URI;
+
+            ensureMongoDbUrl();
+
+            expect(process.env.DATABASE_URL).toBe('mongodb://localhost:27017/test?readPreference=primary&replicaSet=rs0');
+        });
+
+        it('should override readPreference=secondary to primary', () => {
             process.env.DATABASE_URL = 'mongodb://localhost:27017/test?readPreference=secondary';
             delete process.env.MONGO_URI;
 
             ensureMongoDbUrl();
 
-            expect(process.env.DATABASE_URL).toBe('mongodb://localhost:27017/test?readPreference=secondary');
+            expect(process.env.DATABASE_URL).toBe('mongodb://localhost:27017/test?readPreference=primary');
+        });
+
+        it('should keep readPreference=primary unchanged', () => {
+            process.env.DATABASE_URL = 'mongodb://localhost:27017/test?readPreference=primary';
+            delete process.env.MONGO_URI;
+
+            ensureMongoDbUrl();
+
+            expect(process.env.DATABASE_URL).toBe('mongodb://localhost:27017/test?readPreference=primary');
         });
 
         it('should set DATABASE_URL from MONGO_URI and add readPreference', () => {

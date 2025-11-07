@@ -29,10 +29,22 @@ function ensureMongoDbUrl() {
     
     // Ensure readPreference=primary for transaction support
     // MongoDB requires this for all operations within transactions
-    if (!connectionString.includes('readPreference=')) {
-        const separator = connectionString.includes('?') ? '&' : '?';
-        connectionString = `${connectionString}${separator}readPreference=primary`;
-        logger.debug('Added readPreference=primary to MongoDB connection string for transaction support');
+    try {
+        const url = new URL(connectionString);
+        const params = url.searchParams;
+        
+        const existingReadPreference = params.get('readPreference');
+        if (existingReadPreference && existingReadPreference !== 'primary') {
+            params.set('readPreference', 'primary');
+            logger.debug(`Overrode readPreference from ${existingReadPreference} to primary for transaction support`);
+        } else if (!existingReadPreference) {
+            params.set('readPreference', 'primary');
+            logger.debug('Added readPreference=primary to MongoDB connection string for transaction support');
+        }
+        
+        connectionString = url.toString();
+    } catch (error) {
+        logger.warn('Failed to parse MongoDB connection string as URL, skipping readPreference configuration:', error.message);
     }
     
     process.env.DATABASE_URL = connectionString;
