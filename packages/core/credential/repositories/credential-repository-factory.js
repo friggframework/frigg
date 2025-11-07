@@ -1,7 +1,7 @@
 const { CredentialRepositoryMongo } = require('./credential-repository-mongo');
-const {
-    CredentialRepositoryPostgres,
-} = require('./credential-repository-postgres');
+const { CredentialRepositoryPostgres } = require('./credential-repository-postgres');
+const { CredentialRepositoryDocumentDB } = require('./credential-repository-documentdb');
+const { isDocumentDB } = require('../../database/utils/documentdb-compatibility');
 const config = require('../../database/config');
 
 /**
@@ -23,6 +23,10 @@ const config = require('../../database/config');
  * @returns {CredentialRepositoryInterface} Configured repository adapter
  */
 function createCredentialRepository() {
+    if (isDocumentDB()) {
+        return new CredentialRepositoryDocumentDB();
+    }
+
     const dbType = config.DB_TYPE;
 
     switch (dbType) {
@@ -41,7 +45,7 @@ function createCredentialRepository() {
 
 module.exports = {
     createCredentialRepository,
-    // Export adapters for direct testing
     CredentialRepositoryMongo,
     CredentialRepositoryPostgres,
+    CredentialRepositoryDocumentDB,
 };
