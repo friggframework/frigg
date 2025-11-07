@@ -14,22 +14,28 @@ const config = require('./config');
  * Note: This should only be called when DB_TYPE is 'mongodb'
  */
 function ensureMongoDbUrl() {
-    // If DATABASE_URL is already set, use it
+    let connectionString;
+    
     if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim()) {
-        return;
-    }
-
-    // Fallback to MONGO_URI for backwards compatibility with DocumentDB deployments
-    if (process.env.MONGO_URI && process.env.MONGO_URI.trim()) {
-        process.env.DATABASE_URL = process.env.MONGO_URI;
+        connectionString = process.env.DATABASE_URL;
+    } else if (process.env.MONGO_URI && process.env.MONGO_URI.trim()) {
+        connectionString = process.env.MONGO_URI;
         logger.debug('Using MONGO_URI as DATABASE_URL for MongoDB connection');
-        return;
+    } else {
+        throw new Error(
+            'DATABASE_URL or MONGO_URI environment variable must be set for MongoDB'
+        );
     }
-
-    // Neither is set - error
-    throw new Error(
-        'DATABASE_URL or MONGO_URI environment variable must be set for MongoDB'
-    );
+    
+    // Ensure readPreference=primary for transaction support
+    // MongoDB requires this for all operations within transactions
+    if (!connectionString.includes('readPreference=')) {
+        const separator = connectionString.includes('?') ? '&' : '?';
+        connectionString = `${connectionString}${separator}readPreference=primary`;
+        logger.debug('Added readPreference=primary to MongoDB connection string for transaction support');
+    }
+    
+    process.env.DATABASE_URL = connectionString;
 }
 
 function getEncryptionConfig() {

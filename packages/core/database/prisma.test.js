@@ -17,22 +17,40 @@ describe('Prisma MongoDB Adapter', () => {
     });
 
     describe('ensureMongoDbUrl() - MongoDB DATABASE_URL setup', () => {
-        it('should use DATABASE_URL when already set', () => {
-            process.env.DATABASE_URL = 'mongodb://localhost:27017/primary';
-            process.env.MONGO_URI = 'mongodb://localhost:27017/fallback';
+        it('should add readPreference=primary when not present', () => {
+            process.env.DATABASE_URL = 'mongodb://localhost:27017/test';
+            delete process.env.MONGO_URI;
 
             ensureMongoDbUrl();
 
-            expect(process.env.DATABASE_URL).toBe('mongodb://localhost:27017/primary');
+            expect(process.env.DATABASE_URL).toBe('mongodb://localhost:27017/test?readPreference=primary');
         });
 
-        it('should set DATABASE_URL from MONGO_URI when DATABASE_URL is not set', () => {
+        it('should add readPreference=primary to existing query params', () => {
+            process.env.DATABASE_URL = 'mongodb://localhost:27017/test?replicaSet=rs0';
+            delete process.env.MONGO_URI;
+
+            ensureMongoDbUrl();
+
+            expect(process.env.DATABASE_URL).toBe('mongodb://localhost:27017/test?replicaSet=rs0&readPreference=primary');
+        });
+
+        it('should not add readPreference if already present', () => {
+            process.env.DATABASE_URL = 'mongodb://localhost:27017/test?readPreference=secondary';
+            delete process.env.MONGO_URI;
+
+            ensureMongoDbUrl();
+
+            expect(process.env.DATABASE_URL).toBe('mongodb://localhost:27017/test?readPreference=secondary');
+        });
+
+        it('should set DATABASE_URL from MONGO_URI and add readPreference', () => {
             delete process.env.DATABASE_URL;
             process.env.MONGO_URI = 'mongodb://localhost:27017/from-mongo-uri';
 
             ensureMongoDbUrl();
 
-            expect(process.env.DATABASE_URL).toBe('mongodb://localhost:27017/from-mongo-uri');
+            expect(process.env.DATABASE_URL).toBe('mongodb://localhost:27017/from-mongo-uri?readPreference=primary');
         });
 
         it('should throw error when neither DATABASE_URL nor MONGO_URI is set', () => {
