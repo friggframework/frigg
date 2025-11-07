@@ -1,10 +1,6 @@
 const { ObjectId } = require('mongodb');
 const bcrypt = require('bcryptjs');
-const { getNativeMongoClient } = require('../../database/mongodb-native-client');
-const { EncryptedCollection } = require('../../database/encrypted-collection-wrapper');
-const { FieldEncryptionService } = require('../../database/encryption/field-encryption-service');
-const { getEncryptedFields } = require('../../database/encryption/encryption-schema-registry');
-const { Cryptor } = require('../../encrypt/Cryptor');
+const { BaseRepositoryDocumentDB } = require('../../database/repositories/base-repository-documentdb');
 const { UserRepositoryInterface } = require('./user-repository-interface');
 const { createTokenRepository } = require('../../token/repositories/token-repository-factory');
 
@@ -13,18 +9,12 @@ const BCRYPT_ROUNDS = 10;
 class UserRepositoryDocumentDB extends UserRepositoryInterface {
     constructor() {
         super();
-        
-        const nativeClient = getNativeMongoClient();
-        const collection = nativeClient.collection('User');
-        
-        const cryptor = new Cryptor({ shouldUseAws: !!process.env.KMS_KEY_ARN });
-        const encryptionService = new FieldEncryptionService({
-            cryptor,
-            schema: { getEncryptedFields },
-        });
-        
-        this.collection = new EncryptedCollection(collection, encryptionService, 'User');
+        this._base = new BaseRepositoryDocumentDB('User', 'User');
         this.tokenRepository = createTokenRepository();
+    }
+
+    get collection() {
+        return this._base.collection;
     }
 
     async getSessionToken(token) {

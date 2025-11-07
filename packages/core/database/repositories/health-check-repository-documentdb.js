@@ -1,27 +1,17 @@
 const { ObjectId } = require('mongodb');
 const { getNativeMongoClient } = require('../mongodb-native-client');
-const { EncryptedCollection } = require('../encrypted-collection-wrapper');
-const { FieldEncryptionService } = require('../encryption/field-encryption-service');
-const { getEncryptedFields } = require('../encryption/encryption-schema-registry');
-const { Cryptor } = require('../../encrypt/Cryptor');
+const { BaseRepositoryDocumentDB } = require('./base-repository-documentdb');
 const { HealthCheckRepositoryInterface } = require('./health-check-repository-interface');
 
 class HealthCheckRepositoryDocumentDB extends HealthCheckRepositoryInterface {
     constructor() {
         super();
-        
-        const nativeClient = getNativeMongoClient();
-        this.nativeClient = nativeClient;
-        
-        const collection = nativeClient.collection('Credential');
-        
-        const cryptor = new Cryptor({ shouldUseAws: !!process.env.KMS_KEY_ARN });
-        const encryptionService = new FieldEncryptionService({
-            cryptor,
-            schema: { getEncryptedFields },
-        });
-        
-        this.collection = new EncryptedCollection(collection, encryptionService, 'Credential');
+        this._base = new BaseRepositoryDocumentDB('Credential', 'Credential');
+        this.nativeClient = getNativeMongoClient();
+    }
+
+    get collection() {
+        return this._base.collection;
     }
 
     async getDatabaseConnectionState() {

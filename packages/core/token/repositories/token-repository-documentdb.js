@@ -1,10 +1,6 @@
 const { ObjectId } = require('mongodb');
 const bcrypt = require('bcryptjs');
-const { getNativeMongoClient } = require('../../database/mongodb-native-client');
-const { EncryptedCollection } = require('../../database/encrypted-collection-wrapper');
-const { FieldEncryptionService } = require('../../database/encryption/field-encryption-service');
-const { getEncryptedFields } = require('../../database/encryption/encryption-schema-registry');
-const { Cryptor } = require('../../encrypt/Cryptor');
+const { BaseRepositoryDocumentDB } = require('../../database/repositories/base-repository-documentdb');
 const { TokenRepositoryInterface } = require('./token-repository-interface');
 
 const BCRYPT_ROUNDS = 10;
@@ -12,17 +8,11 @@ const BCRYPT_ROUNDS = 10;
 class TokenRepositoryDocumentDB extends TokenRepositoryInterface {
     constructor() {
         super();
-        
-        const nativeClient = getNativeMongoClient();
-        const collection = nativeClient.collection('Token');
-        
-        const cryptor = new Cryptor({ shouldUseAws: !!process.env.KMS_KEY_ARN });
-        const encryptionService = new FieldEncryptionService({
-            cryptor,
-            schema: { getEncryptedFields },
-        });
-        
-        this.collection = new EncryptedCollection(collection, encryptionService, 'Token');
+        this._base = new BaseRepositoryDocumentDB('Token', 'Token');
+    }
+
+    get collection() {
+        return this._base.collection;
     }
 
     async createTokenWithExpire(userId, rawToken, minutes) {

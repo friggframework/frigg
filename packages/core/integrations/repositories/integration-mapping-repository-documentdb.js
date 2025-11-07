@@ -1,25 +1,15 @@
 const { ObjectId } = require('mongodb');
-const { getNativeMongoClient } = require('../../database/mongodb-native-client');
-const { EncryptedCollection } = require('../../database/encrypted-collection-wrapper');
-const { FieldEncryptionService } = require('../../database/encryption/field-encryption-service');
-const { getEncryptedFields } = require('../../database/encryption/encryption-schema-registry');
-const { Cryptor } = require('../../encrypt/Cryptor');
+const { BaseRepositoryDocumentDB } = require('../../database/repositories/base-repository-documentdb');
 const { IntegrationMappingRepositoryInterface } = require('./integration-mapping-repository-interface');
 
 class IntegrationMappingRepositoryDocumentDB extends IntegrationMappingRepositoryInterface {
     constructor() {
         super();
-        
-        const nativeClient = getNativeMongoClient();
-        const collection = nativeClient.collection('IntegrationMapping');
-        
-        const cryptor = new Cryptor({ shouldUseAws: !!process.env.KMS_KEY_ARN });
-        const encryptionService = new FieldEncryptionService({
-            cryptor,
-            schema: { getEncryptedFields },
-        });
-        
-        this.collection = new EncryptedCollection(collection, encryptionService, 'IntegrationMapping');
+        this._base = new BaseRepositoryDocumentDB('IntegrationMapping', 'IntegrationMapping');
+    }
+
+    get collection() {
+        return this._base.collection;
     }
 
     async findMappingById(mappingId) {

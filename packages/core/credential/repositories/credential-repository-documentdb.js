@@ -1,29 +1,15 @@
 const { ObjectId } = require('mongodb');
-const { getNativeMongoClient } = require('../../database/mongodb-native-client');
-const { EncryptedCollection } = require('../../database/encrypted-collection-wrapper');
-const { FieldEncryptionService } = require('../../database/encryption/field-encryption-service');
-const { getEncryptedFields } = require('../../database/encryption/encryption-schema-registry');
-const { Cryptor } = require('../../encrypt/Cryptor');
+const { BaseRepositoryDocumentDB } = require('../../database/repositories/base-repository-documentdb');
 const { CredentialRepositoryInterface } = require('./credential-repository-interface');
 
-/**
- * DocumentDB Credential Repository Adapter
- * Uses native MongoDB driver to avoid Prisma's $$REMOVE operator
- */
 class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
     constructor() {
         super();
-        
-        const nativeClient = getNativeMongoClient();
-        const collection = nativeClient.collection('Credential');
-        
-        const cryptor = new Cryptor({ shouldUseAws: !!process.env.KMS_KEY_ARN });
-        const encryptionService = new FieldEncryptionService({
-            cryptor,
-            schema: { getEncryptedFields },
-        });
-        
-        this.collection = new EncryptedCollection(collection, encryptionService, 'Credential');
+        this._base = new BaseRepositoryDocumentDB('Credential', 'Credential');
+    }
+
+    get collection() {
+        return this._base.collection;
     }
 
     async findCredentialById(id) {
