@@ -2,7 +2,7 @@ const { mongoose } = require('../mongoose');
 const {
     HealthCheckRepositoryInterface,
 } = require('./health-check-repository-interface');
-const { removeUndefinedValues } = require('../utils/documentdb-compatibility');
+const { BaseRepositoryMongoDB } = require('./base-repository-mongodb');
 
 class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface {
     /**
@@ -11,7 +11,10 @@ class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface {
      */
     constructor({ prismaClient }) {
         super();
-        this.prisma = prismaClient;
+        
+        // Use MongoDB base repository for DocumentDB compatibility
+        const mongoBase = new BaseRepositoryMongoDB({ prismaClient });
+        this.prisma = mongoBase.prisma;
     }
 
     /**
@@ -49,11 +52,9 @@ class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface {
     }
 
     async createCredential(credentialData) {
-        // Remove undefined values to prevent Prisma from using $$REMOVE (DocumentDB unsupported)
-        const cleanedData = removeUndefinedValues(credentialData);
-        
+        // DocumentDB compatibility handled by BaseRepositoryMongoDB wrapper
         return await this.prisma.credential.create({
-            data: cleanedData,
+            data: credentialData,
         });
     }
 

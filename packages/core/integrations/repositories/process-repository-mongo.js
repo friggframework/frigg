@@ -1,5 +1,6 @@
 const { prisma } = require('../../database/prisma');
 const { ProcessRepositoryInterface } = require('./process-repository-interface');
+const { BaseRepositoryMongoDB } = require('../../database/repositories/base-repository-mongodb');
 
 /**
  * MongoDB Process Repository Adapter
@@ -19,7 +20,10 @@ const { ProcessRepositoryInterface } = require('./process-repository-interface')
 class ProcessRepositoryMongo extends ProcessRepositoryInterface {
     constructor() {
         super();
-        this.prisma = prisma;
+        
+        // Use MongoDB base repository for DocumentDB compatibility
+        const mongoBase = new BaseRepositoryMongoDB({ prismaClient: prisma });
+        this.prisma = mongoBase.prisma;
     }
 
     /**

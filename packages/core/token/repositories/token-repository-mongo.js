@@ -1,6 +1,7 @@
 const { prisma } = require('../../database/prisma');
 const bcrypt = require('bcryptjs');
 const { TokenRepositoryInterface } = require('./token-repository-interface');
+const { BaseRepositoryMongoDB } = require('../../database/repositories/base-repository-mongodb');
 
 const BCRYPT_ROUNDS = 10;
 
@@ -16,7 +17,10 @@ const BCRYPT_ROUNDS = 10;
 class TokenRepositoryMongo extends TokenRepositoryInterface {
     constructor() {
         super();
-        this.prisma = prisma;
+        
+        // Use MongoDB base repository for DocumentDB compatibility
+        const mongoBase = new BaseRepositoryMongoDB({ prismaClient: prisma });
+        this.prisma = mongoBase.prisma;
     }
 
     /**

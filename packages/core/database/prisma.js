@@ -207,11 +207,6 @@ const prismaClientSingleton = () => {
         logger.info('Field-level encryption disabled');
     }
 
-    // Wrap Prisma client for DocumentDB compatibility
-    // Automatically removes undefined values to prevent $$REMOVE operator errors
-    const { wrapPrismaForDocumentDB } = require('./utils/prisma-documentdb-wrapper');
-    client = wrapPrismaForDocumentDB(client);
-
     return client;
 };
 

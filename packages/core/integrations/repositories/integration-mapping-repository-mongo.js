@@ -2,6 +2,7 @@ const { prisma } = require('../../database/prisma');
 const {
     IntegrationMappingRepositoryInterface,
 } = require('./integration-mapping-repository-interface');
+const { BaseRepositoryMongoDB } = require('../../database/repositories/base-repository-mongodb');
 
 /**
  * MongoDB Integration Mapping Repository Adapter
@@ -15,7 +16,10 @@ const {
 class IntegrationMappingRepositoryMongo extends IntegrationMappingRepositoryInterface {
     constructor() {
         super();
-        this.prisma = prisma;
+        
+        // Use MongoDB base repository for DocumentDB compatibility
+        const mongoBase = new BaseRepositoryMongoDB({ prismaClient: prisma });
+        this.prisma = mongoBase.prisma;
     }
 
     /**

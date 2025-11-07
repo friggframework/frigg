@@ -6,6 +6,7 @@ const {
 const {
     WebsocketConnectionRepositoryInterface,
 } = require('./websocket-connection-repository-interface');
+const { BaseRepositoryMongoDB } = require('../../database/repositories/base-repository-mongodb');
 
 /**
  * MongoDB WebSocket Connection Repository Adapter
@@ -19,7 +20,10 @@ const {
 class WebsocketConnectionRepositoryMongo extends WebsocketConnectionRepositoryInterface {
     constructor() {
         super();
-        this.prisma = prisma;
+        
+        // Use MongoDB base repository for DocumentDB compatibility
+        const mongoBase = new BaseRepositoryMongoDB({ prismaClient: prisma });
+        this.prisma = mongoBase.prisma;
     }
 
     /**

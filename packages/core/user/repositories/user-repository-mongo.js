@@ -4,6 +4,7 @@ const {
     createTokenRepository,
 } = require('../../token/repositories/token-repository-factory');
 const { UserRepositoryInterface } = require('./user-repository-interface');
+const { BaseRepositoryMongoDB } = require('../../database/repositories/base-repository-mongodb');
 
 /**
  * MongoDB User Repository Adapter
@@ -17,7 +18,10 @@ const { UserRepositoryInterface } = require('./user-repository-interface');
 class UserRepositoryMongo extends UserRepositoryInterface {
     constructor() {
         super();
-        this.prisma = prisma;
+        
+        // Use MongoDB base repository for DocumentDB compatibility
+        const mongoBase = new BaseRepositoryMongoDB({ prismaClient: prisma });
+        this.prisma = mongoBase.prisma;
         this.tokenRepository = createTokenRepository();
     }
 

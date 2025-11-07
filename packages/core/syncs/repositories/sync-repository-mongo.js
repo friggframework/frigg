@@ -1,5 +1,6 @@
 const { prisma } = require('../../database/prisma');
 const { SyncRepositoryInterface } = require('./sync-repository-interface');
+const { BaseRepositoryMongoDB } = require('../../database/repositories/base-repository-mongodb');
 
 /**
  * MongoDB Sync Repository Adapter
@@ -18,7 +19,10 @@ const { SyncRepositoryInterface } = require('./sync-repository-interface');
 class SyncRepositoryMongo extends SyncRepositoryInterface {
     constructor() {
         super();
-        this.prisma = prisma;
+        
+        // Use MongoDB base repository for DocumentDB compatibility
+        const mongoBase = new BaseRepositoryMongoDB({ prismaClient: prisma });
+        this.prisma = mongoBase.prisma;
     }
 
     /**
