@@ -4,7 +4,6 @@
  */
 
 const { MongoClient } = require('mongodb');
-const { logger } = require('../logs');
 
 class MongoDBNativeClient {
     constructor() {
@@ -45,7 +44,7 @@ class MongoDBNativeClient {
         this.db = this.client.db();
         this.isConnected = true;
         
-        logger.info('Native MongoDB client connected');
+        console.log('✓ Native MongoDB client connected');
     }
 
     async disconnect() {
@@ -54,7 +53,7 @@ class MongoDBNativeClient {
             this.client = null;
             this.db = null;
             this.isConnected = false;
-            logger.info('Native MongoDB client disconnected');
+            console.log('✓ Native MongoDB client disconnected');
         }
     }
 
