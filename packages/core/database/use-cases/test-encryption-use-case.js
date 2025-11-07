@@ -86,7 +86,9 @@ class TestEncryptionUseCase {
         // Note: Using camelCase for Prisma compatibility (both MongoDB and PostgreSQL)
         // Changed from snake_case (user_id, entity_id) to camelCase (userId, externalId)
         return {
+            userId: null,  // Explicitly null (not undefined) for DocumentDB compatibility
             externalId: 'test-encryption-entity',
+            authIsValid: null,  // Explicitly null (not undefined) for DocumentDB compatibility
             data: {
                 access_token: testData.testSecret,      // Encrypted field
                 refresh_token: testData.nestedSecret?.value, // Encrypted field
