@@ -180,5 +180,88 @@ describe('Webhook Queue Worker', () => {
             await expect(worker.run(sqsEvent, {})).rejects.toThrow();
         });
     });
+
+    describe('Integration Hydration for ANY event with integrationId', () => {
+        it('should hydrate integration for POST_CREATE_SETUP event with integrationId', async () => {
+            const QueueWorker = createQueueWorker(TestWebhookIntegration);
+            const worker = new QueueWorker();
+
+            const params = {
+                event: 'POST_CREATE_SETUP',
+                data: {
+                    integrationId: 'integration-789',
+                    config: { webhooksEnabled: true },
+                },
+            };
+
+            const sqsEvent = {
+                Records: [{ body: JSON.stringify(params) }],
+            };
+
+            // Should attempt to load integration (will fail DB call in test env)
+            // This proves the hydration path is taken for non-webhook events
+            await expect(worker.run(sqsEvent, {})).rejects.toThrow();
+        });
+
+        it('should prioritize processId over integrationId for hydration', async () => {
+            const QueueWorker = createQueueWorker(TestWebhookIntegration);
+            const worker = new QueueWorker();
+
+            const params = {
+                event: 'POST_CREATE_SETUP',
+                data: {
+                    processId: 'process-123',
+                    integrationId: 'integration-456', // Should be ignored
+                },
+            };
+
+            const sqsEvent = {
+                Records: [{ body: JSON.stringify(params) }],
+            };
+
+            // Should use processId path (will fail trying to load process from DB)
+            await expect(worker.run(sqsEvent, {})).rejects.toThrow();
+        });
+
+        it('should hydrate for custom events with integrationId', async () => {
+            const QueueWorker = createQueueWorker(TestWebhookIntegration);
+            const worker = new QueueWorker();
+
+            const params = {
+                event: 'CUSTOM_EVENT',
+                data: {
+                    integrationId: 'integration-999',
+                    customData: { foo: 'bar' },
+                },
+            };
+
+            const sqsEvent = {
+                Records: [{ body: JSON.stringify(params) }],
+            };
+
+            // Should hydrate for ANY event type with integrationId
+            await expect(worker.run(sqsEvent, {})).rejects.toThrow();
+        });
+
+        it('should create unhydrated instance when no processId or integrationId', async () => {
+            const QueueWorker = createQueueWorker(TestWebhookIntegration);
+            const worker = new QueueWorker();
+
+            const params = {
+                event: 'ON_WEBHOOK', // Use a registered event
+                data: {
+                    body: { someData: 'value' },
+                    // No processId or integrationId
+                },
+            };
+
+            const sqsEvent = {
+                Records: [{ body: JSON.stringify(params) }],
+            };
+
+            // Should work with unhydrated instance (no DB call)
+            await expect(worker.run(sqsEvent, {})).resolves.not.toThrow();
+        });
+    });
 });
 

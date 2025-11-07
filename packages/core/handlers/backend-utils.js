@@ -133,17 +133,18 @@ const createQueueWorker = (integrationClass) => {
         async _run(params, context) {
             try {
                 let integrationInstance;
-                if (
-                    params.event === 'ON_WEBHOOK' &&
-                    params.data?.integrationId
-                ) {
-                    integrationInstance = await loadIntegrationForWebhook(
-                        params.data.integrationId
-                    );
-                } else if (params.data?.processId) {
+                
+                // Prioritize processId first (for sync handler compatibility),
+                // then integrationId (for ANY event type that needs hydration),
+                // fallback to unhydrated instance
+                if (params.data?.processId) {
                     integrationInstance = await loadIntegrationForProcess(
                         params.data.processId,
                         integrationClass
+                    );
+                } else if (params.data?.integrationId) {
+                    integrationInstance = await loadIntegrationForWebhook(
+                        params.data.integrationId
                     );
                 } else {
                     // Instantiates a DRY integration class without database records.
