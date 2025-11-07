@@ -1783,13 +1783,11 @@ class VpcBuilder extends InfrastructureBuilder {
             ? 'FriggNATRoute'  // Use existing logical ID from stack (backwards compatibility)
             : 'FriggPrivateRoute';  // Default for new stacks
 
-        // Determine logical IDs for subnet associations (similar backwards compatibility)
-        const subnet1AssocLogicalId = existingLogicalIds.includes('FriggSubnet1RouteAssociation')
-            ? 'FriggSubnet1RouteAssociation'  // Use existing (backwards compatibility)
-            : 'FriggPrivateSubnet1RouteTableAssociation';  // Default for new stacks
-        const subnet2AssocLogicalId = existingLogicalIds.includes('FriggSubnet2RouteAssociation')
-            ? 'FriggSubnet2RouteAssociation'  // Use existing (backwards compatibility)
-            : 'FriggPrivateSubnet2RouteTableAssociation';  // Default for new stacks
+        // Always use new logical IDs to force recreation and fix drift
+        // Old IDs (FriggSubnet1RouteAssociation) may have drifted from CloudFormation state
+        // Using new IDs forces CloudFormation to delete old and create new associations
+        const subnet1AssocLogicalId = 'FriggPrivateSubnet1RouteTableAssociation';
+        const subnet2AssocLogicalId = 'FriggPrivateSubnet2RouteTableAssociation';
 
         // Private route table with NAT Gateway route
         if (!result.resources.FriggLambdaRouteTable) {
