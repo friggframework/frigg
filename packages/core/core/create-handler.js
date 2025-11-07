@@ -11,8 +11,8 @@ function setDatabaseInitializer(initializer) {
 
 function getDefaultDatabaseInitializer() {
     if (!databaseInitializer) {
-        const { connectPrisma } = require('../database/prisma');
-        databaseInitializer = connectPrisma;
+        const { connectDatabase } = require('../database/connect-database');
+        databaseInitializer = connectDatabase;
     }
     return databaseInitializer;
 }
