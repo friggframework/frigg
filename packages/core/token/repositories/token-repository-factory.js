@@ -1,14 +1,14 @@
 const { TokenRepositoryMongo } = require('./token-repository-mongo');
 const { TokenRepositoryPostgres } = require('./token-repository-postgres');
+const { TokenRepositoryDocumentDB } = require('./token-repository-documentdb');
+const { isDocumentDB } = require('../../database/utils/documentdb-compatibility');
 const config = require('../../database/config');
 
-/**
- * Token Repository Factory
- * Creates the appropriate repository adapter based on database type
- *
- * @returns {TokenRepositoryInterface} Configured repository adapter
- */
 function createTokenRepository() {
+    if (isDocumentDB()) {
+        return new TokenRepositoryDocumentDB();
+    }
+
     const dbType = config.DB_TYPE;
 
     switch (dbType) {
@@ -27,7 +27,7 @@ function createTokenRepository() {
 
 module.exports = {
     createTokenRepository,
-    // Export adapters for direct testing
     TokenRepositoryMongo,
     TokenRepositoryPostgres,
+    TokenRepositoryDocumentDB,
 };

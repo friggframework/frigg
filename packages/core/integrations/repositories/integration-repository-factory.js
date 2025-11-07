@@ -1,5 +1,7 @@
 const { IntegrationRepositoryMongo } = require('./integration-repository-mongo');
 const { IntegrationRepositoryPostgres } = require('./integration-repository-postgres');
+const { IntegrationRepositoryDocumentDB } = require('./integration-repository-documentdb');
+const { isDocumentDB } = require('../../database/utils/documentdb-compatibility');
 const config = require('../../database/config');
 
 /**
@@ -20,6 +22,10 @@ const config = require('../../database/config');
  * @throws {Error} If database type is not supported
  */
 function createIntegrationRepository() {
+    if (isDocumentDB()) {
+        return new IntegrationRepositoryDocumentDB();
+    }
+
     const dbType = config.DB_TYPE;
 
     switch (dbType) {
@@ -38,7 +44,7 @@ function createIntegrationRepository() {
 
 module.exports = {
     createIntegrationRepository,
-    // Export adapters for direct testing
     IntegrationRepositoryMongo,
     IntegrationRepositoryPostgres,
+    IntegrationRepositoryDocumentDB,
 };

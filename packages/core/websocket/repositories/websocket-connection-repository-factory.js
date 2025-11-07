@@ -1,18 +1,14 @@
-const {
-    WebsocketConnectionRepositoryMongo,
-} = require('./websocket-connection-repository-mongo');
-const {
-    WebsocketConnectionRepositoryPostgres,
-} = require('./websocket-connection-repository-postgres');
+const { WebsocketConnectionRepositoryMongo } = require('./websocket-connection-repository-mongo');
+const { WebsocketConnectionRepositoryPostgres } = require('./websocket-connection-repository-postgres');
+const { WebsocketConnectionRepositoryDocumentDB } = require('./websocket-connection-repository-documentdb');
+const { isDocumentDB } = require('../../database/utils/documentdb-compatibility');
 const config = require('../../database/config');
 
-/**
- * Websocket Connection Repository Factory
- * Creates the appropriate repository adapter based on database type
- *
- * @returns {WebsocketConnectionRepositoryInterface} Configured repository adapter
- */
 function createWebsocketConnectionRepository() {
+    if (isDocumentDB()) {
+        return new WebsocketConnectionRepositoryDocumentDB();
+    }
+
     const dbType = config.DB_TYPE;
 
     switch (dbType) {
@@ -31,7 +27,7 @@ function createWebsocketConnectionRepository() {
 
 module.exports = {
     createWebsocketConnectionRepository,
-    // Export adapters for direct testing
     WebsocketConnectionRepositoryMongo,
     WebsocketConnectionRepositoryPostgres,
+    WebsocketConnectionRepositoryDocumentDB,
 };

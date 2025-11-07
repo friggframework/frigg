@@ -1,19 +1,14 @@
 const { SyncRepositoryMongo } = require('./sync-repository-mongo');
 const { SyncRepositoryPostgres } = require('./sync-repository-postgres');
+const { SyncRepositoryDocumentDB } = require('./sync-repository-documentdb');
+const { isDocumentDB } = require('../../database/utils/documentdb-compatibility');
 const config = require('../../database/config');
 
-/**
- * Sync Repository Factory
- * Creates the appropriate repository adapter based on database type
- *
- * Usage:
- * ```javascript
- * const repository = createSyncRepository();
- * ```
- *
- * @returns {SyncRepositoryInterface} Configured repository adapter
- */
 function createSyncRepository() {
+    if (isDocumentDB()) {
+        return new SyncRepositoryDocumentDB();
+    }
+
     const dbType = config.DB_TYPE;
 
     switch (dbType) {
@@ -32,7 +27,7 @@ function createSyncRepository() {
 
 module.exports = {
     createSyncRepository,
-    // Export adapters for direct testing
     SyncRepositoryMongo,
     SyncRepositoryPostgres,
+    SyncRepositoryDocumentDB,
 };

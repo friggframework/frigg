@@ -1,5 +1,7 @@
 const { HealthCheckRepositoryMongoDB } = require('./health-check-repository-mongodb');
 const { HealthCheckRepositoryPostgreSQL } = require('./health-check-repository-postgres');
+const { HealthCheckRepositoryDocumentDB } = require('./health-check-repository-documentdb');
+const { isDocumentDB } = require('../utils/documentdb-compatibility');
 const config = require('../config');
 
 /**
@@ -16,6 +18,10 @@ const config = require('../config');
  * const repository = createHealthCheckRepository({ prismaClient: prisma });
  */
 function createHealthCheckRepository({ prismaClient } = {}) {
+    if (isDocumentDB()) {
+        return new HealthCheckRepositoryDocumentDB();
+    }
+
     if (!prismaClient) {
         throw new Error('prismaClient is required');
     }
@@ -40,4 +46,5 @@ module.exports = {
     createHealthCheckRepository,
     HealthCheckRepositoryMongoDB,
     HealthCheckRepositoryPostgreSQL,
+    HealthCheckRepositoryDocumentDB,
 };

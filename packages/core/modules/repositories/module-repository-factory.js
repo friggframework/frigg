@@ -1,14 +1,14 @@
 const { ModuleRepositoryMongo } = require('./module-repository-mongo');
 const { ModuleRepositoryPostgres } = require('./module-repository-postgres');
+const { ModuleRepositoryDocumentDB } = require('./module-repository-documentdb');
+const { isDocumentDB } = require('../../database/utils/documentdb-compatibility');
 const config = require('../../database/config');
 
-/**
- * Module Repository Factory
- * Creates the appropriate repository adapter based on database type
- *
- * @returns {ModuleRepositoryInterface} Configured repository adapter
- */
 function createModuleRepository() {
+    if (isDocumentDB()) {
+        return new ModuleRepositoryDocumentDB();
+    }
+
     const dbType = config.DB_TYPE;
 
     switch (dbType) {
@@ -27,7 +27,7 @@ function createModuleRepository() {
 
 module.exports = {
     createModuleRepository,
-    // Export adapters for direct testing
     ModuleRepositoryMongo,
     ModuleRepositoryPostgres,
+    ModuleRepositoryDocumentDB,
 };

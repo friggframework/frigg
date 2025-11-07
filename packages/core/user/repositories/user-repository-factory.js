@@ -1,5 +1,7 @@
 const { UserRepositoryMongo } = require('./user-repository-mongo');
 const { UserRepositoryPostgres } = require('./user-repository-postgres');
+const { UserRepositoryDocumentDB } = require('./user-repository-documentdb');
+const { isDocumentDB } = require('../../database/utils/documentdb-compatibility');
 const databaseConfig = require('../../database/config');
 
 /**
@@ -22,6 +24,10 @@ const databaseConfig = require('../../database/config');
  * @returns {UserRepositoryInterface} Configured repository adapter
  */
 function createUserRepository() {
+    if (isDocumentDB()) {
+        return new UserRepositoryDocumentDB();
+    }
+
     const dbType = databaseConfig.DB_TYPE;
 
     switch (dbType) {
@@ -40,7 +46,7 @@ function createUserRepository() {
 
 module.exports = {
     createUserRepository,
-    // Export adapters for direct testing
     UserRepositoryMongo,
     UserRepositoryPostgres,
+    UserRepositoryDocumentDB,
 };
