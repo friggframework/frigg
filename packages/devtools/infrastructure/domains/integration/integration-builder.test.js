@@ -589,5 +589,79 @@ describe('IntegrationBuilder', () => {
             expect(result.functions.testWebhook.package.exclude).toContain('node_modules/@prisma/**');
         });
     });
+
+    describe('Prisma Layer Configuration', () => {
+        it('should attach Prisma Lambda layer to queue worker functions', async () => {
+            const appDefinition = {
+                integrations: [
+                    { Definition: { name: 'hubspot' } },
+                ],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            // Queue workers need Prisma layer for database operations
+            expect(result.functions.hubspotQueueWorker.layers).toEqual([
+                { Ref: 'PrismaLambdaLayer' }
+            ]);
+        });
+
+        it('should attach Prisma layer to multiple queue workers', async () => {
+            const appDefinition = {
+                integrations: [
+                    { Definition: { name: 'hubspot' } },
+                    { Definition: { name: 'salesforce' } },
+                    { Definition: { name: 'slack' } },
+                ],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(result.functions.hubspotQueueWorker.layers).toEqual([
+                { Ref: 'PrismaLambdaLayer' }
+            ]);
+            expect(result.functions.salesforceQueueWorker.layers).toEqual([
+                { Ref: 'PrismaLambdaLayer' }
+            ]);
+            expect(result.functions.slackQueueWorker.layers).toEqual([
+                { Ref: 'PrismaLambdaLayer' }
+            ]);
+        });
+
+        it('should attach Prisma layer to HTTP handlers for database access', async () => {
+            const appDefinition = {
+                integrations: [
+                    { Definition: { name: 'stripe' } },
+                ],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            // HTTP handlers also need Prisma for integration queries
+            expect(result.functions.stripe.layers).toEqual([
+                { Ref: 'PrismaLambdaLayer' }
+            ]);
+        });
+
+        it('should attach Prisma layer to webhook handlers', async () => {
+            const appDefinition = {
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'hubspot',
+                            webhooks: true,
+                        }
+                    },
+                ],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            // Webhook handlers need Prisma for credential lookups
+            expect(result.functions.hubspotWebhook.layers).toEqual([
+                { Ref: 'PrismaLambdaLayer' }
+            ]);
+        });
+    });
 });
 
