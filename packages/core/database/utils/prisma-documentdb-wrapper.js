@@ -26,9 +26,14 @@ const { removeUndefinedValues, isDocumentDB } = require('./documentdb-compatibil
  */
 function wrapPrismaForDocumentDB(prismaClient) {
     // Only wrap if using DocumentDB
-    if (!isDocumentDB()) {
+    const isDocDB = isDocumentDB();
+    
+    if (!isDocDB) {
+        console.log('[DocumentDB Wrapper] Not DocumentDB - skipping wrapper');
         return prismaClient;
     }
+    
+    console.log('[DocumentDB Wrapper] DocumentDB detected - applying compatibility wrapper');
 
     return new Proxy(prismaClient, {
         get(target, modelName) {
@@ -52,9 +57,18 @@ function wrapPrismaForDocumentDB(prismaClient) {
                     // Wrap create, update, upsert methods
                     if (['create', 'createMany', 'update', 'updateMany', 'upsert'].includes(methodName)) {
                         return function wrappedMethod(args) {
+                            console.log(`[DocumentDB Wrapper] ${modelName}.${methodName}() called`);
+                            console.log('[DocumentDB Wrapper] Original args:', JSON.stringify(args, null, 2));
+                            
                             // Clean the data object
                             if (args && args.data) {
+                                const originalData = JSON.stringify(args.data);
                                 args.data = removeUndefinedValues(args.data);
+                                console.log('[DocumentDB Wrapper] Cleaned data:', JSON.stringify(args.data, null, 2));
+                                
+                                if (originalData !== JSON.stringify(args.data)) {
+                                    console.log('[DocumentDB Wrapper] ⚠️  Data was modified - undefined values removed');
+                                }
                             }
                             
                             // For createMany, clean each item in the array
