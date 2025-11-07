@@ -804,6 +804,35 @@ describe('VpcBuilder', () => {
             expect(result.resources.FriggPrivateSubnet2RouteTableAssociation.Properties.RouteTableId).toEqual({ Ref: 'FriggLambdaRouteTable' });
         });
 
+        it('should add UpdateReplacePolicy to force association recreation on updates', async () => {
+            const appDefinition = {
+                vpc: {
+                    enable: true,
+                    management: 'discover',
+                    subnets: { management: 'discover' },
+                    natGateway: { management: 'discover' },
+                },
+            };
+
+            const discoveredResources = {
+                vpcId: 'vpc-123',
+                privateSubnetId1: 'subnet-existing-1',
+                privateSubnetId2: 'subnet-existing-2',
+                natGatewayId: 'nat-existing',
+                routeTableId: 'rtb-old',
+                existingLogicalIds: ['FriggSubnet1RouteAssociation', 'FriggSubnet2RouteAssociation'],
+            };
+
+            const result = await vpcBuilder.build(appDefinition, discoveredResources);
+
+            // Verify associations have UpdateReplacePolicy to force recreation
+            expect(result.resources.FriggSubnet1RouteAssociation.UpdateReplacePolicy).toBe('Delete');
+            expect(result.resources.FriggSubnet2RouteAssociation.UpdateReplacePolicy).toBe('Delete');
+            
+            // This forces CloudFormation to delete old associations and create new ones
+            // instead of trying to update them in-place (which doesn't work)
+        });
+
         it('should not create NAT when existing NAT is properly placed', async () => {
             const appDefinition = {
                 vpc: {

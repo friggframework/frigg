@@ -1821,6 +1821,7 @@ class VpcBuilder extends InfrastructureBuilder {
 
         result.resources[subnet1AssocLogicalId] = {
             Type: 'AWS::EC2::SubnetRouteTableAssociation',
+            UpdateReplacePolicy: 'Delete',
             Properties: {
                 SubnetId: subnet1Id,
                 RouteTableId: { Ref: 'FriggLambdaRouteTable' },
@@ -1829,6 +1830,7 @@ class VpcBuilder extends InfrastructureBuilder {
 
         result.resources[subnet2AssocLogicalId] = {
             Type: 'AWS::EC2::SubnetRouteTableAssociation',
+            UpdateReplacePolicy: 'Delete',
             Properties: {
                 SubnetId: subnet2Id,
                 RouteTableId: { Ref: 'FriggLambdaRouteTable' },
@@ -1856,6 +1858,7 @@ class VpcBuilder extends InfrastructureBuilder {
 
         result.resources.FriggPrivateSubnet1RouteTableAssociation = {
             Type: 'AWS::EC2::SubnetRouteTableAssociation',
+            UpdateReplacePolicy: 'Delete',
             Properties: {
                 SubnetId: subnet1Id,
                 RouteTableId: routeTableId,
@@ -1864,6 +1867,7 @@ class VpcBuilder extends InfrastructureBuilder {
 
         result.resources.FriggPrivateSubnet2RouteTableAssociation = {
             Type: 'AWS::EC2::SubnetRouteTableAssociation',
+            UpdateReplacePolicy: 'Delete',
             Properties: {
                 SubnetId: subnet2Id,
                 RouteTableId: routeTableId,
