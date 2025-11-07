@@ -99,6 +99,7 @@ describe('createHandler', () => {
                 method: mockMethod,
                 shouldUseDatabase: true,
                 databaseInitializer: mockDatabaseInitializer,
+                isUserFacingResponse: false, // Don't catch errors
             });
 
             await expect(handler(mockEvent, mockContext)).rejects.toThrow('Connection failed');
