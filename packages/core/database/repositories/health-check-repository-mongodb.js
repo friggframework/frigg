@@ -2,6 +2,7 @@ const { mongoose } = require('../mongoose');
 const {
     HealthCheckRepositoryInterface,
 } = require('./health-check-repository-interface');
+const { removeUndefinedValues } = require('../utils/documentdb-compatibility');
 
 class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface {
     /**
@@ -48,8 +49,11 @@ class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface {
     }
 
     async createCredential(credentialData) {
+        // Remove undefined values to prevent Prisma from using $$REMOVE (DocumentDB unsupported)
+        const cleanedData = removeUndefinedValues(credentialData);
+        
         return await this.prisma.credential.create({
-            data: credentialData,
+            data: cleanedData,
         });
     }
 
