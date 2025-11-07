@@ -130,10 +130,27 @@ async function performDatabaseChecks(verbose) {
     const clientCheck = checkPrismaClientGenerated(dbType);
 
     if (!clientCheck.generated) {
-        console.error(getPrismaClientNotGeneratedError(dbType));
-        console.error(chalk.yellow('\nRun this command to generate the Prisma client:'));
+        // Check if this is a platform binary mismatch (common on macOS)
+        if (clientCheck.needsRegeneration) {
+            console.error(chalk.red('\n❌ Prisma client needs regeneration for your platform'));
+            console.error(chalk.yellow('\nThe Prisma client exists but is missing binaries for your platform.'));
+            console.error(chalk.gray('This commonly happens when:'));
+            console.error(chalk.gray('  • You installed from npm (pre-built for Linux)'));
+            console.error(chalk.gray('  • You\'re running on macOS or a different platform\n'));
+
+            if (clientCheck.requiredTarget) {
+                console.error(chalk.cyan(`Required: ${clientCheck.requiredTarget}`));
+            }
+            if (clientCheck.availableTargets && clientCheck.availableTargets.length > 0) {
+                console.error(chalk.gray(`Available: ${clientCheck.availableTargets.join(', ')}\n'));
+            }
+        } else {
+            console.error(getPrismaClientNotGeneratedError(dbType));
+        }
+
+        console.error(chalk.yellow('Run this command to fix:'));
         console.error(chalk.cyan('  frigg db:setup\n'));
-        throw new Error('Prisma client not generated');
+        throw new Error('Prisma client not generated for current platform');
     }
 
     if (verbose) {
