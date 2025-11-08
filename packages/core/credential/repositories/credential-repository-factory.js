@@ -30,6 +30,8 @@ function createCredentialRepository() {
         case 'mongodb':
         case 'documentdb':
             // Both MongoDB and DocumentDB use native driver
+            // Note: config.DB_TYPE returns 'mongodb' for both database.mongoDB and database.documentDB
+            // The 'documentdb' case is defensive (if DB_TYPE env var is set manually)
             return new CredentialRepositoryMongoDBNative();
 
         case 'postgresql':

@@ -4,7 +4,7 @@ const { ObjectId } = require('mongodb');
 jest.mock('../../database/mongodb-native-client');
 jest.mock('../../database/encrypted-collection-wrapper');
 
-describe('CredentialRepositoryMongoDBNative', () => {
+describe('CredentialRepositoryDocumentDB', () => {
     let repository;
     let mockNativeClient;
     let mockCollection;
@@ -42,7 +42,7 @@ describe('CredentialRepositoryMongoDBNative', () => {
         const { EncryptedCollection } = require('../../database/encrypted-collection-wrapper');
         EncryptedCollection.mockImplementation(() => mockEncryptedCollection);
 
-        repository = new CredentialRepositoryMongoDBNative();
+        repository = new CredentialRepositoryDocumentDB();
     });
 
     afterEach(() => {
