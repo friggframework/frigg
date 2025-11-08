@@ -1,6 +1,6 @@
 const { ObjectId } = require('mongodb');
 const bcrypt = require('bcryptjs');
-const { BaseRepositoryMongoDBNative } = require('../../database/repositories/base-repository-documentdb');
+const { BaseRepositoryDocumentDB } = require('../../database/repositories/base-repository-documentdb');
 const { TokenRepositoryInterface } = require('./token-repository-interface');
 
 const BCRYPT_ROUNDS = 10;
@@ -8,7 +8,7 @@ const BCRYPT_ROUNDS = 10;
 class TokenRepositoryMongoDBNative extends TokenRepositoryInterface {
     constructor() {
         super();
-        this._base = new BaseRepositoryMongoDBNative('Token', 'Token');
+        this._base = new BaseRepositoryDocumentDB('Token', 'Token');
     }
 
     get collection() {

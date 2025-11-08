@@ -1,12 +1,12 @@
 const { ObjectId } = require('mongodb');
 const { getNativeMongoClient } = require('../mongodb-native-client');
-const { BaseRepositoryMongoDBNative } = require('./base-repository-documentdb');
+const { BaseRepositoryDocumentDB } = require('./base-repository-documentdb');
 const { HealthCheckRepositoryInterface } = require('./health-check-repository-interface');
 
 class HealthCheckRepositoryMongoDBNative extends HealthCheckRepositoryInterface {
     constructor() {
         super();
-        this._base = new BaseRepositoryMongoDBNative('Credential', 'Credential');
+        this._base = new BaseRepositoryDocumentDB('Credential', 'Credential');
         this.nativeClient = getNativeMongoClient();
     }
 

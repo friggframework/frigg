@@ -1,19 +1,19 @@
 const { ObjectId } = require('mongodb');
-const { BaseRepositoryMongoDBNative } = require('../../database/repositories/base-repository-documentdb');
+const { BaseRepositoryDocumentDB } = require('../../database/repositories/base-repository-documentdb');
 const { IntegrationRepositoryInterface } = require('./integration-repository-interface');
 
 /**
  * MongoDB Native Driver Repository for Integration
  * 
  * Uses native MongoDB driver instead of Prisma to avoid $$REMOVE operator issues.
- * Works with both MongoDB and MongoDBNative.
+ * Works with both MongoDB and DocumentDB.
  * 
  * Architecture: Hexagonal (Adapter layer)
  */
 class IntegrationRepositoryMongoDBNative extends IntegrationRepositoryInterface {
     constructor() {
         super();
-        this._base = new BaseRepositoryMongoDBNative('Integration', 'Integration');
+        this._base = new BaseRepositoryDocumentDB('Integration', 'Integration');
     }
 
     get collection() {

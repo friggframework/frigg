@@ -11,7 +11,7 @@ const config = require('../../database/config');
  * - Returns correct adapter (MongoDB Native Driver or Prisma for PostgreSQL)
  * - Provides clear error for unsupported databases
  *
- * MongoDB/MongoDBNative: Uses native MongoDB driver (avoids Prisma $$REMOVE operator issues)
+ * MongoDB/DocumentDB: Uses native MongoDB driver (avoids Prisma $$REMOVE operator issues)
  * PostgreSQL: Uses Prisma (no $$REMOVE issues)
  *
  * Usage:
@@ -28,8 +28,7 @@ function createIntegrationRepository() {
     switch (dbType) {
         case 'mongodb':
         case 'documentdb':
-        case 'mongodb-native':
-            // Both MongoDB and MongoDBNative use native driver
+            // Both MongoDB and DocumentDB use native driver
             return new IntegrationRepositoryMongoDBNative();
 
         case 'postgresql':
@@ -37,7 +36,7 @@ function createIntegrationRepository() {
 
         default:
             throw new Error(
-                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'mongodb-native', 'postgresql'`
+                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql'`
             );
     }
 }

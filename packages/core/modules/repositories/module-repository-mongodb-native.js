@@ -1,11 +1,11 @@
 const { ObjectId } = require('mongodb');
-const { BaseRepositoryMongoDBNative } = require('../../database/repositories/base-repository-documentdb');
+const { BaseRepositoryDocumentDB } = require('../../database/repositories/base-repository-documentdb');
 const { ModuleRepositoryInterface } = require('./module-repository-interface');
 
 class ModuleRepositoryMongoDBNative extends ModuleRepositoryInterface {
     constructor() {
         super();
-        this._base = new BaseRepositoryMongoDBNative('Entity', 'Entity');
+        this._base = new BaseRepositoryDocumentDB('Entity', 'Entity');
     }
 
     get collection() {

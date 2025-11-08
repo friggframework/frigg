@@ -1,7 +1,7 @@
 /**
  * Verification Test: Repository Fix for MongoDB Decryption Bug
  *
- * This test verifies that the fix in ModuleRepositoryMongo successfully
+ * This test verifies that the fix in ModuleRepositoryMongoDBNative successfully
  * decrypts credentials when fetching entities (after removing `include`).
  *
  * Expected Behavior After Fix:
@@ -23,7 +23,7 @@ jest.mock('../config', () => ({
 }));
 
 const { prisma, connectPrisma, disconnectPrisma } = require('../prisma');
-const { ModuleRepositoryMongo } = require('../../modules/repositories/module-repository-mongo');
+const { ModuleRepositoryMongoDBNative } = require('../../modules/repositories/module-repository-mongodb-native');
 
 describe('Repository Fix Verification - MongoDB Decryption', () => {
     let repository;
@@ -36,7 +36,7 @@ describe('Repository Fix Verification - MongoDB Decryption', () => {
 
     beforeAll(async () => {
         await connectPrisma();
-        repository = new ModuleRepositoryMongo();
+        repository = new ModuleRepositoryMongoDBNative();
     });
 
     afterAll(async () => {

@@ -1,10 +1,10 @@
-const { CredentialRepositoryDocumentDB } = require('./credential-repository-documentdb');
+const { CredentialRepositoryMongoDBNative } = require('./credential-repository-mongodb-native');
 const { ObjectId } = require('mongodb');
 
 jest.mock('../../database/mongodb-native-client');
 jest.mock('../../database/encrypted-collection-wrapper');
 
-describe('CredentialRepositoryDocumentDB', () => {
+describe('CredentialRepositoryMongoDBNative', () => {
     let repository;
     let mockNativeClient;
     let mockCollection;
@@ -42,7 +42,7 @@ describe('CredentialRepositoryDocumentDB', () => {
         const { EncryptedCollection } = require('../../database/encrypted-collection-wrapper');
         EncryptedCollection.mockImplementation(() => mockEncryptedCollection);
 
-        repository = new CredentialRepositoryDocumentDB();
+        repository = new CredentialRepositoryMongoDBNative();
     });
 
     afterEach(() => {

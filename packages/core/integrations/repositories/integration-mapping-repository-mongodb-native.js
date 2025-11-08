@@ -1,11 +1,11 @@
 const { ObjectId } = require('mongodb');
-const { BaseRepositoryMongoDBNative } = require('../../database/repositories/base-repository-documentdb');
+const { BaseRepositoryDocumentDB } = require('../../database/repositories/base-repository-documentdb');
 const { IntegrationMappingRepositoryInterface } = require('./integration-mapping-repository-interface');
 
 class IntegrationMappingRepositoryMongoDBNative extends IntegrationMappingRepositoryInterface {
     constructor() {
         super();
-        this._base = new BaseRepositoryMongoDBNative('IntegrationMapping', 'IntegrationMapping');
+        this._base = new BaseRepositoryDocumentDB('IntegrationMapping', 'IntegrationMapping');
     }
 
     get collection() {
