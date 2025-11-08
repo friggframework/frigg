@@ -1,52 +1,27 @@
-const { ProcessRepositoryMongo } = require('./process-repository-mongo');
+const { ProcessRepositoryMongoDBNative } = require('./process-repository-mongodb-native');
 const { ProcessRepositoryPostgres } = require('./process-repository-postgres');
-const { ProcessRepositoryDocumentDB } = require('./process-repository-documentdb');
-const { isDocumentDB } = require('../../database/utils/documentdb-compatibility');
 const config = require('../../database/config');
 
-/**
- * Process Repository Factory
- * Creates the appropriate repository adapter based on database type
- *
- * This implements the Factory pattern for Hexagonal Architecture:
- * - Reads database type from app definition (backend/index.js)
- * - Returns correct adapter (MongoDB or PostgreSQL)
- * - Provides clear error for unsupported databases
- *
- * Usage:
- * ```javascript
- * const repository = createProcessRepository();
- * await repository.create({ userId, integrationId, name, type, state });
- * ```
- *
- * @returns {ProcessRepositoryInterface} Configured repository adapter
- * @throws {Error} If database type is not supported
- */
 function createProcessRepository() {
-    if (isDocumentDB()) {
-        return new ProcessRepositoryDocumentDB();
-    }
-
     const dbType = config.DB_TYPE;
 
     switch (dbType) {
         case 'mongodb':
-            return new ProcessRepositoryMongo();
+        case 'documentdb':
+            return new ProcessRepositoryMongoDBNative();
 
         case 'postgresql':
             return new ProcessRepositoryPostgres();
 
         default:
             throw new Error(
-                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'postgresql'`
+                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql'`
             );
     }
 }
 
 module.exports = {
     createProcessRepository,
-    ProcessRepositoryMongo,
+    ProcessRepositoryMongoDBNative,
     ProcessRepositoryPostgres,
-    ProcessRepositoryDocumentDB,
 };
-

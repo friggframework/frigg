@@ -1,11 +1,11 @@
 const { ObjectId } = require('mongodb');
-const { BaseRepositoryDocumentDB } = require('../../database/repositories/base-repository-documentdb');
+const { BaseRepositoryMongoDBNative } = require('../../database/repositories/base-repository-documentdb');
 const { SyncRepositoryInterface } = require('./sync-repository-interface');
 
-class SyncRepositoryDocumentDB extends SyncRepositoryInterface {
+class SyncRepositoryMongoDBNative extends SyncRepositoryInterface {
     constructor() {
         super();
-        this._base = new BaseRepositoryDocumentDB('Sync', 'Sync');
+        this._base = new BaseRepositoryMongoDBNative('Sync', 'Sync');
     }
 
     get collection() {
@@ -48,5 +48,5 @@ class SyncRepositoryDocumentDB extends SyncRepositoryInterface {
     }
 }
 
-module.exports = { SyncRepositoryDocumentDB };
+module.exports = { SyncRepositoryMongoDBNative };
 

@@ -1,11 +1,11 @@
 const { ObjectId } = require('mongodb');
-const { BaseRepositoryDocumentDB } = require('../../database/repositories/base-repository-documentdb');
+const { BaseRepositoryMongoDBNative } = require('../../database/repositories/base-repository-documentdb');
 const { ProcessRepositoryInterface } = require('./process-repository-interface');
 
-class ProcessRepositoryDocumentDB extends ProcessRepositoryInterface {
+class ProcessRepositoryMongoDBNative extends ProcessRepositoryInterface {
     constructor() {
         super();
-        this._base = new BaseRepositoryDocumentDB('Process', 'Process');
+        this._base = new BaseRepositoryMongoDBNative('Process', 'Process');
     }
 
     get collection() {
@@ -47,5 +47,5 @@ class ProcessRepositoryDocumentDB extends ProcessRepositoryInterface {
     }
 }
 
-module.exports = { ProcessRepositoryDocumentDB };
+module.exports = { ProcessRepositoryMongoDBNative };
 

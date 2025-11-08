@@ -1,7 +1,5 @@
-const { IntegrationRepositoryMongo } = require('./integration-repository-mongo');
+const { IntegrationRepositoryMongoDBNative } = require('./integration-repository-mongodb-native');
 const { IntegrationRepositoryPostgres } = require('./integration-repository-postgres');
-const { IntegrationRepositoryDocumentDB } = require('./integration-repository-documentdb');
-const { isDocumentDB } = require('../../database/utils/documentdb-compatibility');
 const config = require('../../database/config');
 
 /**
@@ -10,8 +8,11 @@ const config = require('../../database/config');
  *
  * This implements the Factory pattern for Hexagonal Architecture:
  * - Reads database type from app definition (backend/index.js)
- * - Returns correct adapter (MongoDB or PostgreSQL)
+ * - Returns correct adapter (MongoDB Native Driver or Prisma for PostgreSQL)
  * - Provides clear error for unsupported databases
+ *
+ * MongoDB/MongoDBNative: Uses native MongoDB driver (avoids Prisma $$REMOVE operator issues)
+ * PostgreSQL: Uses Prisma (no $$REMOVE issues)
  *
  * Usage:
  * ```javascript
@@ -22,29 +23,27 @@ const config = require('../../database/config');
  * @throws {Error} If database type is not supported
  */
 function createIntegrationRepository() {
-    if (isDocumentDB()) {
-        return new IntegrationRepositoryDocumentDB();
-    }
-
     const dbType = config.DB_TYPE;
 
     switch (dbType) {
         case 'mongodb':
-            return new IntegrationRepositoryMongo();
+        case 'documentdb':
+        case 'mongodb-native':
+            // Both MongoDB and MongoDBNative use native driver
+            return new IntegrationRepositoryMongoDBNative();
 
         case 'postgresql':
             return new IntegrationRepositoryPostgres();
 
         default:
             throw new Error(
-                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'postgresql'`
+                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'mongodb-native', 'postgresql'`
             );
     }
 }
 
 module.exports = {
     createIntegrationRepository,
-    IntegrationRepositoryMongo,
+    IntegrationRepositoryMongoDBNative,
     IntegrationRepositoryPostgres,
-    IntegrationRepositoryDocumentDB,
 };

@@ -1,33 +1,27 @@
-const { TokenRepositoryMongo } = require('./token-repository-mongo');
+const { TokenRepositoryMongoDBNative } = require('./token-repository-mongodb-native');
 const { TokenRepositoryPostgres } = require('./token-repository-postgres');
-const { TokenRepositoryDocumentDB } = require('./token-repository-documentdb');
-const { isDocumentDB } = require('../../database/utils/documentdb-compatibility');
 const config = require('../../database/config');
 
 function createTokenRepository() {
-    if (isDocumentDB()) {
-        return new TokenRepositoryDocumentDB();
-    }
-
     const dbType = config.DB_TYPE;
 
     switch (dbType) {
         case 'mongodb':
-            return new TokenRepositoryMongo();
+        case 'documentdb':
+            return new TokenRepositoryMongoDBNative();
 
         case 'postgresql':
             return new TokenRepositoryPostgres();
 
         default:
             throw new Error(
-                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'postgresql'`
+                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql'`
             );
     }
 }
 
 module.exports = {
     createTokenRepository,
-    TokenRepositoryMongo,
+    TokenRepositoryMongoDBNative,
     TokenRepositoryPostgres,
-    TokenRepositoryDocumentDB,
 };

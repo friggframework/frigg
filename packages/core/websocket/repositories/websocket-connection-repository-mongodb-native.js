@@ -1,11 +1,11 @@
 const { ObjectId } = require('mongodb');
-const { BaseRepositoryDocumentDB } = require('../../database/repositories/base-repository-documentdb');
+const { BaseRepositoryMongoDBNative } = require('../../database/repositories/base-repository-documentdb');
 const { WebsocketConnectionRepositoryInterface } = require('./websocket-connection-repository-interface');
 
-class WebsocketConnectionRepositoryDocumentDB extends WebsocketConnectionRepositoryInterface {
+class WebsocketConnectionRepositoryMongoDBNative extends WebsocketConnectionRepositoryInterface {
     constructor() {
         super();
-        this._base = new BaseRepositoryDocumentDB('WebsocketConnection', 'WebsocketConnection');
+        this._base = new BaseRepositoryMongoDBNative('WebsocketConnection', 'WebsocketConnection');
     }
 
     get collection() {
@@ -50,5 +50,5 @@ class WebsocketConnectionRepositoryDocumentDB extends WebsocketConnectionReposit
     }
 }
 
-module.exports = { WebsocketConnectionRepositoryDocumentDB };
+module.exports = { WebsocketConnectionRepositoryMongoDBNative };
 

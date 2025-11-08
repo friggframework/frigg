@@ -1,11 +1,11 @@
 const { ObjectId } = require('mongodb');
-const { BaseRepositoryDocumentDB } = require('../../database/repositories/base-repository-documentdb');
+const { BaseRepositoryMongoDBNative } = require('../../database/repositories/base-repository-documentdb');
 const { ModuleRepositoryInterface } = require('./module-repository-interface');
 
-class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
+class ModuleRepositoryMongoDBNative extends ModuleRepositoryInterface {
     constructor() {
         super();
-        this._base = new BaseRepositoryDocumentDB('Entity', 'Entity');
+        this._base = new BaseRepositoryMongoDBNative('Entity', 'Entity');
     }
 
     get collection() {
@@ -68,5 +68,5 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
     }
 }
 
-module.exports = { ModuleRepositoryDocumentDB };
+module.exports = { ModuleRepositoryMongoDBNative };
 

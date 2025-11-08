@@ -1,11 +1,11 @@
 const { ObjectId } = require('mongodb');
-const { BaseRepositoryDocumentDB } = require('../../database/repositories/base-repository-documentdb');
+const { BaseRepositoryMongoDBNative } = require('../../database/repositories/base-repository-documentdb');
 const { CredentialRepositoryInterface } = require('./credential-repository-interface');
 
-class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
+class CredentialRepositoryMongoDBNative extends CredentialRepositoryInterface {
     constructor() {
         super();
-        this._base = new BaseRepositoryDocumentDB('Credential', 'Credential');
+        this._base = new BaseRepositoryMongoDBNative('Credential', 'Credential');
     }
 
     get collection() {
@@ -129,5 +129,5 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
     }
 }
 
-module.exports = { CredentialRepositoryDocumentDB };
+module.exports = { CredentialRepositoryMongoDBNative };
 
