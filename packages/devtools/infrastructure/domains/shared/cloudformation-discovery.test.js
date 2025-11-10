@@ -586,5 +586,400 @@ describe('CloudFormationDiscovery', () => {
             expect(mockProvider.describeKmsKey).toHaveBeenCalledWith('alias/test-service-dev-frigg-kms');
         });
     });
+
+    describe('External VPC with routing infrastructure pattern', () => {
+        it('should discover routing resources when VPC is external', async () => {
+            // This tests the external VPC pattern: external VPC/subnets/KMS,
+            // but stack creates routing infrastructure (route table, NAT route, VPC endpoints)
+            const mockStack = {
+                StackName: 'create-frigg-app-production',
+                Outputs: [],
+            };
+
+            const mockResources = [
+                {
+                    LogicalResourceId: 'FriggLambdaRouteTable',
+                    PhysicalResourceId: 'rtb-0b83aca77ccde20a6',
+                    ResourceType: 'AWS::EC2::RouteTable',
+                    ResourceStatus: 'UPDATE_COMPLETE',
+                },
+                {
+                    LogicalResourceId: 'FriggNATRoute',
+                    PhysicalResourceId: 'rtb-0b83aca77ccde20a6|0.0.0.0/0',
+                    ResourceType: 'AWS::EC2::Route',
+                    ResourceStatus: 'UPDATE_COMPLETE',
+                },
+                {
+                    LogicalResourceId: 'FriggSubnet1RouteAssociation',
+                    PhysicalResourceId: 'rtbassoc-07245da0b447ca469',
+                    ResourceType: 'AWS::EC2::SubnetRouteTableAssociation',
+                    ResourceStatus: 'CREATE_COMPLETE',
+                },
+                {
+                    LogicalResourceId: 'FriggSubnet2RouteAssociation',
+                    PhysicalResourceId: 'rtbassoc-0806f9783c4ea181f',
+                    ResourceType: 'AWS::EC2::SubnetRouteTableAssociation',
+                    ResourceStatus: 'CREATE_COMPLETE',
+                },
+                {
+                    LogicalResourceId: 'VPCEndpointS3',
+                    PhysicalResourceId: 'vpce-0352ceac2124c14be',
+                    ResourceType: 'AWS::EC2::VPCEndpoint',
+                    ResourceStatus: 'CREATE_COMPLETE',
+                },
+                {
+                    LogicalResourceId: 'VPCEndpointDynamoDB',
+                    PhysicalResourceId: 'vpce-0b06c4f631199ea68',
+                    ResourceType: 'AWS::EC2::VPCEndpoint',
+                    ResourceStatus: 'CREATE_COMPLETE',
+                },
+            ];
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+
+            const result = await cfDiscovery.discoverFromStack('create-frigg-app-production');
+
+            // Verify routing infrastructure was discovered
+            expect(result.routeTableId).toBe('rtb-0b83aca77ccde20a6');
+            expect(result.privateRouteTableId).toBe('rtb-0b83aca77ccde20a6');
+            expect(result.natRoute).toBe('rtb-0b83aca77ccde20a6|0.0.0.0/0');
+            expect(result.routeTableAssociations).toEqual([
+                'rtbassoc-07245da0b447ca469',
+                'rtbassoc-0806f9783c4ea181f',
+            ]);
+
+            // Verify VPC endpoints were discovered (both naming conventions)
+            expect(result.vpcEndpoints).toBeDefined();
+            expect(result.vpcEndpoints.s3).toBe('vpce-0352ceac2124c14be');
+            expect(result.vpcEndpoints.dynamodb).toBe('vpce-0b06c4f631199ea68');
+            expect(result.s3VpcEndpointId).toBe('vpce-0352ceac2124c14be');
+            expect(result.dynamoDbVpcEndpointId).toBe('vpce-0b06c4f631199ea68');
+
+            // Verify NO VPC/KMS resources (they're external)
+            expect(result.defaultVpcId).toBeUndefined();
+            expect(result.defaultKmsKeyId).toBeUndefined();
+        });
+
+        it('should work with legacy VPC endpoint naming (FriggS3VPCEndpoint)', async () => {
+            const mockStack = {
+                StackName: 'test-stack',
+                Outputs: [],
+            };
+
+            const mockResources = [
+                {
+                    LogicalResourceId: 'FriggS3VPCEndpoint',
+                    PhysicalResourceId: 'vpce-legacy-s3',
+                    ResourceType: 'AWS::EC2::VPCEndpoint',
+                    ResourceStatus: 'CREATE_COMPLETE',
+                },
+                {
+                    LogicalResourceId: 'FriggDynamoDBVPCEndpoint',
+                    PhysicalResourceId: 'vpce-legacy-ddb',
+                    ResourceType: 'AWS::EC2::VPCEndpoint',
+                    ResourceStatus: 'CREATE_COMPLETE',
+                },
+            ];
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+
+            const result = await cfDiscovery.discoverFromStack('test-stack');
+
+            // Both naming conventions should work
+            expect(result.vpcEndpoints.s3).toBe('vpce-legacy-s3');
+            expect(result.vpcEndpoints.dynamodb).toBe('vpce-legacy-ddb');
+            expect(result.s3VpcEndpointId).toBe('vpce-legacy-s3');
+            expect(result.dynamoDbVpcEndpointId).toBe('vpce-legacy-ddb');
+        });
+
+        it('should extract FriggLambdaSecurityGroup from stack', async () => {
+            const mockStack = {
+                StackName: 'test-stack',
+                Outputs: [],
+            };
+
+            const mockResources = [
+                {
+                    LogicalResourceId: 'FriggLambdaSecurityGroup',
+                    PhysicalResourceId: 'sg-01002240c6a446202',
+                    ResourceType: 'AWS::EC2::SecurityGroup',
+                    ResourceStatus: 'UPDATE_COMPLETE',
+                },
+                {
+                    LogicalResourceId: 'FriggLambdaRouteTable',
+                    PhysicalResourceId: 'rtb-08af43bbf0775602d',
+                    ResourceType: 'AWS::EC2::RouteTable',
+                    ResourceStatus: 'UPDATE_COMPLETE',
+                },
+            ];
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+
+            const result = await cfDiscovery.discoverFromStack('test-stack');
+
+            // Lambda security group should be extracted
+            expect(result.lambdaSecurityGroupId).toBe('sg-01002240c6a446202');
+            expect(result.defaultSecurityGroupId).toBe('sg-01002240c6a446202');
+            expect(result.existingLogicalIds).toContain('FriggLambdaSecurityGroup');
+        });
+
+        it('should support FriggPrivateRoute naming for NAT routes', async () => {
+            const mockStack = {
+                StackName: 'test-stack',
+                Outputs: [],
+            };
+
+            const mockResources = [
+                {
+                    LogicalResourceId: 'FriggLambdaRouteTable',
+                    PhysicalResourceId: 'rtb-123',
+                    ResourceType: 'AWS::EC2::RouteTable',
+                    ResourceStatus: 'UPDATE_COMPLETE',
+                },
+                {
+                    LogicalResourceId: 'FriggPrivateRoute',
+                    PhysicalResourceId: 'rtb-123|0.0.0.0/0',
+                    ResourceType: 'AWS::EC2::Route',
+                    ResourceStatus: 'UPDATE_COMPLETE',
+                },
+            ];
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+
+            const result = await cfDiscovery.discoverFromStack('test-stack');
+
+            // Both FriggNATRoute and FriggPrivateRoute should be recognized
+            expect(result.natRoute).toBe('rtb-123|0.0.0.0/0');
+            expect(result.routeTableId).toBe('rtb-123');
+        });
+
+        it('should extract external references from route table without stackName error', async () => {
+            const mockStack = {
+                StackName: 'test-stack',
+                Outputs: [],
+            };
+
+            const mockResources = [
+                {
+                    LogicalResourceId: 'FriggLambdaRouteTable',
+                    PhysicalResourceId: 'rtb-real-id',
+                    ResourceType: 'AWS::EC2::RouteTable',
+                    ResourceStatus: 'UPDATE_COMPLETE',
+                },
+            ];
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+            
+            // Mock EC2 DescribeRouteTables to return route table with VPC info
+            mockProvider.getEC2Client = jest.fn().mockReturnValue({
+                send: jest.fn().mockResolvedValue({
+                    RouteTables: [{
+                        RouteTableId: 'rtb-real-id',
+                        VpcId: 'vpc-extracted',
+                        Routes: [
+                            { NatGatewayId: 'nat-extracted', DestinationCidrBlock: '0.0.0.0/0' }
+                        ],
+                        Associations: [
+                            { SubnetId: 'subnet-1' },
+                            { SubnetId: 'subnet-2' }
+                        ]
+                    }]
+                })
+            });
+
+            const result = await cfDiscovery.discoverFromStack('test-stack');
+
+            // Should extract VPC, NAT, and subnets from route table
+            expect(result.defaultVpcId).toBe('vpc-extracted');
+            expect(result.existingNatGatewayId).toBe('nat-extracted');
+            expect(result.privateSubnetId1).toBe('subnet-1');
+            expect(result.privateSubnetId2).toBe('subnet-2');
+            
+            // Should NOT throw 'stackName is not defined' error
+            expect(result).toBeDefined();
+        });
+    });
+
+    describe('existingLogicalIds tracking', () => {
+        it('should track OLD VPC endpoint logical IDs (VPCEndpointS3 pattern) for backwards compatibility', async () => {
+            // CRITICAL: Frontify production uses OLD naming convention
+            const mockStack = {
+                StackName: 'create-frigg-app-production',
+                Outputs: []
+            };
+
+            const mockResources = [
+                { LogicalResourceId: 'FriggLambdaRouteTable', PhysicalResourceId: 'rtb-123', ResourceType: 'AWS::EC2::RouteTable' },
+                { LogicalResourceId: 'FriggNATRoute', PhysicalResourceId: 'rtb-123|0.0.0.0/0', ResourceType: 'AWS::EC2::Route' },
+                { LogicalResourceId: 'FriggSubnet1RouteAssociation', PhysicalResourceId: 'rtbassoc-1', ResourceType: 'AWS::EC2::SubnetRouteTableAssociation' },
+                { LogicalResourceId: 'FriggSubnet2RouteAssociation', PhysicalResourceId: 'rtbassoc-2', ResourceType: 'AWS::EC2::SubnetRouteTableAssociation' },
+                { LogicalResourceId: 'VPCEndpointS3', PhysicalResourceId: 'vpce-s3-123', ResourceType: 'AWS::EC2::VPCEndpoint' },
+                { LogicalResourceId: 'VPCEndpointDynamoDB', PhysicalResourceId: 'vpce-ddb-123', ResourceType: 'AWS::EC2::VPCEndpoint' }
+            ];
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+
+            const result = await cfDiscovery.discoverFromStack('create-frigg-app-production');
+
+            // CRITICAL: existingLogicalIds MUST contain old VPC endpoint names
+            expect(result.existingLogicalIds).toBeDefined();
+            expect(result.existingLogicalIds).toContain('FriggNATRoute');
+            expect(result.existingLogicalIds).toContain('FriggSubnet1RouteAssociation');
+            expect(result.existingLogicalIds).toContain('FriggSubnet2RouteAssociation');
+            expect(result.existingLogicalIds).toContain('VPCEndpointS3');  // OLD naming
+            expect(result.existingLogicalIds).toContain('VPCEndpointDynamoDB');  // OLD naming
+
+            // Should also have the flat discovery properties
+            expect(result.routeTableId).toBe('rtb-123');
+            expect(result.natRoute).toBe('rtb-123|0.0.0.0/0');
+            expect(result.s3VpcEndpointId).toBe('vpce-s3-123');
+            expect(result.dynamodbVpcEndpointId).toBe('vpce-ddb-123');
+        });
+
+        it('should track NEW VPC endpoint logical IDs (FriggS3VPCEndpoint pattern) for newer stacks', async () => {
+            const mockStack = {
+                StackName: 'test-stack',
+                Outputs: []
+            };
+
+            const mockResources = [
+                { LogicalResourceId: 'FriggLambdaRouteTable', PhysicalResourceId: 'rtb-456', ResourceType: 'AWS::EC2::RouteTable' },
+                { LogicalResourceId: 'FriggPrivateRoute', PhysicalResourceId: 'rtb-456|0.0.0.0/0', ResourceType: 'AWS::EC2::Route' },
+                { LogicalResourceId: 'FriggS3VPCEndpoint', PhysicalResourceId: 'vpce-s3-456', ResourceType: 'AWS::EC2::VPCEndpoint' },
+                { LogicalResourceId: 'FriggDynamoDBVPCEndpoint', PhysicalResourceId: 'vpce-ddb-456', ResourceType: 'AWS::EC2::VPCEndpoint' },
+                { LogicalResourceId: 'FriggKMSVPCEndpoint', PhysicalResourceId: 'vpce-kms-456', ResourceType: 'AWS::EC2::VPCEndpoint' }
+            ];
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+
+            const result = await cfDiscovery.discoverFromStack('test-stack');
+
+            // Should track NEW naming pattern in existingLogicalIds
+            expect(result.existingLogicalIds).toContain('FriggPrivateRoute');
+            expect(result.existingLogicalIds).toContain('FriggS3VPCEndpoint');
+            expect(result.existingLogicalIds).toContain('FriggDynamoDBVPCEndpoint');
+            expect(result.existingLogicalIds).toContain('FriggKMSVPCEndpoint');
+            
+            // Should NOT contain old naming patterns
+            expect(result.existingLogicalIds).not.toContain('FriggNATRoute');
+            expect(result.existingLogicalIds).not.toContain('VPCEndpointS3');
+        });
+    });
+
+    describe('Subnet extraction from VPC query (OLD reliable approach)', () => {
+        it('should extract subnets by querying ALL subnets in VPC then filtering by route table', async () => {
+            // Tests the proven method from aws-discovery.js
+            // 1. Query ALL subnets in VPC using vpc-id filter (not association filter!)
+            // 2. Query route table by ID (RouteTableIds parameter, not Filters!)
+            // 3. Extract subnet IDs from route table's Associations array
+            
+            const mockStack = {
+                StackName: 'test-stack',
+                Outputs: []
+            };
+
+            const mockResources = [
+                { LogicalResourceId: 'FriggLambdaRouteTable', PhysicalResourceId: 'rtb-123', ResourceType: 'AWS::EC2::RouteTable' },
+                { LogicalResourceId: 'FriggVPC', PhysicalResourceId: 'vpc-456', ResourceType: 'AWS::EC2::VPC' }
+            ];
+
+            const sendMock = jest.fn();
+            sendMock
+                .mockResolvedValueOnce({
+                    RouteTables: [{
+                        RouteTableId: 'rtb-123',
+                        VpcId: 'vpc-456',
+                        Associations: [],
+                        Routes: [{ NatGatewayId: 'nat-789', DestinationCidrBlock: '0.0.0.0/0' }]
+                    }]
+                })
+                .mockResolvedValueOnce({ SecurityGroups: [{ GroupId: 'sg-default' }] })
+                .mockResolvedValueOnce({
+                    Subnets: [
+                        { SubnetId: 'subnet-aaa', VpcId: 'vpc-456', AvailabilityZone: 'us-east-1a' },
+                        { SubnetId: 'subnet-bbb', VpcId: 'vpc-456', AvailabilityZone: 'us-east-1b' },
+                        { SubnetId: 'subnet-ccc', VpcId: 'vpc-456', AvailabilityZone: 'us-east-1c' }
+                    ]
+                })
+                .mockResolvedValueOnce({
+                    RouteTables: [{
+                        RouteTableId: 'rtb-123',
+                        Associations: [
+                            { RouteTableAssociationId: 'rtbassoc-111', SubnetId: 'subnet-aaa' },
+                            { RouteTableAssociationId: 'rtbassoc-222', SubnetId: 'subnet-bbb' }
+                        ]
+                    }]
+                });
+            
+            const mockEC2Client = { send: sendMock };
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+            mockProvider.getEC2Client = jest.fn().mockReturnValue(mockEC2Client);
+
+            const result = await cfDiscovery.discoverFromStack('test-stack');
+
+            // Should have extracted subnets using VPC query approach
+            expect(result.privateSubnetId1).toBe('subnet-aaa');
+            expect(result.privateSubnetId2).toBe('subnet-bbb');
+        });
+
+        it('should handle VPC with only 1 associated subnet (use second as fallback)', async () => {
+            const mockStack = {
+                StackName: 'test-stack',
+                Outputs: []
+            };
+
+            const mockResources = [
+                { LogicalResourceId: 'FriggLambdaRouteTable', PhysicalResourceId: 'rtb-123', ResourceType: 'AWS::EC2::RouteTable' },
+                { LogicalResourceId: 'FriggVPC', PhysicalResourceId: 'vpc-456', ResourceType: 'AWS::EC2::VPC' }
+            ];
+
+            const sendMock = jest.fn();
+            sendMock
+                .mockResolvedValueOnce({
+                    RouteTables: [{
+                        RouteTableId: 'rtb-123',
+                        VpcId: 'vpc-456',
+                        Associations: [],
+                        Routes: [{ NatGatewayId: 'nat-789', DestinationCidrBlock: '0.0.0.0/0' }]
+                    }]
+                })
+                .mockResolvedValueOnce({ SecurityGroups: [{ GroupId: 'sg-default' }] })
+                .mockResolvedValueOnce({
+                    Subnets: [
+                        { SubnetId: 'subnet-aaa', VpcId: 'vpc-456' },
+                        { SubnetId: 'subnet-bbb', VpcId: 'vpc-456' }
+                    ]
+                })
+                .mockResolvedValueOnce({
+                    RouteTables: [{
+                        RouteTableId: 'rtb-123',
+                        Associations: [
+                            { RouteTableAssociationId: 'rtbassoc-111', SubnetId: 'subnet-aaa' }
+                        ]
+                    }]
+                });
+            
+            const mockEC2Client = { send: sendMock };
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+            mockProvider.getEC2Client = jest.fn().mockReturnValue(mockEC2Client);
+
+            const result = await cfDiscovery.discoverFromStack('test-stack');
+
+            // Should use first from route table, second from fallback
+            expect(result.privateSubnetId1).toBe('subnet-aaa');
+            expect(result.privateSubnetId2).toBe('subnet-bbb');
+        });
+    });
 });
 
