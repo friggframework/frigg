@@ -238,6 +238,13 @@ describe('Database Validator Utility', () => {
             expect(result.error).toBe('Ping failed');
         });
 
+        it('should normalize DocumentDB to MongoDB command', async () => {
+            await testDatabaseConnection('mongodb://localhost', 'documentdb');
+
+            expect(mockClient.$runCommandRaw).toHaveBeenCalledWith({ ping: 1 });
+            expect(mockClient.$queryRaw).not.toHaveBeenCalled();
+        });
+
         it('should handle PostgreSQL query execution errors', async () => {
             mockClient.$queryRaw.mockRejectedValue(new Error('Query failed'));
 
@@ -337,6 +344,13 @@ describe('Database Validator Utility', () => {
             expect(result.error).toContain('not found');
             expect(result.error).toContain('@prisma-postgresql/client');
             expect(result.error).toContain('frigg db:setup');
+        });
+
+        it('should map DocumentDB to MongoDB client path', () => {
+            const result = checkPrismaClientGenerated('documentdb', '/nonexistent/path');
+
+            expect(result.generated).toBe(false);
+            expect(result.error).toContain('@prisma-mongodb/client');
         });
 
         it('should provide helpful error message suggesting db:setup command', () => {
