@@ -11,7 +11,7 @@ const config = require('./config');
  * Falls back to MONGO_URI if DATABASE_URL is not set
  * Infrastructure layer concern - maps legacy MONGO_URI to Prisma's expected DATABASE_URL
  * 
- * Note: This should only be called when DB_TYPE is 'mongodb'
+ * Note: This should only be called when DB_TYPE is 'mongodb' or 'documentdb'
  */
 function ensureMongoDbUrl() {
     // If DATABASE_URL is already set, use it
@@ -22,13 +22,13 @@ function ensureMongoDbUrl() {
     // Fallback to MONGO_URI for backwards compatibility with DocumentDB deployments
     if (process.env.MONGO_URI && process.env.MONGO_URI.trim()) {
         process.env.DATABASE_URL = process.env.MONGO_URI;
-        logger.debug('Using MONGO_URI as DATABASE_URL for MongoDB connection');
+        logger.debug('Using MONGO_URI as DATABASE_URL for Mongo-compatible connection');
         return;
     }
 
     // Neither is set - error
     throw new Error(
-        'DATABASE_URL or MONGO_URI environment variable must be set for MongoDB'
+        'DATABASE_URL or MONGO_URI environment variable must be set for MongoDB/DocumentDB'
     );
 }
 
@@ -124,7 +124,7 @@ const prismaClientSingleton = () => {
         );
     };
 
-    if (config.DB_TYPE === 'mongodb') {
+    if (config.DB_TYPE === 'mongodb' || config.DB_TYPE === 'documentdb') {
         // Ensure DATABASE_URL is set (fallback to MONGO_URI if needed)
         ensureMongoDbUrl();
         PrismaClient = loadPrismaClient('mongodb');
@@ -132,7 +132,7 @@ const prismaClientSingleton = () => {
         PrismaClient = loadPrismaClient('postgresql');
     } else {
         throw new Error(
-            `Unsupported database type: ${config.DB_TYPE}. Supported values: 'mongodb', 'postgresql'`
+            `Unsupported database type: ${config.DB_TYPE}. Supported values: 'mongodb', 'documentdb', 'postgresql'`
         );
     }
 
@@ -205,7 +205,7 @@ async function connectPrisma() {
     // Initialize MongoDB schema - ensure all collections exist
     // Only run for MongoDB/DocumentDB (not PostgreSQL)
     // This prevents "Cannot create namespace in multi-document transaction" errors
-    if (config.DB_TYPE === 'mongodb') {
+    if (config.DB_TYPE === 'mongodb' || config.DB_TYPE === 'documentdb') {
         const { initializeMongoDBSchema } = require('./utils/mongodb-schema-init');
         await initializeMongoDBSchema();
     }

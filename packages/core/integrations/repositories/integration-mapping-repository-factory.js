@@ -4,6 +4,9 @@ const {
 const {
     IntegrationMappingRepositoryPostgres,
 } = require('./integration-mapping-repository-postgres');
+const {
+    IntegrationMappingRepositoryDocumentDB,
+} = require('./integration-mapping-repository-documentdb');
 const config = require('../../database/config');
 
 /**
@@ -35,9 +38,12 @@ function createIntegrationMappingRepository() {
         case 'postgresql':
             return new IntegrationMappingRepositoryPostgres();
 
+        case 'documentdb':
+            return new IntegrationMappingRepositoryDocumentDB();
+
         default:
             throw new Error(
-                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'postgresql'`
+                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql'`
             );
     }
 }
@@ -47,4 +53,5 @@ module.exports = {
     // Export adapters for direct testing
     IntegrationMappingRepositoryMongo,
     IntegrationMappingRepositoryPostgres,
+    IntegrationMappingRepositoryDocumentDB,
 };

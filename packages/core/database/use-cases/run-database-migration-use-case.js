@@ -26,7 +26,7 @@ class RunDatabaseMigrationUseCase {
      * Execute database migration
      *
      * @param {Object} params
-     * @param {string} params.dbType - Database type ('postgresql' or 'mongodb')
+     * @param {string} params.dbType - Database type ('postgresql', 'mongodb', or 'documentdb')
      * @param {string} params.stage - Deployment stage (determines migration command)
      * @param {boolean} [params.verbose=false] - Enable verbose output
      * @returns {Promise<Object>} Migration result { success, dbType, stage, command, message }
@@ -61,19 +61,21 @@ class RunDatabaseMigrationUseCase {
                     { dbType, stage, command: migrationCommand, step: 'migrate', output: migrationResult.output }
                 );
             }
-        } else if (dbType === 'mongodb') {
+        } else if (dbType === 'mongodb' || dbType === 'documentdb') {
             migrationCommand = 'db push';
             // Use non-interactive mode for automated/Lambda environments
             migrationResult = await this.prismaRunner.runPrismaDbPush(verbose, true);
 
             if (!migrationResult.success) {
                 throw new MigrationError(
-                    `MongoDB push failed: ${migrationResult.error || 'Unknown error'}`,
+                    `Mongo-compatible push failed: ${migrationResult.error || 'Unknown error'}`,
                     { dbType, stage, command: migrationCommand, step: 'push', output: migrationResult.output }
                 );
             }
         } else {
-            throw new ValidationError(`Unsupported database type: ${dbType}. Must be 'postgresql' or 'mongodb'.`);
+            throw new ValidationError(
+                `Unsupported database type: ${dbType}. Must be 'postgresql', 'mongodb', or 'documentdb'.`
+            );
         }
 
         // Return success result

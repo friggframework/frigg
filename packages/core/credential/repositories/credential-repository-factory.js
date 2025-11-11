@@ -2,6 +2,9 @@ const { CredentialRepositoryMongo } = require('./credential-repository-mongo');
 const {
     CredentialRepositoryPostgres,
 } = require('./credential-repository-postgres');
+const {
+    CredentialRepositoryDocumentDB,
+} = require('./credential-repository-documentdb');
 const config = require('../../database/config');
 
 /**
@@ -32,9 +35,12 @@ function createCredentialRepository() {
         case 'postgresql':
             return new CredentialRepositoryPostgres();
 
+        case 'documentdb':
+            return new CredentialRepositoryDocumentDB();
+
         default:
             throw new Error(
-                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'postgresql'`
+                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql'`
             );
     }
 }
@@ -44,4 +50,5 @@ module.exports = {
     // Export adapters for direct testing
     CredentialRepositoryMongo,
     CredentialRepositoryPostgres,
+    CredentialRepositoryDocumentDB,
 };

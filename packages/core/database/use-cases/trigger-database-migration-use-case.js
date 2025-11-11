@@ -38,7 +38,7 @@ class TriggerDatabaseMigrationUseCase {
      *
      * @param {Object} params
      * @param {string} params.userId - User ID triggering the migration
-     * @param {string} params.dbType - Database type ('postgresql' or 'mongodb')
+     * @param {string} params.dbType - Database type ('postgresql', 'mongodb', or 'documentdb')
      * @param {string} params.stage - Deployment stage (determines migration command)
      * @returns {Promise<Object>} Process info { success, processId, state, statusUrl, message }
      * @throws {ValidationError} If parameters are invalid
@@ -123,7 +123,7 @@ class TriggerDatabaseMigrationUseCase {
             throw new ValidationError('dbType must be a string');
         }
 
-        const validDbTypes = ['postgresql', 'mongodb'];
+        const validDbTypes = ['postgresql', 'mongodb', 'documentdb'];
         if (!validDbTypes.includes(dbType)) {
             throw new ValidationError(
                 `Invalid dbType: "${dbType}". Must be one of: ${validDbTypes.join(', ')}`

@@ -15,6 +15,14 @@
  */
 class HealthCheckRepositoryInterface {
     /**
+     * @returns {Promise<{readyState: number, stateName: string, isConnected: boolean}>}
+     * @abstract
+     */
+    async getDatabaseConnectionState() {
+        throw new Error('Method getDatabaseConnectionState must be implemented by subclass');
+    }
+
+    /**
      * Ping database to verify connectivity
      *
      * @param {number} maxTimeMS - Maximum time in milliseconds
@@ -26,61 +34,48 @@ class HealthCheckRepositoryInterface {
     }
 
     /**
-     * Save a test document
+     * Persist an encrypted credential for health verification.
+     * Implementations should rely on Prisma so encryption middleware runs.
      *
-     * @param {Object} TestModel - Prisma model
-     * @param {Object} data - Data to save
-     * @returns {Promise<Object>} Saved document
+     * @param {Object} credentialData
+     * @returns {Promise<Object>} Persisted credential
      * @abstract
      */
-    async saveTestDocument(TestModel, data) {
-        throw new Error('Method saveTestDocument must be implemented by subclass');
+    async createCredential(credentialData) {
+        throw new Error('Method createCredential must be implemented by subclass');
     }
 
     /**
-     * Find test document by ID
+     * Retrieve credential by ID using Prisma (decrypted).
      *
-     * @param {Object} TestModel - Prisma model
-     * @param {string|number} id - Document ID
-     * @returns {Promise<Object|null>} Document or null
+     * @param {string} id
+     * @returns {Promise<Object|null>}
      * @abstract
      */
-    async findTestDocumentById(TestModel, id) {
-        throw new Error('Method findTestDocumentById must be implemented by subclass');
+    async findCredentialById(id) {
+        throw new Error('Method findCredentialById must be implemented by subclass');
     }
 
     /**
-     * Get raw document from collection
+     * Fetch raw credential document from the database (without decryption).
      *
-     * @param {string} collectionName - Collection name
-     * @param {Object} filter - Filter criteria
-     * @returns {Promise<Object|null>} Raw document or null
+     * @param {string} id
+     * @returns {Promise<Object|null>}
      * @abstract
      */
-    async getRawDocumentFromCollection(collectionName, filter) {
-        throw new Error('Method getRawDocumentFromCollection must be implemented by subclass');
+    async getRawCredentialById(id) {
+        throw new Error('Method getRawCredentialById must be implemented by subclass');
     }
 
     /**
-     * Delete test document
+     * Delete credential by ID.
      *
-     * @param {Object} TestModel - Prisma model
-     * @param {string|number} id - Document ID
-     * @returns {Promise<Object>} Deletion result
+     * @param {string} id
+     * @returns {Promise<void>}
      * @abstract
      */
-    async deleteTestDocument(TestModel, id) {
-        throw new Error('Method deleteTestDocument must be implemented by subclass');
-    }
-
-    /**
-     * Get database connection state
-     *
-     * @returns {Promise<Object>} Connection state info
-     * @abstract
-     */
-    async getDatabaseConnectionState() {
-        throw new Error('Method getDatabaseConnectionState must be implemented by subclass');
+    async deleteCredential(id) {
+        throw new Error('Method deleteCredential must be implemented by subclass');
     }
 }
 
