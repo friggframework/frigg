@@ -21,7 +21,7 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
         const objectId = toObjectId(id);
         if (!objectId) return null;
         const doc = await findOne(this.prisma, 'Credential', { _id: objectId });
-        return doc ? this._mapCredential(doc) : null;
+        return doc ? this._mapCredentialById(doc) : null;
     }
 
     async updateAuthenticationStatus(credentialId, authIsValid) {
@@ -95,8 +95,8 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
         }
 
         const document = {
-            userId: toObjectId(userId || user) || null,
-            externalId,
+            userId: toObjectId(userId || user || identifiers.user),
+            externalId: externalId !== undefined ? externalId : identifiers.externalId,
             authIsValid: authIsValid ?? null,
             data: oauthData,
             createdAt: now,
@@ -183,7 +183,32 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
         return query;
     }
 
+    /**
+     * Map credential document to application format (without legacy fields)
+     * Used by findCredential, upsertCredential, updateCredential
+     * Matches MongoDB repository format
+     * @private
+     */
     _mapCredential(doc) {
+        const data = doc?.data || {};
+        const id = fromObjectId(doc?._id);
+        const userId = fromObjectId(doc?.userId);
+        return {
+            id,
+            userId,
+            externalId: doc?.externalId ?? null,
+            authIsValid: doc?.authIsValid ?? null,
+            ...data,
+        };
+    }
+
+    /**
+     * Map credential document with legacy fields for findCredentialById
+     * Includes _id and user fields for backward compatibility
+     * Matches MongoDB repository format
+     * @private
+     */
+    _mapCredentialById(doc) {
         const data = doc?.data || {};
         const id = fromObjectId(doc?._id);
         const userId = fromObjectId(doc?.userId);

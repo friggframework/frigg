@@ -193,13 +193,6 @@ describe('Error Messages Utility', () => {
             expect(message).toContain('@prisma-postgresql/client');
         });
 
-        it('should map DocumentDB to MongoDB client package name', () => {
-            const message = getPrismaClientNotGeneratedError('documentdb');
-
-            expect(message).toContain('@prisma-mongodb/client');
-            expect(message).toContain('documentdb');
-        });
-
         it('should suggest running frigg db:setup', () => {
             const message = getPrismaClientNotGeneratedError('mongodb');
 

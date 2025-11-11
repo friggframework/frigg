@@ -35,19 +35,16 @@ async function findOne(client, collection, filter = {}, options = {}) {
 }
 
 async function insertOne(client, collection, document) {
-    const result = await client.$runCommandRaw({
+    // Generate ObjectId if not present (MongoDB raw insert doesn't return insertedIds)
+    const _id = document._id || new ObjectId();
+    const docWithId = { ...document, _id };
+
+    await client.$runCommandRaw({
         insert: collection,
-        documents: [document],
+        documents: [docWithId],
     });
-    if (Array.isArray(result?.insertedIds)) return result.insertedIds[0];
-    if (result?.insertedIds && typeof result.insertedIds === 'object') {
-        const firstKey = Object.keys(result.insertedIds)[0];
-        if (firstKey !== undefined) {
-            return result.insertedIds[firstKey];
-        }
-    }
-    if (result?.insertedId) return result.insertedId;
-    return null;
+
+    return _id;
 }
 
 async function updateOne(client, collection, filter, update, options = {}) {

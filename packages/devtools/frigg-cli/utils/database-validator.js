@@ -62,7 +62,7 @@ function getDatabaseType() {
  * Uses the same Prisma client configuration as runtime
  *
  * @param {string} databaseUrl - Database connection URL (for validation purposes)
- * @param {'mongodb'|'postgresql'|'documentdb'} dbType - Database type to determine appropriate health check
+ * @param {'mongodb'|'postgresql'} dbType - Database type to determine appropriate health check
  * @param {number} timeout - Connection timeout in milliseconds (default: 5000)
  * @returns {Promise<Object>} { connected: boolean, error?: string }
  */
@@ -79,9 +79,7 @@ async function testDatabaseConnection(databaseUrl, dbType, timeout = 5000) {
 
         // Test with database-appropriate health check
         // MongoDB doesn't support SQL, so we use the native ping command
-        const normalizedDbType = dbType === 'documentdb' ? 'mongodb' : dbType;
-
-        if (normalizedDbType === 'mongodb') {
+        if (dbType === 'mongodb') {
             // Use MongoDB's native ping command via $runCommandRaw
             await client.$runCommandRaw({ ping: 1 });
         } else {
@@ -111,7 +109,7 @@ async function testDatabaseConnection(databaseUrl, dbType, timeout = 5000) {
  * Checks if Prisma client is generated for the database type
  * Checks for the generated client directory in @friggframework/core/generated
  *
- * @param {'mongodb'|'postgresql'|'documentdb'} dbType - Database type
+ * @param {'mongodb'|'postgresql'} dbType - Database type
  * @param {string} projectRoot - Project root directory (used for require.resolve context)
  * @returns {Object} { generated: boolean, path?: string, error?: string }
  */
@@ -125,8 +123,7 @@ function checkPrismaClientGenerated(dbType, projectRoot = process.cwd()) {
         const corePackageDir = path.dirname(corePackagePath);
 
         // Check for the generated client directory (same path core uses)
-        const normalizedDbType = dbType === 'documentdb' ? 'mongodb' : dbType;
-        const clientPath = path.join(corePackageDir, 'generated', `prisma-${normalizedDbType}`);
+        const clientPath = path.join(corePackageDir, 'generated', `prisma-${dbType}`);
         const clientIndexPath = path.join(clientPath, 'index.js');
 
         if (fs.existsSync(clientIndexPath)) {
