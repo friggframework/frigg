@@ -25,11 +25,12 @@ const schemaDir = path.join(__dirname, 'schemas');
 // Load schema files
 const schemaFiles = [
     'app-definition.schema.json',
-    'integration-definition.schema.json', 
+    'integration-definition.schema.json',
     'api-module-definition.schema.json',
     'serverless-config.schema.json',
     'environment-config.schema.json',
-    'core-models.schema.json'
+    'core-models.schema.json',
+    'api-authorization.schema.json'
 ];
 
 schemaFiles.forEach(file => {
@@ -118,6 +119,42 @@ function validateCoreModels(coreModels) {
 }
 
 /**
+ * Validate Authorization Requirements
+ * @param {object} requirements - Authorization requirements object to validate
+ * @returns {object} - Validation result
+ */
+function validateAuthorizationRequirements(requirements) {
+    return validate('api-authorization#/definitions/authorizationRequirements', requirements);
+}
+
+/**
+ * Validate Authorization Request
+ * @param {object} request - Authorization request object to validate
+ * @returns {object} - Validation result
+ */
+function validateAuthorizationRequest(request) {
+    return validate('api-authorization#/definitions/authorizationRequest', request);
+}
+
+/**
+ * Validate Authorization Response
+ * @param {object} response - Authorization response object to validate
+ * @returns {object} - Validation result
+ */
+function validateAuthorizationResponse(response) {
+    return validate('api-authorization#/definitions/authorizationResponse', response);
+}
+
+/**
+ * Validate Authorization Session
+ * @param {object} session - Authorization session object to validate
+ * @returns {object} - Validation result
+ */
+function validateAuthorizationSession(session) {
+    return validate('api-authorization#/definitions/authorizationSession', session);
+}
+
+/**
  * Get all available schemas
  * @returns {object} - Object containing all loaded schemas
  */
@@ -165,6 +202,10 @@ module.exports = {
     validateServerlessConfig,
     validateEnvironmentConfig,
     validateCoreModels,
+    validateAuthorizationRequirements,
+    validateAuthorizationRequest,
+    validateAuthorizationResponse,
+    validateAuthorizationSession,
     getSchemas,
     getSchema,
     formatErrors,
