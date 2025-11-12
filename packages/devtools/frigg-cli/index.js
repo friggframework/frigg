@@ -9,6 +9,9 @@ program
     .description('Install an API module')
     .action(installCommand);
 
-program.parse(process.argv);
+// Only parse arguments when run directly, not when imported by tests
+if (require.main === module) {
+    program.parse(process.argv);
+}
 
-module.exports = { installCommand };
+module.exports = { installCommand, program };
