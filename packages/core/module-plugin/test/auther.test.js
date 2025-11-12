@@ -5,8 +5,6 @@ const { Definition } = require('./mock-api/definition');
 const { Auther } = require('../auther');
 const { mongoose } = require('../../database/mongoose');
 
-
-
 const getModule = async (params) => {
     const module = await Auther.getInstance({
         definition: Definition,
@@ -23,7 +21,10 @@ const getModule = async (params) => {
     return module
 }
 
-
+/**
+ * @group integration
+ * @group application
+ */
 describe('HubSpot Module Tests', () => {
     let module, authUrl;
     beforeAll(async () => {

@@ -1,5 +1,9 @@
 const { Requester } = require('./requester');
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('429 and 5xx testing', () => {
     let backOffArray = [1, 1, 1];
     let requester = new Requester({ backOff: backOffArray });

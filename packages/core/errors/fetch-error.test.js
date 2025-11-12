@@ -3,6 +3,10 @@ const { stripIndent } = require('common-tags');
 const { FetchError } = require('./fetch-error');
 const FormData = require('form-data');
 
+/**
+ * @group unit
+ * @group domain
+ */
 describe('FetchError', () => {
     it('can be instantiated with default arguments', () => {
         const error = new FetchError();

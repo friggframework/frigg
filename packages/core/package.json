@@ -34,7 +34,11 @@
   },
   "scripts": {
     "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
-    "test": "jest --passWithNoTests # TODO"
+    "test": "jest",
+    "test:unit": "jest --group=unit",
+    "test:integration": "jest --group=integration",
+    "test:watch": "jest --watch --group=unit",
+    "test:coverage": "jest --coverage"
   },
   "author": "",
   "license": "MIT",

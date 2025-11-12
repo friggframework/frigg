@@ -8,6 +8,10 @@ const { updateBackendJsFile } = require('./backendJs');
 const { commitChanges } = require('./commitChanges');
 const { logInfo, logError } = require('./logger');
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('CLI Command Tests', () => {
     it('should successfully install an API module when all steps complete without errors', async () => {
         const mockApiModuleName = 'testModule';

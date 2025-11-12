@@ -14,6 +14,10 @@ jest.mock('./logger');
 jest.mock('@babel/parser');
 jest.mock('@babel/traverse');
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('handleEnvVariables', () => {
     const backendPath = '/mock/backend/path';
     const modulePath = '/mock/module/path';

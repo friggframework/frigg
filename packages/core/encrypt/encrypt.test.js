@@ -18,6 +18,10 @@ AWS.config.update({
     endpoint: 'localhost:4566',
 });
 
+/**
+ * @group integration
+ * @group infrastructure
+ */
 describe('Encrypt', () => {
     beforeAll(async () => {
         await testMongo.start();

@@ -1,5 +1,9 @@
 const { Cryptor } = require('./Cryptor');
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('Cryptor', () => {
     describe('Permutations', () => {
         it('calculates permutations correctly', async () => {

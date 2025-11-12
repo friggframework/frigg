@@ -7,6 +7,10 @@ const {Entity} = require('../../module-plugin/entity');
 const { IntegrationMapping } = require('../integration-mapping')
 const {IntegrationModel} = require("../integration-model");
 
+/**
+ * @group integration
+ * @group application
+ */
 describe(`Should fully test the IntegrationBase Class`, () => {
     let integrationRecord;
     let userId;

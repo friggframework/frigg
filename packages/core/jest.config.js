@@ -4,15 +4,18 @@
  */
 
 module.exports = {
-    // preset: '@friggframework/test',
+    preset: '@friggframework/test',
+
+    // Override coverage thresholds - start low, increase gradually
     coverageThreshold: {
         global: {
-            statements: 13,
-            branches: 0,
-            functions: 1,
-            lines: 13,
+            statements: 20,
+            branches: 15,
+            functions: 20,
+            lines: 20,
         },
     },
+
     // A path to a module which exports an async function that is triggered once before all test suites
     globalSetup: './jest-setup.js',
 

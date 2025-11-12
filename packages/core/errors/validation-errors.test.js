@@ -3,6 +3,10 @@ const {
     ParameterTypeError,
 } = require('./validation-errors');
 
+/**
+ * @group unit
+ * @group domain
+ */
 describe('RequiredPropertyError', () => {
     it('can be instantiated with default arguments', () => {
         const error = new RequiredPropertyError();
