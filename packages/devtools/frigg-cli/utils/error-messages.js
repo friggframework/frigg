@@ -6,6 +6,16 @@ const chalk = require('chalk');
  */
 
 /**
+ * Normalizes MongoDB-compatible database types to 'mongodb'
+ * DocumentDB uses the same Prisma client as MongoDB
+ * @param {'mongodb'|'postgresql'|'documentdb'} dbType - Database type
+ * @returns {'mongodb'|'postgresql'} Normalized database type
+ */
+function normalizeMongoCompatible(dbType) {
+    return dbType === 'documentdb' ? 'mongodb' : dbType;
+}
+
+/**
  * Database URL examples for both supported database types
  */
 const DATABASE_URL_EXAMPLES = {
@@ -79,11 +89,11 @@ const appDefinition = {
 /**
  * Gets helpful error message for database connection failure
  * @param {string} error - Connection error message
- * @param {'mongodb'|'postgresql'} dbType - Database type
+ * @param {'mongodb'|'postgresql'|'documentdb'} dbType - Database type
  * @returns {string} Formatted error message
  */
 function getDatabaseConnectionError(error, dbType) {
-    const troubleshootingSteps = dbType === 'mongodb'
+    const troubleshootingSteps = (dbType === 'mongodb' || dbType === 'documentdb')
         ? getMongoDatabaseTroubleshooting()
         : getPostgresTroubleshooting();
 
@@ -157,11 +167,13 @@ ${chalk.gray('5.')} Verify network/firewall settings
 
 /**
  * Gets helpful error message for missing Prisma client
- * @param {'mongodb'|'postgresql'} dbType - Database type
+ * @param {'mongodb'|'postgresql'|'documentdb'} dbType - Database type
  * @returns {string} Formatted error message
  */
 function getPrismaClientNotGeneratedError(dbType) {
-    const clientName = `@prisma-${dbType}/client`;
+    // Normalize DocumentDB to MongoDB (they use the same Prisma client)
+    const normalizedType = normalizeMongoCompatible(dbType);
+    const clientName = `@prisma-${normalizedType}/client`;
 
     return `
 ${chalk.red(`❌ Prisma client not generated for ${dbType}`)}
@@ -205,7 +217,7 @@ ${chalk.cyan('  Review Prisma schema')} ${chalk.gray('(node_modules/@friggframew
 
 /**
  * Gets success message for database setup completion
- * @param {'mongodb'|'postgresql'} dbType - Database type
+ * @param {'mongodb'|'postgresql'|'documentdb'} dbType - Database type
  * @param {string} stage - Deployment stage
  * @returns {string} Formatted success message
  */

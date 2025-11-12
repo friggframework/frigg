@@ -39,10 +39,37 @@ async function insertOne(client, collection, document) {
     const _id = document._id || new ObjectId();
     const docWithId = { ...document, _id };
 
-    await client.$runCommandRaw({
+    const result = await client.$runCommandRaw({
         insert: collection,
         documents: [docWithId],
     });
+
+    // Validate insert succeeded
+    if (result.ok !== 1) {
+        throw new Error(
+            `Insert command failed for collection '${collection}': ${JSON.stringify(result)}`
+        );
+    }
+
+    // Check for write errors (duplicate keys, validation errors, etc.)
+    if (result.writeErrors && result.writeErrors.length > 0) {
+        const error = result.writeErrors[0];
+        const errorMsg = `Insert failed in '${collection}': ${error.errmsg} (code: ${error.code})`;
+
+        // Provide helpful context for common errors
+        if (error.code === 11000) {
+            throw new Error(`${errorMsg} - Duplicate key violation`);
+        }
+        throw new Error(errorMsg);
+    }
+
+    // Verify exactly one document was inserted
+    if (result.n !== 1) {
+        throw new Error(
+            `Expected to insert 1 document into '${collection}', but inserted ${result.n}. ` +
+            `Result: ${JSON.stringify(result)}`
+        );
+    }
 
     return _id;
 }
