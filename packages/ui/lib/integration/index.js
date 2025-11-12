@@ -1,29 +1,29 @@
-import IntegrationDropdown from "./IntegrationDropdown";
-import IntegrationHorizontal from "./IntegrationHorizontal";
-import IntegrationList from "./IntegrationList.jsx";
-import IntegrationSkeleton from "./IntegrationSkeleton.jsx";
-import IntegrationVertical from "./IntegrationVertical";
-import QuickActionsMenu from "./QuickActionsMenu";
-import RedirectFromAuth from "./RedirectFromAuth.jsx";
-import { Form } from "./Form";
-import {
-  FormBasedAuthModal,
-  IntegrationConfigurationModal,
-  UserActionModal,
-} from "./modals";
-import * as BaseComponents from "../components";
+// Export the context provider and hook
+export { IntegrationDataProvider, useIntegrationData } from './context/IntegrationDataContext';
 
-export {
-  IntegrationDropdown,
-  IntegrationHorizontal,
-  IntegrationList,
-  IntegrationSkeleton,
-  IntegrationVertical,
-  QuickActionsMenu,
-  RedirectFromAuth,
-  Form,
-  FormBasedAuthModal,
-  IntegrationConfigurationModal,
-  UserActionModal,
-  BaseComponents,
-};
+// Export the custom hook
+export { useIntegrationLogic } from './hooks/useIntegrationLogic';
+
+// Export the layout components
+export { IntegrationHorizontalLayout } from './layouts/IntegrationHorizontalLayout';
+export { IntegrationVerticalLayout } from './layouts/IntegrationVerticalLayout';
+
+// Export the main components
+export { default as IntegrationHorizontal } from './IntegrationHorizontal';
+export { default as IntegrationVertical } from './IntegrationVertical';
+export { default as IntegrationBuilder } from './IntegrationBuilder';
+export { default as EntityManager } from './EntityManager';
+export { default as IntegrationList } from './IntegrationList';
+export { default as RedirectFromAuth } from './RedirectFromAuth';
+export { UserActionModal } from './modals';
+
+// Export testing components
+export { default as UserActionTester } from './UserActionTester';
+export { default as SystemActionsTester } from './SystemActionsTester';
+export { default as TestingDashboard } from './TestingDashboard';
+export { default as TestingDemo } from './TestingDemo';
+
+// Export presentation components
+export { EntityCard } from './presentation/components/EntityCard';
+export { EntityConnectionModal } from './presentation/components/EntityConnectionModal';
+export { EntitySelector } from './presentation/components/EntitySelector';

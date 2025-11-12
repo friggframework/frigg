@@ -119,32 +119,174 @@ export default class API {
     return this._checkResponse(response, url);
   }
 
-  // get the list of integrations for this token
+  // Get user's installed integrations
+  // Returns: { integrations: [] }
   async listIntegrations() {
     return this._get(this.endpointIntegrations);
   }
 
-  // get authorize url with the following params:
-  // ?entityType=Freshbooks&connectingEntityType=Saleforce
-  async getAuthorizeRequirements(entityType, connectingEntityType) {
-    const url = `${this.endpointAuthorize}?entityType=${entityType}&connectingEntityType=${connectingEntityType}`;
+  // Get available integration types/options configured in the Frigg instance
+  async listIntegrationOptions() {
+    return this._get(`${this.endpointIntegrations}/options`);
+  }
+
+  // Get user's authorized entities/connected accounts
+  async listEntities() {
+    return this._get('/api/entities');
+  }
+
+  // =========================================================================
+  // MODULE ENDPOINTS (NEW v2 API)
+  // =========================================================================
+
+  // Get available modules
+  async listModules() {
+    return this._get('/api/modules');
+  }
+
+  // Get authorization requirements for module (NEW v2 API)
+  async getModuleAuthorizationRequirements(moduleType, step = 1, sessionId = null) {
+    let url = `/api/modules/${moduleType}/authorization?step=${step}`;
+    if (sessionId) {
+      url += `&sessionId=${sessionId}`;
+    }
     return this._get(url);
   }
 
-  async authorize(entityType, authData) {
+  // Submit authorization step (NEW v2 API)
+  async submitModuleAuthorization(moduleType, data, step = null, sessionId = null, credentialId = null) {
+    const params = { data };
+    if (step) params.step = step;
+    if (sessionId) params.sessionId = sessionId;
+    if (credentialId) params.credentialId = credentialId;
+
+    return this._post(`/api/modules/${moduleType}/authorization`, params);
+  }
+
+  // =========================================================================
+  // CREDENTIAL ENDPOINTS (NEW)
+  // =========================================================================
+
+  async listCredentials(filters = {}) {
+    let url = '/api/credentials';
+    const params = new URLSearchParams();
+    if (filters.status) params.append('status', filters.status);
+    if (filters.moduleType) params.append('moduleType', filters.moduleType);
+
+    if (params.toString()) url += '?' + params.toString();
+    return this._get(url);
+  }
+
+  async getCredential(credentialId) {
+    return this._get(`/api/credentials/${credentialId}`);
+  }
+
+  async deleteCredential(credentialId, cascade = false) {
+    const url = `/api/credentials/${credentialId}${cascade ? '?cascade=true' : ''}`;
+    return this._delete(url, {});
+  }
+
+  async testCredential(credentialId) {
+    return this._get(`/api/credentials/${credentialId}/test`);
+  }
+
+  async resumeFromCredential(credentialId) {
+    return this._post(`/api/credentials/${credentialId}/resume`, {});
+  }
+
+  async getCredentialOptions(credentialId) {
+    return this._get(`/api/credentials/${credentialId}/options`);
+  }
+
+  // =========================================================================
+  // ENTITY ENDPOINTS (UPDATED)
+  // =========================================================================
+
+  // Get user's authorized entities/connected accounts
+  async listEntities(filters = {}) {
+    let url = '/api/entities';
+    if (filters.moduleType) {
+      url += `?moduleType=${filters.moduleType}`;
+    }
+    return this._get(url);
+  }
+
+  async getEntity(entityId) {
+    return this._get(`/api/entities/${entityId}`);
+  }
+
+  async deleteEntity(entityId, deleteCredential = false) {
+    const url = `/api/entities/${entityId}${deleteCredential ? '?deleteCredential=true' : ''}`;
+    return this._delete(url, {});
+  }
+
+  // UPDATED: Renamed from testEntityAuth
+  async testEntity(entityId) {
+    return this._get(`/api/entities/${entityId}/test`);
+  }
+
+  // NEW: Re-authentication flow
+  async initiateEntityReauthorization(entityId) {
+    return this._post(`/api/entities/${entityId}/reauthorize`, {});
+  }
+
+  async completeEntityReauthorization(entityId, data) {
+    return this._post(`/api/entities/${entityId}/reauthorize/complete`, data);
+  }
+
+  async getEntityOptions(entityId, optionType = null) {
+    const data = optionType ? { optionType } : {};
+    return this._post(`/api/entities/${entityId}/options`, data);
+  }
+
+  async refreshEntityOptions(entityId, optionType = null) {
+    const data = optionType ? { optionType } : {};
+    return this._post(`/api/entities/${entityId}/options/refresh`, data);
+  }
+
+  // =========================================================================
+  // LEGACY ENDPOINTS (BACKWARD COMPATIBILITY)
+  // =========================================================================
+
+  // get authorize url with the following params:
+  // ?entityType=Freshbooks&connectingEntityType=Saleforce&step=1&sessionId=xxx
+  // Supports multi-step auth (step defaults to 1 for backward compatibility)
+  async getAuthorizeRequirements(entityType, connectingEntityType = '', step = 1, sessionId = null) {
+    let url = `${this.endpointAuthorize}?entityType=${entityType}&connectingEntityType=${connectingEntityType}&step=${step}`;
+    if (sessionId) {
+      url += `&sessionId=${sessionId}`;
+    }
+    return this._get(url);
+  }
+
+  // Simplified method for getting authorization requirements for a single entity type
+  // Used when connecting a new account during integration builder flow
+  async getAuthorizationRequirements(entityType) {
+    const url = `${this.endpointAuthorize}?entityType=${entityType}`;
+    return this._get(url);
+  }
+
+  // Submit authorization step
+  // Supports multi-step auth (step defaults to 1 for single-step flows)
+  async authorize(entityType, authData, step = 1, sessionId = null) {
     const url = `${this.endpointAuthorize}`;
     const params = {
       entityType,
       data: authData,
+      step,
     };
+    if (sessionId) {
+      params.sessionId = sessionId;
+    }
     return this._post(url, params);
   }
 
   // create integration. on success returns the integration id along with its configuration
-  async createIntegration(entity1, entity2, config) {
+  // entities: array of 0-N entity IDs to connect
+  async createIntegration(entities, config) {
     const url = `${this.endpointIntegrations}`;
     const params = {
-      entities: [entity1, entity2],
+      entities,
       config,
     };
     return this._post(url, params);
@@ -204,5 +346,54 @@ export default class API {
 
   async refreshOptions({ endpoint, data }) {
     return this._post(endpoint, data);
+  }
+
+  // =========================================================================
+  // SYSTEM ACTIONS ENDPOINTS (DEV MODE)
+  // =========================================================================
+
+  // Get available system actions for an integration
+  async getSystemActions(integrationId) {
+    return this._get(`/api/integrations/${integrationId}/system-actions`);
+  }
+
+  // Execute a system action (webhook, polling, queue worker, etc.)
+  async executeSystemAction(integrationId, actionType, config) {
+    return this._post(`/api/integrations/${integrationId}/system-actions/${actionType}`, config);
+  }
+
+  // Trigger a webhook event
+  async triggerWebhook(integrationId, webhookConfig) {
+    return this._post(`/api/integrations/${integrationId}/webhooks/trigger`, webhookConfig);
+  }
+
+  // Start/stop polling for an integration
+  async togglePolling(integrationId, enabled, config = {}) {
+    return this._post(`/api/integrations/${integrationId}/polling`, {
+      enabled,
+      config
+    });
+  }
+
+  // Execute a queue worker job
+  async executeQueueWorker(integrationId, jobConfig) {
+    return this._post(`/api/integrations/${integrationId}/queue-worker`, jobConfig);
+  }
+
+  // Trigger a lifecycle event
+  async triggerLifecycleEvent(integrationId, event, data = {}) {
+    return this._post(`/api/integrations/${integrationId}/lifecycle-events`, {
+      event,
+      data
+    });
+  }
+
+  // Get system action logs
+  async getSystemActionLogs(integrationId, actionType = null, limit = 100) {
+    let url = `/api/integrations/${integrationId}/system-actions/logs?limit=${limit}`;
+    if (actionType) {
+      url += `&actionType=${actionType}`;
+    }
+    return this._get(url);
   }
 }

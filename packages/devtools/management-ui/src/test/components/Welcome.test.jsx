@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import '@testing-library/jest-dom'
-import Welcome from '../../components/Welcome'
-import { FriggProvider } from '../../hooks/useFrigg'
+import Welcome from '../../presentation/components/Welcome'
+import { FriggProvider } from '../../presentation/hooks/useFrigg'
 
 // Mock the navigation
 const mockNavigate = vi.fn()
