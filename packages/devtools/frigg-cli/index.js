@@ -168,6 +168,9 @@ program
     .option('-v, --verbose', 'enable verbose output')
     .action(repairCommand);
 
-program.parse(process.argv);
+// Only parse arguments when run directly, not when imported by tests
+if (require.main === module) {
+    program.parse(process.argv);
+}
 
-module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, generateIamCommand, uiCommand, dbSetupCommand, doctorCommand, repairCommand };
+module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, generateIamCommand, uiCommand, dbSetupCommand, doctorCommand, repairCommand, program };
