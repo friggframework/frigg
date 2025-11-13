@@ -1,6 +1,6 @@
 const fs = require('fs-extra');
 const path = require('path');
-const { logInfo } = require('./logger');
+const output = require('../utils/output');
 const { getIntegrationTemplate } = require('./template');
 const INTEGRATIONS_DIR = 'src/integrations';
 
@@ -9,14 +9,14 @@ function createIntegrationFile(backendPath, apiModuleName, ApiClass) {
         path.dirname(backendPath),
         INTEGRATIONS_DIR
     );
-    logInfo(`Ensuring directory exists: ${integrationDir}`);
+    output.debug(`Ensuring directory exists: ${integrationDir}`);
     fs.ensureDirSync(integrationDir);
 
     const integrationFilePath = path.join(
         integrationDir,
         `${apiModuleName}Integration.js`
     );
-    logInfo(`Writing integration file: ${integrationFilePath}`);
+    output.debug(`Writing integration file: ${integrationFilePath}`);
     const integrationTemplate = getIntegrationTemplate(
         apiModuleName,
         backendPath,

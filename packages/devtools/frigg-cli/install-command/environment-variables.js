@@ -1,9 +1,8 @@
 const fs = require('fs');
 const dotenv = require('dotenv');
 const { readFileSync, writeFileSync, existsSync } = require('fs');
-const { logInfo } = require('./logger');
+const output = require('../utils/output');
 const { resolve } = require('node:path');
-const { confirm, input } = require('@inquirer/prompts');
 const { parse } = require('@babel/parser');
 const traverse = require('@babel/traverse').default;
 
@@ -43,15 +42,14 @@ const extractRawEnvVariables = (modulePath) => {
     return envVariables;
 };
 const handleEnvVariables = async (backendPath, modulePath) => {
-    logInfo('Searching for missing environment variables...');
+    output.info('Searching for missing environment variables...');
     const Definition = { env: extractRawEnvVariables(modulePath) };
     if (Definition && Definition.env) {
-        console.log('Here is Definition.env:', Definition.env);
+        output.debug('Definition.env:', JSON.stringify(Definition.env));
         const envVars = Object.values(Definition.env);
 
-        console.log(
-            'Found the following environment variables in the API module:',
-            envVars
+        output.info(
+            `Found environment variables in API module: ${envVars.join(', ')}`
         );
 
         const localEnvPath = resolve(backendPath, '../.env');
@@ -78,23 +76,19 @@ const handleEnvVariables = async (backendPath, modulePath) => {
             (envVar) => !localEnvVars[envVar] && !localDevConfig[envVar]
         );
 
-        logInfo(`Missing environment variables: ${missingEnvVars.join(', ')}`);
-
         if (missingEnvVars.length > 0) {
-            const addEnvVars = await confirm({
-                message: `The following environment variables are required: ${missingEnvVars.join(
+            output.warn(`Missing environment variables: ${missingEnvVars.join(', ')}`);
+
+            const addEnvVars = await output.confirm(
+                `The following environment variables are required: ${missingEnvVars.join(
                     ', '
-                )}. Do you want to add them now?`,
-            });
+                )}. Do you want to add them now?`
+            );
 
             if (addEnvVars) {
                 const envValues = {};
                 for (const envVar of missingEnvVars) {
-                    const value = await input({
-                        type: 'input',
-                        name: 'value',
-                        message: `Enter value for ${envVar}:`,
-                    });
+                    const value = await output.input(`Enter value for ${envVar}:`);
                     envValues[envVar] = value;
                 }
 
@@ -117,9 +111,12 @@ const handleEnvVariables = async (backendPath, modulePath) => {
                         JSON.stringify(updatedDevConfig, null, 2)
                     );
                 }
+                output.success('Environment variables added successfully');
             } else {
-                logInfo("Edit whenever you're able, safe travels friend!");
+                output.info("Edit whenever you're able, safe travels friend!");
             }
+        } else {
+            output.success('All required environment variables are already configured');
         }
     }
 };

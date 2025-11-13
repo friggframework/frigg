@@ -1,12 +1,12 @@
 const fs = require('fs-extra');
 const path = require('path');
-const { logInfo } = require('./logger');
+const output = require('../utils/output');
 const INTEGRATIONS_DIR = 'src/integrations';
 const BACKEND_JS = 'backend.js';
 
 function updateBackendJsFile(backendPath, apiModuleName) {
     const backendJsPath = path.join(path.dirname(backendPath), BACKEND_JS);
-    logInfo(`Updating backend.js: ${backendJsPath}`);
+    output.debug(`Updating backend.js: ${backendJsPath}`);
     updateBackendJs(backendJsPath, apiModuleName);
 }
 
@@ -21,7 +21,7 @@ function updateBackendJs(backendJsPath, apiModuleName) {
         );
         fs.writeFileSync(backendJsPath, importStatement + updatedContent);
     } else {
-        logInfo(
+        output.debug(
             `Import statement for ${apiModuleName}Integration already exists in backend.js`
         );
     }
