@@ -21,7 +21,11 @@ export const SocketProvider = ({ children }) => {
       return
     }
 
-    const newSocket = io('http://localhost:3210', {
+    // Use environment variable or default to current origin
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || window.location.origin
+    console.log('Connecting to WebSocket at:', socketUrl)
+
+    const newSocket = io(socketUrl, {
       transports: ['websocket', 'polling'],
       autoConnect: true,
       reconnection: true,
