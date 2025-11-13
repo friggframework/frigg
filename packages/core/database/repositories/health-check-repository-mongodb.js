@@ -46,9 +46,9 @@ class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface {
         
         // Race between the database ping and the timeout
         await Promise.race([
-            prisma.$queryRaw`SELECT 1`.catch(() => {
+            this.prisma.$queryRaw`SELECT 1`.catch(() => {
                 // For MongoDB, use runCommandRaw instead
-                return prisma.$runCommandRaw({ ping: 1 });
+                return this.prisma.$runCommandRaw({ ping: 1 });
             }),
             timeoutPromise
         ]);

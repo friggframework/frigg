@@ -2,17 +2,14 @@
  * Tests for MongoDB Schema Initialization
  */
 
-const {
-    initializeMongoDBSchema,
-    getPrismaCollections,
-} = require('./mongodb-schema-init');
-
-// Mock dependencies
-const mockMongoose = {
-    connection: {
-        readyState: 1, // connected
+// Mock dependencies - must be defined before require statements due to Jest hoisting
+jest.mock('../mongoose', () => ({
+    mongoose: {
+        connection: {
+            readyState: 1, // connected
+        },
     },
-};
+}));
 
 const mockEnsureCollectionsExist = jest.fn().mockResolvedValue(undefined);
 const mockGetCollectionsFromSchemaSync = jest.fn().mockReturnValue([
@@ -20,10 +17,6 @@ const mockGetCollectionsFromSchemaSync = jest.fn().mockReturnValue([
     'IntegrationMapping', 'Process', 'Sync', 'DataIdentifier',
     'Association', 'AssociationObject', 'State', 'WebsocketConnection'
 ]);
-
-jest.mock('../mongoose', () => ({
-    mongoose: mockMongoose,
-}));
 
 jest.mock('./mongodb-collection-utils', () => ({
     ensureCollectionsExist: mockEnsureCollectionsExist,
@@ -33,11 +26,14 @@ jest.mock('./prisma-schema-parser', () => ({
     getCollectionsFromSchemaSync: mockGetCollectionsFromSchemaSync,
 }));
 
-const mockConfig = {
+jest.mock('../config', () => ({
     DB_TYPE: 'mongodb',
-};
+}));
 
-jest.mock('../config', () => mockConfig);
+const {
+    initializeMongoDBSchema,
+    getPrismaCollections,
+} = require('./mongodb-schema-init');
 
 /**
  * @group unit

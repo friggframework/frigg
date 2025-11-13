@@ -2,25 +2,25 @@
  * Tests for MongoDB Collection Utilities
  */
 
+// Mock mongoose - must be defined before require statements due to Jest hoisting
+jest.mock('../mongoose', () => ({
+    mongoose: {
+        connection: {
+            db: {
+                listCollections: jest.fn(),
+                createCollection: jest.fn(),
+            },
+        },
+    },
+}));
+
 const {
     ensureCollectionExists,
     ensureCollectionsExist,
     collectionExists,
 } = require('./mongodb-collection-utils');
 
-// Mock mongoose
-const mockMongoose = {
-    connection: {
-        db: {
-            listCollections: jest.fn(),
-            createCollection: jest.fn(),
-        },
-    },
-};
-
-jest.mock('../mongoose', () => ({
-    mongoose: mockMongoose,
-}));
+const { mongoose } = require('../mongoose');
 
 /**
  * @group unit
@@ -34,43 +34,43 @@ describe('MongoDB Collection Utilities', () => {
     describe('ensureCollectionExists', () => {
         it('should create collection if it does not exist', async () => {
             // Mock: collection doesn't exist
-            mockMongoose.connection.db.listCollections.mockReturnValue({
+            mongoose.connection.db.listCollections.mockReturnValue({
                 toArray: jest.fn().mockResolvedValue([]),
             });
-            mockMongoose.connection.db.createCollection.mockResolvedValue(true);
+            mongoose.connection.db.createCollection.mockResolvedValue(true);
 
             await ensureCollectionExists('TestCollection');
 
-            expect(mockMongoose.connection.db.listCollections).toHaveBeenCalledWith({
+            expect(mongoose.connection.db.listCollections).toHaveBeenCalledWith({
                 name: 'TestCollection',
             });
-            expect(mockMongoose.connection.db.createCollection).toHaveBeenCalledWith(
+            expect(mongoose.connection.db.createCollection).toHaveBeenCalledWith(
                 'TestCollection'
             );
         });
 
         it('should not create collection if it already exists', async () => {
             // Mock: collection exists
-            mockMongoose.connection.db.listCollections.mockReturnValue({
+            mongoose.connection.db.listCollections.mockReturnValue({
                 toArray: jest.fn().mockResolvedValue([{ name: 'TestCollection' }]),
             });
 
             await ensureCollectionExists('TestCollection');
 
-            expect(mockMongoose.connection.db.listCollections).toHaveBeenCalledWith({
+            expect(mongoose.connection.db.listCollections).toHaveBeenCalledWith({
                 name: 'TestCollection',
             });
-            expect(mockMongoose.connection.db.createCollection).not.toHaveBeenCalled();
+            expect(mongoose.connection.db.createCollection).not.toHaveBeenCalled();
         });
 
         it('should not throw if collection creation fails with NamespaceExists error', async () => {
             // Mock: collection doesn't exist in list, but creation fails (race condition)
-            mockMongoose.connection.db.listCollections.mockReturnValue({
+            mongoose.connection.db.listCollections.mockReturnValue({
                 toArray: jest.fn().mockResolvedValue([]),
             });
             const error = new Error('Collection already exists');
             error.codeName = 'NamespaceExists';
-            mockMongoose.connection.db.createCollection.mockRejectedValue(error);
+            mongoose.connection.db.createCollection.mockRejectedValue(error);
 
             // Should not throw
             await expect(ensureCollectionExists('TestCollection')).resolves.not.toThrow();
@@ -80,7 +80,7 @@ describe('MongoDB Collection Utilities', () => {
             const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
             // Mock: listCollections fails
-            mockMongoose.connection.db.listCollections.mockReturnValue({
+            mongoose.connection.db.listCollections.mockReturnValue({
                 toArray: jest.fn().mockRejectedValue(new Error('Connection error')),
             });
 
@@ -95,21 +95,21 @@ describe('MongoDB Collection Utilities', () => {
     describe('ensureCollectionsExist', () => {
         it('should ensure multiple collections exist', async () => {
             // Mock: no collections exist
-            mockMongoose.connection.db.listCollections.mockReturnValue({
+            mongoose.connection.db.listCollections.mockReturnValue({
                 toArray: jest.fn().mockResolvedValue([]),
             });
-            mockMongoose.connection.db.createCollection.mockResolvedValue(true);
+            mongoose.connection.db.createCollection.mockResolvedValue(true);
 
             await ensureCollectionsExist(['Collection1', 'Collection2', 'Collection3']);
 
-            expect(mockMongoose.connection.db.createCollection).toHaveBeenCalledTimes(3);
-            expect(mockMongoose.connection.db.createCollection).toHaveBeenCalledWith(
+            expect(mongoose.connection.db.createCollection).toHaveBeenCalledTimes(3);
+            expect(mongoose.connection.db.createCollection).toHaveBeenCalledWith(
                 'Collection1'
             );
-            expect(mockMongoose.connection.db.createCollection).toHaveBeenCalledWith(
+            expect(mongoose.connection.db.createCollection).toHaveBeenCalledWith(
                 'Collection2'
             );
-            expect(mockMongoose.connection.db.createCollection).toHaveBeenCalledWith(
+            expect(mongoose.connection.db.createCollection).toHaveBeenCalledWith(
                 'Collection3'
             );
         });
@@ -117,7 +117,7 @@ describe('MongoDB Collection Utilities', () => {
 
     describe('collectionExists', () => {
         it('should return true if collection exists', async () => {
-            mockMongoose.connection.db.listCollections.mockReturnValue({
+            mongoose.connection.db.listCollections.mockReturnValue({
                 toArray: jest.fn().mockResolvedValue([{ name: 'TestCollection' }]),
             });
 
@@ -127,7 +127,7 @@ describe('MongoDB Collection Utilities', () => {
         });
 
         it('should return false if collection does not exist', async () => {
-            mockMongoose.connection.db.listCollections.mockReturnValue({
+            mongoose.connection.db.listCollections.mockReturnValue({
                 toArray: jest.fn().mockResolvedValue([]),
             });
 
@@ -139,7 +139,7 @@ describe('MongoDB Collection Utilities', () => {
         it('should return false on error', async () => {
             const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
 
-            mockMongoose.connection.db.listCollections.mockReturnValue({
+            mongoose.connection.db.listCollections.mockReturnValue({
                 toArray: jest.fn().mockRejectedValue(new Error('Connection error')),
             });
 
