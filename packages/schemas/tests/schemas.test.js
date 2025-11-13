@@ -92,7 +92,7 @@ describe('@friggframework/schemas', () => {
                         organizationUserRequired: false,
                         authModes: {
                             friggToken: true,
-                            xFriggHeaders: true,
+                            sharedSecret: false,
                             adopterJwt: false,
                         },
                     },
@@ -109,7 +109,7 @@ describe('@friggframework/schemas', () => {
                         usePassword: false,
                         authModes: {
                             friggToken: false,
-                            xFriggHeaders: false,
+                            sharedSecret: false,
                             adopterJwt: true,
                         },
                         jwtConfig: {
@@ -204,7 +204,7 @@ describe('@friggframework/schemas', () => {
                         organizationUserRequired: false,
                         authModes: {
                             friggToken: true,
-                            xFriggHeaders: true,
+                            sharedSecret: false,
                             adopterJwt: false,
                         },
                         fields: ['email', 'firstName', 'lastName'],
@@ -413,7 +413,7 @@ describe('@friggframework/schemas', () => {
         test('should validate user model', () => {
             const models = {
                 user: {
-                    _id: "507f1f77bcf86cd799439011",
+                    id: "507f1f77bcf86cd799439011",
                     email: "test@example.com",
                     role: "user",
                     isActive: true,
@@ -421,7 +421,7 @@ describe('@friggframework/schemas', () => {
                     updatedAt: "2023-01-01T00:00:00Z"
                 }
             };
-            
+
             const result = validateCoreModels(models);
             expect(result.valid).toBe(true);
         });
@@ -429,16 +429,20 @@ describe('@friggframework/schemas', () => {
         test('should validate credential model', () => {
             const models = {
                 credential: {
-                    _id: "507f1f77bcf86cd799439012",
+                    id: "507f1f77bcf86cd799439012",
                     userId: "507f1f77bcf86cd799439011",
-                    subType: "hubspot",
+                    externalId: "12345",
                     authIsValid: true,
+                    data: {
+                        access_token: "encrypted_token",
+                        refresh_token: "encrypted_refresh"
+                    },
                     isActive: true,
                     createdAt: "2023-01-01T00:00:00Z",
                     updatedAt: "2023-01-01T00:00:00Z"
                 }
             };
-            
+
             const result = validateCoreModels(models);
             expect(result.valid).toBe(true);
         });
@@ -446,18 +450,19 @@ describe('@friggframework/schemas', () => {
         test('should validate entity model', () => {
             const models = {
                 entity: {
-                    _id: "507f1f77bcf86cd799439013",
+                    id: "507f1f77bcf86cd799439013",
                     credentialId: "507f1f77bcf86cd799439012",
                     userId: "507f1f77bcf86cd799439011",
-                    subType: "contact",
+                    moduleName: "hubspot",
                     name: "Test Entity",
+                    externalId: "contact_12345",
                     status: "active",
                     isActive: true,
                     createdAt: "2023-01-01T00:00:00Z",
                     updatedAt: "2023-01-01T00:00:00Z"
                 }
             };
-            
+
             const result = validateCoreModels(models);
             expect(result.valid).toBe(true);
         });

@@ -21,7 +21,8 @@ import {
   Shield,
   Users,
   ChevronDown,
-  Check
+  Check,
+  Code
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -534,74 +535,89 @@ const TestingZone = ({ className }) => {
   const renderViewModeSelection = () => {
     return (
       <div className="h-full flex items-center justify-center p-6">
-        <div className="max-w-2xl w-full space-y-6">
-          <div className="text-center space-y-2">
-            <h2 className="text-2xl font-bold">Choose View Mode</h2>
-            <p className="text-muted-foreground">
-              Select how you want to interact with Frigg
+        <div className="max-w-3xl w-full space-y-6">
+          <div className="text-center space-y-3">
+            <h2 className="text-2xl font-bold">Choose Your View Mode</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              <strong>User View</strong> shows what your integration users will see.
+              <strong className="ml-1">Developer View</strong> provides testing and admin tools for development.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-4">
-            {/* Admin View Card */}
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* User View Card - Blue Theme */}
             <button
-              onClick={() => handleViewModeSelect('admin')}
-              className="group relative overflow-hidden rounded-lg border-2 border-border bg-card p-6 text-left transition-all hover:border-primary hover:shadow-lg"
+              onClick={() => handleViewModeSelect('user')}
+              className="group relative overflow-hidden rounded-lg border-2 border-blue-200 dark:border-blue-800 bg-card p-6 text-left transition-all hover:border-blue-500 hover:shadow-lg"
             >
               <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-full bg-primary/10 p-3 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                    <Shield className="w-6 h-6" />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-full bg-blue-100 dark:bg-blue-900/30 p-3 group-hover:bg-blue-500 group-hover:text-white transition-colors">
+                      <User className="w-6 h-6 text-blue-600 dark:text-blue-400 group-hover:text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold">User View</h3>
+                      <Badge variant="outline" className="mt-1 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700">
+                        Customer Experience
+                      </Badge>
+                    </div>
                   </div>
-                  <h3 className="text-xl font-semibold">Admin View</h3>
                 </div>
-                <p className="text-muted-foreground text-sm">
-                  Manage users, organizations, and global entities. Create test users and configure shared resources.
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  Experience exactly what your integration users will see. Test the customer-facing integration flow including OAuth, entity selection, and configuration.
                 </p>
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   <li className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-primary" />
-                    User management
+                    <CheckCircle className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <span>Integration gallery & connection flow</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-primary" />
-                    Global entity configuration
+                    <CheckCircle className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <span>Connected accounts management</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-primary" />
-                    Switch to user view
+                    <CheckCircle className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <span>User-facing integration builder</span>
                   </li>
                 </ul>
               </div>
             </button>
 
-            {/* User View Card */}
+            {/* Developer View Card - Purple Theme */}
             <button
-              onClick={() => handleViewModeSelect('user')}
-              className="group relative overflow-hidden rounded-lg border-2 border-border bg-card p-6 text-left transition-all hover:border-primary hover:shadow-lg"
+              onClick={() => handleViewModeSelect('admin')}
+              className="group relative overflow-hidden rounded-lg border-2 border-purple-200 dark:border-purple-800 bg-card p-6 text-left transition-all hover:border-purple-500 hover:shadow-lg"
             >
               <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-full bg-primary/10 p-3 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                    <Users className="w-6 h-6" />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-full bg-purple-100 dark:bg-purple-900/30 p-3 group-hover:bg-purple-500 group-hover:text-white transition-colors">
+                      <Code className="w-6 h-6 text-purple-600 dark:text-purple-400 group-hover:text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold">Developer View</h3>
+                      <Badge variant="outline" className="mt-1 bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-700">
+                        Testing & Admin
+                      </Badge>
+                    </div>
                   </div>
-                  <h3 className="text-xl font-semibold">User View</h3>
                 </div>
-                <p className="text-muted-foreground text-sm">
-                  Test integrations as an end user. Browse integrations, manage entities, and build connections.
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  Comprehensive testing and admin tools for integration development. Manage users, test actions, configure entities, and debug integrations.
                 </p>
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   <li className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-primary" />
-                    Integration gallery
+                    <CheckCircle className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    <span>User & organization management</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-primary" />
-                    Entity management
+                    <CheckCircle className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    <span>Testing dashboard (user & system actions)</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-primary" />
-                    Integration builder
+                    <CheckCircle className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    <span>Global entity configuration</span>
                   </li>
                 </ul>
               </div>
@@ -699,7 +715,7 @@ const TestingZone = ({ className }) => {
         return (
           <div className="h-full flex flex-col">
             {/* Header with back button */}
-            <div className="flex items-center gap-4 px-6 py-4 border-b border-border bg-muted/30">
+            <div className="flex items-center gap-4 px-6 py-4 border-b border-border bg-purple-50/50 dark:bg-purple-950/20">
               <Button
                 variant="ghost"
                 size="sm"
@@ -709,9 +725,9 @@ const TestingZone = ({ className }) => {
                 Back to View Selection
               </Button>
               <div className="flex items-center gap-2 ml-auto">
-                <Badge variant="outline" className="gap-2">
-                  <Shield className="w-3 h-3" />
-                  Admin Mode
+                <Badge variant="outline" className="gap-2 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-700">
+                  <Code className="w-3 h-3" />
+                  Developer Mode
                 </Badge>
               </div>
             </div>
@@ -728,7 +744,7 @@ const TestingZone = ({ className }) => {
         return (
           <div className="h-full flex flex-col">
             {/* Header with back button and user info */}
-            <div className="flex items-center gap-4 px-6 py-4 border-b border-border bg-muted/30">
+            <div className="flex items-center gap-4 px-6 py-4 border-b border-border bg-blue-50/50 dark:bg-blue-950/20">
               <Button
                 variant="ghost"
                 size="sm"
@@ -737,8 +753,13 @@ const TestingZone = ({ className }) => {
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to View Selection
               </Button>
+              <div className="flex items-center gap-2 ml-auto">
+                <Badge variant="outline" className="gap-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700">
+                  <User className="w-3 h-3" />
+                  User View
+                </Badge>
               {selectedUser && (
-                <div className="flex items-center gap-2 ml-auto">
+                <div className="flex items-center gap-2">
                   {allUsers.length > 0 ? (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -777,6 +798,7 @@ const TestingZone = ({ className }) => {
                   )}
                 </div>
               )}
+              </div>
             </div>
             <div className="flex-1 overflow-auto">
               <TestAreaContainer

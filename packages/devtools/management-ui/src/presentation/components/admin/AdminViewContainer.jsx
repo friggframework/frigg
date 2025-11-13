@@ -1,21 +1,25 @@
 import React, { useState } from 'react'
-import { Users, Database, AlertCircle } from 'lucide-react'
+import { Users, Database, AlertCircle, FlaskConical } from 'lucide-react'
 import UserManagement from './UserManagement'
 import GlobalEntityManagement from './GlobalEntityManagement'
+import { TestingDashboard } from '@friggframework/ui'
+import '@friggframework/ui/dist/style.css'
 import { Card } from '../ui/Card'
 
 /**
  * AdminViewContainer
- * Main container for admin functionality with two tabs:
+ * Main container for admin functionality with three tabs:
  * 1. Users - User management with org associations
  * 2. Global Entities - Shared entity management (for dev convenience)
+ * 3. Testing - Comprehensive testing dashboard for user and system actions
  */
 const AdminViewContainer = ({ friggBaseUrl, onUserSelect }) => {
   const [activeTab, setActiveTab] = useState('users')
 
   const tabs = [
     { id: 'users', label: 'Users', icon: Users },
-    { id: 'global-entities', label: 'Global Entities', icon: Database }
+    { id: 'global-entities', label: 'Global Entities', icon: Database },
+    { id: 'testing', label: 'Testing', icon: FlaskConical }
   ]
 
   return (
@@ -76,6 +80,32 @@ const AdminViewContainer = ({ friggBaseUrl, onUserSelect }) => {
 
             {/* Global Entity Management */}
             <GlobalEntityManagement friggBaseUrl={friggBaseUrl} />
+          </div>
+        )}
+
+        {activeTab === 'testing' && (
+          <div className="space-y-4">
+            {/* Banner explaining testing dashboard */}
+            <Card className="bg-purple-50 dark:bg-purple-950 border-purple-200 dark:border-purple-800">
+              <div className="flex items-start gap-3 p-4">
+                <FlaskConical className="w-5 h-5 text-purple-600 dark:text-purple-400 mt-0.5 flex-shrink-0" />
+                <div className="space-y-1">
+                  <h3 className="text-sm font-medium text-purple-900 dark:text-purple-100">
+                    Comprehensive Testing Dashboard
+                  </h3>
+                  <p className="text-sm text-purple-700 dark:text-purple-300">
+                    Test user actions, system actions, webhooks, and integration workflows.
+                    Use this to verify integration behavior during development.
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Testing Dashboard */}
+            <TestingDashboard
+              friggBaseUrl={friggBaseUrl}
+              authToken={null}
+            />
           </div>
         )}
       </div>
