@@ -120,6 +120,12 @@ const TestAreaUserSelection = ({
       const data = await response.json()
       console.log('Impersonation successful, token received:', data.token ? 'Yes' : 'No')
 
+      // Persist token to localStorage for API client interceptor
+      if (data.token) {
+        localStorage.setItem('frigg_auth_token', data.token)
+        console.log('Token persisted to localStorage')
+      }
+
       // Pass user and token to parent
       onUserSelected({
         ...user,
