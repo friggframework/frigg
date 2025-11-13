@@ -14,6 +14,9 @@ import IntegrationTabs from "./integration/IntegrationTabs";
 import EntityManager from "./integration/EntityManager";
 import IntegrationBuilder from "./integration/IntegrationBuilder";
 import UserActionTester from "./integration/UserActionTester";
+import SystemActionsTester from "./integration/SystemActionsTester";
+import TestingDashboard from "./integration/TestingDashboard";
+import TestingDemo from "./integration/TestingDemo";
 import AuthModal from "./integration/AuthModal";
 import { FriggProvider, useFrigg, useIntegrationData } from "./integration/context/IntegrationDataContext";
 
@@ -33,6 +36,10 @@ export {
   IntegrationBuilder,
   UserActionTester,
   AuthModal,
+  // Testing components
+  SystemActionsTester,
+  TestingDashboard,
+  TestingDemo,
   // Context providers and hooks
   FriggProvider,
   useFrigg,
