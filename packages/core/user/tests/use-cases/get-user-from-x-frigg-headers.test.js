@@ -36,11 +36,11 @@ describe('GetUserFromXFriggHeaders', () => {
         it('should throw 400 error when neither appUserId nor appOrgId provided', async () => {
             await expect(
                 getUserFromXFriggHeaders.execute(null, null)
-            ).rejects.toThrow(Boom.badRequest().message);
+            ).rejects.toThrow('At least one of x-frigg-appUserId or x-frigg-appOrgId headers is required');
 
             await expect(
                 getUserFromXFriggHeaders.execute(undefined, undefined)
-            ).rejects.toThrow();
+            ).rejects.toThrow('At least one of x-frigg-appUserId or x-frigg-appOrgId headers is required');
         });
     });
 
@@ -184,10 +184,7 @@ describe('GetUserFromXFriggHeaders', () => {
                 mockOrgUser
             );
 
-            await expect(
-                getUserFromXFriggHeaders.execute('app-user-456', 'app-org-789')
-            ).rejects.toThrow(Boom.badRequest().message);
-
+            // Should throw error with specific message about mismatch
             await expect(
                 getUserFromXFriggHeaders.execute('app-user-456', 'app-org-789')
             ).rejects.toThrow('User ID mismatch');

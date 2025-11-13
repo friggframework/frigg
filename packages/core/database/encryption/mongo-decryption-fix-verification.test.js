@@ -26,7 +26,7 @@ const { prisma, connectPrisma, disconnectPrisma } = require('../prisma');
 const { ModuleRepositoryMongo } = require('../../modules/repositories/module-repository-mongo');
 
 /**
- * @group unit
+ * @group integration
  * @group infrastructure
  */
 describe('Repository Fix Verification - MongoDB Decryption', () => {

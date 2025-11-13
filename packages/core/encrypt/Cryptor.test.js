@@ -112,7 +112,7 @@ describe('Cryptor - AWS SDK v3', () => {
 
     describe('Local Mode (shouldUseAws: false)', () => {
         beforeEach(() => {
-            process.env.AES_KEY = 'test-aes-key-32-bytes-long-123';
+            process.env.AES_KEY = 'test-aes-key-32bytes-long-12345'; // Exactly 32 characters for AES-256
             process.env.AES_KEY_ID = 'local-key-id';
         });
 

@@ -35,7 +35,7 @@ const { prisma, connectPrisma, disconnectPrisma } = require('../../database/pris
 const { mongoose } = require('../../database/mongoose');
 
 /**
- * @group unit
+ * @group integration
  * @group infrastructure
  */
 describe('Password Hashing Verification - Both Databases', () => {

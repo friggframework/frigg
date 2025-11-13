@@ -28,7 +28,7 @@ const { prisma, connectPrisma, disconnectPrisma } = require('../prisma');
 const { ModuleRepositoryPostgres } = require('../../modules/repositories/module-repository-postgres');
 
 /**
- * @group unit
+ * @group integration
  * @group infrastructure
  */
 describe('Repository Fix Verification - PostgreSQL Decryption', () => {

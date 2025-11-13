@@ -35,6 +35,9 @@ const {
     getPrismaCollections,
 } = require('./mongodb-schema-init');
 
+const { mongoose } = require('../mongoose');
+const config = require('../config');
+
 /**
  * @group unit
  * @group infrastructure
@@ -42,8 +45,13 @@ const {
 describe('MongoDB Schema Initialization', () => {
     beforeEach(() => {
         jest.clearAllMocks();
-        mockConfig.DB_TYPE = 'mongodb';
-        mockMongoose.connection.readyState = 1;
+
+        // Reset mongoose connection state to connected
+        mongoose.connection.readyState = 1;
+
+        // Reset config to MongoDB
+        config.DB_TYPE = 'mongodb';
+
         console.log = jest.fn();
         console.error = jest.fn();
         console.warn = jest.fn();
@@ -72,7 +80,7 @@ describe('MongoDB Schema Initialization', () => {
         });
 
         it('should skip initialization for PostgreSQL', async () => {
-            mockConfig.DB_TYPE = 'postgresql';
+            config.DB_TYPE = 'postgresql';
 
             await initializeMongoDBSchema();
 
@@ -83,7 +91,7 @@ describe('MongoDB Schema Initialization', () => {
         });
 
         it('should throw error if database not connected', async () => {
-            mockMongoose.connection.readyState = 0; // disconnected
+            mongoose.connection.readyState = 0; // disconnected
 
             await expect(initializeMongoDBSchema()).rejects.toThrow(
                 'Cannot initialize MongoDB schema - database not connected'

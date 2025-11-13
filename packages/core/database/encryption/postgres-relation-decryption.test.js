@@ -29,7 +29,7 @@ jest.mock('../config', () => ({
 const { prisma, connectPrisma, disconnectPrisma } = require('../prisma');
 
 /**
- * @group unit
+ * @group integration
  * @group infrastructure
  */
 describe('PostgreSQL Relation Decryption Bug', () => {

@@ -35,7 +35,7 @@ const { getEncryptedFields, hasEncryptedFields } = require('../../database/encry
 const { mongoose } = require('../../database/mongoose');
 
 /**
- * @group unit
+ * @group integration
  * @group infrastructure
  */
 describe('Password Encryption Isolation', () => {
