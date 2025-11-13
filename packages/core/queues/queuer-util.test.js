@@ -15,8 +15,14 @@ const { QueuerUtil } = require('./queuer-util');
 describe('QueuerUtil - AWS SDK v3', () => {
     let sqsMock;
 
-    beforeEach(() => {
+    beforeAll(() => {
+        // Mock the SQS client once before all tests
         sqsMock = mockClient(SQSClient);
+    });
+
+    beforeEach(() => {
+        // Reset mock call history before each test
+        sqsMock.reset();
         jest.clearAllMocks();
     });
 
@@ -74,7 +80,7 @@ describe('QueuerUtil - AWS SDK v3', () => {
             expect(call.args[0].input.QueueUrl).toBe(queueUrl);
         });
 
-        it.skip('should send multiple batches for large entry sets (10 per batch)', async () => {
+        it('should send multiple batches for large entry sets (10 per batch)', async () => {
             sqsMock.on(SendMessageBatchCommand).resolves({ 
                 Successful: [],
                 Failed: []
@@ -85,12 +91,14 @@ describe('QueuerUtil - AWS SDK v3', () => {
 
             await QueuerUtil.batchSend(entries, queueUrl);
 
+            // Get all calls for SendMessageBatchCommand
+            const batchCalls = sqsMock.commandCalls(SendMessageBatchCommand);
+
             // Should send 3 batches (10 + 10 + 5)
-            expect(sqsMock.calls()).toHaveLength(3);
-            
-            expect(sqsMock.call(0).args[0].input.Entries).toHaveLength(10);
-            expect(sqsMock.call(1).args[0].input.Entries).toHaveLength(10);
-            expect(sqsMock.call(2).args[0].input.Entries).toHaveLength(5);
+            expect(batchCalls).toHaveLength(3);
+            expect(batchCalls[0].args[0].input.Entries).toHaveLength(10);
+            expect(batchCalls[1].args[0].input.Entries).toHaveLength(10);
+            expect(batchCalls[2].args[0].input.Entries).toHaveLength(5);
         });
 
         it('should handle empty entries array', async () => {

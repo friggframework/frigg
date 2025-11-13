@@ -89,7 +89,7 @@ describe('UpdateProcessMetrics', () => {
             jest.useRealTimers();
         });
 
-        it.skip('should update metrics with new batch data', async () => {
+        it('should update metrics with new batch data', async () => {
             const metricsUpdate = {
                 processed: 50,
                 success: 48,
@@ -102,6 +102,8 @@ describe('UpdateProcessMetrics', () => {
             const expectedContext = {
                 ...mockProcess.context,
                 processedRecords: 150, // 100 + 50
+                // ETA calculated: 150/1000 = 15% done in 45s → 300s total → +5 minutes from start
+                estimatedCompletion: new Date(baseTime.getTime() + 300000).toISOString(),
             };
 
             const expectedResults = {
@@ -109,7 +111,7 @@ describe('UpdateProcessMetrics', () => {
                     totalSynced: 143, // 95 + 48
                     totalFailed: 7,   // 5 + 2
                     duration: 45000,  // Current elapsed time
-                    recordsPerSecond: 3.33, // 150 / 45
+                    recordsPerSecond: expect.closeTo(3.33, 2), // 150 / 45 ≈ 3.33
                     errors: [
                         { contactId: 'contact-1', error: 'Missing email', timestamp: '2024-01-01T10:00:30Z' },
                         { contactId: 'contact-2', error: 'Invalid phone', timestamp: '2024-01-01T10:00:45Z' }
@@ -235,9 +237,27 @@ describe('UpdateProcessMetrics', () => {
             expect(updateCall.results.aggregateData.totalFailed).toBe(2);
         });
 
-        it.skip('should broadcast progress via WebSocket', async () => {
+        it('should broadcast progress via WebSocket', async () => {
             const metricsUpdate = { processed: 50, success: 48, errors: 2 };
-            const updatedProcess = { ...mockProcess };
+
+            // Create a fresh copy of mockProcess with updated values
+            const updatedProcess = {
+                ...mockProcess,
+                context: {
+                    ...mockProcess.context,
+                    processedRecords: 150, // 100 + 50
+                    estimatedCompletion: new Date(baseTime.getTime() + 300000).toISOString(),
+                },
+                results: {
+                    aggregateData: {
+                        ...mockProcess.results.aggregateData,
+                        totalSynced: 143, // 95 + 48
+                        totalFailed: 7,   // 5 + 2
+                        duration: 45000,
+                        recordsPerSecond: 3.3333333333333335,
+                    },
+                },
+            };
 
             mockProcessRepository.findById.mockResolvedValue(mockProcess);
             mockProcessRepository.update.mockResolvedValue(updatedProcess);
@@ -301,12 +321,13 @@ describe('UpdateProcessMetrics', () => {
                 .rejects.toThrow('Process not found: process-123');
         });
 
-        it.skip('should handle repository errors', async () => {
+        it('should handle repository errors', async () => {
             const repositoryError = new Error('Database connection failed');
             mockProcessRepository.findById.mockRejectedValue(repositoryError);
 
+            // findById errors propagate unwrapped (only update() errors are wrapped)
             await expect(updateProcessMetricsUseCase.execute(processId, {}))
-                .rejects.toThrow('Failed to update process metrics: Database connection failed');
+                .rejects.toThrow('Database connection failed');
         });
     });
 });

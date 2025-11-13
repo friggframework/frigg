@@ -52,17 +52,28 @@ jest.mock('../../integrations/utils/map-integration-dto', () => ({
     getModulesDefinitionFromIntegrationClasses: jest.fn(() => []),
 }));
 
-// Create a module-scoped variable to hold the mock execute function
-// Must be prefixed with "mock" (case insensitive) for Jest to allow it
+// Create module-scoped variables for the mocks
+// Must be prefixed with "mock" (case insensitive) for Jest to allow hoisting
 let mockFindByExternalEntityIdExecute;
+const mockConstructorCalls = [];
 
-// Mock the use case module - create a simple jest.fn() that we'll configure later
+// Mock the use case module - must set up implementation in factory before integration-commands.js loads
 jest.mock('../../integrations/use-cases/find-integration-context-by-external-entity-id', () => {
-    // Create the mock function here and store it in the shared variable
-    mockFindByExternalEntityIdExecute = jest.fn();
-
     return {
-        FindIntegrationContextByExternalEntityIdUseCase: jest.fn(),
+        FindIntegrationContextByExternalEntityIdUseCase: function(deps) {
+            // Track constructor calls manually
+            mockConstructorCalls.push(deps);
+
+            // Return an instance with execute method that delegates to mockFindByExternalEntityIdExecute
+            return {
+                execute: (...args) => {
+                    if (!mockFindByExternalEntityIdExecute) {
+                        throw new Error('mockFindByExternalEntityIdExecute not initialized');
+                    }
+                    return mockFindByExternalEntityIdExecute(...args);
+                },
+            };
+        },
     };
 });
 
@@ -75,13 +86,8 @@ const {
 } = require('../../integrations/use-cases/find-integration-context-by-external-entity-id');
 const { DummyIntegration } = require('../../integrations/tests/doubles/dummy-integration-class');
 
-// NOW set up the mock implementation after everything is loaded
-FindIntegrationContextByExternalEntityIdUseCase.mockImplementation(() => {
-    return {
-        execute: mockFindByExternalEntityIdExecute,
-    };
-});
-
+// Initialize the mock execute function once
+mockFindByExternalEntityIdExecute = jest.fn();
 
 /**
  * @group unit
@@ -89,8 +95,9 @@ FindIntegrationContextByExternalEntityIdUseCase.mockImplementation(() => {
  */
 describe('integration commands', () => {
     beforeEach(() => {
-        // Don't use jest.clearAllMocks() as it clears the mock constructor implementation
+        // Clear mock call history before each test
         mockFindByExternalEntityIdExecute.mockClear();
+        mockConstructorCalls.length = 0; // Clear array
     });
 
     it('requires an integrationClass when creating commands', () => {
@@ -105,16 +112,15 @@ describe('integration commands', () => {
         });
 
         // Verify that the use case is created with default repositories instantiated internally
-        expect(
-            FindIntegrationContextByExternalEntityIdUseCase,
-        ).toHaveBeenCalledWith({
+        expect(mockConstructorCalls).toHaveLength(1);
+        expect(mockConstructorCalls[0]).toMatchObject({
             integrationRepository: expect.any(Object),
             moduleRepository: expect.any(Object),
             loadIntegrationContextUseCase: expect.any(Object),
         });
     });
 
-    it.skip('returns context when findIntegrationContextByExternalEntityId succeeds', async () => {
+    it('returns context when findIntegrationContextByExternalEntityId succeeds', async () => {
         const expectedContext = { record: { id: 'integration-1' } };
         mockFindByExternalEntityIdExecute.mockResolvedValue({ context: expectedContext });
 
@@ -126,16 +132,13 @@ describe('integration commands', () => {
             'ext-1',
         );
 
-        console.log('[TEST] Result:', JSON.stringify(result));
-        console.log('[TEST] Mock calls:', mockFindByExternalEntityIdExecute.mock.calls.length);
-
         expect(mockFindByExternalEntityIdExecute).toHaveBeenCalledWith({
             externalEntityId: 'ext-1',
         });
         expect(result).toEqual({ context: expectedContext });
     });
 
-    it.skip('maps known errors to status codes', async () => {
+    it('maps known errors to status codes', async () => {
         const error = Object.assign(new Error('Entity missing'), {
             code: 'ENTITY_NOT_FOUND',
         });
@@ -171,7 +174,7 @@ describe('integration commands', () => {
         expect(result).toHaveProperty('error');
     });
 
-    it.skip('exposes a one-off helper for finding integration context by external entity id', async () => {
+    it('exposes a one-off helper for finding integration context by external entity id', async () => {
         const expectedContext = { record: { id: 'integration-1' } };
         mockFindByExternalEntityIdExecute.mockResolvedValue({ context: expectedContext });
 

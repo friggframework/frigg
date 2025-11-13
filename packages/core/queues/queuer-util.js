@@ -45,7 +45,7 @@ const QueuerUtil = {
             if (buffer.length === batchSize) {
                 console.log('Buffer at 10, sending batch');
                 const command = new SendMessageBatchCommand({
-                    Entries: buffer,
+                    Entries: [...buffer], // Create a copy to avoid reference issues
                     QueueUrl: queueUrl,
                 });
                 await sqs.send(command);
@@ -59,7 +59,7 @@ const QueuerUtil = {
         if (buffer.length > 0) {
             console.log(buffer);
             const command = new SendMessageBatchCommand({
-                Entries: buffer,
+                Entries: [...buffer], // Create a copy to avoid reference issues
                 QueueUrl: queueUrl,
             });
             return sqs.send(command);
