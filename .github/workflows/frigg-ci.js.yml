@@ -55,9 +55,13 @@ jobs:
           cd packages/ui
           npm run build
 
-      - name: Tests 🧪
+      - name: Unit Tests 🧪
         run: npm run test:all
         timeout-minutes: 10
+        env:
+          # Skip integration tests in CI (they require databases)
+          # Unit tests use mocked Prisma clients and don't need MongoDB/PostgreSQL
+          SKIP_INTEGRATION_TESTS: true
 
       # NOTE: Linter steps should run last.  If the linter auto-fixes files and pushes the fixes, the result is that any errors that may occur in previous steps may be hidden in the pull request because tests will not be run on the auto-fix commits.
 
