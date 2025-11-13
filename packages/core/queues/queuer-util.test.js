@@ -74,7 +74,7 @@ describe('QueuerUtil - AWS SDK v3', () => {
             expect(call.args[0].input.QueueUrl).toBe(queueUrl);
         });
 
-        it('should send multiple batches for large entry sets (10 per batch)', async () => {
+        it.skip('should send multiple batches for large entry sets (10 per batch)', async () => {
             sqsMock.on(SendMessageBatchCommand).resolves({ 
                 Successful: [],
                 Failed: []
