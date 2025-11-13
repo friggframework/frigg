@@ -24,6 +24,10 @@ jest.mock('../../integrations/repositories/process-repository-postgres', () => (
     })),
 }));
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('Database Migration Router - Adapter Layer', () => {
     it('should load without requiring app definition (critical bug fix)', () => {
         // Before fix: createProcessRepository() → getDatabaseType() → loads app definition → requires integrations → CRASH

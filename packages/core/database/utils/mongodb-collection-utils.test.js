@@ -22,6 +22,10 @@ jest.mock('../mongoose', () => ({
     mongoose: mockMongoose,
 }));
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('MongoDB Collection Utilities', () => {
     beforeEach(() => {
         jest.clearAllMocks();

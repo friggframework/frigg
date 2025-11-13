@@ -1,5 +1,9 @@
 const { HaltError } = require('./halt-error');
 
+/**
+ * @group unit
+ * @group domain
+ */
 describe('HaltError', () => {
     it('can be instantiated', () => {
         const rootError = new Error('Gremlinoids!!');

@@ -1,5 +1,9 @@
 const { FieldEncryptionService } = require('./field-encryption-service');
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('FieldEncryptionService', () => {
     let mockCryptor;
     let mockSchema;

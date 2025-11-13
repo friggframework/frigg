@@ -1,6 +1,10 @@
 const { GetPossibleIntegrations } = require('../../use-cases/get-possible-integrations');
 const { DummyIntegration } = require('../doubles/dummy-integration-class');
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('GetPossibleIntegrations Use-Case', () => {
     describe('happy path', () => {
         it('returns option details array for single integration', async () => {

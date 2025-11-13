@@ -6,6 +6,10 @@ const { AuthenticateWithSharedSecret } = require('../../user/use-cases/authentic
 const { User } = require('../../user/user');
 const Boom = require('@hapi/boom');
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('AuthenticateUser - Multi-Mode Authentication', () => {
     let authenticateUser;
     let mockGetUserFromBearerToken;

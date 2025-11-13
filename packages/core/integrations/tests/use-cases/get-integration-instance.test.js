@@ -10,6 +10,10 @@ const { TestIntegrationRepository } = require('../doubles/test-integration-repos
 const { TestModuleFactory } = require('../../../modules/tests/doubles/test-module-factory');
 const { DummyIntegration } = require('../doubles/dummy-integration-class');
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('GetIntegrationInstance Use-Case', () => {
     let integrationRepository;
     let moduleFactory;

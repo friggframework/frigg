@@ -3,6 +3,10 @@ const {
 } = require('../../use-cases/create-individual-user');
 const { TestUserRepository } = require('../doubles/test-user-repository');
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('CreateIndividualUser Use Case', () => {
     it('should create and return an individual user via the repository', async () => {
         const userConfig = { usePassword: true };

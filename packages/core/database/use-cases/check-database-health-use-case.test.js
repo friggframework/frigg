@@ -1,5 +1,9 @@
 const { CheckDatabaseHealthUseCase } = require('./check-database-health-use-case');
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('CheckDatabaseHealthUseCase', () => {
     let useCase;
     let mockRepository;

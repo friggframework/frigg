@@ -1,5 +1,9 @@
 const { BaseError } = require('./base-error');
 
+/**
+ * @group unit
+ * @group domain
+ */
 describe('BaseError', () => {
     it('can be inherited and instantiated', () => {
         class XyzError extends BaseError {}

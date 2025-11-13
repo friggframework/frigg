@@ -5,6 +5,10 @@
 
 const { LambdaInvoker, LambdaInvocationError } = require('./lambda-invoker');
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('LambdaInvoker', () => {
     let invoker;
     let mockLambdaClient;

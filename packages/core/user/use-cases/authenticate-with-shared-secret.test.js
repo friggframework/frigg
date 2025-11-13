@@ -1,6 +1,10 @@
 const { AuthenticateWithSharedSecret } = require('./authenticate-with-shared-secret');
 const Boom = require('@hapi/boom');
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('AuthenticateWithSharedSecret', () => {
     let authenticateWithSharedSecret;
 

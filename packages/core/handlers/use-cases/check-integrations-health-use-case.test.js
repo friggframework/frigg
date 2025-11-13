@@ -6,6 +6,10 @@
 
 const { CheckIntegrationsHealthUseCase } = require('./check-integrations-health-use-case');
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('CheckIntegrationsHealthUseCase', () => {
     describe('execute()', () => {
         it('should return healthy status with module and integration counts', () => {

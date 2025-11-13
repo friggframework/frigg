@@ -7,6 +7,10 @@ const {
     GetDatabaseStateViaWorkerUseCase,
 } = require('./get-database-state-via-worker-use-case');
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('GetDatabaseStateViaWorkerUseCase', () => {
     let useCase;
     let mockLambdaInvoker;

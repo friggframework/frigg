@@ -8,6 +8,10 @@ const {
     ValidationError,
 } = require('./run-database-migration-use-case');
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('RunDatabaseMigrationUseCase', () => {
     let useCase;
     let mockPrismaRunner;

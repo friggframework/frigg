@@ -6,6 +6,10 @@
 
 const { UpdateProcessState } = require('./update-process-state');
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('UpdateProcessState', () => {
     let updateProcessStateUseCase;
     let mockProcessRepository;

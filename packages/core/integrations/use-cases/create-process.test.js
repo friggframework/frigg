@@ -6,6 +6,10 @@
 
 const { CreateProcess } = require('./create-process');
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('CreateProcess', () => {
     let createProcessUseCase;
     let mockProcessRepository;

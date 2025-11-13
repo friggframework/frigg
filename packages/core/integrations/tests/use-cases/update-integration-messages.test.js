@@ -1,6 +1,10 @@
 const { UpdateIntegrationMessages } = require('../../use-cases/update-integration-messages');
 const { TestIntegrationRepository } = require('../doubles/test-integration-repository');
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('UpdateIntegrationMessages Use-Case', () => {
     let integrationRepository;
     let useCase;

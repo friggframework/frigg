@@ -9,6 +9,10 @@ const { DeleteIntegrationForUser } = require('../../use-cases/delete-integration
 const { TestIntegrationRepository } = require('../doubles/test-integration-repository');
 const { DummyIntegration } = require('../doubles/dummy-integration-class');
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('DeleteIntegrationForUser Use-Case', () => {
     let integrationRepository;
     let useCase;

@@ -1,5 +1,9 @@
 const { HealthCheckRepositoryMongoDB } = require('./health-check-repository-mongodb');
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('HealthCheckRepositoryMongoDB', () => {
     let repository;
     let mockPrismaClient;

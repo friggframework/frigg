@@ -61,6 +61,10 @@ class TestIntegration extends IntegrationBase {
     }
 }
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('IntegrationEventDispatcher', () => {
     const createDispatcher = () =>
         new IntegrationEventDispatcher(new TestIntegration());

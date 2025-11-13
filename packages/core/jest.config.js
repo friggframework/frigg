@@ -4,18 +4,30 @@
  */
 
 module.exports = {
-    // preset: '@friggframework/test',
+    // Use shared test preset
+    preset: '@friggframework/test',
+
+    // Coverage thresholds - set realistically for current codebase state
+    // Target: gradually increase to 80% over time
     coverageThreshold: {
         global: {
-            statements: 13,
-            branches: 0,
-            functions: 1,
-            lines: 13,
+            statements: 15,
+            branches: 10,
+            functions: 15,
+            lines: 15,
         },
     },
-    // A path to a module which exports an async function that is triggered once before all test suites
-    globalSetup: './jest-setup.js',
 
-    // A path to a module which exports an async function that is triggered once after all test suites
+    // Global setup/teardown for MongoDB memory server (conditional)
+    globalSetup: './jest-setup.js',
     globalTeardown: './jest-teardown.js',
+
+    // Test environment
+    testEnvironment: 'node',
+
+    // Module paths
+    testMatch: ['**/*.test.js'],
+
+    // Ignore patterns
+    testPathIgnorePatterns: ['/node_modules/', '/dist/'],
 };

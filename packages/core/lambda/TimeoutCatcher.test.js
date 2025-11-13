@@ -2,6 +2,10 @@ const { TimeoutCatcher } = require("./TimeoutCatcher");
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe("Time Sentinel", () => {
   it("requires a positive wait time", () => {
     try {

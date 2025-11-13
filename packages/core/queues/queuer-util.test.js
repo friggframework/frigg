@@ -8,6 +8,10 @@ const { mockClient } = require('aws-sdk-client-mock');
 const { SQSClient, SendMessageCommand, SendMessageBatchCommand } = require('@aws-sdk/client-sqs');
 const { QueuerUtil } = require('./queuer-util');
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('QueuerUtil - AWS SDK v3', () => {
     let sqsMock;
 

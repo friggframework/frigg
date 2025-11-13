@@ -8,6 +8,10 @@ const {
     NotFoundError,
 } = require('./get-migration-status-use-case');
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('GetMigrationStatusUseCase', () => {
     let useCase;
     let mockMigrationStatusRepository;

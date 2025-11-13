@@ -3,6 +3,10 @@ const {
 } = require('../../use-cases/create-token-for-user-id');
 const { TestUserRepository } = require('../doubles/test-user-repository');
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('CreateTokenForUserId Use Case', () => {
     it('should create and return a token via the repository', async () => {
         const userConfig = {}; // Not used by this use case, but required by the test repo

@@ -47,6 +47,10 @@ const mockResponse = () => {
     return res;
 };
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('Health Check Endpoints', () => {
     beforeEach(() => {
         mongoose.connection.readyState = 1;

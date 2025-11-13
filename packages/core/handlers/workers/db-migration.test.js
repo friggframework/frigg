@@ -34,6 +34,10 @@ jest.mock('../../database/utils/prisma-runner', () => ({
     checkDatabaseState: jest.fn(),
 }));
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('Database Migration Worker - Adapter Layer', () => {
     it('should load without requiring app definition (critical bug fix)', () => {
         // Before fix: createProcessRepository() → getDatabaseType() → loads app definition → requires integrations → CRASH

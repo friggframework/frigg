@@ -7,6 +7,10 @@ const {
     ValidationError,
 } = require('./trigger-database-migration-use-case');
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('TriggerDatabaseMigrationUseCase', () => {
     let useCase;
     let mockMigrationStatusRepository;

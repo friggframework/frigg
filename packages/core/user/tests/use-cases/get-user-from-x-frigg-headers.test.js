@@ -2,6 +2,10 @@ const Boom = require('@hapi/boom');
 const { GetUserFromXFriggHeaders } = require('../../use-cases/get-user-from-x-frigg-headers');
 const { User } = require('../../user');
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('GetUserFromXFriggHeaders', () => {
     let getUserFromXFriggHeaders;
     let mockUserRepository;

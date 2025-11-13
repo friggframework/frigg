@@ -151,6 +151,10 @@ class TestIntegration extends IntegrationBase {
     }
 }
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('LoadIntegrationContextUseCase - Full Rounded Test', () => {
     it('should load integration with working API modules that have env vars and credentials', async () => {
         // Setup: Create entities with credentials (simulating DB records)

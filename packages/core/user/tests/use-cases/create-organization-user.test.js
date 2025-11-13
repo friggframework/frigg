@@ -3,6 +3,10 @@ const {
 } = require('../../use-cases/create-organization-user');
 const { TestUserRepository } = require('../doubles/test-user-repository');
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('CreateOrganizationUser Use Case', () => {
     it('should create and return an organization user via the repository', async () => {
         const userConfig = {

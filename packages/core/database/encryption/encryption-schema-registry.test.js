@@ -8,6 +8,10 @@ const {
     resetCustomSchema,
 } = require('./encryption-schema-registry');
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('Encryption Schema Registry', () => {
     afterEach(() => {
         // Reset custom schema after each test

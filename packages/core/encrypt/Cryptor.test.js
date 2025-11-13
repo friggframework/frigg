@@ -8,6 +8,10 @@ const { mockClient } = require('aws-sdk-client-mock');
 const { KMSClient, GenerateDataKeyCommand, DecryptCommand } = require('@aws-sdk/client-kms');
 const { Cryptor } = require('./Cryptor');
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('Cryptor - AWS SDK v3', () => {
     let kmsMock;
     const originalEnv = process.env;

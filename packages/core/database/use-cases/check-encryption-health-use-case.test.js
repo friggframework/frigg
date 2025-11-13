@@ -6,6 +6,10 @@
 
 const { CheckEncryptionHealthUseCase } = require('./check-encryption-health-use-case');
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('CheckEncryptionHealthUseCase', () => {
     let originalEnv;
 

@@ -39,6 +39,10 @@ const mockConfig = {
 
 jest.mock('../config', () => mockConfig);
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('MongoDB Schema Initialization', () => {
     beforeEach(() => {
         jest.clearAllMocks();

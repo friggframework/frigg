@@ -8,6 +8,10 @@ const {
     ValidationError,
 } = require('./check-database-state-use-case');
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('CheckDatabaseStateUseCase', () => {
     let useCase;
     let mockPrismaRunner;

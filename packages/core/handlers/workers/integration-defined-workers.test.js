@@ -30,6 +30,10 @@ class TestWebhookIntegration extends IntegrationBase {
     }
 }
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('Webhook Queue Worker', () => {
     describe('ON_WEBHOOK event processing', () => {
         it('should process ON_WEBHOOK event without integration ID (unhydrated)', async () => {

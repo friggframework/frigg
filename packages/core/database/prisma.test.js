@@ -5,6 +5,10 @@
 
 const { ensureMongoDbUrl } = require('./prisma');
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('Prisma MongoDB Adapter', () => {
     let originalEnv;
 

@@ -27,6 +27,10 @@ jest.mock('../config', () => ({
 const { prisma, connectPrisma, disconnectPrisma } = require('../prisma');
 const { ModuleRepositoryPostgres } = require('../../modules/repositories/module-repository-postgres');
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('Repository Fix Verification - PostgreSQL Decryption', () => {
     let repository;
     let testCredentialId;

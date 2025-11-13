@@ -8,6 +8,10 @@ const {
     findMongoDBSchemaFile,
 } = require('./prisma-schema-parser');
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('Prisma Schema Parser', () => {
     describe('extractCollectionNames', () => {
         it('should extract collection names from @@map directives', () => {

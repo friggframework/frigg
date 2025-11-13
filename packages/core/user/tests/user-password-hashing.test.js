@@ -34,6 +34,10 @@ const { createUserRepository } = require('../repositories/user-repository-factor
 const { prisma, connectPrisma, disconnectPrisma } = require('../../database/prisma');
 const { mongoose } = require('../../database/mongoose');
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('Password Hashing Verification - Both Databases', () => {
     const dbType = process.env.DB_TYPE || 'mongodb';
     let userRepository;

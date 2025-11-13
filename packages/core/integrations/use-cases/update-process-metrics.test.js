@@ -6,6 +6,10 @@
 
 const { UpdateProcessMetrics } = require('./update-process-metrics');
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('UpdateProcessMetrics', () => {
     let updateProcessMetricsUseCase;
     let mockProcessRepository;

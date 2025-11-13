@@ -26,6 +26,10 @@ const {
 } = require('../../integrations/use-cases/find-integration-context-by-external-entity-id');
 const { DummyIntegration } = require('../../integrations/tests/doubles/dummy-integration-class');
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('integration commands', () => {
     beforeEach(() => {
         jest.clearAllMocks();

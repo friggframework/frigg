@@ -48,6 +48,10 @@ const { prisma, connectPrisma, disconnectPrisma } = require('../prisma');
 const { createHealthCheckRepository } = require('../repositories/health-check-repository-factory');
 const { mongoose } = require('../mongoose');
 
+/**
+ * @group integration
+ * @group infrastructure
+ */
 describe('Field-Level Encryption Integration Tests', () => {
     const testExternalId = 'test-encryption-integration-id';
     let repository;

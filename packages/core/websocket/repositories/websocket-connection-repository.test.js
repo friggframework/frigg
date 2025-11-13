@@ -24,6 +24,10 @@ jest.mock('../../database/prisma', () => ({
 
 const { prisma } = require('../../database/prisma');
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('WebsocketConnectionRepository - AWS SDK v3', () => {
     let apiGatewayMock;
     let repository;

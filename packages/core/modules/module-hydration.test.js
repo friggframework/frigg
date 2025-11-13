@@ -67,6 +67,10 @@ const mockModuleDefinition = {
     },
 };
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('Module Hydration', () => {
     describe('Module API instantiation', () => {
         it('should create API instance with merged env and credential params', () => {

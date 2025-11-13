@@ -67,6 +67,10 @@ class SimulatedAsanaIntegration extends IntegrationBase {
     }
 }
 
+/**
+ * @group integration
+ * @group infrastructure
+ */
 describe('IntegrationEventDispatcher auth flow', () => {
     const createDispatcher = () =>
         new IntegrationEventDispatcher(new SimulatedAsanaIntegration());

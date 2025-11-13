@@ -7,6 +7,10 @@ const {
 
 /* eslint-disable no-console */
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('Logger', () => {
     beforeEach(() => {
         sinon.stub(console, 'debug');

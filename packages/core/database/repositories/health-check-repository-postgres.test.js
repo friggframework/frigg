@@ -1,5 +1,9 @@
 const { HealthCheckRepositoryPostgreSQL } = require('./health-check-repository-postgres');
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('HealthCheckRepositoryPostgreSQL', () => {
     let repository;
     let mockPrismaClient;

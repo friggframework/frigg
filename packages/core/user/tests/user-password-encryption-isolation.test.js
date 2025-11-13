@@ -34,6 +34,10 @@ const { prisma, connectPrisma, disconnectPrisma, getEncryptionConfig } = require
 const { getEncryptedFields, hasEncryptedFields } = require('../../database/encryption/encryption-schema-registry');
 const { mongoose } = require('../../database/mongoose');
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('Password Encryption Isolation', () => {
     const dbType = process.env.DB_TYPE || 'mongodb';
     let userRepository;

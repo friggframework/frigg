@@ -3,6 +3,10 @@ const { TestModuleRepository } = require('../../../modules/tests/doubles/test-mo
 const { TestIntegrationRepository } = require('../doubles/test-integration-repository');
 const { DummyIntegration } = require('../doubles/dummy-integration-class');
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('FindIntegrationContextByExternalEntityIdUseCase', () => {
     let moduleRepository;
     let integrationRepository;

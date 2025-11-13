@@ -1,6 +1,10 @@
 const Boom = require('@hapi/boom');
 const { GetUserFromAdopterJwt } = require('../../use-cases/get-user-from-adopter-jwt');
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('GetUserFromAdopterJwt', () => {
     let getUserFromAdopterJwt;
     let mockUserRepository;

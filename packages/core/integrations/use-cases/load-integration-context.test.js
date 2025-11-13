@@ -6,6 +6,10 @@ FakeIntegration.Definition = {
     modules: {},
 };
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('LoadIntegrationContextUseCase', () => {
     it('throws when neither integrationId nor integrationRecord resolve to a record', async () => {
         const integrationRepository = {

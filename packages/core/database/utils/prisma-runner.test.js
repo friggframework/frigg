@@ -20,6 +20,10 @@ const {
     getMigrationCommand
 } = require('./prisma-runner');
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('Prisma Runner Utility', () => {
     beforeEach(() => {
         jest.clearAllMocks();

@@ -8,6 +8,10 @@ const { mockClient } = require('aws-sdk-client-mock');
 const { SQSClient, GetQueueUrlCommand, SendMessageCommand } = require('@aws-sdk/client-sqs');
 const { Worker } = require('./Worker');
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('Worker - AWS SDK v3', () => {
     let sqsMock;
     let worker;

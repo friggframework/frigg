@@ -60,6 +60,10 @@ class WebhookTestIntegration extends IntegrationBase {
     }
 }
 
+/**
+ * @group integration
+ * @group infrastructure
+ */
 describe('Webhook Flow Integration Test', () => {
     describe('End-to-End Webhook Flow', () => {
         beforeEach(() => {

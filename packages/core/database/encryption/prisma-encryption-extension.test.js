@@ -1,5 +1,9 @@
 const { createEncryptionExtension } = require('./prisma-encryption-extension');
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('Prisma Encryption Extension', () => {
     let mockCryptor;
     let mockQuery;

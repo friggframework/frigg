@@ -70,6 +70,10 @@ jest.mock('../app-definition-loader', () => {
     };
 });
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('Integration Webhook Routers', () => {
     let handlers;
 

@@ -3,6 +3,10 @@ const {
 } = require('../../use-cases/get-user-from-bearer-token');
 const { TestUserRepository } = require('../doubles/test-user-repository');
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('GetUserFromBearerToken Use Case', () => {
     let userRepository;
     let getUserFromBearerToken;

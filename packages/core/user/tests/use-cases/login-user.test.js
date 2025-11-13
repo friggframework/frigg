@@ -6,6 +6,10 @@ jest.mock('bcryptjs', () => ({
     compare: jest.fn(),
 }));
 
+/**
+ * @group unit
+ * @group application
+ */
 describe('LoginUser Use Case', () => {
     let userRepository;
     let loginUser;

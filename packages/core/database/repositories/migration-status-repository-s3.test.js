@@ -7,6 +7,10 @@
 
 const { MigrationStatusRepositoryS3 } = require('./migration-status-repository-s3');
 
+/**
+ * @group unit
+ * @group infrastructure
+ */
 describe('MigrationStatusRepositoryS3', () => {
     let repository;
     let mockS3Client;
