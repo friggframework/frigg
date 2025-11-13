@@ -10,141 +10,23 @@ const {
 } = require('../../database/documentdb-utils');
 const { createTokenRepository } = require('../../token/repositories/token-repository-factory');
 const { UserRepositoryInterface } = require('./user-repository-interface');
-const { Cryptor } = require('../../encrypt/Cryptor');
-const { getEncryptedFields } = require('../../database/encryption/encryption-schema-registry');
+const { DocumentDBEncryptionService } = require('../../database/documentdb-encryption-service');
 
+/**
+ * User repository for DocumentDB.
+ * Uses DocumentDBEncryptionService for field-level encryption.
+ *
+ * Encrypted fields: User.hashword
+ *
+ * @see DocumentDBEncryptionService
+ * @see encryption-schema-registry.js
+ */
 class UserRepositoryDocumentDB extends UserRepositoryInterface {
     constructor() {
         super();
         this.prisma = prisma;
         this.tokenRepository = createTokenRepository();
-        this._initializeCryptor();
-    }
-
-    _initializeCryptor() {
-        // Match logic from @friggframework/core/database/prisma.js
-        const stage = process.env.STAGE || process.env.NODE_ENV || 'development';
-        const bypassEncryption = ['dev', 'test', 'local'].includes(stage.toLowerCase());
-
-        if (bypassEncryption) {
-            this.cryptor = null;
-            return;
-        }
-
-        // Determine encryption method
-        const hasKMS = process.env.KMS_KEY_ARN && process.env.KMS_KEY_ARN.trim() !== '';
-        const hasAES = process.env.AES_KEY_ID && process.env.AES_KEY_ID.trim() !== '';
-
-        if (!hasKMS && !hasAES) {
-            console.warn('No encryption keys configured. Encryption disabled.');
-            this.cryptor = null;
-            return;
-        }
-
-        const shouldUseAws = hasKMS;
-        this.cryptor = new Cryptor({ shouldUseAws });
-    }
-
-    _isEncryptedValue(value) {
-        // Envelope encryption format: "keyId:encryptedPart1:encryptedPart2:encryptedKey"
-        // Must be string with at least 4 colon-separated parts
-        if (typeof value !== 'string') {
-            return false;
-        }
-
-        const parts = value.split(':');
-        return parts.length >= 4;
-    }
-
-    async _decryptField(encryptedValue, context = '') {
-        // If encryption is disabled, return as-is
-        if (!this.cryptor) {
-            return encryptedValue;
-        }
-
-        // If not encrypted format, return as-is
-        if (!this._isEncryptedValue(encryptedValue)) {
-            return encryptedValue;
-        }
-
-        try {
-            // Decrypt using Cryptor
-            const decryptedString = await this.cryptor.decrypt(encryptedValue);
-
-            // Try to parse as JSON (for objects/arrays)
-            try {
-                return JSON.parse(decryptedString);
-            } catch {
-                // Not JSON, return as string
-                return decryptedString;
-            }
-        } catch (error) {
-            console.error(`Failed to decrypt field${context ? ` (${context})` : ''}:`, error.message);
-            // Return null on decryption failure to avoid exposing encrypted data
-            return null;
-        }
-    }
-
-    async _encryptField(plainValue, context = '') {
-        // If encryption is disabled, return as-is
-        if (!this.cryptor) {
-            return plainValue;
-        }
-
-        // Don't encrypt null/undefined
-        if (plainValue === null || plainValue === undefined) {
-            return plainValue;
-        }
-
-        try {
-            // Convert objects/arrays to JSON string
-            const stringValue = typeof plainValue === 'string'
-                ? plainValue
-                : JSON.stringify(plainValue);
-
-            // Encrypt using Cryptor
-            return await this.cryptor.encrypt(stringValue);
-        } catch (error) {
-            console.error(`Failed to encrypt field${context ? ` (${context})` : ''}:`, error.message);
-            throw error;
-        }
-    }
-
-    async _decryptHashword(rawUser) {
-        if (!rawUser || !rawUser.hashword) {
-            return rawUser;
-        }
-
-        // Get encrypted fields from registry
-        const encryptedFieldsConfig = getEncryptedFields('User');
-        const shouldDecrypt = encryptedFieldsConfig?.fields?.includes('hashword');
-
-        if (!shouldDecrypt) {
-            return rawUser;
-        }
-
-        const decryptedHashword = await this._decryptField(rawUser.hashword, 'User.hashword');
-
-        return {
-            ...rawUser,
-            hashword: decryptedHashword
-        };
-    }
-
-    async _encryptHashword(hashword) {
-        if (!hashword) {
-            return hashword;
-        }
-
-        // Get encrypted fields from registry
-        const encryptedFieldsConfig = getEncryptedFields('User');
-        const shouldEncrypt = encryptedFieldsConfig?.fields?.includes('hashword');
-
-        if (!shouldEncrypt) {
-            return hashword;
-        }
-
-        return await this._encryptField(hashword, 'User.hashword');
+        this.encryptionService = new DocumentDBEncryptionService();
     }
 
     async getSessionToken(token) {
@@ -158,7 +40,7 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
             _id: toObjectId(userId),
             type: 'ORGANIZATION',
         });
-        const decrypted = await this._decryptHashword(doc);
+        const decrypted = await this.encryptionService.decryptFields('User', doc);
         return this._mapUser(decrypted);
     }
 
@@ -167,7 +49,7 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
             _id: toObjectId(userId),
             type: 'INDIVIDUAL',
         });
-        const decrypted = await this._decryptHashword(doc);
+        const decrypted = await this.encryptionService.decryptFields('User', doc);
         return this._mapUser(decrypted);
     }
 
@@ -212,13 +94,12 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
             }
 
             // Bcrypt hash the password
-            const hashedPassword = await bcrypt.hash(params.hashword, 10);
-
-            // Encrypt the bcrypt hash if encryption is enabled
-            document.hashword = await this._encryptHashword(hashedPassword);
+            document.hashword = await bcrypt.hash(params.hashword, 10);
         }
 
-        const insertedId = await insertOne(this.prisma, 'User', document);
+        // Encrypt sensitive fields before insert
+        const encryptedDocument = await this.encryptionService.encryptFields('User', document);
+        const insertedId = await insertOne(this.prisma, 'User', encryptedDocument);
         const created = await findOne(this.prisma, 'User', { _id: insertedId });
 
         // Defensive check: verify document was found after insert
@@ -237,8 +118,8 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
             );
         }
 
-        // Decrypt hashword if present
-        const decrypted = await this._decryptHashword(created);
+        // Decrypt sensitive fields after read
+        const decrypted = await this.encryptionService.decryptFields('User', created);
 
         return this._mapUser(decrypted);
     }
@@ -263,7 +144,7 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
             type: 'INDIVIDUAL',
             username,
         });
-        const decrypted = await this._decryptHashword(doc);
+        const decrypted = await this.encryptionService.decryptFields('User', doc);
         return this._mapUser(decrypted);
     }
 
@@ -272,7 +153,7 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
             type: 'INDIVIDUAL',
             appUserId,
         });
-        const decrypted = await this._decryptHashword(doc);
+        const decrypted = await this.encryptionService.decryptFields('User', doc);
         return this._mapUser(decrypted);
     }
 
@@ -281,13 +162,13 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
             type: 'ORGANIZATION',
             appOrgId,
         });
-        const decrypted = await this._decryptHashword(doc);
+        const decrypted = await this.encryptionService.decryptFields('User', doc);
         return this._mapUser(decrypted);
     }
 
     async findUserById(userId) {
         const doc = await findOne(this.prisma, 'User', { _id: toObjectId(userId) });
-        const decrypted = await this._decryptHashword(doc);
+        const decrypted = await this.encryptionService.decryptFields('User', doc);
         return this._mapUser(decrypted);
     }
 
@@ -296,7 +177,7 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
             type: 'INDIVIDUAL',
             email,
         });
-        const decrypted = await this._decryptHashword(doc);
+        const decrypted = await this.encryptionService.decryptFields('User', doc);
         return this._mapUser(decrypted);
     }
 
@@ -307,20 +188,18 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
         const payload = await this._prepareUpdatePayload(updates);
         payload.updatedAt = new Date();
 
-        // Encrypt hashword if present in payload
-        if (payload.hashword) {
-            payload.hashword = await this._encryptHashword(payload.hashword);
-        }
+        // Encrypt sensitive fields before update
+        const encryptedPayload = await this.encryptionService.encryptFields('User', payload);
 
         await updateOne(
             this.prisma,
             'User',
             { _id: objectId, type: 'INDIVIDUAL' },
-            { $set: payload }
+            { $set: encryptedPayload }
         );
 
         const updated = await findOne(this.prisma, 'User', { _id: objectId });
-        const decrypted = await this._decryptHashword(updated);
+        const decrypted = await this.encryptionService.decryptFields('User', updated);
         return this._mapUser(decrypted);
     }
 
@@ -338,7 +217,7 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
         );
 
         const updated = await findOne(this.prisma, 'User', { _id: objectId });
-        const decrypted = await this._decryptHashword(updated);
+        const decrypted = await this.encryptionService.decryptFields('User', updated);
         return this._mapUser(decrypted);
     }
 

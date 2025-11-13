@@ -9,111 +9,25 @@ const {
     deleteOne,
 } = require('../../database/documentdb-utils');
 const { ModuleRepositoryInterface } = require('./module-repository-interface');
-const { Cryptor } = require('../../encrypt/Cryptor');
-const { getEncryptedFields } = require('../../database/encryption/encryption-schema-registry');
+const { DocumentDBEncryptionService } = require('../../database/documentdb-encryption-service');
 
+/**
+ * Module/Entity repository for DocumentDB.
+ * Uses DocumentDBEncryptionService for credential decryption.
+ *
+ * Encrypted fields: Credential.data.*
+ *
+ * Note: This repository only reads credentials. CredentialRepository
+ * handles credential creation/updates with encryption.
+ *
+ * @see DocumentDBEncryptionService
+ * @see CredentialRepositoryDocumentDB
+ */
 class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
     constructor() {
         super();
         this.prisma = prisma;
-        this._initializeCryptor();
-    }
-
-    _initializeCryptor() {
-        // Match logic from @friggframework/core/database/prisma.js
-        const stage = process.env.STAGE || process.env.NODE_ENV || 'development';
-        const bypassEncryption = ['dev', 'test', 'local'].includes(stage.toLowerCase());
-
-        if (bypassEncryption) {
-            this.cryptor = null;
-            return;
-        }
-
-        // Determine encryption method
-        const hasKMS = process.env.KMS_KEY_ARN && process.env.KMS_KEY_ARN.trim() !== '';
-        const hasAES = process.env.AES_KEY_ID && process.env.AES_KEY_ID.trim() !== '';
-
-        if (!hasKMS && !hasAES) {
-            console.warn('No encryption keys configured. Encryption disabled.');
-            this.cryptor = null;
-            return;
-        }
-
-        const shouldUseAws = hasKMS;
-        this.cryptor = new Cryptor({ shouldUseAws });
-    }
-
-    _isEncryptedValue(value) {
-        // Envelope encryption format: "keyId:encryptedPart1:encryptedPart2:encryptedKey"
-        // Must be string with at least 4 colon-separated parts
-        if (typeof value !== 'string') {
-            return false;
-        }
-
-        const parts = value.split(':');
-        return parts.length >= 4;
-    }
-
-    async _decryptField(encryptedValue, context = '') {
-        // If encryption is disabled, return as-is
-        if (!this.cryptor) {
-            return encryptedValue;
-        }
-
-        // If not encrypted format, return as-is
-        if (!this._isEncryptedValue(encryptedValue)) {
-            return encryptedValue;
-        }
-
-        try {
-            // Decrypt using Cryptor
-            const decryptedString = await this.cryptor.decrypt(encryptedValue);
-
-            // Try to parse as JSON (for objects/arrays)
-            try {
-                return JSON.parse(decryptedString);
-            } catch {
-                // Not JSON, return as string
-                return decryptedString;
-            }
-        } catch (error) {
-            console.error(`Failed to decrypt field${context ? ` (${context})` : ''}:`, error.message);
-            // Return null on decryption failure to avoid exposing encrypted data
-            return null;
-        }
-    }
-
-    async _decryptCredentialData(rawData) {
-        if (!rawData || typeof rawData !== 'object') {
-            return rawData;
-        }
-
-        // Get encrypted fields from registry
-        const encryptedFieldsConfig = getEncryptedFields('Credential');
-        if (!encryptedFieldsConfig || !encryptedFieldsConfig.fields) {
-            return rawData;
-        }
-
-        const decrypted = {};
-
-        for (const [key, value] of Object.entries(rawData)) {
-            // Check if this field is in the encrypted fields list
-            const isEncrypted = encryptedFieldsConfig.fields.some(field => {
-                // Support both top-level and nested fields (e.g., 'data.access_token')
-                const fieldPath = field.split('.');
-                return fieldPath[fieldPath.length - 1] === key;
-            });
-
-            if (isEncrypted) {
-                // Decrypt encrypted fields
-                decrypted[key] = await this._decryptField(value, `Credential.data.${key}`);
-            } else {
-                // Pass through non-encrypted fields
-                decrypted[key] = value;
-            }
-        }
-
-        return decrypted;
+        this.encryptionService = new DocumentDBEncryptionService();
     }
 
     async findEntityById(entityId) {
@@ -254,25 +168,28 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
 
             if (!rawCredential) return null;
 
-            // Manually decrypt data field
-            const decryptedData = await this._decryptCredentialData(
-                rawCredential.data || {}
-            );
+            // Decrypt sensitive fields using service
+            const decryptedCredential = await this.encryptionService.decryptFields('Credential', rawCredential);
 
             // Return in same format
             const credential = {
-                id: fromObjectId(rawCredential._id),
-                userId: fromObjectId(rawCredential.userId),
-                externalId: rawCredential.externalId ?? null,
-                authIsValid: rawCredential.authIsValid ?? null,
-                createdAt: rawCredential.createdAt,
-                updatedAt: rawCredential.updatedAt,
-                data: decryptedData
+                id: fromObjectId(decryptedCredential._id),
+                userId: fromObjectId(decryptedCredential.userId),
+                externalId: decryptedCredential.externalId ?? null,
+                authIsValid: decryptedCredential.authIsValid ?? null,
+                createdAt: decryptedCredential.createdAt,
+                updatedAt: decryptedCredential.updatedAt,
+                data: decryptedCredential.data
             };
 
             return this._convertCredentialIds(credential);
         } catch (error) {
             console.error(`Failed to fetch/decrypt credential ${id}:`, error.message);
+            // Return null instead of throwing to allow graceful degradation
+            // This repository is read-only (doesn't create/update credentials)
+            // Entities can still be loaded even if their credential is corrupted/unreadable
+            // The entity will have null credential, which calling code must handle
+            // This is intentional behavior: prefer partial data over complete failure
             return null;
         }
     }
@@ -296,20 +213,18 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
             // Decrypt all credentials in parallel
             const decryptionPromises = rawCredentials.map(async (rawCredential) => {
                 try {
-                    // Manually decrypt the data field
-                    const decryptedData = await this._decryptCredentialData(
-                        rawCredential.data || {}
-                    );
+                    // Decrypt sensitive fields using service
+                    const decryptedCredential = await this.encryptionService.decryptFields('Credential', rawCredential);
 
                     // Build credential object in same format as Prisma would return
                     const credential = {
-                        id: fromObjectId(rawCredential._id),
-                        userId: fromObjectId(rawCredential.userId),
-                        externalId: rawCredential.externalId ?? null,
-                        authIsValid: rawCredential.authIsValid ?? null,
-                        createdAt: rawCredential.createdAt,
-                        updatedAt: rawCredential.updatedAt,
-                        data: decryptedData
+                        id: fromObjectId(decryptedCredential._id),
+                        userId: fromObjectId(decryptedCredential.userId),
+                        externalId: decryptedCredential.externalId ?? null,
+                        authIsValid: decryptedCredential.authIsValid ?? null,
+                        createdAt: decryptedCredential.createdAt,
+                        updatedAt: decryptedCredential.updatedAt,
+                        data: decryptedCredential.data
                     };
 
                     return this._convertCredentialIds(credential);

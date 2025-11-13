@@ -10,18 +10,39 @@ const {
 const {
     CredentialRepositoryInterface,
 } = require('./credential-repository-interface');
+const { DocumentDBEncryptionService } = require('../../database/documentdb-encryption-service');
 
+/**
+ * Credential repository for DocumentDB.
+ * Uses DocumentDBEncryptionService for field-level encryption.
+ *
+ * Encrypted fields:
+ * - Credential.data.access_token
+ * - Credential.data.refresh_token
+ * - Credential.data.id_token
+ * - Credential.data.domain
+ *
+ * SECURITY CRITICAL: All OAuth credentials must be encrypted at rest.
+ *
+ * @see DocumentDBEncryptionService
+ * @see encryption-schema-registry.js
+ */
 class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
     constructor() {
         super();
         this.prisma = prisma;
+        this.encryptionService = new DocumentDBEncryptionService();
     }
 
     async findCredentialById(id) {
         const objectId = toObjectId(id);
         if (!objectId) return null;
         const doc = await findOne(this.prisma, 'Credential', { _id: objectId });
-        return doc ? this._mapCredentialById(doc) : null;
+        if (!doc) return null;
+
+        // Decrypt sensitive fields using service
+        const decryptedCredential = await this.encryptionService.decryptFields('Credential', doc);
+        return this._mapCredentialById(decryptedCredential);
     }
 
     async updateAuthenticationStatus(credentialId, authIsValid) {
@@ -73,28 +94,48 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
         const now = new Date();
 
         if (existing) {
-            const mergedData = { ...(existing.data || {}), ...oauthData };
+            // Decrypt existing credential data first
+            const decryptedExisting = await this.encryptionService.decryptFields('Credential', existing);
+            const mergedData = { ...(decryptedExisting.data || {}), ...oauthData };
+
+            // Build update document
+            const updateDocument = {
+                userId: toObjectId(userId || user) || existing.userId || null,
+                externalId: externalId !== undefined ? externalId : existing.externalId,
+                authIsValid: authIsValid !== undefined ? authIsValid : existing.authIsValid,
+                data: mergedData,
+                updatedAt: now,
+            };
+
+            // Encrypt before storing
+            const encryptedUpdate = await this.encryptionService.encryptFields(
+                'Credential',
+                { data: updateDocument.data }
+            );
+
             await updateOne(
                 this.prisma,
                 'Credential',
                 { _id: existing._id },
                 {
                     $set: {
-                        userId: toObjectId(userId || user) || existing.userId || null,
-                        externalId:
-                            externalId !== undefined ? externalId : existing.externalId,
-                        authIsValid:
-                            authIsValid !== undefined ? authIsValid : existing.authIsValid,
-                        data: mergedData,
-                        updatedAt: now,
+                        userId: updateDocument.userId,
+                        externalId: updateDocument.externalId,
+                        authIsValid: updateDocument.authIsValid,
+                        data: encryptedUpdate.data,
+                        updatedAt: updateDocument.updatedAt,
                     },
                 }
             );
+
+            // Read back and decrypt
             const updated = await findOne(this.prisma, 'Credential', { _id: existing._id });
-            return this._mapCredential(updated);
+            const decryptedCredential = await this.encryptionService.decryptFields('Credential', updated);
+            return this._mapCredential(decryptedCredential);
         }
 
-        const document = {
+        // Build plain text document
+        const plainDocument = {
             userId: toObjectId(userId || user || identifiers.user),
             externalId: externalId !== undefined ? externalId : identifiers.externalId,
             authIsValid: authIsValid ?? null,
@@ -103,15 +144,28 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
             updatedAt: now,
         };
 
-        const insertedId = await insertOne(this.prisma, 'Credential', document);
+        // Encrypt before storing
+        const encryptedDocument = await this.encryptionService.encryptFields(
+            'Credential',
+            plainDocument
+        );
+
+        const insertedId = await insertOne(this.prisma, 'Credential', encryptedDocument);
+
+        // Read back and decrypt
         const created = await findOne(this.prisma, 'Credential', { _id: insertedId });
-        return this._mapCredential(created);
+        const decryptedCredential = await this.encryptionService.decryptFields('Credential', created);
+        return this._mapCredential(decryptedCredential);
     }
 
     async findCredential(filter) {
         const query = this._buildFilter(filter);
         const credential = await findOne(this.prisma, 'Credential', query);
-        return credential ? this._mapCredential(credential) : null;
+        if (!credential) return null;
+
+        // Decrypt sensitive fields using service
+        const decryptedCredential = await this.encryptionService.decryptFields('Credential', credential);
+        return this._mapCredential(decryptedCredential);
     }
 
     async updateCredential(credentialId, updates) {
@@ -128,26 +182,44 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
             ...oauthData
         } = updates || {};
 
-        const mergedData = { ...(existing.data || {}), ...oauthData };
+        // Decrypt existing credential data first
+        const decryptedExisting = await this.encryptionService.decryptFields('Credential', existing);
+        const mergedData = { ...(decryptedExisting.data || {}), ...oauthData };
+
+        // Build update document
+        const updateDocument = {
+            userId: toObjectId(userId || user) || existing.userId || null,
+            externalId: externalId !== undefined ? externalId : existing.externalId,
+            authIsValid: authIsValid !== undefined ? authIsValid : existing.authIsValid,
+            data: mergedData,
+            updatedAt: new Date(),
+        };
+
+        // Encrypt before storing
+        const encryptedUpdate = await this.encryptionService.encryptFields(
+            'Credential',
+            { data: updateDocument.data }
+        );
+
         await updateOne(
             this.prisma,
             'Credential',
             { _id: objectId },
             {
                 $set: {
-                    userId: toObjectId(userId || user) || existing.userId || null,
-                    externalId:
-                        externalId !== undefined ? externalId : existing.externalId,
-                    authIsValid:
-                        authIsValid !== undefined ? authIsValid : existing.authIsValid,
-                    data: mergedData,
-                    updatedAt: new Date(),
+                    userId: updateDocument.userId,
+                    externalId: updateDocument.externalId,
+                    authIsValid: updateDocument.authIsValid,
+                    data: encryptedUpdate.data,
+                    updatedAt: updateDocument.updatedAt,
                 },
             }
         );
 
+        // Read back and decrypt
         const updated = await findOne(this.prisma, 'Credential', { _id: objectId });
-        return updated ? this._mapCredential(updated) : null;
+        const decryptedCredential = await this.encryptionService.decryptFields('Credential', updated);
+        return this._mapCredential(decryptedCredential);
     }
 
     _buildIdentifierFilter(identifiers) {
