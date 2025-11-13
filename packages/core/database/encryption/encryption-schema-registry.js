@@ -109,6 +109,52 @@ function registerCustomSchema(schema) {
     );
 }
 
+/**
+ * Loads and registers custom encryption schema from appDefinition.
+ * Gracefully handles cases where appDefinition is not available.
+ *
+ * This ensures that custom encryption schemas defined in the backend's index.js
+ * are registered before any repositories attempt to encrypt data.
+ *
+ * Called eagerly when this module is first imported to avoid race conditions.
+ * Safe to call multiple times (registerCustomSchema checks for duplicates).
+ */
+function loadCustomEncryptionSchema() {
+    try {
+        // Lazy require to avoid circular dependency issues
+        const path = require('node:path');
+        const { findNearestBackendPackageJson } = require('../../utils');
+
+        const backendPackagePath = findNearestBackendPackageJson();
+        if (!backendPackagePath) {
+            return; // No backend found, skip custom schema
+        }
+
+        const backendDir = path.dirname(backendPackagePath);
+        const backendIndexPath = path.join(backendDir, 'index.js');
+
+        const backendModule = require(backendIndexPath);
+        const appDefinition = backendModule?.Definition;
+
+        if (!appDefinition) {
+            return; // No app definition found
+        }
+
+        const customSchemaFromApp = appDefinition.encryption?.schema;
+
+        if (customSchemaFromApp && Object.keys(customSchemaFromApp).length > 0) {
+            registerCustomSchema(customSchemaFromApp);
+        }
+    } catch (error) {
+        // Silently ignore errors - custom schema is optional
+        // This handles cases like:
+        // - Backend package.json not found (tests, standalone usage)
+        // - No appDefinition defined
+        // - No custom encryption schema specified
+        logger.debug('Could not load custom encryption schema:', error.message);
+    }
+}
+
 function getEncryptedFields(modelName) {
     const coreFields = CORE_ENCRYPTION_SCHEMA[modelName]?.fields || [];
     const customFields = customSchema[modelName]?.fields || [];
@@ -130,12 +176,18 @@ function resetCustomSchema() {
     customSchema = {};
 }
 
+// Eagerly load custom encryption schema when module is first imported
+// This ensures the schema is available before any encryption operations occur,
+// preventing race conditions in concurrent execution environments (e.g., Lambda)
+loadCustomEncryptionSchema();
+
 module.exports = {
     CORE_ENCRYPTION_SCHEMA,
     getEncryptedFields,
     hasEncryptedFields,
     getEncryptedModels,
     registerCustomSchema,
+    loadCustomEncryptionSchema,
     validateCustomSchema,
     resetCustomSchema, // For testing only
 };

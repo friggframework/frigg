@@ -1,7 +1,6 @@
 const {
     createEncryptionExtension,
 } = require('./encryption/prisma-encryption-extension');
-const { registerCustomSchema } = require('./encryption/encryption-schema-registry');
 const { logger } = require('./encryption/logger');
 const { Cryptor } = require('../encrypt/Cryptor');
 const config = require('./config');
@@ -59,46 +58,6 @@ function getEncryptionConfig() {
     };
 }
 
-/**
- * Loads and registers custom encryption schema from appDefinition
- * Gracefully handles cases where appDefinition is not available
- */
-function loadCustomEncryptionSchema() {
-    try {
-        // Lazy require to avoid circular dependency issues
-        const path = require('node:path');
-        const { findNearestBackendPackageJson } = require('../utils');
-
-        const backendPackagePath = findNearestBackendPackageJson();
-        if (!backendPackagePath) {
-            return; // No backend found, skip custom schema
-        }
-
-        const backendDir = path.dirname(backendPackagePath);
-        const backendIndexPath = path.join(backendDir, 'index.js');
-
-        const backendModule = require(backendIndexPath);
-        const appDefinition = backendModule?.Definition;
-
-        if (!appDefinition) {
-            return; // No app definition found
-        }
-
-        const customSchema = appDefinition.encryption?.schema;
-
-        if (customSchema && Object.keys(customSchema).length > 0) {
-            registerCustomSchema(customSchema);
-        }
-    } catch (error) {
-        // Silently ignore errors - custom schema is optional
-        // This handles cases like:
-        // - Backend package.json not found (tests, standalone usage)
-        // - No appDefinition defined
-        // - No custom encryption schema specified
-        logger.debug('Could not load custom encryption schema:', error.message);
-    }
-}
-
 const prismaClientSingleton = () => {
     let PrismaClient;
 
@@ -147,8 +106,8 @@ const prismaClientSingleton = () => {
 
     if (encryptionConfig.enabled) {
         try {
-            // Load custom encryption schema from appDefinition before creating extension
-            loadCustomEncryptionSchema();
+            // Note: Custom encryption schema is loaded eagerly at module initialization
+            // (see encryption-schema-registry.js), so it's already available here
 
             const cryptor = new Cryptor({
                 shouldUseAws: encryptionConfig.method === 'kms',

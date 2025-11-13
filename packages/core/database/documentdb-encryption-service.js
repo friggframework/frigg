@@ -43,6 +43,9 @@ class DocumentDBEncryptionService {
      * Encryption is bypassed in dev/test/local stages.
      * Production uses AWS KMS (if available) or AES encryption.
      *
+     * Note: Custom encryption schema is loaded eagerly at module initialization
+     * (see encryption-schema-registry.js), so it's already available here.
+     *
      * @private
      */
     _initializeCryptor() {
@@ -104,7 +107,7 @@ class DocumentDBEncryptionService {
 
         // Get encrypted fields from registry
         const encryptedFieldsConfig = getEncryptedFields(modelName);
-        if (!encryptedFieldsConfig || !encryptedFieldsConfig.fields || encryptedFieldsConfig.fields.length === 0) {
+        if (!encryptedFieldsConfig || encryptedFieldsConfig.length === 0) {
             return document;
         }
 
@@ -112,7 +115,7 @@ class DocumentDBEncryptionService {
         const result = structuredClone(document);
 
         // Encrypt each field path
-        for (const fieldPath of encryptedFieldsConfig.fields) {
+        for (const fieldPath of encryptedFieldsConfig) {
             await this._encryptFieldPath(result, fieldPath, modelName);
         }
 
@@ -150,7 +153,7 @@ class DocumentDBEncryptionService {
 
         // Get encrypted fields from registry
         const encryptedFieldsConfig = getEncryptedFields(modelName);
-        if (!encryptedFieldsConfig || !encryptedFieldsConfig.fields || encryptedFieldsConfig.fields.length === 0) {
+        if (!encryptedFieldsConfig || encryptedFieldsConfig.length === 0) {
             return document;
         }
 
@@ -158,7 +161,7 @@ class DocumentDBEncryptionService {
         const result = structuredClone(document);
 
         // Decrypt each field path
-        for (const fieldPath of encryptedFieldsConfig.fields) {
+        for (const fieldPath of encryptedFieldsConfig) {
             await this._decryptFieldPath(result, fieldPath, modelName);
         }
 
