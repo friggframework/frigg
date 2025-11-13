@@ -45,11 +45,11 @@ const { handleEnvVariables } = require('../../../install-command/environment-var
 const { validatePackageExists, searchAndSelectPackage } = require('../../../install-command/validate-package');
 const { findNearestBackendPackageJson, validateBackendPath } = require('@friggframework/core');
 const { installCommand } = require('../../../install-command');
+const output = require('../../../utils/output');
 
 describe('CLI Command: install', () => {
   let processExitSpy;
-  let consoleLogSpy;
-  let consoleErrorSpy;
+
   const mockBackendPath = '/mock/backend/package.json';
   const mockBackendDir = '/mock/backend';
 
@@ -59,9 +59,14 @@ describe('CLI Command: install', () => {
     // Mock process.exit to prevent actual exit
     processExitSpy = jest.spyOn(process, 'exit').mockImplementation();
 
-    // Spy on console for logger (don't mock logger - test it!)
-    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+    // Mock output module
+    output.success = jest.fn();
+    output.error = jest.fn();
+    output.spinner = jest.fn().mockReturnValue({
+      start: jest.fn(),
+      succeed: jest.fn(),
+      fail: jest.fn()
+    });
 
     // Setup fs-extra mocks - Let Frigg code run, just mock I/O
     fs.ensureDirSync = jest.fn();
@@ -98,8 +103,7 @@ describe('CLI Command: install', () => {
 
   afterEach(() => {
     processExitSpy.mockRestore();
-    consoleLogSpy.mockRestore();
-    consoleErrorSpy.mockRestore();
+
     jest.resetModules(); // Clear module cache after each test
   });
 
@@ -205,9 +209,9 @@ describe('CLI Command: install', () => {
     it('should log info messages during installation', async () => {
       await installCommand('slack');
 
-      // Verify logger actually logged (we spy on console)
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Successfully installed @friggframework/api-module-slack')
+      // Verify output.spinner was used for installation progress
+      expect(output.spinner).toHaveBeenCalledWith(
+        expect.stringContaining('Installing integration for Slack')
       );
     });
 
@@ -334,8 +338,8 @@ describe('CLI Command: install', () => {
 
       await installCommand('slack');
 
-      // Verify error logged via console.error (we spy on it)
-      expect(consoleErrorSpy).toHaveBeenCalledWith('An error occurred:', error);
+      // Verify error logged via output.error
+      expect(output.error).toHaveBeenCalledWith('An error occurred:', error);
       expect(processExitSpy).toHaveBeenCalledWith(1);
     });
 
@@ -345,7 +349,7 @@ describe('CLI Command: install', () => {
 
       await installCommand('slack');
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith('An error occurred:', error);
+      expect(output.error).toHaveBeenCalledWith('An error occurred:', error);
       expect(processExitSpy).toHaveBeenCalledWith(1);
     });
 
@@ -357,7 +361,7 @@ describe('CLI Command: install', () => {
 
       await installCommand('slack');
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith('An error occurred:', error);
+      expect(output.error).toHaveBeenCalledWith('An error occurred:', error);
       expect(processExitSpy).toHaveBeenCalledWith(1);
     });
 
@@ -370,7 +374,7 @@ describe('CLI Command: install', () => {
 
       await installCommand('slack');
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith('An error occurred:', expect.any(Error));
+      expect(output.error).toHaveBeenCalledWith('An error occurred:', expect.any(Error));
       expect(processExitSpy).toHaveBeenCalledWith(1);
     });
 
@@ -383,7 +387,7 @@ describe('CLI Command: install', () => {
 
       await installCommand('slack');
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith('An error occurred:', expect.any(Error));
+      expect(output.error).toHaveBeenCalledWith('An error occurred:', expect.any(Error));
       expect(processExitSpy).toHaveBeenCalledWith(1);
     });
 
@@ -393,7 +397,7 @@ describe('CLI Command: install', () => {
 
       await installCommand('slack');
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith('An error occurred:', error);
+      expect(output.error).toHaveBeenCalledWith('An error occurred:', error);
       expect(processExitSpy).toHaveBeenCalledWith(1);
     });
   });
