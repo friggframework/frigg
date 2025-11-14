@@ -1,5 +1,5 @@
 const { Cryptor } = require('../encrypt/Cryptor');
-const { getEncryptedFields } = require('./encryption/encryption-schema-registry');
+const { getEncryptedFields, loadCustomEncryptionSchema } = require('./encryption/encryption-schema-registry');
 
 /**
  * Encryption service specifically for DocumentDB repositories
@@ -43,12 +43,13 @@ class DocumentDBEncryptionService {
      * Encryption is bypassed in dev/test/local stages.
      * Production uses AWS KMS (if available) or AES encryption.
      *
-     * Note: Custom encryption schema is loaded eagerly at module initialization
-     * (see encryption-schema-registry.js), so it's already available here.
-     *
      * @private
      */
     _initializeCryptor() {
+        // Load custom encryption schema from app definition BEFORE checking configuration
+        // This ensures custom fields (like User.username) are registered before any encryption operations
+        loadCustomEncryptionSchema();
+
         // Match logic from packages/core/database/prisma.js
         const stage = process.env.STAGE || process.env.NODE_ENV || 'development';
         const bypassEncryption = ['dev', 'test', 'local'].includes(stage.toLowerCase());

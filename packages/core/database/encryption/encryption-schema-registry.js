@@ -116,8 +116,7 @@ function registerCustomSchema(schema) {
  * This ensures that custom encryption schemas defined in the backend's index.js
  * are registered before any repositories attempt to encrypt data.
  *
- * Called eagerly when this module is first imported to avoid race conditions.
- * Safe to call multiple times (registerCustomSchema checks for duplicates).
+ * Used by both Prisma (MongoDB/PostgreSQL) and DocumentDB encryption services.
  */
 function loadCustomEncryptionSchema() {
     try {
@@ -140,10 +139,10 @@ function loadCustomEncryptionSchema() {
             return; // No app definition found
         }
 
-        const customSchemaFromApp = appDefinition.encryption?.schema;
+        const customSchema = appDefinition.encryption?.schema;
 
-        if (customSchemaFromApp && Object.keys(customSchemaFromApp).length > 0) {
-            registerCustomSchema(customSchemaFromApp);
+        if (customSchema && Object.keys(customSchema).length > 0) {
+            registerCustomSchema(customSchema);
         }
     } catch (error) {
         // Silently ignore errors - custom schema is optional
@@ -175,11 +174,6 @@ function getEncryptedModels() {
 function resetCustomSchema() {
     customSchema = {};
 }
-
-// Eagerly load custom encryption schema when module is first imported
-// This ensures the schema is available before any encryption operations occur,
-// preventing race conditions in concurrent execution environments (e.g., Lambda)
-loadCustomEncryptionSchema();
 
 module.exports = {
     CORE_ENCRYPTION_SCHEMA,

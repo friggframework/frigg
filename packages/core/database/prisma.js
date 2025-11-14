@@ -1,6 +1,7 @@
 const {
     createEncryptionExtension,
 } = require('./encryption/prisma-encryption-extension');
+const { loadCustomEncryptionSchema } = require('./encryption/encryption-schema-registry');
 const { logger } = require('./encryption/logger');
 const { Cryptor } = require('../encrypt/Cryptor');
 const config = require('./config');
@@ -106,8 +107,8 @@ const prismaClientSingleton = () => {
 
     if (encryptionConfig.enabled) {
         try {
-            // Note: Custom encryption schema is loaded eagerly at module initialization
-            // (see encryption-schema-registry.js), so it's already available here
+            // Load custom encryption schema from appDefinition before creating extension
+            loadCustomEncryptionSchema();
 
             const cryptor = new Cryptor({
                 shouldUseAws: encryptionConfig.method === 'kms',
