@@ -1,7 +1,14 @@
 const {
     HealthCheckRepositoryInterface,
 } = require('./health-check-repository-interface');
-const { toObjectId } = require('../documentdb-utils');
+const {
+    toObjectId,
+    fromObjectId,
+    findOne,
+    insertOne,
+    deleteOne,
+} = require('../documentdb-utils');
+const { DocumentDBEncryptionService } = require('../documentdb-encryption-service');
 
 class HealthCheckRepositoryDocumentDB extends HealthCheckRepositoryInterface {
     /**
@@ -11,6 +18,7 @@ class HealthCheckRepositoryDocumentDB extends HealthCheckRepositoryInterface {
     constructor({ prismaClient }) {
         super();
         this.prisma = prismaClient;
+        this.encryptionService = new DocumentDBEncryptionService();
     }
 
     /**
@@ -55,15 +63,47 @@ class HealthCheckRepositoryDocumentDB extends HealthCheckRepositoryInterface {
     }
 
     async createCredential(credentialData) {
-        return this.prisma.credential.create({
-            data: credentialData,
-        });
+        const now = new Date();
+        const document = {
+            ...credentialData,
+            createdAt: now,
+            updatedAt: now,
+        };
+
+        // Encrypt sensitive fields before insert
+        const encryptedDocument = await this.encryptionService.encryptFields(
+            'Credential',
+            document
+        );
+        const insertedId = await insertOne(this.prisma, 'Credential', encryptedDocument);
+        const created = await findOne(this.prisma, 'Credential', { _id: insertedId });
+
+        // Decrypt after read
+        const decrypted = await this.encryptionService.decryptFields(
+            'Credential',
+            created
+        );
+
+        return {
+            id: fromObjectId(decrypted._id),
+            ...decrypted,
+        };
     }
 
     async findCredentialById(id) {
-        return this.prisma.credential.findUnique({
-            where: { id },
+        const doc = await findOne(this.prisma, 'Credential', {
+            _id: toObjectId(id),
         });
+
+        if (!doc) return null;
+
+        // Decrypt sensitive fields
+        const decrypted = await this.encryptionService.decryptFields('Credential', doc);
+
+        return {
+            id: fromObjectId(decrypted._id),
+            ...decrypted,
+        };
     }
 
     async getRawCredentialById(id) {
@@ -75,13 +115,18 @@ class HealthCheckRepositoryDocumentDB extends HealthCheckRepositoryInterface {
             filter: { _id: objectId },
         });
 
+        // Return raw document WITHOUT decryption
+        // This allows the test to verify that fields are actually encrypted in the database
         return result?.cursor?.firstBatch?.[0] ?? null;
     }
 
     async deleteCredential(id) {
-        await this.prisma.credential.delete({
-            where: { id },
-        });
+        const objectId = toObjectId(id);
+        if (!objectId) return false;
+
+        const result = await deleteOne(this.prisma, 'Credential', { _id: objectId });
+        const deleted = result?.n ?? 0;
+        return deleted > 0;
     }
 }
 
