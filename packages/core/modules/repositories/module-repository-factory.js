@@ -1,5 +1,8 @@
 const { ModuleRepositoryMongo } = require('./module-repository-mongo');
 const { ModuleRepositoryPostgres } = require('./module-repository-postgres');
+const {
+    ModuleRepositoryDocumentDB,
+} = require('./module-repository-documentdb');
 const config = require('../../database/config');
 
 /**
@@ -18,9 +21,12 @@ function createModuleRepository() {
         case 'postgresql':
             return new ModuleRepositoryPostgres();
 
+        case 'documentdb':
+            return new ModuleRepositoryDocumentDB();
+
         default:
             throw new Error(
-                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'postgresql'`
+                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql'`
             );
     }
 }
@@ -30,4 +36,5 @@ module.exports = {
     // Export adapters for direct testing
     ModuleRepositoryMongo,
     ModuleRepositoryPostgres,
+    ModuleRepositoryDocumentDB,
 };

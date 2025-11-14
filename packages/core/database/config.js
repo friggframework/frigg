@@ -10,7 +10,7 @@
  * 1. DB_TYPE environment variable (set for migration handlers)
  * 2. App definition (backend/index.js Definition.database configuration)
  *
- * @returns {'mongodb'|'postgresql'} Database type
+ * @returns {'mongodb'|'postgresql'|'documentdb'} Database type
  * @throws {Error} If database type cannot be determined or app definition missing
  */
 function getDatabaseType() {
@@ -93,7 +93,7 @@ function getDatabaseType() {
             return 'mongodb';
         }
         if (database.documentDB?.enable === true) {
-            return 'mongodb'; // DocumentDB is MongoDB-compatible
+            return 'documentdb';
         }
 
         throw new Error(
@@ -114,7 +114,7 @@ function getDatabaseType() {
 
 /**
  * Cached database type (lazy evaluation)
- * @type {'mongodb'|'postgresql'|null}
+ * @type {'mongodb'|'postgresql'|'documentdb'|null}
  */
 let cachedDbType = null;
 
@@ -140,7 +140,7 @@ module.exports = {
 /**
  * Lazy-evaluated database type determined from app definition
  * Only evaluates when accessed, preventing module load failures in test environments
- * @type {'mongodb'|'postgresql'}
+ * @type {'mongodb'|'postgresql'|'documentdb'}
  */
 Object.defineProperty(module.exports, 'DB_TYPE', {
     get() {

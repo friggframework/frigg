@@ -52,9 +52,7 @@ class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface {
             }),
             timeoutPromise
         ]);
-        
-        return Date.now() - pingStart;
-    }
+
         return Date.now() - pingStart;
     }
 

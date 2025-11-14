@@ -145,5 +145,29 @@ describe('Database Migration Worker - Adapter Layer', () => {
             expect(result.body.error).toBe('Database connection failed');
             expect(result.body.upToDate).toBe(false);
         });
+
+        it('should pass dbType from event to checkStatus use case', async () => {
+            const event = {
+                action: 'checkStatus',
+                dbType: 'documentdb',
+                stage: 'prod',
+            };
+
+            const context = {
+                requestId: 'test-request-id',
+                functionName: 'test-function',
+                getRemainingTimeInMillis: () => 30000,
+            };
+
+            mockPrismaRunner.checkDatabaseState = jest.fn().mockResolvedValue({
+                upToDate: true,
+                pendingMigrations: 0,
+            });
+
+            const result = await handler(event, context);
+
+            expect(result.body.dbType).toBe('documentdb');
+            expect(mockPrismaRunner.checkDatabaseState).toHaveBeenCalledWith('documentdb');
+        });
     });
 });

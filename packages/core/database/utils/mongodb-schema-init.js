@@ -47,9 +47,9 @@ const config = require('../config');
  * ```
  */
 async function initializeMongoDBSchema() {
-    // Only run for MongoDB
-    if (config.DB_TYPE !== 'mongodb') {
-        console.log('Schema initialization skipped - not using MongoDB');
+    // Only run for MongoDB-compatible databases
+    if (config.DB_TYPE !== 'mongodb' && config.DB_TYPE !== 'documentdb') {
+        console.log('Schema initialization skipped - not using MongoDB-compatible database');
         return;
     }
 
@@ -61,7 +61,7 @@ async function initializeMongoDBSchema() {
         );
     }
 
-    console.log('Initializing MongoDB schema - ensuring all collections exist...');
+    console.log('Initializing MongoDB-compatible schema - ensuring all collections exist...');
     const startTime = Date.now();
 
     try {
@@ -77,7 +77,7 @@ async function initializeMongoDBSchema() {
 
         const duration = Date.now() - startTime;
         console.log(
-            `MongoDB schema initialization complete - ${collections.length} collections verified (${duration}ms)`
+            `MongoDB-compatible schema initialization complete - ${collections.length} collections verified (${duration}ms)`
         );
     } catch (error) {
         console.error('Failed to initialize MongoDB schema:', error.message);

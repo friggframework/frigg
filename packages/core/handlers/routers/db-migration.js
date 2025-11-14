@@ -85,7 +85,7 @@ router.use(validateApiKey);
  * Request body:
  * {
  *   userId: string (optional, defaults to 'admin'),
- *   dbType: 'postgresql' | 'mongodb',
+ *   dbType: 'postgresql' | 'mongodb' | 'documentdb',
  *   stage: string (e.g., 'production', 'dev')
  * }
  *
@@ -101,8 +101,7 @@ router.use(validateApiKey);
 router.post(
     '/db-migrate',
     catchAsyncError(async (req, res) => {
-        // Migration infrastructure is PostgreSQL-only, so hardcode dbType
-        const dbType = 'postgresql';
+        const dbType = req.body.dbType || process.env.DB_TYPE || 'postgresql';
         const { stage } = req.body;
         // TODO: Extract userId from JWT token when auth is implemented
         const userId = req.body.userId || 'admin';

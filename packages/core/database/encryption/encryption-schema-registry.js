@@ -109,6 +109,51 @@ function registerCustomSchema(schema) {
     );
 }
 
+/**
+ * Loads and registers custom encryption schema from appDefinition.
+ * Gracefully handles cases where appDefinition is not available.
+ *
+ * This ensures that custom encryption schemas defined in the backend's index.js
+ * are registered before any repositories attempt to encrypt data.
+ *
+ * Used by both Prisma (MongoDB/PostgreSQL) and DocumentDB encryption services.
+ */
+function loadCustomEncryptionSchema() {
+    try {
+        // Lazy require to avoid circular dependency issues
+        const path = require('node:path');
+        const { findNearestBackendPackageJson } = require('../../utils');
+
+        const backendPackagePath = findNearestBackendPackageJson();
+        if (!backendPackagePath) {
+            return; // No backend found, skip custom schema
+        }
+
+        const backendDir = path.dirname(backendPackagePath);
+        const backendIndexPath = path.join(backendDir, 'index.js');
+
+        const backendModule = require(backendIndexPath);
+        const appDefinition = backendModule?.Definition;
+
+        if (!appDefinition) {
+            return; // No app definition found
+        }
+
+        const customSchema = appDefinition.encryption?.schema;
+
+        if (customSchema && Object.keys(customSchema).length > 0) {
+            registerCustomSchema(customSchema);
+        }
+    } catch (error) {
+        // Silently ignore errors - custom schema is optional
+        // This handles cases like:
+        // - Backend package.json not found (tests, standalone usage)
+        // - No appDefinition defined
+        // - No custom encryption schema specified
+        logger.debug('Could not load custom encryption schema:', error.message);
+    }
+}
+
 function getEncryptedFields(modelName) {
     const coreFields = CORE_ENCRYPTION_SCHEMA[modelName]?.fields || [];
     const customFields = customSchema[modelName]?.fields || [];
@@ -136,6 +181,7 @@ module.exports = {
     hasEncryptedFields,
     getEncryptedModels,
     registerCustomSchema,
+    loadCustomEncryptionSchema,
     validateCustomSchema,
     resetCustomSchema, // For testing only
 };

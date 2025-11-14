@@ -32,7 +32,7 @@ class CheckDatabaseStateUseCase {
     /**
      * Execute check migration status
      * 
-     * @param {string} dbType - Database type (postgresql or mongodb)
+     * @param {string} dbType - Database type (postgresql, mongodb, or documentdb)
      * @param {string} stage - Deployment stage (default: 'production')
      * @returns {Promise<Object>} Migration status
      */
@@ -42,8 +42,8 @@ class CheckDatabaseStateUseCase {
             throw new ValidationError('dbType is required');
         }
 
-        if (!['postgresql', 'mongodb'].includes(dbType)) {
-            throw new ValidationError('dbType must be postgresql or mongodb');
+        if (!['postgresql', 'mongodb', 'documentdb'].includes(dbType)) {
+            throw new ValidationError('dbType must be postgresql, mongodb, or documentdb');
         }
 
         console.log(`Checking migration status for ${dbType} in ${stage}`);

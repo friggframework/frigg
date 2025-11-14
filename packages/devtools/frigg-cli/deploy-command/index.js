@@ -284,8 +284,10 @@ async function deployCommand(options) {
 
     console.log('\n✓ Deployment completed successfully!');
 
-    // Run post-deployment health check (unless --skip-doctor)
-    if (!options.skipDoctor) {
+    const skipHealthCheck = options.skipDoctor || appDefinition?.deployment?.skipPostDeploymentHealthCheck;
+
+    // Run post-deployment health check (unless disabled)
+    if (!skipHealthCheck) {
         const stackName = getStackName(appDefinition, options);
 
         if (stackName) {
@@ -295,7 +297,8 @@ async function deployCommand(options) {
             console.log('   Run "frigg doctor <stack-name>" manually to check stack health');
         }
     } else {
-        console.log('\n⏭️  Skipping post-deployment health check (--skip-doctor)');
+        const reason = options.skipDoctor ? '--skip-doctor flag' : 'deployment.skipPostDeploymentHealthCheck: true';
+        console.log(`\n⏭️  Skipping post-deployment health check (${reason})`);
     }
 }
 
