@@ -662,6 +662,29 @@ describe('IntegrationBuilder', () => {
                 { Ref: 'PrismaLambdaLayer' }
             ]);
         });
+
+        it('should not attach Prisma layer when usePrismaLambdaLayer=false', async () => {
+            const appDefinition = {
+                usePrismaLambdaLayer: false,
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'asana',
+                            webhooks: true,
+                        },
+                    },
+                ],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(result.functions.asana.layers).toBeUndefined();
+            expect(result.functions.asanaQueueWorker.layers).toBeUndefined();
+            expect(result.functions.asanaWebhook.layers).toBeUndefined();
+            expect(result.functions.asana.package.exclude).not.toEqual(
+                expect.arrayContaining(['node_modules/@prisma/**'])
+            );
+        });
     });
 });
 

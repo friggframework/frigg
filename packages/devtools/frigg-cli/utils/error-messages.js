@@ -16,12 +16,26 @@ function normalizeMongoCompatible(dbType) {
 }
 
 /**
- * Database URL examples for both supported database types
+ * Database URL examples for supported database types
  */
 const DATABASE_URL_EXAMPLES = {
-    mongodb: 'mongodb://localhost:27017/frigg?replicaSet=rs0',
-    postgresql: 'postgresql://postgres:postgres@localhost:5432/frigg?schema=public'
+  mongodb: 'mongodb://localhost:27017/frigg?replicaSet=rs0',
+  documentdb: 'mongodb://frigg-user:yourPassword@docdb-cluster.cluster-xyz123.us-east-1.docdb.amazonaws.com:27017/frigg?tls=true&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false',
+  postgresql: 'postgresql://postgres:postgres@localhost:5432/frigg?schema=public'
 };
+
+function getDatabaseDisplayName(dbType) {
+  switch (dbType) {
+    case 'mongodb':
+      return 'MongoDB';
+    case 'documentdb':
+      return 'AWS DocumentDB (MongoDB-compatible)';
+    case 'postgresql':
+      return 'PostgreSQL';
+    default:
+      return dbType;
+  }
+}
 
 /**
  * Gets helpful error message for missing DATABASE_URL
@@ -35,6 +49,9 @@ ${chalk.bold('Add DATABASE_URL to your .env file:')}
 
 ${chalk.cyan('For MongoDB:')}
   ${chalk.gray('DATABASE_URL')}=${chalk.green(`"${DATABASE_URL_EXAMPLES.mongodb}"`)}
+
+${chalk.cyan('For AWS DocumentDB (MongoDB-compatible):')}
+  ${chalk.gray('DATABASE_URL')}=${chalk.green(`"${DATABASE_URL_EXAMPLES.documentdb}"`)}
 
 ${chalk.cyan('For PostgreSQL:')}
   ${chalk.gray('DATABASE_URL')}=${chalk.green(`"${DATABASE_URL_EXAMPLES.postgresql}"`)}
@@ -83,6 +100,8 @@ const appDefinition = {
   }
 };
 `)}
+
+${chalk.gray('DocumentDB uses the MongoDB Prisma client. Make sure TLS is enabled and replica set compatibility is configured on your cluster.')}
 `;
 }
 
@@ -93,15 +112,22 @@ const appDefinition = {
  * @returns {string} Formatted error message
  */
 function getDatabaseConnectionError(error, dbType) {
-    const troubleshootingSteps = (dbType === 'mongodb' || dbType === 'documentdb')
-        ? getMongoDatabaseTroubleshooting()
-        : getPostgresTroubleshooting();
+    let troubleshootingSteps;
+    if (dbType === 'documentdb') {
+        troubleshootingSteps = getDocumentDbTroubleshooting();
+    } else if (dbType === 'mongodb') {
+        troubleshootingSteps = getMongoDatabaseTroubleshooting();
+    } else {
+        troubleshootingSteps = getPostgresTroubleshooting();
+    }
 
     return `
 ${chalk.red('❌ Failed to connect to database')}
 
 ${chalk.bold('Connection error:')}
 ${chalk.gray(error)}
+
+${chalk.bold('Database:')} ${chalk.cyan(getDatabaseDisplayName(dbType))}
 
 ${chalk.bold('Troubleshooting steps:')}
 ${troubleshootingSteps}
@@ -138,6 +164,26 @@ ${chalk.gray('5.')} Check network/firewall settings
 `;
 }
 
+function getDocumentDbTroubleshooting() {
+    return `
+${chalk.gray('1.')} Verify DocumentDB cluster is available
+   ${chalk.cyan('aws docdb describe-db-clusters --db-cluster-identifier <name>')}
+
+${chalk.gray('2.')} Use TLS with the AWS CA bundle
+   ${chalk.gray('Download: https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem')}
+   ${chalk.gray('Add ?tls=true&tlsCAFile=/path/to/global-bundle.pem to DATABASE_URL')}
+
+${chalk.gray('3.')} Disable retryable writes (DocumentDB limitation)
+   ${chalk.gray('Add retryWrites=false to DATABASE_URL query string')}
+
+${chalk.gray('4.')} Include replicaSet parameter
+   ${chalk.gray('DocumentDB requires replicaSet=rs0 even for single-node clusters')}
+
+${chalk.gray('5.')} Allow inbound access from your Lambda or local IP
+   ${chalk.gray('Update security groups / VPC rules for port 27017')}
+`;
+}
+
 /**
  * Gets PostgreSQL-specific troubleshooting steps
  * @returns {string} Formatted troubleshooting steps
@@ -171,9 +217,15 @@ ${chalk.gray('5.')} Verify network/firewall settings
  * @returns {string} Formatted error message
  */
 function getPrismaClientNotGeneratedError(dbType) {
-    // Normalize DocumentDB to MongoDB (they use the same Prisma client)
-    const normalizedType = normalizeMongoCompatible(dbType);
-    const clientName = `@prisma-${normalizedType}/client`;
+  // Normalize DocumentDB to MongoDB (they use the same Prisma client)
+  const normalizedType = normalizeMongoCompatible(dbType);
+  const clientName = `@prisma-${normalizedType}/client`;
+  const documentDbNote = dbType === 'documentdb'
+    ? [
+      chalk.gray('  • DocumentDB reuses the MongoDB Prisma client (prisma-mongodb)'),
+      chalk.gray('  • Confirm your connection string includes tls=true and retryWrites=false')
+    ].join('\n')
+    : '';
 
     return `
 ${chalk.red(`❌ Prisma client not generated for ${dbType}`)}
@@ -186,6 +238,7 @@ ${chalk.gray('This will:')}
 ${chalk.gray('  • Generate the Prisma client')} ${chalk.gray(`(${clientName})`)}
 ${chalk.gray('  • Set up database schema')}
 ${chalk.gray('  • Run migrations (PostgreSQL) or db push (MongoDB)')}
+${documentDbNote ? `${documentDbNote}\n` : ''}
 `;
 }
 
@@ -222,18 +275,25 @@ ${chalk.cyan('  Review Prisma schema')} ${chalk.gray('(node_modules/@friggframew
  * @returns {string} Formatted success message
  */
 function getDatabaseSetupSuccess(dbType, stage) {
+    const databaseDisplayName = getDatabaseDisplayName(dbType);
+    const schemaAction = dbType === 'postgresql'
+        ? 'Migrations applied'
+        : dbType === 'documentdb'
+            ? 'Schema pushed to DocumentDB'
+            : 'Schema pushed to database';
+
     return `
 ${chalk.green('✅ Database setup completed successfully!')}
 
 ${chalk.bold('Configuration:')}
-${chalk.gray('  Database type:')} ${chalk.cyan(dbType)}
+${chalk.gray('  Database type:')} ${chalk.cyan(databaseDisplayName)}
 ${chalk.gray('  Stage:')} ${chalk.cyan(stage)}
 ${chalk.gray('  Connection:')} ${chalk.green('verified')}
 
 ${chalk.bold('What happened:')}
 ${chalk.gray('  ✓')} Prisma client generated
 ${chalk.gray('  ✓')} Database connection verified
-${chalk.gray('  ✓')} ${dbType === 'postgresql' ? 'Migrations applied' : 'Schema pushed to database'}
+${chalk.gray('  ✓')} ${schemaAction}
 
 ${chalk.yellow('Next steps:')}
 ${chalk.cyan('  frigg start')} ${chalk.gray('(start your application)')}
