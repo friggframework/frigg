@@ -221,6 +221,8 @@ function createBaseDefinition(
                     '@prisma/client',
                     'prisma',
                     '.prisma/*',
+                    '@babel/*',  // Exclude Babel packages to reduce file scanning
+                    '@smithy/*', // Exclude Smithy (AWS SDK v3 dependency)
                 ],
                 packager: 'npm',
                 keepNames: true,
@@ -230,7 +232,13 @@ function createBaseDefinition(
                     '@aws-sdk/*',
                     '@prisma/client',
                     'prisma',
+                    '@babel/*',
+                    '@smithy/*',
                 ],
+                // Reduce file scanning overhead
+                watch: {
+                    ignore: ['node_modules/@aws-sdk/**', 'node_modules/@babel/**', 'node_modules/@smithy/**']
+                },
             },
             'serverless-offline': {
                 httpPort: 3001,
