@@ -153,12 +153,17 @@ class IntegrationBase {
      * @param {Array} [payload.modules]
      */
     setIntegrationRecord(payload = {}) {
+        console.log(`[setIntegrationRecord] Called with payload keys: ${Object.keys(payload).join(', ')}`);
+        console.log(`[setIntegrationRecord] payload.modules length: ${payload.modules?.length || 0}`);
+
         if (!payload || Object.keys(payload).length === 0) {
             throw new Error('setIntegrationRecord requires integration data');
         }
 
         const integrationRecord = payload.record;
         const integrationModules = payload.modules ?? [];
+
+        console.log(`[setIntegrationRecord] integrationModules length: ${integrationModules.length}`);
 
         if (!integrationRecord) {
             throw new Error('Integration record not provided');
@@ -175,7 +180,9 @@ class IntegrationBase {
         this.version = version;
         this.messages = messages || { errors: [], warnings: [] };
 
+        console.log(`[setIntegrationRecord] About to call _appendModules with ${integrationModules.length} modules`);
         this.modules = this._appendModules(integrationModules);
+        console.log(`[setIntegrationRecord] After _appendModules, this.modules keys: ${Object.keys(this.modules).join(', ')}`);
 
         this.record = {
             id: this.id,
@@ -188,6 +195,7 @@ class IntegrationBase {
         };
 
         this._isHydrated = Boolean(this.id);
+        console.log(`[setIntegrationRecord] Hydrated: ${this._isHydrated}`);
         return this;
     }
 
@@ -214,41 +222,57 @@ class IntegrationBase {
      * @returns {Object} The modules object
      */
     _appendModules(integrationModules) {
+        console.log(`[_appendModules] Called with ${integrationModules?.length || 0} modules`);
+        console.log(`[_appendModules] Definition.modules exists: ${!!this.constructor.Definition?.modules}`);
+
         const modules = {};
-        
+
         // Build reverse mapping: definition.getName() → referenceKey
         // e.g., 'quo-attio' → 'quo', 'attio' → 'attio'
         const moduleNameToKey = {};
         if (this.constructor.Definition?.modules) {
+            console.log(`[_appendModules] Definition.modules keys: ${Object.keys(this.constructor.Definition.modules).join(', ')}`);
             for (const [key, moduleConfig] of Object.entries(this.constructor.Definition.modules)) {
                 const definition = moduleConfig.definition;
                 if (definition) {
                     // Use getName() if available, fallback to moduleName
-                    const definitionName = typeof definition.getName === 'function' 
-                        ? definition.getName() 
+                    const definitionName = typeof definition.getName === 'function'
+                        ? definition.getName()
                         : definition.moduleName;
                     if (definitionName) {
+                        console.log(`[_appendModules] Mapping: ${definitionName} → ${key}`);
                         moduleNameToKey[definitionName] = key;
                     }
                 }
             }
         }
-        
+
+        console.log(`[_appendModules] Built mapping: ${JSON.stringify(moduleNameToKey)}`);
+
         for (const module of integrationModules) {
             const moduleName =
                 typeof module.getName === 'function'
                     ? module.getName()
                     : module.name;
-            
+
+            console.log(`[_appendModules] Processing module with name: ${moduleName}`);
+
             // Use the reference key from Definition.modules if available,
             // otherwise fall back to moduleName
             const key = moduleNameToKey[moduleName] || moduleName;
-            
+
+            console.log(`[_appendModules] Resolved key: ${key}`);
+
             if (key) {
                 modules[key] = module;
                 this[key] = module;
+                console.log(`[_appendModules] Attached module to this.${key}`);
             }
         }
+
+        console.log(`[_appendModules] Returning modules object with keys: ${Object.keys(modules).join(', ')}`);
+        console.log(`[_appendModules] this.entities after attachment: ${Object.keys(this.entities || {}).join(', ')}`);
+
         return modules;
     }
 

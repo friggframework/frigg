@@ -221,8 +221,6 @@ function createBaseDefinition(
                     '@prisma/client',
                     'prisma',
                     '.prisma/*',
-                    '@babel/*',  // Exclude Babel packages to reduce file scanning
-                    '@smithy/*', // Exclude Smithy (AWS SDK v3 dependency)
                 ],
                 packager: 'npm',
                 keepNames: true,
@@ -232,10 +230,8 @@ function createBaseDefinition(
                     '@aws-sdk/*',
                     '@prisma/client',
                     'prisma',
-                    '@babel/*',
-                    '@smithy/*',
                 ],
-                // Reduce file scanning overhead
+                // Reduce file scanning overhead - tell esbuild to skip these during watch/scan but still bundle them
                 watch: {
                     ignore: ['node_modules/@aws-sdk/**', 'node_modules/@babel/**', 'node_modules/@smithy/**']
                 },

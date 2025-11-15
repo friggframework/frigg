@@ -27,6 +27,8 @@ class GetIntegrationInstance {
      * @throws {Error} When integration is not found, doesn't belong to user, or integration class is not found.
      */
     async execute(integrationId, userId) {
+        console.log(`[GetIntegrationInstance] Loading integration ${integrationId} for user ${userId}`);
+
         const integrationRecord =
             await this.integrationRepository.findIntegrationById(integrationId);
 
@@ -35,6 +37,8 @@ class GetIntegrationInstance {
                 `No integration found by the ID of ${integrationId}`
             );
         }
+
+        console.log(`[GetIntegrationInstance] Found integration record - type: ${integrationRecord.config?.type}, entitiesIds: ${JSON.stringify(integrationRecord.entitiesIds)}`);
 
         const integrationClass = this.integrationClasses.find(
             (integrationClass) =>
@@ -54,14 +58,20 @@ class GetIntegrationInstance {
             );
         }
 
+        console.log(`[GetIntegrationInstance] Loading ${integrationRecord.entitiesIds?.length || 0} entities/modules`);
+
         const modules = [];
         for (const entityId of integrationRecord.entitiesIds) {
+            console.log(`[GetIntegrationInstance] Loading module for entity ${entityId}`);
             const moduleInstance = await this.moduleFactory.getModuleInstance(
                 entityId,
                 integrationRecord.userId
             );
+            console.log(`[GetIntegrationInstance] Module loaded - type: ${moduleInstance.constructor.name}`);
             modules.push(moduleInstance);
         }
+
+        console.log(`[GetIntegrationInstance] Loaded ${modules.length} modules total`);
 
         const integrationInstance = new integrationClass({
             id: integrationRecord.id,
