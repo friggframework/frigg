@@ -20,7 +20,6 @@ const { DocumentDBEncryptionService } = require('../../database/documentdb-encry
  * - Credential.data.access_token
  * - Credential.data.refresh_token
  * - Credential.data.id_token
- * - Credential.data.domain
  *
  * SECURITY CRITICAL: All OAuth credentials must be encrypted at rest.
  *
@@ -130,6 +129,16 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
 
             // Read back and decrypt
             const updated = await findOne(this.prisma, 'Credential', { _id: existing._id });
+            if (!updated) {
+                console.error('[CredentialRepositoryDocumentDB] Credential not found after update', {
+                    credentialId: fromObjectId(existing._id),
+                    identifiers,
+                });
+                throw new Error(
+                    'Failed to update credential: Document not found after update. ' +
+                    'This indicates a database consistency issue.'
+                );
+            }
             const decryptedCredential = await this.encryptionService.decryptFields('Credential', updated);
             return this._mapCredential(decryptedCredential);
         }
@@ -154,6 +163,16 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
 
         // Read back and decrypt
         const created = await findOne(this.prisma, 'Credential', { _id: insertedId });
+        if (!created) {
+            console.error('[CredentialRepositoryDocumentDB] Credential not found after insert', {
+                insertedId: fromObjectId(insertedId),
+                identifiers,
+            });
+            throw new Error(
+                'Failed to create credential: Document not found after insert. ' +
+                'This indicates a database consistency issue.'
+            );
+        }
         const decryptedCredential = await this.encryptionService.decryptFields('Credential', created);
         return this._mapCredential(decryptedCredential);
     }
@@ -218,6 +237,15 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
 
         // Read back and decrypt
         const updated = await findOne(this.prisma, 'Credential', { _id: objectId });
+        if (!updated) {
+            console.error('[CredentialRepositoryDocumentDB] Credential not found after update', {
+                credentialId: fromObjectId(objectId),
+            });
+            throw new Error(
+                'Failed to update credential: Document not found after update. ' +
+                'This indicates a database consistency issue.'
+            );
+        }
         const decryptedCredential = await this.encryptionService.decryptFields('Credential', updated);
         return this._mapCredential(decryptedCredential);
     }

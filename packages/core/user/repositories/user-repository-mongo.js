@@ -4,6 +4,7 @@ const {
     createTokenRepository,
 } = require('../../token/repositories/token-repository-factory');
 const { UserRepositoryInterface } = require('./user-repository-interface');
+const { ClientSafeError } = require('../../errors');
 
 /**
  * MongoDB User Repository Adapter
@@ -113,7 +114,7 @@ class UserRepositoryMongo extends UserRepositoryInterface {
             params.hashword !== ''
         ) {
             if (typeof params.hashword !== 'string') {
-                throw new Error('Password must be a string');
+                throw new ClientSafeError('Password must be a string', 400);
             }
 
             // Prevent double-hashing: bcrypt hashes start with $2a$ or $2b$
@@ -235,7 +236,7 @@ class UserRepositoryMongo extends UserRepositoryInterface {
             data.hashword !== ''
         ) {
             if (typeof data.hashword !== 'string') {
-                throw new Error('Password must be a string');
+                throw new ClientSafeError('Password must be a string', 400);
             }
 
             // Prevent double-hashing: bcrypt hashes start with $2a$ or $2b$
