@@ -5,6 +5,7 @@ const {
     getEncryptedModels,
     registerCustomSchema,
     loadCustomEncryptionSchema,
+    loadModuleEncryptionSchemas,
     validateCustomSchema,
     resetCustomSchema,
 } = require('../encryption-schema-registry');
@@ -18,9 +19,18 @@ describe('encryption-schema-registry', () => {
     describe('CORE_ENCRYPTION_SCHEMA', () => {
         it('defines encrypted fields for Credential model', () => {
             expect(CORE_ENCRYPTION_SCHEMA.Credential).toBeDefined();
+            // OAuth tokens
             expect(CORE_ENCRYPTION_SCHEMA.Credential.fields).toContain('data.access_token');
             expect(CORE_ENCRYPTION_SCHEMA.Credential.fields).toContain('data.refresh_token');
             expect(CORE_ENCRYPTION_SCHEMA.Credential.fields).toContain('data.id_token');
+            // API key authentication (multiple naming conventions)
+            expect(CORE_ENCRYPTION_SCHEMA.Credential.fields).toContain('data.api_key');
+            expect(CORE_ENCRYPTION_SCHEMA.Credential.fields).toContain('data.apiKey');
+            expect(CORE_ENCRYPTION_SCHEMA.Credential.fields).toContain('data.API_KEY_VALUE');
+            // Basic authentication
+            expect(CORE_ENCRYPTION_SCHEMA.Credential.fields).toContain('data.password');
+            // OAuth client credentials
+            expect(CORE_ENCRYPTION_SCHEMA.Credential.fields).toContain('data.client_secret');
         });
 
         it('defines encrypted fields for User model', () => {
@@ -201,13 +211,14 @@ describe('encryption-schema-registry', () => {
 
         it('rejects attempt to override multiple core fields', () => {
             const schema = {
-                Credential: { fields: ['data.access_token', 'data.refresh_token'] }
+                Credential: { fields: ['data.access_token', 'data.refresh_token', 'data.api_key'] }
             };
 
             const result = validateCustomSchema(schema);
             expect(result.valid).toBe(false);
             expect(result.errors.some(e => e.includes('data.access_token'))).toBe(true);
             expect(result.errors.some(e => e.includes('data.refresh_token'))).toBe(true);
+            expect(result.errors.some(e => e.includes('data.api_key'))).toBe(true);
         });
 
         it('rejects schema that is not an object', () => {
@@ -330,6 +341,217 @@ describe('encryption-schema-registry', () => {
 
             // Custom field removed
             expect(getEncryptedFields('User')).not.toContain('username');
+        });
+    });
+
+    describe('loadModuleEncryptionSchemas', () => {
+        it('loads encryption fields from API module definitions', () => {
+            const integrations = [
+                {
+                    Definition: {
+                        name: 'test-integration',
+                        modules: {
+                            testModule: {
+                                definition: {
+                                    moduleName: 'testModule',
+                                    encryption: {
+                                        credentialFields: ['api_key', 'custom_token']
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ];
+
+            loadModuleEncryptionSchemas(integrations);
+
+            const credentialFields = getEncryptedFields('Credential');
+            expect(credentialFields).toContain('data.api_key');
+            expect(credentialFields).toContain('data.custom_token');
+        });
+
+        it('adds data prefix to fields without prefix', () => {
+            const integrations = [
+                {
+                    Definition: {
+                        modules: {
+                            testModule: {
+                                definition: {
+                                    encryption: {
+                                        credentialFields: ['webhook_secret']
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ];
+
+            loadModuleEncryptionSchemas(integrations);
+
+            const credentialFields = getEncryptedFields('Credential');
+            expect(credentialFields).toContain('data.webhook_secret');
+        });
+
+        it('preserves data prefix if already present', () => {
+            const integrations = [
+                {
+                    Definition: {
+                        modules: {
+                            testModule: {
+                                definition: {
+                                    encryption: {
+                                        credentialFields: ['data.already_prefixed']
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ];
+
+            loadModuleEncryptionSchemas(integrations);
+
+            const credentialFields = getEncryptedFields('Credential');
+            expect(credentialFields).toContain('data.already_prefixed');
+            // Should not double-prefix
+            expect(credentialFields).not.toContain('data.data.already_prefixed');
+        });
+
+        it('merges fields from multiple modules', () => {
+            const integrations = [
+                {
+                    Definition: {
+                        modules: {
+                            module1: {
+                                definition: {
+                                    encryption: {
+                                        credentialFields: ['api_key']
+                                    }
+                                }
+                            },
+                            module2: {
+                                definition: {
+                                    encryption: {
+                                        credentialFields: ['signing_key']
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ];
+
+            loadModuleEncryptionSchemas(integrations);
+
+            const credentialFields = getEncryptedFields('Credential');
+            expect(credentialFields).toContain('data.api_key');
+            expect(credentialFields).toContain('data.signing_key');
+        });
+
+        it('removes duplicate fields across modules', () => {
+            const integrations = [
+                {
+                    Definition: {
+                        modules: {
+                            module1: {
+                                definition: {
+                                    encryption: {
+                                        credentialFields: ['api_key']
+                                    }
+                                }
+                            },
+                            module2: {
+                                definition: {
+                                    encryption: {
+                                        credentialFields: ['api_key'] // Duplicate
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ];
+
+            loadModuleEncryptionSchemas(integrations);
+
+            const credentialFields = getEncryptedFields('Credential');
+            const apiKeyCount = credentialFields.filter(f => f === 'data.api_key').length;
+            expect(apiKeyCount).toBe(1); // Should only appear once
+        });
+
+        it('handles integrations without encryption config', () => {
+            const integrations = [
+                {
+                    Definition: {
+                        modules: {
+                            testModule: {
+                                definition: {
+                                    moduleName: 'testModule'
+                                    // No encryption field
+                                }
+                            }
+                        }
+                    }
+                }
+            ];
+
+            expect(() => loadModuleEncryptionSchemas(integrations)).not.toThrow();
+        });
+
+        it('handles integrations without modules', () => {
+            const integrations = [
+                {
+                    Definition: {
+                        name: 'test-integration'
+                        // No modules
+                    }
+                }
+            ];
+
+            expect(() => loadModuleEncryptionSchemas(integrations)).not.toThrow();
+        });
+
+        it('handles empty integrations array', () => {
+            const integrations = [];
+
+            expect(() => loadModuleEncryptionSchemas(integrations)).not.toThrow();
+        });
+
+        it('handles null/undefined integrations', () => {
+            expect(() => loadModuleEncryptionSchemas(null)).not.toThrow();
+            expect(() => loadModuleEncryptionSchemas(undefined)).not.toThrow();
+        });
+
+        it('merges module schemas with existing custom schemas', () => {
+            // First register a custom schema
+            registerCustomSchema({
+                Credential: { fields: ['data.custom_field'] }
+            });
+
+            // Then load module schemas
+            const integrations = [
+                {
+                    Definition: {
+                        modules: {
+                            testModule: {
+                                definition: {
+                                    encryption: {
+                                        credentialFields: ['api_key']
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ];
+
+            loadModuleEncryptionSchemas(integrations);
+
+            const credentialFields = getEncryptedFields('Credential');
+            expect(credentialFields).toContain('data.custom_field'); // From custom schema
+            expect(credentialFields).toContain('data.api_key'); // From module schema
         });
     });
 });

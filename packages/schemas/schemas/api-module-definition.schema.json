@@ -290,6 +290,27 @@
         }
       },
       "additionalProperties": false
+    },
+    "encryption": {
+      "type": "object",
+      "description": "Module-specific encryption configuration for credential fields",
+      "properties": {
+        "credentialFields": {
+          "type": "array",
+          "description": "Credential field paths to encrypt (in addition to core schema). Use snake_case for consistency.",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-zA-Z_][a-zA-Z0-9_.]*$",
+            "minLength": 1
+          },
+          "uniqueItems": true,
+          "examples": [
+            ["api_key", "custom_token"],
+            ["webhook_secret", "signing_key"]
+          ]
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false,

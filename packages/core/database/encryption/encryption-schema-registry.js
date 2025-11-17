@@ -16,9 +16,18 @@ const { logger } = require('./logger');
 const CORE_ENCRYPTION_SCHEMA = {
     Credential: {
         fields: [
+            // OAuth tokens
             'data.access_token',
             'data.refresh_token',
             'data.id_token',
+            // API key authentication (multiple naming conventions)
+            'data.api_key',
+            'data.apiKey',
+            'data.API_KEY_VALUE',
+            // Basic authentication
+            'data.password',
+            // OAuth client credentials
+            'data.client_secret',
         ],
     },
 
@@ -110,6 +119,71 @@ function registerCustomSchema(schema) {
 }
 
 /**
+ * Loads and registers encryption schemas from API module definitions.
+ * Each module can declare credentialFields to encrypt in its encryption config.
+ *
+ * @param {Array} integrations - Array of integration classes with modules
+ */
+function loadModuleEncryptionSchemas(integrations) {
+    if (!integrations || !Array.isArray(integrations)) {
+        return;
+    }
+
+    const moduleSchemas = {};
+
+    for (const Integration of integrations) {
+        const integrationDef = Integration?.Definition;
+        if (!integrationDef || !integrationDef.modules) {
+            continue;
+        }
+
+        // Iterate through all modules in this integration
+        for (const [moduleName, moduleConfig] of Object.entries(integrationDef.modules)) {
+            const moduleDef = moduleConfig?.definition;
+            if (!moduleDef) {
+                continue;
+            }
+
+            const credentialFields = moduleDef.encryption?.credentialFields;
+            if (!credentialFields || !Array.isArray(credentialFields) || credentialFields.length === 0) {
+                continue;
+            }
+
+            // Convert module credential fields to Credential model schema
+            // Module defines: ['api_key', 'custom_token']
+            // We convert to: ['data.api_key', 'data.custom_token']
+            const prefixedFields = credentialFields.map(field => {
+                // If field already has 'data.' prefix, use as-is
+                if (field.startsWith('data.')) {
+                    return field;
+                }
+                // Otherwise, add 'data.' prefix for Credential model
+                return `data.${field}`;
+            });
+
+            // Merge with existing Credential fields
+            if (!moduleSchemas.Credential) {
+                moduleSchemas.Credential = { fields: [] };
+            }
+            moduleSchemas.Credential.fields.push(...prefixedFields);
+        }
+    }
+
+    // Remove duplicates
+    if (moduleSchemas.Credential) {
+        moduleSchemas.Credential.fields = [...new Set(moduleSchemas.Credential.fields)];
+    }
+
+    // Register the combined module schemas
+    if (Object.keys(moduleSchemas).length > 0) {
+        logger.info(
+            `Registering module-level encryption for ${moduleSchemas.Credential?.fields.length || 0} credential fields`
+        );
+        registerCustomSchema(moduleSchemas);
+    }
+}
+
+/**
  * Loads and registers custom encryption schema from appDefinition.
  * Gracefully handles cases where appDefinition is not available.
  *
@@ -139,10 +213,16 @@ function loadCustomEncryptionSchema() {
             return; // No app definition found
         }
 
+        // Load app-level custom schema
         const customSchema = appDefinition.encryption?.schema;
-
         if (customSchema && Object.keys(customSchema).length > 0) {
             registerCustomSchema(customSchema);
+        }
+
+        // Load module-level encryption schemas from integrations
+        const integrations = appDefinition.integrations;
+        if (integrations && Array.isArray(integrations)) {
+            loadModuleEncryptionSchemas(integrations);
         }
     } catch (error) {
         // Silently ignore errors - custom schema is optional
@@ -182,6 +262,7 @@ module.exports = {
     getEncryptedModels,
     registerCustomSchema,
     loadCustomEncryptionSchema,
+    loadModuleEncryptionSchemas,
     validateCustomSchema,
     resetCustomSchema, // For testing only
 };

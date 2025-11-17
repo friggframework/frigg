@@ -291,6 +291,42 @@
           "type": "boolean",
           "description": "Create KMS key if none found during discovery",
           "default": false
+        },
+        "schema": {
+          "type": "object",
+          "description": "Custom encryption schema defining additional fields to encrypt beyond core schema",
+          "patternProperties": {
+            "^[A-Z][a-zA-Z0-9]*$": {
+              "type": "object",
+              "description": "Model name (PascalCase Prisma model)",
+              "required": ["fields"],
+              "properties": {
+                "fields": {
+                  "type": "array",
+                  "description": "Array of field paths to encrypt (e.g., 'fieldName' or 'nested.field')",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z_][a-zA-Z0-9_.]*$",
+                    "minLength": 1
+                  },
+                  "minItems": 1,
+                  "uniqueItems": true
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false,
+          "examples": [
+            {
+              "Credential": {
+                "fields": ["data.customToken", "data.proprietaryKey"]
+              },
+              "MyCustomModel": {
+                "fields": ["secretData", "nested.apiKey"]
+              }
+            }
+          ]
         }
       },
       "additionalProperties": false
