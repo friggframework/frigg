@@ -15,11 +15,6 @@ const {
     DocumentDBEncryptionService,
 } = require('../../database/documentdb-encryption-service');
 
-/**
- * @see credential-repository-documentdb.js for the same pattern
- * @see integration-mapping-repository-documentdb.js for the same pattern
- * @see encryption-schema-registry.js for custom schema configuration
- */
 class ProcessRepositoryDocumentDB extends ProcessRepositoryInterface {
     constructor() {
         super();
