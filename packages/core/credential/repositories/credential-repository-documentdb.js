@@ -10,7 +10,9 @@ const {
 const {
     CredentialRepositoryInterface,
 } = require('./credential-repository-interface');
-const { DocumentDBEncryptionService } = require('../../database/documentdb-encryption-service');
+const {
+    DocumentDBEncryptionService,
+} = require('../../database/documentdb-encryption-service');
 
 /**
  * Credential repository for DocumentDB.
@@ -39,8 +41,10 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
         const doc = await findOne(this.prisma, 'Credential', { _id: objectId });
         if (!doc) return null;
 
-        // Decrypt sensitive fields using service
-        const decryptedCredential = await this.encryptionService.decryptFields('Credential', doc);
+        const decryptedCredential = await this.encryptionService.decryptFields(
+            'Credential',
+            doc
+        );
         return this._mapCredentialById(decryptedCredential);
     }
 
@@ -62,16 +66,19 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
     async deleteCredentialById(credentialId) {
         const objectId = toObjectId(credentialId);
         if (!objectId) return { acknowledged: true, deletedCount: 0 };
-        const result = await deleteOne(this.prisma, 'Credential', { _id: objectId });
+        const result = await deleteOne(this.prisma, 'Credential', {
+            _id: objectId,
+        });
         const deleted = result?.n ?? 0;
         return { acknowledged: true, deletedCount: deleted };
     }
 
     async upsertCredential(credentialDetails) {
         const { identifiers, details } = credentialDetails;
-        if (!identifiers) throw new Error('identifiers required to upsert credential');
-        if (!identifiers.user && !identifiers.userId) {
-            throw new Error('user or userId required in identifiers');
+        if (!identifiers)
+            throw new Error('identifiers required to upsert credential');
+        if (!identifiers.userId) {
+            throw new Error('userId required in identifiers');
         }
         if (!identifiers.externalId) {
             throw new Error(
@@ -81,32 +88,29 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
 
         const filter = this._buildIdentifierFilter(identifiers);
         const existing = await findOne(this.prisma, 'Credential', filter);
-
-        const {
-            user,
-            userId,
-            authIsValid,
-            externalId,
-            ...oauthData
-        } = details || {};
-
         const now = new Date();
 
-        if (existing) {
-            // Decrypt existing credential data first
-            const decryptedExisting = await this.encryptionService.decryptFields('Credential', existing);
-            const mergedData = { ...(decryptedExisting.data || {}), ...oauthData };
+        const { authIsValid, ...oauthData } = details || {};
 
-            // Build update document
+        if (existing) {
+            const decryptedExisting =
+                await this.encryptionService.decryptFields(
+                    'Credential',
+                    existing
+                );
+            const mergedData = {
+                ...(decryptedExisting.data || {}),
+                ...oauthData,
+            };
+
             const updateDocument = {
-                userId: toObjectId(userId || user) || existing.userId || null,
-                externalId: externalId !== undefined ? externalId : existing.externalId,
-                authIsValid: authIsValid !== undefined ? authIsValid : existing.authIsValid,
+                userId: existing.userId,
+                externalId: existing.externalId,
+                authIsValid: authIsValid,
                 data: mergedData,
                 updatedAt: now,
             };
 
-            // Encrypt before storing
             const encryptedUpdate = await this.encryptionService.encryptFields(
                 'Credential',
                 { data: updateDocument.data }
@@ -127,53 +131,44 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
                 }
             );
 
-            // Read back and decrypt
-            const updated = await findOne(this.prisma, 'Credential', { _id: existing._id });
-            if (!updated) {
-                console.error('[CredentialRepositoryDocumentDB] Credential not found after update', {
-                    credentialId: fromObjectId(existing._id),
-                    identifiers,
-                });
-                throw new Error(
-                    'Failed to update credential: Document not found after update. ' +
-                    'This indicates a database consistency issue.'
+            const updated = await findOne(this.prisma, 'Credential', {
+                _id: existing._id,
+            });
+            const decryptedCredential =
+                await this.encryptionService.decryptFields(
+                    'Credential',
+                    updated
                 );
-            }
-            const decryptedCredential = await this.encryptionService.decryptFields('Credential', updated);
             return this._mapCredential(decryptedCredential);
         }
 
-        // Build plain text document
         const plainDocument = {
-            userId: toObjectId(userId || user || identifiers.user),
-            externalId: externalId !== undefined ? externalId : identifiers.externalId,
-            authIsValid: authIsValid ?? null,
-            data: oauthData,
+            userId: identifiers.userId,
+            externalId: identifiers.externalId,
+            authIsValid: details.authIsValid,
+            data: { ...oauthData },
             createdAt: now,
             updatedAt: now,
         };
 
-        // Encrypt before storing
         const encryptedDocument = await this.encryptionService.encryptFields(
             'Credential',
             plainDocument
         );
 
-        const insertedId = await insertOne(this.prisma, 'Credential', encryptedDocument);
+        const insertedId = await insertOne(
+            this.prisma,
+            'Credential',
+            encryptedDocument
+        );
 
-        // Read back and decrypt
-        const created = await findOne(this.prisma, 'Credential', { _id: insertedId });
-        if (!created) {
-            console.error('[CredentialRepositoryDocumentDB] Credential not found after insert', {
-                insertedId: fromObjectId(insertedId),
-                identifiers,
-            });
-            throw new Error(
-                'Failed to create credential: Document not found after insert. ' +
-                'This indicates a database consistency issue.'
-            );
-        }
-        const decryptedCredential = await this.encryptionService.decryptFields('Credential', created);
+        const created = await findOne(this.prisma, 'Credential', {
+            _id: insertedId,
+        });
+        const decryptedCredential = await this.encryptionService.decryptFields(
+            'Credential',
+            created
+        );
         return this._mapCredential(decryptedCredential);
     }
 
@@ -182,39 +177,37 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
         const credential = await findOne(this.prisma, 'Credential', query);
         if (!credential) return null;
 
-        // Decrypt sensitive fields using service
-        const decryptedCredential = await this.encryptionService.decryptFields('Credential', credential);
+        const decryptedCredential = await this.encryptionService.decryptFields(
+            'Credential',
+            credential
+        );
         return this._mapCredential(decryptedCredential);
     }
 
     async updateCredential(credentialId, updates) {
         const objectId = toObjectId(credentialId);
         if (!objectId) return null;
-        const existing = await findOne(this.prisma, 'Credential', { _id: objectId });
+        const existing = await findOne(this.prisma, 'Credential', {
+            _id: objectId,
+        });
         if (!existing) return null;
 
-        const {
-            user,
-            userId,
-            authIsValid,
-            externalId,
-            ...oauthData
-        } = updates || {};
+        const { authIsValid, ...oauthData } = updates || {};
 
-        // Decrypt existing credential data first
-        const decryptedExisting = await this.encryptionService.decryptFields('Credential', existing);
+        const decryptedExisting = await this.encryptionService.decryptFields(
+            'Credential',
+            existing
+        );
         const mergedData = { ...(decryptedExisting.data || {}), ...oauthData };
 
-        // Build update document
         const updateDocument = {
-            userId: toObjectId(userId || user) || existing.userId || null,
-            externalId: externalId !== undefined ? externalId : existing.externalId,
-            authIsValid: authIsValid !== undefined ? authIsValid : existing.authIsValid,
+            userId: existing.userId,
+            externalId: existing.externalId,
+            authIsValid: authIsValid,
             data: mergedData,
             updatedAt: new Date(),
         };
 
-        // Encrypt before storing
         const encryptedUpdate = await this.encryptionService.encryptFields(
             'Credential',
             { data: updateDocument.data }
@@ -235,18 +228,13 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
             }
         );
 
-        // Read back and decrypt
-        const updated = await findOne(this.prisma, 'Credential', { _id: objectId });
-        if (!updated) {
-            console.error('[CredentialRepositoryDocumentDB] Credential not found after update', {
-                credentialId: fromObjectId(objectId),
-            });
-            throw new Error(
-                'Failed to update credential: Document not found after update. ' +
-                'This indicates a database consistency issue.'
-            );
-        }
-        const decryptedCredential = await this.encryptionService.decryptFields('Credential', updated);
+        const updated = await findOne(this.prisma, 'Credential', {
+            _id: objectId,
+        });
+        const decryptedCredential = await this.encryptionService.decryptFields(
+            'Credential',
+            updated
+        );
         return this._mapCredential(decryptedCredential);
     }
 
@@ -256,9 +244,8 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
             const idObj = toObjectId(identifiers._id || identifiers.id);
             if (idObj) filter._id = idObj;
         }
-        if (identifiers.user || identifiers.userId) {
-            const userObj = toObjectId(identifiers.user || identifiers.userId);
-            if (userObj) filter.userId = userObj;
+        if (identifiers.userId) {
+            filter.userId = identifiers.userId;
         }
         if (identifiers.externalId !== undefined) {
             filter.externalId = identifiers.externalId;
@@ -273,9 +260,8 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
             const idObj = toObjectId(filter.credentialId || filter.id);
             if (idObj) query._id = idObj;
         }
-        if (filter.user || filter.userId) {
-            const userObj = toObjectId(filter.user || filter.userId);
-            if (userObj) query.userId = userObj;
+        if (filter.userId !== undefined) {
+            query.userId = filter.userId;
         }
         if (filter.externalId !== undefined) {
             query.externalId = filter.externalId;
@@ -284,15 +270,14 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
     }
 
     /**
-     * Map credential document to application format (without legacy fields)
-     * Used by findCredential, upsertCredential, updateCredential
+     * Map credential document to application format
      * Matches MongoDB repository format
      * @private
      */
     _mapCredential(doc) {
         const data = doc?.data || {};
         const id = fromObjectId(doc?._id);
-        const userId = fromObjectId(doc?.userId);
+        const userId = doc?.userId;
         return {
             id,
             userId,
@@ -302,20 +287,12 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
         };
     }
 
-    /**
-     * Map credential document with legacy fields for findCredentialById
-     * Includes _id and user fields for backward compatibility
-     * Matches MongoDB repository format
-     * @private
-     */
     _mapCredentialById(doc) {
         const data = doc?.data || {};
         const id = fromObjectId(doc?._id);
-        const userId = fromObjectId(doc?.userId);
+        const userId = doc?.userId;
         return {
-            _id: id,
             id,
-            user: userId,
             userId,
             externalId: doc?.externalId ?? null,
             authIsValid: doc?.authIsValid ?? null,
@@ -325,4 +302,3 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
 }
 
 module.exports = { CredentialRepositoryDocumentDB };
-
