@@ -35,7 +35,7 @@ describe('IntegrationMappingRepositoryDocumentDB - Encryption Integration', () =
         repository = new IntegrationMappingRepositoryDocumentDB();
 
         // Test data
-        testIntegrationId = new ObjectId();
+        testIntegrationId = new ObjectId().toHexString();
         testSourceId = 'asana-task-123';
     });
 
@@ -96,7 +96,7 @@ describe('IntegrationMappingRepositoryDocumentDB - Encryption Integration', () =
 
             // Execute upsert (insert path - no existing)
             const result = await repository.upsertMapping(
-                fromObjectId(testIntegrationId),
+                testIntegrationId,
                 testSourceId,
                 plainMapping
             );
@@ -165,7 +165,7 @@ describe('IntegrationMappingRepositoryDocumentDB - Encryption Integration', () =
             });
 
             await repository.upsertMapping(
-                fromObjectId(testIntegrationId),
+                testIntegrationId,
                 testSourceId,
                 plainMapping
             );
@@ -246,7 +246,7 @@ describe('IntegrationMappingRepositoryDocumentDB - Encryption Integration', () =
 
             // Execute upsert (update path - existing found)
             const result = await repository.upsertMapping(
-                fromObjectId(testIntegrationId),
+                testIntegrationId,
                 testSourceId,
                 newMapping
             );
@@ -307,7 +307,7 @@ describe('IntegrationMappingRepositoryDocumentDB - Encryption Integration', () =
             });
 
             await repository.upsertMapping(
-                fromObjectId(testIntegrationId),
+                testIntegrationId,
                 testSourceId,
                 { new: 'data' }
             );
@@ -351,7 +351,7 @@ describe('IntegrationMappingRepositoryDocumentDB - Encryption Integration', () =
             });
 
             const result = await repository.findMappingBy(
-                fromObjectId(testIntegrationId),
+                testIntegrationId,
                 testSourceId
             );
 
@@ -452,7 +452,7 @@ describe('IntegrationMappingRepositoryDocumentDB - Encryption Integration', () =
                 });
 
             const results = await repository.findMappingsByIntegration(
-                fromObjectId(testIntegrationId)
+                testIntegrationId
             );
 
             expect(mockEncryptionService.decryptFields).toHaveBeenCalledTimes(2);
@@ -633,7 +633,7 @@ describe('IntegrationMappingRepositoryDocumentDB - Encryption Integration', () =
 
             expect(result).toEqual({
                 id: fromObjectId(mappingId),
-                integrationId: fromObjectId(testIntegrationId),
+                integrationId: testIntegrationId,
                 sourceId: testSourceId,
                 mapping: { data: 'value' },
                 createdAt,
@@ -940,7 +940,7 @@ describe('IntegrationMappingRepositoryDocumentDB - Defensive Checks', () => {
 
         await expect(
             repository.upsertMapping(
-                fromObjectId(testIntegrationId),
+                testIntegrationId,
                 testSourceId,
                 { data: 'value' }
             )
@@ -950,7 +950,7 @@ describe('IntegrationMappingRepositoryDocumentDB - Defensive Checks', () => {
             '[IntegrationMappingRepositoryDocumentDB] Mapping not found after insert',
             expect.objectContaining({
                 insertedId: expect.any(String),
-                integrationId: fromObjectId(testIntegrationId),
+                integrationId: testIntegrationId,
                 sourceId: testSourceId,
             })
         );
@@ -1004,7 +1004,7 @@ describe('IntegrationMappingRepositoryDocumentDB - Defensive Checks', () => {
 
         await expect(
             repository.upsertMapping(
-                fromObjectId(testIntegrationId),
+                testIntegrationId,
                 testSourceId,
                 { new: 'data' }
             )
@@ -1014,7 +1014,7 @@ describe('IntegrationMappingRepositoryDocumentDB - Defensive Checks', () => {
             '[IntegrationMappingRepositoryDocumentDB] Mapping not found after update',
             expect.objectContaining({
                 mappingId: fromObjectId(existing._id),
-                integrationId: fromObjectId(testIntegrationId),
+                integrationId: testIntegrationId,
                 sourceId: testSourceId,
             })
         );

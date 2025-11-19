@@ -97,7 +97,7 @@ class IntegrationMappingRepositoryDocumentDB extends IntegrationMappingRepositor
         }
 
         const plainDocument = {
-            integrationId: toObjectId(integrationId),
+            integrationId: integrationId,
             sourceId:
                 sourceId === null || sourceId === undefined
                     ? null
@@ -144,8 +144,7 @@ class IntegrationMappingRepositoryDocumentDB extends IntegrationMappingRepositor
 
     async findMappingsByIntegration(integrationId) {
         const filter = {};
-        const integrationObjectId = toObjectId(integrationId);
-        if (integrationObjectId) filter.integrationId = integrationObjectId;
+        if (integrationId) filter.integrationId = integrationId;
         const docs = await findMany(this.prisma, 'IntegrationMapping', filter);
 
         const decryptedDocs = await Promise.all(
@@ -169,12 +168,11 @@ class IntegrationMappingRepositoryDocumentDB extends IntegrationMappingRepositor
     }
 
     async deleteMappingsByIntegration(integrationId) {
-        const integrationObjectId = toObjectId(integrationId);
-        if (!integrationObjectId) {
+        if (!integrationId) {
             return { acknowledged: true, deletedCount: 0 };
         }
         const result = await deleteMany(this.prisma, 'IntegrationMapping', {
-            integrationId: integrationObjectId,
+            integrationId: integrationId,
         });
         const deleted = result?.n ?? 0;
         return { acknowledged: true, deletedCount: deleted };
@@ -260,8 +258,7 @@ class IntegrationMappingRepositoryDocumentDB extends IntegrationMappingRepositor
 
     _compositeFilter(integrationId, sourceId) {
         const filter = {};
-        const integrationObjectId = toObjectId(integrationId);
-        if (integrationObjectId) filter.integrationId = integrationObjectId;
+        if (integrationId) filter.integrationId = integrationId;
         if (sourceId !== undefined) {
             filter.sourceId = sourceId === null ? null : String(sourceId);
         }
@@ -271,7 +268,7 @@ class IntegrationMappingRepositoryDocumentDB extends IntegrationMappingRepositor
     _mapMapping(doc) {
         return {
             id: fromObjectId(doc?._id),
-            integrationId: fromObjectId(doc?.integrationId),
+            integrationId: doc?.integrationId ?? null,
             sourceId: doc?.sourceId ?? null,
             mapping: doc?.mapping ?? null,
             createdAt: doc?.createdAt,
