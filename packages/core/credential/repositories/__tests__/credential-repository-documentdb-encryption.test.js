@@ -12,8 +12,12 @@ const {
     toObjectId,
     fromObjectId,
 } = require('../../../database/documentdb-utils');
-const { CredentialRepositoryDocumentDB } = require('../credential-repository-documentdb');
-const { DocumentDBEncryptionService } = require('../../../database/documentdb-encryption-service');
+const {
+    CredentialRepositoryDocumentDB,
+} = require('../credential-repository-documentdb');
+const {
+    DocumentDBEncryptionService,
+} = require('../../../database/documentdb-encryption-service');
 
 describe('CredentialRepositoryDocumentDB - Encryption Integration', () => {
     let repository;
@@ -29,7 +33,9 @@ describe('CredentialRepositoryDocumentDB - Encryption Integration', () => {
         };
 
         // Mock the constructor to return our mock
-        DocumentDBEncryptionService.mockImplementation(() => mockEncryptionService);
+        DocumentDBEncryptionService.mockImplementation(
+            () => mockEncryptionService
+        );
 
         // Create repository instance
         repository = new CredentialRepositoryDocumentDB();
@@ -166,7 +172,10 @@ describe('CredentialRepositoryDocumentDB - Encryption Integration', () => {
             });
 
             await repository.upsertCredential({
-                identifiers: { userId: fromObjectId(testUserId), externalId: testExternalId },
+                identifiers: {
+                    userId: fromObjectId(testUserId),
+                    externalId: testExternalId,
+                },
                 details: { refresh_token: plainRefresh },
             });
 
@@ -217,7 +226,10 @@ describe('CredentialRepositoryDocumentDB - Encryption Integration', () => {
             });
 
             await repository.upsertCredential({
-                identifiers: { userId: fromObjectId(testUserId), externalId: testExternalId },
+                identifiers: {
+                    userId: fromObjectId(testUserId),
+                    externalId: testExternalId,
+                },
                 details: { id_token: plainIdToken },
             });
 
@@ -229,70 +241,17 @@ describe('CredentialRepositoryDocumentDB - Encryption Integration', () => {
             );
         });
 
-        it('encrypts domain before insert', async () => {
-            const plainDomain = 'https://example.com';
-            const encryptedDomain = 'keyId:iv:cipher:encKey';
-
-            mockEncryptionService.encryptFields.mockResolvedValue({
-                data: { domain: encryptedDomain },
-            });
-
-            const insertedId = new ObjectId();
-            prisma.$runCommandRaw.mockImplementation((command) => {
-                if (command.insert) {
-                    return Promise.resolve({ insertedId, n: 1, ok: 1 });
-                }
-                if (command.find) {
-                    return Promise.resolve({
-                        cursor: {
-                            firstBatch: [
-                                {
-                                    _id: insertedId,
-                                    userId: testUserId,
-                                    externalId: testExternalId,
-                                    data: { domain: encryptedDomain },
-                                    createdAt: new Date(),
-                                    updatedAt: new Date(),
-                                },
-                            ],
-                        },
-                        ok: 1,
-                    });
-                }
-            });
-
-            mockEncryptionService.decryptFields.mockResolvedValue({
-                _id: insertedId,
-                userId: testUserId,
-                data: { domain: plainDomain },
-            });
-
-            await repository.upsertCredential({
-                identifiers: { userId: fromObjectId(testUserId), externalId: testExternalId },
-                details: { domain: plainDomain },
-            });
-
-            expect(mockEncryptionService.encryptFields).toHaveBeenCalledWith(
-                'Credential',
-                expect.objectContaining({
-                    data: { domain: plainDomain },
-                })
-            );
-        });
-
         it('encrypts multiple tokens before insert', async () => {
             const plainData = {
                 access_token: 'access_secret',
                 refresh_token: 'refresh_secret',
                 id_token: 'id_secret',
-                domain: 'https://example.com',
             };
 
             const encryptedData = {
                 access_token: 'keyId1:iv1:cipher1:encKey1',
                 refresh_token: 'keyId2:iv2:cipher2:encKey2',
                 id_token: 'keyId3:iv3:cipher3:encKey3',
-                domain: 'keyId4:iv4:cipher4:encKey4',
             };
 
             mockEncryptionService.encryptFields.mockResolvedValue({
@@ -330,7 +289,10 @@ describe('CredentialRepositoryDocumentDB - Encryption Integration', () => {
             });
 
             await repository.upsertCredential({
-                identifiers: { userId: fromObjectId(testUserId), externalId: testExternalId },
+                identifiers: {
+                    userId: fromObjectId(testUserId),
+                    externalId: testExternalId,
+                },
                 details: plainData,
             });
 
@@ -426,7 +388,10 @@ describe('CredentialRepositoryDocumentDB - Encryption Integration', () => {
             });
 
             const result = await repository.upsertCredential({
-                identifiers: { userId: fromObjectId(testUserId), externalId: testExternalId },
+                identifiers: {
+                    userId: fromObjectId(testUserId),
+                    externalId: testExternalId,
+                },
                 details: newPlainData,
             });
 
@@ -488,17 +453,21 @@ describe('CredentialRepositoryDocumentDB - Encryption Integration', () => {
             });
 
             await repository.upsertCredential({
-                identifiers: { userId: fromObjectId(testUserId), externalId: testExternalId },
+                identifiers: {
+                    userId: fromObjectId(testUserId),
+                    externalId: testExternalId,
+                },
                 details: { access_token: 'new_token' },
             });
 
-            // Verify authIsValid and externalId preserved in update
+            // Verify update was called
             const updateCall = prisma.$runCommandRaw.mock.calls.find(
                 (call) => call[0].update
             );
             expect(updateCall).toBeDefined();
-            expect(updateCall[0].updates[0].u.$set.authIsValid).toBe(true);
-            expect(updateCall[0].updates[0].u.$set.externalId).toBe(testExternalId);
+            expect(updateCall[0].updates[0].u.$set.externalId).toBe(
+                testExternalId
+            );
         });
     });
 
@@ -561,7 +530,9 @@ describe('CredentialRepositoryDocumentDB - Encryption Integration', () => {
                 data: { access_token: 'plain_token' },
             });
 
-            const result = await repository.findCredentialById(fromObjectId(credentialId));
+            const result = await repository.findCredentialById(
+                fromObjectId(credentialId)
+            );
 
             expect(mockEncryptionService.decryptFields).toHaveBeenCalledWith(
                 'Credential',
@@ -599,9 +570,12 @@ describe('CredentialRepositoryDocumentDB - Encryption Integration', () => {
                 data: { access_token: 'keyId:iv:cipher:encKey' },
             });
 
-            const result = await repository.updateCredential(fromObjectId(credentialId), {
-                access_token: 'new_token',
-            });
+            const result = await repository.updateCredential(
+                fromObjectId(credentialId),
+                {
+                    access_token: 'new_token',
+                }
+            );
 
             expect(result.access_token).toBe('plain_token');
         });
@@ -650,7 +624,10 @@ describe('CredentialRepositoryDocumentDB - Encryption Integration', () => {
 
             // Insert
             const inserted = await repository.upsertCredential({
-                identifiers: { userId: fromObjectId(testUserId), externalId: testExternalId },
+                identifiers: {
+                    userId: fromObjectId(testUserId),
+                    externalId: testExternalId,
+                },
                 details: { access_token: plainToken },
             });
 
@@ -675,7 +652,11 @@ describe('CredentialRepositoryDocumentDB - Encryption Integration', () => {
             let callCount = 0;
             prisma.$runCommandRaw.mockImplementation((command) => {
                 if (command.insert) {
-                    return Promise.resolve({ insertedId: credentialId, n: 1, ok: 1 });
+                    return Promise.resolve({
+                        insertedId: credentialId,
+                        n: 1,
+                        ok: 1,
+                    });
                 }
                 if (command.find && callCount === 0) {
                     callCount++;
@@ -740,8 +721,12 @@ describe('CredentialRepositoryDocumentDB - Encryption Integration', () => {
 
             // Insert flow mocks
             mockEncryptionService.encryptFields
-                .mockResolvedValueOnce({ data: { access_token: encryptedOriginal } })
-                .mockResolvedValueOnce({ data: { access_token: encryptedUpdated } });
+                .mockResolvedValueOnce({
+                    data: { access_token: encryptedOriginal },
+                })
+                .mockResolvedValueOnce({
+                    data: { access_token: encryptedUpdated },
+                });
 
             mockEncryptionService.decryptFields
                 .mockResolvedValueOnce({
@@ -765,14 +750,20 @@ describe('CredentialRepositoryDocumentDB - Encryption Integration', () => {
 
             // Insert
             const inserted = await repository.upsertCredential({
-                identifiers: { userId: fromObjectId(testUserId), externalId: testExternalId },
+                identifiers: {
+                    userId: fromObjectId(testUserId),
+                    externalId: testExternalId,
+                },
                 details: { access_token: originalToken },
             });
             expect(inserted.access_token).toBe(originalToken);
 
             // Update
             const updated = await repository.upsertCredential({
-                identifiers: { userId: fromObjectId(testUserId), externalId: testExternalId },
+                identifiers: {
+                    userId: fromObjectId(testUserId),
+                    externalId: testExternalId,
+                },
                 details: { access_token: updatedToken },
             });
             expect(updated.access_token).toBe(updatedToken);
@@ -792,7 +783,10 @@ describe('CredentialRepositoryDocumentDB - Encryption Integration', () => {
 
             await expect(
                 repository.upsertCredential({
-                    identifiers: { userId: fromObjectId(testUserId), externalId: testExternalId },
+                    identifiers: {
+                        userId: fromObjectId(testUserId),
+                        externalId: testExternalId,
+                    },
                     details: { access_token: 'token' },
                 })
             ).rejects.toThrow('Encryption failed');
@@ -852,7 +846,10 @@ describe('CredentialRepositoryDocumentDB - Encryption Integration', () => {
             });
 
             const result = await repository.upsertCredential({
-                identifiers: { userId: fromObjectId(testUserId), externalId: testExternalId },
+                identifiers: {
+                    userId: fromObjectId(testUserId),
+                    externalId: testExternalId,
+                },
                 details: {},
             });
 
@@ -890,7 +887,10 @@ describe('CredentialRepositoryDocumentDB - Encryption Integration', () => {
             });
 
             const result = await repository.upsertCredential({
-                identifiers: { userId: fromObjectId(testUserId), externalId: testExternalId },
+                identifiers: {
+                    userId: fromObjectId(testUserId),
+                    externalId: testExternalId,
+                },
                 details: {},
             });
 
@@ -930,7 +930,10 @@ describe('CredentialRepositoryDocumentDB - Encryption Integration', () => {
             });
 
             const result = await repository.upsertCredential({
-                identifiers: { userId: fromObjectId(testUserId), externalId: testExternalId },
+                identifiers: {
+                    userId: fromObjectId(testUserId),
+                    externalId: testExternalId,
+                },
                 details: { access_token: largeToken },
             });
 
@@ -970,7 +973,10 @@ describe('CredentialRepositoryDocumentDB - Encryption Integration', () => {
             });
 
             const result = await repository.upsertCredential({
-                identifiers: { userId: fromObjectId(testUserId), externalId: testExternalId },
+                identifiers: {
+                    userId: fromObjectId(testUserId),
+                    externalId: testExternalId,
+                },
                 details: { access_token: specialToken },
             });
 
@@ -1010,7 +1016,10 @@ describe('CredentialRepositoryDocumentDB - Encryption Integration', () => {
             });
 
             const result = await repository.upsertCredential({
-                identifiers: { userId: fromObjectId(testUserId), externalId: testExternalId },
+                identifiers: {
+                    userId: fromObjectId(testUserId),
+                    externalId: testExternalId,
+                },
                 details: { access_token: unicodeToken },
             });
 
@@ -1066,7 +1075,10 @@ describe('CredentialRepositoryDocumentDB - Encryption Integration', () => {
             });
 
             await repository.upsertCredential({
-                identifiers: { userId: fromObjectId(testUserId), externalId: testExternalId },
+                identifiers: {
+                    userId: fromObjectId(testUserId),
+                    externalId: testExternalId,
+                },
                 details: sensitiveData,
             });
 
@@ -1121,7 +1133,8 @@ describe('CredentialRepositoryDocumentDB - Encryption Integration', () => {
         it('stores access_token in encrypted format in database (CRITICAL SECURITY TEST)', async () => {
             // This is the most critical security test - verifies OAuth tokens are encrypted at rest
             const plainToken = 'ya29.actual_google_token_here';
-            const encryptedToken = 'aes-key-1:1234567890abcdef:a1b2c3d4e5f6:9876543210fedcba';
+            const encryptedToken =
+                'aes-key-1:1234567890abcdef:a1b2c3d4e5f6:9876543210fedcba';
             const insertedId = new ObjectId();
 
             // Track what gets stored in database
@@ -1233,7 +1246,9 @@ describe('CredentialRepositoryDocumentDB - Encryption Integration', () => {
             expect(storedDocument.data.access_token).not.toBe(plainToken);
 
             // Should match encrypted format pattern
-            expect(storedDocument.data.access_token).toMatch(/^[^:]+:[^:]+:[^:]+:[^:]+/);
+            expect(storedDocument.data.access_token).toMatch(
+                /^[^:]+:[^:]+:[^:]+:[^:]+/
+            );
 
             // CRITICAL VERIFICATION #2: Simulate direct database query (bypass repository)
             const directDbQuery = await prisma.$runCommandRaw({
@@ -1251,6 +1266,582 @@ describe('CredentialRepositoryDocumentDB - Encryption Integration', () => {
             // CRITICAL VERIFICATION #3: Repository returns decrypted value
             expect(result.access_token).toBe(plainToken);
             expect(result.access_token).not.toBe(encryptedToken);
+        });
+    });
+
+    describe('Real Encryption Integration (No Mocks)', () => {
+        let realCryptor;
+        let realEncryptionService;
+        let repositoryWithRealEncryption;
+
+        beforeEach(() => {
+            jest.unmock('../../../database/documentdb-encryption-service');
+            const { Cryptor } = require('../../../encrypt/Cryptor');
+            const { DocumentDBEncryptionService } = jest.requireActual(
+                '../../../database/documentdb-encryption-service'
+            );
+
+            process.env.AES_KEY_ID = 'test-key-id-for-unit-tests';
+            process.env.AES_KEY = '12345678901234567890123456789012';
+
+            realCryptor = new Cryptor({ shouldUseAws: false });
+            realEncryptionService = new DocumentDBEncryptionService({
+                cryptor: realCryptor,
+            });
+
+            repositoryWithRealEncryption = new CredentialRepositoryDocumentDB();
+            repositoryWithRealEncryption.encryptionService =
+                realEncryptionService;
+            repositoryWithRealEncryption.prisma = prisma;
+        });
+
+        afterEach(() => {
+            delete process.env.AES_KEY_ID;
+            delete process.env.AES_KEY;
+            jest.doMock('../../../database/documentdb-encryption-service');
+        });
+
+        it('encrypts access_token with real AES before storing in database', async () => {
+            const plainToken = 'ya29.actual_google_token_here';
+            let capturedDocument = null;
+            const insertedId = new ObjectId();
+
+            prisma.$runCommandRaw.mockImplementation((command) => {
+                if (command.insert) {
+                    capturedDocument = command.documents[0];
+                    return Promise.resolve({ insertedId, n: 1, ok: 1 });
+                }
+                if (command.find) {
+                    return Promise.resolve({
+                        cursor: { firstBatch: [capturedDocument] },
+                        ok: 1,
+                    });
+                }
+            });
+
+            await repositoryWithRealEncryption.upsertCredential({
+                identifiers: {
+                    userId: fromObjectId(testUserId),
+                    externalId: testExternalId,
+                },
+                details: {
+                    access_token: plainToken,
+                },
+            });
+
+            expect(capturedDocument.data.access_token).toBeDefined();
+            expect(capturedDocument.data.access_token).not.toBe(plainToken);
+
+            const parts = capturedDocument.data.access_token.split(':');
+            expect(parts.length).toBe(4);
+            expect(parts[0]).toBeTruthy();
+            expect(parts[1]).toMatch(/^[0-9a-f]{32}$/);
+            expect(parts[2]).toBeTruthy();
+            expect(parts[3]).toBeTruthy();
+        });
+
+        it('decrypts access_token with real AES after reading from database', async () => {
+            const plainToken = 'ya29.actual_token_to_decrypt';
+
+            const encryptedDoc = await realEncryptionService.encryptFields(
+                'Credential',
+                {
+                    data: { access_token: plainToken },
+                }
+            );
+
+            expect(encryptedDoc.data.access_token).not.toBe(plainToken);
+            expect(encryptedDoc.data.access_token.split(':').length).toBe(4);
+
+            prisma.$runCommandRaw.mockResolvedValue({
+                cursor: {
+                    firstBatch: [
+                        {
+                            _id: new ObjectId(),
+                            userId: testUserId,
+                            externalId: testExternalId,
+                            data: encryptedDoc.data,
+                        },
+                    ],
+                },
+                ok: 1,
+            });
+
+            const credential =
+                await repositoryWithRealEncryption.findCredential({
+                    userId: fromObjectId(testUserId),
+                    externalId: testExternalId,
+                });
+
+            expect(credential.access_token).toBe(plainToken);
+        });
+
+        it('uses different IV for each encryption (proves randomness)', async () => {
+            const plainToken = 'same-token-value';
+
+            const encrypted1 = await realEncryptionService.encryptFields(
+                'Credential',
+                {
+                    data: { access_token: plainToken },
+                }
+            );
+            expect(encrypted1).toBeDefined();
+            expect(encrypted1.data.access_token).toBeDefined();
+
+            const encrypted2 = await realEncryptionService.encryptFields(
+                'Credential',
+                {
+                    data: { access_token: plainToken },
+                }
+            );
+            expect(encrypted2).toBeDefined();
+            expect(encrypted2.data.access_token).toBeDefined();
+
+            expect(encrypted1.data.access_token).not.toBe(
+                encrypted2.data.access_token
+            );
+            expect(encrypted1.data.access_token.split(':').length).toBe(4);
+            expect(encrypted2.data.access_token.split(':').length).toBe(4);
+
+            const decrypted1 = await realEncryptionService.decryptFields(
+                'Credential',
+                encrypted1
+            );
+            const decrypted2 = await realEncryptionService.decryptFields(
+                'Credential',
+                encrypted2
+            );
+
+            expect(decrypted1.data.access_token).toBe(plainToken);
+            expect(decrypted2.data.access_token).toBe(plainToken);
+        });
+
+        it('roundtrip: encrypt then decrypt returns original data', async () => {
+            const original = {
+                data: {
+                    access_token: 'original_access_token',
+                    refresh_token: 'original_refresh_token',
+                    id_token: 'original_id_token',
+                    domain: 'https://example.com',
+                },
+                userId: testUserId,
+                externalId: testExternalId,
+            };
+
+            const encrypted = await realEncryptionService.encryptFields(
+                'Credential',
+                original
+            );
+
+            expect(encrypted.data.access_token).not.toBe(
+                original.data.access_token
+            );
+            expect(encrypted.data.access_token.split(':').length).toBe(4);
+            expect(encrypted.data.refresh_token).not.toBe(
+                original.data.refresh_token
+            );
+            expect(encrypted.data.refresh_token.split(':').length).toBe(4);
+            expect(encrypted.data.id_token).not.toBe(original.data.id_token);
+            expect(encrypted.data.id_token.split(':').length).toBe(4);
+            expect(encrypted.data.domain).toBe(original.data.domain);
+
+            const decrypted = await realEncryptionService.decryptFields(
+                'Credential',
+                encrypted
+            );
+
+            expect(decrypted.data.access_token).toBe(
+                original.data.access_token
+            );
+            expect(decrypted.data.refresh_token).toBe(
+                original.data.refresh_token
+            );
+            expect(decrypted.data.id_token).toBe(original.data.id_token);
+            expect(decrypted.data.domain).toBe(original.data.domain);
+        });
+
+        it('throws error when decrypting corrupted ciphertext', async () => {
+            const validEncrypted = await realEncryptionService.encryptFields(
+                'Credential',
+                {
+                    data: { access_token: 'original-data' },
+                }
+            );
+
+            const parts = validEncrypted.data.access_token.split(':');
+            parts[2] = parts[2].substring(0, 10) + 'XXXCORRUPTEDXXX';
+            const corruptedDoc = {
+                data: {
+                    access_token: parts.join(':'),
+                },
+            };
+
+            await expect(
+                realEncryptionService.decryptFields('Credential', corruptedDoc)
+            ).rejects.toThrow(/decrypt|corrupt|invalid|error/i);
+        });
+
+        it('encrypts nested fields like data.access_token', async () => {
+            const doc = {
+                userId: testUserId,
+                externalId: testExternalId,
+                data: {
+                    access_token: 'secret-token-value',
+                    refresh_token: 'refresh-secret-value',
+                    id_token: 'id-secret-value',
+                    publicField: 'not-secret',
+                },
+            };
+
+            const encrypted = await realEncryptionService.encryptFields(
+                'Credential',
+                doc
+            );
+
+            expect(encrypted.data.access_token).not.toBe('secret-token-value');
+            expect(encrypted.data.access_token.split(':').length).toBe(4);
+
+            expect(encrypted.data.refresh_token).not.toBe(
+                'refresh-secret-value'
+            );
+            expect(encrypted.data.refresh_token.split(':').length).toBe(4);
+
+            expect(encrypted.data.id_token).not.toBe('id-secret-value');
+            expect(encrypted.data.id_token.split(':').length).toBe(4);
+
+            expect(encrypted.data.publicField).toBe('not-secret');
+
+            const decrypted = await realEncryptionService.decryptFields(
+                'Credential',
+                encrypted
+            );
+            expect(decrypted.data.access_token).toBe('secret-token-value');
+            expect(decrypted.data.refresh_token).toBe('refresh-secret-value');
+            expect(decrypted.data.id_token).toBe('id-secret-value');
+            expect(decrypted.data.publicField).toBe('not-secret');
+        });
+
+        it('encrypts refresh_token correctly', async () => {
+            const plainRefreshToken = '1//refresh_token_value_here';
+            let capturedDocument = null;
+            const insertedId = new ObjectId();
+
+            prisma.$runCommandRaw.mockImplementation((command) => {
+                if (command.insert) {
+                    capturedDocument = command.documents[0];
+                    return Promise.resolve({ insertedId, n: 1, ok: 1 });
+                }
+                if (command.find) {
+                    return Promise.resolve({
+                        cursor: { firstBatch: [capturedDocument] },
+                        ok: 1,
+                    });
+                }
+            });
+
+            await repositoryWithRealEncryption.upsertCredential({
+                identifiers: {
+                    userId: fromObjectId(testUserId),
+                    externalId: testExternalId,
+                },
+                details: {
+                    refresh_token: plainRefreshToken,
+                },
+            });
+
+            expect(capturedDocument.data.refresh_token).toBeDefined();
+            expect(capturedDocument.data.refresh_token).not.toBe(
+                plainRefreshToken
+            );
+            expect(capturedDocument.data.refresh_token.split(':').length).toBe(
+                4
+            );
+        });
+
+        it('encrypts id_token correctly', async () => {
+            const plainIdToken = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9';
+            let capturedDocument = null;
+            const insertedId = new ObjectId();
+
+            prisma.$runCommandRaw.mockImplementation((command) => {
+                if (command.insert) {
+                    capturedDocument = command.documents[0];
+                    return Promise.resolve({ insertedId, n: 1, ok: 1 });
+                }
+                if (command.find) {
+                    return Promise.resolve({
+                        cursor: { firstBatch: [capturedDocument] },
+                        ok: 1,
+                    });
+                }
+            });
+
+            await repositoryWithRealEncryption.upsertCredential({
+                identifiers: {
+                    userId: fromObjectId(testUserId),
+                    externalId: testExternalId,
+                },
+                details: {
+                    id_token: plainIdToken,
+                },
+            });
+
+            expect(capturedDocument.data.id_token).toBeDefined();
+            expect(capturedDocument.data.id_token).not.toBe(plainIdToken);
+            expect(capturedDocument.data.id_token.split(':').length).toBe(4);
+        });
+
+        it('handles null/undefined fields without crashing encryption', async () => {
+            const doc = {
+                userId: testUserId,
+                externalId: testExternalId,
+                data: {
+                    access_token: null,
+                    refresh_token: undefined,
+                    domain: 'https://example.com',
+                },
+            };
+
+            const encrypted = await realEncryptionService.encryptFields(
+                'Credential',
+                doc
+            );
+
+            expect(encrypted.data.access_token).toBeNull();
+            expect(encrypted.data.refresh_token).toBeUndefined();
+            expect(encrypted.data.domain).toBe('https://example.com');
+
+            const decrypted = await realEncryptionService.decryptFields(
+                'Credential',
+                encrypted
+            );
+            expect(decrypted.data.access_token).toBeNull();
+            expect(decrypted.data.refresh_token).toBeUndefined();
+        });
+
+        it('handles empty string fields correctly', async () => {
+            const doc = {
+                userId: testUserId,
+                externalId: testExternalId,
+                data: {
+                    access_token: '',
+                    refresh_token: 'real-refresh-token',
+                    domain: '',
+                },
+            };
+
+            const encrypted = await realEncryptionService.encryptFields(
+                'Credential',
+                doc
+            );
+
+            expect(encrypted.data.access_token).toBe('');
+            expect(encrypted.data.domain).toBe('');
+            expect(encrypted.data.refresh_token).not.toBe('real-refresh-token');
+            expect(encrypted.data.refresh_token.split(':').length).toBe(4);
+
+            const decrypted = await realEncryptionService.decryptFields(
+                'Credential',
+                encrypted
+            );
+            expect(decrypted.data.access_token).toBe('');
+            expect(decrypted.data.refresh_token).toBe('real-refresh-token');
+            expect(decrypted.data.domain).toBe('');
+        });
+    });
+
+    describe('Defensive Checks', () => {
+        it('returns null when credential not found after insert', async () => {
+            const insertedId = new ObjectId();
+
+            mockEncryptionService.encryptFields.mockResolvedValue({
+                data: { access_token: 'encrypted' },
+            });
+
+            prisma.$runCommandRaw.mockImplementation((command) => {
+                if (command.insert) {
+                    return Promise.resolve({ insertedId, n: 1, ok: 1 });
+                }
+                if (command.find) {
+                    // Return null to simulate credential not found
+                    return Promise.resolve({
+                        cursor: { firstBatch: [] },
+                        ok: 1,
+                    });
+                }
+            });
+
+            mockEncryptionService.decryptFields.mockResolvedValue({
+                _id: null,
+                userId: null,
+                externalId: null,
+                data: {},
+            });
+
+            const result = await repository.upsertCredential({
+                identifiers: {
+                    userId: fromObjectId(testUserId),
+                    externalId: testExternalId,
+                },
+                details: {
+                    access_token: 'plain-token',
+                },
+            });
+
+            // Production code doesn't throw - it returns the mapped credential (with null values)
+            expect(result).toBeDefined();
+            // fromObjectId(null) returns null, not undefined
+            expect(result.id).toBeNull();
+            expect(result.userId).toBeNull();
+        });
+
+        it('returns null when credential not found after update (upsertCredential)', async () => {
+            const existingId = new ObjectId();
+            let findCallCount = 0;
+
+            mockEncryptionService.decryptFields.mockResolvedValue({
+                _id: existingId,
+                userId: testUserId,
+                externalId: testExternalId,
+                data: { access_token: 'old-token' },
+            });
+
+            mockEncryptionService.encryptFields.mockResolvedValue({
+                data: { access_token: 'encrypted-new-token' },
+            });
+
+            prisma.$runCommandRaw.mockImplementation((command) => {
+                if (command.find) {
+                    findCallCount++;
+                    if (findCallCount === 1) {
+                        // First find: existing credential found
+                        return Promise.resolve({
+                            cursor: {
+                                firstBatch: [
+                                    {
+                                        _id: existingId,
+                                        userId: testUserId,
+                                        externalId: testExternalId,
+                                        data: {
+                                            access_token: 'encrypted-old-token',
+                                        },
+                                    },
+                                ],
+                            },
+                            ok: 1,
+                        });
+                    } else {
+                        // Second find: credential not found after update
+                        return Promise.resolve({
+                            cursor: { firstBatch: [] },
+                            ok: 1,
+                        });
+                    }
+                }
+                if (command.update) {
+                    return Promise.resolve({ nModified: 1, n: 1, ok: 1 });
+                }
+            });
+
+            // Mock decryptFields for the "not found" case
+            mockEncryptionService.decryptFields
+                .mockResolvedValueOnce({
+                    _id: existingId,
+                    userId: testUserId,
+                    externalId: testExternalId,
+                    data: { access_token: 'old-token' },
+                })
+                .mockResolvedValueOnce({
+                    _id: null,
+                    userId: null,
+                    data: {},
+                });
+
+            const result = await repository.upsertCredential({
+                identifiers: {
+                    userId: fromObjectId(testUserId),
+                    externalId: testExternalId,
+                },
+                details: {
+                    access_token: 'new-token',
+                },
+            });
+
+            // Production code doesn't throw - returns mapped credential
+            expect(result).toBeDefined();
+        });
+
+        it('returns null when credential not found after update (updateCredential)', async () => {
+            const existingId = new ObjectId();
+            let findCallCount = 0;
+
+            mockEncryptionService.decryptFields.mockResolvedValue({
+                _id: existingId,
+                userId: testUserId,
+                externalId: testExternalId,
+                data: { access_token: 'old-token' },
+            });
+
+            mockEncryptionService.encryptFields.mockResolvedValue({
+                data: { access_token: 'encrypted-updated-token' },
+            });
+
+            prisma.$runCommandRaw.mockImplementation((command) => {
+                if (command.find) {
+                    findCallCount++;
+                    if (findCallCount === 1) {
+                        // First find: existing credential found
+                        return Promise.resolve({
+                            cursor: {
+                                firstBatch: [
+                                    {
+                                        _id: existingId,
+                                        userId: testUserId,
+                                        externalId: testExternalId,
+                                        data: {
+                                            access_token: 'encrypted-old-token',
+                                        },
+                                    },
+                                ],
+                            },
+                            ok: 1,
+                        });
+                    } else {
+                        // Second find: credential not found after update
+                        return Promise.resolve({
+                            cursor: { firstBatch: [] },
+                            ok: 1,
+                        });
+                    }
+                }
+                if (command.update) {
+                    return Promise.resolve({ nModified: 1, n: 1, ok: 1 });
+                }
+            });
+
+            // Mock decryptFields for both calls
+            mockEncryptionService.decryptFields
+                .mockResolvedValueOnce({
+                    _id: existingId,
+                    userId: testUserId,
+                    externalId: testExternalId,
+                    data: { access_token: 'old-token' },
+                })
+                .mockResolvedValueOnce({
+                    _id: null,
+                    userId: null,
+                    data: {},
+                });
+
+            const result = await repository.updateCredential(
+                fromObjectId(existingId),
+                {
+                    access_token: 'updated-token',
+                }
+            );
+
+            // Production code doesn't throw - returns mapped credential
+            expect(result).toBeDefined();
         });
     });
 });

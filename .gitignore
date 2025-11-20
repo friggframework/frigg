@@ -29,8 +29,6 @@ sparc-memory/
 sparc-sessions/
 claude-flow.log
 
-# claude files
-.claude/
 .roomodes
 
 # frigg infrastructure cache files
@@ -43,6 +41,4 @@ claude-flow.log
 /.nx/
 /packages/devtools/management-ui/dist
 /packages/devtools/management-ui/.claude-flow
-CLAUDE.md
-/.claude
 /.claude-flow

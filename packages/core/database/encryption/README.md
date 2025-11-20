@@ -130,7 +130,6 @@ const ENCRYPTION_SCHEMA = {
         fields: [
             'data.access_token', // OAuth access token
             'data.refresh_token', // OAuth refresh token
-            'data.domain', // Service domain
             'data.id_token', // OpenID Connect ID token
         ],
     },

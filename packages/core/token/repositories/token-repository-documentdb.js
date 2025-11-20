@@ -10,6 +10,7 @@ const {
     deleteMany,
 } = require('../../database/documentdb-utils');
 const { TokenRepositoryInterface } = require('./token-repository-interface');
+const { ClientSafeError } = require('../../errors');
 
 const BCRYPT_ROUNDS = 10;
 
@@ -30,25 +31,36 @@ class TokenRepositoryDocumentDB extends TokenRepositoryInterface {
             created: now,
         };
         const insertedId = await insertOne(this.prisma, 'Token', document);
-        const created = await findOne(this.prisma, 'Token', { _id: insertedId });
+        const created = await findOne(this.prisma, 'Token', {
+            _id: insertedId,
+        });
         return this._mapToken(created);
     }
 
     async validateAndGetToken(tokenObj) {
         const objectId = toObjectId(tokenObj.id);
         if (!objectId) {
-            throw new Error('Invalid Token: Token does not exist');
+            throw new ClientSafeError(
+                'Invalid Token: Token does not exist',
+                401
+            );
         }
         const record = await findOne(this.prisma, 'Token', { _id: objectId });
         if (!record) {
-            throw new Error('Invalid Token: Token does not exist');
+            throw new ClientSafeError(
+                'Invalid Token: Token does not exist',
+                401
+            );
         }
         const isValid = await bcrypt.compare(tokenObj.token, record.token);
         if (!isValid) {
-            throw new Error('Invalid Token: Token does not match');
+            throw new ClientSafeError(
+                'Invalid Token: Token does not match',
+                401
+            );
         }
         if (record.expires && new Date(record.expires) < new Date()) {
-            throw new Error('Invalid Token: Token is expired');
+            throw new ClientSafeError('Invalid Token: Token is expired', 401);
         }
         return this._mapToken(record);
     }
@@ -86,7 +98,9 @@ class TokenRepositoryDocumentDB extends TokenRepositoryInterface {
     async deleteTokensByUserId(userId) {
         const objectId = toObjectId(userId);
         if (!objectId) return { acknowledged: true, deletedCount: 0 };
-        const result = await deleteMany(this.prisma, 'Token', { userId: objectId });
+        const result = await deleteMany(this.prisma, 'Token', {
+            userId: objectId,
+        });
         const deleted = result?.n ?? 0;
         return { acknowledged: true, deletedCount: deleted };
     }
@@ -121,5 +135,3 @@ class TokenRepositoryDocumentDB extends TokenRepositoryInterface {
 }
 
 module.exports = { TokenRepositoryDocumentDB };
-
-
