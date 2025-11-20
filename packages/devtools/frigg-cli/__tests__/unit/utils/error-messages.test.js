@@ -16,6 +16,12 @@ describe('Error Messages Utility', () => {
             expect(DATABASE_URL_EXAMPLES.mongodb).toContain('replicaSet=rs0');
         });
 
+        it('should include DocumentDB connection string example', () => {
+            expect(DATABASE_URL_EXAMPLES.documentdb).toBeDefined();
+            expect(DATABASE_URL_EXAMPLES.documentdb).toContain('docdb');
+            expect(DATABASE_URL_EXAMPLES.documentdb).toContain('retryWrites=false');
+        });
+
         it('should include PostgreSQL connection string example', () => {
             expect(DATABASE_URL_EXAMPLES.postgresql).toBeDefined();
             expect(DATABASE_URL_EXAMPLES.postgresql).toContain('postgresql://');
@@ -31,10 +37,11 @@ describe('Error Messages Utility', () => {
             expect(typeof message).toBe('string');
         });
 
-        it('should include both database type examples', () => {
+        it('should include all database type examples', () => {
             const message = getDatabaseUrlMissingError();
 
             expect(message).toContain('MongoDB');
+            expect(message).toContain('DocumentDB');
             expect(message).toContain('PostgreSQL');
         });
 
@@ -42,6 +49,7 @@ describe('Error Messages Utility', () => {
             const message = getDatabaseUrlMissingError();
 
             expect(message).toContain(DATABASE_URL_EXAMPLES.mongodb);
+            expect(message).toContain(DATABASE_URL_EXAMPLES.documentdb);
             expect(message).toContain(DATABASE_URL_EXAMPLES.postgresql);
         });
 
@@ -119,6 +127,14 @@ describe('Error Messages Utility', () => {
             expect(message).toContain('27017');
         });
 
+        it('should include DocumentDB-specific troubleshooting for DocumentDB', () => {
+            const message = getDatabaseConnectionError(mockError, 'documentdb');
+
+            expect(message).toContain('DocumentDB');
+            expect(message).toContain('retryWrites=false');
+            expect(message).toContain('global-bundle.pem');
+        });
+
         it('should include PostgreSQL-specific troubleshooting for PostgreSQL', () => {
             const message = getDatabaseConnectionError(mockError, 'postgresql');
 
@@ -148,6 +164,12 @@ describe('Error Messages Utility', () => {
 
             expect(messageMongo).toContain('Troubleshooting');
             expect(messagePostgres).toContain('Troubleshooting');
+        });
+
+        it('should display database name in the error output', () => {
+            const message = getDatabaseConnectionError(mockError, 'documentdb');
+
+            expect(message).toContain('AWS DocumentDB (MongoDB-compatible)');
         });
 
         it('should show DATABASE_URL when available', () => {
@@ -185,6 +207,13 @@ describe('Error Messages Utility', () => {
             const message = getPrismaClientNotGeneratedError('mongodb');
 
             expect(message).toContain('@prisma-mongodb/client');
+        });
+
+        it('should mention Mongo client reuse for DocumentDB', () => {
+            const message = getPrismaClientNotGeneratedError('documentdb');
+
+            expect(message).toContain('@prisma-mongodb/client');
+            expect(message).toContain('DocumentDB reuses the MongoDB Prisma client');
         });
 
         it('should include correct client package name for PostgreSQL', () => {
@@ -255,13 +284,19 @@ describe('Error Messages Utility', () => {
         it('should include database type for MongoDB', () => {
             const message = getDatabaseSetupSuccess('mongodb', 'development');
 
-            expect(message).toContain('mongodb');
+            expect(message).toContain('MongoDB');
         });
 
         it('should include database type for PostgreSQL', () => {
             const message = getDatabaseSetupSuccess('postgresql', 'production');
 
-            expect(message).toContain('postgresql');
+            expect(message).toContain('PostgreSQL');
+        });
+
+        it('should include database type for DocumentDB', () => {
+            const message = getDatabaseSetupSuccess('documentdb', 'production');
+
+            expect(message).toContain('AWS DocumentDB (MongoDB-compatible)');
         });
 
         it('should include stage information', () => {
@@ -278,6 +313,12 @@ describe('Error Messages Utility', () => {
 
             expect(mongoMessage).toContain('Schema pushed');
             expect(postgresMessage).toContain('Migrations applied');
+        });
+
+        it('should mention DocumentDB-specific schema messaging', () => {
+            const message = getDatabaseSetupSuccess('documentdb', 'development');
+
+            expect(message).toContain('Schema pushed to DocumentDB');
         });
 
         it('should suggest next steps', () => {

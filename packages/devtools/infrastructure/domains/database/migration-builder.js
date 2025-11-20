@@ -57,6 +57,8 @@ class MigrationBuilder extends InfrastructureBuilder {
         // Backwards compatibility: Translate old schema to new ownership schema
         appDefinition = this.translateLegacyConfig(appDefinition, discoveredResources);
 
+        const usePrismaLayer = appDefinition.usePrismaLambdaLayer !== false;
+
         const result = {
             functions: {}, // Lambda function definitions
             resources: {},
@@ -76,7 +78,7 @@ class MigrationBuilder extends InfrastructureBuilder {
         console.log(`     Queue: ${decisions.queue.ownership} - ${decisions.queue.reason}`);
 
         // Build resources based on ownership decisions
-        await this.buildFromDecisions(decisions, appDefinition, discoveredResources, result);
+        await this.buildFromDecisions(decisions, appDefinition, discoveredResources, result, usePrismaLayer);
 
         console.log(`[${this.name}] ✅ Migration infrastructure configuration completed`);
         return result;
@@ -207,7 +209,7 @@ class MigrationBuilder extends InfrastructureBuilder {
     /**
      * Build migration resources based on ownership decisions
      */
-    async buildFromDecisions(decisions, appDefinition, discoveredResources, result) {
+    async buildFromDecisions(decisions, appDefinition, discoveredResources, result, usePrismaLayer = true) {
         // Determine if we need to create resources or use existing ones
         const shouldCreateBucket = decisions.bucket.ownership === ResourceOwnership.STACK;
         const shouldCreateQueue = decisions.queue.ownership === ResourceOwnership.STACK;
@@ -215,16 +217,16 @@ class MigrationBuilder extends InfrastructureBuilder {
         if (shouldCreateBucket && shouldCreateQueue && !decisions.bucket.physicalId && !decisions.queue.physicalId) {
             // Create all new migration infrastructure
             console.log('  → Creating new migration infrastructure in stack');
-            await this.createMigrationInfrastructure(appDefinition, result);
+            await this.createMigrationInfrastructure(appDefinition, result, usePrismaLayer);
         } else if ((decisions.bucket.ownership === ResourceOwnership.STACK && decisions.bucket.physicalId) ||
                    (decisions.queue.ownership === ResourceOwnership.STACK && decisions.queue.physicalId)) {
             // Resources exist in stack - add definitions (CloudFormation idempotency)
             console.log('  → Adding migration definitions to template (existing in stack)');
-            await this.createMigrationInfrastructure(appDefinition, result);
+            await this.createMigrationInfrastructure(appDefinition, result, usePrismaLayer);
         } else {
             // Use external resources
             console.log('  → Using external migration resources');
-            await this.useExternalMigrationResources(decisions, appDefinition, result);
+            await this.useExternalMigrationResources(decisions, appDefinition, result, usePrismaLayer);
         }
     }
 
@@ -232,17 +234,19 @@ class MigrationBuilder extends InfrastructureBuilder {
      * Create Lambda function definitions for database migrations
      * Based on refactor/add-better-support-for-commands branch implementation
      */
-    async createFunctionDefinitions(result) {
+    async createFunctionDefinitions(result, usePrismaLayer = true) {
         console.log('  🔍 DEBUG: createFunctionDefinitions called');
         console.log('  🔍 DEBUG: result.functions is:', typeof result.functions, result.functions);
         // Migration WORKER package config (needs Prisma CLI WASM files)
         const migrationWorkerPackageConfig = {
             individually: true,
             exclude: [
-                // Exclude Prisma runtime client - it's in the Lambda Layer
-                'node_modules/@prisma/client/**',
-                'node_modules/.prisma/**',
-                'node_modules/@friggframework/core/generated/**',
+                // Exclude Prisma runtime client when using Lambda Layer (but keep CLI folder)
+                ...(usePrismaLayer ? [
+                    'node_modules/@prisma/client/**',
+                    'node_modules/.prisma/**',
+                    'node_modules/@friggframework/core/generated/**',
+                ] : []),
                 // But KEEP node_modules/prisma/** (the CLI with WASM)
 
                 // Exclude ALL nested node_modules
@@ -328,13 +332,15 @@ class MigrationBuilder extends InfrastructureBuilder {
         const migrationRouterPackageConfig = {
             individually: true,
             exclude: [
-                // Exclude Prisma runtime client - it's in the Lambda Layer
-                'node_modules/@prisma/client/**',
-                'node_modules/.prisma/**',
-                'node_modules/@friggframework/core/generated/**',
+                // Exclude Prisma runtime client when using Lambda Layer
+                ...(usePrismaLayer ? [
+                    'node_modules/@prisma/client/**',
+                    'node_modules/.prisma/**',
+                    'node_modules/@friggframework/core/generated/**',
+                ] : []),
 
-                // Router doesn't need Prisma CLI at all
-                'node_modules/prisma/**',
+                // Router only skips Prisma CLI if Lambda Layer is enabled
+                ...(usePrismaLayer ? ['node_modules/prisma/**'] : []),
 
                 // Exclude ALL nested node_modules
                 'node_modules/**/node_modules/**',
@@ -422,7 +428,7 @@ class MigrationBuilder extends InfrastructureBuilder {
         console.log('  🔍 DEBUG: About to create dbMigrationWorker...');
         result.functions.dbMigrationWorker = {
             handler: 'node_modules/@friggframework/core/handlers/workers/db-migration.handler',
-            layers: [{ Ref: 'PrismaLambdaLayer' }], // Use layer for Prisma client runtime
+            ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),
             skipEsbuild: true,
             timeout: 900, // 15 minutes for long migrations
             memorySize: 1024, // Extra memory for Prisma operations
@@ -484,12 +490,12 @@ class MigrationBuilder extends InfrastructureBuilder {
      * Create migration infrastructure CloudFormation resources
      * Creates S3 bucket, SQS queue, and Lambda function definitions
      */
-    async createMigrationInfrastructure(appDefinition, result) {
+    async createMigrationInfrastructure(appDefinition, result, usePrismaLayer = true) {
         console.log('  🔍 DEBUG: createMigrationInfrastructure called');
         console.log('  🔍 DEBUG: result object before createFunctionDefinitions:', Object.keys(result));
 
         // Create Lambda function definitions first (they reference the queue)
-        await this.createFunctionDefinitions(result);
+        await this.createFunctionDefinitions(result, usePrismaLayer);
 
         console.log('  🔍 DEBUG: result.functions after createFunctionDefinitions:', Object.keys(result.functions || {}));
 
@@ -614,7 +620,7 @@ class MigrationBuilder extends InfrastructureBuilder {
      * Use external migration resources (S3 bucket and SQS queue)
      * Only references external resources - Lambda functions are defined in serverless.yml
      */
-    async useExternalMigrationResources(decisions, appDefinition, result) {
+    async useExternalMigrationResources(decisions, appDefinition, result, usePrismaLayer = true) {
         // Reference external bucket
         const bucketName = decisions.bucket.physicalId;
         if (!bucketName) {

@@ -27,7 +27,7 @@ This file provides guidance to Claude Code when working with the Frigg Framework
 `@friggframework/core` is the foundational package of the Frigg Framework, providing:
 
 - **IntegrationBase**: Base class all integrations extend
-- **Database Layer**: Multi-database support (MongoDB, PostgreSQL) with Prisma ORM
+- **Database Layer**: Multi-database support (MongoDB, DocumentDB, PostgreSQL) with Prisma ORM
 - **Encryption**: Transparent field-level encryption with AWS KMS or AES
 - **User Management**: Individual and organizational user support
 - **Module System**: API module loading and credential management
@@ -256,6 +256,7 @@ class MyIntegration extends IntegrationBase {
 - `health-check-repository.js` - Database health monitoring
 - `token-repository.js` - Authentication tokens
 - `websocket-connection-repository.js` - WebSocket connections
+- DocumentDB-enabled adapters mirror the MongoDB APIs but execute raw commands (`$runCommandRaw`, `$aggregateRaw`) for compatibility; encrypted models (e.g., credentials) still delegate reads to Prisma so the encryption extension can decrypt secrets transparently.
 
 **Use Cases**:
 - `check-database-health-use-case.js` - Database health checks

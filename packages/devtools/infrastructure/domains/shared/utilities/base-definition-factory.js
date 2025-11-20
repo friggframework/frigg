@@ -16,18 +16,20 @@ const { buildEnvironment } = require('../environment-builder');
  * Frigg applications need, including:
  * - Core Lambda functions (auth, user, health, dbMigrate)
  * - Error handling infrastructure (SQS, SNS, CloudWatch)
- * - Prisma Lambda Layer
+ * - Prisma Lambda Layer (optional)
  * - Base plugins and esbuild configuration
  * 
  * @param {Object} AppDefinition - Application definition
  * @param {Object} appEnvironmentVars - Environment variables from app definition
  * @param {Object} discoveredResources - AWS resources discovered during build
+ * @param {boolean} usePrismaLayer - Whether to use the Prisma Lambda Layer (default true)
  * @returns {Object} Base serverless definition
  */
 function createBaseDefinition(
     AppDefinition,
     appEnvironmentVars,
-    discoveredResources
+    discoveredResources,
+    usePrismaLayer = true
 ) {
     const region = process.env.AWS_REGION || 'us-east-1';
 
@@ -43,10 +45,12 @@ function createBaseDefinition(
         ],
         exclude: [
             // Exclude Prisma (provided via Lambda Layer)
-            'node_modules/@prisma/**',
-            'node_modules/.prisma/**',
-            'node_modules/prisma/**',
-            'node_modules/@friggframework/core/generated/**',
+            ...(usePrismaLayer ? [
+                'node_modules/@prisma/**',
+                'node_modules/.prisma/**',
+                'node_modules/prisma/**',
+                'node_modules/@friggframework/core/generated/**',
+            ] : []),
 
             // Exclude AWS SDK (provided by Lambda runtime)
             'node_modules/aws-sdk/**',
@@ -109,10 +113,12 @@ function createBaseDefinition(
             'node_modules/@aws-sdk/**',
 
             // Exclude Prisma (provided via Lambda Layer)
-            'node_modules/@prisma/**',
-            'node_modules/.prisma/**',
-            'node_modules/prisma/**',
-            'node_modules/@friggframework/core/generated/**',
+            ...(usePrismaLayer ? [
+                'node_modules/@prisma/**',
+                'node_modules/.prisma/**',
+                'node_modules/prisma/**',
+                'node_modules/@friggframework/core/generated/**',
+            ] : []),
 
             // Exclude nested node_modules from symlinked frigg packages (for npm link development)
             'node_modules/@friggframework/core/node_modules/**',
@@ -218,9 +224,11 @@ function createBaseDefinition(
                 external: [
                     '@aws-sdk/*',
                     'aws-sdk',
-                    '@prisma/client',
-                    'prisma',
-                    '.prisma/*',
+                    ...(usePrismaLayer ? [
+                        '@prisma/client',
+                        'prisma',
+                        '.prisma/*',
+                    ] : []),
                 ],
                 packager: 'npm',
                 keepNames: true,
@@ -228,8 +236,10 @@ function createBaseDefinition(
                 exclude: [
                     'aws-sdk',
                     '@aws-sdk/*',
-                    '@prisma/client',
-                    'prisma',
+                    ...(usePrismaLayer ? [
+                        '@prisma/client',
+                        'prisma',
+                    ] : []),
                 ],
                 // Reduce file scanning overhead - tell esbuild to skip these during watch/scan but still bundle them
                 watch: {
@@ -256,7 +266,7 @@ function createBaseDefinition(
         functions: {
             auth: {
                 handler: 'node_modules/@friggframework/core/handlers/routers/auth.handler',
-                layers: [{ Ref: 'PrismaLambdaLayer' }],
+                ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),
                 skipEsbuild: true,  // Handlers in node_modules don't need bundling
                 package: skipEsbuildPackageConfig,
                 events: [
@@ -272,14 +282,14 @@ function createBaseDefinition(
             },
             user: {
                 handler: 'node_modules/@friggframework/core/handlers/routers/user.handler',
-                layers: [{ Ref: 'PrismaLambdaLayer' }],
+                ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),
                 skipEsbuild: true,  // Handlers in node_modules don't need bundling
                 package: skipEsbuildPackageConfig,
                 events: [{ httpApi: { path: '/user/{proxy+}', method: 'ANY' } }],
             },
             health: {
                 handler: 'node_modules/@friggframework/core/handlers/routers/health.handler',
-                layers: [{ Ref: 'PrismaLambdaLayer' }],
+                ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),
                 skipEsbuild: true,  // Handlers in node_modules don't need bundling
                 package: skipEsbuildPackageConfig,
                 events: [
@@ -290,7 +300,7 @@ function createBaseDefinition(
             // Note: dbMigrate removed - MigrationBuilder now handles migration infrastructure
             // See: packages/devtools/infrastructure/domains/database/migration-builder.js
         },
-        layers: {
+        layers: usePrismaLayer ? {
             prisma: {
                 path: 'layers/prisma',
                 name: '${self:service}-prisma-${sls:stage}',
@@ -298,7 +308,7 @@ function createBaseDefinition(
                 compatibleRuntimes: ['nodejs20.x', 'nodejs22.x'],
                 retain: false,
             },
-        },
+        } : {},
         resources: {
             Resources: {
                 InternalErrorQueue: {

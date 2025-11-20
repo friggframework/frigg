@@ -267,6 +267,14 @@ const CORE_ENCRYPTION_SCHEMA = {
 -   Integration-specific sensitive data (use custom schema instead)
 -   Temporary/experimental encryption (use custom schema instead)
 
+#### After Adding Encrypted Fields
+
+After adding fields to `encryption-schema-registry.js`:
+
+1. **For MongoDB/PostgreSQL**: No code changes needed (automatic via Prisma Extension)
+2. **For DocumentDB**: Encryption is automatic via DocumentDBEncryptionService
+   (service reads from same registry)
+
 ## How It Works
 
 ### Write Operation (Create/Update)
@@ -402,6 +410,48 @@ return entities.map((e) => ({
 **Implementation Examples:**
 
 See `modules/repositories/module-repository-postgres.js` and `module-repository-mongo.js` for complete implementation examples using `_fetchCredential()` and `_fetchCredentialsBulk()` helper methods.
+
+## DocumentDB Encryption
+
+### Why DocumentDB Needs Manual Encryption
+
+DocumentDB repositories use `$runCommandRaw()` for MongoDB protocol compatibility, which bypasses Prisma Client Extensions. This means the automatic encryption extension does not apply.
+
+### DocumentDBEncryptionService
+
+For DocumentDB repositories, use `DocumentDBEncryptionService` to manually encrypt/decrypt documents before/after database operations.
+
+#### Usage Example
+
+```javascript
+const { DocumentDBEncryptionService } = require('../documentdb-encryption-service');
+const { insertOne, findOne } = require('../documentdb-utils');
+
+class MyRepositoryDocumentDB {
+    constructor() {
+        this.encryptionService = new DocumentDBEncryptionService();
+    }
+
+    async create(data) {
+        // Encrypt before write
+        const encrypted = await this.encryptionService.encryptFields('ModelName', data);
+        const id = await insertOne(this.prisma, 'CollectionName', encrypted);
+
+        // Decrypt after read
+        const doc = await findOne(this.prisma, 'CollectionName', { _id: id });
+        const decrypted = await this.encryptionService.decryptFields('ModelName', doc);
+
+        return decrypted;
+    }
+}
+```
+
+#### Configuration
+
+Uses the same environment variables and Cryptor as the Prisma Extension:
+- `STAGE`: Bypasses encryption for dev/test/local
+- `KMS_KEY_ARN`: AWS KMS encryption (production)
+- `AES_KEY_ID` + `AES_KEY`: AES encryption (fallback)
 
 ## Usage Examples
 

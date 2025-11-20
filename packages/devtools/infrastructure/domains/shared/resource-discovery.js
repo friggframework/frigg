@@ -95,11 +95,23 @@ async function gatherDiscoveredResources(appDefinition) {
         const cfDiscovery = new CloudFormationDiscovery(provider, { serviceName, stage });
         const stackResources = await cfDiscovery.discoverFromStack(stackName);
 
-        // Validate CF discovery results - only use if contains useful data
-        const hasVpcData = stackResources?.defaultVpcId;
-        const hasKmsData = stackResources?.defaultKmsKeyId;
-        const hasAuroraData = stackResources?.auroraClusterId;
-        const hasSomeUsefulData = hasVpcData || hasKmsData || hasAuroraData;
+        // Validate CF discovery results - check for ANY useful infrastructure
+        const hasVpcData = stackResources?.defaultVpcId;  // VPC resource in stack
+        const hasKmsData = stackResources?.defaultKmsKeyId;  // KMS resource in stack
+        const hasAuroraData = stackResources?.auroraClusterId;  // Aurora in stack
+        
+        // Check for routing infrastructure (proves VPC config exists even with external VPC)
+        const hasRoutingInfra = stackResources?.routeTableId ||  // FriggLambdaRouteTable
+                               stackResources?.natRoute ||        // FriggNATRoute
+                               stackResources?.vpcEndpoints?.s3 || // VPC endpoints
+                               stackResources?.vpcEndpoints?.dynamodb;
+        
+        // Stack is useful if it has EITHER actual resources OR routing infrastructure
+        const hasSomeUsefulData = hasVpcData || hasKmsData || hasAuroraData || hasRoutingInfra;
+        
+        if (hasRoutingInfra && !hasVpcData) {
+            console.log('  ✓ Found VPC routing infrastructure in stack (external VPC pattern)');
+        }
 
         // Check if we're in isolated mode (each stage gets its own VPC/Aurora)
         const isIsolatedMode = appDefinition.managementMode === 'managed' &&

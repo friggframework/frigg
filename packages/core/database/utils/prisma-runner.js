@@ -10,12 +10,17 @@ const chalk = require('chalk');
 
 /**
  * Gets the path to the Prisma schema file for the database type
- * @param {'mongodb'|'postgresql'} dbType - Database type
+ * @param {'mongodb'|'postgresql'|'documentdb'} dbType - Database type
  * @param {string} projectRoot - Project root directory
  * @returns {string} Absolute path to schema file
  * @throws {Error} If schema file doesn't exist
  */
+function normalizeMongoCompatible(dbType) {
+    return dbType === 'documentdb' ? 'mongodb' : dbType;
+}
+
 function getPrismaSchemaPath(dbType, projectRoot = process.cwd()) {
+    const normalizedType = normalizeMongoCompatible(dbType);
     // Try multiple locations for the schema file
     // Priority order:
     // 1. Lambda layer path (where the schema actually exists in deployed Lambda)
@@ -23,10 +28,10 @@ function getPrismaSchemaPath(dbType, projectRoot = process.cwd()) {
     // 3. Parent node_modules (workspace/monorepo setup)
     const possiblePaths = [
         // Lambda layer path - this is where the schema actually exists in deployed Lambda
-        `/opt/nodejs/node_modules/generated/prisma-${dbType}/schema.prisma`,
+        `/opt/nodejs/node_modules/generated/prisma-${normalizedType}/schema.prisma`,
         // Check where Frigg is installed via npm (production scenario)
-        path.join(projectRoot, 'node_modules', '@friggframework', 'core', `prisma-${dbType}`, 'schema.prisma'),
-        path.join(projectRoot, '..', 'node_modules', '@friggframework', 'core', `prisma-${dbType}`, 'schema.prisma')
+        path.join(projectRoot, 'node_modules', '@friggframework', 'core', `prisma-${normalizedType}`, 'schema.prisma'),
+        path.join(projectRoot, '..', 'node_modules', '@friggframework', 'core', `prisma-${normalizedType}`, 'schema.prisma')
     ];
 
     for (const schemaPath of possiblePaths) {
@@ -44,7 +49,7 @@ function getPrismaSchemaPath(dbType, projectRoot = process.cwd()) {
 
 /**
  * Runs prisma generate for the specified database type
- * @param {'mongodb'|'postgresql'} dbType - Database type
+ * @param {'mongodb'|'postgresql'|'documentdb'} dbType - Database type
  * @param {boolean} verbose - Enable verbose output
  * @returns {Promise<Object>} { success: boolean, output?: string, error?: string }
  */
@@ -53,18 +58,19 @@ async function runPrismaGenerate(dbType, verbose = false) {
         const schemaPath = getPrismaSchemaPath(dbType);
 
         // Check if Prisma client already exists (e.g., in Lambda or pre-generated)
-        const generatedClientPath = path.join(path.dirname(path.dirname(schemaPath)), 'generated', `prisma-${dbType}`, 'client.js');
+        const normalizedType = normalizeMongoCompatible(dbType);
+        const generatedClientPath = path.join(path.dirname(path.dirname(schemaPath)), 'generated', `prisma-${normalizedType}`, 'client.js');
         const isLambdaEnvironment = !!process.env.AWS_LAMBDA_FUNCTION_NAME || !!process.env.LAMBDA_TASK_ROOT;
 
         // In Lambda, also check the layer path (/opt/nodejs/node_modules)
-        const lambdaLayerClientPath = `/opt/nodejs/node_modules/generated/prisma-${dbType}/client.js`;
+        const lambdaLayerClientPath = `/opt/nodejs/node_modules/generated/prisma-${normalizedType}/client.js`;
 
         const clientExists = fs.existsSync(generatedClientPath) || (isLambdaEnvironment && fs.existsSync(lambdaLayerClientPath));
 
         if (clientExists) {
             const foundPath = fs.existsSync(generatedClientPath) ? generatedClientPath : lambdaLayerClientPath;
             if (verbose) {
-                console.log(chalk.gray(`✓ Prisma client already generated at: ${foundPath}`));
+            console.log(chalk.gray(`✓ Prisma client already generated at: ${foundPath}`));
             }
             if (isLambdaEnvironment) {
                 if (verbose) {
@@ -110,7 +116,7 @@ async function runPrismaGenerate(dbType, verbose = false) {
 
 /**
  * Checks database migration status
- * @param {'mongodb'|'postgresql'} dbType - Database type
+ * @param {'mongodb'|'postgresql'|'documentdb'} dbType - Database type
  * @returns {Promise<Object>} { upToDate: boolean, pendingMigrations?: number, error?: string }
  */
 async function checkDatabaseState(dbType) {

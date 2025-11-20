@@ -415,6 +415,42 @@ describe('Resource Discovery', () => {
             delete process.env.SLS_STAGE;
         });
 
+        it('should recognize routing infrastructure as useful data', async () => {
+            const appDefinition = {
+                name: 'test-app',
+                vpc: { enable: true },
+            };
+
+            process.env.SLS_STAGE = 'production';
+
+            // Mock CloudFormation discovery to return routing infrastructure but no VPC resource
+            const mockCloudFormationDiscovery = {
+                discoverFromStack: jest.fn().mockResolvedValue({
+                    fromCloudFormationStack: true,
+                    routeTableId: 'rtb-123',
+                    natRoute: 'rtb-123|0.0.0.0/0',
+                    vpcEndpoints: {
+                        s3: 'vpce-s3',
+                        dynamodb: 'vpce-ddb'
+                    },
+                    existingLogicalIds: ['FriggLambdaRouteTable', 'FriggNATRoute']
+                    // NO defaultVpcId, NO defaultKmsKeyId, NO auroraClusterId
+                })
+            };
+
+            const { CloudFormationDiscovery } = require('./cloudformation-discovery');
+            CloudFormationDiscovery.mockImplementation(() => mockCloudFormationDiscovery);
+
+            const result = await gatherDiscoveredResources(appDefinition);
+
+            // Should use CloudFormation data without falling back to AWS API
+            expect(result.routeTableId).toBe('rtb-123');
+            expect(result.vpcEndpoints.s3).toBe('vpce-s3');
+            
+            // Should NOT call AWS API discovery
+            expect(mockVpcDiscovery.discover).not.toHaveBeenCalled();
+        });
+
         it('should include secrets in SSM discovery by default', async () => {
             const appDefinition = {
                 ssm: { enable: true },

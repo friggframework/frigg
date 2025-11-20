@@ -9,9 +9,6 @@ const {
     createModuleRepository,
 } = require('../../modules/repositories/module-repository-factory');
 const {
-    createIntegrationRepository,
-} = require('../../integrations/repositories/integration-repository-factory');
-const {
     createHealthCheckRepository,
 } = require('../../database/repositories/health-check-repository-factory');
 const { prisma } = require('../../database/prisma');
