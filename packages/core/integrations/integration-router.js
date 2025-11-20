@@ -65,9 +65,7 @@ const {
 const {
     AuthenticateWithSharedSecret,
 } = require('../user/use-cases/authenticate-with-shared-secret');
-const {
-    AuthenticateUser,
-} = require('../user/use-cases/authenticate-user');
+const { AuthenticateUser } = require('../user/use-cases/authenticate-user');
 const {
     ProcessAuthorizationCallback,
 } = require('../modules/use-cases/process-authorization-callback');
@@ -234,8 +232,10 @@ function checkRequiredParams(params, requiredKeys) {
 
     if (missingKeys.length > 0) {
         throw Boom.badRequest(
-            `Missing Parameter${missingKeys.length === 1 ? '' : 's'
-            }: ${missingKeys.join(', ')} ${missingKeys.length === 1 ? 'is' : 'are'
+            `Missing Parameter${
+                missingKeys.length === 1 ? '' : 's'
+            }: ${missingKeys.join(', ')} ${
+                missingKeys.length === 1 ? 'is' : 'are'
             } required.`
         );
     }
@@ -584,7 +584,7 @@ function setEntityRoutes(router, authenticateUser, useCases) {
                 req.params.credentialId,
                 userId
             );
-            if (credential.user._id.toString() !== userId) {
+            if (credential.userId.toString() !== userId) {
                 throw Boom.forbidden('Credential does not belong to user');
             }
 

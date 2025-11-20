@@ -1,6 +1,7 @@
 const { prisma } = require('../../database/prisma');
 const bcrypt = require('bcryptjs');
 const { TokenRepositoryInterface } = require('./token-repository-interface');
+const { ClientSafeError } = require('../../errors');
 
 const BCRYPT_ROUNDS = 10;
 
@@ -92,7 +93,10 @@ class TokenRepositoryPostgres extends TokenRepositoryInterface {
         });
 
         if (!sessionToken) {
-            throw new Error('Invalid Token: Token does not exist');
+            throw new ClientSafeError(
+                'Invalid Token: Token does not exist',
+                401
+            );
         }
 
         // Verify token hash matches
@@ -101,7 +105,10 @@ class TokenRepositoryPostgres extends TokenRepositoryInterface {
             sessionToken.token
         );
         if (!isValid) {
-            throw new Error('Invalid Token: Token does not match');
+            throw new ClientSafeError(
+                'Invalid Token: Token does not match',
+                401
+            );
         }
 
         // Check if token is expired
@@ -109,7 +116,7 @@ class TokenRepositoryPostgres extends TokenRepositoryInterface {
             sessionToken.expires &&
             new Date(sessionToken.expires) < new Date()
         ) {
-            throw new Error('Invalid Token: Token is expired');
+            throw new ClientSafeError('Invalid Token: Token is expired', 401);
         }
 
         return this._convertTokenIds(sessionToken);

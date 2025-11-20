@@ -56,7 +56,7 @@ function createCredentialCommands() {
                 }
 
                 const credentialData = {
-                    identifiers: { user: userId, externalId },
+                    identifiers: { userId, externalId },
                     details: {
                         access_token,
                         authIsValid,
