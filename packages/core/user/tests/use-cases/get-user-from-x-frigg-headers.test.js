@@ -156,6 +156,49 @@ describe('GetUserFromXFriggHeaders', () => {
                 appOrgId: 'new-app-org',
             });
         });
+
+        it('should auto-create organization user when individual exists but org user missing', async () => {
+            // This is the critical scenario: primary is 'organization', both users are required,
+            // individual user exists, but org user needs to be created
+            mockUserConfig.primary = 'organization';
+            mockUserConfig.organizationUserRequired = true;
+            mockUserConfig.individualUserRequired = true;
+
+            const mockIndividualUser = {
+                id: 'user-123',
+                appUserId: 'app-user-456',
+            };
+
+            mockUserRepository.findIndividualUserByAppUserId.mockResolvedValue(
+                mockIndividualUser
+            );
+            mockUserRepository.findOrganizationUserByAppOrgId.mockResolvedValue(
+                null
+            );
+
+            const mockCreatedOrgUser = {
+                id: 'org-new',
+                appOrgId: 'app-org-789',
+            };
+
+            mockUserRepository.createOrganizationUser.mockResolvedValue(
+                mockCreatedOrgUser
+            );
+
+            const result = await getUserFromXFriggHeaders.execute(
+                'app-user-456',
+                'app-org-789'
+            );
+
+            expect(result).toBeInstanceOf(User);
+            expect(mockUserRepository.createOrganizationUser).toHaveBeenCalledWith({
+                appOrgId: 'app-org-789',
+            });
+            expect(result.getId()).toBeDefined();
+            expect(result.getId()).not.toBeUndefined();
+            // When primary is 'organization', getId() should return the org user's ID
+            expect(result.getId()).toBe('org-new');
+        });
     });
 
     describe('User ID Conflict Detection', () => {
