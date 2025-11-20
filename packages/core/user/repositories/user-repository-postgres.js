@@ -346,6 +346,28 @@ class UserRepositoryPostgres extends UserRepositoryInterface {
             throw error;
         }
     }
+
+    /**
+     * Link an individual user to an organization user
+     * @param {string} individualUserId - Individual user ID (string from application layer)
+     * @param {string} organizationUserId - Organization user ID (string from application layer)
+     * @returns {Promise<Object>} Updated individual user with string IDs
+     */
+    async linkIndividualToOrganization(individualUserId, organizationUserId) {
+        const intIndividualId = this._convertId(individualUserId);
+        const intOrganizationId = this._convertId(organizationUserId);
+
+        const user = await this.prisma.user.update({
+            where: {
+                id: intIndividualId,
+                type: 'INDIVIDUAL',
+            },
+            data: {
+                organizationId: intOrganizationId,
+            },
+        });
+        return this._convertUserIds(user);
+    }
 }
 
 module.exports = { UserRepositoryPostgres };
