@@ -115,6 +115,18 @@ class GetUserFromXFriggHeaders {
                 await this.userRepository.createOrganizationUser({
                     appOrgId,
                 });
+
+            // Link individual user to newly created org user if individual exists
+            if (individualUserData && organizationUserData) {
+                console.log('🔍 [GetUserFromXFriggHeaders] Linking individual user to organization user:', {
+                    individualUserId: individualUserData.id,
+                    organizationUserId: organizationUserData.id,
+                });
+                individualUserData = await this.userRepository.linkIndividualToOrganization(
+                    individualUserData.id,
+                    organizationUserData.id
+                );
+            }
         }
 
         console.log('🔍 [GetUserFromXFriggHeaders] Creating User object:', {

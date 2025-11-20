@@ -184,6 +184,10 @@ describe('GetUserFromXFriggHeaders', () => {
             mockUserRepository.createOrganizationUser.mockResolvedValue(
                 mockCreatedOrgUser
             );
+            mockUserRepository.linkIndividualToOrganization = jest.fn().mockResolvedValue({
+                ...mockIndividualUser,
+                organizationUser: 'org-new',
+            });
 
             const result = await getUserFromXFriggHeaders.execute(
                 'app-user-456',
@@ -194,6 +198,11 @@ describe('GetUserFromXFriggHeaders', () => {
             expect(mockUserRepository.createOrganizationUser).toHaveBeenCalledWith({
                 appOrgId: 'app-org-789',
             });
+            // Should link the individual user to the newly created org user
+            expect(mockUserRepository.linkIndividualToOrganization).toHaveBeenCalledWith(
+                'user-123',
+                'org-new'
+            );
             expect(result.getId()).toBeDefined();
             expect(result.getId()).not.toBeUndefined();
             // When primary is 'organization', getId() should return the org user's ID
@@ -360,6 +369,11 @@ describe('GetUserFromXFriggHeaders', () => {
                 appUserId: 'app-user-456',
             };
 
+            const mockCreatedOrgUser = {
+                id: 'org-new',
+                appOrgId: 'app-org-789',
+            };
+
             mockUserConfig.organizationUserRequired = true;
 
             mockUserRepository.findIndividualUserByAppUserId.mockResolvedValue(
@@ -368,6 +382,13 @@ describe('GetUserFromXFriggHeaders', () => {
             mockUserRepository.findOrganizationUserByAppOrgId.mockResolvedValue(
                 null
             );
+            mockUserRepository.createOrganizationUser.mockResolvedValue(
+                mockCreatedOrgUser
+            );
+            mockUserRepository.linkIndividualToOrganization = jest.fn().mockResolvedValue({
+                ...mockIndividualUser,
+                organizationUser: 'org-new',
+            });
 
             const result = await getUserFromXFriggHeaders.execute(
                 'app-user-456',
@@ -376,6 +397,12 @@ describe('GetUserFromXFriggHeaders', () => {
 
             expect(result).toBeInstanceOf(User);
             // Should not throw conflict error when only one user found
+            // Should auto-create org user and link it
+            expect(mockUserRepository.createOrganizationUser).toHaveBeenCalled();
+            expect(mockUserRepository.linkIndividualToOrganization).toHaveBeenCalledWith(
+                'user-123',
+                'org-new'
+            );
         });
 
         it('should handle empty string IDs as falsy', async () => {
