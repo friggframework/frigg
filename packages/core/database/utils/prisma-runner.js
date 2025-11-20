@@ -374,6 +374,76 @@ async function runPrismaDbPush(verbose = false, nonInteractive = false) {
 }
 
 /**
+ * Runs Prisma migrate resolve to mark a migration as applied or rolled back
+ * @param {string} migrationName - Name of the migration to resolve (e.g., '20251112195422_update_user_unique_constraints')
+ * @param {'applied'|'rolled-back'} action - Whether to mark as applied or rolled back
+ * @param {boolean} verbose - Enable verbose output
+ * @returns {Promise<Object>} { success: boolean, output?: string, error?: string }
+ */
+async function runPrismaMigrateResolve(migrationName, action = 'applied', verbose = false) {
+    return new Promise((resolve) => {
+        try {
+            const schemaPath = getPrismaSchemaPath('postgresql');
+
+            // Get Prisma binary path (checks multiple locations)
+            const prismaBin = getPrismaBinaryPath();
+
+            // Determine args based on whether we're using direct binary or npx
+            const isDirectBinary = prismaBin !== 'npx prisma';
+            const args = isDirectBinary
+                ? ['migrate', 'resolve', `--${action}`, migrationName, '--schema', schemaPath]
+                : ['prisma', 'migrate', 'resolve', `--${action}`, migrationName, '--schema', schemaPath];
+
+            if (verbose) {
+                const displayCmd = isDirectBinary
+                    ? `${prismaBin} ${args.join(' ')}`
+                    : `npx ${args.join(' ')}`;
+                console.log(chalk.gray(`Running: ${displayCmd}`));
+            }
+
+            // Execute the command (prismaBin might be 'node /path/to/index.js' or 'npx prisma')
+            const [executable, ...executableArgs] = prismaBin.split(' ');
+            const fullArgs = [...executableArgs, ...args];
+
+            const proc = spawn(executable, fullArgs, {
+                stdio: 'inherit',
+                env: {
+                    ...process.env,
+                    PRISMA_HIDE_UPDATE_MESSAGE: '1'
+                }
+            });
+
+            proc.on('error', (error) => {
+                resolve({
+                    success: false,
+                    error: error.message
+                });
+            });
+
+            proc.on('close', (code) => {
+                if (code === 0) {
+                    resolve({
+                        success: true,
+                        output: `Migration ${migrationName} marked as ${action}`
+                    });
+                } else {
+                    resolve({
+                        success: false,
+                        error: `Resolve process exited with code ${code}`
+                    });
+                }
+            });
+
+        } catch (error) {
+            resolve({
+                success: false,
+                error: error.message
+            });
+        }
+    });
+}
+
+/**
  * Determines migration command based on STAGE environment variable
  * @param {string} stage - Stage from CLI option or environment
  * @returns {'dev'|'deploy'}
@@ -401,6 +471,7 @@ module.exports = {
     runPrismaGenerate,
     checkDatabaseState,
     runPrismaMigrate,
+    runPrismaMigrateResolve,
     runPrismaDbPush,
     getMigrationCommand
 };
