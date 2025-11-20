@@ -12,11 +12,18 @@ class GetEntityOptionsById {
     }
 
     /**
-     * Retrieve a Module instance for a given user and entity/module type.
-     * @param {string} userId
-     * @param {string} entityId
+     * Retrieve entity options for a given entity
+     *
+     * @param {string|number} entityId - Entity ID to retrieve options for
+     * @param {string|number|import('../../user/user').User} userIdOrUser - User ID or User object for validation
+     * @returns {Promise<Object>} Entity options
      */
-    async execute(entityId, userId) {
+    async execute(entityId, userIdOrUser) {
+        // Support both userId (backward compatible) and User object (new pattern)
+        const userId = typeof userIdOrUser === 'object' && userIdOrUser?.getId
+            ? userIdOrUser.getId()
+            : userIdOrUser;
+
         const entity = await this.moduleRepository.findEntityById(
             entityId,
             userId
@@ -26,7 +33,12 @@ class GetEntityOptionsById {
             throw new Error(`Entity ${entityId} not found`);
         }
 
-        if (entity.userId !== userId) {
+        // Validate entity ownership
+        const isOwned = typeof userIdOrUser === 'object' && userIdOrUser?.ownsUserId
+            ? userIdOrUser.ownsUserId(entity.userId)
+            : entity.userId?.toString() === userId?.toString();
+
+        if (!isOwned) {
             throw new Error(
                 `Entity ${entityId} does not belong to user ${userId}`
             );
