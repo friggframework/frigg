@@ -70,7 +70,7 @@ class GetUserFromXFriggHeaders {
             });
         }
 
-        // VALIDATION: If both IDs provided and both users exist, verify they match
+        // VALIDATION/AUTO-LINKING: If both IDs provided and both users exist, handle mismatch
         if (
             appUserId &&
             appOrgId &&
@@ -83,9 +83,23 @@ class GetUserFromXFriggHeaders {
             const expectedOrgId = organizationUserData.id?.toString();
 
             if (individualOrgId !== expectedOrgId) {
-                throw Boom.badRequest(
-                    'User ID mismatch: x-frigg-appUserId and x-frigg-appOrgId refer to different users. ' +
-                        'Provide only one identifier or ensure they belong to the same user.'
+                // Default behavior: Auto-link disconnected users
+                // Opt-in strict mode: Throw error on mismatch
+                if (this.userConfig.strictUserValidation) {
+                    throw Boom.badRequest(
+                        'User ID mismatch: x-frigg-appUserId and x-frigg-appOrgId refer to different users. ' +
+                            'Provide only one identifier or ensure they belong to the same user.'
+                    );
+                }
+
+                // Auto-link the users
+                console.log('🔍 [GetUserFromXFriggHeaders] Auto-linking disconnected users:', {
+                    individualUserId: individualUserData.id,
+                    organizationUserId: organizationUserData.id,
+                });
+                individualUserData = await this.userRepository.linkIndividualToOrganization(
+                    individualUserData.id,
+                    organizationUserData.id
                 );
             }
         }

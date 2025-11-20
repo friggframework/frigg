@@ -211,7 +211,46 @@ describe('GetUserFromXFriggHeaders', () => {
     });
 
     describe('User ID Conflict Detection', () => {
-        it('should throw 400 error when both IDs provided but belong to different users', async () => {
+        it('should auto-link users when both exist but are disconnected (default behavior)', async () => {
+            const mockIndividualUser = {
+                id: 'user-123',
+                appUserId: 'app-user-456',
+                organizationUser: 'org-999', // Different org (or null)
+            };
+
+            const mockOrgUser = {
+                id: 'org-888', // Different ID from individual's org
+                appOrgId: 'app-org-789',
+            };
+
+            mockUserConfig.organizationUserRequired = true;
+            // strictUserValidation not set, defaults to false
+
+            mockUserRepository.findIndividualUserByAppUserId.mockResolvedValue(
+                mockIndividualUser
+            );
+            mockUserRepository.findOrganizationUserByAppOrgId.mockResolvedValue(
+                mockOrgUser
+            );
+            mockUserRepository.linkIndividualToOrganization = jest.fn().mockResolvedValue({
+                ...mockIndividualUser,
+                organizationUser: 'org-888',
+            });
+
+            const result = await getUserFromXFriggHeaders.execute(
+                'app-user-456',
+                'app-org-789'
+            );
+
+            expect(result).toBeInstanceOf(User);
+            // Should auto-link the disconnected users
+            expect(mockUserRepository.linkIndividualToOrganization).toHaveBeenCalledWith(
+                'user-123',
+                'org-888'
+            );
+        });
+
+        it('should throw 400 error when strictUserValidation=true and users are disconnected', async () => {
             const mockIndividualUser = {
                 id: 'user-123',
                 appUserId: 'app-user-456',
@@ -224,6 +263,7 @@ describe('GetUserFromXFriggHeaders', () => {
             };
 
             mockUserConfig.organizationUserRequired = true;
+            mockUserConfig.strictUserValidation = true; // Enable strict mode
 
             mockUserRepository.findIndividualUserByAppUserId.mockResolvedValue(
                 mockIndividualUser
