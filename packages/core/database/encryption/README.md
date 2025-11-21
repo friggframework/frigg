@@ -122,39 +122,15 @@ Or simply don't configure any encryption keys. In Production field level encrypt
 
 ## Encrypted Fields
 
-Fields are defined in `encryption-schema-registry.js`:
+Core and custom encrypted fields are defined in `encryption-schema-registry.js`. See that file for the current list of encrypted fields.
 
-```javascript
-const CORE_ENCRYPTION_SCHEMA = {
-    Credential: {
-        fields: [
-            // OAuth tokens
-            'data.access_token',      // OAuth access token
-            'data.refresh_token',     // OAuth refresh token
-            'data.id_token',          // OpenID Connect ID token
-            // API key authentication (multiple naming conventions)
-            'data.api_key',           // API key (snake_case - recommended)
-            'data.apiKey',            // API key (camelCase)
-            'data.API_KEY_VALUE',     // API key (legacy screaming snake)
-            // Basic authentication
-            'data.password',          // Password for basic auth
-            // OAuth client credentials
-            'data.client_secret',     // OAuth client secret
-        ],
-    },
-    IntegrationMapping: {
-        fields: ['mapping'], // Complete mapping object
-    },
-    User: {
-        fields: ['hashword'], // Password hash
-    },
-    Token: {
-        fields: ['token'], // Authentication token
-    },
-};
-```
+**Core fields include**:
+- OAuth tokens: `access_token`, `refresh_token`, `id_token`
+- API keys: `api_key`, `apiKey`, `API_KEY_VALUE`
+- Basic auth: `password`
+- OAuth client credentials: `client_secret`
 
-**Note**: The core schema now includes common authentication fields for OAuth, API key, and basic authentication. API modules should use `api_key` (snake_case) in their `apiPropertiesToPersist.credential` arrays for consistency with OAuth2Requester and BasicAuthRequester conventions.
+**Note**: API modules should use `api_key` (snake_case) in their `apiPropertiesToPersist.credential` arrays for consistency with OAuth2Requester and BasicAuthRequester conventions.
 
 ### API Module Credential Naming Conventions
 
@@ -166,8 +142,11 @@ When creating API module definitions, use **snake_case** for credential property
 const Definition = {
     requiredAuthMethods: {
         apiPropertiesToPersist: {
+            // For API key authentication
             credential: ['api_key'],           // ✅ Automatically encrypted
+            // or for OAuth authentication
             credential: ['access_token', 'refresh_token'],  // ✅ OAuth - encrypted
+            // or for Basic authentication
             credential: ['username', 'password'],           // ✅ Basic auth - encrypted
         }
     }

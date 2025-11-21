@@ -16,17 +16,13 @@ const { logger } = require('./logger');
 const CORE_ENCRYPTION_SCHEMA = {
     Credential: {
         fields: [
-            // OAuth tokens
             'data.access_token',
             'data.refresh_token',
             'data.id_token',
-            // API key authentication (multiple naming conventions)
             'data.api_key',
             'data.apiKey',
             'data.API_KEY_VALUE',
-            // Basic authentication
             'data.password',
-            // OAuth client credentials
             'data.client_secret',
         ],
     },
@@ -119,68 +115,71 @@ function registerCustomSchema(schema) {
 }
 
 /**
+ * Extracts credential field paths from module definitions
+ * @param {Array} moduleDefinitions - Array of module definition objects
+ * @returns {Array<string>} Array of field paths with data. prefix
+ */
+function extractCredentialFieldsFromModules(moduleDefinitions) {
+    const fields = [];
+
+    for (const moduleDef of moduleDefinitions) {
+        if (!moduleDef?.encryption?.credentialFields) {
+            continue;
+        }
+
+        const credentialFields = moduleDef.encryption.credentialFields;
+        if (!Array.isArray(credentialFields) || credentialFields.length === 0) {
+            continue;
+        }
+
+        for (const field of credentialFields) {
+            const prefixedField = field.startsWith('data.') ? field : `data.${field}`;
+            fields.push(prefixedField);
+        }
+    }
+
+    return [...new Set(fields)];
+}
+
+/**
  * Loads and registers encryption schemas from API module definitions.
  * Each module can declare credentialFields to encrypt in its encryption config.
  *
  * @param {Array} integrations - Array of integration classes with modules
  */
 function loadModuleEncryptionSchemas(integrations) {
-    if (!integrations || !Array.isArray(integrations)) {
+    if (!integrations) {
+        throw new Error('integrations parameter is required');
+    }
+
+    if (!Array.isArray(integrations)) {
+        throw new Error('integrations must be an array');
+    }
+
+    if (integrations.length === 0) {
         return;
     }
 
-    const moduleSchemas = {};
+    const { getModulesDefinitionFromIntegrationClasses } = require('../integrations/utils/map-integration-dto');
 
-    for (const Integration of integrations) {
-        const integrationDef = Integration?.Definition;
-        if (!integrationDef || !integrationDef.modules) {
-            continue;
+    const moduleDefinitions = getModulesDefinitionFromIntegrationClasses(integrations);
+    const credentialFields = extractCredentialFieldsFromModules(moduleDefinitions);
+
+    if (credentialFields.length === 0) {
+        return;
+    }
+
+    const moduleSchema = {
+        Credential: {
+            fields: credentialFields
         }
+    };
 
-        // Iterate through all modules in this integration
-        for (const [moduleName, moduleConfig] of Object.entries(integrationDef.modules)) {
-            const moduleDef = moduleConfig?.definition;
-            if (!moduleDef) {
-                continue;
-            }
+    logger.info(
+        `Registering module-level encryption for ${credentialFields.length} credential fields`
+    );
 
-            const credentialFields = moduleDef.encryption?.credentialFields;
-            if (!credentialFields || !Array.isArray(credentialFields) || credentialFields.length === 0) {
-                continue;
-            }
-
-            // Convert module credential fields to Credential model schema
-            // Module defines: ['api_key', 'custom_token']
-            // We convert to: ['data.api_key', 'data.custom_token']
-            const prefixedFields = credentialFields.map(field => {
-                // If field already has 'data.' prefix, use as-is
-                if (field.startsWith('data.')) {
-                    return field;
-                }
-                // Otherwise, add 'data.' prefix for Credential model
-                return `data.${field}`;
-            });
-
-            // Merge with existing Credential fields
-            if (!moduleSchemas.Credential) {
-                moduleSchemas.Credential = { fields: [] };
-            }
-            moduleSchemas.Credential.fields.push(...prefixedFields);
-        }
-    }
-
-    // Remove duplicates
-    if (moduleSchemas.Credential) {
-        moduleSchemas.Credential.fields = [...new Set(moduleSchemas.Credential.fields)];
-    }
-
-    // Register the combined module schemas
-    if (Object.keys(moduleSchemas).length > 0) {
-        logger.info(
-            `Registering module-level encryption for ${moduleSchemas.Credential?.fields.length || 0} credential fields`
-        );
-        registerCustomSchema(moduleSchemas);
-    }
+    registerCustomSchema(moduleSchema);
 }
 
 /**
@@ -263,6 +262,7 @@ module.exports = {
     registerCustomSchema,
     loadCustomEncryptionSchema,
     loadModuleEncryptionSchemas,
+    extractCredentialFieldsFromModules,
     validateCustomSchema,
-    resetCustomSchema, // For testing only
+    resetCustomSchema,
 };

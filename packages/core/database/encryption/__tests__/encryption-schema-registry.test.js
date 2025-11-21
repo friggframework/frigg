@@ -519,9 +519,14 @@ describe('encryption-schema-registry', () => {
             expect(() => loadModuleEncryptionSchemas(integrations)).not.toThrow();
         });
 
-        it('handles null/undefined integrations', () => {
-            expect(() => loadModuleEncryptionSchemas(null)).not.toThrow();
-            expect(() => loadModuleEncryptionSchemas(undefined)).not.toThrow();
+        it('throws error for null/undefined integrations', () => {
+            expect(() => loadModuleEncryptionSchemas(null)).toThrow('integrations parameter is required');
+            expect(() => loadModuleEncryptionSchemas(undefined)).toThrow('integrations parameter is required');
+        });
+
+        it('throws error for non-array integrations', () => {
+            expect(() => loadModuleEncryptionSchemas('not-an-array')).toThrow('integrations must be an array');
+            expect(() => loadModuleEncryptionSchemas({})).toThrow('integrations must be an array');
         });
 
         it('merges module schemas with existing custom schemas', () => {
