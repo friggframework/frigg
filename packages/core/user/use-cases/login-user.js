@@ -115,7 +115,7 @@ class LoginUser {
             return organizationUser;
         }
 
-        return null;
+        throw new Error('User configuration must require either individualUserRequired or organizationUserRequired');
     }
 }
 

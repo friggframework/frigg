@@ -8,9 +8,14 @@ const {
     updateOne,
     deleteOne,
 } = require('../../database/documentdb-utils');
-const { createTokenRepository } = require('../../token/repositories/token-repository-factory');
+const {
+    createTokenRepository,
+} = require('../../token/repositories/token-repository-factory');
 const { UserRepositoryInterface } = require('./user-repository-interface');
-const { DocumentDBEncryptionService } = require('../../database/documentdb-encryption-service');
+const { ClientSafeError } = require('../../errors');
+const {
+    DocumentDBEncryptionService,
+} = require('../../database/documentdb-encryption-service');
 
 /**
  * User repository for DocumentDB.
@@ -30,8 +35,11 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
     }
 
     async getSessionToken(token) {
-        const jsonToken = this.tokenRepository.getJSONTokenFromBase64BufferToken(token);
-        const sessionToken = await this.tokenRepository.validateAndGetToken(jsonToken);
+        const jsonToken =
+            this.tokenRepository.getJSONTokenFromBase64BufferToken(token);
+        const sessionToken = await this.tokenRepository.validateAndGetToken(
+            jsonToken
+        );
         return sessionToken;
     }
 
@@ -40,7 +48,10 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
             _id: toObjectId(userId),
             type: 'ORGANIZATION',
         });
-        const decrypted = await this.encryptionService.decryptFields('User', doc);
+        const decrypted = await this.encryptionService.decryptFields(
+            'User',
+            doc
+        );
         return this._mapUser(decrypted);
     }
 
@@ -49,7 +60,10 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
             _id: toObjectId(userId),
             type: 'INDIVIDUAL',
         });
-        const decrypted = await this.encryptionService.decryptFields('User', doc);
+        const decrypted = await this.encryptionService.decryptFields(
+            'User',
+            doc
+        );
         return this._mapUser(decrypted);
     }
 
@@ -59,7 +73,10 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
             rawToken,
             minutes
         );
-        return this.tokenRepository.createBase64BufferToken(createdToken, rawToken);
+        return this.tokenRepository.createBase64BufferToken(
+            createdToken,
+            rawToken
+        );
     }
 
     async createIndividualUser(params) {
@@ -84,7 +101,7 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
             params.hashword !== ''
         ) {
             if (typeof params.hashword !== 'string') {
-                throw new Error('Password must be a string');
+                throw new ClientSafeError('Password must be a string', 400);
             }
 
             if (params.hashword.startsWith('$2')) {
@@ -98,28 +115,41 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
         }
 
         // Encrypt sensitive fields before insert
-        const encryptedDocument = await this.encryptionService.encryptFields('User', document);
-        const insertedId = await insertOne(this.prisma, 'User', encryptedDocument);
+        const encryptedDocument = await this.encryptionService.encryptFields(
+            'User',
+            document
+        );
+        const insertedId = await insertOne(
+            this.prisma,
+            'User',
+            encryptedDocument
+        );
         const created = await findOne(this.prisma, 'User', { _id: insertedId });
 
         // Defensive check: verify document was found after insert
         if (!created) {
-            console.error('[UserRepositoryDocumentDB] User not found after insert', {
-                insertedId: fromObjectId(insertedId),
-                params: {
-                    username: params.username,
-                    appUserId: params.appUserId,
-                    email: params.email
+            console.error(
+                '[UserRepositoryDocumentDB] User not found after insert',
+                {
+                    insertedId: fromObjectId(insertedId),
+                    params: {
+                        username: params.username,
+                        appUserId: params.appUserId,
+                        email: params.email,
+                    },
                 }
-            });
+            );
             throw new Error(
                 'Failed to create individual user: Document not found after insert. ' +
-                'This indicates a database consistency issue.'
+                    'This indicates a database consistency issue.'
             );
         }
 
         // Decrypt sensitive fields after read
-        const decrypted = await this.encryptionService.decryptFields('User', created);
+        const decrypted = await this.encryptionService.decryptFields(
+            'User',
+            created
+        );
 
         return this._mapUser(decrypted);
     }
@@ -134,9 +164,42 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
             updatedAt: now,
         };
 
-        const insertedId = await insertOne(this.prisma, 'User', document);
+        // Encrypt sensitive fields before insert (consistency with individual user)
+        const encryptedDocument = await this.encryptionService.encryptFields(
+            'User',
+            document
+        );
+        const insertedId = await insertOne(
+            this.prisma,
+            'User',
+            encryptedDocument
+        );
         const created = await findOne(this.prisma, 'User', { _id: insertedId });
-        return this._mapUser(created);
+
+        // Defensive check: verify document was found after insert
+        if (!created) {
+            console.error(
+                '[UserRepositoryDocumentDB] Organization user not found after insert',
+                {
+                    insertedId: fromObjectId(insertedId),
+                    params: {
+                        appOrgId: params.appOrgId,
+                        name: params.name,
+                    },
+                }
+            );
+            throw new Error(
+                'Failed to create organization user: Document not found after insert. ' +
+                    'This indicates a database consistency issue.'
+            );
+        }
+
+        // Decrypt sensitive fields after read
+        const decrypted = await this.encryptionService.decryptFields(
+            'User',
+            created
+        );
+        return this._mapUser(decrypted);
     }
 
     async findIndividualUserByUsername(username) {
@@ -144,7 +207,10 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
             type: 'INDIVIDUAL',
             username,
         });
-        const decrypted = await this.encryptionService.decryptFields('User', doc);
+        const decrypted = await this.encryptionService.decryptFields(
+            'User',
+            doc
+        );
         return this._mapUser(decrypted);
     }
 
@@ -153,7 +219,10 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
             type: 'INDIVIDUAL',
             appUserId,
         });
-        const decrypted = await this.encryptionService.decryptFields('User', doc);
+        const decrypted = await this.encryptionService.decryptFields(
+            'User',
+            doc
+        );
         return this._mapUser(decrypted);
     }
 
@@ -162,13 +231,21 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
             type: 'ORGANIZATION',
             appOrgId,
         });
-        const decrypted = await this.encryptionService.decryptFields('User', doc);
+        const decrypted = await this.encryptionService.decryptFields(
+            'User',
+            doc
+        );
         return this._mapUser(decrypted);
     }
 
     async findUserById(userId) {
-        const doc = await findOne(this.prisma, 'User', { _id: toObjectId(userId) });
-        const decrypted = await this.encryptionService.decryptFields('User', doc);
+        const doc = await findOne(this.prisma, 'User', {
+            _id: toObjectId(userId),
+        });
+        const decrypted = await this.encryptionService.decryptFields(
+            'User',
+            doc
+        );
         return this._mapUser(decrypted);
     }
 
@@ -177,7 +254,10 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
             type: 'INDIVIDUAL',
             email,
         });
-        const decrypted = await this.encryptionService.decryptFields('User', doc);
+        const decrypted = await this.encryptionService.decryptFields(
+            'User',
+            doc
+        );
         return this._mapUser(decrypted);
     }
 
@@ -189,7 +269,10 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
         payload.updatedAt = new Date();
 
         // Encrypt sensitive fields before update
-        const encryptedPayload = await this.encryptionService.encryptFields('User', payload);
+        const encryptedPayload = await this.encryptionService.encryptFields(
+            'User',
+            payload
+        );
 
         await updateOne(
             this.prisma,
@@ -199,7 +282,26 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
         );
 
         const updated = await findOne(this.prisma, 'User', { _id: objectId });
-        const decrypted = await this.encryptionService.decryptFields('User', updated);
+
+        // Defensive check: verify document was found after update
+        if (!updated) {
+            console.error(
+                '[UserRepositoryDocumentDB] Individual user not found after update',
+                {
+                    userId: fromObjectId(objectId),
+                    updates,
+                }
+            );
+            throw new Error(
+                'Failed to update individual user: Document not found after update. ' +
+                    'This indicates a database consistency issue.'
+            );
+        }
+
+        const decrypted = await this.encryptionService.decryptFields(
+            'User',
+            updated
+        );
         return this._mapUser(decrypted);
     }
 
@@ -209,15 +311,38 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
 
         const payload = { ...updates, updatedAt: new Date() };
 
+        const encryptedPayload = await this.encryptionService.encryptFields(
+            'User',
+            payload
+        );
+
         await updateOne(
             this.prisma,
             'User',
             { _id: objectId, type: 'ORGANIZATION' },
-            { $set: payload }
+            { $set: encryptedPayload }
         );
 
         const updated = await findOne(this.prisma, 'User', { _id: objectId });
-        const decrypted = await this.encryptionService.decryptFields('User', updated);
+
+        if (!updated) {
+            console.error(
+                '[UserRepositoryDocumentDB] Organization user not found after update',
+                {
+                    userId: fromObjectId(objectId),
+                    updates,
+                }
+            );
+            throw new Error(
+                'Failed to update organization user: Document not found after update. ' +
+                    'This indicates a database consistency issue.'
+            );
+        }
+
+        const decrypted = await this.encryptionService.decryptFields(
+            'User',
+            updated
+        );
         return this._mapUser(decrypted);
     }
 
@@ -232,7 +357,9 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
 
     _mapUser(doc) {
         if (!doc) {
-            console.warn('[UserRepositoryDocumentDB] _mapUser received null/undefined document');
+            console.warn(
+                '[UserRepositoryDocumentDB] _mapUser received null/undefined document'
+            );
             return null;
         }
 
@@ -244,11 +371,13 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
             username: doc?.username ?? null,
             hashword: doc?.hashword ?? null,
             appUserId: doc?.appUserId ?? null,
-            organizationId: doc?.organizationId ? fromObjectId(doc.organizationId) : null,
+            organizationId: doc?.organizationId
+                ? fromObjectId(doc.organizationId)
+                : null,
             appOrgId: doc?.appOrgId ?? null,
             name: doc?.name ?? null,
-            createdAt: doc?.createdAt ? new Date(doc.createdAt) : undefined,
-            updatedAt: doc?.updatedAt ? new Date(doc.updatedAt) : undefined,
+            createdAt: this._parseDate(doc?.createdAt),
+            updatedAt: this._parseDate(doc?.updatedAt),
         };
     }
 
@@ -261,7 +390,7 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
             payload.hashword !== ''
         ) {
             if (typeof payload.hashword !== 'string') {
-                throw new Error('Password must be a string');
+                throw new ClientSafeError('Password must be a string', 400);
             }
 
             if (payload.hashword.startsWith('$2')) {
@@ -286,7 +415,18 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
 
         return payload;
     }
+
+    /**
+     * Parse date value safely, returning undefined for invalid dates
+     * @private
+     * @param {*} value - Date value from database
+     * @returns {Date|undefined} Valid Date object or undefined
+     */
+    _parseDate(value) {
+        if (!value) return undefined;
+        const date = new Date(value);
+        return isNaN(date.getTime()) ? undefined : date;
+    }
 }
 
 module.exports = { UserRepositoryDocumentDB };
-

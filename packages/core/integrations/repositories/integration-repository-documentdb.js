@@ -127,6 +127,17 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
         };
         const insertedId = await insertOne(this.prisma, 'Integration', document);
         const created = await findOne(this.prisma, 'Integration', { _id: insertedId });
+        if (!created) {
+            console.error('[IntegrationRepositoryDocumentDB] Integration not found after insert', {
+                insertedId: fromObjectId(insertedId),
+                userId,
+                config,
+            });
+            throw new Error(
+                'Failed to create integration: Document not found after insert. ' +
+                'This indicates a database consistency issue.'
+            );
+        }
         return this._mapIntegration(created);
     }
 
@@ -157,6 +168,16 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
             }
         );
         const updated = await findOne(this.prisma, 'Integration', { _id: objectId });
+        if (!updated) {
+            console.error('[IntegrationRepositoryDocumentDB] Integration not found after update', {
+                integrationId: fromObjectId(objectId),
+                config,
+            });
+            throw new Error(
+                'Failed to update integration: Document not found after update. ' +
+                'This indicates a database consistency issue.'
+            );
+        }
         return this._mapIntegration(updated);
     }
 

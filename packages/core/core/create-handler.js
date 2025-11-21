@@ -39,6 +39,18 @@ const createHandler = (optionByName = {}) => {
 
             // Don't leak implementation details to end users.
             if (isUserFacingResponse) {
+                // Allow client-safe errors to pass through with their actual message
+                if (error.isClientSafe === true) {
+                    const statusCode = error.statusCode || 400;
+                    return {
+                        statusCode,
+                        body: JSON.stringify({
+                            error: error.message,
+                        }),
+                    };
+                }
+
+                // Hide other errors with generic message
                 return {
                     statusCode: 500,
                     body: JSON.stringify({
