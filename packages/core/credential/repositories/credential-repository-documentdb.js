@@ -106,7 +106,7 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
             const updateDocument = {
                 userId: existing.userId,
                 externalId: existing.externalId,
-                authIsValid: authIsValid,
+                authIsValid: authIsValid !== undefined ? authIsValid : existing.authIsValid,
                 data: mergedData,
                 updatedAt: now,
             };
@@ -143,7 +143,7 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
         }
 
         const plainDocument = {
-            userId: identifiers.userId,
+            userId: toObjectId(identifiers.userId),
             externalId: identifiers.externalId,
             authIsValid: details.authIsValid,
             data: { ...oauthData },
@@ -245,7 +245,7 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
             if (idObj) filter._id = idObj;
         }
         if (identifiers.userId) {
-            filter.userId = identifiers.userId;
+            filter.userId = toObjectId(identifiers.userId);
         }
         if (identifiers.externalId !== undefined) {
             filter.externalId = identifiers.externalId;

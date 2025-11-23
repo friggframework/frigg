@@ -139,7 +139,7 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
                 data: {
                     userId: this._convertId(existing.userId),
                     externalId: existing.externalId,
-                    authIsValid: authIsValid,
+                    authIsValid: authIsValid !== undefined ? authIsValid : existing.authIsValid,
                     data: mergedData,
                 },
             });

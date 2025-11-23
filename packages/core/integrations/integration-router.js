@@ -613,7 +613,7 @@ function setEntityRoutes(router, authenticateUser, useCases) {
                     errors: [
                         {
                             title: 'Authentication Error',
-                            message: `There was an error with your ${module.getName()} Entity.  Please reconnect/re-authenticate, or reach out to Support for assistance.`,
+                            message: `There was an error with your Entity. Please reconnect/re-authenticate, or reach out to Support for assistance.`,
                             timestamp: Date.now(),
                         },
                     ],

@@ -121,7 +121,7 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
                 data: {
                     userId: existing.userId,
                     externalId: existing.externalId,
-                    authIsValid: authIsValid,
+                    authIsValid: authIsValid !== undefined ? authIsValid : existing.authIsValid,
                     data: mergedData,
                 },
             });
