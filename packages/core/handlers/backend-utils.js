@@ -71,8 +71,6 @@ const createModuleFactoryWithDefinitions = (
 };
 
 const loadIntegrationForWebhook = async (integrationId) => {
-    console.log(`[loadIntegrationForWebhook] Loading integration ${integrationId}`);
-
     const { loadAppDefinition } = require('./app-definition-loader');
     const { integrations: integrationClasses } = loadAppDefinition();
 
@@ -94,20 +92,15 @@ const loadIntegrationForWebhook = async (integrationId) => {
         integrationId
     );
 
-    console.log(`[loadIntegrationForWebhook] Found integration record - userId: ${integrationRecord?.userId}, status: ${integrationRecord?.status}`);
-
     const instance = await getIntegrationInstance.execute(
         integrationId,
         integrationRecord.userId
     );
 
-    console.log(`[loadIntegrationForWebhook] Instance created - has entities: ${!!instance.entities}, has config: ${!!instance.config}`);
-
     return instance;
 };
 
 const loadIntegrationForProcess = async (processId, integrationClass) => {
-    console.log(`[loadIntegrationForProcess] Loading integration for processId: ${processId}`);
 
     const { processRepository, integrationRepository, moduleRepository } =
         initializeRepositories();
@@ -132,15 +125,10 @@ const loadIntegrationForProcess = async (processId, integrationClass) => {
         throw new Error(`Process not found: ${processId}`);
     }
 
-    console.log(`[loadIntegrationForProcess] Found process - integrationId: ${process.integrationId}, userId: ${process.userId}`);
-
     const instance = await getIntegrationInstance.execute(
         process.integrationId,
         process.userId
     );
-
-    console.log(`[loadIntegrationForProcess] Instance created - has entities: ${!!instance.entities}, has config: ${!!instance.config}`);
-    console.log(`[loadIntegrationForProcess] Entity keys: ${Object.keys(instance.entities || {}).join(', ')}`);
 
     return instance;
 };
@@ -149,28 +137,21 @@ const createQueueWorker = (integrationClass) => {
     class QueueWorker extends Worker {
         async _run(params, context) {
             try {
-                console.log(`[QueueWorker] Event: ${params.event}, Data keys: ${Object.keys(params.data || {}).join(', ')}`);
-                console.log(`[QueueWorker] processId: ${params.data?.processId}, integrationId: ${params.data?.integrationId}`);
-
                 let integrationInstance;
 
                 // Prioritize processId first (for sync handler compatibility),
                 // then integrationId (for ANY event type that needs hydration),
                 // fallback to unhydrated instance
                 if (params.data?.processId) {
-                    console.log(`[QueueWorker] Hydrating via processId: ${params.data.processId}`);
                     integrationInstance = await loadIntegrationForProcess(
                         params.data.processId,
                         integrationClass
                     );
                 } else if (params.data?.integrationId) {
-                    console.log(`[QueueWorker] Hydrating via integrationId: ${params.data.integrationId}`);
                     integrationInstance = await loadIntegrationForWebhook(
                         params.data.integrationId
                     );
-                    console.log(`[QueueWorker] Hydration complete - userId: ${integrationInstance.userId}, config keys: ${Object.keys(integrationInstance.config || {}).join(', ')}`);
                 } else {
-                    console.log(`[QueueWorker] No processId or integrationId - creating unhydrated instance`);
                     // Instantiates a DRY integration class without database records.
                     // There will be cases where we need to use helpers that the api modules can export.
                     // Like for HubSpot, the answer is to do a reverse lookup for the integration by the entity external ID (HubSpot Portal ID),

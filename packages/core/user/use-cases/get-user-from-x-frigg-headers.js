@@ -28,14 +28,6 @@ class GetUserFromXFriggHeaders {
      * @throws {Boom} 400 Bad Request if neither ID is provided or if both IDs are provided but belong to different users.
      */
     async execute(appUserId, appOrgId) {
-        console.log('🔍 [GetUserFromXFriggHeaders] Input:', {
-            appUserId: appUserId || 'undefined',
-            appOrgId: appOrgId || 'undefined',
-            'userConfig.primary': this.userConfig.primary,
-            'userConfig.individualUserRequired': this.userConfig.individualUserRequired,
-            'userConfig.organizationUserRequired': this.userConfig.organizationUserRequired,
-        });
-
         // At least one header must be provided
         if (!appUserId && !appOrgId) {
             throw Boom.badRequest(
@@ -48,26 +40,17 @@ class GetUserFromXFriggHeaders {
         let organizationUserData = null;
 
         if (appUserId && this.userConfig.individualUserRequired !== false) {
-            console.log('🔍 [GetUserFromXFriggHeaders] Looking up individual user by appUserId:', appUserId);
             individualUserData =
                 await this.userRepository.findIndividualUserByAppUserId(
                     appUserId
                 );
-            console.log('🔍 [GetUserFromXFriggHeaders] Individual user found:', individualUserData ? 'Yes ✓' : 'No ✗');
         }
 
         if (appOrgId && this.userConfig.organizationUserRequired) {
-            console.log('🔍 [GetUserFromXFriggHeaders] Looking up organization user by appOrgId:', appOrgId);
             organizationUserData =
                 await this.userRepository.findOrganizationUserByAppOrgId(
                     appOrgId
                 );
-            console.log('🔍 [GetUserFromXFriggHeaders] Organization user found:', organizationUserData ? 'Yes ✓' : 'No ✗');
-        } else {
-            console.log('🔍 [GetUserFromXFriggHeaders] Skipping organization user lookup:', {
-                appOrgId: appOrgId || 'undefined',
-                organizationUserRequired: this.userConfig.organizationUserRequired,
-            });
         }
 
         // VALIDATION/AUTO-LINKING: If both IDs provided and both users exist, handle mismatch
@@ -93,10 +76,6 @@ class GetUserFromXFriggHeaders {
                 }
 
                 // Auto-link the users
-                console.log('🔍 [GetUserFromXFriggHeaders] Auto-linking disconnected users:', {
-                    individualUserId: individualUserData.id,
-                    organizationUserId: organizationUserData.id,
-                });
                 individualUserData = await this.userRepository.linkIndividualToOrganization(
                     individualUserData.id,
                     organizationUserData.id
@@ -110,7 +89,6 @@ class GetUserFromXFriggHeaders {
             appUserId &&
             this.userConfig.individualUserRequired !== false
         ) {
-            console.log('🔍 [GetUserFromXFriggHeaders] Creating individual user with appUserId:', appUserId);
             individualUserData =
                 await this.userRepository.createIndividualUser({
                     appUserId,
@@ -124,7 +102,6 @@ class GetUserFromXFriggHeaders {
             appOrgId &&
             this.userConfig.organizationUserRequired
         ) {
-            console.log('🔍 [GetUserFromXFriggHeaders] Creating organization user with appOrgId:', appOrgId);
             organizationUserData =
                 await this.userRepository.createOrganizationUser({
                     appOrgId,
@@ -132,24 +109,12 @@ class GetUserFromXFriggHeaders {
 
             // Link individual user to newly created org user if individual exists
             if (individualUserData && organizationUserData) {
-                console.log('🔍 [GetUserFromXFriggHeaders] Linking individual user to organization user:', {
-                    individualUserId: individualUserData.id,
-                    organizationUserId: organizationUserData.id,
-                });
                 individualUserData = await this.userRepository.linkIndividualToOrganization(
                     individualUserData.id,
                     organizationUserData.id
                 );
             }
         }
-
-        console.log('🔍 [GetUserFromXFriggHeaders] Creating User object:', {
-            hasIndividualUser: !!individualUserData,
-            hasOrganizationUser: !!organizationUserData,
-            individualUserId: individualUserData?.id?.toString(),
-            organizationUserId: organizationUserData?.id?.toString(),
-            primary: this.userConfig.primary,
-        });
 
         const user = new User(
             individualUserData,
@@ -160,11 +125,8 @@ class GetUserFromXFriggHeaders {
             this.userConfig.organizationUserRequired
         );
 
-        console.log('🔍 [GetUserFromXFriggHeaders] User.getId() will return:', user.getId());
         return user;
     }
 }
 
 module.exports = { GetUserFromXFriggHeaders };
-
-

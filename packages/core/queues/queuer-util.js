@@ -4,7 +4,6 @@ const { SQSClient, SendMessageCommand, SendMessageBatchCommand } = require('@aws
 const awsConfigOptions = () => {
     const config = {};
     if (process.env.IS_OFFLINE) {
-        console.log('Running in offline mode');
         config.credentials = {
             accessKeyId: 'test-aws-key',
             secretAccessKey: 'test-aws-secret',
@@ -21,7 +20,6 @@ const sqs = new SQSClient(awsConfigOptions());
 
 const QueuerUtil = {
     send: async (message, queueUrl) => {
-        console.log(`Enqueuing message to SQS queue ${queueUrl}`);
         const command = new SendMessageCommand({
             MessageBody: JSON.stringify(message),
             QueueUrl: queueUrl,
@@ -30,9 +28,6 @@ const QueuerUtil = {
     },
 
     batchSend: async (entries = [], queueUrl) => {
-        console.log(
-            `Enqueuing ${entries.length} entries on SQS to queue ${queueUrl}`
-        );
         const buffer = [];
         const batchSize = 10;
 
@@ -43,7 +38,6 @@ const QueuerUtil = {
             });
             // Sends 10, then purges the buffer
             if (buffer.length === batchSize) {
-                console.log('Buffer at 10, sending batch');
                 const command = new SendMessageBatchCommand({
                     Entries: buffer,
                     QueueUrl: queueUrl,
@@ -53,11 +47,9 @@ const QueuerUtil = {
                 buffer.splice(0, buffer.length);
             }
         }
-        console.log('Buffer at end, sending final batch');
 
         // If any remaining entries under 10 are left in the buffer, send and return
         if (buffer.length > 0) {
-            console.log(buffer);
             const command = new SendMessageBatchCommand({
                 Entries: buffer,
                 QueueUrl: queueUrl,
