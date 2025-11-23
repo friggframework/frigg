@@ -19,6 +19,11 @@ const CORE_ENCRYPTION_SCHEMA = {
             'data.access_token',
             'data.refresh_token',
             'data.id_token',
+            'data.api_key',
+            'data.apiKey',
+            'data.API_KEY_VALUE',
+            'data.password',
+            'data.client_secret',
         ],
     },
 
@@ -110,6 +115,74 @@ function registerCustomSchema(schema) {
 }
 
 /**
+ * Extracts credential field paths from module definitions
+ * @param {Array} moduleDefinitions - Array of module definition objects
+ * @returns {Array<string>} Array of field paths with data. prefix
+ */
+function extractCredentialFieldsFromModules(moduleDefinitions) {
+    const fields = [];
+
+    for (const moduleDef of moduleDefinitions) {
+        if (!moduleDef?.encryption?.credentialFields) {
+            continue;
+        }
+
+        const credentialFields = moduleDef.encryption.credentialFields;
+        if (!Array.isArray(credentialFields) || credentialFields.length === 0) {
+            continue;
+        }
+
+        for (const field of credentialFields) {
+            const prefixedField = field.startsWith('data.') ? field : `data.${field}`;
+            fields.push(prefixedField);
+        }
+    }
+
+    return [...new Set(fields)];
+}
+
+/**
+ * Loads and registers encryption schemas from API module definitions.
+ * Each module can declare credentialFields to encrypt in its encryption config.
+ *
+ * @param {Array} integrations - Array of integration classes with modules
+ */
+function loadModuleEncryptionSchemas(integrations) {
+    if (!integrations) {
+        throw new Error('integrations parameter is required');
+    }
+
+    if (!Array.isArray(integrations)) {
+        throw new Error('integrations must be an array');
+    }
+
+    if (integrations.length === 0) {
+        return;
+    }
+
+    const { getModulesDefinitionFromIntegrationClasses } = require('../integrations/utils/map-integration-dto');
+
+    const moduleDefinitions = getModulesDefinitionFromIntegrationClasses(integrations);
+    const credentialFields = extractCredentialFieldsFromModules(moduleDefinitions);
+
+    if (credentialFields.length === 0) {
+        return;
+    }
+
+    const moduleSchema = {
+        Credential: {
+            fields: credentialFields
+        }
+    };
+
+    logger.info(
+        `Registering module-level encryption for ${credentialFields.length} credential fields`
+    );
+
+    registerCustomSchema(moduleSchema);
+}
+
+/**
  * Loads and registers custom encryption schema from appDefinition.
  * Gracefully handles cases where appDefinition is not available.
  *
@@ -139,10 +212,16 @@ function loadCustomEncryptionSchema() {
             return; // No app definition found
         }
 
+        // Load app-level custom schema
         const customSchema = appDefinition.encryption?.schema;
-
         if (customSchema && Object.keys(customSchema).length > 0) {
             registerCustomSchema(customSchema);
+        }
+
+        // Load module-level encryption schemas from integrations
+        const integrations = appDefinition.integrations;
+        if (integrations && Array.isArray(integrations)) {
+            loadModuleEncryptionSchemas(integrations);
         }
     } catch (error) {
         // Silently ignore errors - custom schema is optional
@@ -182,6 +261,8 @@ module.exports = {
     getEncryptedModels,
     registerCustomSchema,
     loadCustomEncryptionSchema,
+    loadModuleEncryptionSchemas,
+    extractCredentialFieldsFromModules,
     validateCustomSchema,
-    resetCustomSchema, // For testing only
+    resetCustomSchema,
 };
