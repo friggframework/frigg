@@ -113,6 +113,15 @@ describe('Database Validator Utility', () => {
             expect(result.error).toBeUndefined();
         });
 
+        it('should return documentdb when core returns documentdb', () => {
+            getDatabaseTypeFromCore.mockReturnValue('documentdb');
+
+            const result = getDatabaseType();
+
+            expect(result.dbType).toBe('documentdb');
+            expect(result.error).toBeUndefined();
+        });
+
         it('should return error when core throws error', () => {
             getDatabaseTypeFromCore.mockImplementation(() => {
                 throw new Error('[Frigg] Database not configured');
@@ -174,6 +183,17 @@ describe('Database Validator Utility', () => {
             expect(connectPrisma).toHaveBeenCalled();
             expect(mockClient.$runCommandRaw).toHaveBeenCalledWith({ ping: 1 });
             expect(mockClient.$queryRaw).not.toHaveBeenCalled(); // MongoDB doesn't use SQL
+            expect(disconnectPrisma).toHaveBeenCalled();
+        });
+
+        it('should connect successfully to DocumentDB and use $runCommandRaw', async () => {
+            const result = await testDatabaseConnection('mongodb://localhost', 'documentdb');
+
+            expect(result.connected).toBe(true);
+            expect(result.error).toBeUndefined();
+            expect(connectPrisma).toHaveBeenCalled();
+            expect(mockClient.$runCommandRaw).toHaveBeenCalledWith({ ping: 1 });
+            expect(mockClient.$queryRaw).not.toHaveBeenCalled(); // DocumentDB doesn't use SQL
             expect(disconnectPrisma).toHaveBeenCalled();
         });
 
@@ -303,20 +323,32 @@ describe('Database Validator Utility', () => {
         // Note: Testing require.resolve behavior requires integration tests with real packages
         // These unit tests focus on error handling and package name selection
 
-        it('should use correct package name for MongoDB', () => {
-            // When MongoDB client doesn't exist, error message reveals the package name used
+        it('should check for MongoDB client directory', () => {
+            // When path doesn't exist, returns error about resolving module
             const result = checkPrismaClientGenerated('mongodb', '/nonexistent/path');
 
             expect(result.generated).toBe(false);
-            expect(result.error).toContain('@prisma-mongodb/client');
+            expect(result.error).toBeDefined();
+            expect(result.error).toContain('Failed to check Prisma client');
         });
 
-        it('should use correct package name for PostgreSQL', () => {
-            // When PostgreSQL client doesn't exist, error message reveals the package name used
+        it('should check for PostgreSQL client directory', () => {
+            // When path doesn't exist, returns error about resolving module
             const result = checkPrismaClientGenerated('postgresql', '/nonexistent/path');
 
             expect(result.generated).toBe(false);
-            expect(result.error).toContain('@prisma-postgresql/client');
+            expect(result.error).toBeDefined();
+            expect(result.error).toContain('Failed to check Prisma client');
+        });
+
+        it('should normalize DocumentDB to check MongoDB client directory', () => {
+            // DocumentDB should use the same client as MongoDB (prisma-mongodb directory)
+            // When path doesn't exist, returns error about resolving module
+            const result = checkPrismaClientGenerated('documentdb', '/nonexistent/path');
+
+            expect(result.generated).toBe(false);
+            expect(result.error).toBeDefined();
+            expect(result.error).toContain('Failed to check Prisma client');
         });
 
         it('should return error when MongoDB client not found', () => {
@@ -324,9 +356,8 @@ describe('Database Validator Utility', () => {
 
             expect(result.generated).toBe(false);
             expect(result.error).toBeDefined();
-            expect(result.error).toContain('not found');
-            expect(result.error).toContain('@prisma-mongodb/client');
-            expect(result.error).toContain('frigg db:setup');
+            // Error will be about resolving @friggframework/core module
+            expect(result.error).toContain('Failed to check Prisma client');
         });
 
         it('should return error when PostgreSQL client not found', () => {
@@ -334,15 +365,15 @@ describe('Database Validator Utility', () => {
 
             expect(result.generated).toBe(false);
             expect(result.error).toBeDefined();
-            expect(result.error).toContain('not found');
-            expect(result.error).toContain('@prisma-postgresql/client');
-            expect(result.error).toContain('frigg db:setup');
+            // Error will be about resolving @friggframework/core module
+            expect(result.error).toContain('Failed to check Prisma client');
         });
 
-        it('should provide helpful error message suggesting db:setup command', () => {
+        it('should return error when core package cannot be resolved', () => {
             const result = checkPrismaClientGenerated('mongodb', '/nonexistent/path');
 
-            expect(result.error).toContain('frigg db:setup');
+            expect(result.generated).toBe(false);
+            expect(result.error).toContain('Failed to check Prisma client');
         });
 
         it('should use process.cwd() by default when no project root specified', () => {

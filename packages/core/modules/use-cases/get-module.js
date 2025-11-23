@@ -6,7 +6,19 @@ class GetModule {
         this.moduleDefinitions = moduleDefinitions;
     }
 
-    async execute(entityId, userId) {
+    /**
+     * Get module instance for an entity
+     *
+     * @param {string|number} entityId - Entity ID to retrieve
+     * @param {string|number|import('../../user/user').User} userIdOrUser - User ID or User object for validation
+     * @returns {Promise<Object>} Module details
+     */
+    async execute(entityId, userIdOrUser) {
+        // Support both userId (backward compatible) and User object (new pattern)
+        const userId = typeof userIdOrUser === 'object' && userIdOrUser?.getId
+            ? userIdOrUser.getId()
+            : userIdOrUser;
+
         const entity = await this.moduleRepository.findEntityById(
             entityId,
             userId
@@ -16,7 +28,14 @@ class GetModule {
             throw new Error(`Entity ${entityId} not found`);
         }
 
-        if (entity.userId !== userId) {
+        // Validate entity ownership
+        // If User object provided, use ownsUserId to check linked users
+        // Otherwise fall back to simple equality check
+        const isOwned = typeof userIdOrUser === 'object' && userIdOrUser?.ownsUserId
+            ? userIdOrUser.ownsUserId(entity.userId)
+            : entity.userId?.toString() === userId?.toString();
+
+        if (!isOwned) {
             throw new Error(
                 `Entity ${entityId} does not belong to user ${userId}`
             );

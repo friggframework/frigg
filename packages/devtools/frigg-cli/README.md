@@ -298,37 +298,36 @@ frigg db:setup --generate-only
 ```
 
 **What it does:**
-1. Detects database type from DATABASE_URL or option
-2. Validates DATABASE_URL format
-3. Generates Prisma client for the detected database type
-4. Tests database connection
-5. Pushes Prisma schema to database (creates tables/collections)
-6. Runs any pending data migrations
+1. Detects database type (MongoDB, AWS DocumentDB, or PostgreSQL) from the app definition and `DATABASE_URL`
+2. Validates that `DATABASE_URL` exists and is not empty
+3. Generates the correct Prisma client (DocumentDB reuses the MongoDB client)
+4. Checks Prisma migration state for the selected database
+5. Runs `prisma migrate` for PostgreSQL or `prisma db push` for MongoDB/DocumentDB
+6. Prints next steps (database connectivity health checks now happen during `frigg start`)
 
 **Options:**
-- `--mongodb` - Force MongoDB configuration
+- `--mongodb` - Force MongoDB-compatible configuration (also applies to AWS DocumentDB)
 - `--postgresql` - Force PostgreSQL configuration
 - `--generate-only` - Only generate Prisma client, don't push schema
-- `--skip-connection-test` - Skip database connection validation
+- `--verbose` - Show detailed progress and Prisma output
 
-**Example Output:**
+**Example Output (MongoDB/DocumentDB):**
 ```
 🗄️  Setting up database...
 ✓ DATABASE_URL found
-✓ Database type detected: mongodb
+✓ Database type detected: AWS DocumentDB (MongoDB-compatible)
 ✓ Generating Prisma client for mongodb...
 ✓ Prisma client generated successfully
-✓ Testing database connection...
-✓ Connection successful
 ✓ Pushing schema to database...
 ✓ Database schema synchronized
 
 Database setup complete!
 ```
 
+> **AWS DocumentDB notes:** Use a MongoDB-style connection string that includes `tls=true`, `replicaSet=rs0`, and `retryWrites=false`. The CLI automatically treats `database.documentDB.enable` as MongoDB-compatible during setup.
+
 **Error Handling:**
-- Validates DATABASE_URL format for each database type
-- Tests connection before attempting schema push
+- Validates `DATABASE_URL` format for each database type
 - Provides helpful error messages for:
   - Connection timeout
   - Invalid credentials

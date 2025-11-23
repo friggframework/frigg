@@ -38,9 +38,7 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
         const data = credential.data || {};
 
         return {
-            _id: credential.id,
             id: credential.id,
-            user: credential.userId,
             userId: credential.userId,
             externalId: credential.externalId,
             authIsValid: credential.authIsValid,
@@ -80,7 +78,6 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
             return { acknowledged: true, deletedCount: 1 };
         } catch (error) {
             if (error.code === 'P2025') {
-                // Record not found
                 return { acknowledged: true, deletedCount: 0 };
             }
             throw error;
@@ -99,49 +96,32 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
         if (!identifiers)
             throw new Error('identifiers required to upsert credential');
 
-        if (!identifiers.user && !identifiers.userId) {
-            throw new Error('user or userId required in identifiers');
+        if (!identifiers.userId) {
+            throw new Error('userId required in identifiers');
         }
         if (!identifiers.externalId) {
             throw new Error(
                 'externalId required in identifiers to prevent credential collision. ' +
-                'When multiple credentials exist for the same user, both userId and externalId ' +
-                'are needed to uniquely identify which credential to update.'
+                    'When multiple credentials exist for the same user, both userId and externalId ' +
+                    'are needed to uniquely identify which credential to update.'
             );
         }
 
-        // Build where clause from identifiers
         const where = this._convertIdentifiersToWhere(identifiers);
 
-        // Separate schema fields from dynamic OAuth data
-        const {
-            user,
-            userId,
-            externalId,
-            authIsValid,
-            
-            ...oauthData
-        } = details;
+        const { authIsValid, ...oauthData } = details;
 
-        // Find existing credential
         const existing = await this.prisma.credential.findFirst({ where });
 
         if (existing) {
-            // Update existing - merge OAuth data into existing data JSON
             const mergedData = { ...(existing.data || {}), ...oauthData };
 
             const updated = await this.prisma.credential.update({
                 where: { id: existing.id },
                 data: {
-                    userId: userId || user || existing.userId,
-                    externalId:
-                        externalId !== undefined
-                            ? externalId
-                            : existing.externalId,
-                    authIsValid:
-                        authIsValid !== undefined
-                            ? authIsValid
-                            : existing.authIsValid,
+                    userId: existing.userId,
+                    externalId: existing.externalId,
+                    authIsValid: authIsValid !== undefined ? authIsValid : existing.authIsValid,
                     data: mergedData,
                 },
             });
@@ -155,13 +135,11 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
             };
         }
 
-        // Create new credential
         const created = await this.prisma.credential.create({
             data: {
-                userId: userId || user,
-                externalId,
+                userId: identifiers.userId,
+                externalId: identifiers.externalId,
                 authIsValid: authIsValid,
-                
                 data: oauthData,
             },
         });
@@ -205,7 +183,6 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
             authIsValid: credential.authIsValid,
             access_token: data.access_token,
             refresh_token: data.refresh_token,
-            domain: data.domain,
             ...data,
         };
     }
@@ -219,7 +196,6 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
      * @returns {Promise<Object|null>} Updated credential object or null if not found
      */
     async updateCredential(credentialId, updates) {
-        // Get existing credential to merge OAuth data
         const existing = await this.prisma.credential.findUnique({
             where: { id: credentialId },
         });
@@ -228,27 +204,16 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
             return null;
         }
 
-        // Separate schema fields from OAuth data
-        const {
-            user,
-            userId,
-            externalId,
-            authIsValid,
-            
-            ...oauthData
-        } = updates;
+        const { authIsValid, ...oauthData } = updates;
 
-        // Merge OAuth data with existing
         const mergedData = { ...(existing.data || {}), ...oauthData };
 
         const updated = await this.prisma.credential.update({
             where: { id: credentialId },
             data: {
-                userId: userId || user || existing.userId,
-                externalId:
-                    externalId !== undefined ? externalId : existing.externalId,
-                authIsValid:
-                    authIsValid !== undefined ? authIsValid : existing.authIsValid,
+                userId: existing.userId,
+                externalId: existing.externalId,
+                authIsValid: authIsValid,
                 data: mergedData,
             },
         });
@@ -262,7 +227,6 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
             authIsValid: updated.authIsValid,
             access_token: data.access_token,
             refresh_token: data.refresh_token,
-            domain: data.domain,
             ...data,
         };
     }
@@ -278,7 +242,6 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
 
         if (identifiers._id) where.id = identifiers._id;
         if (identifiers.id) where.id = identifiers.id;
-        if (identifiers.user) where.userId = identifiers.user;
         if (identifiers.userId) where.userId = identifiers.userId;
         if (identifiers.externalId) where.externalId = identifiers.externalId;
 
@@ -296,7 +259,6 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
 
         if (filter.credentialId) where.id = filter.credentialId;
         if (filter.id) where.id = filter.id;
-        if (filter.user) where.userId = filter.user;
         if (filter.userId) where.userId = filter.userId;
         if (filter.externalId) where.externalId = filter.externalId;
 

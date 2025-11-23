@@ -4,6 +4,7 @@ const {
     createTokenRepository,
 } = require('../../token/repositories/token-repository-factory');
 const { UserRepositoryInterface } = require('./user-repository-interface');
+const { ClientSafeError } = require('../../errors');
 
 /**
  * MongoDB User Repository Adapter
@@ -113,7 +114,7 @@ class UserRepositoryMongo extends UserRepositoryInterface {
             params.hashword !== ''
         ) {
             if (typeof params.hashword !== 'string') {
-                throw new Error('Password must be a string');
+                throw new ClientSafeError('Password must be a string', 400);
             }
 
             // Prevent double-hashing: bcrypt hashes start with $2a$ or $2b$
@@ -235,7 +236,7 @@ class UserRepositoryMongo extends UserRepositoryInterface {
             data.hashword !== ''
         ) {
             if (typeof data.hashword !== 'string') {
-                throw new Error('Password must be a string');
+                throw new ClientSafeError('Password must be a string', 400);
             }
 
             // Prevent double-hashing: bcrypt hashes start with $2a$ or $2b$
@@ -288,108 +289,19 @@ class UserRepositoryMongo extends UserRepositoryInterface {
     }
 
     /**
-     * Find all users with pagination
-     * @param {Object} options - Query options
-     * @param {number} [options.skip] - Number of records to skip
-     * @param {number} [options.limit] - Maximum number of records to return
-     * @param {Object} [options.sort] - Sort criteria (e.g., { createdAt: -1 })
-     * @param {Array<string>} [options.excludeFields] - Fields to exclude (not used in Prisma, kept for interface compatibility)
-     * @returns {Promise<Array<Object>>} Array of user objects with string IDs
+     * Link an individual user to an organization user
+     * @param {string} individualUserId - Individual user ID (MongoDB ObjectId string)
+     * @param {string} organizationUserId - Organization user ID (MongoDB ObjectId string)
+     * @returns {Promise<Object>} Updated individual user object
      */
-    async findAllUsers(options = {}) {
-        const { skip = 0, limit = 50, sort = { createdAt: -1 } } = options;
-
-        // Convert MongoDB-style sort to Prisma orderBy format
-        const orderBy = Object.entries(sort).map(([field, direction]) => ({
-            [field]: direction === -1 ? 'desc' : 'asc',
-        }));
-
-        return await this.prisma.user.findMany({
-            skip,
-            take: limit,
-            orderBy,
-            select: {
-                id: true,
-                type: true,
-                email: true,
-                username: true,
-                appUserId: true,
-                appOrgId: true,
-                name: true,
-                organizationId: true,
-                createdAt: true,
-                updatedAt: true,
-                // Exclude hashword
-            },
-        });
-    }
-
-    /**
-     * Get total user count
-     * @returns {Promise<number>} Total number of users
-     */
-    async countUsers() {
-        return await this.prisma.user.count();
-    }
-
-    /**
-     * Search users by username or email
-     * @param {Object} options - Search options
-     * @param {string} options.query - Search query string
-     * @param {number} [options.skip] - Number of records to skip
-     * @param {number} [options.limit] - Maximum number of records to return
-     * @param {Object} [options.sort] - Sort criteria (e.g., { createdAt: -1 })
-     * @param {Array<string>} [options.excludeFields] - Fields to exclude (not used in Prisma, kept for interface compatibility)
-     * @returns {Promise<Array<Object>>} Array of matching user objects with string IDs
-     */
-    async searchUsers(options = {}) {
-        const { query, skip = 0, limit = 50, sort = { createdAt: -1 } } = options;
-
-        // Convert MongoDB-style sort to Prisma orderBy format
-        const orderBy = Object.entries(sort).map(([field, direction]) => ({
-            [field]: direction === -1 ? 'desc' : 'asc',
-        }));
-
-        return await this.prisma.user.findMany({
+    async linkIndividualToOrganization(individualUserId, organizationUserId) {
+        return await this.prisma.user.update({
             where: {
-                OR: [
-                    { username: { contains: query, mode: 'insensitive' } },
-                    { email: { contains: query, mode: 'insensitive' } },
-                    { name: { contains: query, mode: 'insensitive' } },
-                ],
+                id: individualUserId,
+                type: 'INDIVIDUAL',
             },
-            skip,
-            take: limit,
-            orderBy,
-            select: {
-                id: true,
-                type: true,
-                email: true,
-                username: true,
-                appUserId: true,
-                appOrgId: true,
-                name: true,
-                organizationId: true,
-                createdAt: true,
-                updatedAt: true,
-                // Exclude hashword
-            },
-        });
-    }
-
-    /**
-     * Count users matching search query
-     * @param {string} query - Search query string
-     * @returns {Promise<number>} Number of matching users
-     */
-    async countUsersBySearchQuery(query) {
-        return await this.prisma.user.count({
-            where: {
-                OR: [
-                    { username: { contains: query, mode: 'insensitive' } },
-                    { email: { contains: query, mode: 'insensitive' } },
-                    { name: { contains: query, mode: 'insensitive' } },
-                ],
+            data: {
+                organizationId: organizationUserId,
             },
         });
     }

@@ -38,7 +38,7 @@ function mapErrorToResponse(error) {
     };
 }
 
-function createIntegrationCommands({ integrationClass } = {}) {
+function createIntegrationCommands({ integrationClass }) {
     if (!integrationClass) {
         throw new Error('integrationClass is required');
     }

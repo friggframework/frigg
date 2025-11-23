@@ -4,6 +4,9 @@ const {
 const {
     WebsocketConnectionRepositoryPostgres,
 } = require('./websocket-connection-repository-postgres');
+const {
+    WebsocketConnectionRepositoryDocumentDB,
+} = require('./websocket-connection-repository-documentdb');
 const config = require('../../database/config');
 
 /**
@@ -22,9 +25,12 @@ function createWebsocketConnectionRepository() {
         case 'postgresql':
             return new WebsocketConnectionRepositoryPostgres();
 
+        case 'documentdb':
+            return new WebsocketConnectionRepositoryDocumentDB();
+
         default:
             throw new Error(
-                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'postgresql'`
+                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql'`
             );
     }
 }
@@ -34,4 +40,5 @@ module.exports = {
     // Export adapters for direct testing
     WebsocketConnectionRepositoryMongo,
     WebsocketConnectionRepositoryPostgres,
+    WebsocketConnectionRepositoryDocumentDB,
 };

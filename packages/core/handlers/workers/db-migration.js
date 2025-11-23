@@ -8,8 +8,8 @@
  * ensuring consistency with the `frigg db:setup` command.
  *
  * Environment Variables Required:
- * - DATABASE_URL: PostgreSQL connection string (automatically set from Secrets Manager)
- * - DB_TYPE: Database type ('postgresql' or 'mongodb')
+ * - DATABASE_URL: Database connection string (automatically set from Secrets Manager)
+ * - DB_TYPE: Database type ('postgresql', 'mongodb', or 'documentdb')
  * - STAGE: Deployment stage (determines migration command: 'dev' or 'deploy')
  *
  * Invocation:
@@ -103,31 +103,31 @@ function sanitizeDatabaseUrl(url) {
 function extractMigrationParams(event) {
     let migrationId = null;
     let stage = null;
-
-    // Migration infrastructure is PostgreSQL-only, so hardcode dbType
-    const dbType = 'postgresql';
+    let dbType = process.env.DB_TYPE || 'postgresql';
 
     // Check if this is an SQS event
     if (event.Records && event.Records.length > 0) {
         // SQS event - extract from message body
         const message = JSON.parse(event.Records[0].body);
         migrationId = message.migrationId;
-        stage = message.stage;
+        stage = message.stage || process.env.STAGE || 'production';
+        dbType = message.dbType || dbType;
 
         console.log('SQS event detected');
         console.log(`  Migration ID: ${migrationId}`);
-        console.log(`  DB Type: ${dbType} (hardcoded - PostgreSQL-only)`);
+        console.log(`  DB Type: ${dbType}`);
         console.log(`  Stage: ${stage}`);
     } else {
         // Direct invocation - use event properties or environment variables
         migrationId = event.migrationId || null;
         stage = event.stage || process.env.STAGE || 'production';
+        dbType = event.dbType || dbType;
 
         console.log('Direct invocation detected');
         if (migrationId) {
             console.log(`  Migration ID: ${migrationId}`);
         }
-        console.log(`  DB Type: ${dbType} (hardcoded - PostgreSQL-only)`);
+        console.log(`  DB Type: ${dbType}`);
         console.log(`  Stage: ${stage}`);
     }
 

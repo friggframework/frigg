@@ -290,5 +290,32 @@ describe('MigrationBuilder', () => {
             expect(builder.getName()).toBe('MigrationBuilder');
         });
     });
+
+    describe('usePrismaLayer configuration', () => {
+        const baseAppDefinition = {
+            database: {
+                postgres: { enable: true },
+            },
+        };
+
+        it('includes Prisma layer by default', async () => {
+            const result = await builder.build(baseAppDefinition, {});
+            expect(result.functions.dbMigrationWorker.layers).toEqual([{ Ref: 'PrismaLambdaLayer' }]);
+        });
+
+        it('omits Prisma layer when disabled', async () => {
+            const appDef = { ...baseAppDefinition, usePrismaLambdaLayer: false };
+            const result = await builder.build(appDef, {});
+            expect(result.functions.dbMigrationWorker.layers).toBeUndefined();
+        });
+
+        it('bundles Prisma runtime when layer disabled', async () => {
+            const appDef = { ...baseAppDefinition, usePrismaLambdaLayer: false };
+            const result = await builder.build(appDef, {});
+            expect(result.functions.dbMigrationWorker.package.exclude).not.toEqual(
+                expect.arrayContaining(['node_modules/@prisma/client/**'])
+            );
+        });
+    });
 });
 

@@ -270,10 +270,67 @@ describe('@friggframework/schemas', () => {
                 name: "123-invalid", // Invalid name pattern
                 version: "invalid-version" // Invalid version pattern
             };
-            
+
             const result = validateIntegrationDefinition(integrationDef);
             expect(result.valid).toBe(false);
             expect(result.errors).toBeTruthy();
+        });
+
+        test('should validate integration definition with modules', () => {
+            const integrationDef = {
+                name: "attio",
+                version: "1.0.0",
+                hasUserConfig: true,
+                webhooks: {
+                    enabled: true
+                },
+                display: {
+                    label: "Attio",
+                    description: "Modern CRM platform integration",
+                    category: "CRM"
+                },
+                modules: {
+                    attio: {
+                        definition: {
+                            moduleName: "attio",
+                            getName: { type: "function" }
+                        }
+                    },
+                    quo: {
+                        definition: {
+                            moduleName: "quo-attio",
+                            getName: { type: "function" }
+                        }
+                    }
+                },
+                routes: [
+                    {
+                        path: "/attio/objects",
+                        method: "GET",
+                        event: "LIST_ATTIO_OBJECTS"
+                    }
+                ]
+            };
+
+            const result = validateIntegrationDefinition(integrationDef);
+            expect(result.valid).toBe(true);
+        });
+
+        test('should reject modules without definition property', () => {
+            const integrationDef = {
+                name: "test",
+                version: "1.0.0",
+                modules: {
+                    attio: {
+                        // Missing required 'definition' property
+                        moduleName: "attio"
+                    }
+                }
+            };
+
+            const result = validateIntegrationDefinition(integrationDef);
+            expect(result.valid).toBe(false);
+            expect(formatErrors(result.errors)).toContain('definition');
         });
     });
 

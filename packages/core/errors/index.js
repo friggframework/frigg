@@ -5,6 +5,7 @@ const {
     RequiredPropertyError,
     ParameterTypeError,
 } = require('./validation-errors');
+const { ClientSafeError } = require('./client-safe-error');
 
 module.exports = {
     BaseError,
@@ -12,4 +13,5 @@ module.exports = {
     HaltError,
     RequiredPropertyError,
     ParameterTypeError,
+    ClientSafeError,
 };

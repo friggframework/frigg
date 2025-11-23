@@ -156,10 +156,101 @@ describe('GetUserFromXFriggHeaders', () => {
                 appOrgId: 'new-app-org',
             });
         });
+
+        it('should auto-create organization user when individual exists but org user missing', async () => {
+            // This is the critical scenario: primary is 'organization', both users are required,
+            // individual user exists, but org user needs to be created
+            mockUserConfig.primary = 'organization';
+            mockUserConfig.organizationUserRequired = true;
+            mockUserConfig.individualUserRequired = true;
+
+            const mockIndividualUser = {
+                id: 'user-123',
+                appUserId: 'app-user-456',
+            };
+
+            mockUserRepository.findIndividualUserByAppUserId.mockResolvedValue(
+                mockIndividualUser
+            );
+            mockUserRepository.findOrganizationUserByAppOrgId.mockResolvedValue(
+                null
+            );
+
+            const mockCreatedOrgUser = {
+                id: 'org-new',
+                appOrgId: 'app-org-789',
+            };
+
+            mockUserRepository.createOrganizationUser.mockResolvedValue(
+                mockCreatedOrgUser
+            );
+            mockUserRepository.linkIndividualToOrganization = jest.fn().mockResolvedValue({
+                ...mockIndividualUser,
+                organizationUser: 'org-new',
+            });
+
+            const result = await getUserFromXFriggHeaders.execute(
+                'app-user-456',
+                'app-org-789'
+            );
+
+            expect(result).toBeInstanceOf(User);
+            expect(mockUserRepository.createOrganizationUser).toHaveBeenCalledWith({
+                appOrgId: 'app-org-789',
+            });
+            // Should link the individual user to the newly created org user
+            expect(mockUserRepository.linkIndividualToOrganization).toHaveBeenCalledWith(
+                'user-123',
+                'org-new'
+            );
+            expect(result.getId()).toBeDefined();
+            expect(result.getId()).not.toBeUndefined();
+            // When primary is 'organization', getId() should return the org user's ID
+            expect(result.getId()).toBe('org-new');
+        });
     });
 
     describe('User ID Conflict Detection', () => {
-        it('should throw 400 error when both IDs provided but belong to different users', async () => {
+        it('should auto-link users when both exist but are disconnected (default behavior)', async () => {
+            const mockIndividualUser = {
+                id: 'user-123',
+                appUserId: 'app-user-456',
+                organizationUser: 'org-999', // Different org (or null)
+            };
+
+            const mockOrgUser = {
+                id: 'org-888', // Different ID from individual's org
+                appOrgId: 'app-org-789',
+            };
+
+            mockUserConfig.organizationUserRequired = true;
+            // strictUserValidation not set, defaults to false
+
+            mockUserRepository.findIndividualUserByAppUserId.mockResolvedValue(
+                mockIndividualUser
+            );
+            mockUserRepository.findOrganizationUserByAppOrgId.mockResolvedValue(
+                mockOrgUser
+            );
+            mockUserRepository.linkIndividualToOrganization = jest.fn().mockResolvedValue({
+                ...mockIndividualUser,
+                organizationUser: 'org-888',
+            });
+
+            const result = await getUserFromXFriggHeaders.execute(
+                'app-user-456',
+                'app-org-789'
+            );
+
+            expect(result).toBeInstanceOf(User);
+            // Should auto-link the disconnected users
+            expect(mockUserRepository.linkIndividualToOrganization).toHaveBeenCalledWith(
+                'user-123',
+                'org-888'
+            );
+        });
+
+        it('should throw 400 error when strictUserValidation=true and users are disconnected', async () => {
             const mockIndividualUser = {
                 id: 'user-123',
                 appUserId: 'app-user-456',
@@ -172,6 +263,7 @@ describe('GetUserFromXFriggHeaders', () => {
             };
 
             mockUserConfig.organizationUserRequired = true;
+            mockUserConfig.strictUserValidation = true; // Enable strict mode
 
             mockUserRepository.findIndividualUserByAppUserId.mockResolvedValue(
                 mockIndividualUser
@@ -317,6 +409,11 @@ describe('GetUserFromXFriggHeaders', () => {
                 appUserId: 'app-user-456',
             };
 
+            const mockCreatedOrgUser = {
+                id: 'org-new',
+                appOrgId: 'app-org-789',
+            };
+
             mockUserConfig.organizationUserRequired = true;
 
             mockUserRepository.findIndividualUserByAppUserId.mockResolvedValue(
@@ -325,6 +422,13 @@ describe('GetUserFromXFriggHeaders', () => {
             mockUserRepository.findOrganizationUserByAppOrgId.mockResolvedValue(
                 null
             );
+            mockUserRepository.createOrganizationUser.mockResolvedValue(
+                mockCreatedOrgUser
+            );
+            mockUserRepository.linkIndividualToOrganization = jest.fn().mockResolvedValue({
+                ...mockIndividualUser,
+                organizationUser: 'org-new',
+            });
 
             const result = await getUserFromXFriggHeaders.execute(
                 'app-user-456',
@@ -333,6 +437,12 @@ describe('GetUserFromXFriggHeaders', () => {
 
             expect(result).toBeInstanceOf(User);
             // Should not throw conflict error when only one user found
+            // Should auto-create org user and link it
+            expect(mockUserRepository.createOrganizationUser).toHaveBeenCalled();
+            expect(mockUserRepository.linkIndividualToOrganization).toHaveBeenCalledWith(
+                'user-123',
+                'org-new'
+            );
         });
 
         it('should handle empty string IDs as falsy', async () => {

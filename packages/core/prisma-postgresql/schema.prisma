@@ -50,9 +50,7 @@ model User {
   integrations Integration[]
   processes    Process[]
 
-  @@unique([email])
-  @@unique([username])
-  @@unique([appOrgId])
+  @@unique([username, appUserId])
   @@index([type])
   @@index([appUserId])
 }
