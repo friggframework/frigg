@@ -427,6 +427,26 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
         const date = new Date(value);
         return isNaN(date.getTime()) ? undefined : date;
     }
+
+    /**
+     * Link an individual user to an organization user
+     * @param {string} individualUserId - Individual user ID (MongoDB ObjectId string)
+     * @param {string} organizationUserId - Organization user ID (MongoDB ObjectId string)
+     * @returns {Promise<Object>} Updated individual user object
+     */
+    async linkIndividualToOrganization(individualUserId, organizationUserId) {
+        const doc = await updateOne(
+            this.prisma,
+            'User',
+            { _id: toObjectId(individualUserId), type: 'INDIVIDUAL' },
+            { $set: { organizationId: toObjectId(organizationUserId) } }
+        );
+        const decrypted = await this.encryptionService.decryptFields(
+            'User',
+            doc
+        );
+        return this._mapUser(decrypted);
+    }
 }
 
 module.exports = { UserRepositoryDocumentDB };

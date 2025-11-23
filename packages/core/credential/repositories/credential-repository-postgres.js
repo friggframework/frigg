@@ -111,7 +111,8 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
         if (!identifiers)
             throw new Error('identifiers required to upsert credential');
 
-        if (!identifiers.userId) {
+        // Support both userId (preferred) and user (legacy) for backward compatibility
+        if (!identifiers.userId && !identifiers.user) {
             throw new Error('userId required in identifiers');
         }
         if (!identifiers.externalId) {
@@ -138,7 +139,7 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
                 data: {
                     userId: this._convertId(existing.userId),
                     externalId: existing.externalId,
-                    authIsValid: authIsValid,
+                    authIsValid: authIsValid !== undefined ? authIsValid : existing.authIsValid,
                     data: mergedData,
                 },
             });
@@ -154,7 +155,8 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
 
         const created = await this.prisma.credential.create({
             data: {
-                userId: this._convertId(identifiers.userId),
+                // Use userId from where clause (supports both userId and user fields)
+                userId: where.userId,
                 externalId,
                 authIsValid: authIsValid,
                 data: oauthData,
@@ -257,8 +259,11 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
         const where = {};
 
         if (identifiers.id) where.id = this._convertId(identifiers.id);
+        // Support both userId (preferred) and user (legacy) for backward compatibility
         if (identifiers.userId)
             where.userId = this._convertId(identifiers.userId);
+        else if (identifiers.user)
+            where.userId = this._convertId(identifiers.user);
         if (identifiers.externalId) where.externalId = identifiers.externalId;
 
         return where;

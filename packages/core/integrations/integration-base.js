@@ -203,22 +203,53 @@ class IntegrationBase {
 
     /**
      * Returns the modules as object with keys as module names.
+     * Uses the keys from Definition.modules to attach modules correctly.
+     * 
+     * Example:
+     *   Definition.modules = { attio: {...}, quo: { definition: { getName: () => 'quo-attio' } } }
+     *   Module with getName()='quo-attio' gets attached as this.quo (not this['quo-attio'])
+     * 
      * @private
      * @param {Array} integrationModules - Array of module instances
      * @returns {Object} The modules object
      */
     _appendModules(integrationModules) {
         const modules = {};
+
+        // Build reverse mapping: definition.getName() → referenceKey
+        // e.g., 'quo-attio' → 'quo', 'attio' → 'attio'
+        const moduleNameToKey = {};
+        if (this.constructor.Definition?.modules) {
+            for (const [key, moduleConfig] of Object.entries(this.constructor.Definition.modules)) {
+                const definition = moduleConfig.definition;
+                if (definition) {
+                    // Use getName() if available, fallback to moduleName
+                    const definitionName = typeof definition.getName === 'function'
+                        ? definition.getName()
+                        : definition.moduleName;
+                    if (definitionName) {
+                        moduleNameToKey[definitionName] = key;
+                    }
+                }
+            }
+        }
+
         for (const module of integrationModules) {
-            const key =
+            const moduleName =
                 typeof module.getName === 'function'
                     ? module.getName()
                     : module.name;
+
+            // Use the reference key from Definition.modules if available,
+            // otherwise fall back to moduleName
+            const key = moduleNameToKey[moduleName] || moduleName;
+
             if (key) {
                 modules[key] = module;
                 this[key] = module;
             }
         }
+
         return modules;
     }
 
@@ -333,7 +364,6 @@ class IntegrationBase {
         return {};
     }
     async loadUserActions({ actionType } = {}) {
-        console.log('loadUserActions called with actionType:', actionType);
         const userActions = {};
         for (const [key, event] of Object.entries(this.events)) {
             if (event.type === constantsToBeMigrated.types.USER_ACTION) {
@@ -389,7 +419,6 @@ class IntegrationBase {
 
     async onWebhook({ data }) {
         // Default: no-op, integrations override this
-        console.log('Webhook received:', data);
     }
 
     async queueWebhook(data) {

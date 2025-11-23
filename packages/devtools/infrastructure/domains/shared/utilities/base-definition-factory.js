@@ -241,6 +241,10 @@ function createBaseDefinition(
                         'prisma',
                     ] : []),
                 ],
+                // Reduce file scanning overhead - tell esbuild to skip these during watch/scan but still bundle them
+                watch: {
+                    ignore: ['node_modules/@aws-sdk/**', 'node_modules/@babel/**', 'node_modules/@smithy/**']
+                },
             },
             'serverless-offline': {
                 httpPort: 3001,
