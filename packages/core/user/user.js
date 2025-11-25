@@ -88,6 +88,38 @@ class User {
     getAppOrgId() {
         return this.organizationUser?.appOrgId || null;
     }
+
+    /**
+     * Checks if a given userId belongs to this user (either primary or linked).
+     * When primary is 'organization', entities owned by the linked individual user
+     * should still be accessible to the organization.
+     *
+     * @param {string|number} userId - The userId to check
+     * @returns {boolean} True if the userId belongs to this user or their linked user
+     */
+    ownsUserId(userId) {
+        const userIdStr = userId?.toString();
+        const primaryId = this.getPrimaryUser()?.id?.toString();
+        const individualId = this.individualUser?.id?.toString();
+        const organizationId = this.organizationUser?.id?.toString();
+
+        // Check if userId matches primary user
+        if (userIdStr === primaryId) {
+            return true;
+        }
+
+        // When primary is 'organization', also check linked individual user
+        if (this.config.primary === 'organization' && userIdStr === individualId) {
+            return true;
+        }
+
+        // When primary is 'individual', also check linked organization user if required
+        if (this.config.primary === 'individual' && this.config.organizationUserRequired && userIdStr === organizationId) {
+            return true;
+        }
+
+        return false;
+    }
 }
 
 module.exports = { User }; 

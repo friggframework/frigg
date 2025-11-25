@@ -41,9 +41,7 @@ describe('Database Migration Router - Adapter Layer', () => {
         expect(router.stack).toBeDefined();
     });
 
-    it('should hardcode dbType as postgresql (migrations are PostgreSQL-only)', () => {
-        // Migration infrastructure is only created for PostgreSQL deployments
-        // So we can safely hardcode dbType instead of requiring it from request
+    it('should load router without requiring dbType in request body', () => {
         const router = require('./db-migration').router;
         expect(router).toBeDefined();
         // Test will pass if handler doesn't crash when dbType is omitted from request

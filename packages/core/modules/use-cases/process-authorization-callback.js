@@ -100,9 +100,20 @@ class ProcessAuthorizationCallback {
     async findOrCreateEntity(entityDetails, moduleName, credentialId) {
         const { identifiers, details } = entityDetails;
 
+        // Support both 'user' and 'userId' field names from module definitions
+        // Some modules use 'user' (legacy), others use 'userId' (newer pattern)
+        const userId = identifiers.user || identifiers.userId;
+
+        if (!userId) {
+            throw new Error(
+                `Module definition for ${moduleName} must return 'user' or 'userId' in identifiers from getEntityDetails(). ` +
+                    `Without userId, entity lookup would match across all users (security issue).`
+            );
+        }
+
         const existingEntity = await this.moduleRepository.findEntity({
             externalId: identifiers.externalId,
-            user: identifiers.user,
+            user: userId,
             moduleName: moduleName,
         });
 

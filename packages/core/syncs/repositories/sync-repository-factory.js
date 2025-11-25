@@ -1,5 +1,6 @@
 const { SyncRepositoryMongo } = require('./sync-repository-mongo');
 const { SyncRepositoryPostgres } = require('./sync-repository-postgres');
+const { SyncRepositoryDocumentDB } = require('./sync-repository-documentdb');
 const config = require('../../database/config');
 
 /**
@@ -23,9 +24,12 @@ function createSyncRepository() {
         case 'postgresql':
             return new SyncRepositoryPostgres();
 
+        case 'documentdb':
+            return new SyncRepositoryDocumentDB();
+
         default:
             throw new Error(
-                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'postgresql'`
+                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql'`
             );
     }
 }
@@ -35,4 +39,5 @@ module.exports = {
     // Export adapters for direct testing
     SyncRepositoryMongo,
     SyncRepositoryPostgres,
+    SyncRepositoryDocumentDB,
 };

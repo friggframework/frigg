@@ -1,5 +1,8 @@
 const { ProcessRepositoryMongo } = require('./process-repository-mongo');
 const { ProcessRepositoryPostgres } = require('./process-repository-postgres');
+const {
+    ProcessRepositoryDocumentDB,
+} = require('./process-repository-documentdb');
 const config = require('../../database/config');
 
 /**
@@ -30,9 +33,12 @@ function createProcessRepository() {
         case 'postgresql':
             return new ProcessRepositoryPostgres();
 
+        case 'documentdb':
+            return new ProcessRepositoryDocumentDB();
+
         default:
             throw new Error(
-                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'postgresql'`
+                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql'`
             );
     }
 }
@@ -42,5 +48,6 @@ module.exports = {
     // Export adapters for direct testing
     ProcessRepositoryMongo,
     ProcessRepositoryPostgres,
+    ProcessRepositoryDocumentDB,
 };
 

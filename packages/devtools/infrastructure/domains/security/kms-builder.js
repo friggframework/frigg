@@ -78,8 +78,20 @@ class KmsBuilder extends InfrastructureBuilder {
         const resolver = new KmsResourceResolver();
         const decisions = resolver.resolveAll(appDefinition, discovery);
 
+        // Check if external key exists (for accurate logging)
+        const externalKmsKey = discoveredResources?.defaultKmsKeyId ||
+                              discoveredResources?.kmsKeyArn ||
+                              discoveredResources?.kmsKeyId;
+        const willUseExternal = decisions.key.ownership === ResourceOwnership.STACK && 
+                                !decisions.key.physicalId && 
+                                externalKmsKey;
+
         console.log('\n  📋 Resource Ownership Decisions:');
-        console.log(`     Key: ${decisions.key.ownership} - ${decisions.key.reason}`);
+        if (willUseExternal) {
+            console.log(`     Key: external - Found external KMS key (not in stack)`);
+        } else {
+            console.log(`     Key: ${decisions.key.ownership} - ${decisions.key.reason}`);
+        }
 
         // Build resources based on ownership decisions
         await this.buildFromDecisions(decisions, appDefinition, discoveredResources, result);
@@ -232,15 +244,61 @@ class KmsBuilder extends InfrastructureBuilder {
         // Check for environment variable fallback flag (legacy behavior)
         const useEnvVarFallback = appDefinition.encryption?._useEnvVarFallback;
 
+        // CRITICAL FIX: Check if KMS key exists OUTSIDE of stack (orphaned resource)
+        // If key exists but not in stack, we should use it as EXTERNAL, not try to create it
+        const externalKmsKey = discoveredResources?.defaultKmsKeyId ||
+                              discoveredResources?.kmsKeyArn ||
+                              discoveredResources?.kmsKeyId;
+
         if (decisions.key.ownership === ResourceOwnership.STACK && decisions.key.physicalId) {
             // Key exists in stack - add definitions (CloudFormation idempotency)
             console.log('  → Adding KMS definitions to template (existing in stack)');
+            
+            // CRITICAL: Check if alias exists in stack before trying to create it
+            // Matches old serverless-template.js behavior: only create alias if it doesn't exist
+            const aliasExistsInStack = discoveredResources?.existingLogicalIds?.includes('FriggKMSKeyAlias');
+            if (!aliasExistsInStack) {
+                if (appDefinition.encryption?.kmsKeyAlias !== true) {
+                    // Alias doesn't exist in stack - skip creation unless explicitly enabled
+                    // This avoids kms:CreateAlias permission errors
+                    console.log('  ℹ KMS alias not in stack - skipping creation (set kmsKeyAlias: true to force)');
+                    appDefinition.encryption = appDefinition.encryption || {};
+                    appDefinition.encryption.kmsKeyAlias = false;
+                } else {
+                    console.log('  → Will create KMS alias (kmsKeyAlias: true explicitly set)');
+                }
+            } else {
+                console.log('  ✓ KMS alias found in stack - will keep in template');
+            }
+            
             result.resources = this.createKmsKey(appDefinition);
             result.environment.KMS_KEY_ARN = { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] };
             console.log('  ✅ KMS key resources created');
+        } else if (decisions.key.ownership === ResourceOwnership.STACK && !decisions.key.physicalId && externalKmsKey) {
+            // ORPHANED KEY FIX: Key exists externally but not in stack
+            // Use it as external instead of trying to create (would fail with "already exists")
+            console.log(`  → Using external KMS key: ${externalKmsKey}`);
+
+            // Format as ARN if it's just a key ID
+            const kmsArn = externalKmsKey.startsWith('arn:')
+                ? externalKmsKey
+                : `arn:aws:kms:\${self:provider.region}:\${aws:accountId}:key/${externalKmsKey}`;
+
+            result.environment.KMS_KEY_ARN = kmsArn;
         } else if (decisions.key.ownership === ResourceOwnership.STACK && !decisions.key.physicalId && !useEnvVarFallback) {
-            // Create new KMS key (only if not using env var fallback)
+            // Create new KMS key (only if not using env var fallback and no external key found)
             console.log('  → Creating new KMS key in stack');
+            
+            // CRITICAL: Don't create alias by default to avoid kms:CreateAlias permission errors
+            // Matches old serverless-template.js behavior: only create alias if explicitly requested
+            if (appDefinition.encryption?.kmsKeyAlias !== true) {
+                console.log('  ℹ Skipping KMS alias creation by default (set kmsKeyAlias: true to enable)');
+                appDefinition.encryption = appDefinition.encryption || {};
+                appDefinition.encryption.kmsKeyAlias = false;
+            } else {
+                console.log('  → Will create KMS alias (kmsKeyAlias: true explicitly set)');
+            }
+            
             result.resources = this.createKmsKey(appDefinition);
             result.environment.KMS_KEY_ARN = { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] };
             console.log('  ✅ KMS key resources created');
@@ -278,7 +336,7 @@ class KmsBuilder extends InfrastructureBuilder {
      * Create KMS key CloudFormation resources
      */
     createKmsKey(appDefinition) {
-        return {
+        const resources = {
             FriggKMSKey: {
                 Type: 'AWS::KMS::Key',
                 DeletionPolicy: 'Retain',
@@ -332,15 +390,24 @@ class KmsBuilder extends InfrastructureBuilder {
                     ],
                 },
             },
-            FriggKMSKeyAlias: {
+        };
+
+        // Only create alias if explicitly enabled (default: true for backwards compatibility)
+        const createAlias = appDefinition.encryption?.kmsKeyAlias !== false;
+        if (createAlias) {
+            resources.FriggKMSKeyAlias = {
                 Type: 'AWS::KMS::Alias',
                 DeletionPolicy: 'Retain',
                 Properties: {
                     AliasName: 'alias/${self:service}-${self:provider.stage}-frigg-kms',
                     TargetKeyId: { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] },
                 },
-            },
-        };
+            };
+        } else {
+            console.log('  ℹ Skipping KMS key alias creation (kmsKeyAlias: false)');
+        }
+
+        return resources;
     }
 }
 

@@ -1,307 +1,227 @@
 const FriggServerlessPlugin = require('./index');
-const fs = require('fs');
-const path = require('path');
 
-// Mock fs module
-jest.mock('fs');
+jest.mock('./lib/queue-environment-mapper');
+jest.mock('./lib/localstack-queue-service');
+jest.mock('./lib/esbuild-directory-manager');
+
+const { QueueEnvironmentMapper } = require('./lib/queue-environment-mapper');
+const { LocalStackQueueService } = require('./lib/localstack-queue-service');
+const { EsbuildDirectoryManager } = require('./lib/esbuild-directory-manager');
 
 describe('FriggServerlessPlugin', () => {
-    let plugin;
-    let mockServerless;
-    let mockOptions;
-    let mockServicePath;
+  let plugin;
+  let mockServerless;
+  let mockOptions;
 
-    beforeEach(() => {
-        mockServicePath = '/test/service/path';
+  beforeEach(() => {
+    mockServerless = {
+      config: { servicePath: '/test/path' },
+      cli: { log: jest.fn() },
+      service: {
+        custom: {},
+        provider: { environment: {} },
+      },
+      processedInput: { commands: [] },
+      getProvider: jest.fn().mockReturnValue({}),
+      extendConfiguration: jest.fn(),
+    };
 
-        mockServerless = {
-            config: {
-                servicePath: mockServicePath,
-            },
-            cli: {
-                log: jest.fn(),
-            },
-            service: {
-                custom: {},
-                provider: {
-                    environment: {},
-                },
-            },
-            processedInput: {
-                commands: [],
-            },
-            getProvider: jest.fn().mockReturnValue({}),
-            extendConfiguration: jest.fn(),
-        };
+    mockOptions = { stage: 'test' };
 
-        mockOptions = {
-            stage: 'test',
-        };
+    EsbuildDirectoryManager.mockImplementation(() => ({
+      ensureDirectory: jest.fn().mockReturnValue('/test/path/.esbuild/.serverless'),
+    }));
 
-        // Clear all mocks before each test
-        jest.clearAllMocks();
+    jest.clearAllMocks();
+  });
+
+  describe('Constructor', () => {
+    it('should initialize with serverless instance and options', () => {
+      plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+
+      expect(plugin.serverless).toBe(mockServerless);
+      expect(plugin.options).toBe(mockOptions);
+      expect(plugin.hooks).toBeDefined();
     });
 
-    describe('Constructor', () => {
-        it('should initialize with serverless instance and options', () => {
-            plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+    it('should register required hooks', () => {
+      plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
 
-            expect(plugin.serverless).toBe(mockServerless);
-            expect(plugin.options).toBe(mockOptions);
-            expect(plugin.hooks).toBeDefined();
-        });
-
-        it('should register required hooks', () => {
-            plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
-
-            expect(plugin.hooks).toHaveProperty('initialize');
-            expect(plugin.hooks).toHaveProperty('before:package:initialize');
-            expect(plugin.hooks).toHaveProperty('after:package:package');
-            expect(plugin.hooks).toHaveProperty('before:deploy:deploy');
-        });
+      expect(plugin.hooks).toHaveProperty('initialize');
+      expect(plugin.hooks).toHaveProperty('before:package:initialize');
+      expect(plugin.hooks).toHaveProperty('after:package:package');
+      expect(plugin.hooks).toHaveProperty('before:deploy:deploy');
     });
 
-    describe('asyncInit - Directory Creation', () => {
-        it('should create .esbuild/.serverless directory if it does not exist', async () => {
-            plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+    it('should create esbuild directory on construction', () => {
+      const mockEnsureDir = jest.fn().mockReturnValue('/test/.esbuild/.serverless');
+      EsbuildDirectoryManager.mockImplementation(() => ({
+        ensureDirectory: mockEnsureDir,
+      }));
 
-            // Mock fs.existsSync to return false (directory doesn't exist)
-            fs.existsSync.mockReturnValue(false);
-            fs.mkdirSync.mockImplementation(() => { });
+      plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
 
-            // Spy on console.log
-            const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+      expect(mockEnsureDir).toHaveBeenCalledWith('/test/path');
+    });
+  });
 
-            await plugin.asyncInit();
+  describe('asyncInit', () => {
+    it('should log initialization messages', async () => {
+      plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
 
-            const expectedPath = path.join(mockServicePath, '.esbuild', '.serverless');
+      await plugin.asyncInit();
 
-            // Verify directory existence check
-            expect(fs.existsSync).toHaveBeenCalledWith(expectedPath);
+      expect(mockServerless.cli.log).toHaveBeenCalledWith('Initializing Frigg Serverless Plugin...');
+      expect(consoleLogSpy).toHaveBeenCalledWith('Hello from Frigg Serverless Plugin!');
 
-            // Verify directory creation
-            expect(fs.mkdirSync).toHaveBeenCalledWith(expectedPath, { recursive: true });
-
-            // Verify success message
-            expect(consoleLogSpy).toHaveBeenCalledWith(
-                expect.stringContaining('Created')
-            );
-            expect(consoleLogSpy).toHaveBeenCalledWith(
-                expect.stringContaining('.esbuild')
-            );
-
-            consoleLogSpy.mockRestore();
-        });
-
-        it('should not create directory if it already exists', async () => {
-            plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
-
-            // Mock fs.existsSync to return true (directory exists)
-            fs.existsSync.mockReturnValue(true);
-            fs.mkdirSync.mockImplementation(() => { });
-
-            const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
-
-            await plugin.asyncInit();
-
-            const expectedPath = path.join(mockServicePath, '.esbuild', '.serverless');
-
-            // Verify directory existence check
-            expect(fs.existsSync).toHaveBeenCalledWith(expectedPath);
-
-            // Verify directory creation was NOT called
-            expect(fs.mkdirSync).not.toHaveBeenCalled();
-
-            // Verify success message was NOT logged
-            expect(consoleLogSpy).not.toHaveBeenCalledWith(
-                expect.stringContaining('Created')
-            );
-
-            consoleLogSpy.mockRestore();
-        });
-
-        it('should use process.cwd() if servicePath is not available', async () => {
-            // Remove servicePath from config
-            mockServerless.config.servicePath = undefined;
-
-            plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
-
-            fs.existsSync.mockReturnValue(false);
-            fs.mkdirSync.mockImplementation(() => { });
-
-            await plugin.asyncInit();
-
-            const expectedPath = path.join(process.cwd(), '.esbuild', '.serverless');
-
-            expect(fs.existsSync).toHaveBeenCalledWith(expectedPath);
-            expect(fs.mkdirSync).toHaveBeenCalledWith(expectedPath, { recursive: true });
-        });
-
-        it('should log initialization messages', async () => {
-            plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
-
-            fs.existsSync.mockReturnValue(true);
-
-            const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
-
-            await plugin.asyncInit();
-
-            // Verify plugin initialization messages
-            expect(mockServerless.cli.log).toHaveBeenCalledWith('Initializing Frigg Serverless Plugin...');
-            expect(consoleLogSpy).toHaveBeenCalledWith('Hello from Frigg Serverless Plugin!');
-
-            consoleLogSpy.mockRestore();
-        });
+      consoleLogSpy.mockRestore();
     });
 
-    describe('asyncInit - Offline Mode', () => {
-        it('should not create SQS queues when not in offline mode', async () => {
-            plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+    it('should run in online mode when not offline', async () => {
+      plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+      mockServerless.processedInput.commands = ['deploy'];
 
-            fs.existsSync.mockReturnValue(true);
+      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
 
-            // Not in offline mode
-            mockServerless.processedInput.commands = ['deploy'];
+      await plugin.asyncInit();
 
-            const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
-
-            await plugin.asyncInit();
-
-            expect(consoleLogSpy).toHaveBeenCalledWith('Running in online mode, doing nothing');
-            expect(consoleLogSpy).not.toHaveBeenCalledWith(
-                expect.stringContaining('offline mode')
-            );
-
-            consoleLogSpy.mockRestore();
-        });
-
-        it('should create SQS queues when in offline mode', async () => {
-            plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
-
-            fs.existsSync.mockReturnValue(true);
-
-            // Set offline mode
-            mockServerless.processedInput.commands = ['offline'];
-            mockServerless.service.custom = {
-                testQueue: 'test-queue-name',
-            };
-
-            // Mock AWS SDK
-            const mockCreateQueue = jest.fn((params, callback) => {
-                callback(null, { QueueUrl: 'http://localhost:4566/queue/test-queue-name' });
-            });
-
-            jest.mock('aws-sdk', () => ({
-                SQS: jest.fn(() => ({
-                    createQueue: mockCreateQueue,
-                })),
-                config: {
-                    update: jest.fn(),
-                },
-            }));
-
-            const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
-
-            await plugin.asyncInit();
-
-            expect(consoleLogSpy).toHaveBeenCalledWith(
-                expect.stringContaining('offline mode')
-            );
-
-            consoleLogSpy.mockRestore();
-        });
+      expect(consoleLogSpy).toHaveBeenCalledWith('Running in online mode, doing nothing');
+      consoleLogSpy.mockRestore();
     });
 
-    describe('beforePackageInitialize', () => {
-        it('should create .esbuild/.serverless directory', () => {
-            plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+    it('should setup offline queues when in offline mode', async () => {
+      plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+      mockServerless.processedInput.commands = ['offline'];
+      mockServerless.service.custom = { AsanaQueue: 'test-queue' };
 
-            fs.existsSync.mockReturnValue(false);
-            fs.mkdirSync.mockImplementation(() => { });
+      const mockMapper = {
+        createMapping: jest.fn().mockReturnValue({ AsanaQueue: 'ASANA_QUEUE_URL' }),
+        getEnvironmentKey: jest.fn().mockReturnValue('ASANA_QUEUE_URL'),
+      };
+      QueueEnvironmentMapper.mockImplementation(() => mockMapper);
 
-            plugin.beforePackageInitialize();
+      const mockQueueService = {
+        createQueues: jest.fn().mockResolvedValue([
+          { key: 'AsanaQueue', url: 'http://localhost:4566/queue' },
+        ]),
+      };
+      LocalStackQueueService.mockImplementation(() => mockQueueService);
 
-            const expectedPath = path.join(mockServicePath, '.esbuild', '.serverless');
+      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
 
-            expect(fs.existsSync).toHaveBeenCalledWith(expectedPath);
-            expect(fs.mkdirSync).toHaveBeenCalledWith(expectedPath, { recursive: true });
-        });
+      await plugin.asyncInit();
 
-        it('should log pre-package hook message', () => {
-            plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+      expect(consoleLogSpy).toHaveBeenCalledWith('Running in offline mode. Making queues!');
+      expect(mockQueueService.createQueues).toHaveBeenCalled();
+      expect(mockServerless.extendConfiguration).toHaveBeenCalledWith(
+        ['provider', 'environment', 'ASANA_QUEUE_URL'],
+        'http://localhost:4566/queue'
+      );
 
-            fs.existsSync.mockReturnValue(true);
+      consoleLogSpy.mockRestore();
+    });
+  });
 
-            plugin.beforePackageInitialize();
+  describe('setupOfflineQueues', () => {
+    it('should orchestrate queue creation and environment configuration', async () => {
+      plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+      mockServerless.service.custom = {
+        AsanaQueue: 'test-asana-queue',
+        SlackQueue: 'test-slack-queue',
+      };
 
-            expect(mockServerless.cli.log).toHaveBeenCalledWith('Frigg Serverless Plugin: Pre-package hook');
-        });
+      const mockMapper = {
+        createMapping: jest.fn().mockReturnValue({
+          AsanaQueue: 'ASANA_QUEUE_URL',
+          SlackQueue: 'SLACK_QUEUE_URL',
+        }),
+        getEnvironmentKey: jest.fn()
+          .mockReturnValueOnce('ASANA_QUEUE_URL')
+          .mockReturnValueOnce('SLACK_QUEUE_URL'),
+      };
+      QueueEnvironmentMapper.mockImplementation(() => mockMapper);
+
+      const mockQueueService = {
+        createQueues: jest.fn().mockResolvedValue([
+          { key: 'AsanaQueue', url: 'http://localhost:4566/asana' },
+          { key: 'SlackQueue', url: 'http://localhost:4566/slack' },
+        ]),
+      };
+      LocalStackQueueService.mockImplementation(() => mockQueueService);
+
+      await plugin.setupOfflineQueues();
+
+      expect(mockMapper.createMapping).toHaveBeenCalled();
+      expect(mockQueueService.createQueues).toHaveBeenCalled();
+      expect(mockServerless.extendConfiguration).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('extractQueueDefinitions', () => {
+    it('should extract queue definitions from custom config', () => {
+      plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+      mockServerless.service.custom = {
+        AsanaQueue: 'test-asana-queue',
+        someOtherConfig: 'something-else',
+        SlackQueue: 'test-slack-queue',
+      };
+
+      const queues = plugin.extractQueueDefinitions();
+
+      expect(queues).toEqual([
+        { key: 'AsanaQueue', name: 'test-asana-queue' },
+        { key: 'SlackQueue', name: 'test-slack-queue' },
+      ]);
     });
 
-    describe('init', () => {
-        it('should create .esbuild/.serverless directory', () => {
-            plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+    it('should return empty array when no queues defined', () => {
+      plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+      mockServerless.service.custom = { someConfig: 'value' };
 
-            fs.existsSync.mockReturnValue(false);
-            fs.mkdirSync.mockImplementation(() => { });
+      const queues = plugin.extractQueueDefinitions();
 
-            const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+      expect(queues).toEqual([]);
+    });
+  });
 
-            plugin.init();
+  describe('Hooks', () => {
+    it('should execute init hook', () => {
+      plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
 
-            const expectedPath = path.join(mockServicePath, '.esbuild', '.serverless');
+      plugin.init();
 
-            expect(fs.existsSync).toHaveBeenCalledWith(expectedPath);
-            expect(fs.mkdirSync).toHaveBeenCalledWith(expectedPath, { recursive: true });
-            expect(consoleLogSpy).toHaveBeenCalledWith(
-                expect.stringContaining('Created')
-            );
-
-            consoleLogSpy.mockRestore();
-        });
+      expect(consoleLogSpy).toHaveBeenCalled();
+      consoleLogSpy.mockRestore();
     });
 
-    describe('afterPackage', () => {
-        it('should log after package hook message', () => {
-            plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+    it('should execute beforePackageInitialize hook', async () => {
+      plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
 
-            const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+      await plugin.beforePackageInitialize();
 
-            plugin.afterPackage();
-
-            expect(consoleLogSpy).toHaveBeenCalledWith('After package hook called');
-
-            consoleLogSpy.mockRestore();
-        });
+      expect(mockServerless.cli.log).toHaveBeenCalledWith('Frigg Serverless Plugin: Pre-package hook');
     });
 
-    describe('beforeDeploy', () => {
-        it('should log before deploy hook message', () => {
-            plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+    it('should execute afterPackage hook', () => {
+      plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
 
-            const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+      plugin.afterPackage();
 
-            plugin.beforeDeploy();
-
-            expect(consoleLogSpy).toHaveBeenCalledWith('Before deploy hook called');
-
-            consoleLogSpy.mockRestore();
-        });
+      expect(consoleLogSpy).toHaveBeenCalledWith('After package hook called');
+      consoleLogSpy.mockRestore();
     });
 
-    describe('Error Handling', () => {
-        it('should handle fs.mkdirSync errors gracefully', async () => {
-            plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+    it('should execute beforeDeploy hook', () => {
+      plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
 
-            fs.existsSync.mockReturnValue(false);
-            fs.mkdirSync.mockImplementation(() => {
-                throw new Error('Permission denied');
-            });
+      plugin.beforeDeploy();
 
-            // Should not throw - error should be caught or allowed to propagate
-            await expect(plugin.asyncInit()).rejects.toThrow('Permission denied');
-        });
+      expect(consoleLogSpy).toHaveBeenCalledWith('Before deploy hook called');
+      consoleLogSpy.mockRestore();
     });
+  });
 });
-
-

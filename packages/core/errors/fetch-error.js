@@ -61,8 +61,9 @@ class FetchError extends BaseError {
         ];
 
         super(messageParts.filter(Boolean).join('\n'));
-        
+
         this.response = response;
+        this.statusCode = response?.status;
     }
 
     static async create(options = {}) {

@@ -92,7 +92,7 @@ describe('GetDatabaseStateViaWorkerUseCase', () => {
 
         it('should use DB_TYPE environment variable if set', async () => {
             const originalDbType = process.env.DB_TYPE;
-            process.env.DB_TYPE = 'mongodb';
+            process.env.DB_TYPE = 'documentdb';
 
             mockLambdaInvoker.invoke.mockResolvedValue({ upToDate: true });
 
@@ -100,7 +100,7 @@ describe('GetDatabaseStateViaWorkerUseCase', () => {
 
             expect(mockLambdaInvoker.invoke).toHaveBeenCalledWith(
                 workerFunctionName,
-                expect.objectContaining({ dbType: 'mongodb' })
+                expect.objectContaining({ dbType: 'documentdb' })
             );
 
             // Cleanup

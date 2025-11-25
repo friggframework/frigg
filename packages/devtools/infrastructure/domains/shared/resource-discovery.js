@@ -18,11 +18,26 @@ const { SsmDiscovery } = require('../parameters/ssm-discovery');
 
 /**
  * Determine if AWS discovery should run
- * 
+ *
+ * Checks in priority order:
+ * 1. AppDefinition.aws.discovery.enabled (explicit opt-in/out)
+ * 2. FRIGG_SKIP_AWS_DISCOVERY environment variable
+ * 3. Auto-detection based on features enabled (VPC, KMS, SSM, PostgreSQL)
+ *
  * @param {Object} appDefinition - Application definition
  * @returns {boolean} True if discovery is needed
  */
 function shouldRunDiscovery(appDefinition) {
+    // Priority 1: Check AppDefinition-level configuration
+    if (appDefinition.aws?.discovery?.enabled !== undefined) {
+        const enabled = appDefinition.aws.discovery.enabled;
+        console.log(
+            `⚙️  Using AppDefinition.aws.discovery.enabled: ${enabled}`
+        );
+        return enabled;
+    }
+
+    // Priority 2: Check environment variable
     console.log(
         '⚙️  Checking FRIGG_SKIP_AWS_DISCOVERY:',
         process.env.FRIGG_SKIP_AWS_DISCOVERY
@@ -35,6 +50,7 @@ function shouldRunDiscovery(appDefinition) {
         return false;
     }
 
+    // Priority 3: Auto-detect based on enabled features
     return (
         appDefinition.vpc?.enable === true ||
         appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms' ||
@@ -79,11 +95,23 @@ async function gatherDiscoveredResources(appDefinition) {
         const cfDiscovery = new CloudFormationDiscovery(provider, { serviceName, stage });
         const stackResources = await cfDiscovery.discoverFromStack(stackName);
 
-        // Validate CF discovery results - only use if contains useful data
-        const hasVpcData = stackResources?.defaultVpcId;
-        const hasKmsData = stackResources?.defaultKmsKeyId;
-        const hasAuroraData = stackResources?.auroraClusterId;
-        const hasSomeUsefulData = hasVpcData || hasKmsData || hasAuroraData;
+        // Validate CF discovery results - check for ANY useful infrastructure
+        const hasVpcData = stackResources?.defaultVpcId;  // VPC resource in stack
+        const hasKmsData = stackResources?.defaultKmsKeyId;  // KMS resource in stack
+        const hasAuroraData = stackResources?.auroraClusterId;  // Aurora in stack
+        
+        // Check for routing infrastructure (proves VPC config exists even with external VPC)
+        const hasRoutingInfra = stackResources?.routeTableId ||  // FriggLambdaRouteTable
+                               stackResources?.natRoute ||        // FriggNATRoute
+                               stackResources?.vpcEndpoints?.s3 || // VPC endpoints
+                               stackResources?.vpcEndpoints?.dynamodb;
+        
+        // Stack is useful if it has EITHER actual resources OR routing infrastructure
+        const hasSomeUsefulData = hasVpcData || hasKmsData || hasAuroraData || hasRoutingInfra;
+        
+        if (hasRoutingInfra && !hasVpcData) {
+            console.log('  ✓ Found VPC routing infrastructure in stack (external VPC pattern)');
+        }
 
         // Check if we're in isolated mode (each stage gets its own VPC/Aurora)
         const isIsolatedMode = appDefinition.managementMode === 'managed' &&
@@ -177,9 +205,22 @@ async function gatherDiscoveredResources(appDefinition) {
         console.error('❌ Cloud resource discovery failed:', error.message);
         console.error('Stack:', error.stack);
 
-        // Don't fail the build - return empty resources and let validation handle it
+        // Check if discovery failures should fail the deployment
+        const failOnError = appDefinition.aws?.discovery?.failOnError ?? false;
+
+        if (failOnError) {
+            console.error(
+                '❌ Discovery failure blocking deployment (aws.discovery.failOnError = true)'
+            );
+            throw error;
+        }
+
+        // Graceful degradation - return empty resources and let validation handle it
         console.warn(
             '⚠️  Continuing with empty discovered resources. This may cause deployment issues if resources are required.'
+        );
+        console.warn(
+            '💡 Set aws.discovery.failOnError = true in AppDefinition to fail on discovery errors.'
         );
         return {};
     }
