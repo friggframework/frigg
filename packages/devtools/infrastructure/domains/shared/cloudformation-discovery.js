@@ -28,6 +28,9 @@ class CloudFormationDiscovery {
      */
     async discoverFromStack(stackName) {
         try {
+            // Store stack name for use in helper methods
+            this.currentStackName = stackName;
+            
             // Try to get the stack
             const stack = await this.provider.describeStack(stackName);
 
@@ -112,6 +115,94 @@ class CloudFormationDiscovery {
     }
 
     /**
+     * Extract external resource references from stack resource properties
+     * 
+     * When VPC/subnets/NAT are external, they're referenced in routing resources' properties.
+     * We query EC2 to get the actual VPC ID, NAT Gateway ID, and subnet IDs from the route table.
+     * 
+     * @private
+     * @param {Array} resources - CloudFormation stack resources
+     * @param {Object} discovered - Object to populate with discovered resources
+     */
+    async _extractExternalReferencesFromStackResources(resources, discovered) {
+        if (!this.provider || !this.provider.getEC2Client) {
+            console.log('  ℹ Skipping external reference extraction (EC2 client not available)');
+            return;
+        }
+
+        try {
+            // If we found a route table in the stack, query EC2 for its details
+            // This gives us VPC ID, NAT Gateway ID, and subnet IDs
+            if (discovered.routeTableId) {
+                try {
+                    console.log(`  ℹ Querying route table ${discovered.routeTableId} for external references...`);
+                    const { DescribeRouteTablesCommand } = require('@aws-sdk/client-ec2');
+                    const ec2 = this.provider.getEC2Client();
+                    const rtResponse = await ec2.send(new DescribeRouteTablesCommand({
+                        RouteTableIds: [discovered.routeTableId]
+                    }));
+                    
+                    if (rtResponse.RouteTables && rtResponse.RouteTables.length > 0) {
+                        const routeTable = rtResponse.RouteTables[0];
+                        
+                        // Extract VPC ID
+                        if (routeTable.VpcId && !discovered.defaultVpcId) {
+                            discovered.defaultVpcId = routeTable.VpcId;
+                            console.log(`  ✓ Extracted VPC ID from route table: ${routeTable.VpcId}`);
+                        }
+                        
+                        // Extract NAT Gateway ID from routes
+                        const natRoute = routeTable.Routes?.find(r => r.NatGatewayId);
+                        if (natRoute && natRoute.NatGatewayId && !discovered.natGatewayId) {
+                            discovered.natGatewayId = natRoute.NatGatewayId;
+                            discovered.existingNatGatewayId = natRoute.NatGatewayId;
+                            console.log(`  ✓ Extracted NAT Gateway ID from routes: ${natRoute.NatGatewayId}`);
+                        }
+                        
+                        // Extract subnet IDs from route table associations
+                        const associations = routeTable.Associations || [];
+                        const subnetAssociations = associations.filter(a => a.SubnetId);
+                        
+                        
+                        if (subnetAssociations.length >= 1 && !discovered.privateSubnetId1) {
+                            discovered.privateSubnetId1 = subnetAssociations[0].SubnetId;
+                            console.log(`  ✓ Extracted private subnet 1 from associations: ${subnetAssociations[0].SubnetId}`);
+                        }
+                        if (subnetAssociations.length >= 2 && !discovered.privateSubnetId2) {
+                            discovered.privateSubnetId2 = subnetAssociations[1].SubnetId;
+                            console.log(`  ✓ Extracted private subnet 2 from associations: ${subnetAssociations[1].SubnetId}`);
+                        }
+
+                        // Query for default security group in the VPC (matches canary behavior)
+                        if (routeTable.VpcId && !discovered.defaultSecurityGroupId) {
+                            try {
+                                const { DescribeSecurityGroupsCommand } = require('@aws-sdk/client-ec2');
+                                const sgResponse = await ec2.send(new DescribeSecurityGroupsCommand({
+                                    Filters: [
+                                        { Name: 'vpc-id', Values: [routeTable.VpcId] },
+                                        { Name: 'group-name', Values: ['default'] }
+                                    ]
+                                }));
+                                
+                                if (sgResponse.SecurityGroups && sgResponse.SecurityGroups.length > 0) {
+                                    discovered.defaultSecurityGroupId = sgResponse.SecurityGroups[0].GroupId;
+                                    console.log(`  ✓ Extracted default security group: ${discovered.defaultSecurityGroupId}`);
+                                }
+                            } catch (error) {
+                                console.warn(`  ⚠️  Could not query default security group: ${error.message}`);
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.warn(`  ⚠️  Could not query route table for external references: ${error.message}`);
+                }
+            }
+        } catch (error) {
+            console.warn(`  ⚠️  Error extracting external references: ${error.message}`);
+        }
+    }
+
+    /**
      * Extract discovered resources from CloudFormation stack resources
      *
      * @private
@@ -119,24 +210,23 @@ class CloudFormationDiscovery {
      * @param {Object} discovered - Object to populate with discovered resources
      */
     async _extractFromResources(resources, discovered) {
-        console.log(`  DEBUG: Processing ${resources.length} CloudFormation resources...`);
 
         // Initialize existingLogicalIds array if not present
         if (!discovered.existingLogicalIds) {
             discovered.existingLogicalIds = [];
         }
+        
         for (const resource of resources) {
             const { LogicalResourceId, PhysicalResourceId, ResourceType } = resource;
 
             // Track Frigg-managed resources by logical ID
-            if (LogicalResourceId.startsWith('Frigg') || LogicalResourceId.includes('Migration')) {
+            // Include VPC endpoints with legacy naming (VPCEndpointS3, VPCEndpointDynamoDB, etc.)
+            if (LogicalResourceId.startsWith('Frigg') || 
+                LogicalResourceId.includes('Migration') ||
+                LogicalResourceId.startsWith('VPCEndpoint')) {
                 discovered.existingLogicalIds.push(LogicalResourceId);
             }
 
-            // Debug Aurora detection
-            if (LogicalResourceId.includes('Aurora')) {
-                console.log(`  DEBUG: Found Aurora resource: ${LogicalResourceId} (${ResourceType})`);
-            }
 
             // Security Group - use to get VPC ID
             if (LogicalResourceId === 'FriggLambdaSecurityGroup' && ResourceType === 'AWS::EC2::SecurityGroup') {
@@ -156,8 +246,31 @@ class CloudFormationDiscovery {
                         );
 
                         if (sgDetails.SecurityGroups && sgDetails.SecurityGroups.length > 0) {
-                            discovered.defaultVpcId = sgDetails.SecurityGroups[0].VpcId;
-                            console.log(`  ✓ Extracted VPC ID from security group: ${discovered.defaultVpcId}`);
+                            const vpcId = sgDetails.SecurityGroups[0].VpcId;
+                            discovered.defaultVpcId = vpcId;
+                            console.log(`  ✓ Extracted VPC ID from security group: ${vpcId}`);
+                            
+                            // Now query for the default security group in this VPC
+                            if (!discovered.defaultSecurityGroupId) {
+                                try {
+                                    console.log(`  Querying for default security group in VPC...`);
+                                    const defaultSgResponse = await ec2Client.send(
+                                        new DescribeSecurityGroupsCommand({
+                                            Filters: [
+                                                { Name: 'vpc-id', Values: [vpcId] },
+                                                { Name: 'group-name', Values: ['default'] }
+                                            ]
+                                        })
+                                    );
+                                    
+                                    if (defaultSgResponse.SecurityGroups && defaultSgResponse.SecurityGroups.length > 0) {
+                                        discovered.defaultSecurityGroupId = defaultSgResponse.SecurityGroups[0].GroupId;
+                                        console.log(`  ✓ Discovered default security group: ${discovered.defaultSecurityGroupId}`);
+                                    }
+                                } catch (error) {
+                                    console.warn(`  ⚠️  Could not query default security group: ${error.message}`);
+                                }
+                            }
                         } else {
                             console.warn(`  ⚠️  Security group query returned no results`);
                         }
@@ -214,6 +327,40 @@ class CloudFormationDiscovery {
             // NAT Gateway
             if (LogicalResourceId === 'FriggNatGateway' && ResourceType === 'AWS::EC2::NatGateway') {
                 discovered.natGatewayId = PhysicalResourceId;
+            }
+
+            // Route Table (Lambda route table for external VPC pattern)
+            if (LogicalResourceId === 'FriggLambdaRouteTable' && ResourceType === 'AWS::EC2::RouteTable') {
+                discovered.routeTableId = PhysicalResourceId;
+                discovered.privateRouteTableId = PhysicalResourceId;
+                console.log(`  ✓ Found route table in stack: ${PhysicalResourceId}`);
+            }
+
+            // NAT Route (proves NAT configuration exists) - support both naming patterns
+            if ((LogicalResourceId === 'FriggNATRoute' || LogicalResourceId === 'FriggPrivateRoute') && 
+                ResourceType === 'AWS::EC2::Route') {
+                discovered.natRoute = PhysicalResourceId;
+                console.log(`  ✓ Found NAT route in stack: ${LogicalResourceId}`);
+            }
+
+            // Route Table Associations (links subnets to route table)
+            if (LogicalResourceId.includes('RouteAssociation') && 
+                ResourceType === 'AWS::EC2::SubnetRouteTableAssociation') {
+                if (!discovered.routeTableAssociations) {
+                    discovered.routeTableAssociations = [];
+                }
+                discovered.routeTableAssociations.push(PhysicalResourceId);
+                console.log(`  ✓ Found route table association: ${LogicalResourceId}`);
+                
+                // Store association ID to query later for subnet extraction (after loop)
+                if (this.provider && this.provider.getEC2Client && 
+                    (LogicalResourceId === 'FriggSubnet1RouteAssociation' || LogicalResourceId === 'FriggPrivateSubnet1RouteTableAssociation')) {
+                    discovered._subnet1AssociationId = PhysicalResourceId;
+                }
+                if (this.provider && this.provider.getEC2Client && 
+                    (LogicalResourceId === 'FriggSubnet2RouteAssociation' || LogicalResourceId === 'FriggPrivateSubnet2RouteTableAssociation')) {
+                    discovered._subnet2AssociationId = PhysicalResourceId;
+                }
             }
 
             // VPC - direct extraction (primary method)
@@ -276,25 +423,62 @@ class CloudFormationDiscovery {
             // VPC Endpoint Security Group
             if (LogicalResourceId === 'FriggVPCEndpointSecurityGroup' && ResourceType === 'AWS::EC2::SecurityGroup') {
                 discovered.vpcEndpointSecurityGroupId = PhysicalResourceId;
+                console.log(`  ✓ Found VPC endpoint security group in stack: ${PhysicalResourceId}`);
+            }
+            
+            // Lambda Security Group (if created in stack)
+            if (LogicalResourceId === 'FriggLambdaSecurityGroup' && ResourceType === 'AWS::EC2::SecurityGroup') {
+                discovered.lambdaSecurityGroupId = PhysicalResourceId;
+                // DO NOT overwrite defaultSecurityGroupId - that should only be the VPC's default SG
+                console.log(`  ✓ Found Lambda security group in stack: ${PhysicalResourceId}`);
             }
 
-            // VPC Endpoints
-            if (LogicalResourceId === 'FriggS3VPCEndpoint' && ResourceType === 'AWS::EC2::VPCEndpoint') {
+            // VPC Endpoints - support both old and new naming conventions
+            // Initialize vpcEndpoints object for structured access
+            if (!discovered.vpcEndpoints) {
+                discovered.vpcEndpoints = {};
+            }
+
+            // S3 Endpoint (both naming patterns)
+            if ((LogicalResourceId === 'FriggS3VPCEndpoint' || LogicalResourceId === 'VPCEndpointS3') && 
+                ResourceType === 'AWS::EC2::VPCEndpoint') {
                 discovered.s3VpcEndpointId = PhysicalResourceId;
+                discovered.vpcEndpoints.s3 = PhysicalResourceId;
+                console.log(`  ✓ Found S3 VPC endpoint in stack: ${PhysicalResourceId}`);
             }
-            if (LogicalResourceId === 'FriggDynamoDBVPCEndpoint' && ResourceType === 'AWS::EC2::VPCEndpoint') {
-                discovered.dynamoDbVpcEndpointId = PhysicalResourceId;
+            
+            // DynamoDB Endpoint (both naming patterns)
+            if ((LogicalResourceId === 'FriggDynamoDBVPCEndpoint' || LogicalResourceId === 'VPCEndpointDynamoDB') && 
+                ResourceType === 'AWS::EC2::VPCEndpoint') {
+                discovered.dynamodbVpcEndpointId = PhysicalResourceId; // Note: all lowercase for consistency
+                discovered.vpcEndpoints.dynamodb = PhysicalResourceId;
+                console.log(`  ✓ Found DynamoDB VPC endpoint in stack: ${PhysicalResourceId}`);
             }
-            if (LogicalResourceId === 'FriggKMSVPCEndpoint' && ResourceType === 'AWS::EC2::VPCEndpoint') {
+            
+            // KMS Endpoint (both naming patterns)
+            if ((LogicalResourceId === 'FriggKMSVPCEndpoint' || LogicalResourceId === 'VPCEndpointKMS') && 
+                ResourceType === 'AWS::EC2::VPCEndpoint') {
                 discovered.kmsVpcEndpointId = PhysicalResourceId;
+                discovered.vpcEndpoints.kms = PhysicalResourceId;
+                console.log(`  ✓ Found KMS VPC endpoint in stack: ${PhysicalResourceId}`);
             }
+            
+            // Secrets Manager Endpoint
             if (LogicalResourceId === 'FriggSecretsManagerVPCEndpoint' && ResourceType === 'AWS::EC2::VPCEndpoint') {
                 discovered.secretsManagerVpcEndpointId = PhysicalResourceId;
+                discovered.vpcEndpoints.secretsManager = PhysicalResourceId;
             }
+            
+            // SQS Endpoint
             if (LogicalResourceId === 'FriggSQSVPCEndpoint' && ResourceType === 'AWS::EC2::VPCEndpoint') {
                 discovered.sqsVpcEndpointId = PhysicalResourceId;
+                discovered.vpcEndpoints.sqs = PhysicalResourceId;
             }
         }
+
+        // Extract VPC ID and other external references from routing resource properties
+        // This handles the pattern where VPC is external but routing is in the stack
+        await this._extractExternalReferencesFromStackResources(resources, discovered);
 
         // If we have a VPC ID but no subnet IDs, query EC2 for Frigg-managed subnets
         if (discovered.defaultVpcId && this.provider &&
@@ -347,6 +531,119 @@ class CloudFormationDiscovery {
                 console.warn(`  ⚠️  Could not query EC2 for subnets: ${error.message}`);
             }
         }
+
+        // If we have VPC and route table but no subnets, query VPC for all subnets and filter by route table
+        // This approach queries by VPC ID (vpc-id filter) and route table ID (RouteTableIds parameter)
+        // Handles edge case where route table Associations array is empty in DescribeRouteTables response
+        if (discovered.defaultVpcId && !discovered.privateSubnetId1 && 
+            discovered.routeTableId && this.provider && this.provider.getEC2Client) {
+            try {
+                console.log(`  Querying ALL subnets in VPC ${discovered.defaultVpcId}...`);
+                const { DescribeSubnetsCommand } = require('@aws-sdk/client-ec2');
+                const ec2 = this.provider.getEC2Client();
+                
+                const subnetsResponse = await ec2.send(new DescribeSubnetsCommand({
+                    Filters: [{ Name: 'vpc-id', Values: [discovered.defaultVpcId] }]
+                }));
+                
+                console.log(`  Found ${subnetsResponse.Subnets?.length || 0} total subnets in VPC`);
+                
+                if (subnetsResponse.Subnets && subnetsResponse.Subnets.length > 0) {
+                    // Get route table to find associated subnets
+                    const { DescribeRouteTablesCommand } = require('@aws-sdk/client-ec2');
+                    const rtResponse = await ec2.send(new DescribeRouteTablesCommand({
+                        RouteTableIds: [discovered.routeTableId]
+                    }));
+                    
+                    if (rtResponse.RouteTables && rtResponse.RouteTables[0]) {
+                        const associations = rtResponse.RouteTables[0].Associations || [];
+                        const associatedSubnetIds = associations
+                            .filter(a => a.SubnetId)
+                            .map(a => a.SubnetId);
+                        
+                        console.log(`  Route table has ${associatedSubnetIds.length} associated subnets: ${associatedSubnetIds.join(', ')}`);
+                        
+                        // Use the associated subnets if available
+                        if (associatedSubnetIds.length >= 2) {
+                            discovered.privateSubnetId1 = associatedSubnetIds[0];
+                            discovered.privateSubnetId2 = associatedSubnetIds[1];
+                            console.log(`  ✓ Extracted subnets from route table associations: ${discovered.privateSubnetId1}, ${discovered.privateSubnetId2}`);
+                        } else if (associatedSubnetIds.length === 1) {
+                            // Only 1 associated subnet, use another subnet from VPC as backup
+                            discovered.privateSubnetId1 = associatedSubnetIds[0];
+                            discovered.privateSubnetId2 = subnetsResponse.Subnets.find(s => s.SubnetId !== associatedSubnetIds[0])?.SubnetId;
+                            console.log(`  ✓ Extracted subnets (1 from route table, 1 fallback): ${discovered.privateSubnetId1}, ${discovered.privateSubnetId2}`);
+                        } else if (subnetsResponse.Subnets.length >= 2) {
+                            // Edge case: route table Associations array is empty even when queried by ID
+                            // This can happen when associations exist in CloudFormation but AWS API doesn't return them
+                            // Fallback: Use first 2 subnets from VPC (all subnets in same VPC should work)
+                            discovered.privateSubnetId1 = subnetsResponse.Subnets[0].SubnetId;
+                            discovered.privateSubnetId2 = subnetsResponse.Subnets[1].SubnetId;
+                            console.log(`  ✓ Using first 2 subnets from VPC (route table Associations empty): ${discovered.privateSubnetId1}, ${discovered.privateSubnetId2}`);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.warn(`  ⚠️  Could not query subnets from VPC: ${error.message}`);
+            }
+        }
+        
+        // FALLBACK: Extract subnet IDs from route table associations (if VPC query didn't work)
+        if (!discovered.privateSubnetId1 && discovered._subnet1AssociationId && this.provider && this.provider.getEC2Client) {
+            try {
+                console.log(`  Querying EC2 for subnet from association ${discovered._subnet1AssociationId}...`);
+                const { DescribeRouteTablesCommand } = require('@aws-sdk/client-ec2');
+                const ec2 = this.provider.getEC2Client();
+                
+                // Query route table by association ID to get subnet
+                const rtResponse = await ec2.send(new DescribeRouteTablesCommand({
+                    Filters: [
+                        { Name: 'association.route-table-association-id', Values: [discovered._subnet1AssociationId] }
+                    ]
+                }));
+                
+                if (rtResponse.RouteTables && rtResponse.RouteTables[0]) {
+                    const assoc = rtResponse.RouteTables[0].Associations.find(a => 
+                        a.RouteTableAssociationId === discovered._subnet1AssociationId
+                    );
+                    if (assoc && assoc.SubnetId) {
+                        discovered.privateSubnetId1 = assoc.SubnetId;
+                        console.log(`  ✓ Extracted private subnet 1 from association query: ${assoc.SubnetId}`);
+                    }
+                }
+            } catch (error) {
+                console.warn(`  ⚠️  Could not query subnet from association: ${error.message}`);
+            }
+        }
+
+        if (!discovered.privateSubnetId2 && discovered._subnet2AssociationId && this.provider && this.provider.getEC2Client) {
+            try {
+                const { DescribeRouteTablesCommand } = require('@aws-sdk/client-ec2');
+                const ec2 = this.provider.getEC2Client();
+                
+                const rtResponse = await ec2.send(new DescribeRouteTablesCommand({
+                    Filters: [
+                        { Name: 'association.route-table-association-id', Values: [discovered._subnet2AssociationId] }
+                    ]
+                }));
+                
+                if (rtResponse.RouteTables && rtResponse.RouteTables[0]) {
+                    const assoc = rtResponse.RouteTables[0].Associations.find(a => 
+                        a.RouteTableAssociationId === discovered._subnet2AssociationId
+                    );
+                    if (assoc && assoc.SubnetId) {
+                        discovered.privateSubnetId2 = assoc.SubnetId;
+                        console.log(`  ✓ Extracted private subnet 2 from association query: ${assoc.SubnetId}`);
+                    }
+                }
+            } catch (error) {
+                console.warn(`  ⚠️  Could not query subnet from association: ${error.message}`);
+            }
+        }
+
+        // Clean up temporary association IDs
+        delete discovered._subnet1AssociationId;
+        delete discovered._subnet2AssociationId;
 
         // Check for KMS key alias via AWS API if not found in stack resources
         // This handles cases where the alias was created outside CloudFormation

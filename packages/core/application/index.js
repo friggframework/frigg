@@ -23,7 +23,7 @@ const {
  * const user = await commands.createUser({ username: 'user@example.com' });
  * const credential = await commands.createCredential({ userId: user.id, ... });
  */
-function createFriggCommands({ integrationClass } = {}) {
+function createFriggCommands({ integrationClass }) {
     // All commands use Frigg's default repositories and use cases
     const integrationCommands = createIntegrationCommands({ integrationClass });
 

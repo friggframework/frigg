@@ -209,11 +209,12 @@ describe('KmsBuilder', () => {
             expect(result.resources.FriggKMSKey.Type).toBe('AWS::KMS::Key');
         });
 
-        it('should create KMS key alias', async () => {
+        it('should create KMS key alias when explicitly enabled', async () => {
             const appDefinition = {
                 encryption: {
                     fieldLevelEncryptionMethod: 'kms',
                     createResourceIfNoneFound: true,
+                    kmsKeyAlias: true,  // Explicitly enable alias creation
                 },
             };
 
@@ -223,6 +224,23 @@ describe('KmsBuilder', () => {
 
             expect(result.resources.FriggKMSKeyAlias).toBeDefined();
             expect(result.resources.FriggKMSKeyAlias.Type).toBe('AWS::KMS::Alias');
+        });
+
+        it('should skip alias creation when kmsKeyAlias: false', async () => {
+            const appDefinition = {
+                encryption: {
+                    fieldLevelEncryptionMethod: 'kms',
+                    createResourceIfNoneFound: true,
+                    kmsKeyAlias: false,
+                },
+            };
+
+            const discoveredResources = {};
+
+            const result = await kmsBuilder.build(appDefinition, discoveredResources);
+
+            expect(result.resources.FriggKMSKey).toBeDefined();
+            expect(result.resources.FriggKMSKeyAlias).toBeUndefined();
         });
 
         it('should enable key rotation for new keys', async () => {

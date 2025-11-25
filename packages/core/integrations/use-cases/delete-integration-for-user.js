@@ -11,13 +11,15 @@ class DeleteIntegrationForUser {
      * @param {Object} params - Configuration parameters.
      * @param {import('../repositories/integration-repository-interface').IntegrationRepositoryInterface} params.integrationRepository - Repository for integration data operations.
      * @param {Array<import('../integration').Integration>} params.integrationClasses - Array of available integration classes.
+     * @param {import('../../modules/module-factory').ModuleFactory} params.moduleFactory - Service for module instantiation and management.
      */
-    constructor({ integrationRepository, integrationClasses }) {
+    constructor({ integrationRepository, integrationClasses, moduleFactory }) {
         /**
          * @type {import('../repositories/integration-repository-interface').IntegrationRepositoryInterface}
          */
         this.integrationRepository = integrationRepository;
         this.integrationClasses = integrationClasses;
+        this.moduleFactory = moduleFactory;
     }
 
     /**
@@ -51,6 +53,32 @@ class DeleteIntegrationForUser {
             );
         }
 
+        // Load modules with API clients for webhook deletion
+        const modules = [];
+        const failedModuleLoads = [];
+
+        for (const entityId of integrationRecord.entitiesIds) {
+            try {
+                const moduleInstance = await this.moduleFactory.getModuleInstance(
+                    entityId,
+                    integrationRecord.userId
+                );
+                modules.push(moduleInstance);
+            } catch (error) {
+                console.error(
+                    `[Integration Deletion] Failed to load module for entity ${entityId}:`,
+                    error.message
+                );
+                failedModuleLoads.push({ entityId, error: error.message });
+            }
+        }
+
+        if (failedModuleLoads.length > 0) {
+            console.warn(
+                `[Integration Deletion] ${failedModuleLoads.length}/${integrationRecord.entitiesIds.length} module(s) failed to load. Webhooks for these modules may require manual cleanup.`
+            );
+        }
+
         const integrationInstance = new integrationClass({
             id: integrationRecord.id,
             userId: integrationRecord.userId,
@@ -59,10 +87,10 @@ class DeleteIntegrationForUser {
             status: integrationRecord.status,
             version: integrationRecord.version,
             messages: integrationRecord.messages,
-            modules: [],
+            modules,
         });
 
-        // 6. Complete async initialization (load dynamic actions, register handlers)
+        // Complete async initialization (load dynamic actions, register handlers)
         await integrationInstance.initialize();
         await integrationInstance.send('ON_DELETE');
 

@@ -251,9 +251,94 @@
         }
       },
       "additionalProperties": false
+    },
+    "modules": {
+      "type": "object",
+      "description": "API modules used by this integration. Keys are reference names, values contain module definitions.",
+      "additionalProperties": {
+        "type": "object",
+        "description": "Module configuration with its definition",
+        "required": ["definition"],
+        "properties": {
+          "definition": {
+            "type": "object",
+            "description": "The API module definition (e.g., from @friggframework/api-module-*)"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "hasUserConfig": {
+      "type": "boolean",
+      "description": "Whether integration requires user-specific configuration",
+      "default": false
+    },
+    "webhooks": {
+      "type": "object",
+      "description": "Webhook configuration for the integration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether webhooks are enabled",
+          "default": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "display": {
+      "type": "object",
+      "description": "Display properties for UI representation",
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Human-readable display label"
+        },
+        "description": {
+          "type": "string",
+          "description": "Integration description"
+        },
+        "category": {
+          "type": "string",
+          "description": "Integration category for grouping"
+        },
+        "detailsUrl": {
+          "type": "string",
+          "description": "URL to integration documentation or details",
+          "format": "uri"
+        },
+        "icon": {
+          "type": "string",
+          "description": "Icon identifier or URL for the integration"
+        }
+      },
+      "additionalProperties": true
+    },
+    "routes": {
+      "type": "array",
+      "description": "Custom routes exposed by this integration",
+      "items": {
+        "type": "object",
+        "required": ["path", "method", "event"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Route path pattern"
+          },
+          "method": {
+            "type": "string",
+            "description": "HTTP method",
+            "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
+          },
+          "event": {
+            "type": "string",
+            "description": "Event name triggered by this route"
+          }
+        },
+        "additionalProperties": true
+      }
     }
   },
-  "additionalProperties": false,
+  "additionalProperties": true,
   "examples": [
     {
       "name": "hubspot",

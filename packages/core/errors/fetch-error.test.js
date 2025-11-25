@@ -53,7 +53,7 @@ describe('FetchError', () => {
         expect(error.message).toContain('<response body is unavailable>');
     });
 
-    it.only('prints a formData body legibly', async () => {
+    it('prints a formData body legibly', async () => {
         const response = {
             status: 500,
             statusText: 'Space aliens!',
@@ -75,5 +75,34 @@ describe('FetchError', () => {
 
         expect(error).toHaveProperty('message');
         expect(error.message).toContain('test=test');
+    });
+
+    it('exposes statusCode property from response.status', async () => {
+        const response = {
+            status: 401,
+            statusText: 'Unauthorized',
+            headers: Object.entries({ 'content-type': 'application/json' }),
+            text: async () => '{"error": "Invalid token"}',
+        };
+
+        const error = await FetchError.create({
+            resource: 'https://api.example.com/data',
+            init: { method: 'GET' },
+            response,
+        });
+
+        expect(error).toHaveProperty('statusCode');
+        expect(error.statusCode).toBe(401);
+        expect(error.statusCode).toBe(error.response.status);
+    });
+
+    it('statusCode is undefined when response is null', async () => {
+        const error = await FetchError.create({
+            resource: 'https://api.example.com/data',
+            init: { method: 'GET' },
+            response: null,
+        });
+
+        expect(error.statusCode).toBeUndefined();
     });
 });

@@ -65,9 +65,7 @@ const {
 const {
     AuthenticateWithSharedSecret,
 } = require('../user/use-cases/authenticate-with-shared-secret');
-const {
-    AuthenticateUser,
-} = require('../user/use-cases/authenticate-user');
+const { AuthenticateUser } = require('../user/use-cases/authenticate-user');
 const {
     ProcessAuthorizationCallback,
 } = require('../modules/use-cases/process-authorization-callback');
@@ -113,6 +111,7 @@ function createIntegrationRouter() {
     const deleteIntegrationForUser = new DeleteIntegrationForUser({
         integrationRepository,
         integrationClasses,
+        moduleFactory,
     });
 
     const getIntegrationsForUser = new GetIntegrationsForUser({
@@ -233,8 +232,10 @@ function checkRequiredParams(params, requiredKeys) {
 
     if (missingKeys.length > 0) {
         throw Boom.badRequest(
-            `Missing Parameter${missingKeys.length === 1 ? '' : 's'
-            }: ${missingKeys.join(', ')} ${missingKeys.length === 1 ? 'is' : 'are'
+            `Missing Parameter${
+                missingKeys.length === 1 ? '' : 's'
+            }: ${missingKeys.join(', ')} ${
+                missingKeys.length === 1 ? 'is' : 'are'
             } required.`
         );
     }
@@ -583,7 +584,7 @@ function setEntityRoutes(router, authenticateUser, useCases) {
                 req.params.credentialId,
                 userId
             );
-            if (credential.user._id.toString() !== userId) {
+            if (credential.userId.toString() !== userId) {
                 throw Boom.forbidden('Credential does not belong to user');
             }
 
@@ -600,11 +601,10 @@ function setEntityRoutes(router, authenticateUser, useCases) {
     router.route('/api/entities/:entityId/test-auth').get(
         catchAsyncError(async (req, res) => {
             const user = await authenticateUser.execute(req);
-            const userId = user.getId();
             const params = checkRequiredParams(req.params, ['entityId']);
             const testAuthResponse = await testModuleAuth.execute(
                 params.entityId,
-                userId
+                user // Pass User object for proper validation
             );
 
             if (!testAuthResponse) {
@@ -613,7 +613,7 @@ function setEntityRoutes(router, authenticateUser, useCases) {
                     errors: [
                         {
                             title: 'Authentication Error',
-                            message: `There was an error with your ${module.getName()} Entity.  Please reconnect/re-authenticate, or reach out to Support for assistance.`,
+                            message: `There was an error with your Entity. Please reconnect/re-authenticate, or reach out to Support for assistance.`,
                             timestamp: Date.now(),
                         },
                     ],
@@ -627,9 +627,8 @@ function setEntityRoutes(router, authenticateUser, useCases) {
     router.route('/api/entities/:entityId').get(
         catchAsyncError(async (req, res) => {
             const user = await authenticateUser.execute(req);
-            const userId = user.getId();
             const params = checkRequiredParams(req.params, ['entityId']);
-            const module = await getModule.execute(params.entityId, userId);
+            const module = await getModule.execute(params.entityId, user); // Pass User object
 
             res.json(module);
         })
@@ -638,12 +637,11 @@ function setEntityRoutes(router, authenticateUser, useCases) {
     router.route('/api/entities/:entityId/options').post(
         catchAsyncError(async (req, res) => {
             const user = await authenticateUser.execute(req);
-            const userId = user.getId();
             const params = checkRequiredParams(req.params, ['entityId']);
 
             const entityOptions = await getEntityOptionsById.execute(
                 params.entityId,
-                userId
+                user // Pass User object
             );
 
             res.json(entityOptions);
@@ -653,11 +651,10 @@ function setEntityRoutes(router, authenticateUser, useCases) {
     router.route('/api/entities/:entityId/options/refresh').post(
         catchAsyncError(async (req, res) => {
             const user = await authenticateUser.execute(req);
-            const userId = user.getId();
             const params = checkRequiredParams(req.params, ['entityId']);
             const updatedOptions = await refreshEntityOptions.execute(
                 params.entityId,
-                userId,
+                user, // Pass User object
                 req.body
             );
 

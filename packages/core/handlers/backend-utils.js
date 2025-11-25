@@ -92,13 +92,16 @@ const loadIntegrationForWebhook = async (integrationId) => {
         integrationId
     );
 
-    return await getIntegrationInstance.execute(
+    const instance = await getIntegrationInstance.execute(
         integrationId,
         integrationRecord.userId
     );
+
+    return instance;
 };
 
 const loadIntegrationForProcess = async (processId, integrationClass) => {
+
     const { processRepository, integrationRepository, moduleRepository } =
         initializeRepositories();
 
@@ -122,10 +125,12 @@ const loadIntegrationForProcess = async (processId, integrationClass) => {
         throw new Error(`Process not found: ${processId}`);
     }
 
-    return await getIntegrationInstance.execute(
+    const instance = await getIntegrationInstance.execute(
         process.integrationId,
         process.userId
     );
+
+    return instance;
 };
 
 const createQueueWorker = (integrationClass) => {
@@ -133,17 +138,18 @@ const createQueueWorker = (integrationClass) => {
         async _run(params, context) {
             try {
                 let integrationInstance;
-                if (
-                    params.event === 'ON_WEBHOOK' &&
-                    params.data?.integrationId
-                ) {
-                    integrationInstance = await loadIntegrationForWebhook(
-                        params.data.integrationId
-                    );
-                } else if (params.data?.processId) {
+
+                // Prioritize processId first (for sync handler compatibility),
+                // then integrationId (for ANY event type that needs hydration),
+                // fallback to unhydrated instance
+                if (params.data?.processId) {
                     integrationInstance = await loadIntegrationForProcess(
                         params.data.processId,
                         integrationClass
+                    );
+                } else if (params.data?.integrationId) {
+                    integrationInstance = await loadIntegrationForWebhook(
+                        params.data.integrationId
                     );
                 } else {
                     // Instantiates a DRY integration class without database records.

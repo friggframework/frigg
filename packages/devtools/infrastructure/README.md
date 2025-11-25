@@ -257,6 +257,34 @@ aws lambda get-function-configuration \
   --query 'Layers[*].Arn'
 ```
 
+**Disabling Prisma Layer (Bundle with Functions):**
+
+By default, Prisma ships via a Lambda Layer. You can disable the layer and bundle Prisma directly with each Lambda:
+
+```javascript
+const appDefinition = {
+    name: 'my-app',
+    usePrismaLambdaLayer: false, // Bundle Prisma with each function
+    integrations: [{ Definition: { name: 'asana' } }],
+};
+```
+
+**When to disable the Prisma Layer:**
+
+-   ✅ Your CI/CD IAM user lacks `lambda:PublishLayerVersion`
+-   ✅ Deploying to an AWS region/account with Lambda layer restrictions
+-   ✅ Troubleshooting Prisma client loading issues
+-   ✅ You prefer a simpler deployment artifact (no shared layer management)
+
+**Trade-offs:**
+
+| Mode | Function Size | Deploy Speed | IAM Permissions Required |
+|------|---------------|--------------|-------------------------|
+| **Layer (default)** | ~45MB per function | Faster (layer cached) | `lambda:PublishLayerVersion` |
+| **Bundled** | ~80MB per function | Slower (Prisma uploaded per function) | None (layer-related) |
+
+> ℹ️ When `usePrismaLambdaLayer: false`, Prisma stays inside each bundle and the runtime automatically loads the correct binary. No extra configuration is required.
+
 ## Usage Examples
 
 ### Basic Deployment

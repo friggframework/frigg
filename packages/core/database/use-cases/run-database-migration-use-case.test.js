@@ -199,7 +199,7 @@ describe('RunDatabaseMigrationUseCase', () => {
             expect(mockPrismaRunner.runPrismaDbPush).toHaveBeenCalledWith(false, true);
         });
 
-        it('should throw MigrationError if MongoDB push fails', async () => {
+        it('should throw MigrationError if Mongo-compatible push fails', async () => {
             mockPrismaRunner.runPrismaDbPush.mockResolvedValue({
                 success: false,
                 error: 'Connection timeout',
@@ -210,7 +210,41 @@ describe('RunDatabaseMigrationUseCase', () => {
             );
 
             await expect(useCase.execute({ dbType: 'mongodb', stage: 'production' })).rejects.toThrow(
-                'MongoDB push failed: Connection timeout'
+                'Mongo-compatible push failed: Connection timeout'
+            );
+        });
+
+        it('should handle DocumentDB using Mongo-compatible push', async () => {
+            mockPrismaRunner.runPrismaDbPush.mockResolvedValue({
+                success: true,
+                output: 'Database push completed successfully',
+            });
+
+            const result = await useCase.execute({ dbType: 'documentdb', stage: 'production' });
+
+            expect(mockPrismaRunner.runPrismaGenerate).toHaveBeenCalledWith('documentdb', false);
+            expect(mockPrismaRunner.runPrismaDbPush).toHaveBeenCalledWith(false, true);
+            expect(result).toEqual({
+                success: true,
+                dbType: 'documentdb',
+                stage: 'production',
+                command: 'db push',
+                message: 'Database migration completed successfully',
+            });
+        });
+
+        it('should throw MigrationError if DocumentDB push fails', async () => {
+            mockPrismaRunner.runPrismaDbPush.mockResolvedValue({
+                success: false,
+                error: 'Connection timeout',
+            });
+
+            await expect(useCase.execute({ dbType: 'documentdb', stage: 'production' })).rejects.toThrow(
+                MigrationError
+            );
+
+            await expect(useCase.execute({ dbType: 'documentdb', stage: 'production' })).rejects.toThrow(
+                'Mongo-compatible push failed: Connection timeout'
             );
         });
     });
@@ -226,7 +260,7 @@ describe('RunDatabaseMigrationUseCase', () => {
             );
 
             await expect(useCase.execute({ dbType: 'mysql', stage: 'production' })).rejects.toThrow(
-                "Unsupported database type: mysql. Must be 'postgresql' or 'mongodb'."
+                "Unsupported database type: mysql. Must be 'postgresql', 'mongodb', or 'documentdb'."
             );
         });
 
@@ -266,7 +300,7 @@ describe('RunDatabaseMigrationUseCase', () => {
             );
         });
 
-        it('should handle undefined error from MongoDB push', async () => {
+        it('should handle undefined error from Mongo-compatible push', async () => {
             mockPrismaRunner.runPrismaGenerate.mockResolvedValue({ success: true });
             mockPrismaRunner.runPrismaDbPush.mockResolvedValue({
                 success: false,
@@ -274,7 +308,19 @@ describe('RunDatabaseMigrationUseCase', () => {
             });
 
             await expect(useCase.execute({ dbType: 'mongodb', stage: 'production' })).rejects.toThrow(
-                'MongoDB push failed: Unknown error'
+                'Mongo-compatible push failed: Unknown error'
+            );
+        });
+
+        it('should handle undefined error from DocumentDB push', async () => {
+            mockPrismaRunner.runPrismaGenerate.mockResolvedValue({ success: true });
+            mockPrismaRunner.runPrismaDbPush.mockResolvedValue({
+                success: false,
+                error: undefined,
+            });
+
+            await expect(useCase.execute({ dbType: 'documentdb', stage: 'production' })).rejects.toThrow(
+                'Mongo-compatible push failed: Unknown error'
             );
         });
     });

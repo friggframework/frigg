@@ -11,7 +11,19 @@ class TestModuleAuth {
         this.moduleDefinitions = moduleDefinitions;
     }
 
-    async execute(entityId, userId) {
+    /**
+     * Test authentication for a module entity
+     *
+     * @param {string|number} entityId - Entity ID to test
+     * @param {string|number|import('../../user/user').User} userIdOrUser - User ID or User object for validation
+     * @returns {Promise<boolean>} Authentication test result
+     */
+    async execute(entityId, userIdOrUser) {
+        // Support both userId (backward compatible) and User object (new pattern)
+        const userId = typeof userIdOrUser === 'object' && userIdOrUser?.getId
+            ? userIdOrUser.getId()
+            : userIdOrUser;
+
         const entity = await this.moduleRepository.findEntityById(
             entityId,
             userId
@@ -21,7 +33,12 @@ class TestModuleAuth {
             throw new Error(`Entity ${entityId} not found`);
         }
 
-        if (entity.userId !== userId) {
+        // Validate entity ownership
+        const isOwned = typeof userIdOrUser === 'object' && userIdOrUser?.ownsUserId
+            ? userIdOrUser.ownsUserId(entity.userId)
+            : entity.userId?.toString() === userId?.toString();
+
+        if (!isOwned) {
             throw new Error(
                 `Entity ${entityId} does not belong to user ${userId}`
             );

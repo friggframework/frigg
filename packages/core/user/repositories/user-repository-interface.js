@@ -193,6 +193,20 @@ class UserRepositoryInterface {
     async deleteUser(userId) {
         throw new Error('Method deleteUser must be implemented by subclass');
     }
+
+    /**
+     * Link an individual user to an organization user
+     *
+     * @param {string|number} individualUserId - Individual user ID
+     * @param {string|number} organizationUserId - Organization user ID
+     * @returns {Promise<Object>} Updated individual user object
+     * @abstract
+     */
+    async linkIndividualToOrganization(individualUserId, organizationUserId) {
+        throw new Error(
+            'Method linkIndividualToOrganization must be implemented by subclass'
+        );
+    }
 }
 
 module.exports = { UserRepositoryInterface };

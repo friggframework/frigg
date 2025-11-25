@@ -1,7 +1,7 @@
 const {
     createEncryptionExtension,
 } = require('./encryption/prisma-encryption-extension');
-const { registerCustomSchema } = require('./encryption/encryption-schema-registry');
+const { loadCustomEncryptionSchema } = require('./encryption/encryption-schema-registry');
 const { logger } = require('./encryption/logger');
 const { Cryptor } = require('../encrypt/Cryptor');
 const config = require('./config');
@@ -11,7 +11,7 @@ const config = require('./config');
  * Falls back to MONGO_URI if DATABASE_URL is not set
  * Infrastructure layer concern - maps legacy MONGO_URI to Prisma's expected DATABASE_URL
  * 
- * Note: This should only be called when DB_TYPE is 'mongodb'
+ * Note: This should only be called when DB_TYPE is 'mongodb' or 'documentdb'
  */
 function ensureMongoDbUrl() {
     // If DATABASE_URL is already set, use it
@@ -22,13 +22,13 @@ function ensureMongoDbUrl() {
     // Fallback to MONGO_URI for backwards compatibility with DocumentDB deployments
     if (process.env.MONGO_URI && process.env.MONGO_URI.trim()) {
         process.env.DATABASE_URL = process.env.MONGO_URI;
-        logger.debug('Using MONGO_URI as DATABASE_URL for MongoDB connection');
+        logger.debug('Using MONGO_URI as DATABASE_URL for Mongo-compatible connection');
         return;
     }
 
     // Neither is set - error
     throw new Error(
-        'DATABASE_URL or MONGO_URI environment variable must be set for MongoDB'
+        'DATABASE_URL or MONGO_URI environment variable must be set for MongoDB/DocumentDB'
     );
 }
 
@@ -59,46 +59,6 @@ function getEncryptionConfig() {
     };
 }
 
-/**
- * Loads and registers custom encryption schema from appDefinition
- * Gracefully handles cases where appDefinition is not available
- */
-function loadCustomEncryptionSchema() {
-    try {
-        // Lazy require to avoid circular dependency issues
-        const path = require('node:path');
-        const { findNearestBackendPackageJson } = require('../utils');
-
-        const backendPackagePath = findNearestBackendPackageJson();
-        if (!backendPackagePath) {
-            return; // No backend found, skip custom schema
-        }
-
-        const backendDir = path.dirname(backendPackagePath);
-        const backendIndexPath = path.join(backendDir, 'index.js');
-
-        const backendModule = require(backendIndexPath);
-        const appDefinition = backendModule?.Definition;
-
-        if (!appDefinition) {
-            return; // No app definition found
-        }
-
-        const customSchema = appDefinition.encryption?.schema;
-
-        if (customSchema && Object.keys(customSchema).length > 0) {
-            registerCustomSchema(customSchema);
-        }
-    } catch (error) {
-        // Silently ignore errors - custom schema is optional
-        // This handles cases like:
-        // - Backend package.json not found (tests, standalone usage)
-        // - No appDefinition defined
-        // - No custom encryption schema specified
-        logger.debug('Could not load custom encryption schema:', error.message);
-    }
-}
-
 const prismaClientSingleton = () => {
     let PrismaClient;
 
@@ -124,7 +84,7 @@ const prismaClientSingleton = () => {
         );
     };
 
-    if (config.DB_TYPE === 'mongodb') {
+    if (config.DB_TYPE === 'mongodb' || config.DB_TYPE === 'documentdb') {
         // Ensure DATABASE_URL is set (fallback to MONGO_URI if needed)
         ensureMongoDbUrl();
         PrismaClient = loadPrismaClient('mongodb');
@@ -132,7 +92,7 @@ const prismaClientSingleton = () => {
         PrismaClient = loadPrismaClient('postgresql');
     } else {
         throw new Error(
-            `Unsupported database type: ${config.DB_TYPE}. Supported values: 'mongodb', 'postgresql'`
+            `Unsupported database type: ${config.DB_TYPE}. Supported values: 'mongodb', 'documentdb', 'postgresql'`
         );
     }
 
@@ -205,7 +165,7 @@ async function connectPrisma() {
     // Initialize MongoDB schema - ensure all collections exist
     // Only run for MongoDB/DocumentDB (not PostgreSQL)
     // This prevents "Cannot create namespace in multi-document transaction" errors
-    if (config.DB_TYPE === 'mongodb') {
+    if (config.DB_TYPE === 'mongodb' || config.DB_TYPE === 'documentdb') {
         const { initializeMongoDBSchema } = require('./utils/mongodb-schema-init');
         await initializeMongoDBSchema();
     }

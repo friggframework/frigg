@@ -4,6 +4,7 @@ const {
     createTokenRepository,
 } = require('../../token/repositories/token-repository-factory');
 const { UserRepositoryInterface } = require('./user-repository-interface');
+const { ClientSafeError } = require('../../errors');
 
 /**
  * MongoDB User Repository Adapter
@@ -113,7 +114,7 @@ class UserRepositoryMongo extends UserRepositoryInterface {
             params.hashword !== ''
         ) {
             if (typeof params.hashword !== 'string') {
-                throw new Error('Password must be a string');
+                throw new ClientSafeError('Password must be a string', 400);
             }
 
             // Prevent double-hashing: bcrypt hashes start with $2a$ or $2b$
@@ -235,7 +236,7 @@ class UserRepositoryMongo extends UserRepositoryInterface {
             data.hashword !== ''
         ) {
             if (typeof data.hashword !== 'string') {
-                throw new Error('Password must be a string');
+                throw new ClientSafeError('Password must be a string', 400);
             }
 
             // Prevent double-hashing: bcrypt hashes start with $2a$ or $2b$
@@ -285,6 +286,24 @@ class UserRepositoryMongo extends UserRepositoryInterface {
             }
             throw error;
         }
+    }
+
+    /**
+     * Link an individual user to an organization user
+     * @param {string} individualUserId - Individual user ID (MongoDB ObjectId string)
+     * @param {string} organizationUserId - Organization user ID (MongoDB ObjectId string)
+     * @returns {Promise<Object>} Updated individual user object
+     */
+    async linkIndividualToOrganization(individualUserId, organizationUserId) {
+        return await this.prisma.user.update({
+            where: {
+                id: individualUserId,
+                type: 'INDIVIDUAL',
+            },
+            data: {
+                organizationId: organizationUserId,
+            },
+        });
     }
 }
 

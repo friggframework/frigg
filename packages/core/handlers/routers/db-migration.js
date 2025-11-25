@@ -85,7 +85,7 @@ router.use(validateApiKey);
  * Request body:
  * {
  *   userId: string (optional, defaults to 'admin'),
- *   dbType: 'postgresql' | 'mongodb',
+ *   dbType: 'postgresql' | 'mongodb' | 'documentdb',
  *   stage: string (e.g., 'production', 'dev')
  * }
  *
@@ -101,8 +101,7 @@ router.use(validateApiKey);
 router.post(
     '/db-migrate',
     catchAsyncError(async (req, res) => {
-        // Migration infrastructure is PostgreSQL-only, so hardcode dbType
-        const dbType = 'postgresql';
+        const dbType = req.body.dbType || process.env.DB_TYPE || 'postgresql';
         const { stage } = req.body;
         // TODO: Extract userId from JWT token when auth is implemented
         const userId = req.body.userId || 'admin';
@@ -236,6 +235,77 @@ router.get(
     })
 );
 
+/**
+ * POST /db-migrate/resolve
+ *
+ * Resolve a failed migration by marking it as applied or rolled back
+ *
+ * Request body:
+ * {
+ *   migrationName: string (e.g., '20251112195422_update_user_unique_constraints'),
+ *   action: 'applied' | 'rolled-back',
+ *   stage: string (optional, defaults to STAGE env var or 'production')
+ * }
+ *
+ * Response (200 OK):
+ * {
+ *   success: true,
+ *   message: string,
+ *   migrationName: string,
+ *   action: string
+ * }
+ */
+router.post(
+    '/db-migrate/resolve',
+    catchAsyncError(async (req, res) => {
+        const { migrationName, action = 'applied' } = req.body;
+
+        console.log(`Migration resolve request: migration=${migrationName}, action=${action}`);
+
+        // Validation
+        if (!migrationName) {
+            return res.status(400).json({
+                success: false,
+                error: 'migrationName is required'
+            });
+        }
+
+        if (!['applied', 'rolled-back'].includes(action)) {
+            return res.status(400).json({
+                success: false,
+                error: 'action must be either "applied" or "rolled-back"'
+            });
+        }
+
+        try {
+            // Import prismaRunner here to avoid circular dependencies
+            const prismaRunner = require('../../database/utils/prisma-runner');
+
+            const result = await prismaRunner.runPrismaMigrateResolve(migrationName, action, true);
+
+            if (!result.success) {
+                return res.status(500).json({
+                    success: false,
+                    error: `Failed to resolve migration: ${result.error}`
+                });
+            }
+
+            res.status(200).json({
+                success: true,
+                message: `Migration ${migrationName} marked as ${action}`,
+                migrationName,
+                action
+            });
+        } catch (error) {
+            console.error('Migration resolve failed:', error);
+            return res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    })
+);
+
 // Minimal Lambda handler (avoids app-handler-helpers which loads core/index.js → user/**)
 const serverlessHttp = require('serverless-http');
 const express = require('express');
@@ -245,7 +315,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(router);
-app.use((err, req, res, next) => {
+app.use((err, _req, res, _next) => {
     console.error('Migration Router Error:', err);
     res.status(500).json({ message: 'Internal Server Error' });
 });

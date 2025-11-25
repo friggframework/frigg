@@ -36,7 +36,6 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
 
     /**
      * Find credential by ID
-     * Replaces: Credential.findById(id)
      *
      * @param {string} id - Credential ID (string from application layer)
      * @returns {Promise<Object|null>} Credential object with string IDs or null
@@ -51,14 +50,11 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
             return null;
         }
 
-        // Extract data from JSON field
         const data = credential.data || {};
 
         return {
-            _id: credential.id.toString(),
             id: credential.id.toString(),
-            user: credential.userId?.toString(),
-            userId: credential.userId?.toString(),
+            userId: credential.userId.toString(),
             externalId: credential.externalId,
             authIsValid: credential.authIsValid,
             ...data, // Spread OAuth tokens from JSON field
@@ -67,7 +63,6 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
 
     /**
      * Update authentication status
-     * Replaces: Credential.updateOne({ _id: credentialId }, { $set: { authIsValid } })
      *
      * @param {string} credentialId - Credential ID (string from application layer)
      * @param {boolean} authIsValid - Authentication validity status
@@ -85,7 +80,6 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
 
     /**
      * Permanently remove a credential document
-     * Replaces: Credential.deleteOne({ _id: credentialId })
      *
      * @param {string} credentialId - Credential ID (string from application layer)
      * @returns {Promise<Object>} Deletion result
@@ -108,7 +102,6 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
 
     /**
      * Create or update credential matching identifiers
-     * Replaces: Credential.findOneAndUpdate(query, update, { upsert: true })
      *
      * @param {{identifiers: Object, details: Object}} credentialDetails
      * @returns {Promise<Object>} The persisted credential with string IDs
@@ -118,22 +111,22 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
         if (!identifiers)
             throw new Error('identifiers required to upsert credential');
 
-        if (!identifiers.user && !identifiers.userId) {
-            throw new Error('user or userId required in identifiers');
+        // Support both userId (preferred) and user (legacy) for backward compatibility
+        if (!identifiers.userId && !identifiers.user) {
+            throw new Error('userId required in identifiers');
         }
         if (!identifiers.externalId) {
             throw new Error(
                 'externalId required in identifiers to prevent credential collision. ' +
-                'When multiple credentials exist for the same user, both userId and externalId ' +
-                'are needed to uniquely identify which credential to update.'
+                    'When multiple credentials exist for the same user, both userId and externalId ' +
+                    'are needed to uniquely identify which credential to update.'
             );
         }
 
         const where = this._convertIdentifiersToWhere(identifiers);
 
-        const { user, externalId } = identifiers;
+        const { externalId } = identifiers;
 
-        // Separate schema fields from dynamic OAuth data
         const { authIsValid, ...oauthData } = details;
 
         const existing = await this.prisma.credential.findFirst({ where });
@@ -144,15 +137,9 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
             const updated = await this.prisma.credential.update({
                 where: { id: existing.id },
                 data: {
-                    userId: this._convertId(user || existing.userId),
-                    externalId:
-                        externalId !== undefined
-                            ? externalId
-                            : existing.externalId,
-                    authIsValid:
-                        authIsValid !== undefined
-                            ? authIsValid
-                            : existing.authIsValid,
+                    userId: this._convertId(existing.userId),
+                    externalId: existing.externalId,
+                    authIsValid: authIsValid !== undefined ? authIsValid : existing.authIsValid,
                     data: mergedData,
                 },
             });
@@ -168,10 +155,10 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
 
         const created = await this.prisma.credential.create({
             data: {
-                userId: this._convertId(user),
+                // Use userId from where clause (supports both userId and user fields)
+                userId: where.userId,
                 externalId,
                 authIsValid: authIsValid,
-                
                 data: oauthData,
             },
         });
@@ -187,7 +174,6 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
 
     /**
      * Find a credential by filter criteria
-     * Replaces: Credential.findOne(query)
      *
      * @param {Object} filter
      * @param {string} [filter.userId] - User ID (string from application layer)
@@ -215,21 +201,18 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
             authIsValid: credential.authIsValid,
             access_token: data.access_token,
             refresh_token: data.refresh_token,
-            domain: data.domain,
             ...data,
         };
     }
 
     /**
      * Update a credential by ID
-     * Replaces: Credential.findByIdAndUpdate(credentialId, { $set: updates })
      *
      * @param {string} credentialId - Credential ID (string from application layer)
      * @param {Object} updates - Fields to update
      * @returns {Promise<Object|null>} Updated credential object with string IDs or null if not found
      */
     async updateCredential(credentialId, updates) {
-        // Get existing credential to merge OAuth data
         const intId = this._convertId(credentialId);
         const existing = await this.prisma.credential.findUnique({
             where: { id: intId },
@@ -239,21 +222,16 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
             return null;
         }
 
-        // Separate schema fields from OAuth data
-        const { user, authIsValid, ...oauthData } =
-            updates;
+        const { authIsValid, ...oauthData } = updates;
 
-        // Merge OAuth data with existing
         const mergedData = { ...(existing.data || {}), ...oauthData };
 
         const updated = await this.prisma.credential.update({
             where: { id: intId },
             data: {
-                userId: this._convertId(userId || user || existing.userId),
-                externalId:
-                    externalId !== undefined ? externalId : existing.externalId,
-                authIsValid:
-                    authIsValid !== undefined ? authIsValid : existing.authIsValid,
+                userId: this._convertId(existing.userId),
+                externalId: existing.externalId,
+                authIsValid: authIsValid,
                 data: mergedData,
             },
         });
@@ -267,7 +245,6 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
             authIsValid: updated.authIsValid,
             access_token: data.access_token,
             refresh_token: data.refresh_token,
-            domain: data.domain,
             ...data,
         };
     }
@@ -282,9 +259,11 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
         const where = {};
 
         if (identifiers.id) where.id = this._convertId(identifiers.id);
-        if (identifiers.user) where.userId = this._convertId(identifiers.user);
+        // Support both userId (preferred) and user (legacy) for backward compatibility
         if (identifiers.userId)
             where.userId = this._convertId(identifiers.userId);
+        else if (identifiers.user)
+            where.userId = this._convertId(identifiers.user);
         if (identifiers.externalId) where.externalId = identifiers.externalId;
 
         return where;
@@ -302,7 +281,6 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
         if (filter.credentialId)
             where.id = this._convertId(filter.credentialId);
         if (filter.id) where.id = this._convertId(filter.id);
-        if (filter.user) where.userId = this._convertId(filter.user);
         if (filter.userId) where.userId = this._convertId(filter.userId);
         if (filter.externalId) where.externalId = filter.externalId;
 

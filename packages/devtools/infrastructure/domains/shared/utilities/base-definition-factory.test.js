@@ -243,6 +243,49 @@ describe('Base Definition Factory', () => {
             expect(result.useDotenv).toBeDefined();
             expect(typeof result.useDotenv).toBe('boolean');
         });
+
+        describe('usePrismaLayer configuration', () => {
+            it('includes Prisma layer and exclusions by default', () => {
+                const result = createBaseDefinition({}, {}, {});
+
+                expect(result.layers.prisma).toBeDefined();
+                expect(result.functions.auth.layers).toEqual([{ Ref: 'PrismaLambdaLayer' }]);
+                expect(result.functions.auth.package.exclude).toEqual(
+                    expect.arrayContaining([
+                        'node_modules/@prisma/**',
+                        'node_modules/.prisma/**',
+                        'node_modules/prisma/**',
+                        'node_modules/@friggframework/core/generated/**',
+                    ])
+                );
+                expect(result.custom.esbuild.external).toEqual(
+                    expect.arrayContaining(['@prisma/client', 'prisma'])
+                );
+            });
+
+            it('omits Prisma layer and bundles Prisma when disabled', () => {
+                const result = createBaseDefinition({}, {}, {}, false);
+
+                expect(result.layers).toEqual({});
+                expect(result.functions.auth.layers).toBeUndefined();
+                expect(result.functions.auth.package.exclude).not.toEqual(
+                    expect.arrayContaining([
+                        'node_modules/@prisma/**',
+                        'node_modules/.prisma/**',
+                        'node_modules/prisma/**',
+                        'node_modules/@friggframework/core/generated/**',
+                    ])
+                );
+                expect(result.custom.esbuild.external).not.toEqual(
+                    expect.arrayContaining(['@prisma/client', 'prisma'])
+                );
+            });
+
+            it('defaults to usePrismaLayer=true when omitted', () => {
+                const result = createBaseDefinition({}, {}, {});
+                expect(result.functions.auth.layers).toEqual([{ Ref: 'PrismaLambdaLayer' }]);
+            });
+        });
     });
 });
 

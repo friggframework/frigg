@@ -67,7 +67,7 @@ describe('MongoDB Schema Initialization', () => {
                 'Association', 'AssociationObject', 'State', 'WebsocketConnection'
             ]);
             expect(console.log).toHaveBeenCalledWith(
-                expect.stringContaining('MongoDB schema initialization complete')
+                expect.stringContaining('MongoDB-compatible schema initialization complete')
             );
         });
 
@@ -78,7 +78,7 @@ describe('MongoDB Schema Initialization', () => {
 
             expect(mockEnsureCollectionsExist).not.toHaveBeenCalled();
             expect(console.log).toHaveBeenCalledWith(
-                'Schema initialization skipped - not using MongoDB'
+                'Schema initialization skipped - not using MongoDB-compatible database'
             );
         });
 
@@ -107,7 +107,7 @@ describe('MongoDB Schema Initialization', () => {
             await initializeMongoDBSchema();
 
             expect(console.log).toHaveBeenCalledWith(
-                'Initializing MongoDB schema - ensuring all collections exist...'
+                'Initializing MongoDB-compatible schema - ensuring all collections exist...'
             );
             expect(console.log).toHaveBeenCalledWith(
                 expect.stringContaining('13 collections verified')

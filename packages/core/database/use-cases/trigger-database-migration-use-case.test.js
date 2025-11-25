@@ -125,6 +125,29 @@ describe('TriggerDatabaseMigrationUseCase', () => {
             });
         });
 
+        it('should handle DocumentDB dbType', async () => {
+            await useCase.execute({
+                userId: 'user-456',
+                dbType: 'documentdb',
+                stage: 'dev',
+            });
+
+            expect(mockMigrationStatusRepository.create).toHaveBeenCalledWith({
+                stage: 'dev',
+                triggeredBy: 'user-456',
+                triggeredAt: expect.any(String),
+            });
+
+            expect(mockQueuerUtil.send).toHaveBeenCalledWith(
+                {
+                    migrationId: 'migration-123',
+                    dbType: 'documentdb',
+                    stage: 'dev',
+                },
+                'https://sqs.us-east-1.amazonaws.com/123456789/test-queue'
+            );
+        });
+
         it('should allow userId to be omitted (system migrations)', async () => {
             const result = await useCase.execute({
                 dbType: 'postgresql',
