@@ -29,24 +29,24 @@
 
 DocumentDB repositories use `$runCommandRaw()` for MongoDB protocol compatibility, which **bypasses Prisma Client Extensions**, including the encryption extension. This results in a **critical security vulnerability** where:
 
-- ✅ **MongoDB/PostgreSQL**: Automatic encryption via Prisma Extension
-- ❌ **DocumentDB**: OAuth credentials stored in **plain text**
+-   ✅ **MongoDB/PostgreSQL**: Automatic encryption via Prisma Extension
+-   ❌ **DocumentDB**: OAuth credentials stored in **plain text**
 
 ### The Solution
 
 Create `DocumentDBEncryptionService` - a centralized encryption service specifically designed for DocumentDB repositories that:
 
-- Provides document-level encryption/decryption
-- Handles nested field paths (e.g., `data.access_token`)
-- Uses the same Cryptor and schema registry as Prisma Extension
-- Maintains consistency with existing encryption architecture
+-   Provides document-level encryption/decryption
+-   Handles nested field paths (e.g., `data.access_token`)
+-   Uses the same Cryptor and schema registry as Prisma Extension
+-   Maintains consistency with existing encryption architecture
 
 ### Impact
 
-- **Security**: OAuth credentials encrypted at rest in DocumentDB
-- **Architecture**: DRY principle - single source of encryption logic
-- **Consistency**: All DocumentDB repos use same encryption pattern
-- **Compliance**: Meets production encryption requirements
+-   **Security**: OAuth credentials encrypted at rest in DocumentDB
+-   **Architecture**: DRY principle - single source of encryption logic
+-   **Consistency**: All DocumentDB repos use same encryption pattern
+-   **Compliance**: Meets production encryption requirements
 
 ---
 
@@ -69,12 +69,13 @@ Database (encrypted storage)
 ```
 
 **How it works**:
+
 ```javascript
 // MongoDB Repository - Automatic encryption
 await prisma.credential.create({
     data: {
-        access_token: "plain_secret"  // ← Plain text in
-    }
+        access_token: 'plain_secret', // ← Plain text in
+    },
 });
 // → Prisma Extension intercepts
 // → FieldEncryptionService.encryptField() called
@@ -100,16 +101,17 @@ Database (PLAIN TEXT STORAGE) ⚠️ SECURITY VULNERABILITY
 ```
 
 **Why it's broken**:
+
 ```javascript
 // DocumentDB Repository - NO encryption
 const oauthData = {
-    access_token: "ya29.actual_google_token",  // Plain text!
-    refresh_token: "1//0secret_refresh_token"   // Plain text!
+    access_token: 'ya29.actual_google_token', // Plain text!
+    refresh_token: '1//0secret_refresh_token', // Plain text!
 };
 
 await prisma.$runCommandRaw({
     insert: 'Credential',
-    documents: [{ data: oauthData }]
+    documents: [{ data: oauthData }],
 });
 // ❌ Prisma Extension NEVER sees this command
 // ❌ FieldEncryptionService NEVER invoked
@@ -123,18 +125,19 @@ From Prisma documentation:
 > "$runCommandRaw is a low-level database access method. Prisma Client extensions do not apply to raw database access."
 
 **Why DocumentDB needs raw commands**:
-- DocumentDB has MongoDB compatibility limitations
-- Certain Prisma features don't work (transactions, some aggregations)
-- Raw commands provide direct MongoDB protocol access
+
+-   DocumentDB has MongoDB compatibility limitations
+-   Certain Prisma features don't work (transactions, some aggregations)
+-   Raw commands provide direct MongoDB protocol access
 
 ### Current Repository Status
 
-| Repository | Encryption Status | Security Risk |
-|-----------|------------------|---------------|
-| **UserRepositoryDocumentDB** | ✅ Has manual encryption for `hashword` | Low - passwords protected |
-| **ModuleRepositoryDocumentDB** | ⚠️ Has manual decryption for reads only | Medium - assumes credentials encrypted |
-| **CredentialRepositoryDocumentDB** | ❌ **NO encryption on writes, NO decryption on reads** | 🔴 **CRITICAL - OAuth tokens in plain text** |
-| **IntegrationRepositoryDocumentDB** | ✅ No encrypted fields, OK | None |
+| Repository                          | Encryption Status                                      | Security Risk                                |
+| ----------------------------------- | ------------------------------------------------------ | -------------------------------------------- |
+| **UserRepositoryDocumentDB**        | ✅ Has manual encryption for `hashword`                | Low - passwords protected                    |
+| **ModuleRepositoryDocumentDB**      | ⚠️ Has manual decryption for reads only                | Medium - assumes credentials encrypted       |
+| **CredentialRepositoryDocumentDB**  | ❌ **NO encryption on writes, NO decryption on reads** | 🔴 **CRITICAL - OAuth tokens in plain text** |
+| **IntegrationRepositoryDocumentDB** | ✅ No encrypted fields, OK                             | None                                         |
 
 ---
 
@@ -142,18 +145,18 @@ From Prisma documentation:
 
 ### Comparison: FieldEncryptionService vs DocumentDBEncryptionService
 
-| Aspect | FieldEncryptionService | DocumentDBEncryptionService |
-|--------|------------------------|----------------------------|
-| **Purpose** | Encrypt individual fields for Prisma Extension | Encrypt entire documents for raw queries |
-| **Invocation** | Automatic (Prisma intercepts queries) | Manual (repository calls explicitly) |
-| **Scope** | Single field at a time | Entire document with multiple fields |
-| **Nested Fields** | Handled by Prisma Extension traversal | Must manually traverse field paths |
-| **Integration** | Via Prisma Client Extension | Direct import in repositories |
-| **Query Types** | `create()`, `update()`, `findFirst()`, etc. | `$runCommandRaw()`, via documentdb-utils |
-| **Database Support** | MongoDB, PostgreSQL (via Prisma) | DocumentDB (raw MongoDB protocol) |
-| **Schema Registry** | Used by Prisma Extension | Directly queries registry |
-| **Error Handling** | Prisma transaction rollback | Must handle in repository |
-| **Testing** | Integration tests with Prisma | Unit tests + repository tests |
+| Aspect               | FieldEncryptionService                         | DocumentDBEncryptionService              |
+| -------------------- | ---------------------------------------------- | ---------------------------------------- |
+| **Purpose**          | Encrypt individual fields for Prisma Extension | Encrypt entire documents for raw queries |
+| **Invocation**       | Automatic (Prisma intercepts queries)          | Manual (repository calls explicitly)     |
+| **Scope**            | Single field at a time                         | Entire document with multiple fields     |
+| **Nested Fields**    | Handled by Prisma Extension traversal          | Must manually traverse field paths       |
+| **Integration**      | Via Prisma Client Extension                    | Direct import in repositories            |
+| **Query Types**      | `create()`, `update()`, `findFirst()`, etc.    | `$runCommandRaw()`, via documentdb-utils |
+| **Database Support** | MongoDB, PostgreSQL (via Prisma)               | DocumentDB (raw MongoDB protocol)        |
+| **Schema Registry**  | Used by Prisma Extension                       | Directly queries registry                |
+| **Error Handling**   | Prisma transaction rollback                    | Must handle in repository                |
+| **Testing**          | Integration tests with Prisma                  | Unit tests + repository tests            |
 
 ### Proposed Architecture (DocumentDB - FIXED)
 
@@ -258,8 +261,9 @@ class DocumentDBEncryptionService {
 **Purpose**: Initialize the service and configure Cryptor
 
 **Behavior**:
-- Calls `_initializeCryptor()` immediately
-- Sets up `this.cryptor` and `this.enabled` properties
+
+-   Calls `_initializeCryptor()` immediately
+-   Sets up `this.cryptor` and `this.enabled` properties
 
 **No parameters**
 
@@ -270,6 +274,7 @@ class DocumentDBEncryptionService {
 **Purpose**: Initialize Cryptor with environment-based configuration
 
 **Logic**:
+
 ```javascript
 1. Get STAGE from environment (default: 'development')
 2. If STAGE in ['dev', 'test', 'local']:
@@ -288,10 +293,11 @@ class DocumentDBEncryptionService {
 ```
 
 **Environment Variables Used**:
-- `STAGE` or `NODE_ENV`: Determines bypass behavior
-- `KMS_KEY_ARN`: AWS KMS key ARN (enables KMS encryption)
-- `AES_KEY_ID`: AES key identifier (enables AES encryption)
-- `AES_KEY`: AES encryption key (required if AES_KEY_ID present)
+
+-   `STAGE` or `NODE_ENV`: Determines bypass behavior
+-   `KMS_KEY_ARN`: AWS KMS key ARN (enables KMS encryption)
+-   `AES_KEY_ID`: AES key identifier (enables AES encryption)
+-   `AES_KEY`: AES encryption key (required if AES_KEY_ID present)
 
 **Matches**: Logic from `packages/core/database/prisma.js` lines 76-96
 
@@ -302,12 +308,14 @@ class DocumentDBEncryptionService {
 **Purpose**: Encrypt fields in a document before storing to DocumentDB
 
 **Parameters**:
-- `modelName` (string): Model name from schema registry (e.g., 'User', 'Credential')
-- `document` (Object): Document to encrypt
+
+-   `modelName` (string): Model name from schema registry (e.g., 'User', 'Credential')
+-   `document` (Object): Document to encrypt
 
 **Returns**: `Promise<Object>` - Document with encrypted fields
 
 **Algorithm**:
+
 ```javascript
 1. If !this.enabled or !this.cryptor:
    - Return document unchanged (bypass)
@@ -324,17 +332,19 @@ class DocumentDBEncryptionService {
 ```
 
 **Error Handling**:
-- Invalid inputs: Return unchanged
-- Encryption errors: Propagate to caller (repository must handle)
+
+-   Invalid inputs: Return unchanged
+-   Encryption errors: Propagate to caller (repository must handle)
 
 **Example**:
+
 ```javascript
 const plainDoc = {
-    userId: "123",
+    userId: '123',
     data: {
-        access_token: "plain_secret",
-        refresh_token: "plain_refresh"
-    }
+        access_token: 'plain_secret',
+        refresh_token: 'plain_refresh',
+    },
 };
 
 const encrypted = await service.encryptFields('Credential', plainDoc);
@@ -349,12 +359,14 @@ const encrypted = await service.encryptFields('Credential', plainDoc);
 **Purpose**: Decrypt fields in a document after reading from DocumentDB
 
 **Parameters**:
-- `modelName` (string): Model name from schema registry
-- `document` (Object): Document to decrypt
+
+-   `modelName` (string): Model name from schema registry
+-   `document` (Object): Document to decrypt
 
 **Returns**: `Promise<Object>` - Document with decrypted fields
 
 **Algorithm**:
+
 ```javascript
 1. If !this.enabled or !this.cryptor:
    - Return document unchanged (bypass)
@@ -371,17 +383,19 @@ const encrypted = await service.encryptFields('Credential', plainDoc);
 ```
 
 **Error Handling**:
-- Decryption failures: Set field to null (don't expose encrypted data)
-- Log error with context
+
+-   Decryption failures: Set field to null (don't expose encrypted data)
+-   Log error with context
 
 **Example**:
+
 ```javascript
 const encryptedDoc = {
-    userId: "123",
+    userId: '123',
     data: {
-        access_token: "aes-key-1:iv:cipher:enckey",
-        refresh_token: "aes-key-1:iv:cipher:enckey"
-    }
+        access_token: 'aes-key-1:iv:cipher:enckey',
+        refresh_token: 'aes-key-1:iv:cipher:enckey',
+    },
 };
 
 const decrypted = await service.decryptFields('Credential', encryptedDoc);
@@ -396,11 +410,13 @@ const decrypted = await service.decryptFields('Credential', encryptedDoc);
 **Purpose**: Encrypt a specific field path in a document (handles nested fields)
 
 **Parameters**:
-- `document` (Object): Document to modify (mutated in place)
-- `fieldPath` (string): Field path from schema registry (e.g., 'data.access_token')
-- `modelName` (string): For error logging context
+
+-   `document` (Object): Document to modify (mutated in place)
+-   `fieldPath` (string): Field path from schema registry (e.g., 'data.access_token')
+-   `modelName` (string): For error logging context
 
 **Algorithm**:
+
 ```javascript
 1. Split fieldPath by '.': parts = fieldPath.split('.')
 2. Navigate to parent object:
@@ -422,9 +438,10 @@ const decrypted = await service.decryptFields('Credential', encryptedDoc);
 ```
 
 **Example Field Paths**:
-- `hashword` → Encrypts `document.hashword`
-- `data.access_token` → Encrypts `document.data.access_token`
-- `data.refresh_token` → Encrypts `document.data.refresh_token`
+
+-   `hashword` → Encrypts `document.hashword`
+-   `data.access_token` → Encrypts `document.data.access_token`
+-   `data.refresh_token` → Encrypts `document.data.refresh_token`
 
 ---
 
@@ -433,11 +450,13 @@ const decrypted = await service.decryptFields('Credential', encryptedDoc);
 **Purpose**: Decrypt a specific field path in a document
 
 **Parameters**:
-- `document` (Object): Document to modify (mutated in place)
-- `fieldPath` (string): Field path from schema registry
-- `modelName` (string): For error logging context
+
+-   `document` (Object): Document to modify (mutated in place)
+-   `fieldPath` (string): Field path from schema registry
+-   `modelName` (string): For error logging context
 
 **Algorithm**:
+
 ```javascript
 1. Split fieldPath by '.': parts = fieldPath.split('.')
 2. Navigate to parent object:
@@ -460,9 +479,10 @@ const decrypted = await service.decryptFields('Credential', encryptedDoc);
 ```
 
 **Error Tolerance**:
-- If decryption fails, set field to `null` instead of throwing
-- Prevents exposing encrypted strings to application
-- Logs error for debugging
+
+-   If decryption fails, set field to `null` instead of throwing
+-   Prevents exposing encrypted strings to application
+-   Logs error for debugging
 
 ---
 
@@ -471,11 +491,13 @@ const decrypted = await service.decryptFields('Credential', encryptedDoc);
 **Purpose**: Check if a value is in encrypted format
 
 **Parameters**:
-- `value` (any): Value to check
+
+-   `value` (any): Value to check
 
 **Returns**: `boolean` - True if value is encrypted
 
 **Logic**:
+
 ```javascript
 1. If typeof value !== 'string': return false
 2. Split by ':': parts = value.split(':')
@@ -485,11 +507,12 @@ const decrypted = await service.decryptFields('Credential', encryptedDoc);
 **Encrypted Format**: `"keyId:iv:cipher:encKey"` (envelope encryption)
 
 **Examples**:
+
 ```javascript
-_isEncryptedValue("plain_text")  // false
-_isEncryptedValue("aes-key-1:iv123:cipher456:enckey789")  // true
-_isEncryptedValue(null)  // false
-_isEncryptedValue({})  // false
+_isEncryptedValue('plain_text'); // false
+_isEncryptedValue('aes-key-1:iv123:cipher456:enckey789'); // true
+_isEncryptedValue(null); // false
+_isEncryptedValue({}); // false
 ```
 
 ---
@@ -498,7 +521,9 @@ _isEncryptedValue({})  // false
 
 ```javascript
 const { Cryptor } = require('../encrypt/Cryptor');
-const { getEncryptedFields } = require('./encryption/encryption-schema-registry');
+const {
+    getEncryptedFields,
+} = require('./encryption/encryption-schema-registry');
 ```
 
 **Cryptor**: Handles actual encryption/decryption (KMS or AES)
@@ -517,10 +542,10 @@ const ENCRYPTED_FIELDS = {
         'data.access_token',
         'data.refresh_token',
         'data.id_token',
-        'data.domain'
+        'data.domain',
     ],
     IntegrationMapping: ['mapping'],
-    Token: ['token']
+    Token: ['token'],
 };
 ```
 
@@ -533,6 +558,7 @@ const ENCRYPTED_FIELDS = {
 ### Phase 1: Create DocumentDBEncryptionService (New File)
 
 **Files to Create**:
+
 1. `packages/core/database/documentdb-encryption-service.js`
 2. `packages/core/database/__tests__/documentdb-encryption-service.test.js`
 
@@ -540,96 +566,96 @@ const ENCRYPTED_FIELDS = {
 
 #### 1.1 Service Class (`documentdb-encryption-service.js`)
 
-- [ ] Create file with standard file header comment
-- [ ] Import dependencies: `Cryptor`, `getEncryptedFields`
-- [ ] Create `DocumentDBEncryptionService` class
-- [ ] Implement `constructor()` - calls `_initializeCryptor()`
-- [ ] Implement `_initializeCryptor()` - matches `prisma.js` logic
-  - [ ] Check STAGE environment variable
-  - [ ] Implement bypass for dev/test/local
-  - [ ] Check for KMS_KEY_ARN
-  - [ ] Check for AES_KEY_ID
-  - [ ] Create Cryptor with shouldUseAws flag
-  - [ ] Set this.enabled flag
-- [ ] Implement `encryptFields(modelName, document)`
-  - [ ] Early returns for disabled/invalid input
-  - [ ] Get encrypted fields from registry
-  - [ ] Loop through field paths
-  - [ ] Call `_encryptFieldPath()` for each
-- [ ] Implement `decryptFields(modelName, document)`
-  - [ ] Early returns for disabled/invalid input
-  - [ ] Get encrypted fields from registry
-  - [ ] Loop through field paths
-  - [ ] Call `_decryptFieldPath()` for each
-- [ ] Implement `_encryptFieldPath(document, fieldPath, modelName)`
-  - [ ] Parse field path (split by '.')
-  - [ ] Navigate to parent object
-  - [ ] Check if already encrypted
-  - [ ] Convert to string if needed
-  - [ ] Call `this.cryptor.encrypt()`
-  - [ ] Error handling with context
-- [ ] Implement `_decryptFieldPath(document, fieldPath, modelName)`
-  - [ ] Parse field path
-  - [ ] Navigate to parent object
-  - [ ] Check if encrypted format
-  - [ ] Call `this.cryptor.decrypt()`
-  - [ ] Try to parse as JSON
-  - [ ] Error handling (set to null on failure)
-- [ ] Implement `_isEncryptedValue(value)`
-  - [ ] Type check (must be string)
-  - [ ] Split by ':'
-  - [ ] Check for 4+ parts
-- [ ] Add JSDoc comments for all public methods
-- [ ] Export: `module.exports = { DocumentDBEncryptionService };`
+-   [ ] Create file with standard file header comment
+-   [ ] Import dependencies: `Cryptor`, `getEncryptedFields`
+-   [ ] Create `DocumentDBEncryptionService` class
+-   [ ] Implement `constructor()` - calls `_initializeCryptor()`
+-   [ ] Implement `_initializeCryptor()` - matches `prisma.js` logic
+    -   [ ] Check STAGE environment variable
+    -   [ ] Implement bypass for dev/test/local
+    -   [ ] Check for KMS_KEY_ARN
+    -   [ ] Check for AES_KEY_ID
+    -   [ ] Create Cryptor with shouldUseAws flag
+    -   [ ] Set this.enabled flag
+-   [ ] Implement `encryptFields(modelName, document)`
+    -   [ ] Early returns for disabled/invalid input
+    -   [ ] Get encrypted fields from registry
+    -   [ ] Loop through field paths
+    -   [ ] Call `_encryptFieldPath()` for each
+-   [ ] Implement `decryptFields(modelName, document)`
+    -   [ ] Early returns for disabled/invalid input
+    -   [ ] Get encrypted fields from registry
+    -   [ ] Loop through field paths
+    -   [ ] Call `_decryptFieldPath()` for each
+-   [ ] Implement `_encryptFieldPath(document, fieldPath, modelName)`
+    -   [ ] Parse field path (split by '.')
+    -   [ ] Navigate to parent object
+    -   [ ] Check if already encrypted
+    -   [ ] Convert to string if needed
+    -   [ ] Call `this.cryptor.encrypt()`
+    -   [ ] Error handling with context
+-   [ ] Implement `_decryptFieldPath(document, fieldPath, modelName)`
+    -   [ ] Parse field path
+    -   [ ] Navigate to parent object
+    -   [ ] Check if encrypted format
+    -   [ ] Call `this.cryptor.decrypt()`
+    -   [ ] Try to parse as JSON
+    -   [ ] Error handling (set to null on failure)
+-   [ ] Implement `_isEncryptedValue(value)`
+    -   [ ] Type check (must be string)
+    -   [ ] Split by ':'
+    -   [ ] Check for 4+ parts
+-   [ ] Add JSDoc comments for all public methods
+-   [ ] Export: `module.exports = { DocumentDBEncryptionService };`
 
 #### 1.2 Service Tests (`__tests__/documentdb-encryption-service.test.js`)
 
-- [ ] Create test file with describe block
-- [ ] Mock dependencies: `Cryptor`, `getEncryptedFields`
-- [ ] **Test Group: Initialization**
-  - [ ] Test bypass in dev stage
-  - [ ] Test bypass in test stage
-  - [ ] Test bypass in local stage
-  - [ ] Test enabled with KMS_KEY_ARN in production
-  - [ ] Test enabled with AES_KEY_ID in production
-  - [ ] Test disabled with no keys in production
-  - [ ] Test KMS takes precedence over AES
-- [ ] **Test Group: encryptFields()**
-  - [ ] Test returns unchanged when disabled (dev stage)
-  - [ ] Test returns unchanged for null document
-  - [ ] Test returns unchanged for non-object document
-  - [ ] Test returns unchanged when no encrypted fields in registry
-  - [ ] Test encrypts User.hashword
-  - [ ] Test encrypts Credential.data.access_token
-  - [ ] Test encrypts Credential.data.refresh_token
-  - [ ] Test encrypts multiple nested fields
-  - [ ] Test skips already encrypted values
-  - [ ] Test skips null values
-  - [ ] Test skips non-existent paths
-  - [ ] Test encrypts objects (JSON.stringify)
-  - [ ] Test error handling (propagates error)
-- [ ] **Test Group: decryptFields()**
-  - [ ] Test returns unchanged when disabled
-  - [ ] Test returns unchanged for null document
-  - [ ] Test returns unchanged for non-object document
-  - [ ] Test returns unchanged when no encrypted fields in registry
-  - [ ] Test decrypts User.hashword
-  - [ ] Test decrypts Credential.data.access_token
-  - [ ] Test decrypts multiple nested fields
-  - [ ] Test skips plain text values
-  - [ ] Test skips null values
-  - [ ] Test skips non-existent paths
-  - [ ] Test parses JSON objects after decryption
-  - [ ] Test handles non-JSON strings
-  - [ ] Test error handling (sets field to null)
-- [ ] **Test Group: _isEncryptedValue()**
-  - [ ] Test returns false for plain text
-  - [ ] Test returns false for null
-  - [ ] Test returns false for numbers
-  - [ ] Test returns false for objects
-  - [ ] Test returns false for short strings (< 4 parts)
-  - [ ] Test returns true for encrypted format (4+ parts with colons)
-- [ ] **Test Coverage Target**: >90% line coverage
+-   [ ] Create test file with describe block
+-   [ ] Mock dependencies: `Cryptor`, `getEncryptedFields`
+-   [ ] **Test Group: Initialization**
+    -   [ ] Test bypass in dev stage
+    -   [ ] Test bypass in test stage
+    -   [ ] Test bypass in local stage
+    -   [ ] Test enabled with KMS_KEY_ARN in production
+    -   [ ] Test enabled with AES_KEY_ID in production
+    -   [ ] Test disabled with no keys in production
+    -   [ ] Test KMS takes precedence over AES
+-   [ ] **Test Group: encryptFields()**
+    -   [ ] Test returns unchanged when disabled (dev stage)
+    -   [ ] Test returns unchanged for null document
+    -   [ ] Test returns unchanged for non-object document
+    -   [ ] Test returns unchanged when no encrypted fields in registry
+    -   [ ] Test encrypts User.hashword
+    -   [ ] Test encrypts Credential.data.access_token
+    -   [ ] Test encrypts Credential.data.refresh_token
+    -   [ ] Test encrypts multiple nested fields
+    -   [ ] Test skips already encrypted values
+    -   [ ] Test skips null values
+    -   [ ] Test skips non-existent paths
+    -   [ ] Test encrypts objects (JSON.stringify)
+    -   [ ] Test error handling (propagates error)
+-   [ ] **Test Group: decryptFields()**
+    -   [ ] Test returns unchanged when disabled
+    -   [ ] Test returns unchanged for null document
+    -   [ ] Test returns unchanged for non-object document
+    -   [ ] Test returns unchanged when no encrypted fields in registry
+    -   [ ] Test decrypts User.hashword
+    -   [ ] Test decrypts Credential.data.access_token
+    -   [ ] Test decrypts multiple nested fields
+    -   [ ] Test skips plain text values
+    -   [ ] Test skips null values
+    -   [ ] Test skips non-existent paths
+    -   [ ] Test parses JSON objects after decryption
+    -   [ ] Test handles non-JSON strings
+    -   [ ] Test error handling (sets field to null)
+-   [ ] **Test Group: \_isEncryptedValue()**
+    -   [ ] Test returns false for plain text
+    -   [ ] Test returns false for null
+    -   [ ] Test returns false for numbers
+    -   [ ] Test returns false for objects
+    -   [ ] Test returns false for short strings (< 4 parts)
+    -   [ ] Test returns true for encrypted format (4+ parts with colons)
+-   [ ] **Test Coverage Target**: >90% line coverage
 
 **Estimated Time**: 2-3 hours
 
@@ -648,22 +674,25 @@ const ENCRYPTED_FIELDS = {
 #### Critical Issue #1: JSON.parse Corrupts Date Objects
 
 **Problem**:
+
 ```javascript
 // Current implementation (lines 101, 147)
 const result = JSON.parse(JSON.stringify(document));
 ```
 
 **Why it's critical**:
-- `JSON.stringify()` converts Date objects to ISO strings
-- `JSON.parse()` does NOT convert them back to Date objects
-- OAuth tokens often have `expires_at` as Date objects
-- This causes **silent data corruption** in production
+
+-   `JSON.stringify()` converts Date objects to ISO strings
+-   `JSON.parse()` does NOT convert them back to Date objects
+-   OAuth tokens often have `expires_at` as Date objects
+-   This causes **silent data corruption** in production
 
 **Example of corruption**:
+
 ```javascript
 const credential = {
     data: { access_token: 'secret' },
-    expires_at: new Date('2025-12-31')  // Date object
+    expires_at: new Date('2025-12-31'), // Date object
 };
 
 const encrypted = await service.encryptFields('Credential', credential);
@@ -672,26 +701,30 @@ const encrypted = await service.encryptFields('Credential', credential);
 ```
 
 **Fix**:
+
 ```javascript
 // Use structuredClone (Node.js 17+)
 const result = structuredClone(document);
 ```
 
 **Benefits of structuredClone**:
-- ✅ Preserves Date objects
-- ✅ Preserves RegExp objects
-- ✅ Preserves Buffer objects
-- ✅ Handles circular references
-- ✅ Native Node.js function (no dependencies)
+
+-   ✅ Preserves Date objects
+-   ✅ Preserves RegExp objects
+-   ✅ Preserves Buffer objects
+-   ✅ Handles circular references
+-   ✅ Native Node.js function (no dependencies)
 
 **Files to Update**:
-- `documentdb-encryption-service.js` lines 101, 147
+
+-   `documentdb-encryption-service.js` lines 101, 147
 
 **Checklist**:
-- [ ] Replace `JSON.parse(JSON.stringify(document))` in `encryptFields()` (line 101)
-- [ ] Replace `JSON.parse(JSON.stringify(document))` in `decryptFields()` (line 147)
-- [ ] Add test case: `it('preserves Date objects in documents')`
-- [ ] Verify Node.js version supports structuredClone (>=17)
+
+-   [ ] Replace `JSON.parse(JSON.stringify(document))` in `encryptFields()` (line 101)
+-   [ ] Replace `JSON.parse(JSON.stringify(document))` in `decryptFields()` (line 147)
+-   [ ] Add test case: `it('preserves Date objects in documents')`
+-   [ ] Verify Node.js version supports structuredClone (>=17)
 
 **Estimated Time**: 5 minutes
 
@@ -700,6 +733,7 @@ const result = structuredClone(document);
 #### Critical Issue #2: Decryption Failures Set to Null
 
 **Problem**:
+
 ```javascript
 // Current implementation (_decryptFieldPath, line 258)
 catch (error) {
@@ -709,12 +743,14 @@ catch (error) {
 ```
 
 **Why it's critical**:
-- **Silent credential loss** - Application continues with null tokens
-- **Hard to debug** - Error logged but not propagated
-- **Security risk** - Could mask key rotation issues or corrupted data
-- **Cascade failures** - Null propagates until crash elsewhere
+
+-   **Silent credential loss** - Application continues with null tokens
+-   **Hard to debug** - Error logged but not propagated
+-   **Security risk** - Could mask key rotation issues or corrupted data
+-   **Cascade failures** - Null propagates until crash elsewhere
 
 **Real-world scenario**:
+
 ```javascript
 // Encrypted credential in database (key rotated or corrupted)
 const credential = await findCredential(userId);
@@ -726,11 +762,13 @@ const api = new AsanaAPI({ token: credential.access_token });
 ```
 
 **Why this is wrong**:
-- Violates fail-fast principle (errors should be discovered immediately)
-- Inconsistent with `encryptFields()` which throws errors
-- Repository can't distinguish null data from decryption failure
+
+-   Violates fail-fast principle (errors should be discovered immediately)
+-   Inconsistent with `encryptFields()` which throws errors
+-   Repository can't distinguish null data from decryption failure
 
 **Fix**:
+
 ```javascript
 // Throw error immediately (fail fast)
 catch (error) {
@@ -740,15 +778,17 @@ catch (error) {
 ```
 
 **Files to Update**:
-- `documentdb-encryption-service.js` line 258
-- `documentdb-encryption-service.test.js` update test "sets field to null on decryption error"
+
+-   `documentdb-encryption-service.js` line 258
+-   `documentdb-encryption-service.test.js` update test "sets field to null on decryption error"
 
 **Checklist**:
-- [ ] Remove `current[fieldName] = null;` from `_decryptFieldPath()` (line 258)
-- [ ] Add `throw new Error(...)` with context
-- [ ] Update test: change from `expect(result.hashword).toBeNull()` to `expect(...).rejects.toThrow()`
-- [ ] Update test name: "throws error on decryption failure" (not "sets field to null")
-- [ ] Verify all 56+ tests still pass
+
+-   [ ] Remove `current[fieldName] = null;` from `_decryptFieldPath()` (line 258)
+-   [ ] Add `throw new Error(...)` with context
+-   [ ] Update test: change from `expect(result.hashword).toBeNull()` to `expect(...).rejects.toThrow()`
+-   [ ] Update test name: "throws error on decryption failure" (not "sets field to null")
+-   [ ] Verify all 56+ tests still pass
 
 **Estimated Time**: 10 minutes
 
@@ -757,6 +797,7 @@ catch (error) {
 #### Critical Issue #3: No Cryptor Dependency Injection
 
 **Problem**:
+
 ```javascript
 // Current implementation (constructor, lines 24-26)
 constructor() {
@@ -769,12 +810,14 @@ _initializeCryptor() {
 ```
 
 **Why it's critical**:
-- **Repository tests break** - Can't mock encryption in Phase 2-4
-- **Requires real keys** - Tests need AWS credentials or AES keys
-- **Slower tests** - Real encryption is slower than mocks
-- **Can't test error scenarios** - Can't simulate Cryptor failures
+
+-   **Repository tests break** - Can't mock encryption in Phase 2-4
+-   **Requires real keys** - Tests need AWS credentials or AES keys
+-   **Slower tests** - Real encryption is slower than mocks
+-   **Can't test error scenarios** - Can't simulate Cryptor failures
 
 **Impact on Phase 2 (UserRepositoryDocumentDB tests)**:
+
 ```javascript
 describe('UserRepositoryDocumentDB', () => {
     it('encrypts hashword before saving', async () => {
@@ -782,7 +825,9 @@ describe('UserRepositoryDocumentDB', () => {
         const service = new DocumentDBEncryptionService();
         // Tries to create real Cryptor - tests fail without keys
 
-        const repo = new UserRepositoryDocumentDB({ encryptionService: service });
+        const repo = new UserRepositoryDocumentDB({
+            encryptionService: service,
+        });
         await repo.createUser({ hashword: 'password' });
         // ❌ Real KMS/AES encryption happens in tests
     });
@@ -790,6 +835,7 @@ describe('UserRepositoryDocumentDB', () => {
 ```
 
 **Fix**:
+
 ```javascript
 class DocumentDBEncryptionService {
     constructor({ cryptor = null } = {}) {
@@ -806,11 +852,12 @@ class DocumentDBEncryptionService {
 ```
 
 **Usage**:
+
 ```javascript
 // In tests (with mock)
 const mockCryptor = {
     encrypt: jest.fn().mockResolvedValue('encrypted'),
-    decrypt: jest.fn().mockResolvedValue('decrypted')
+    decrypt: jest.fn().mockResolvedValue('decrypted'),
 };
 const service = new DocumentDBEncryptionService({ cryptor: mockCryptor });
 
@@ -819,16 +866,18 @@ const service = new DocumentDBEncryptionService();
 ```
 
 **Files to Update**:
-- `documentdb-encryption-service.js` constructor
-- `documentdb-encryption-service.test.js` add dependency injection test
+
+-   `documentdb-encryption-service.js` constructor
+-   `documentdb-encryption-service.test.js` add dependency injection test
 
 **Checklist**:
-- [ ] Change constructor signature: `constructor({ cryptor = null } = {})`
-- [ ] Add conditional logic: if cryptor provided, use it; else call `_initializeCryptor()`
-- [ ] Set `this.enabled = true` when cryptor injected
-- [ ] Add test: `it('accepts injected Cryptor for testing')`
-- [ ] Verify injection test passes
-- [ ] Verify all existing tests still pass
+
+-   [ ] Change constructor signature: `constructor({ cryptor = null } = {})`
+-   [ ] Add conditional logic: if cryptor provided, use it; else call `_initializeCryptor()`
+-   [ ] Set `this.enabled = true` when cryptor injected
+-   [ ] Add test: `it('accepts injected Cryptor for testing')`
+-   [ ] Verify injection test passes
+-   [ ] Verify all existing tests still pass
 
 **Estimated Time**: 15 minutes
 
@@ -837,37 +886,41 @@ const service = new DocumentDBEncryptionService();
 #### Phase 1.5 Summary
 
 **Total Changes**:
-- 3 files modified
-- 5 lines of code changed (service implementation)
-- 3 new/updated test cases
-- 0 breaking changes (backward compatible)
+
+-   3 files modified
+-   5 lines of code changed (service implementation)
+-   3 new/updated test cases
+-   0 breaking changes (backward compatible)
 
 **Total Time**: ~30 minutes
 
 **Success Criteria**:
-- ✅ All 56+ tests pass
-- ✅ Date objects preserved in documents
-- ✅ Decryption failures throw errors
-- ✅ Cryptor can be injected for testing
-- ✅ 100% code coverage maintained
-- ✅ Code review assessment improves from 6/10 to 8/10
+
+-   ✅ All 56+ tests pass
+-   ✅ Date objects preserved in documents
+-   ✅ Decryption failures throw errors
+-   ✅ Cryptor can be injected for testing
+-   ✅ 100% code coverage maintained
+-   ✅ Code review assessment improves from 6/10 to 8/10
 
 **Validation**:
+
 ```javascript
 // Test 1: Date preservation
 const doc = { data: { token: 'secret' }, createdAt: new Date() };
 const encrypted = await service.encryptFields('Model', doc);
-expect(encrypted.createdAt).toBeInstanceOf(Date);  // ✅ Must pass
+expect(encrypted.createdAt).toBeInstanceOf(Date); // ✅ Must pass
 
 // Test 2: Decryption error throws
 const corrupted = { data: { token: 'corrupted_encrypted_value' } };
-await expect(service.decryptFields('Model', corrupted))
-    .rejects.toThrow('Decryption failed');  // ✅ Must pass
+await expect(service.decryptFields('Model', corrupted)).rejects.toThrow(
+    'Decryption failed'
+); // ✅ Must pass
 
 // Test 3: Dependency injection
 const mockCryptor = { encrypt: jest.fn(), decrypt: jest.fn() };
 const service = new DocumentDBEncryptionService({ cryptor: mockCryptor });
-expect(service.cryptor).toBe(mockCryptor);  // ✅ Must pass
+expect(service.cryptor).toBe(mockCryptor); // ✅ Must pass
 ```
 
 **Next Step**: After Phase 1.5 completion, proceed to Phase 2 (Refactor UserRepositoryDocumentDB)
@@ -880,61 +933,84 @@ expect(service.cryptor).toBe(mockCryptor);  // ✅ Must pass
 
 **Changes Checklist**:
 
-- [ ] Import DocumentDBEncryptionService at top of file
-- [ ] **Remove existing encryption methods** (lines 24-148):
-  - [ ] Remove `_initializeCryptor()` method
-  - [ ] Remove `_encryptField()` method
-  - [ ] Remove `_decryptField()` method
-  - [ ] Remove `_isEncryptedValue()` method
-  - [ ] Remove `_encryptHashword()` method
-  - [ ] Remove `_decryptHashword()` method
-- [ ] **Update constructor**:
-  - [ ] Add: `this.encryptionService = new DocumentDBEncryptionService();`
-  - [ ] Remove: `this._initializeCryptor();`
-- [ ] **Update `createIndividualUser()` method** (around line 183):
-  - [ ] After building document, before insertOne():
-    ```javascript
-    const encryptedDocument = await this.encryptionService.encryptFields('User', document);
-    const insertedId = await insertOne(this.prisma, 'User', encryptedDocument);
-    ```
-  - [ ] After findOne(), before _mapUser():
-    ```javascript
-    const decryptedUser = await this.encryptionService.decryptFields('User', created);
-    return this._mapUser(decryptedUser);
-    ```
-- [ ] **Update `createOrganizationUser()` method**:
-  - [ ] No changes needed (no encrypted fields for organization users)
-- [ ] **Update `findIndividualUserById()` method** (around line 165):
-  - [ ] After findOne():
-    ```javascript
-    const decryptedUser = await this.encryptionService.decryptFields('User', doc);
-    return this._mapUser(decryptedUser);
-    ```
-- [ ] **Update `findIndividualUserByUsername()` method**:
-  - [ ] Same pattern: decrypt after findOne()
-- [ ] **Update `findIndividualUserByEmail()` method**:
-  - [ ] Same pattern: decrypt after findOne()
-- [ ] **Update `findIndividualUserByAppUserId()` method**:
-  - [ ] Same pattern: decrypt after findOne()
-- [ ] **Update `findUserById()` method**:
-  - [ ] Same pattern: decrypt after findOne()
-- [ ] **Update `updateIndividualUser()` method** (around line 303):
-  - [ ] After preparing update payload, encrypt before updateOne():
-    ```javascript
-    const encryptedPayload = await this.encryptionService.encryptFields('User', payload);
-    await updateOne(this.prisma, 'User', { _id: objectId, type: 'INDIVIDUAL' },
-        { $set: encryptedPayload });
-    ```
-  - [ ] After findOne(), decrypt before _mapUser():
-    ```javascript
-    const decryptedUser = await this.encryptionService.decryptFields('User', updated);
-    return this._mapUser(decryptedUser);
-    ```
-- [ ] **Update `updateOrganizationUser()` method**:
-  - [ ] No changes needed (no encrypted fields)
-- [ ] Verify no references to old encryption methods remain
-- [ ] Run linter to check for issues
-- [ ] Test locally
+-   [ ] Import DocumentDBEncryptionService at top of file
+-   [ ] **Remove existing encryption methods** (lines 24-148):
+    -   [ ] Remove `_initializeCryptor()` method
+    -   [ ] Remove `_encryptField()` method
+    -   [ ] Remove `_decryptField()` method
+    -   [ ] Remove `_isEncryptedValue()` method
+    -   [ ] Remove `_encryptHashword()` method
+    -   [ ] Remove `_decryptHashword()` method
+-   [ ] **Update constructor**:
+    -   [ ] Add: `this.encryptionService = new DocumentDBEncryptionService();`
+    -   [ ] Remove: `this._initializeCryptor();`
+-   [ ] **Update `createIndividualUser()` method** (around line 183):
+    -   [ ] After building document, before insertOne():
+        ```javascript
+        const encryptedDocument = await this.encryptionService.encryptFields(
+            'User',
+            document
+        );
+        const insertedId = await insertOne(
+            this.prisma,
+            'User',
+            encryptedDocument
+        );
+        ```
+    -   [ ] After findOne(), before \_mapUser():
+        ```javascript
+        const decryptedUser = await this.encryptionService.decryptFields(
+            'User',
+            created
+        );
+        return this._mapUser(decryptedUser);
+        ```
+-   [ ] **Update `createOrganizationUser()` method**:
+    -   [ ] No changes needed (no encrypted fields for organization users)
+-   [ ] **Update `findIndividualUserById()` method** (around line 165):
+    -   [ ] After findOne():
+        ```javascript
+        const decryptedUser = await this.encryptionService.decryptFields(
+            'User',
+            doc
+        );
+        return this._mapUser(decryptedUser);
+        ```
+-   [ ] **Update `findIndividualUserByUsername()` method**:
+    -   [ ] Same pattern: decrypt after findOne()
+-   [ ] **Update `findIndividualUserByEmail()` method**:
+    -   [ ] Same pattern: decrypt after findOne()
+-   [ ] **Update `findIndividualUserByAppUserId()` method**:
+    -   [ ] Same pattern: decrypt after findOne()
+-   [ ] **Update `findIndividualUserById()` method**:
+    -   [ ] Same pattern: decrypt after findOne()
+-   [ ] **Update `updateIndividualUser()` method** (around line 303):
+    -   [ ] After preparing update payload, encrypt before updateOne():
+        ```javascript
+        const encryptedPayload = await this.encryptionService.encryptFields(
+            'User',
+            payload
+        );
+        await updateOne(
+            this.prisma,
+            'User',
+            { _id: objectId, type: 'INDIVIDUAL' },
+            { $set: encryptedPayload }
+        );
+        ```
+    -   [ ] After findOne(), decrypt before \_mapUser():
+        ```javascript
+        const decryptedUser = await this.encryptionService.decryptFields(
+            'User',
+            updated
+        );
+        return this._mapUser(decryptedUser);
+        ```
+-   [ ] **Update `updateOrganizationUser()` method**:
+    -   [ ] No changes needed (no encrypted fields)
+-   [ ] Verify no references to old encryption methods remain
+-   [ ] Run linter to check for issues
+-   [ ] Test locally
 
 **Estimated Time**: 1 hour
 
@@ -946,43 +1022,49 @@ expect(service.cryptor).toBe(mockCryptor);  // ✅ Must pass
 
 **Changes Checklist**:
 
-- [ ] Import DocumentDBEncryptionService at top of file
-- [ ] **Remove existing encryption methods** (lines 22-117):
-  - [ ] Remove `_initializeCryptor()` method
-  - [ ] Remove `_encryptField()` method
-  - [ ] Remove `_decryptField()` method
-  - [ ] Remove `_isEncryptedValue()` method
-  - [ ] Remove `_decryptCredentialData()` method
-- [ ] **Update constructor**:
-  - [ ] Add: `this.encryptionService = new DocumentDBEncryptionService();`
-  - [ ] Remove: `this._initializeCryptor();`
-- [ ] **Update `_fetchCredential()` method** (around line 241):
-  - [ ] After findOne(), before returning:
-    ```javascript
-    const decryptedCredential = await this.encryptionService.decryptFields('Credential', rawCredential);
-    return {
-        id: fromObjectId(decryptedCredential._id),
-        userId: fromObjectId(decryptedCredential.userId),
-        externalId: decryptedCredential.externalId ?? null,
-        authIsValid: decryptedCredential.authIsValid ?? null,
-        createdAt: decryptedCredential.createdAt,
-        updatedAt: decryptedCredential.updatedAt,
-        data: decryptedCredential.data
-    };
-    ```
-- [ ] **Update `_fetchCredentialsBulk()` method** (around line 280):
-  - [ ] Inside the map function for each credential:
-    ```javascript
-    const decryptedCredential = await this.encryptionService.decryptFields('Credential', rawCredential);
-    return this._convertCredentialIds({
-        id: fromObjectId(decryptedCredential._id),
-        // ... rest of mapping
-        data: decryptedCredential.data
-    });
-    ```
-- [ ] Verify no references to old encryption methods remain
-- [ ] Run linter to check for issues
-- [ ] Test locally
+-   [ ] Import DocumentDBEncryptionService at top of file
+-   [ ] **Remove existing encryption methods** (lines 22-117):
+    -   [ ] Remove `_initializeCryptor()` method
+    -   [ ] Remove `_encryptField()` method
+    -   [ ] Remove `_decryptField()` method
+    -   [ ] Remove `_isEncryptedValue()` method
+    -   [ ] Remove `_decryptCredentialData()` method
+-   [ ] **Update constructor**:
+    -   [ ] Add: `this.encryptionService = new DocumentDBEncryptionService();`
+    -   [ ] Remove: `this._initializeCryptor();`
+-   [ ] **Update `_fetchCredential()` method** (around line 241):
+    -   [ ] After findOne(), before returning:
+        ```javascript
+        const decryptedCredential = await this.encryptionService.decryptFields(
+            'Credential',
+            rawCredential
+        );
+        return {
+            id: fromObjectId(decryptedCredential._id),
+            userId: fromObjectId(decryptedCredential.userId),
+            externalId: decryptedCredential.externalId ?? null,
+            authIsValid: decryptedCredential.authIsValid ?? null,
+            createdAt: decryptedCredential.createdAt,
+            updatedAt: decryptedCredential.updatedAt,
+            data: decryptedCredential.data,
+        };
+        ```
+-   [ ] **Update `_fetchCredentialsBulk()` method** (around line 280):
+    -   [ ] Inside the map function for each credential:
+        ```javascript
+        const decryptedCredential = await this.encryptionService.decryptFields(
+            'Credential',
+            rawCredential
+        );
+        return this._convertCredentialIds({
+            id: fromObjectId(decryptedCredential._id),
+            // ... rest of mapping
+            data: decryptedCredential.data,
+        });
+        ```
+-   [ ] Verify no references to old encryption methods remain
+-   [ ] Run linter to check for issues
+-   [ ] Test locally
 
 **Note**: ModuleRepository doesn't create/update credentials, only reads them. It relies on CredentialRepository for writes.
 
@@ -998,151 +1080,180 @@ expect(service.cryptor).toBe(mockCryptor);  // ✅ Must pass
 
 **Changes Checklist**:
 
-- [ ] Import DocumentDBEncryptionService at top of file
-- [ ] **Update constructor**:
-  - [ ] Add: `this.encryptionService = new DocumentDBEncryptionService();`
-- [ ] **Fix `upsertCredential()` method** (around line 50):
-  - [ ] **Current problematic code**:
-    ```javascript
-    const { user, userId, authIsValid, externalId, ...oauthData } = details || {};
-    // oauthData contains PLAIN TEXT: access_token, refresh_token, etc.
+-   [ ] Import DocumentDBEncryptionService at top of file
+-   [ ] **Update constructor**:
+    -   [ ] Add: `this.encryptionService = new DocumentDBEncryptionService();`
+-   [ ] **Fix `upsertCredential()` method** (around line 50):
 
-    const document = {
-        data: oauthData  // ❌ STORED AS PLAIN TEXT
-    };
-    await insertOne(this.prisma, 'Credential', document);
-    ```
-  - [ ] **Replace with ENCRYPTED version**:
-    ```javascript
-    const { user, userId, authIsValid, externalId, ...oauthData } = details || {};
+    -   [ ] **Current problematic code**:
 
-    // Build plain text document
-    const plainDocument = {
-        userId: toObjectId(userId || user),
-        externalId: externalId ?? null,
-        authIsValid: authIsValid ?? true,
-        data: oauthData,  // Still plain text at this point
-        createdAt: now,
-        updatedAt: now
-    };
+        ```javascript
+        const { user, userId, authIsValid, externalId, ...oauthData } =
+            details || {};
+        // oauthData contains PLAIN TEXT: access_token, refresh_token, etc.
 
-    // ✅ ENCRYPT before storing
-    const encryptedDocument = await this.encryptionService.encryptFields(
-        'Credential',
-        plainDocument
-    );
+        const document = {
+            data: oauthData, // ❌ STORED AS PLAIN TEXT
+        };
+        await insertOne(this.prisma, 'Credential', document);
+        ```
 
-    const insertedId = await insertOne(this.prisma, 'Credential', encryptedDocument);
+    -   [ ] **Replace with ENCRYPTED version**:
 
-    // Read back and decrypt
-    const created = await findOne(this.prisma, 'Credential', { _id: insertedId });
-    const decryptedCredential = await this.encryptionService.decryptFields(
-        'Credential',
-        created
-    );
+        ```javascript
+        const { user, userId, authIsValid, externalId, ...oauthData } =
+            details || {};
 
-    return this._mapCredential(decryptedCredential);
-    ```
-  - [ ] **For UPDATE case** (when credential exists):
-    ```javascript
-    // Merge existing data with new data
-    const existingData = existing.data || {};
-    const mergedData = { ...existingData, ...oauthData };
+        // Build plain text document
+        const plainDocument = {
+            userId: toObjectId(userId || user),
+            externalId: externalId ?? null,
+            authIsValid: authIsValid ?? true,
+            data: oauthData, // Still plain text at this point
+            createdAt: now,
+            updatedAt: now,
+        };
 
-    // Build update document
-    const updateDocument = {
-        data: mergedData,
-        authIsValid: authIsValid ?? existing.authIsValid,
-        updatedAt: now
-    };
+        // ✅ ENCRYPT before storing
+        const encryptedDocument = await this.encryptionService.encryptFields(
+            'Credential',
+            plainDocument
+        );
 
-    // ✅ ENCRYPT before storing
-    const encryptedUpdate = await this.encryptionService.encryptFields(
-        'Credential',
-        { data: updateDocument.data }  // Only encrypt the data field
-    );
+        const insertedId = await insertOne(
+            this.prisma,
+            'Credential',
+            encryptedDocument
+        );
 
-    await updateOne(
-        this.prisma,
-        'Credential',
-        { _id: existing._id },
-        {
-            $set: {
-                data: encryptedUpdate.data,
-                authIsValid: updateDocument.authIsValid,
-                updatedAt: updateDocument.updatedAt
+        // Read back and decrypt
+        const created = await findOne(this.prisma, 'Credential', {
+            _id: insertedId,
+        });
+        const decryptedCredential = await this.encryptionService.decryptFields(
+            'Credential',
+            created
+        );
+
+        return this._mapCredential(decryptedCredential);
+        ```
+
+    -   [ ] **For UPDATE case** (when credential exists):
+
+        ```javascript
+        // Merge existing data with new data
+        const existingData = existing.data || {};
+        const mergedData = { ...existingData, ...oauthData };
+
+        // Build update document
+        const updateDocument = {
+            data: mergedData,
+            authIsValid: authIsValid ?? existing.authIsValid,
+            updatedAt: now,
+        };
+
+        // ✅ ENCRYPT before storing
+        const encryptedUpdate = await this.encryptionService.encryptFields(
+            'Credential',
+            { data: updateDocument.data } // Only encrypt the data field
+        );
+
+        await updateOne(
+            this.prisma,
+            'Credential',
+            { _id: existing._id },
+            {
+                $set: {
+                    data: encryptedUpdate.data,
+                    authIsValid: updateDocument.authIsValid,
+                    updatedAt: updateDocument.updatedAt,
+                },
             }
+        );
+
+        // Read back and decrypt
+        const updated = await findOne(this.prisma, 'Credential', {
+            _id: existing._id,
+        });
+        const decryptedCredential = await this.encryptionService.decryptFields(
+            'Credential',
+            updated
+        );
+
+        return this._mapCredential(decryptedCredential);
+        ```
+
+-   [ ] **Fix `_mapCredential()` method** (around line 192):
+    -   [ ] **Current problematic code**:
+        ```javascript
+        _mapCredential(doc) {
+            const data = doc?.data || {};
+            return {
+                id: fromObjectId(doc._id),
+                userId: fromObjectId(doc.userId),
+                externalId: doc.externalId ?? null,
+                authIsValid: doc.authIsValid ?? null,
+                ...data  // ❌ Could be encrypted strings
+            };
         }
-    );
+        ```
+    -   [ ] **Note**: If we decrypt in `upsertCredential()` before calling `_mapCredential()`, this method doesn't need changes. But for safety:
+        ```javascript
+        _mapCredential(doc) {
+            // Assume doc is already decrypted by caller
+            // (upsertCredential, findCredential should decrypt before calling this)
+            const data = doc?.data || {};
+            return {
+                id: fromObjectId(doc._id),
+                userId: fromObjectId(doc.userId),
+                externalId: doc.externalId ?? null,
+                authIsValid: doc.authIsValid ?? null,
+                ...data  // Already decrypted
+            };
+        }
+        ```
+-   [ ] **Fix `findCredential()` method** (if exists):
 
-    // Read back and decrypt
-    const updated = await findOne(this.prisma, 'Credential', { _id: existing._id });
-    const decryptedCredential = await this.encryptionService.decryptFields(
-        'Credential',
-        updated
-    );
+    -   [ ] After findOne(), decrypt:
 
-    return this._mapCredential(decryptedCredential);
-    ```
-- [ ] **Fix `_mapCredential()` method** (around line 192):
-  - [ ] **Current problematic code**:
-    ```javascript
-    _mapCredential(doc) {
-        const data = doc?.data || {};
-        return {
-            id: fromObjectId(doc._id),
-            userId: fromObjectId(doc.userId),
-            externalId: doc.externalId ?? null,
-            authIsValid: doc.authIsValid ?? null,
-            ...data  // ❌ Could be encrypted strings
-        };
-    }
-    ```
-  - [ ] **Note**: If we decrypt in `upsertCredential()` before calling `_mapCredential()`, this method doesn't need changes. But for safety:
-    ```javascript
-    _mapCredential(doc) {
-        // Assume doc is already decrypted by caller
-        // (upsertCredential, findCredential should decrypt before calling this)
-        const data = doc?.data || {};
-        return {
-            id: fromObjectId(doc._id),
-            userId: fromObjectId(doc.userId),
-            externalId: doc.externalId ?? null,
-            authIsValid: doc.authIsValid ?? null,
-            ...data  // Already decrypted
-        };
-    }
-    ```
-- [ ] **Fix `findCredential()` method** (if exists):
-  - [ ] After findOne(), decrypt:
-    ```javascript
-    const doc = await findOne(this.prisma, 'Credential', filter);
-    if (!doc) return null;
+        ```javascript
+        const doc = await findOne(this.prisma, 'Credential', filter);
+        if (!doc) return null;
 
-    const decryptedDoc = await this.encryptionService.decryptFields('Credential', doc);
-    return this._mapCredential(decryptedDoc);
-    ```
-- [ ] **Fix `findManyCredentials()` method** (if exists):
-  - [ ] After findMany(), decrypt each:
-    ```javascript
-    const docs = await findMany(this.prisma, 'Credential', filter);
+        const decryptedDoc = await this.encryptionService.decryptFields(
+            'Credential',
+            doc
+        );
+        return this._mapCredential(decryptedDoc);
+        ```
 
-    const decryptedDocs = await Promise.all(
-        docs.map(doc => this.encryptionService.decryptFields('Credential', doc))
-    );
+-   [ ] **Fix `findManyCredentials()` method** (if exists):
 
-    return decryptedDocs.map(doc => this._mapCredential(doc));
-    ```
-- [ ] Add JSDoc comments explaining encryption
-- [ ] Verify all credential read/write operations are covered
-- [ ] Run linter
-- [ ] Test locally with real OAuth flow
+    -   [ ] After findMany(), decrypt each:
+
+        ```javascript
+        const docs = await findMany(this.prisma, 'Credential', filter);
+
+        const decryptedDocs = await Promise.all(
+            docs.map((doc) =>
+                this.encryptionService.decryptFields('Credential', doc)
+            )
+        );
+
+        return decryptedDocs.map((doc) => this._mapCredential(doc));
+        ```
+
+-   [ ] Add JSDoc comments explaining encryption
+-   [ ] Verify all credential read/write operations are covered
+-   [ ] Run linter
+-   [ ] Test locally with real OAuth flow
 
 **Security Verification**:
-- [ ] Create test credential with `access_token: "test_secret"`
-- [ ] Query database directly (bypass repository)
-- [ ] Verify stored value is encrypted format: `"keyId:iv:cipher:encKey"`
-- [ ] Verify repository returns decrypted value: `"test_secret"`
+
+-   [ ] Create test credential with `access_token: "test_secret"`
+-   [ ] Query database directly (bypass repository)
+-   [ ] Verify stored value is encrypted format: `"keyId:iv:cipher:encKey"`
+-   [ ] Verify repository returns decrypted value: `"test_secret"`
 
 **Estimated Time**: 1.5 hours
 
@@ -1156,33 +1267,33 @@ expect(service.cryptor).toBe(mockCryptor);  // ✅ Must pass
 
 **Test Coverage Checklist**:
 
-- [ ] Create test file with describe block
-- [ ] Mock DocumentDBEncryptionService
-- [ ] **Test Group: Encryption on Write**
-  - [ ] Test `createIndividualUser()` encrypts hashword before insert
-  - [ ] Test `updateIndividualUser()` encrypts hashword before update
-  - [ ] Verify encrypted format in database (use direct query)
-  - [ ] Verify plain text never stored
-- [ ] **Test Group: Decryption on Read**
-  - [ ] Test `findIndividualUserById()` returns decrypted hashword
-  - [ ] Test `findIndividualUserByUsername()` returns decrypted hashword
-  - [ ] Test `findIndividualUserByEmail()` returns decrypted hashword
-  - [ ] Verify application receives plain text
-- [ ] **Test Group: Stage-Based Bypass**
-  - [ ] Test encryption bypassed in dev stage
-  - [ ] Test encryption bypassed in test stage
-  - [ ] Test encryption bypassed in local stage
-  - [ ] Test encryption enabled in production stage
-- [ ] **Test Group: Edge Cases**
-  - [ ] Test null hashword handling
-  - [ ] Test undefined hashword handling
-  - [ ] Test empty string hashword
-  - [ ] Test already encrypted hashword (idempotent)
-- [ ] **Test Group: Error Handling**
-  - [ ] Test encryption service throws error
-  - [ ] Test decryption service throws error
-  - [ ] Verify error propagation to use case
-- [ ] Run tests: `npm test user-repository-documentdb-encryption.test.js`
+-   [ ] Create test file with describe block
+-   [ ] Mock DocumentDBEncryptionService
+-   [ ] **Test Group: Encryption on Write**
+    -   [ ] Test `createIndividualUser()` encrypts hashword before insert
+    -   [ ] Test `updateIndividualUser()` encrypts hashword before update
+    -   [ ] Verify encrypted format in database (use direct query)
+    -   [ ] Verify plain text never stored
+-   [ ] **Test Group: Decryption on Read**
+    -   [ ] Test `findIndividualUserById()` returns decrypted hashword
+    -   [ ] Test `findIndividualUserByUsername()` returns decrypted hashword
+    -   [ ] Test `findIndividualUserByEmail()` returns decrypted hashword
+    -   [ ] Verify application receives plain text
+-   [ ] **Test Group: Stage-Based Bypass**
+    -   [ ] Test encryption bypassed in dev stage
+    -   [ ] Test encryption bypassed in test stage
+    -   [ ] Test encryption bypassed in local stage
+    -   [ ] Test encryption enabled in production stage
+-   [ ] **Test Group: Edge Cases**
+    -   [ ] Test null hashword handling
+    -   [ ] Test undefined hashword handling
+    -   [ ] Test empty string hashword
+    -   [ ] Test already encrypted hashword (idempotent)
+-   [ ] **Test Group: Error Handling**
+    -   [ ] Test encryption service throws error
+    -   [ ] Test decryption service throws error
+    -   [ ] Verify error propagation to use case
+-   [ ] Run tests: `npm test user-repository-documentdb-encryption.test.js`
 
 **Estimated Time**: 1.5 hours
 
@@ -1194,26 +1305,26 @@ expect(service.cryptor).toBe(mockCryptor);  // ✅ Must pass
 
 **Test Coverage Checklist**:
 
-- [ ] Create test file with describe block
-- [ ] Mock DocumentDBEncryptionService
-- [ ] Mock credential data in database (pre-encrypted)
-- [ ] **Test Group: Credential Decryption**
-  - [ ] Test `_fetchCredential()` decrypts credential data
-  - [ ] Test `_fetchCredentialsBulk()` decrypts multiple credentials
-  - [ ] Verify nested field decryption (data.access_token)
-  - [ ] Verify multiple field decryption (access_token, refresh_token, id_token)
-- [ ] **Test Group: Integration with Entities**
-  - [ ] Test `findEntityById()` returns entity with decrypted credential
-  - [ ] Test `findEntitiesByUserId()` returns entities with decrypted credentials
-  - [ ] Test `findEntitiesByUserIdAndModuleName()` decrypts credentials
-- [ ] **Test Group: Error Handling**
-  - [ ] Test corrupted encrypted data (decryption fails)
-  - [ ] Test missing credential (null credential)
-  - [ ] Verify graceful degradation
-- [ ] **Test Group: Performance**
-  - [ ] Test bulk decryption of 10 credentials
-  - [ ] Verify parallel decryption (not sequential)
-- [ ] Run tests: `npm test module-repository-documentdb-encryption.test.js`
+-   [ ] Create test file with describe block
+-   [ ] Mock DocumentDBEncryptionService
+-   [ ] Mock credential data in database (pre-encrypted)
+-   [ ] **Test Group: Credential Decryption**
+    -   [ ] Test `_fetchCredential()` decrypts credential data
+    -   [ ] Test `_fetchCredentialsBulk()` decrypts multiple credentials
+    -   [ ] Verify nested field decryption (data.access_token)
+    -   [ ] Verify multiple field decryption (access_token, refresh_token, id_token)
+-   [ ] **Test Group: Integration with Entities**
+    -   [ ] Test `findEntityById()` returns entity with decrypted credential
+    -   [ ] Test `findEntitiesByUserId()` returns entities with decrypted credentials
+    -   [ ] Test `findEntitiesByUserIdAndModuleName()` decrypts credentials
+-   [ ] **Test Group: Error Handling**
+    -   [ ] Test corrupted encrypted data (decryption fails)
+    -   [ ] Test missing credential (null credential)
+    -   [ ] Verify graceful degradation
+-   [ ] **Test Group: Performance**
+    -   [ ] Test bulk decryption of 10 credentials
+    -   [ ] Verify parallel decryption (not sequential)
+-   [ ] Run tests: `npm test module-repository-documentdb-encryption.test.js`
 
 **Estimated Time**: 1.5 hours
 
@@ -1225,69 +1336,77 @@ expect(service.cryptor).toBe(mockCryptor);  // ✅ Must pass
 
 **Test Coverage Checklist**:
 
-- [ ] Create test file with describe block
-- [ ] Mock DocumentDBEncryptionService
-- [ ] Setup DocumentDB test database
-- [ ] **Test Group: Encryption on Upsert (INSERT)**
-  - [ ] Test encrypts access_token before insert
-  - [ ] Test encrypts refresh_token before insert
-  - [ ] Test encrypts id_token before insert
-  - [ ] Test encrypts domain before insert
-  - [ ] **Verify encrypted format in database**:
-    ```javascript
-    // Direct database query (bypass repository)
-    const rawDoc = await prisma.$runCommandRaw({
-        find: 'Credential',
-        filter: { userId: toObjectId(userId) }
-    });
-    const storedToken = rawDoc.cursor.firstBatch[0].data.access_token;
+-   [ ] Create test file with describe block
+-   [ ] Mock DocumentDBEncryptionService
+-   [ ] Setup DocumentDB test database
+-   [ ] **Test Group: Encryption on Upsert (INSERT)**
 
-    // Must match encrypted format
-    expect(storedToken).toMatch(/^[^:]+:[^:]+:[^:]+:[^:]+$/);
-    expect(storedToken).not.toBe('plain_secret');
-    ```
-- [ ] **Test Group: Encryption on Upsert (UPDATE)**
-  - [ ] Test existing credential update encrypts new tokens
-  - [ ] Test merges existing encrypted data with new encrypted data
-  - [ ] Test updates preserve other credential fields
-- [ ] **Test Group: Decryption on Read**
-  - [ ] Test `upsertCredential()` returns decrypted credential
-  - [ ] Test `findCredential()` returns decrypted credential (if exists)
-  - [ ] Test `_mapCredential()` receives decrypted data
-  - [ ] **Verify plain text returned to application**:
-    ```javascript
-    const credential = await repository.upsertCredential({
-        userId, externalId,
-        access_token: 'plain_secret',
-        refresh_token: 'plain_refresh'
-    });
+    -   [ ] Test encrypts access_token before insert
+    -   [ ] Test encrypts refresh_token before insert
+    -   [ ] Test encrypts id_token before insert
+    -   [ ] Test encrypts domain before insert
+    -   [ ] **Verify encrypted format in database**:
 
-    expect(credential.access_token).toBe('plain_secret');
-    expect(credential.refresh_token).toBe('plain_refresh');
-    ```
-- [ ] **Test Group: Integration Flow**
-  - [ ] Test full flow: insert → read → verify
-  - [ ] Test full flow: insert → update → read → verify
-  - [ ] Test multiple credentials per user
-  - [ ] Test credential retrieval by externalId
-- [ ] **Test Group: Security Validation**
-  - [ ] Test KMS encryption in production stage
-  - [ ] Test AES encryption when KMS unavailable
-  - [ ] Test bypass in dev/test/local stages
-  - [ ] Test plain text never exposed in logs
-- [ ] **Test Group: Error Handling**
-  - [ ] Test encryption service throws error on insert
-  - [ ] Test decryption service throws error on read
-  - [ ] Test partial credential data (missing fields)
-  - [ ] Test null values for optional fields
-- [ ] **Test Group: Edge Cases**
-  - [ ] Test empty oauth data
-  - [ ] Test very large token values (>1KB)
-  - [ ] Test special characters in tokens
-  - [ ] Test unicode in tokens
-- [ ] Run tests: `npm test credential-repository-documentdb-encryption.test.js`
+        ```javascript
+        // Direct database query (bypass repository)
+        const rawDoc = await prisma.$runCommandRaw({
+            find: 'Credential',
+            filter: { userId: toObjectId(userId) },
+        });
+        const storedToken = rawDoc.cursor.firstBatch[0].data.access_token;
+
+        // Must match encrypted format
+        expect(storedToken).toMatch(/^[^:]+:[^:]+:[^:]+:[^:]+$/);
+        expect(storedToken).not.toBe('plain_secret');
+        ```
+
+-   [ ] **Test Group: Encryption on Upsert (UPDATE)**
+    -   [ ] Test existing credential update encrypts new tokens
+    -   [ ] Test merges existing encrypted data with new encrypted data
+    -   [ ] Test updates preserve other credential fields
+-   [ ] **Test Group: Decryption on Read**
+
+    -   [ ] Test `upsertCredential()` returns decrypted credential
+    -   [ ] Test `findCredential()` returns decrypted credential (if exists)
+    -   [ ] Test `_mapCredential()` receives decrypted data
+    -   [ ] **Verify plain text returned to application**:
+
+        ```javascript
+        const credential = await repository.upsertCredential({
+            userId,
+            externalId,
+            access_token: 'plain_secret',
+            refresh_token: 'plain_refresh',
+        });
+
+        expect(credential.access_token).toBe('plain_secret');
+        expect(credential.refresh_token).toBe('plain_refresh');
+        ```
+
+-   [ ] **Test Group: Integration Flow**
+    -   [ ] Test full flow: insert → read → verify
+    -   [ ] Test full flow: insert → update → read → verify
+    -   [ ] Test multiple credentials per user
+    -   [ ] Test credential retrieval by externalId
+-   [ ] **Test Group: Security Validation**
+    -   [ ] Test KMS encryption in production stage
+    -   [ ] Test AES encryption when KMS unavailable
+    -   [ ] Test bypass in dev/test/local stages
+    -   [ ] Test plain text never exposed in logs
+-   [ ] **Test Group: Error Handling**
+    -   [ ] Test encryption service throws error on insert
+    -   [ ] Test decryption service throws error on read
+    -   [ ] Test partial credential data (missing fields)
+    -   [ ] Test null values for optional fields
+-   [ ] **Test Group: Edge Cases**
+    -   [ ] Test empty oauth data
+    -   [ ] Test very large token values (>1KB)
+    -   [ ] Test special characters in tokens
+    -   [ ] Test unicode in tokens
+-   [ ] Run tests: `npm test credential-repository-documentdb-encryption.test.js`
 
 **Security Test Example**:
+
 ```javascript
 describe('Security - Encryption Verification', () => {
     it('stores access_token in encrypted format in database', async () => {
@@ -1299,25 +1418,28 @@ describe('Security - Encryption Verification', () => {
         await credentialRepo.upsertCredential({
             userId: fromObjectId(userId),
             externalId,
-            access_token: plainToken
+            access_token: plainToken,
         });
 
         // Query database directly (bypass repository and encryption)
         const rawResult = await prisma.$runCommandRaw({
             find: 'Credential',
-            filter: { userId, externalId }
+            filter: { userId, externalId },
         });
 
         const storedCredential = rawResult.cursor.firstBatch[0];
         const storedToken = storedCredential.data.access_token;
 
         // CRITICAL: Verify encrypted format
-        expect(storedToken).not.toBe(plainToken);  // Must not be plain text
-        expect(storedToken).toMatch(/^[^:]+:[^:]+:[^:]+:[^:]+$/);  // Must be "keyId:iv:cipher:encKey"
+        expect(storedToken).not.toBe(plainToken); // Must not be plain text
+        expect(storedToken).toMatch(/^[^:]+:[^:]+:[^:]+:[^:]+$/); // Must be "keyId:iv:cipher:encKey"
 
         // Verify repository returns decrypted value
-        const retrieved = await credentialRepo.findCredential({ userId, externalId });
-        expect(retrieved.access_token).toBe(plainToken);  // Must be decrypted
+        const retrieved = await credentialRepo.findCredential({
+            userId,
+            externalId,
+        });
+        expect(retrieved.access_token).toBe(plainToken); // Must be decrypted
     });
 });
 ```
@@ -1329,29 +1451,32 @@ describe('Security - Encryption Verification', () => {
 ### Phase 6: Apply to Both Locations
 
 **Dual Location Rule**: All changes must be applied to BOTH:
+
 1. **Development**: `/Users/danielklotz/projects/lefthook/frontify--frigg/tmp/frigg/packages/core/`
 2. **Runtime**: `/Users/danielklotz/projects/lefthook/frontify--frigg/backend/node_modules/@friggframework/core/`
 
 **Files to Update in Both Locations**:
 
-- [ ] `database/documentdb-encryption-service.js` (NEW)
-- [ ] `database/__tests__/documentdb-encryption-service.test.js` (NEW)
-- [ ] `user/repositories/user-repository-documentdb.js`
-- [ ] `user/repositories/__tests__/user-repository-documentdb-encryption.test.js` (NEW)
-- [ ] `modules/repositories/module-repository-documentdb.js`
-- [ ] `modules/repositories/__tests__/module-repository-documentdb-encryption.test.js` (NEW)
-- [ ] `credential/repositories/credential-repository-documentdb.js`
-- [ ] `credential/repositories/__tests__/credential-repository-documentdb-encryption.test.js` (NEW)
+-   [ ] `database/documentdb-encryption-service.js` (NEW)
+-   [ ] `database/__tests__/documentdb-encryption-service.test.js` (NEW)
+-   [ ] `user/repositories/user-repository-documentdb.js`
+-   [ ] `user/repositories/__tests__/user-repository-documentdb-encryption.test.js` (NEW)
+-   [ ] `modules/repositories/module-repository-documentdb.js`
+-   [ ] `modules/repositories/__tests__/module-repository-documentdb-encryption.test.js` (NEW)
+-   [ ] `credential/repositories/credential-repository-documentdb.js`
+-   [ ] `credential/repositories/__tests__/credential-repository-documentdb-encryption.test.js` (NEW)
 
 **Verification Steps**:
 
 For each file:
-- [ ] Copy from `/tmp/frigg/` to `/backend/node_modules/@friggframework/`
-- [ ] Verify file checksums match
-- [ ] Run `diff` to confirm identical content
-- [ ] Check file permissions
+
+-   [ ] Copy from `/tmp/frigg/` to `/backend/node_modules/@friggframework/`
+-   [ ] Verify file checksums match
+-   [ ] Run `diff` to confirm identical content
+-   [ ] Check file permissions
 
 **Script to Automate** (optional):
+
 ```bash
 #!/bin/bash
 # sync-documentdb-encryption.sh
@@ -1388,45 +1513,55 @@ echo "🎉 All files synced successfully"
 
 **Test Execution Checklist**:
 
-- [ ] **Run DocumentDB encryption service tests**:
-  ```bash
-  cd /Users/danielklotz/projects/lefthook/frontify--frigg/tmp/frigg
-  npm test packages/core/database/__tests__/documentdb-encryption-service.test.js
-  ```
-  - [ ] Verify all tests pass
-  - [ ] Check coverage >90%
+-   [ ] **Run DocumentDB encryption service tests**:
 
-- [ ] **Run User repository encryption tests**:
-  ```bash
-  npm test packages/core/user/repositories/__tests__/user-repository-documentdb-encryption.test.js
-  ```
-  - [ ] Verify all tests pass
+    ```bash
+    cd /Users/danielklotz/projects/lefthook/frontify--frigg/tmp/frigg
+    npm test packages/core/database/__tests__/documentdb-encryption-service.test.js
+    ```
 
-- [ ] **Run Module repository encryption tests**:
-  ```bash
-  npm test packages/core/modules/repositories/__tests__/module-repository-documentdb-encryption.test.js
-  ```
-  - [ ] Verify all tests pass
+    -   [ ] Verify all tests pass
+    -   [ ] Check coverage >90%
 
-- [ ] **Run Credential repository encryption tests** (CRITICAL):
-  ```bash
-  npm test packages/core/credential/repositories/__tests__/credential-repository-documentdb-encryption.test.js
-  ```
-  - [ ] Verify all tests pass
-  - [ ] Verify security test passes (encrypted format verification)
+-   [ ] **Run User repository encryption tests**:
 
-- [ ] **Run all repository tests**:
-  ```bash
-  npm test -- --testPathPattern=documentdb
-  ```
-  - [ ] Verify no regressions
+    ```bash
+    npm test packages/core/user/repositories/__tests__/user-repository-documentdb-encryption.test.js
+    ```
 
-- [ ] **Run full test suite**:
-  ```bash
-  npm test
-  ```
-  - [ ] Verify all tests pass
-  - [ ] Check for no unexpected failures
+    -   [ ] Verify all tests pass
+
+-   [ ] **Run Module repository encryption tests**:
+
+    ```bash
+    npm test packages/core/modules/repositories/__tests__/module-repository-documentdb-encryption.test.js
+    ```
+
+    -   [ ] Verify all tests pass
+
+-   [ ] **Run Credential repository encryption tests** (CRITICAL):
+
+    ```bash
+    npm test packages/core/credential/repositories/__tests__/credential-repository-documentdb-encryption.test.js
+    ```
+
+    -   [ ] Verify all tests pass
+    -   [ ] Verify security test passes (encrypted format verification)
+
+-   [ ] **Run all repository tests**:
+
+    ```bash
+    npm test -- --testPathPattern=documentdb
+    ```
+
+    -   [ ] Verify no regressions
+
+-   [ ] **Run full test suite**:
+    ```bash
+    npm test
+    ```
+    -   [ ] Verify all tests pass
+    -   [ ] Check for no unexpected failures
 
 ---
 
@@ -1434,115 +1569,124 @@ echo "🎉 All files synced successfully"
 
 **Local Environment Setup**:
 
-- [ ] Start MongoDB (DocumentDB simulation):
-  ```bash
-  cd /Users/danielklotz/projects/lefthook/frontify--frigg/backend
-  npm run docker:start
-  ```
+-   [ ] Start MongoDB (DocumentDB simulation):
 
-- [ ] Verify MongoDB is running:
-  ```bash
-  docker ps | grep mongo
-  ```
+    ```bash
+    cd /Users/danielklotz/projects/lefthook/frontify--frigg/backend
+    npm run docker:start
+    ```
 
-- [ ] Set environment variables for encryption:
-  ```bash
-  export STAGE=production
-  export AES_KEY_ID=local-test-key
-  export AES_KEY=01234567890123456789012345678901  # 32 chars
-  ```
+-   [ ] Verify MongoDB is running:
 
-- [ ] Start backend:
-  ```bash
-  cd /Users/danielklotz/projects/lefthook/frontify--frigg/backend
-  npm run frigg:start
-  ```
+    ```bash
+    docker ps | grep mongo
+    ```
+
+-   [ ] Set environment variables for encryption:
+
+    ```bash
+    export STAGE=production
+    export AES_KEY_ID=local-test-key
+    export AES_KEY=01234567890123456789012345678901  # 32 chars
+    ```
+
+-   [ ] Start backend:
+    ```bash
+    cd /Users/danielklotz/projects/lefthook/frontify--frigg/backend
+    npm run frigg:start
+    ```
 
 **Manual Test: Credential Creation**
 
-- [ ] Create user and get token:
-  ```bash
-  curl -X POST http://localhost:3000/user/create \
-    -H "Content-Type: application/json" \
-    -d '{"username":"test@test.com","password":"test"}' \
-    -o /tmp/token.json
+-   [ ] Create user and get token:
 
-  TOKEN=$(jq -r '.token' /tmp/token.json)
-  echo "Token: $TOKEN"
-  ```
+    ```bash
+    curl -X POST http://localhost:3000/user/create \
+      -H "Content-Type: application/json" \
+      -d '{"username":"test@test.com","password":"test"}' \
+      -o /tmp/token.json
 
-- [ ] Create OAuth credential (if endpoint exists, else use Asana OAuth flow):
-  ```bash
-  # Trigger OAuth flow through application
-  # Then verify credential was created encrypted
-  ```
+    TOKEN=$(jq -r '.token' /tmp/token.json)
+    echo "Token: $TOKEN"
+    ```
+
+-   [ ] Create OAuth credential (if endpoint exists, else use Asana OAuth flow):
+    ```bash
+    # Trigger OAuth flow through application
+    # Then verify credential was created encrypted
+    ```
 
 **Manual Test: Database Verification**
 
-- [ ] Connect to MongoDB:
-  ```bash
-  docker exec -it $(docker ps -q -f name=mongo) mongosh
-  ```
+-   [ ] Connect to MongoDB:
 
-- [ ] Query credential:
-  ```javascript
-  use frigg
-  db.Credential.findOne()
-  ```
+    ```bash
+    docker exec -it $(docker ps -q -f name=mongo) mongosh
+    ```
 
-- [ ] **CRITICAL VERIFICATION**:
-  ```javascript
-  // Check data.access_token format
-  const cred = db.Credential.findOne({ externalId: "google-user-123" });
-  print("access_token:", cred.data.access_token);
+-   [ ] Query credential:
 
-  // Expected format: "keyId:iv:cipher:encKey"
-  // Example: "aes-key-1:1234567890abcdef:a1b2c3d4e5f6...:9876543210fedcba"
+    ```javascript
+    use frigg
+    db.Credential.findOne()
+    ```
 
-  // MUST NOT be plain text like "ya29.a0AfH6SMCX..."
-  ```
+-   [ ] **CRITICAL VERIFICATION**:
 
-- [ ] Verify encrypted format:
-  ```javascript
-  // Should have 4+ colon-separated parts
-  const parts = cred.data.access_token.split(':');
-  print("Parts count:", parts.length);  // Should be >= 4
-  ```
+    ```javascript
+    // Check data.access_token format
+    const cred = db.Credential.findOne({ externalId: 'google-user-123' });
+    print('access_token:', cred.data.access_token);
+
+    // Expected format: "keyId:iv:cipher:encKey"
+    // Example: "aes-key-1:1234567890abcdef:a1b2c3d4e5f6...:9876543210fedcba"
+
+    // MUST NOT be plain text like "ya29.a0AfH6SMCX..."
+    ```
+
+-   [ ] Verify encrypted format:
+    ```javascript
+    // Should have 4+ colon-separated parts
+    const parts = cred.data.access_token.split(':');
+    print('Parts count:', parts.length); // Should be >= 4
+    ```
 
 **Manual Test: API Usage**
 
-- [ ] Use credential through API:
-  ```bash
-  # Make API request that uses the credential
-  # Example: Fetch Asana user info
-  curl -X GET http://localhost:3000/api/asana/me \
-    -H "Authorization: Bearer $TOKEN"
-  ```
+-   [ ] Use credential through API:
 
-- [ ] Verify API call succeeds (credential was decrypted correctly)
+    ```bash
+    # Make API request that uses the credential
+    # Example: Fetch Asana user info
+    curl -X GET http://localhost:3000/api/asana/me \
+      -H "Authorization: Bearer $TOKEN"
+    ```
+
+-   [ ] Verify API call succeeds (credential was decrypted correctly)
 
 **Manual Test: Stage Bypass**
 
-- [ ] Stop backend
+-   [ ] Stop backend
 
-- [ ] Change to dev stage:
-  ```bash
-  export STAGE=dev
-  unset AES_KEY_ID
-  unset AES_KEY
-  ```
+-   [ ] Change to dev stage:
 
-- [ ] Start backend
+    ```bash
+    export STAGE=dev
+    unset AES_KEY_ID
+    unset AES_KEY
+    ```
 
-- [ ] Create credential
+-   [ ] Start backend
 
-- [ ] Verify credential stored as plain text (bypass worked):
-  ```javascript
-  // In mongosh:
-  const devCred = db.Credential.findOne({ userId: ObjectId("...") });
-  print("access_token:", devCred.data.access_token);
-  // Should be plain text (not encrypted) in dev stage
-  ```
+-   [ ] Create credential
+
+-   [ ] Verify credential stored as plain text (bypass worked):
+    ```javascript
+    // In mongosh:
+    const devCred = db.Credential.findOne({ userId: ObjectId('...') });
+    print('access_token:', devCred.data.access_token);
+    // Should be plain text (not encrypted) in dev stage
+    ```
 
 ---
 
@@ -1550,33 +1694,34 @@ echo "🎉 All files synced successfully"
 
 **OAuth Flow Testing**:
 
-- [ ] **Asana OAuth Flow**:
-  - [ ] Start OAuth flow via Asana integration
-  - [ ] Complete OAuth authorization
-  - [ ] Verify credential created in database
-  - [ ] Check credential is encrypted in database
-  - [ ] Verify Asana API calls work (credential decrypted)
+-   [ ] **Asana OAuth Flow**:
 
-- [ ] **Frontify OAuth Flow**:
-  - [ ] Start OAuth flow via Frontify integration
-  - [ ] Complete OAuth authorization
-  - [ ] Verify credential created in database
-  - [ ] Check credential is encrypted in database
-  - [ ] Verify Frontify API calls work
+    -   [ ] Start OAuth flow via Asana integration
+    -   [ ] Complete OAuth authorization
+    -   [ ] Verify credential created in database
+    -   [ ] Check credential is encrypted in database
+    -   [ ] Verify Asana API calls work (credential decrypted)
+
+-   [ ] **Frontify OAuth Flow**:
+    -   [ ] Start OAuth flow via Frontify integration
+    -   [ ] Complete OAuth authorization
+    -   [ ] Verify credential created in database
+    -   [ ] Check credential is encrypted in database
+    -   [ ] Verify Frontify API calls work
 
 **Credential Refresh Testing**:
 
-- [ ] Trigger token refresh (if implemented)
-- [ ] Verify new tokens are encrypted
-- [ ] Verify old tokens are overwritten (not duplicated)
-- [ ] Verify refresh token itself is encrypted
+-   [ ] Trigger token refresh (if implemented)
+-   [ ] Verify new tokens are encrypted
+-   [ ] Verify old tokens are overwritten (not duplicated)
+-   [ ] Verify refresh token itself is encrypted
 
 **Multi-User Testing**:
 
-- [ ] Create credentials for 3 different users
-- [ ] Verify each credential is independently encrypted
-- [ ] Verify users can only access their own credentials
-- [ ] Check for no credential leakage between users
+-   [ ] Create credentials for 3 different users
+-   [ ] Verify each credential is independently encrypted
+-   [ ] Verify users can only access their own credentials
+-   [ ] Check for no credential leakage between users
 
 ---
 
@@ -1584,29 +1729,31 @@ echo "🎉 All files synced successfully"
 
 **Encryption Performance**:
 
-- [ ] Measure encryption time for single credential:
-  ```javascript
-  const start = Date.now();
-  const encrypted = await service.encryptFields('Credential', credential);
-  const encryptTime = Date.now() - start;
-  console.log(`Encryption time: ${encryptTime}ms`);
-  // Should be < 50ms for KMS, < 10ms for AES
-  ```
+-   [ ] Measure encryption time for single credential:
 
-- [ ] Measure decryption time for single credential
+    ```javascript
+    const start = Date.now();
+    const encrypted = await service.encryptFields('Credential', credential);
+    const encryptTime = Date.now() - start;
+    console.log(`Encryption time: ${encryptTime}ms`);
+    // Should be < 50ms for KMS, < 10ms for AES
+    ```
+
+-   [ ] Measure decryption time for single credential
 
 **Bulk Operations**:
 
-- [ ] Test bulk credential retrieval (10 credentials):
-  ```javascript
-  const start = Date.now();
-  const entities = await moduleRepo.findEntitiesByUserId(userId);
-  const bulkTime = Date.now() - start;
-  console.log(`Bulk retrieval time: ${bulkTime}ms`);
-  // Should be reasonable (< 500ms for 10 credentials)
-  ```
+-   [ ] Test bulk credential retrieval (10 credentials):
 
-- [ ] Verify parallel decryption is used (not sequential)
+    ```javascript
+    const start = Date.now();
+    const entities = await moduleRepo.findEntitiesByUserId(userId);
+    const bulkTime = Date.now() - start;
+    console.log(`Bulk retrieval time: ${bulkTime}ms`);
+    // Should be reasonable (< 500ms for 10 credentials)
+    ```
+
+-   [ ] Verify parallel decryption is used (not sequential)
 
 ---
 
@@ -1614,32 +1761,32 @@ echo "🎉 All files synced successfully"
 
 **Encryption Format Verification**:
 
-- [ ] Create credential with known value
-- [ ] Query database directly
-- [ ] Verify format matches: `keyId:iv:cipher:encKey`
-- [ ] Verify at least 4 colon-separated parts
-- [ ] Verify base64-like characters in each part
+-   [ ] Create credential with known value
+-   [ ] Query database directly
+-   [ ] Verify format matches: `keyId:iv:cipher:encKey`
+-   [ ] Verify at least 4 colon-separated parts
+-   [ ] Verify base64-like characters in each part
 
 **Decryption Verification**:
 
-- [ ] Create credential with known value
-- [ ] Retrieve via repository
-- [ ] Verify decrypted value matches original
-- [ ] Verify no corruption or truncation
+-   [ ] Create credential with known value
+-   [ ] Retrieve via repository
+-   [ ] Verify decrypted value matches original
+-   [ ] Verify no corruption or truncation
 
 **Negative Tests**:
 
-- [ ] Manually corrupt encrypted value in database
-- [ ] Attempt to retrieve credential
-- [ ] Verify graceful handling (field set to null, logged error)
-- [ ] Verify application doesn't crash
+-   [ ] Manually corrupt encrypted value in database
+-   [ ] Attempt to retrieve credential
+-   [ ] Verify graceful handling (field set to null, logged error)
+-   [ ] Verify application doesn't crash
 
 **Key Rotation Simulation** (if time permits):
 
-- [ ] Create credential with key1
-- [ ] Rotate to key2 (change AES_KEY_ID)
-- [ ] Verify old credentials still decrypt (backward compatible)
-- [ ] Verify new credentials use key2
+-   [ ] Create credential with key1
+-   [ ] Rotate to key2 (change AES_KEY_ID)
+-   [ ] Verify old credentials still decrypt (backward compatible)
+-   [ ] Verify new credentials use key2
 
 **Estimated Time**: 1.5 hours
 
@@ -1653,66 +1800,70 @@ echo "🎉 All files synced successfully"
 
 **Sections to Add**:
 
-- [ ] **Add "DocumentDB Encryption" section** (after "How It Works"):
-  ```markdown
-  ## DocumentDB Encryption
+-   [ ] **Add "DocumentDB Encryption" section** (after "How It Works"):
 
-  ### Why DocumentDB Needs Manual Encryption
+    ```markdown
+    ## DocumentDB Encryption
 
-  DocumentDB repositories use `$runCommandRaw()` for MongoDB protocol compatibility,
-  which bypasses Prisma Client Extensions. This means the automatic encryption
-  extension does not apply.
+    ### Why DocumentDB Needs Manual Encryption
 
-  ### DocumentDBEncryptionService
+    DocumentDB repositories use `$runCommandRaw()` for MongoDB protocol compatibility,
+    which bypasses Prisma Client Extensions. This means the automatic encryption
+    extension does not apply.
 
-  For DocumentDB repositories, use `DocumentDBEncryptionService` to manually
-  encrypt/decrypt documents before/after database operations.
+    ### DocumentDBEncryptionService
 
-  #### Usage Example
+    For DocumentDB repositories, use `DocumentDBEncryptionService` to manually
+    encrypt/decrypt documents before/after database operations.
 
-  \`\`\`javascript
-  const { DocumentDBEncryptionService } = require('../documentdb-encryption-service');
-  const { insertOne, findOne } = require('../documentdb-utils');
+    #### Usage Example
 
-  class MyRepositoryDocumentDB {
-      constructor() {
-          this.encryptionService = new DocumentDBEncryptionService();
-      }
+    \`\`\`javascript
+    const { DocumentDBEncryptionService } = require('../documentdb-encryption-service');
+    const { insertOne, findOne } = require('../documentdb-utils');
 
-      async create(data) {
-          // Encrypt before write
-          const encrypted = await this.encryptionService.encryptFields('ModelName', data);
-          const id = await insertOne(this.prisma, 'CollectionName', encrypted);
+    class MyRepositoryDocumentDB {
+    constructor() {
+    this.encryptionService = new DocumentDBEncryptionService();
+    }
 
-          // Decrypt after read
-          const doc = await findOne(this.prisma, 'CollectionName', { _id: id });
-          const decrypted = await this.encryptionService.decryptFields('ModelName', doc);
+        async create(data) {
+            // Encrypt before write
+            const encrypted = await this.encryptionService.encryptFields('ModelName', data);
+            const id = await insertOne(this.prisma, 'CollectionName', encrypted);
 
-          return decrypted;
-      }
-  }
-  \`\`\`
+            // Decrypt after read
+            const doc = await findOne(this.prisma, 'CollectionName', { _id: id });
+            const decrypted = await this.encryptionService.decryptFields('ModelName', doc);
 
-  #### Configuration
+            return decrypted;
+        }
 
-  Uses the same environment variables and Cryptor as the Prisma Extension:
-  - `STAGE`: Bypasses encryption for dev/test/local
-  - `KMS_KEY_ARN`: AWS KMS encryption (production)
-  - `AES_KEY_ID` + `AES_KEY`: AES encryption (fallback)
+    }
+    \`\`\`
 
-  #### Implementation Details
+    #### Configuration
 
-  See: [documentdb-encryption-service.md](./documentdb-encryption-service.md)
-  ```
+    Uses the same environment variables and Cryptor as the Prisma Extension:
 
-- [ ] **Update "Adding Encrypted Fields" section**:
-  ```markdown
-  After adding fields to `encryption-schema-registry.js`:
+    -   `STAGE`: Bypasses encryption for dev/test/local
+    -   `KMS_KEY_ARN`: AWS KMS encryption (production)
+    -   `AES_KEY_ID` + `AES_KEY`: AES encryption (fallback)
 
-  1. **For MongoDB/PostgreSQL**: No code changes needed (automatic)
-  2. **For DocumentDB**: Encryption is automatic via DocumentDBEncryptionService
-     (service reads from same registry)
-  ```
+    #### Implementation Details
+
+    See: [documentdb-encryption-service.md](./documentdb-encryption-service.md)
+    ```
+
+-   [ ] **Update "Adding Encrypted Fields" section**:
+
+    ```markdown
+    After adding fields to `encryption-schema-registry.js`:
+
+    1. **For MongoDB/PostgreSQL**: No code changes needed (automatic)
+    2. **For DocumentDB**: Encryption is automatic via DocumentDBEncryptionService
+       (service reads from same registry)
+    ```
 
 ---
 
@@ -1720,60 +1871,60 @@ echo "🎉 All files synced successfully"
 
 **UserRepositoryDocumentDB**:
 
-- [ ] Add class-level JSDoc:
-  ```javascript
-  /**
-   * User repository for DocumentDB.
-   * Uses DocumentDBEncryptionService for field-level encryption.
-   *
-   * Encrypted fields: User.hashword
-   *
-   * @see DocumentDBEncryptionService
-   * @see encryption-schema-registry.js
-   */
-  class UserRepositoryDocumentDB extends UserRepositoryInterface {
-  ```
+-   [ ] Add class-level JSDoc:
+    ```javascript
+    /**
+     * User repository for DocumentDB.
+     * Uses DocumentDBEncryptionService for field-level encryption.
+     *
+     * Encrypted fields: User.hashword
+     *
+     * @see DocumentDBEncryptionService
+     * @see encryption-schema-registry.js
+     */
+    class UserRepositoryDocumentDB extends UserRepositoryInterface {
+    ```
 
 **ModuleRepositoryDocumentDB**:
 
-- [ ] Add class-level JSDoc:
-  ```javascript
-  /**
-   * Module/Entity repository for DocumentDB.
-   * Uses DocumentDBEncryptionService for credential decryption.
-   *
-   * Encrypted fields: Credential.data.*
-   *
-   * Note: This repository only reads credentials. CredentialRepository
-   * handles credential creation/updates with encryption.
-   *
-   * @see DocumentDBEncryptionService
-   * @see CredentialRepositoryDocumentDB
-   */
-  class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
-  ```
+-   [ ] Add class-level JSDoc:
+    ```javascript
+    /**
+     * Module/Entity repository for DocumentDB.
+     * Uses DocumentDBEncryptionService for credential decryption.
+     *
+     * Encrypted fields: Credential.data.*
+     *
+     * Note: This repository only reads credentials. CredentialRepository
+     * handles credential creation/updates with encryption.
+     *
+     * @see DocumentDBEncryptionService
+     * @see CredentialRepositoryDocumentDB
+     */
+    class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
+    ```
 
 **CredentialRepositoryDocumentDB**:
 
-- [ ] Add class-level JSDoc:
-  ```javascript
-  /**
-   * Credential repository for DocumentDB.
-   * Uses DocumentDBEncryptionService for field-level encryption.
-   *
-   * Encrypted fields:
-   * - Credential.data.access_token
-   * - Credential.data.refresh_token
-   * - Credential.data.id_token
-   * - Credential.data.domain
-   *
-   * SECURITY CRITICAL: All OAuth credentials must be encrypted at rest.
-   *
-   * @see DocumentDBEncryptionService
-   * @see encryption-schema-registry.js
-   */
-  class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
-  ```
+-   [ ] Add class-level JSDoc:
+    ```javascript
+    /**
+     * Credential repository for DocumentDB.
+     * Uses DocumentDBEncryptionService for field-level encryption.
+     *
+     * Encrypted fields:
+     * - Credential.data.access_token
+     * - Credential.data.refresh_token
+     * - Credential.data.id_token
+     * - Credential.data.domain
+     *
+     * SECURITY CRITICAL: All OAuth credentials must be encrypted at rest.
+     *
+     * @see DocumentDBEncryptionService
+     * @see encryption-schema-registry.js
+     */
+    class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
+    ```
 
 **Estimated Time**: 30 minutes
 
@@ -1781,17 +1932,17 @@ echo "🎉 All files synced successfully"
 
 ## Total Implementation Time Estimate
 
-| Phase | Description | Time |
-|-------|-------------|------|
-| Phase 1 | Create DocumentDBEncryptionService + tests | 2-3 hours |
-| Phase 2 | Refactor UserRepositoryDocumentDB | 1 hour |
-| Phase 3 | Refactor ModuleRepositoryDocumentDB | 1 hour |
-| Phase 4 | Fix CredentialRepositoryDocumentDB | 1.5 hours |
-| Phase 5 | Add comprehensive tests (3 repos) | 5 hours |
-| Phase 6 | Apply to both locations | 30 minutes |
-| Phase 7 | Validation and integration testing | 1.5 hours |
-| Phase 8 | Documentation updates | 30 minutes |
-| **Total** | | **~13 hours** |
+| Phase     | Description                                | Time          |
+| --------- | ------------------------------------------ | ------------- |
+| Phase 1   | Create DocumentDBEncryptionService + tests | 2-3 hours     |
+| Phase 2   | Refactor UserRepositoryDocumentDB          | 1 hour        |
+| Phase 3   | Refactor ModuleRepositoryDocumentDB        | 1 hour        |
+| Phase 4   | Fix CredentialRepositoryDocumentDB         | 1.5 hours     |
+| Phase 5   | Add comprehensive tests (3 repos)          | 5 hours       |
+| Phase 6   | Apply to both locations                    | 30 minutes    |
+| Phase 7   | Validation and integration testing         | 1.5 hours     |
+| Phase 8   | Documentation updates                      | 30 minutes    |
+| **Total** |                                            | **~13 hours** |
 
 ---
 
@@ -1810,21 +1961,24 @@ class CredentialRepositoryDocumentDB {
 
     async upsertCredential(credentialDetails) {
         const { identifiers, details } = credentialDetails;
-        const { user, userId, authIsValid, externalId, ...oauthData } = details || {};
+        const { user, userId, authIsValid, externalId, ...oauthData } =
+            details || {};
 
         // ❌ oauthData contains PLAIN TEXT tokens
         const document = {
             userId: toObjectId(userId || user),
             externalId,
-            data: oauthData,  // ❌ { access_token: "plain_secret", ... }
+            data: oauthData, // ❌ { access_token: "plain_secret", ... }
             createdAt: new Date(),
-            updatedAt: new Date()
+            updatedAt: new Date(),
         };
 
         // ❌ STORED AS PLAIN TEXT
         const insertedId = await insertOne(this.prisma, 'Credential', document);
 
-        const created = await findOne(this.prisma, 'Credential', { _id: insertedId });
+        const created = await findOne(this.prisma, 'Credential', {
+            _id: insertedId,
+        });
         // ❌ Returns encrypted string (if previously encrypted) or plain text
         return this._mapCredential(created);
     }
@@ -1834,7 +1988,9 @@ class CredentialRepositoryDocumentDB {
 **AFTER (Secure - Encrypted Storage)**:
 
 ```javascript
-const { DocumentDBEncryptionService } = require('../database/documentdb-encryption-service');
+const {
+    DocumentDBEncryptionService,
+} = require('../database/documentdb-encryption-service');
 
 class CredentialRepositoryDocumentDB {
     constructor() {
@@ -1845,15 +2001,16 @@ class CredentialRepositoryDocumentDB {
 
     async upsertCredential(credentialDetails) {
         const { identifiers, details } = credentialDetails;
-        const { user, userId, authIsValid, externalId, ...oauthData } = details || {};
+        const { user, userId, authIsValid, externalId, ...oauthData } =
+            details || {};
 
         // Build plain text document
         const plainDocument = {
             userId: toObjectId(userId || user),
             externalId,
-            data: oauthData,  // Still plain text: { access_token: "plain_secret", ... }
+            data: oauthData, // Still plain text: { access_token: "plain_secret", ... }
             createdAt: new Date(),
-            updatedAt: new Date()
+            updatedAt: new Date(),
         };
 
         // ✅ ENCRYPT before storing
@@ -1864,9 +2021,15 @@ class CredentialRepositoryDocumentDB {
         // encryptedDocument.data = { access_token: "keyId:iv:cipher:encKey", ... }
 
         // ✅ STORED AS ENCRYPTED
-        const insertedId = await insertOne(this.prisma, 'Credential', encryptedDocument);
+        const insertedId = await insertOne(
+            this.prisma,
+            'Credential',
+            encryptedDocument
+        );
 
-        const created = await findOne(this.prisma, 'Credential', { _id: insertedId });
+        const created = await findOne(this.prisma, 'Credential', {
+            _id: insertedId,
+        });
 
         // ✅ DECRYPT before returning
         const decryptedCredential = await this.encryptionService.decryptFields(
@@ -1892,19 +2055,25 @@ class UserRepositoryDocumentDB {
         const document = {
             type: 'INDIVIDUAL',
             username: params.username,
-            hashword: await bcrypt.hash(params.hashword, 10),  // Bcrypt hash
-            createdAt: new Date()
+            hashword: await bcrypt.hash(params.hashword, 10), // Bcrypt hash
+            createdAt: new Date(),
         };
 
         // Encrypt bcrypt hash before storage
-        const encrypted = await this.encryptionService.encryptFields('User', document);
+        const encrypted = await this.encryptionService.encryptFields(
+            'User',
+            document
+        );
         // encrypted.hashword = "keyId:iv:cipher:encKey"
 
         const id = await insertOne(this.prisma, 'User', encrypted);
         const created = await findOne(this.prisma, 'User', { _id: id });
 
         // Decrypt before returning
-        const decrypted = await this.encryptionService.decryptFields('User', created);
+        const decrypted = await this.encryptionService.decryptFields(
+            'User',
+            created
+        );
         // decrypted.hashword = "$2b$10$..." (bcrypt hash)
 
         return this._mapUser(decrypted);
@@ -1912,23 +2081,26 @@ class UserRepositoryDocumentDB {
 }
 ```
 
-**Pattern 2: Nested Fields Encryption (Credential.data.*)**:
+**Pattern 2: Nested Fields Encryption (Credential.data.\*)**:
 
 ```javascript
 class CredentialRepositoryDocumentDB {
     async upsertCredential(details) {
         const document = {
             data: {
-                access_token: "ya29.actual_token",
-                refresh_token: "1//0refresh",
-                id_token: "eyJhbGci...",
-                expires_at: 1234567890,  // Not encrypted (not in registry)
-                scope: "openid profile"   // Not encrypted
-            }
+                access_token: 'ya29.actual_token',
+                refresh_token: '1//0refresh',
+                id_token: 'eyJhbGci...',
+                expires_at: 1234567890, // Not encrypted (not in registry)
+                scope: 'openid profile', // Not encrypted
+            },
         };
 
         // Encrypts only fields defined in encryption-schema-registry.js
-        const encrypted = await this.encryptionService.encryptFields('Credential', document);
+        const encrypted = await this.encryptionService.encryptFields(
+            'Credential',
+            document
+        );
         // encrypted.data = {
         //     access_token: "keyId:iv:cipher:encKey",   ← ENCRYPTED
         //     refresh_token: "keyId:iv:cipher:encKey",  ← ENCRYPTED
@@ -1945,11 +2117,13 @@ class CredentialRepositoryDocumentDB {
 ```javascript
 class ModuleRepositoryDocumentDB {
     async _fetchCredentialsBulk(credentialIds) {
-        const objectIds = credentialIds.map(id => toObjectId(id)).filter(Boolean);
+        const objectIds = credentialIds
+            .map((id) => toObjectId(id))
+            .filter(Boolean);
 
         // Fetch all credentials (encrypted)
         const rawCredentials = await findMany(this.prisma, 'Credential', {
-            _id: { $in: objectIds }
+            _id: { $in: objectIds },
         });
 
         // Decrypt in parallel
@@ -1973,34 +2147,37 @@ class ModuleRepositoryDocumentDB {
 ```javascript
 // 1. User completes OAuth flow, application receives tokens
 const oauthTokens = {
-    access_token: "ya29.a0AfH6SMCXyz...",
-    refresh_token: "1//0gFz6TRvwUm...",
-    id_token: "eyJhbGciOiJSUzI1...",
+    access_token: 'ya29.a0AfH6SMCXyz...',
+    refresh_token: '1//0gFz6TRvwUm...',
+    id_token: 'eyJhbGciOiJSUzI1...',
     expires_in: 3600,
-    token_type: "Bearer"
+    token_type: 'Bearer',
 };
 
 // 2. Use case calls repository
 const credential = await credentialRepository.upsertCredential({
-    identifiers: { userId: "user123", externalId: "google-user-456" },
-    details: oauthTokens
+    identifiers: { userId: 'user123', externalId: 'google-user-456' },
+    details: oauthTokens,
 });
 
 // 3. Inside repository: Build plain document
 const plainDocument = {
-    userId: toObjectId("user123"),
-    externalId: "google-user-456",
+    userId: toObjectId('user123'),
+    externalId: 'google-user-456',
     data: {
-        access_token: "ya29.a0AfH6SMCXyz...",
-        refresh_token: "1//0gFz6TRvwUm...",
-        id_token: "eyJhbGciOiJSUzI1...",
+        access_token: 'ya29.a0AfH6SMCXyz...',
+        refresh_token: '1//0gFz6TRvwUm...',
+        id_token: 'eyJhbGciOiJSUzI1...',
         expires_in: 3600,
-        token_type: "Bearer"
-    }
+        token_type: 'Bearer',
+    },
 };
 
 // 4. DocumentDBEncryptionService encrypts sensitive fields
-const encryptedDocument = await this.encryptionService.encryptFields('Credential', plainDocument);
+const encryptedDocument = await this.encryptionService.encryptFields(
+    'Credential',
+    plainDocument
+);
 // Result:
 // {
 //     userId: ObjectId("..."),
@@ -2018,11 +2195,16 @@ const encryptedDocument = await this.encryptionService.encryptFields('Credential
 await insertOne(this.prisma, 'Credential', encryptedDocument);
 
 // 6. Read back from DocumentDB
-const rawDocument = await findOne(this.prisma, 'Credential', { userId: objectId });
+const rawDocument = await findOne(this.prisma, 'Credential', {
+    userId: objectId,
+});
 // Returns encrypted data as stored
 
 // 7. DocumentDBEncryptionService decrypts sensitive fields
-const decryptedDocument = await this.encryptionService.decryptFields('Credential', rawDocument);
+const decryptedDocument = await this.encryptionService.decryptFields(
+    'Credential',
+    rawDocument
+);
 // Result:
 // {
 //     data: {
@@ -2035,11 +2217,11 @@ const decryptedDocument = await this.encryptionService.decryptFields('Credential
 // }
 
 // 8. Use case receives plain text credential
-return credential;  // { access_token: "ya29...", refresh_token: "1//0...", ... }
+return credential; // { access_token: "ya29...", refresh_token: "1//0...", ... }
 
 // 9. Application makes API call
 await fetch('https://www.googleapis.com/oauth2/v1/userinfo', {
-    headers: { Authorization: `Bearer ${credential.access_token}` }
+    headers: { Authorization: `Bearer ${credential.access_token}` },
 });
 // ✅ Works! Token is usable
 ```
@@ -2051,9 +2233,10 @@ await fetch('https://www.googleapis.com/oauth2/v1/userinfo', {
 ### Unit Tests: DocumentDBEncryptionService
 
 **Coverage Goals**:
-- 100% line coverage
-- All branches covered
-- All error paths tested
+
+-   100% line coverage
+-   All branches covered
+-   All error paths tested
 
 **Key Test Cases**:
 
@@ -2069,7 +2252,8 @@ describe('DocumentDBEncryptionService', () => {
 
         it('enables KMS encryption in production with KMS_KEY_ARN', () => {
             process.env.STAGE = 'production';
-            process.env.KMS_KEY_ARN = 'arn:aws:kms:us-east-1:123456789012:key/abc123';
+            process.env.KMS_KEY_ARN =
+                'arn:aws:kms:us-east-1:123456789012:key/abc123';
             const service = new DocumentDBEncryptionService();
             expect(service.enabled).toBe(true);
             expect(service.cryptor.shouldUseAws).toBe(true);
@@ -2089,14 +2273,14 @@ describe('DocumentDBEncryptionService', () => {
         it('encrypts User.hashword', async () => {
             const document = {
                 username: 'test@example.com',
-                hashword: '$2b$10$plain_bcrypt_hash'
+                hashword: '$2b$10$plain_bcrypt_hash',
             };
 
             const encrypted = await service.encryptFields('User', document);
 
-            expect(encrypted.username).toBe('test@example.com');  // Not encrypted
-            expect(encrypted.hashword).not.toBe('$2b$10$plain_bcrypt_hash');  // Encrypted
-            expect(encrypted.hashword).toMatch(/^[^:]+:[^:]+:[^:]+:[^:]+$/);  // Format check
+            expect(encrypted.username).toBe('test@example.com'); // Not encrypted
+            expect(encrypted.hashword).not.toBe('$2b$10$plain_bcrypt_hash'); // Encrypted
+            expect(encrypted.hashword).toMatch(/^[^:]+:[^:]+:[^:]+:[^:]+$/); // Format check
         });
 
         it('encrypts Credential.data.access_token', async () => {
@@ -2104,15 +2288,20 @@ describe('DocumentDBEncryptionService', () => {
                 userId: '123',
                 data: {
                     access_token: 'ya29.token_here',
-                    scope: 'openid profile'  // Not in registry
-                }
+                    scope: 'openid profile', // Not in registry
+                },
             };
 
-            const encrypted = await service.encryptFields('Credential', document);
+            const encrypted = await service.encryptFields(
+                'Credential',
+                document
+            );
 
             expect(encrypted.data.access_token).not.toBe('ya29.token_here');
-            expect(encrypted.data.access_token).toMatch(/^[^:]+:[^:]+:[^:]+:[^:]+$/);
-            expect(encrypted.data.scope).toBe('openid profile');  // Not encrypted
+            expect(encrypted.data.access_token).toMatch(
+                /^[^:]+:[^:]+:[^:]+:[^:]+$/
+            );
+            expect(encrypted.data.scope).toBe('openid profile'); // Not encrypted
         });
 
         it('skips already encrypted values', async () => {
@@ -2121,12 +2310,15 @@ describe('DocumentDBEncryptionService', () => {
 
             const result = await service.encryptFields('User', document);
 
-            expect(result.hashword).toBe(alreadyEncrypted);  // Unchanged
+            expect(result.hashword).toBe(alreadyEncrypted); // Unchanged
         });
 
         it('returns unchanged for unknown model', async () => {
             const document = { field: 'value' };
-            const result = await service.encryptFields('UnknownModel', document);
+            const result = await service.encryptFields(
+                'UnknownModel',
+                document
+            );
             expect(result).toEqual(document);
         });
     });
@@ -2135,7 +2327,7 @@ describe('DocumentDBEncryptionService', () => {
         it('decrypts User.hashword', async () => {
             const encryptedDoc = {
                 username: 'test@example.com',
-                hashword: 'keyId:iv:cipher:enckey'  // Mock encrypted
+                hashword: 'keyId:iv:cipher:enckey', // Mock encrypted
             };
 
             // Mock Cryptor to return known value
@@ -2144,16 +2336,20 @@ describe('DocumentDBEncryptionService', () => {
             const decrypted = await service.decryptFields('User', encryptedDoc);
 
             expect(decrypted.hashword).toBe('$2b$10$plain_bcrypt_hash');
-            expect(mockCryptor.decrypt).toHaveBeenCalledWith('keyId:iv:cipher:enckey');
+            expect(mockCryptor.decrypt).toHaveBeenCalledWith(
+                'keyId:iv:cipher:enckey'
+            );
         });
 
         it('handles decryption failures gracefully', async () => {
             const encryptedDoc = { hashword: 'corrupted:data:here:error' };
-            mockCryptor.decrypt.mockRejectedValue(new Error('Decryption failed'));
+            mockCryptor.decrypt.mockRejectedValue(
+                new Error('Decryption failed')
+            );
 
             const result = await service.decryptFields('User', encryptedDoc);
 
-            expect(result.hashword).toBeNull();  // Set to null on error
+            expect(result.hashword).toBeNull(); // Set to null on error
         });
 
         it('parses JSON objects after decryption', async () => {
@@ -2161,9 +2357,12 @@ describe('DocumentDBEncryptionService', () => {
             const jsonObject = { nested: 'value', array: [1, 2, 3] };
             mockCryptor.decrypt.mockResolvedValue(JSON.stringify(jsonObject));
 
-            const result = await service.decryptFields('CustomModel', encryptedDoc);
+            const result = await service.decryptFields(
+                'CustomModel',
+                encryptedDoc
+            );
 
-            expect(result.data.config).toEqual(jsonObject);  // Parsed as object
+            expect(result.data.config).toEqual(jsonObject); // Parsed as object
         });
     });
 });
@@ -2203,29 +2402,29 @@ describe('CredentialRepositoryDocumentDB - Security', () => {
             // Create credential via repository
             await repository.upsertCredential({
                 identifiers: { userId: fromObjectId(userId), externalId },
-                details: { access_token: plainToken, token_type: 'Bearer' }
+                details: { access_token: plainToken, token_type: 'Bearer' },
             });
 
             // Query database directly (bypass repository)
             const rawResult = await prisma.$runCommandRaw({
                 find: 'Credential',
-                filter: { userId, externalId }
+                filter: { userId, externalId },
             });
 
             const storedCredential = rawResult.cursor.firstBatch[0];
             const storedToken = storedCredential.data.access_token;
 
             // CRITICAL ASSERTIONS
-            expect(storedToken).not.toBe(plainToken);  // NOT plain text
-            expect(storedToken).toMatch(/^[^:]+:[^:]+:[^:]+:[^:]+$/);  // Encrypted format
-            expect(storedToken.split(':').length).toBeGreaterThanOrEqual(4);  // 4+ parts
+            expect(storedToken).not.toBe(plainToken); // NOT plain text
+            expect(storedToken).toMatch(/^[^:]+:[^:]+:[^:]+:[^:]+$/); // Encrypted format
+            expect(storedToken.split(':').length).toBeGreaterThanOrEqual(4); // 4+ parts
 
             // Verify repository returns decrypted
             const retrieved = await repository.findCredential({
                 userId: fromObjectId(userId),
-                externalId
+                externalId,
             });
-            expect(retrieved.access_token).toBe(plainToken);  // Decrypted
+            expect(retrieved.access_token).toBe(plainToken); // Decrypted
         });
 
         it('encrypts refresh_token', async () => {
@@ -2233,13 +2432,16 @@ describe('CredentialRepositoryDocumentDB - Security', () => {
             const plainRefresh = '1//0secret_refresh_token';
 
             await repository.upsertCredential({
-                identifiers: { userId: fromObjectId(userId), externalId: 'test-456' },
-                details: { refresh_token: plainRefresh }
+                identifiers: {
+                    userId: fromObjectId(userId),
+                    externalId: 'test-456',
+                },
+                details: { refresh_token: plainRefresh },
             });
 
             const rawResult = await prisma.$runCommandRaw({
                 find: 'Credential',
-                filter: { userId }
+                filter: { userId },
             });
 
             const stored = rawResult.cursor.firstBatch[0].data.refresh_token;
@@ -2252,13 +2454,16 @@ describe('CredentialRepositoryDocumentDB - Security', () => {
             const plainIdToken = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...';
 
             await repository.upsertCredential({
-                identifiers: { userId: fromObjectId(userId), externalId: 'test-789' },
-                details: { id_token: plainIdToken }
+                identifiers: {
+                    userId: fromObjectId(userId),
+                    externalId: 'test-789',
+                },
+                details: { id_token: plainIdToken },
             });
 
             const rawResult = await prisma.$runCommandRaw({
                 find: 'Credential',
-                filter: { userId }
+                filter: { userId },
             });
 
             const stored = rawResult.cursor.firstBatch[0].data.id_token;
@@ -2270,18 +2475,21 @@ describe('CredentialRepositoryDocumentDB - Security', () => {
             const userId = new ObjectId();
 
             await repository.upsertCredential({
-                identifiers: { userId: fromObjectId(userId), externalId: 'test-000' },
+                identifiers: {
+                    userId: fromObjectId(userId),
+                    externalId: 'test-000',
+                },
                 details: {
                     access_token: 'token123',
-                    expires_in: 3600,  // Not in encrypted fields registry
-                    token_type: 'Bearer',  // Not in registry
-                    scope: 'openid profile'  // Not in registry
-                }
+                    expires_in: 3600, // Not in encrypted fields registry
+                    token_type: 'Bearer', // Not in registry
+                    scope: 'openid profile', // Not in registry
+                },
             });
 
             const rawResult = await prisma.$runCommandRaw({
                 find: 'Credential',
-                filter: { userId }
+                filter: { userId },
             });
 
             const stored = rawResult.cursor.firstBatch[0].data;
@@ -2302,13 +2510,16 @@ describe('CredentialRepositoryDocumentDB - Security', () => {
             const plainData = {
                 access_token: 'test_access_123',
                 refresh_token: 'test_refresh_456',
-                expires_in: 7200
+                expires_in: 7200,
             };
 
             // Insert
             const created = await repository.upsertCredential({
-                identifiers: { userId: fromObjectId(userId), externalId: 'flow-test' },
-                details: plainData
+                identifiers: {
+                    userId: fromObjectId(userId),
+                    externalId: 'flow-test',
+                },
+                details: plainData,
             });
 
             // Verify returned data is plain text
@@ -2318,7 +2529,7 @@ describe('CredentialRepositoryDocumentDB - Security', () => {
             // Read via repository
             const retrieved = await repository.findCredential({
                 userId: fromObjectId(userId),
-                externalId: 'flow-test'
+                externalId: 'flow-test',
             });
 
             // Verify decrypted correctly
@@ -2328,7 +2539,7 @@ describe('CredentialRepositoryDocumentDB - Security', () => {
             // Verify database has encrypted values
             const rawResult = await prisma.$runCommandRaw({
                 find: 'Credential',
-                filter: { userId }
+                filter: { userId },
             });
             const stored = rawResult.cursor.firstBatch[0].data;
             expect(stored.access_token).not.toBe('test_access_123');
@@ -2346,17 +2557,20 @@ describe('CredentialRepositoryDocumentDB - Security', () => {
             const plainToken = 'dev_token_plain';
 
             await devRepo.upsertCredential({
-                identifiers: { userId: fromObjectId(userId), externalId: 'dev-test' },
-                details: { access_token: plainToken }
+                identifiers: {
+                    userId: fromObjectId(userId),
+                    externalId: 'dev-test',
+                },
+                details: { access_token: plainToken },
             });
 
             // In dev, should be stored as plain text
             const rawResult = await prisma.$runCommandRaw({
                 find: 'Credential',
-                filter: { userId }
+                filter: { userId },
             });
             const stored = rawResult.cursor.firstBatch[0].data.access_token;
-            expect(stored).toBe(plainToken);  // Plain text in dev!
+            expect(stored).toBe(plainToken); // Plain text in dev!
 
             // Reset to production
             process.env.STAGE = 'production';
@@ -2484,9 +2698,10 @@ sampleCreds.forEach(function(cred) {
 ```
 
 **Estimate Impact**:
-- Number of affected credentials
-- Number of affected users
-- Third-party services (Asana, Frontify, etc.)
+
+-   Number of affected credentials
+-   Number of affected users
+-   Third-party services (Asana, Frontify, etc.)
 
 ---
 
@@ -2495,22 +2710,24 @@ sampleCreds.forEach(function(cred) {
 **Priority Actions**:
 
 1. **Deploy Fix Immediately**:
-   ```bash
-   # Deploy encryption fix to stop new plain text storage
-   cd backend
-   npm install @friggframework/core@latest  # With encryption fix
-   npm run deploy -- --stage production
-   ```
+
+    ```bash
+    # Deploy encryption fix to stop new plain text storage
+    cd backend
+    npm install @friggframework/core@latest  # With encryption fix
+    npm run deploy -- --stage production
+    ```
 
 2. **Rotate All Affected Tokens**:
-   - Force OAuth re-authentication for all users
-   - Revoke old tokens on third-party services
-   - Generate new encrypted tokens
+
+    - Force OAuth re-authentication for all users
+    - Revoke old tokens on third-party services
+    - Generate new encrypted tokens
 
 3. **Audit Access**:
-   - Review database access logs
-   - Identify who had access to plain text credentials
-   - Check for unauthorized API usage
+    - Review database access logs
+    - Identify who had access to plain text credentials
+    - Check for unauthorized API usage
 
 ---
 
@@ -2519,9 +2736,18 @@ sampleCreds.forEach(function(cred) {
 **Migration Script** (`migrate-encrypt-credentials.js`):
 
 ```javascript
-const { prisma, connectPrisma, disconnectPrisma } = require('@friggframework/core/database/prisma');
-const { DocumentDBEncryptionService } = require('@friggframework/core/database/documentdb-encryption-service');
-const { toObjectId, fromObjectId } = require('@friggframework/core/database/documentdb-utils');
+const {
+    prisma,
+    connectPrisma,
+    disconnectPrisma,
+} = require('@friggframework/core/database/prisma');
+const {
+    DocumentDBEncryptionService,
+} = require('@friggframework/core/database/documentdb-encryption-service');
+const {
+    toObjectId,
+    fromObjectId,
+} = require('@friggframework/core/database/documentdb-utils');
 
 /**
  * Migrate plain text credentials to encrypted format.
@@ -2540,14 +2766,16 @@ async function migrateCredentials() {
     const encryptionService = new DocumentDBEncryptionService();
 
     if (!encryptionService.enabled) {
-        console.error('❌ Encryption not enabled! Check environment variables.');
+        console.error(
+            '❌ Encryption not enabled! Check environment variables.'
+        );
         process.exit(1);
     }
 
     // Fetch all credentials
     const result = await prisma.$runCommandRaw({
         find: 'Credential',
-        filter: {}
+        filter: {},
     });
 
     const credentials = result.cursor.firstBatch;
@@ -2564,7 +2792,9 @@ async function migrateCredentials() {
             // Check if already encrypted
             const token = cred.data?.access_token;
             if (!token) {
-                console.log(`⏭️  Skipping credential ${credId} (no access_token)`);
+                console.log(
+                    `⏭️  Skipping credential ${credId} (no access_token)`
+                );
                 continue;
             }
 
@@ -2577,29 +2807,36 @@ async function migrateCredentials() {
 
             // Encrypt credential data
             console.log(`🔐 Encrypting credential ${credId}...`);
-            const encryptedData = await encryptionService.encryptFields('Credential', {
-                data: cred.data
-            });
+            const encryptedData = await encryptionService.encryptFields(
+                'Credential',
+                {
+                    data: cred.data,
+                }
+            );
 
             // Update database
             await prisma.$runCommandRaw({
                 update: 'Credential',
-                updates: [{
-                    q: { _id: cred._id },
-                    u: {
-                        $set: {
-                            data: encryptedData.data,
-                            updatedAt: new Date()
-                        }
-                    }
-                }]
+                updates: [
+                    {
+                        q: { _id: cred._id },
+                        u: {
+                            $set: {
+                                data: encryptedData.data,
+                                updatedAt: new Date(),
+                            },
+                        },
+                    },
+                ],
             });
 
             console.log(`✅ Encrypted credential ${credId}`);
             encryptedCount++;
-
         } catch (error) {
-            console.error(`❌ Failed to encrypt credential ${credId}:`, error.message);
+            console.error(
+                `❌ Failed to encrypt credential ${credId}:`,
+                error.message
+            );
             errorCount++;
         }
     }
@@ -2615,7 +2852,7 @@ async function migrateCredentials() {
 }
 
 // Run migration
-migrateCredentials().catch(error => {
+migrateCredentials().catch((error) => {
     console.error('💥 Migration failed:', error);
     process.exit(1);
 });
@@ -2642,7 +2879,11 @@ node verify-encryption.js  # See verification script below
 **Verification Script** (`verify-encryption.js`):
 
 ```javascript
-const { prisma, connectPrisma, disconnectPrisma } = require('@friggframework/core/database/prisma');
+const {
+    prisma,
+    connectPrisma,
+    disconnectPrisma,
+} = require('@friggframework/core/database/prisma');
 
 async function verifyEncryption() {
     console.log('🔍 Verifying credential encryption...');
@@ -2651,7 +2892,7 @@ async function verifyEncryption() {
 
     const result = await prisma.$runCommandRaw({
         find: 'Credential',
-        filter: {}
+        filter: {},
     });
 
     const credentials = result.cursor.firstBatch;
@@ -2678,14 +2919,16 @@ async function verifyEncryption() {
     console.log(`  Plain text: ${failCount}`);
 
     if (failCount > 0) {
-        console.error('\n❌ Verification failed! Plain text credentials still exist.');
+        console.error(
+            '\n❌ Verification failed! Plain text credentials still exist.'
+        );
         process.exit(1);
     } else {
         console.log('\n✅ Verification passed! All credentials encrypted.');
     }
 }
 
-verifyEncryption().catch(error => {
+verifyEncryption().catch((error) => {
     console.error('💥 Verification failed:', error);
     process.exit(1);
 });
@@ -2696,20 +2939,22 @@ verifyEncryption().catch(error => {
 ### Step 5: Post-Migration Cleanup
 
 1. **Delete Migration Scripts**:
-   ```bash
-   rm migrate-encrypt-credentials.js
-   rm verify-encryption.js
-   ```
+
+    ```bash
+    rm migrate-encrypt-credentials.js
+    rm verify-encryption.js
+    ```
 
 2. **Update Documentation**:
-   - Document the incident
-   - Document lessons learned
-   - Update security procedures
+
+    - Document the incident
+    - Document lessons learned
+    - Update security procedures
 
 3. **Monitor**:
-   - Set up alerts for plain text detection
-   - Monitor API error rates (in case decryption fails)
-   - Watch for OAuth re-authentication requests
+    - Set up alerts for plain text detection
+    - Monitor API error rates (in case decryption fails)
+    - Watch for OAuth re-authentication requests
 
 ---
 
@@ -2720,18 +2965,20 @@ verifyEncryption().catch(error => {
 1. **Stop the migration script**
 
 2. **Restore from backup**:
-   ```bash
-   # Restore MongoDB backup from before migration
-   mongorestore --uri="mongodb://..." --archive=backup-before-migration.archive
-   ```
+
+    ```bash
+    # Restore MongoDB backup from before migration
+    mongorestore --uri="mongodb://..." --archive=backup-before-migration.archive
+    ```
 
 3. **Revert code deployment**:
-   ```bash
-   # Rollback to previous version
-   cd backend
-   npm install @friggframework/core@<previous-version>
-   npm run deploy -- --stage production
-   ```
+
+    ```bash
+    # Rollback to previous version
+    cd backend
+    npm install @friggframework/core@<previous-version>
+    npm run deploy -- --stage production
+    ```
 
 4. **Investigate and fix issues**
 
@@ -2744,28 +2991,31 @@ verifyEncryption().catch(error => {
 For large deployments:
 
 1. **Phase 1: Deploy encryption fix** (don't migrate yet)
-   - New credentials will be encrypted
-   - Old credentials remain as-is
-   - Application handles both encrypted and plain text
+
+    - New credentials will be encrypted
+    - Old credentials remain as-is
+    - Application handles both encrypted and plain text
 
 2. **Phase 2: Migrate in batches**
-   ```javascript
-   // Migrate 100 credentials at a time
-   const batchSize = 100;
-   for (let skip = 0; skip < totalCredentials; skip += batchSize) {
-       await migrateBatch(skip, batchSize);
-       await sleep(1000);  // 1 second between batches
-   }
-   ```
+
+    ```javascript
+    // Migrate 100 credentials at a time
+    const batchSize = 100;
+    for (let skip = 0; skip < totalCredentials; skip += batchSize) {
+        await migrateBatch(skip, batchSize);
+        await sleep(1000); // 1 second between batches
+    }
+    ```
 
 3. **Phase 3: Verify**
-   - Check random samples
-   - Monitor error rates
-   - Verify API calls still work
+
+    - Check random samples
+    - Monitor error rates
+    - Verify API calls still work
 
 4. **Phase 4: Complete**
-   - Remove backward compatibility code
-   - Update monitoring alerts
+    - Remove backward compatibility code
+    - Update monitoring alerts
 
 ---
 
@@ -2774,17 +3024,20 @@ For large deployments:
 ### Encryption Format
 
 **Envelope Encryption Pattern**:
+
 ```
 keyId:iv:cipher:encKey
 ```
 
 **Components**:
-- `keyId`: Identifier for the encryption key (e.g., "aes-key-1", KMS key ID)
-- `iv`: Initialization vector (base64-encoded)
-- `cipher`: Encrypted data (base64-encoded)
-- `encKey`: Encrypted data encryption key (base64-encoded)
+
+-   `keyId`: Identifier for the encryption key (e.g., "aes-key-1", KMS key ID)
+-   `iv`: Initialization vector (base64-encoded)
+-   `cipher`: Encrypted data (base64-encoded)
+-   `encKey`: Encrypted data encryption key (base64-encoded)
 
 **Example**:
+
 ```
 aes-key-1:MTIzNDU2Nzg5MGFiY2RlZg==:ZW5jcnlwdGVkX2RhdGFfaGVyZQ==:ZGVrX2VuY3J5cHRlZA==
 ```
@@ -2794,6 +3047,7 @@ aes-key-1:MTIzNDU2Nzg5MGFiY2RlZg==:ZW5jcnlwdGVkX2RhdGFfaGVyZQ==:ZGVrX2VuY3J5cHRl
 ### Key Management
 
 **Production (KMS - Recommended)**:
+
 ```bash
 # AWS KMS key is auto-discovered by Frigg infrastructure
 # Or set explicitly:
@@ -2804,13 +3058,15 @@ export STAGE=production
 ```
 
 **Benefits**:
-- ✅ AWS-managed key rotation
-- ✅ Audit trail via CloudTrail
-- ✅ Fine-grained IAM permissions
-- ✅ Hardware security module (HSM) backed
-- ✅ Compliance-ready (HIPAA, PCI-DSS, etc.)
+
+-   ✅ AWS-managed key rotation
+-   ✅ Audit trail via CloudTrail
+-   ✅ Fine-grained IAM permissions
+-   ✅ Hardware security module (HSM) backed
+-   ✅ Compliance-ready (HIPAA, PCI-DSS, etc.)
 
 **Alternative (AES - Any Environment)**:
+
 ```bash
 # Generate a 32-character key
 export AES_KEY_ID=my-app-key-v1
@@ -2821,14 +3077,16 @@ export STAGE=production
 ```
 
 **Benefits**:
-- ✅ Works in any environment (no AWS required)
-- ✅ Faster than KMS (no network calls)
-- ✅ No AWS costs
+
+-   ✅ Works in any environment (no AWS required)
+-   ✅ Faster than KMS (no network calls)
+-   ✅ No AWS costs
 
 **Drawbacks**:
-- ⚠️ Must securely manage key yourself
-- ⚠️ No automatic key rotation
-- ⚠️ Key stored in environment/config
+
+-   ⚠️ Must securely manage key yourself
+-   ⚠️ No automatic key rotation
+-   ⚠️ Key stored in environment/config
 
 ---
 
@@ -2837,18 +3095,21 @@ export STAGE=production
 **Purpose**: Skip encryption in local development for easier debugging
 
 **Bypassed Stages**:
-- `dev`
-- `test`
-- `local`
+
+-   `dev`
+-   `test`
+-   `local`
 
 **Production Stages** (encryption enabled):
-- `production`
-- `prod`
-- `staging`
-- `stage`
-- Any other value
+
+-   `production`
+-   `prod`
+-   `staging`
+-   `stage`
+-   Any other value
 
 **Configuration**:
+
 ```bash
 # Bypass encryption (dev)
 export STAGE=dev
@@ -2871,6 +3132,7 @@ export KMS_KEY_ARN=...
 **Location**: `packages/core/database/encryption/encryption-schema-registry.js`
 
 **Current Encrypted Fields**:
+
 ```javascript
 const ENCRYPTED_FIELDS = {
     User: ['hashword'],
@@ -2878,10 +3140,10 @@ const ENCRYPTED_FIELDS = {
         'data.access_token',
         'data.refresh_token',
         'data.id_token',
-        'data.domain'
+        'data.domain',
     ],
     IntegrationMapping: ['mapping'],
-    Token: ['token']
+    Token: ['token'],
 };
 ```
 
@@ -2889,42 +3151,47 @@ const ENCRYPTED_FIELDS = {
 
 1. Open `encryption-schema-registry.js`
 2. Add field path to appropriate model:
-   ```javascript
-   Credential: [
-       'data.access_token',
-       'data.refresh_token',
-       'data.id_token',
-       'data.domain',
-       'data.client_secret'  // ← NEW
-   ]
-   ```
+    ```javascript
+    Credential: [
+        'data.access_token',
+        'data.refresh_token',
+        'data.id_token',
+        'data.domain',
+        'data.client_secret', // ← NEW
+    ];
+    ```
 3. Deploy - encryption applied automatically (no code changes needed)
 
 **Field Path Examples**:
-- Top-level: `hashword` → encrypts `document.hashword`
-- Nested: `data.access_token` → encrypts `document.data.access_token`
-- Deep nesting supported: `config.secrets.apiKey`
+
+-   Top-level: `hashword` → encrypts `document.hashword`
+-   Nested: `data.access_token` → encrypts `document.data.access_token`
+-   Deep nesting supported: `config.secrets.apiKey`
 
 ---
 
 ### Compliance & Best Practices
 
 **GDPR Compliance**:
-- ✅ Data encrypted at rest
-- ✅ Encryption keys managed securely
-- ✅ User data can be deleted (right to erasure)
+
+-   ✅ Data encrypted at rest
+-   ✅ Encryption keys managed securely
+-   ✅ User data can be deleted (right to erasure)
 
 **PCI-DSS Compliance** (if storing payment data):
-- ✅ Encryption of cardholder data
-- ✅ Key management procedures
-- ✅ Audit logging (via CloudTrail with KMS)
+
+-   ✅ Encryption of cardholder data
+-   ✅ Key management procedures
+-   ✅ Audit logging (via CloudTrail with KMS)
 
 **HIPAA Compliance** (if storing health data):
-- ✅ Encryption at rest (required)
-- ✅ Access controls (AWS KMS IAM)
-- ✅ Audit trail (CloudTrail)
+
+-   ✅ Encryption at rest (required)
+-   ✅ Access controls (AWS KMS IAM)
+-   ✅ Audit trail (CloudTrail)
 
 **Best Practices**:
+
 1. **Use KMS in production** - Better security, compliance, key rotation
 2. **Rotate keys periodically** - Even with KMS, review and rotate annually
 3. **Monitor decryption failures** - Alert on >1% failure rate
@@ -2938,16 +3205,16 @@ const ENCRYPTED_FIELDS = {
 
 Before going to production:
 
-- [ ] Verify `STAGE=production` in environment
-- [ ] Verify encryption keys configured (`KMS_KEY_ARN` or `AES_KEY_ID`)
-- [ ] Run security tests (verify encrypted format in database)
-- [ ] Test credential creation and retrieval end-to-end
-- [ ] Verify OAuth flows work (tokens decrypted correctly)
-- [ ] Check logs for decryption errors
-- [ ] Review IAM permissions (if using KMS)
-- [ ] Test key rotation procedure (if using KMS)
-- [ ] Document encryption architecture for auditors
-- [ ] Set up monitoring alerts (decryption failures, plain text detection)
+-   [ ] Verify `STAGE=production` in environment
+-   [ ] Verify encryption keys configured (`KMS_KEY_ARN` or `AES_KEY_ID`)
+-   [ ] Run security tests (verify encrypted format in database)
+-   [ ] Test credential creation and retrieval end-to-end
+-   [ ] Verify OAuth flows work (tokens decrypted correctly)
+-   [ ] Check logs for decryption errors
+-   [ ] Review IAM permissions (if using KMS)
+-   [ ] Test key rotation procedure (if using KMS)
+-   [ ] Document encryption architecture for auditors
+-   [ ] Set up monitoring alerts (decryption failures, plain text detection)
 
 ---
 
@@ -2958,44 +3225,51 @@ Before going to production:
 When creating a new DocumentDB repository that handles encrypted data:
 
 1. **Import DocumentDBEncryptionService**:
-   ```javascript
-   const { DocumentDBEncryptionService } = require('../database/documentdb-encryption-service');
-   ```
+
+    ```javascript
+    const {
+        DocumentDBEncryptionService,
+    } = require('../database/documentdb-encryption-service');
+    ```
 
 2. **Initialize in constructor**:
-   ```javascript
-   constructor() {
-       this.prisma = prisma;
-       this.encryptionService = new DocumentDBEncryptionService();
-   }
-   ```
+
+    ```javascript
+    constructor() {
+        this.prisma = prisma;
+        this.encryptionService = new DocumentDBEncryptionService();
+    }
+    ```
 
 3. **Encrypt before writes**:
-   ```javascript
-   async create(data) {
-       const encrypted = await this.encryptionService.encryptFields('ModelName', data);
-       const id = await insertOne(this.prisma, 'CollectionName', encrypted);
-       // ...
-   }
-   ```
+
+    ```javascript
+    async create(data) {
+        const encrypted = await this.encryptionService.encryptFields('ModelName', data);
+        const id = await insertOne(this.prisma, 'CollectionName', encrypted);
+        // ...
+    }
+    ```
 
 4. **Decrypt after reads**:
-   ```javascript
-   async findById(id) {
-       const doc = await findOne(this.prisma, 'CollectionName', { _id: toObjectId(id) });
-       const decrypted = await this.encryptionService.decryptFields('ModelName', doc);
-       return this._mapModel(decrypted);
-   }
-   ```
+
+    ```javascript
+    async findById(id) {
+        const doc = await findOne(this.prisma, 'CollectionName', { _id: toObjectId(id) });
+        const decrypted = await this.encryptionService.decryptFields('ModelName', doc);
+        return this._mapModel(decrypted);
+    }
+    ```
 
 5. **Add encrypted fields to registry** (if new model):
-   ```javascript
-   // packages/core/database/encryption/encryption-schema-registry.js
-   const ENCRYPTED_FIELDS = {
-       // ... existing models
-       NewModel: ['sensitiveField1', 'nested.field2']
-   };
-   ```
+
+    ```javascript
+    // packages/core/database/encryption/encryption-schema-registry.js
+    const ENCRYPTED_FIELDS = {
+        // ... existing models
+        NewModel: ['sensitiveField1', 'nested.field2'],
+    };
+    ```
 
 6. **Add tests** (see Phase 5 for test patterns)
 
@@ -3006,88 +3280,98 @@ When creating a new DocumentDB repository that handles encrypted data:
 To encrypt a new field in an existing model:
 
 1. **Update encryption-schema-registry.js**:
-   ```javascript
-   const ENCRYPTED_FIELDS = {
-       Credential: [
-           'data.access_token',
-           'data.refresh_token',
-           'data.id_token',
-           'data.domain',
-           'data.client_secret'  // ← NEW FIELD
-       ]
-   };
-   ```
+
+    ```javascript
+    const ENCRYPTED_FIELDS = {
+        Credential: [
+            'data.access_token',
+            'data.refresh_token',
+            'data.id_token',
+            'data.domain',
+            'data.client_secret', // ← NEW FIELD
+        ],
+    };
+    ```
 
 2. **No code changes needed** - DocumentDBEncryptionService reads from registry
 
 3. **Deploy** - new field will be encrypted automatically
 
 4. **Migrate existing data** (if field already has plain text values):
-   ```javascript
-   // Run migration script to encrypt existing plain text values
-   // Similar to credential migration script
-   ```
+    ```javascript
+    // Run migration script to encrypt existing plain text values
+    // Similar to credential migration script
+    ```
 
 ---
 
 ### Known Limitations
 
 1. **Performance**: Encryption/decryption adds latency
-   - KMS: ~50ms per field (network call to AWS)
-   - AES: ~5-10ms per field (local crypto)
-   - **Mitigation**: Use bulk operations, consider caching decrypted values
+
+    - KMS: ~50ms per field (network call to AWS)
+    - AES: ~5-10ms per field (local crypto)
+    - **Mitigation**: Use bulk operations, consider caching decrypted values
 
 2. **DocumentDB-specific**: Only needed for DocumentDB
-   - MongoDB/PostgreSQL use automatic Prisma Extension
-   - Duplicate logic unavoidable (Prisma raw queries bypass extensions)
+
+    - MongoDB/PostgreSQL use automatic Prisma Extension
+    - Duplicate logic unavoidable (Prisma raw queries bypass extensions)
 
 3. **Manual encryption required**: Developers must remember to call service
-   - **Mitigation**: Code reviews, tests, linting rules
+
+    - **Mitigation**: Code reviews, tests, linting rules
 
 4. **No transactional encryption**: Encryption happens outside transactions
-   - **Risk**: If encryption fails mid-operation, could leave inconsistent state
-   - **Mitigation**: Encrypt before transaction starts, handle errors
+
+    - **Risk**: If encryption fails mid-operation, could leave inconsistent state
+    - **Mitigation**: Encrypt before transaction starts, handle errors
 
 5. **Field-level only**: Doesn't encrypt entire documents or collections
-   - **Alternative**: Use database-level encryption (AWS DocumentDB encryption at rest)
+    - **Alternative**: Use database-level encryption (AWS DocumentDB encryption at rest)
 
 ---
 
 ### Future Improvements
 
 1. **Automatic Repository Decorator**:
-   ```javascript
-   // Potential future API
-   @encryptDocumentDB(['User', 'Credential'])
-   class MyRepositoryDocumentDB {
-       // Encryption applied automatically by decorator
-   }
-   ```
+
+    ```javascript
+    // Potential future API
+    @encryptDocumentDB(['User', 'Credential'])
+    class MyRepositoryDocumentDB {
+        // Encryption applied automatically by decorator
+    }
+    ```
 
 2. **Encryption Caching**:
-   - Cache decrypted values for frequently accessed credentials
-   - Invalidate cache on credential update
-   - Reduce KMS API calls
+
+    - Cache decrypted values for frequently accessed credentials
+    - Invalidate cache on credential update
+    - Reduce KMS API calls
 
 3. **Field Compression**:
-   - Compress large fields before encryption
-   - Reduce storage and transfer costs
-   - Especially useful for `IntegrationMapping.mapping`
+
+    - Compress large fields before encryption
+    - Reduce storage and transfer costs
+    - Especially useful for `IntegrationMapping.mapping`
 
 4. **Key Versioning**:
-   - Support multiple active keys
-   - Gradual key rotation without migration
-   - Store key version with encrypted data
+
+    - Support multiple active keys
+    - Gradual key rotation without migration
+    - Store key version with encrypted data
 
 5. **Encryption Metrics**:
-   - Track encryption/decryption performance
-   - Monitor failure rates
-   - Alert on anomalies
+
+    - Track encryption/decryption performance
+    - Monitor failure rates
+    - Alert on anomalies
 
 6. **Integration with Prisma Extension**:
-   - Potential future Prisma feature: Extension support for raw queries
-   - Would eliminate need for DocumentDBEncryptionService
-   - Track: https://github.com/prisma/prisma/issues/...
+    - Potential future Prisma feature: Extension support for raw queries
+    - Would eliminate need for DocumentDBEncryptionService
+    - Track: https://github.com/prisma/prisma/issues/...
 
 ---
 
@@ -3096,39 +3380,43 @@ To encrypt a new field in an existing model:
 **Recommended Metrics**:
 
 1. **Encryption Failures**:
-   ```javascript
-   // Log when encryption fails
-   console.error('Encryption failed', { modelName, fieldPath, error });
-   // Alert if >1% of operations fail
-   ```
+
+    ```javascript
+    // Log when encryption fails
+    console.error('Encryption failed', { modelName, fieldPath, error });
+    // Alert if >1% of operations fail
+    ```
 
 2. **Decryption Failures**:
-   ```javascript
-   // Log when decryption fails
-   console.error('Decryption failed', { modelName, fieldPath, error });
-   // Alert immediately (could indicate data corruption)
-   ```
+
+    ```javascript
+    // Log when decryption fails
+    console.error('Decryption failed', { modelName, fieldPath, error });
+    // Alert immediately (could indicate data corruption)
+    ```
 
 3. **Plain Text Detection**:
-   ```javascript
-   // Periodic scan of database
-   // Alert if any plain text credentials found
-   ```
+
+    ```javascript
+    // Periodic scan of database
+    // Alert if any plain text credentials found
+    ```
 
 4. **Performance Metrics**:
-   ```javascript
-   // Track encryption/decryption time
-   const start = Date.now();
-   await service.encryptFields(...);
-   const duration = Date.now() - start;
-   metrics.histogram('encryption_duration_ms', duration);
-   ```
+    ```javascript
+    // Track encryption/decryption time
+    const start = Date.now();
+    await service.encryptFields(...);
+    const duration = Date.now() - start;
+    metrics.histogram('encryption_duration_ms', duration);
+    ```
 
 **CloudWatch Dashboards** (for AWS deployments):
-- Encryption operation count
-- Average encryption duration
-- Decryption failure rate
-- KMS API call count (if using KMS)
+
+-   Encryption operation count
+-   Average encryption duration
+-   Decryption failure rate
+-   KMS API call count (if using KMS)
 
 ---
 
@@ -3137,31 +3425,36 @@ To encrypt a new field in an existing model:
 **Common Issues**:
 
 1. **"No encryption keys configured"**
-   - **Cause**: Missing `KMS_KEY_ARN` or `AES_KEY_ID` in production
-   - **Fix**: Set environment variables, restart application
+
+    - **Cause**: Missing `KMS_KEY_ARN` or `AES_KEY_ID` in production
+    - **Fix**: Set environment variables, restart application
 
 2. **"Decryption failed"**
-   - **Cause**: Wrong key, corrupted data, or key rotation
-   - **Fix**: Check key configuration, verify data integrity, check key version
+
+    - **Cause**: Wrong key, corrupted data, or key rotation
+    - **Fix**: Check key configuration, verify data integrity, check key version
 
 3. **"Cannot read property 'access_token' of undefined"**
-   - **Cause**: Credential data is null or decryption returned null
-   - **Fix**: Check if credential exists, verify encryption didn't fail on write
+
+    - **Cause**: Credential data is null or decryption returned null
+    - **Fix**: Check if credential exists, verify encryption didn't fail on write
 
 4. **"Encryption too slow"**
-   - **Cause**: Using KMS with high latency
-   - **Fix**: Switch to AES for non-production, optimize KMS calls (batching)
+
+    - **Cause**: Using KMS with high latency
+    - **Fix**: Switch to AES for non-production, optimize KMS calls (batching)
 
 5. **"Credentials not encrypted after deployment"**
-   - **Cause**: `STAGE=dev` in production, or missing encryption keys
-   - **Fix**: Set `STAGE=production`, configure keys, redeploy
+    - **Cause**: `STAGE=dev` in production, or missing encryption keys
+    - **Fix**: Set `STAGE=production`, configure keys, redeploy
 
 **Getting Help**:
-- Check logs for error details
-- Review encryption-schema-registry.js configuration
-- Verify environment variables
-- Run health check: `curl http://localhost:3000/health/detailed`
-- Check encryption status in health response
+
+-   Check logs for error details
+-   Review encryption-schema-registry.js configuration
+-   Verify environment variables
+-   Run health check: `curl http://localhost:3000/health/detailed`
+-   Check encryption status in health response
 
 ---
 
@@ -3170,59 +3463,69 @@ To encrypt a new field in an existing model:
 ### Related Files
 
 **Core Encryption**:
-- `packages/core/database/encryption/README.md` - Main encryption documentation
-- `packages/core/database/encryption/encryption-schema-registry.js` - Encrypted fields definition
-- `packages/core/database/encryption/field-encryption-service.js` - Field-level encryption (Prisma Extension)
-- `packages/core/database/encryption/prisma-encryption-extension.js` - Prisma Client Extension
-- `packages/core/encrypt/Cryptor.js` - Encryption adapter (KMS/AES)
+
+-   `packages/core/database/encryption/README.md` - Main encryption documentation
+-   `packages/core/database/encryption/encryption-schema-registry.js` - Encrypted fields definition
+-   `packages/core/database/encryption/field-encryption-service.js` - Field-level encryption (Prisma Extension)
+-   `packages/core/database/encryption/prisma-encryption-extension.js` - Prisma Client Extension
+-   `packages/core/encrypt/Cryptor.js` - Encryption adapter (KMS/AES)
 
 **DocumentDB**:
-- `packages/core/database/documentdb-utils.js` - Raw query utilities
-- `packages/core/database/prisma.js` - Prisma client initialization
+
+-   `packages/core/database/documentdb-utils.js` - Raw query utilities
+-   `packages/core/database/prisma.js` - Prisma client initialization
 
 **Repositories**:
-- `packages/core/user/repositories/user-repository-documentdb.js` - User repository
-- `packages/core/modules/repositories/module-repository-documentdb.js` - Module/Entity repository
-- `packages/core/credential/repositories/credential-repository-documentdb.js` - Credential repository
-- `packages/core/integrations/repositories/integration-repository-documentdb.js` - Integration repository
+
+-   `packages/core/user/repositories/user-repository-documentdb.js` - User repository
+-   `packages/core/modules/repositories/module-repository-documentdb.js` - Module/Entity repository
+-   `packages/core/credential/repositories/credential-repository-documentdb.js` - Credential repository
+-   `packages/core/integrations/repositories/integration-repository-documentdb.js` - Integration repository
 
 **Tests**:
-- `packages/core/database/encryption/*.test.js` - Encryption unit tests
-- `packages/core/**/repositories/__tests__/*.test.js` - Repository tests
+
+-   `packages/core/database/encryption/*.test.js` - Encryption unit tests
+-   `packages/core/**/repositories/__tests__/*.test.js` - Repository tests
 
 ---
 
 ### External Documentation
 
 **Prisma**:
-- [Prisma Client Extensions](https://www.prisma.io/docs/concepts/components/prisma-client/client-extensions)
-- [Raw Database Access](https://www.prisma.io/docs/concepts/components/prisma-client/raw-database-access)
-- [MongoDB Support](https://www.prisma.io/docs/concepts/database-connectors/mongodb)
+
+-   [Prisma Client Extensions](https://www.prisma.io/docs/concepts/components/prisma-client/client-extensions)
+-   [Raw Database Access](https://www.prisma.io/docs/concepts/components/prisma-client/raw-database-access)
+-   [MongoDB Support](https://www.prisma.io/docs/concepts/database-connectors/mongodb)
 
 **AWS DocumentDB**:
-- [AWS DocumentDB Documentation](https://docs.aws.amazon.com/documentdb/)
-- [MongoDB Compatibility](https://docs.aws.amazon.com/documentdb/latest/developerguide/functional-differences.html)
+
+-   [AWS DocumentDB Documentation](https://docs.aws.amazon.com/documentdb/)
+-   [MongoDB Compatibility](https://docs.aws.amazon.com/documentdb/latest/developerguide/functional-differences.html)
 
 **AWS KMS**:
-- [AWS KMS Developer Guide](https://docs.aws.amazon.com/kms/latest/developerguide/)
-- [Envelope Encryption](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#enveloping)
+
+-   [AWS KMS Developer Guide](https://docs.aws.amazon.com/kms/latest/developerguide/)
+-   [Envelope Encryption](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#enveloping)
 
 **Encryption Best Practices**:
-- [OWASP Cryptographic Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html)
-- [NIST Encryption Standards](https://csrc.nist.gov/projects/cryptographic-standards-and-guidelines)
+
+-   [OWASP Cryptographic Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html)
+-   [NIST Encryption Standards](https://csrc.nist.gov/projects/cryptographic-standards-and-guidelines)
 
 ---
 
 ### Frigg Framework
 
 **Core Documentation**:
-- [Frigg Framework Docs](https://docs.friggframework.org)
-- [GitHub Repository](https://github.com/friggframework/frigg)
-- [Community Slack](https://friggframework.org/#contact)
+
+-   [Frigg Framework Docs](https://docs.friggframework.org)
+-   [GitHub Repository](https://github.com/friggframework/frigg)
+-   [Community Slack](https://friggframework.org/#contact)
 
 **Related Issues**:
-- GitHub Issue: DocumentDB encryption support [#TBD]
-- GitHub PR: Implement DocumentDBEncryptionService [#TBD]
+
+-   GitHub Issue: DocumentDB encryption support [#TBD]
+-   GitHub PR: Implement DocumentDBEncryptionService [#TBD]
 
 ---
 
@@ -3231,29 +3534,31 @@ To encrypt a new field in an existing model:
 ### Glossary
 
 **Terms**:
-- **DocumentDB**: AWS DocumentDB, a MongoDB-compatible database service
-- **Prisma Extension**: Prisma feature that intercepts and modifies queries
-- **Raw Query**: Low-level database command that bypasses Prisma ORM
-- **Envelope Encryption**: Encryption pattern using data keys encrypted by master keys
-- **KMS**: AWS Key Management Service
-- **AES**: Advanced Encryption Standard (symmetric encryption)
-- **Field-Level Encryption**: Encrypting individual fields within documents
+
+-   **DocumentDB**: AWS DocumentDB, a MongoDB-compatible database service
+-   **Prisma Extension**: Prisma feature that intercepts and modifies queries
+-   **Raw Query**: Low-level database command that bypasses Prisma ORM
+-   **Envelope Encryption**: Encryption pattern using data keys encrypted by master keys
+-   **KMS**: AWS Key Management Service
+-   **AES**: Advanced Encryption Standard (symmetric encryption)
+-   **Field-Level Encryption**: Encrypting individual fields within documents
 
 **Acronyms**:
-- **DRY**: Don't Repeat Yourself
-- **IAM**: Identity and Access Management
-- **HSM**: Hardware Security Module
-- **GDPR**: General Data Protection Regulation
-- **PCI-DSS**: Payment Card Industry Data Security Standard
-- **HIPAA**: Health Insurance Portability and Accountability Act
+
+-   **DRY**: Don't Repeat Yourself
+-   **IAM**: Identity and Access Management
+-   **HSM**: Hardware Security Module
+-   **GDPR**: General Data Protection Regulation
+-   **PCI-DSS**: Payment Card Industry Data Security Standard
+-   **HIPAA**: Health Insurance Portability and Accountability Act
 
 ---
 
 ### Changelog
 
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0 | 2025-01-13 | System | Initial documentation |
+| Version | Date       | Author | Changes               |
+| ------- | ---------- | ------ | --------------------- |
+| 1.0     | 2025-01-13 | System | Initial documentation |
 
 ---
 

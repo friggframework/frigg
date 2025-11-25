@@ -132,17 +132,6 @@ class UserRepositoryInterface {
     }
 
     /**
-     * Find user by ID (any type)
-     *
-     * @param {string|number} userId - User ID
-     * @returns {Promise<Object|null>} User object or null
-     * @abstract
-     */
-    async findUserById(userId) {
-        throw new Error('Method findUserById must be implemented by subclass');
-    }
-
-    /**
      * Find individual user by email
      *
      * @param {string} email - Email to search for

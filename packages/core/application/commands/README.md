@@ -7,22 +7,28 @@ Frigg Commands provide a clean, stable application service layer for all databas
 ## Why Use Commands?
 
 ### 1. **ORM Independence**
+
 Commands isolate your integration code from the underlying database implementation. This allows Frigg to migrate between ORMs (e.g., Mongoose to Prisma) without breaking your integration code.
 
 ### 2. **Hexagonal Architecture**
+
 Commands act as the **application service layer** in hexagonal architecture:
-- **Domain Layer**: Your use cases and business logic
-- **Application Layer**: Frigg Commands (this layer)
-- **Infrastructure Layer**: Repositories and database models (hidden from you)
+
+-   **Domain Layer**: Your use cases and business logic
+-   **Application Layer**: Frigg Commands (this layer)
+-   **Infrastructure Layer**: Repositories and database models (hidden from you)
 
 ### 3. **Single Source of Truth**
+
 All database operations flow through commands, making it easier to:
-- Add caching, logging, or monitoring
-- Enforce data validation rules
-- Maintain consistent error handling
-- Track data access patterns
+
+-   Add caching, logging, or monitoring
+-   Enforce data validation rules
+-   Maintain consistent error handling
+-   Track data access patterns
 
 ### 4. **Future-Proof**
+
 When Frigg upgrades its internals, commands maintain backward compatibility. Your integration code continues working without changes.
 
 ## Installation
@@ -43,7 +49,7 @@ const MyIntegration = require('./MyIntegration');
 
 // Create command set with your integration class
 const commands = createFriggCommands({
-    integrationClass: MyIntegration
+    integrationClass: MyIntegration,
 });
 ```
 
@@ -54,15 +60,16 @@ class MyIntegration extends IntegrationBase {
     constructor() {
         super();
         this.commands = createFriggCommands({
-            integrationClass: MyIntegration
+            integrationClass: MyIntegration,
         });
     }
 
     async hydrateFromExternalUser(externalUserId) {
         // Find integration context by external entity ID
-        const result = await this.commands.findIntegrationContextByExternalEntityId(
-            externalUserId
-        );
+        const result =
+            await this.commands.findIntegrationContextByExternalEntityId(
+                externalUserId
+            );
 
         if (result.error) {
             return { error: result.error };
@@ -83,9 +90,11 @@ const { createFriggCommands } = require('@friggframework/core');
 class AuthenticateUserUseCase {
     constructor({ commands } = {}) {
         // Accept injected commands for testing, or create default
-        this.commands = commands || createFriggCommands({
-            integrationClass: MyIntegration
-        });
+        this.commands =
+            commands ||
+            createFriggCommands({
+                integrationClass: MyIntegration,
+            });
     }
 
     async execute({ appUserId, username, email }) {
@@ -96,7 +105,7 @@ class AuthenticateUserUseCase {
             user = await this.commands.createUser({
                 appUserId,
                 username,
-                email
+                email,
             });
         }
 
@@ -117,7 +126,7 @@ const user = await commands.createUser({
     username: 'john@example.com',
     email: 'john@example.com',
     appUserId: 'external-user-123',
-    password: 'optional-password' // For password-based auth
+    password: 'optional-password', // For password-based auth
 });
 
 // Find user by app-specific user ID
@@ -127,11 +136,11 @@ const user = await commands.findUserByAppUserId('external-user-123');
 const user = await commands.findUserByUsername('john@example.com');
 
 // Find user by Frigg internal ID
-const user = await commands.findUserById('frigg-user-id');
+const user = await commands.findIndividualUserById('frigg-user-id');
 
 // Update user
 const updatedUser = await commands.updateUser('frigg-user-id', {
-    email: 'newemail@example.com'
+    email: 'newemail@example.com',
 });
 ```
 
@@ -148,19 +157,19 @@ const credential = await commands.createCredential({
     refresh_token: 'refresh_token_value',
     expires_at: new Date('2024-12-31'),
     moduleName: 'asana',
-    authIsValid: true
+    authIsValid: true,
 });
 
 // Find credential
 const credential = await commands.findCredential({
     userId: 'frigg-user-id',
-    moduleName: 'asana'
+    moduleName: 'asana',
 });
 
 // Update credential (e.g., after token refresh)
 const updated = await commands.updateCredential('credential-id', {
     access_token: 'new_access_token',
-    expires_at: new Date('2025-01-31')
+    expires_at: new Date('2025-01-31'),
 });
 
 // Delete credential
@@ -178,14 +187,14 @@ const entity = await commands.createEntity({
     externalId: 'asana-workspace-123',
     name: 'My Workspace',
     moduleName: 'asana',
-    credentialId: 'credential-id'
+    credentialId: 'credential-id',
 });
 
 // Find single entity
 const entity = await commands.findEntity({
     userId: 'frigg-user-id',
     externalId: 'asana-workspace-123',
-    moduleName: 'asana'
+    moduleName: 'asana',
 });
 
 // Find entity by ID
@@ -201,11 +210,14 @@ const asanaEntities = await commands.findEntitiesByUserIdAndModuleName(
 );
 
 // Find multiple entities by IDs
-const entities = await commands.findEntitiesByIds(['entity-id-1', 'entity-id-2']);
+const entities = await commands.findEntitiesByIds([
+    'entity-id-1',
+    'entity-id-2',
+]);
 
 // Update entity
 const updated = await commands.updateEntity('entity-id', {
-    name: 'Updated Workspace Name'
+    name: 'Updated Workspace Name',
 });
 
 // Delete entity
@@ -248,7 +260,7 @@ const commands = createFriggCommands({ integrationClass: MyIntegration });
 // Test code - inject mocks
 const mockCommands = {
     createUser: jest.fn().mockResolvedValue({ id: 'user-123' }),
-    findUserByAppUserId: jest.fn().mockResolvedValue(null)
+    findUserByAppUserId: jest.fn().mockResolvedValue(null),
 };
 
 const useCase = new MyUseCase({ commands: mockCommands });
@@ -261,12 +273,12 @@ const useCase = new MyUseCase({ commands: mockCommands });
 ```javascript
 // ❌ Don't do this - commands always use real repositories
 const commands = createFriggCommands({
-    userRepository: mockUserRepo  // This parameter doesn't exist
+    userRepository: mockUserRepo, // This parameter doesn't exist
 });
 
 // ✅ Do this - inject mocked commands into your use cases
 const useCase = new MyUseCase({
-    commands: mockCommands
+    commands: mockCommands,
 });
 ```
 
@@ -301,6 +313,7 @@ if (result.error) {
 ### From Direct Model Access
 
 **Before (❌ Don't do this):**
+
 ```javascript
 const { User } = require('@friggframework/core');
 
@@ -308,6 +321,7 @@ const user = await User.findOne({ appUserId: '123' });
 ```
 
 **After (✅ Do this):**
+
 ```javascript
 const { createFriggCommands } = require('@friggframework/core');
 
@@ -318,49 +332,63 @@ const user = await commands.findUserByAppUserId('123');
 ### From IntegrationRepository (Backend Pattern)
 
 **Before (❌ Old pattern):**
+
 ```javascript
-const { IntegrationRepository } = require('./repositories/IntegrationRepository');
+const {
+    IntegrationRepository,
+} = require('./repositories/IntegrationRepository');
 
 this.integrationRepository = new IntegrationRepository(MyIntegration);
-const result = await this.integrationRepository.loadIntegrationRecordByAsanaUser(userId);
+const result =
+    await this.integrationRepository.loadIntegrationRecordByAsanaUser(userId);
 ```
 
 **After (✅ New pattern):**
+
 ```javascript
 const { createFriggCommands } = require('@friggframework/core');
 
 this.commands = createFriggCommands({ integrationClass: MyIntegration });
-const result = await this.commands.findIntegrationContextByExternalEntityId(userId);
+const result = await this.commands.findIntegrationContextByExternalEntityId(
+    userId
+);
 ```
 
 ## Best Practices
 
 ### 1. Create Commands Once
+
 Initialize commands in your constructor:
 
 ```javascript
 class MyIntegration extends IntegrationBase {
     constructor() {
         super();
-        this.commands = createFriggCommands({ integrationClass: MyIntegration });
-    }
-}
-```
-
-### 2. Pass Commands to Use Cases
-Use dependency injection for testability:
-
-```javascript
-class MyUseCase {
-    constructor({ commands } = {}) {
-        this.commands = commands || createFriggCommands({
-            integrationClass: MyIntegration
+        this.commands = createFriggCommands({
+            integrationClass: MyIntegration,
         });
     }
 }
 ```
 
+### 2. Pass Commands to Use Cases
+
+Use dependency injection for testability:
+
+```javascript
+class MyUseCase {
+    constructor({ commands } = {}) {
+        this.commands =
+            commands ||
+            createFriggCommands({
+                integrationClass: MyIntegration,
+            });
+    }
+}
+```
+
 ### 3. Use Specific Finders
+
 Use the most specific finder method:
 
 ```javascript
@@ -372,6 +400,7 @@ const user = await commands.findUser({ appUserId: '123' });
 ```
 
 ### 4. Handle Null Returns
+
 Most finders return `null` if not found:
 
 ```javascript
@@ -385,37 +414,38 @@ if (!user) {
 
 ## Command Reference
 
-| Category | Command | Description |
-|----------|---------|-------------|
-| **User** | `createUser(data)` | Create new Frigg user |
-| | `findUserByAppUserId(appUserId)` | Find by external app user ID |
-| | `findUserByUsername(username)` | Find by username |
-| | `findUserById(id)` | Find by Frigg user ID |
-| | `updateUser(id, updates)` | Update user properties |
-| **Credential** | `createCredential(data)` | Create OAuth credential |
-| | `findCredential(filter)` | Find credential by filter |
-| | `updateCredential(id, updates)` | Update credential (token refresh) |
-| | `deleteCredential(id)` | Delete credential |
-| **Entity** | `createEntity(data)` | Create module entity |
-| | `findEntity(filter)` | Find entity by filter |
-| | `findEntityById(id)` | Find by entity ID |
-| | `findEntitiesByUserId(userId)` | Find all user entities |
-| | `findEntitiesByUserIdAndModuleName(userId, moduleName)` | Find user entities for module |
-| | `findEntitiesByIds(ids)` | Find multiple by IDs |
-| | `updateEntity(id, updates)` | Update entity properties |
-| | `deleteEntity(id)` | Delete entity |
-| **Integration** | `findIntegrationContextByExternalEntityId(externalId)` | Load integration + modules by external ID |
-| | `loadIntegrationContextById(integrationId)` | Load integration + modules by ID |
+| Category        | Command                                                 | Description                               |
+| --------------- | ------------------------------------------------------- | ----------------------------------------- |
+| **User**        | `createUser(data)`                                      | Create new Frigg user                     |
+|                 | `findUserByAppUserId(appUserId)`                        | Find by external app user ID              |
+|                 | `findUserByUsername(username)`                          | Find by username                          |
+|                 | `findIndividualUserById(id)`                            | Find by Frigg user ID                     |
+|                 | `updateUser(id, updates)`                               | Update user properties                    |
+| **Credential**  | `createCredential(data)`                                | Create OAuth credential                   |
+|                 | `findCredential(filter)`                                | Find credential by filter                 |
+|                 | `updateCredential(id, updates)`                         | Update credential (token refresh)         |
+|                 | `deleteCredential(id)`                                  | Delete credential                         |
+| **Entity**      | `createEntity(data)`                                    | Create module entity                      |
+|                 | `findEntity(filter)`                                    | Find entity by filter                     |
+|                 | `findEntityById(id)`                                    | Find by entity ID                         |
+|                 | `findEntitiesByUserId(userId)`                          | Find all user entities                    |
+|                 | `findEntitiesByUserIdAndModuleName(userId, moduleName)` | Find user entities for module             |
+|                 | `findEntitiesByIds(ids)`                                | Find multiple by IDs                      |
+|                 | `updateEntity(id, updates)`                             | Update entity properties                  |
+|                 | `deleteEntity(id)`                                      | Delete entity                             |
+| **Integration** | `findIntegrationContextByExternalEntityId(externalId)`  | Load integration + modules by external ID |
+|                 | `loadIntegrationContextById(integrationId)`             | Load integration + modules by ID          |
 
 ## Support
 
 For questions or issues with commands:
+
 1. Check this README
 2. Review the main Frigg documentation
 3. Open an issue on the Frigg Framework repository
 
 ## Related Documentation
 
-- [Frigg Framework Overview](../../README.md)
-- [Integration Development Guide](../../docs/integration-guide.md)
-- [Hexagonal Architecture](../../docs/architecture.md)
+-   [Frigg Framework Overview](../../README.md)
+-   [Integration Development Guide](../../docs/integration-guide.md)
+-   [Hexagonal Architecture](../../docs/architecture.md)
