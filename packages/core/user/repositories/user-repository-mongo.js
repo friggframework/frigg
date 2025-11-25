@@ -196,17 +196,6 @@ class UserRepositoryMongo extends UserRepositoryInterface {
     }
 
     /**
-     * Find user by ID (any type)
-     * @param {string} userId - User ID
-     * @returns {Promise<Object|null>} User object with string IDs or null
-     */
-    async findUserById(userId) {
-        return await this.prisma.user.findUnique({
-            where: { id: userId },
-        });
-    }
-
-    /**
      * Find individual user by email
      * @param {string} email - Email to search for
      * @returns {Promise<Object|null>} User object with string IDs or null

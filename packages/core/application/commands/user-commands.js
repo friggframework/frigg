@@ -138,11 +138,11 @@ function createUserCommands() {
         },
 
         /**
-         * Find a user by their ID
-         * @param {string} userId - User ID to search for
-         * @returns {Promise<Object|null>} User object or null if not found
+         * Find an individual user by their ID
+         * @param {string} userId - Individual user ID to search for
+         * @returns {Promise<Object|null>} Individual user object or null if not found
          */
-        async findUserById(userId) {
+        async findIndividualUserById(userId) {
             try {
                 if (!userId) {
                     const error = new Error('userId is required');
@@ -159,10 +159,41 @@ function createUserCommands() {
                 }
 
                 return {
-                    id: user._id.toString(),
+                    id: user._id?.toString() || user.id,
                     username: user.username,
                     email: user.email,
                     appUserId: user.appUserId,
+                };
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        /**
+         * Find an organization user by their ID
+         * @param {string} userId - Organization user ID to search for
+         * @returns {Promise<Object|null>} Organization user object or null if not found
+         */
+        async findOrganizationUserById(userId) {
+            try {
+                if (!userId) {
+                    const error = new Error('userId is required');
+                    error.code = 'INVALID_USER_DATA';
+                    throw error;
+                }
+
+                const user = await userRepository.findOrganizationUserById(
+                    userId
+                );
+
+                if (!user) {
+                    return null;
+                }
+
+                return {
+                    id: user.id,
+                    appOrgId: user.appOrgId,
+                    name: user.name,
                 };
             } catch (error) {
                 return mapErrorToResponse(error);
