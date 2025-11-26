@@ -238,17 +238,6 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
         return this._mapUser(decrypted);
     }
 
-    async findUserById(userId) {
-        const doc = await findOne(this.prisma, 'User', {
-            _id: toObjectId(userId),
-        });
-        const decrypted = await this.encryptionService.decryptFields(
-            'User',
-            doc
-        );
-        return this._mapUser(decrypted);
-    }
-
     async findIndividualUserByEmail(email) {
         const doc = await findOne(this.prisma, 'User', {
             type: 'INDIVIDUAL',

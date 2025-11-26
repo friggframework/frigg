@@ -238,19 +238,6 @@ class UserRepositoryPostgres extends UserRepositoryInterface {
     }
 
     /**
-     * Find user by ID (any type)
-     * @param {string} userId - User ID (string from application layer)
-     * @returns {Promise<Object|null>} User object with string IDs or null
-     */
-    async findUserById(userId) {
-        const intId = this._convertId(userId);
-        const user = await this.prisma.user.findUnique({
-            where: { id: intId },
-        });
-        return this._convertUserIds(user);
-    }
-
-    /**
      * Find individual user by email
      * @param {string} email - Email to search for
      * @returns {Promise<Object|null>} User object with string IDs or null

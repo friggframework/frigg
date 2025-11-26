@@ -17,7 +17,8 @@ const databaseConfig = require('../../database/config');
  * Usage:
  * ```javascript
  * const repository = createUserRepository();
- * const user = await repository.findUserById(id); // ID is string
+ * const user = await repository.findIndividualUserById(id); // ID is string
+ * const orgUser = await repository.findOrganizationUserById(id); // ID is string
  * ```
  *
  * @returns {UserRepositoryInterface} Configured repository adapter
