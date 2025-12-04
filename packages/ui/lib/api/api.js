@@ -6,19 +6,19 @@ export default class API {
     this.endpointLogin = "/user/login";
     this.endpointCreateUser = "/user/create";
 
-    this.endpointAuthorize = "/api/authorize";
-    this.endpointIntegration = (id) => `/api/integrations/${id}`;
+    // v2 API endpoints (path-based versioning)
+    this.endpointAuthorize = "/api/v2/authorize";
+    this.endpointIntegration = (id) => `/api/v2/integrations/${id}`;
     this.endpointIntegrationConfigOptions = (id) =>
       `${this.endpointIntegration(id)}/config/options`;
-    this.endpointIntegrations = "/api/integrations";
-    this.endpointIntegration = (id) => `/api/integrations/${id}`;
+    this.endpointIntegrations = "/api/v2/integrations";
     this.endpointSampleData = (id) => `/api/demo/sample/${id}`;
     this.endpointIntegrationUserActions = (id) =>
-      `/api/integrations/${id}/actions`;
+      `/api/v2/integrations/${id}/actions`;
     this.endpointIntegrationUserActionOptions = (id, action) =>
-      `/api/integrations/${id}/actions/${action}/options`;
+      `/api/v2/integrations/${id}/actions/${action}/options`;
     this.endpointIntegrationUserActionSubmit = (id, action) =>
-      `/api/integrations/${id}/actions/${action}`;
+      `/api/v2/integrations/${id}/actions/${action}`;
   }
 
   async login(username, password) {
@@ -132,43 +132,58 @@ export default class API {
 
   // Get user's authorized entities/connected accounts
   async listEntities() {
-    return this._get('/api/entities');
+    return this._get('/api/v2/entities');
   }
 
   // =========================================================================
-  // MODULE ENDPOINTS (NEW v2 API)
+  // ENTITY TYPES ENDPOINTS (v2 API - replaces /api/modules)
   // =========================================================================
 
-  // Get available modules
+  // Get available entity types (replaces listModules)
+  async listEntityTypes() {
+    return this._get('/api/v2/entities/types');
+  }
+
+  // Alias for backward compatibility
   async listModules() {
-    return this._get('/api/modules');
+    return this.listEntityTypes();
   }
 
-  // Get authorization requirements for module (NEW v2 API)
-  async getModuleAuthorizationRequirements(moduleType, step = 1, sessionId = null) {
-    let url = `/api/modules/${moduleType}/authorization?step=${step}`;
+  // Get entity type details
+  async getEntityType(entityType) {
+    return this._get(`/api/v2/entities/types/${entityType}`);
+  }
+
+  // Get authorization requirements for entity type (replaces getModuleAuthorizationRequirements)
+  async getEntityTypeAuthorizationRequirements(entityType, step = 1, sessionId = null) {
+    let url = `/api/v2/entities/types/${entityType}/requirements?step=${step}`;
     if (sessionId) {
       url += `&sessionId=${sessionId}`;
     }
     return this._get(url);
   }
 
-  // Submit authorization step (NEW v2 API)
+  // Alias for backward compatibility
+  async getModuleAuthorizationRequirements(moduleType, step = 1, sessionId = null) {
+    return this.getEntityTypeAuthorizationRequirements(moduleType, step, sessionId);
+  }
+
+  // Submit authorization step via /api/v2/authorize
   async submitModuleAuthorization(moduleType, data, step = null, sessionId = null, credentialId = null) {
-    const params = { data };
+    const params = { entityType: moduleType, data };
     if (step) params.step = step;
     if (sessionId) params.sessionId = sessionId;
     if (credentialId) params.credentialId = credentialId;
 
-    return this._post(`/api/modules/${moduleType}/authorization`, params);
+    return this._post('/api/v2/authorize', params);
   }
 
   // =========================================================================
-  // CREDENTIAL ENDPOINTS (NEW)
+  // CREDENTIAL ENDPOINTS (v2 API)
   // =========================================================================
 
   async listCredentials(filters = {}) {
-    let url = '/api/credentials';
+    let url = '/api/v2/credentials';
     const params = new URLSearchParams();
     if (filters.status) params.append('status', filters.status);
     if (filters.moduleType) params.append('moduleType', filters.moduleType);
@@ -178,33 +193,33 @@ export default class API {
   }
 
   async getCredential(credentialId) {
-    return this._get(`/api/credentials/${credentialId}`);
+    return this._get(`/api/v2/credentials/${credentialId}`);
   }
 
   async deleteCredential(credentialId, cascade = false) {
-    const url = `/api/credentials/${credentialId}${cascade ? '?cascade=true' : ''}`;
+    const url = `/api/v2/credentials/${credentialId}${cascade ? '?cascade=true' : ''}`;
     return this._delete(url, {});
   }
 
   async testCredential(credentialId) {
-    return this._get(`/api/credentials/${credentialId}/test`);
+    return this._get(`/api/v2/credentials/${credentialId}/test`);
   }
 
   async resumeFromCredential(credentialId) {
-    return this._post(`/api/credentials/${credentialId}/resume`, {});
+    return this._post(`/api/v2/credentials/${credentialId}/resume`, {});
   }
 
   async getCredentialOptions(credentialId) {
-    return this._get(`/api/credentials/${credentialId}/options`);
+    return this._get(`/api/v2/credentials/${credentialId}/options`);
   }
 
   // =========================================================================
-  // ENTITY ENDPOINTS (UPDATED)
+  // ENTITY ENDPOINTS (v2 API)
   // =========================================================================
 
   // Get user's authorized entities/connected accounts
   async listEntities(filters = {}) {
-    let url = '/api/entities';
+    let url = '/api/v2/entities';
     if (filters.moduleType) {
       url += `?moduleType=${filters.moduleType}`;
     }
@@ -212,36 +227,65 @@ export default class API {
   }
 
   async getEntity(entityId) {
-    return this._get(`/api/entities/${entityId}`);
+    return this._get(`/api/v2/entities/${entityId}`);
   }
 
   async deleteEntity(entityId, deleteCredential = false) {
-    const url = `/api/entities/${entityId}${deleteCredential ? '?deleteCredential=true' : ''}`;
+    const url = `/api/v2/entities/${entityId}${deleteCredential ? '?deleteCredential=true' : ''}`;
     return this._delete(url, {});
   }
 
   // UPDATED: Renamed from testEntityAuth
   async testEntity(entityId) {
-    return this._get(`/api/entities/${entityId}/test`);
+    return this._get(`/api/v2/entities/${entityId}/test`);
   }
 
   // NEW: Re-authentication flow
   async initiateEntityReauthorization(entityId) {
-    return this._post(`/api/entities/${entityId}/reauthorize`, {});
+    return this._post(`/api/v2/entities/${entityId}/reauthorize`, {});
   }
 
   async completeEntityReauthorization(entityId, data) {
-    return this._post(`/api/entities/${entityId}/reauthorize/complete`, data);
+    return this._post(`/api/v2/entities/${entityId}/reauthorize/complete`, data);
   }
 
   async getEntityOptions(entityId, optionType = null) {
     const data = optionType ? { optionType } : {};
-    return this._post(`/api/entities/${entityId}/options`, data);
+    return this._post(`/api/v2/entities/${entityId}/options`, data);
   }
 
   async refreshEntityOptions(entityId, optionType = null) {
     const data = optionType ? { optionType } : {};
-    return this._post(`/api/entities/${entityId}/options/refresh`, data);
+    return this._post(`/api/v2/entities/${entityId}/options/refresh`, data);
+  }
+
+  // =========================================================================
+  // PROXY ENDPOINTS (v2 API - for MCP/tool-calling use cases)
+  // =========================================================================
+
+  /**
+   * Proxy an API request through an entity's authenticated connection
+   * @param {string} entityId - Entity ID to proxy through
+   * @param {object} proxyRequest - Proxy request configuration
+   * @param {string} proxyRequest.method - HTTP method (GET, POST, PUT, PATCH, DELETE)
+   * @param {string} proxyRequest.path - API path to call
+   * @param {object} [proxyRequest.query] - Query parameters
+   * @param {object} [proxyRequest.headers] - Additional headers
+   * @param {*} [proxyRequest.body] - Request body
+   * @returns {Promise<object>} Proxy response with status, headers, data
+   */
+  async proxyEntityRequest(entityId, proxyRequest) {
+    return this._post(`/api/v2/entities/${entityId}/proxy`, proxyRequest);
+  }
+
+  /**
+   * Proxy an API request through a credential's authenticated connection
+   * @param {string} credentialId - Credential ID to proxy through
+   * @param {object} proxyRequest - Proxy request configuration
+   * @returns {Promise<object>} Proxy response with status, headers, data
+   */
+  async proxyCredentialRequest(credentialId, proxyRequest) {
+    return this._post(`/api/v2/credentials/${credentialId}/proxy`, proxyRequest);
   }
 
   // =========================================================================
@@ -349,27 +393,27 @@ export default class API {
   }
 
   // =========================================================================
-  // SYSTEM ACTIONS ENDPOINTS (DEV MODE)
+  // SYSTEM ACTIONS ENDPOINTS (DEV MODE - v2 API)
   // =========================================================================
 
   // Get available system actions for an integration
   async getSystemActions(integrationId) {
-    return this._get(`/api/integrations/${integrationId}/system-actions`);
+    return this._get(`/api/v2/integrations/${integrationId}/system-actions`);
   }
 
   // Execute a system action (webhook, polling, queue worker, etc.)
   async executeSystemAction(integrationId, actionType, config) {
-    return this._post(`/api/integrations/${integrationId}/system-actions/${actionType}`, config);
+    return this._post(`/api/v2/integrations/${integrationId}/system-actions/${actionType}`, config);
   }
 
   // Trigger a webhook event
   async triggerWebhook(integrationId, webhookConfig) {
-    return this._post(`/api/integrations/${integrationId}/webhooks/trigger`, webhookConfig);
+    return this._post(`/api/v2/integrations/${integrationId}/webhooks/trigger`, webhookConfig);
   }
 
   // Start/stop polling for an integration
   async togglePolling(integrationId, enabled, config = {}) {
-    return this._post(`/api/integrations/${integrationId}/polling`, {
+    return this._post(`/api/v2/integrations/${integrationId}/polling`, {
       enabled,
       config
     });
@@ -377,12 +421,12 @@ export default class API {
 
   // Execute a queue worker job
   async executeQueueWorker(integrationId, jobConfig) {
-    return this._post(`/api/integrations/${integrationId}/queue-worker`, jobConfig);
+    return this._post(`/api/v2/integrations/${integrationId}/queue-worker`, jobConfig);
   }
 
   // Trigger a lifecycle event
   async triggerLifecycleEvent(integrationId, event, data = {}) {
-    return this._post(`/api/integrations/${integrationId}/lifecycle-events`, {
+    return this._post(`/api/v2/integrations/${integrationId}/lifecycle-events`, {
       event,
       data
     });
@@ -390,7 +434,7 @@ export default class API {
 
   // Get system action logs
   async getSystemActionLogs(integrationId, actionType = null, limit = 100) {
-    let url = `/api/integrations/${integrationId}/system-actions/logs?limit=${limit}`;
+    let url = `/api/v2/integrations/${integrationId}/system-actions/logs?limit=${limit}`;
     if (actionType) {
       url += `&actionType=${actionType}`;
     }

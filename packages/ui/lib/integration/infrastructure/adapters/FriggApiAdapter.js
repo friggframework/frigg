@@ -6,7 +6,8 @@
 
 export class FriggApiAdapter {
     constructor(config = {}) {
-        this.baseUrl = config.baseUrl || '/api';
+        // Default to v2 API path for new clients
+        this.baseUrl = config.baseUrl || '/api/v2';
         this.headers = config.headers || {};
         this.authToken = config.authToken || null;
     }
@@ -68,72 +69,46 @@ export class FriggApiAdapter {
     }
 
     // =========================================================================
-    // MODULE ENDPOINTS (NEW v2 API)
+    // ENTITY TYPES ENDPOINTS (v2 API)
     // =========================================================================
 
     /**
-     * GET /api/modules - List available module types
+     * GET /api/entities/types - List available entity types
      */
-    async listModules() {
-        return await this.fetch('/modules');
+    async listEntityTypes() {
+        return await this.fetch('/entities/types');
     }
 
     /**
-     * GET /api/modules/:moduleType/authorization - Get authorization requirements
-     * @param {string} moduleType - Module type (e.g., 'slack', 'hubspot')
+     * GET /api/entities/types/:typeName - Get entity type metadata
+     * @param {string} typeName - Entity type name (e.g., 'slack', 'hubspot')
+     */
+    async getEntityType(typeName) {
+        return await this.fetch(`/entities/types/${encodeURIComponent(typeName)}`);
+    }
+
+    /**
+     * GET /api/entities/types/:typeName/requirements - Get authorization requirements
+     * @param {string} typeName - Entity type name (e.g., 'slack', 'hubspot')
      * @param {number} step - Step number for multi-step auth (default: 1)
-     * @param {string|null} sessionId - Session ID for steps > 1
      */
-    async getModuleAuthorizationRequirements(moduleType, step = 1, sessionId = null) {
-        let url = `/modules/${encodeURIComponent(moduleType)}/authorization?step=${step}`;
-        if (sessionId) {
-            url += `&sessionId=${encodeURIComponent(sessionId)}`;
-        }
-        return await this.fetch(url);
-    }
-
-    /**
-     * POST /api/modules/:moduleType/authorization - Submit authorization data
-     * @param {string} moduleType - Module type
-     * @param {object} data - Authorization data
-     * @param {number} step - Step number (optional for single-step)
-     * @param {string} sessionId - Session ID (required for multi-step)
-     * @param {string} credentialId - Credential ID (for steps > 1)
-     */
-    async submitModuleAuthorization(moduleType, data, step = null, sessionId = null, credentialId = null) {
-        const body = { data };
-
-        if (step) body.step = step;
-        if (sessionId) body.sessionId = sessionId;
-        if (credentialId) body.credentialId = credentialId;
-
-        return await this.fetch(`/modules/${encodeURIComponent(moduleType)}/authorization`, {
-            method: 'POST',
-            body: JSON.stringify(body)
-        });
+    async getEntityTypeRequirements(typeName, step = 1) {
+        return await this.fetch(`/entities/types/${encodeURIComponent(typeName)}/requirements?step=${step}`);
     }
 
     // =========================================================================
-    // CREDENTIAL ENDPOINTS (NEW)
+    // CREDENTIAL ENDPOINTS (v2 API)
     // =========================================================================
 
     /**
      * GET /api/credentials - List user's credentials
-     * @param {object} filters - Optional filters
-     * @param {string} filters.status - Filter by status (orphaned, active, invalid)
-     * @param {string} filters.moduleType - Filter by module type
      */
-    async listCredentials(filters = {}) {
-        const params = new URLSearchParams();
-        if (filters.status) params.append('status', filters.status);
-        if (filters.moduleType) params.append('moduleType', filters.moduleType);
-
-        const queryString = params.toString();
-        return await this.fetch(`/credentials${queryString ? '?' + queryString : ''}`);
+    async listCredentials() {
+        return await this.fetch('/credentials');
     }
 
     /**
-     * GET /api/credentials/:credentialId - Get credential details
+     * GET /api/credentials/:credentialId - Get credential details (tokens masked)
      */
     async getCredential(credentialId) {
         return await this.fetch(`/credentials/${credentialId}`);
@@ -141,52 +116,46 @@ export class FriggApiAdapter {
 
     /**
      * DELETE /api/credentials/:credentialId - Delete credential
+     */
+    async deleteCredential(credentialId) {
+        return await this.fetch(`/credentials/${credentialId}`, { method: 'DELETE' });
+    }
+
+    /**
+     * GET /api/credentials/:credentialId/reauthorize - Get reauthorization requirements
      * @param {string} credentialId - Credential ID
-     * @param {boolean} cascade - Also delete dependent entities
+     * @param {number} step - Step number for multi-step auth (default: 1)
      */
-    async deleteCredential(credentialId, cascade = false) {
-        const url = `/credentials/${credentialId}${cascade ? '?cascade=true' : ''}`;
-        return await this.fetch(url, { method: 'DELETE' });
+    async getCredentialReauthorizeRequirements(credentialId, step = 1) {
+        return await this.fetch(`/credentials/${credentialId}/reauthorize?step=${step}`);
     }
 
     /**
-     * GET /api/credentials/:credentialId/test - Test credential validity
+     * POST /api/credentials/:credentialId/reauthorize - Submit reauthorization data
+     * @param {string} credentialId - Credential ID
+     * @param {object} data - Authorization data
+     * @param {number} step - Step number (optional)
+     * @param {string} sessionId - Session ID (for multi-step flows)
      */
-    async testCredential(credentialId) {
-        return await this.fetch(`/credentials/${credentialId}/test`);
-    }
+    async reauthorizeCredential(credentialId, data, step = 1, sessionId = null) {
+        const body = { data, step };
+        if (sessionId) body.sessionId = sessionId;
 
-    /**
-     * POST /api/credentials/:credentialId/resume - Resume authorization from credential
-     */
-    async resumeAuthorizationFromCredential(credentialId) {
-        return await this.fetch(`/credentials/${credentialId}/resume`, {
-            method: 'POST'
+        return await this.fetch(`/credentials/${credentialId}/reauthorize`, {
+            method: 'POST',
+            body: JSON.stringify(body)
         });
     }
 
-    /**
-     * GET /api/credentials/:credentialId/options - Get options using credential
-     */
-    async getCredentialOptions(credentialId) {
-        return await this.fetch(`/credentials/${credentialId}/options`);
-    }
-
     // =========================================================================
-    // ENTITY ENDPOINTS (UPDATED)
+    // ENTITY ENDPOINTS (v2 API)
     // =========================================================================
 
     /**
      * GET /api/entities - Get user's entities
-     * @param {object} filters - Optional filters
-     * @param {string} filters.moduleType - Filter by module type
      */
-    async getEntities(filters = {}) {
-        const params = new URLSearchParams();
-        if (filters.moduleType) params.append('moduleType', filters.moduleType);
-
-        const queryString = params.toString();
-        return await this.fetch(`/entities${queryString ? '?' + queryString : ''}`);
+    async getEntities() {
+        return await this.fetch('/entities');
     }
 
     /**
@@ -198,45 +167,22 @@ export class FriggApiAdapter {
 
     /**
      * DELETE /api/entities/:entityId - Delete entity
-     * @param {string} entityId - Entity ID
-     * @param {boolean} deleteCredential - Also delete credential if unused
      */
-    async deleteEntity(entityId, deleteCredential = false) {
-        const url = `/entities/${entityId}${deleteCredential ? '?deleteCredential=true' : ''}`;
-        return await this.fetch(url, { method: 'DELETE' });
+    async deleteEntity(entityId) {
+        return await this.fetch(`/entities/${entityId}`, { method: 'DELETE' });
     }
 
     /**
-     * GET /api/entities/:entityId/test - Test entity connection (RENAMED from test-auth)
+     * GET /api/entities/:entityId/test-auth - Test entity authentication
      */
-    async testEntity(entityId) {
-        return await this.fetch(`/entities/${entityId}/test`);
-    }
-
-    /**
-     * POST /api/entities/:entityId/reauthorize - Initiate entity re-authentication (NEW)
-     */
-    async initiateEntityReauthorization(entityId) {
-        return await this.fetch(`/entities/${entityId}/reauthorize`, {
-            method: 'POST'
-        });
-    }
-
-    /**
-     * POST /api/entities/:entityId/reauthorize/complete - Complete re-authentication (NEW)
-     */
-    async completeEntityReauthorization(entityId, data) {
-        return await this.fetch(`/entities/${entityId}/reauthorize/complete`, {
-            method: 'POST',
-            body: JSON.stringify(data)
-        });
+    async testEntityAuth(entityId) {
+        return await this.fetch(`/entities/${entityId}/test-auth`);
     }
 
     /**
      * POST /api/entities/:entityId/options - Get entity options
      */
-    async getEntityOptions(entityId, optionType = null) {
-        const body = optionType ? { optionType } : {};
+    async getEntityOptions(entityId, body = {}) {
         return await this.fetch(`/entities/${entityId}/options`, {
             method: 'POST',
             body: JSON.stringify(body)
@@ -246,11 +192,27 @@ export class FriggApiAdapter {
     /**
      * POST /api/entities/:entityId/options/refresh - Refresh entity options
      */
-    async refreshEntityOptions(entityId, optionType = null) {
-        const body = optionType ? { optionType } : {};
+    async refreshEntityOptions(entityId) {
         return await this.fetch(`/entities/${entityId}/options/refresh`, {
             method: 'POST',
-            body: JSON.stringify(body)
+            body: JSON.stringify({})
+        });
+    }
+
+    /**
+     * POST /api/entities/:entityId/proxy - Proxy API request through entity
+     * @param {string} entityId - Entity ID
+     * @param {object} request - Proxy request
+     * @param {string} request.method - HTTP method (GET, POST, PUT, PATCH, DELETE)
+     * @param {string} request.path - API path
+     * @param {object} request.query - Query parameters
+     * @param {object} request.headers - Additional headers
+     * @param {*} request.body - Request body
+     */
+    async proxyEntityRequest(entityId, request) {
+        return await this.fetch(`/entities/${entityId}/proxy`, {
+            method: 'POST',
+            body: JSON.stringify(request)
         });
     }
 
