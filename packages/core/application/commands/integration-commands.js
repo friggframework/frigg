@@ -161,6 +161,37 @@ function createIntegrationCommands({ integrationClass }) {
                 return mapErrorToResponse(error);
             }
         },
+
+        /**
+         * Delete an integration by ID
+         * @param {string} integrationId - Integration ID to delete
+         * @returns {Promise<Object>} Deletion result
+         */
+        async deleteIntegrationById(integrationId) {
+            try {
+                if (!integrationId) {
+                    const error = new Error('integrationId is required');
+                    error.code = 'INVALID_INTEGRATION_DATA';
+                    throw error;
+                }
+
+                const deleted = await integrationRepository.deleteIntegrationById(integrationId);
+
+                if (!deleted) {
+                    const error = new Error(`Integration ${integrationId} not found`);
+                    error.code = 'INTEGRATION_NOT_FOUND';
+                    return mapErrorToResponse(error);
+                }
+
+                return {
+                    success: true,
+                    integrationId,
+                    message: 'Integration deleted successfully',
+                };
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
     };
 }
 

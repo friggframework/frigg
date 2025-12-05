@@ -215,6 +215,27 @@ function createCredentialCommands() {
                 return mapErrorToResponse(error);
             }
         },
+
+        /**
+         * Delete a credential by ID (alias for deleteCredential)
+         * @param {string} credentialId - Credential ID to delete
+         * @returns {Promise<Object>} Result object with success flag
+         */
+        async deleteCredentialById(credentialId) {
+            try {
+                if (!credentialId) {
+                    const error = new Error('credentialId is required');
+                    error.code = 'INVALID_CREDENTIAL_DATA';
+                    throw error;
+                }
+
+                await credRepo.deleteCredentialById(credentialId);
+
+                return { success: true };
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
     };
 }
 

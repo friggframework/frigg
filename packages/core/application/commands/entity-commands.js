@@ -287,6 +287,27 @@ function createEntityCommands() {
         },
 
         /**
+         * Delete an entity by ID (alias for deleteEntity)
+         * @param {string} entityId - Entity ID to delete
+         * @returns {Promise<Object>} Result object with success flag
+         */
+        async deleteEntityById(entityId) {
+            try {
+                if (!entityId) {
+                    const error = new Error('entityId is required');
+                    error.code = 'INVALID_ENTITY_DATA';
+                    throw error;
+                }
+
+                await moduleRepo.deleteEntity(entityId);
+
+                return { success: true };
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        /**
          * Remove credential reference from an entity
          * @param {string} entityId - Entity ID to update
          * @returns {Promise<Object>} Result object with success flag
