@@ -1,17 +1,20 @@
 import React, { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Settings, Palette, Code, Monitor, Moon, Sun, Check, ChevronDown } from 'lucide-react'
+import { X, Settings, Palette, Code, Monitor, Moon, Sun, Check, ChevronDown, Bot, Key, Zap } from 'lucide-react'
 import { Button } from '../ui/button'
 import { useTheme } from '../theme/ThemeProvider'
 import { useIDE } from '../../hooks/useIDE'
+import { useAISettings } from '../../hooks/useAISettings'
 import { cn } from '../../../lib/utils'
 
 const SettingsModal = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState('appearance')
   const { theme, setTheme } = useTheme()
   const { preferredIDE, availableIDEs, setIDE } = useIDE()
+  const { aiConfig, setAIConfig, providers, testConnection } = useAISettings()
   const [showCustomDialog, setShowCustomDialog] = useState(false)
   const [customCommand, setCustomCommand] = useState('')
+  const [connectionStatus, setConnectionStatus] = useState(null)
 
   if (!isOpen) return null
 
@@ -27,6 +30,12 @@ const SettingsModal = ({ isOpen, onClose }) => {
       name: 'Editor Integration',
       icon: Code,
       description: 'IDE and editor settings'
+    },
+    {
+      id: 'ai',
+      name: 'AI Agents',
+      icon: Bot,
+      description: 'AI provider and model settings'
     }
   ]
 
@@ -299,6 +308,178 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* AI Agents Tab */}
+            {activeTab === 'ai' && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">AI Provider</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Select your AI provider for the Build Zone agent
+                  </p>
+
+                  <div className="grid gap-2">
+                    {providers.map((provider) => {
+                      const isSelected = aiConfig?.provider === provider.id
+                      return (
+                        <button
+                          key={provider.id}
+                          onClick={() => setAIConfig({ ...aiConfig, provider: provider.id })}
+                          className={cn(
+                            "flex items-center gap-3 p-3 text-left border transition-all duration-200",
+                            "hover:border-primary/30 hover:bg-primary/5",
+                            isSelected && "border-primary/50 bg-primary/10"
+                          )}
+                        >
+                          <div className={cn(
+                            "w-8 h-8 flex items-center justify-center border",
+                            isSelected ? "bg-primary/20 border-primary/30" : "bg-background border-border"
+                          )}>
+                            <Zap className={cn(
+                              "w-4 h-4",
+                              isSelected ? "text-primary" : "text-muted-foreground"
+                            )} />
+                          </div>
+                          <div className="flex-1">
+                            <div className={cn(
+                              "font-medium text-sm",
+                              isSelected ? "text-primary" : "text-foreground"
+                            )}>
+                              {provider.name}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {provider.description}
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <Check className="w-4 h-4 text-primary" />
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div className="border-t border-border pt-6">
+                  <h4 className="font-medium text-foreground mb-2">API Key</h4>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Enter your API key for the selected provider
+                  </p>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-1">
+                        API Key
+                      </label>
+                      <input
+                        type="password"
+                        value={aiConfig?.apiKey || ''}
+                        onChange={(e) => setAIConfig({ ...aiConfig, apiKey: e.target.value })}
+                        placeholder="sk-..."
+                        className="w-full px-3 py-2 border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring font-mono text-sm"
+                      />
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          setConnectionStatus('testing')
+                          const result = await testConnection()
+                          setConnectionStatus(result.success ? 'success' : 'error')
+                          setTimeout(() => setConnectionStatus(null), 3000)
+                        }}
+                        disabled={!aiConfig?.apiKey || connectionStatus === 'testing'}
+                      >
+                        {connectionStatus === 'testing' ? 'Testing...' : 'Test Connection'}
+                      </Button>
+                      {connectionStatus === 'success' && (
+                        <span className="text-sm text-green-600 flex items-center gap-1">
+                          <Check className="w-4 h-4" /> Connected
+                        </span>
+                      )}
+                      {connectionStatus === 'error' && (
+                        <span className="text-sm text-destructive">
+                          Connection failed
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t border-border pt-6">
+                  <h4 className="font-medium text-foreground mb-2">Model Selection</h4>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Choose the AI model for code generation
+                  </p>
+                  <select
+                    value={aiConfig?.model || ''}
+                    onChange={(e) => setAIConfig({ ...aiConfig, model: e.target.value })}
+                    className="w-full px-3 py-2 border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="">Select a model...</option>
+                    {aiConfig?.provider === 'anthropic' && (
+                      <>
+                        <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet (Recommended)</option>
+                        <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                        <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku (Fast)</option>
+                      </>
+                    )}
+                    {aiConfig?.provider === 'openai' && (
+                      <>
+                        <option value="gpt-4-turbo">GPT-4 Turbo (Recommended)</option>
+                        <option value="gpt-4o">GPT-4o</option>
+                        <option value="gpt-4o-mini">GPT-4o Mini (Fast)</option>
+                      </>
+                    )}
+                    {aiConfig?.provider === 'openrouter' && (
+                      <>
+                        <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+                        <option value="openai/gpt-4-turbo">GPT-4 Turbo</option>
+                        <option value="google/gemini-pro">Gemini Pro</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+
+                <div className="border-t border-border pt-6">
+                  <h4 className="font-medium text-foreground mb-2">Human-in-the-Loop</h4>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Configure when to require human approval
+                  </p>
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={aiConfig?.requireApproval !== false}
+                        onChange={(e) => setAIConfig({ ...aiConfig, requireApproval: e.target.checked })}
+                        className="w-4 h-4 border border-input rounded"
+                      />
+                      <span className="text-sm text-foreground">Require approval before applying changes</span>
+                    </label>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-1">
+                        Auto-approve threshold
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="range"
+                          min="80"
+                          max="100"
+                          value={aiConfig?.confidenceThreshold || 95}
+                          onChange={(e) => setAIConfig({ ...aiConfig, confidenceThreshold: parseInt(e.target.value) })}
+                          className="flex-1"
+                          disabled={!aiConfig?.requireApproval}
+                        />
+                        <span className="text-sm font-mono w-12">{aiConfig?.confidenceThreshold || 95}%</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Changes with confidence above this threshold may be auto-approved
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
