@@ -38,6 +38,7 @@
     "schemas/",
     "validators/",
     "mocks/",
+    "middleware/",
     "index.js"
   ]
 }

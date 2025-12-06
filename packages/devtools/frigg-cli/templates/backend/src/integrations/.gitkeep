@@ -1,0 +1,10 @@
+# This directory contains your Integration classes
+# Each integration connects your application with a third-party API module
+#
+# Example structure:
+# src/integrations/
+#   SalesforceIntegration.js
+#   HubSpotIntegration.js
+#   SlackIntegration.js
+#
+# Use 'frigg generate:integration' to create new integrations

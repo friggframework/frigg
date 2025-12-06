@@ -297,6 +297,15 @@ function createBaseDefinition(
                     { httpApi: { path: '/health/{proxy+}', method: 'GET' } },
                 ],
             },
+            docs: {
+                handler: 'node_modules/@friggframework/core/handlers/routers/docs.handler',
+                skipEsbuild: true,
+                package: skipEsbuildPackageConfig,
+                events: [
+                    { httpApi: { path: '/api/docs', method: 'GET' } },
+                    { httpApi: { path: '/api/openapi.json', method: 'GET' } },
+                ],
+            },
             // Note: dbMigrate removed - MigrationBuilder now handles migration infrastructure
             // See: packages/devtools/infrastructure/domains/database/migration-builder.js
         },

@@ -1,14 +1,17 @@
 /**
  * @friggframework/schemas - Canonical JSON Schema definitions for Frigg Framework
- * 
+ *
  * This package provides formal JSON Schema definitions for all core Frigg configuration
- * objects, along with runtime validation utilities.
+ * objects, along with runtime validation utilities and Express middleware.
  */
 
 const Ajv = require('ajv');
 const addFormats = require('ajv-formats');
 const fs = require('fs');
 const path = require('path');
+
+// Import middleware
+const schemaValidationMiddleware = require('./middleware/schema-validation');
 
 // Initialize AJV with formats
 const ajv = new Ajv({ 
@@ -30,7 +33,10 @@ const schemaFiles = [
     'serverless-config.schema.json',
     'environment-config.schema.json',
     'core-models.schema.json',
-    'api-authorization.schema.json'
+    'api-authorization.schema.json',
+    'api-credentials.schema.json',
+    'api-entities.schema.json',
+    'api-proxy.schema.json'
 ];
 
 schemaFiles.forEach(file => {
@@ -155,6 +161,159 @@ function validateAuthorizationSession(session) {
 }
 
 /**
+ * Validate Credential
+ * @param {object} credential - Credential object to validate
+ * @returns {object} - Validation result
+ */
+function validateCredential(credential) {
+    return validate('api-credentials#/definitions/credential', credential);
+}
+
+/**
+ * Validate List Credentials Response
+ * @param {object} response - List credentials response object to validate
+ * @returns {object} - Validation result
+ */
+function validateListCredentialsResponse(response) {
+    return validate('api-credentials#/definitions/listCredentialsResponse', response);
+}
+
+/**
+ * Validate Get Credential Response
+ * @param {object} response - Get credential response object to validate
+ * @returns {object} - Validation result
+ */
+function validateGetCredentialResponse(response) {
+    return validate('api-credentials#/definitions/getCredentialResponse', response);
+}
+
+/**
+ * Validate Delete Credential Response
+ * @param {object} response - Delete credential response object to validate
+ * @returns {object} - Validation result
+ */
+function validateDeleteCredentialResponse(response) {
+    return validate('api-credentials#/definitions/deleteCredentialResponse', response);
+}
+
+/**
+ * Validate Reauthorize Credential Request
+ * @param {object} request - Reauthorize credential request object to validate
+ * @returns {object} - Validation result
+ */
+function validateReauthorizeCredentialRequest(request) {
+    return validate('api-credentials#/definitions/reauthorizeCredentialRequest', request);
+}
+
+/**
+ * Validate Reauthorize Credential Response
+ * @param {object} response - Reauthorize credential response object to validate
+ * @returns {object} - Validation result
+ */
+function validateReauthorizeCredentialResponse(response) {
+    return validate('api-credentials#/definitions/reauthorizeCredentialResponse', response);
+}
+
+/**
+ * Validate Proxy Request
+ * @param {object} request - Proxy request object to validate
+ * @returns {object} - Validation result
+ */
+function validateProxyRequest(request) {
+    return validate('api-proxy#/definitions/proxyRequest', request);
+}
+
+/**
+ * Validate Proxy Response
+ * @param {object} response - Proxy response object to validate
+ * @returns {object} - Validation result
+ */
+function validateProxyResponse(response) {
+    return validate('api-proxy#/definitions/proxyResponseUnion', response);
+}
+
+/**
+ * Validate Entity
+ * @param {object} entity - Entity object to validate
+ * @returns {object} - Validation result
+ */
+function validateEntity(entity) {
+    return validate('api-entities#/definitions/entity', entity);
+}
+
+/**
+ * Validate List Entities Response
+ * @param {object} response - List entities response object to validate
+ * @returns {object} - Validation result
+ */
+function validateListEntitiesResponse(response) {
+    return validate('api-entities#/definitions/listEntitiesResponse', response);
+}
+
+/**
+ * Validate Create Entity Request
+ * @param {object} request - Create entity request object to validate
+ * @returns {object} - Validation result
+ */
+function validateCreateEntityRequest(request) {
+    return validate('api-entities#/definitions/createEntityRequest', request);
+}
+
+/**
+ * Validate Create Entity Response
+ * @param {object} response - Create entity response object to validate
+ * @returns {object} - Validation result
+ */
+function validateCreateEntityResponse(response) {
+    return validate('api-entities#/definitions/createEntityResponse', response);
+}
+
+/**
+ * Validate Entity Type
+ * @param {object} entityType - Entity type object to validate
+ * @returns {object} - Validation result
+ */
+function validateEntityType(entityType) {
+    return validate('api-entities#/definitions/entityType', entityType);
+}
+
+/**
+ * Validate List Entity Types Response
+ * @param {object} response - List entity types response object to validate
+ * @returns {object} - Validation result
+ */
+function validateListEntityTypesResponse(response) {
+    return validate('api-entities#/definitions/listEntityTypesResponse', response);
+}
+
+/**
+ * Validate Get Entity Type Response
+ * @param {object} response - Get entity type response object to validate
+ * @returns {object} - Validation result
+ */
+function validateGetEntityTypeResponse(response) {
+    return validate('api-entities#/definitions/getEntityTypeResponse', response);
+}
+
+/**
+ * Validate Reauthorize Entity Request
+ * @param {object} request - Reauthorize entity request object to validate
+ * @returns {object} - Validation result
+ */
+function validateReauthorizeEntityRequest(request) {
+    return validate('api-entities#/definitions/reauthorizeEntityRequest', request);
+}
+
+/**
+ * Validate Reauthorize Entity Response
+ * @param {object} response - Reauthorize entity response object to validate
+ * @returns {object} - Validation result
+ */
+function validateReauthorizeEntityResponse(response) {
+    return validate('api-entities#/definitions/reauthorizeEntityResponse', response);
+}
+
+/**
  * Get all available schemas
  * @returns {object} - Object containing all loaded schemas
  */
@@ -195,6 +354,7 @@ function formatErrors(errors) {
 }
 
 module.exports = {
+    // Validation functions
     validate,
     validateAppDefinition,
     validateIntegrationDefinition,
@@ -206,9 +366,35 @@ module.exports = {
     validateAuthorizationRequest,
     validateAuthorizationResponse,
     validateAuthorizationSession,
+    validateCredential,
+    validateListCredentialsResponse,
+    validateGetCredentialResponse,
+    validateDeleteCredentialResponse,
+    validateReauthorizeCredentialRequest,
+    validateReauthorizeCredentialResponse,
+    validateProxyRequest,
+    validateProxyResponse,
+    validateEntity,
+    validateListEntitiesResponse,
+    validateCreateEntityRequest,
+    validateCreateEntityResponse,
+    validateEntityType,
+    validateListEntityTypesResponse,
+    validateGetEntityTypeResponse,
+    validateReauthorizeEntityRequest,
+    validateReauthorizeEntityResponse,
     getSchemas,
     getSchema,
     formatErrors,
     schemas,
-    ajv
+    ajv,
+
+    // Middleware exports
+    middleware: schemaValidationMiddleware,
+    validateBody: schemaValidationMiddleware.validateBody,
+    validateQuery: schemaValidationMiddleware.validateQuery,
+    validateParams: schemaValidationMiddleware.validateParams,
+    validateResponse: schemaValidationMiddleware.validateResponse,
+    SchemaRefs: schemaValidationMiddleware.SchemaRefs,
+    SchemaValidationError: schemaValidationMiddleware.SchemaValidationError
 };

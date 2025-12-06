@@ -88,12 +88,19 @@ const { repairCommand } = require('./repair-command');
 
 const program = new Command();
 
+// Add version command using package.json version
+const packageJson = require('./package.json');
 program
-    .command('init [templateName]')
+    .version(packageJson.version, '-v, --version', 'output the current version');
+
+program
+    .command('init <projectName>')
     .description('Initialize a new Frigg application')
-    .option('-t, --template <template>', 'template to use', 'backend-only')
-    .option('-n, --name <name>', 'project name')
-    .option('-d, --directory <directory>', 'target directory')
+    .option('-m, --mode <mode>', 'deployment mode: standalone or embedded')
+    .option('-f, --force', 'overwrite existing files')
+    .option('--frontend <value>', 'include demo frontend (true/false)')
+    .option('-y, --yes', 'accept defaults without prompting')
+    .option('--verbose', 'enable verbose output')
     .action(initCommand);
 
 program

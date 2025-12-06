@@ -35,15 +35,15 @@ class BackendFirstHandler {
         await this.createProject(deploymentMode, config);
 
         console.log(chalk.green('\n✅ Frigg application created successfully!'));
-        
-        // If user needs custom API module, prompt to create it
-        if (config.needsCustomApiModule) {
+
+        // If user needs custom API module, prompt to create it (skip in --yes mode)
+        if (config.needsCustomApiModule && !this.options.yes) {
             console.log(chalk.cyan('\n🔧 Now let\'s create your custom API module...'));
             const createModule = await confirm({
                 message: 'Would you like to create your custom API module now?',
                 default: true
             });
-            
+
             if (createModule) {
                 console.log(chalk.gray('\n   Run this command after setup:'));
                 console.log(chalk.cyan(`   cd ${path.relative(process.cwd(), this.targetPath)}`));
@@ -60,6 +60,11 @@ class BackendFirstHandler {
     async selectDeploymentMode() {
         if (this.options.mode) {
             return this.options.mode;
+        }
+
+        // If --yes flag is set, use default
+        if (this.options.yes) {
+            return 'standalone';
         }
 
         const mode = await select({
@@ -87,6 +92,21 @@ class BackendFirstHandler {
      */
     async getProjectConfiguration(deploymentMode) {
         const config = { deploymentMode };
+
+        // If --yes flag is set, use all defaults
+        if (this.options.yes) {
+            return {
+                deploymentMode,
+                appPurpose: 'exploring',
+                needsCustomApiModule: false,
+                includeIntegrations: false,
+                starterIntegrations: [],
+                includeDemoFrontend: false,
+                serverlessProvider: deploymentMode === 'standalone' ? 'aws' : undefined,
+                installDependencies: true,
+                initializeGit: true,
+            };
+        }
 
         // Ask about the purpose of this Frigg application
         config.appPurpose = await select({
@@ -266,63 +286,115 @@ class BackendFirstHandler {
 
     /**
      * Create standalone Frigg service
+     *
+     * Structure:
+     * my-app/
+     * ├── package.json          # Root - delegates to backend with "cd backend &&"
+     * ├── backend/              # Actual Frigg app with its own package.json & node_modules
+     * │   ├── index.js
+     * │   ├── infrastructure.js
+     * │   ├── package.json
+     * │   └── src/
+     * └── ui-extensions/        # Platform-specific UI extensions
+     *     └── README.md
      */
     async createStandaloneProject(config) {
-        // Copy backend template
-        const backendTemplate = path.join(this.templatesDir, 'backend');
-        await fs.copy(backendTemplate, this.targetPath);
+        const backendPath = path.join(this.targetPath, 'backend');
+        const uiExtensionsPath = path.join(this.targetPath, 'ui-extensions');
 
-        // Create package.json for standalone mode
-        const packageJson = {
-            name: this.appName,
+        // Copy backend template to backend/ subdirectory
+        const backendTemplate = path.join(this.templatesDir, 'backend');
+        await fs.copy(backendTemplate, backendPath);
+
+        // Read template package.json
+        const templatePackageJsonPath = path.join(backendPath, 'package.json');
+        let templatePackageJson = {};
+        if (await fs.pathExists(templatePackageJsonPath)) {
+            templatePackageJson = await fs.readJSON(templatePackageJsonPath);
+        }
+
+        // Create backend package.json with all dependencies
+        const backendPackageJson = {
+            name: `${this.appName}-backend`,
             version: '0.1.0',
             private: true,
+            prettier: templatePackageJson.prettier || '@friggframework/prettier-config',
             scripts: {
+                ...templatePackageJson.scripts,
                 "backend-start": "node infrastructure.js start",
                 "start": "npm run backend-start",
                 "build": "node infrastructure.js package",
                 "deploy": "node infrastructure.js deploy",
-                "test": "jest"
             },
             dependencies: {
-                "@friggframework/core": "^2.0.0"
+                ...templatePackageJson.dependencies,
+                "@friggframework/core": "2.0.0-next.58"
+            },
+            devDependencies: {
+                ...templatePackageJson.devDependencies
+            }
+        };
+
+        // Add selected integrations as dependencies to backend
+        if (config.starterIntegrations && config.starterIntegrations.length > 0) {
+            for (const integration of config.starterIntegrations) {
+                backendPackageJson.dependencies[`@friggframework/api-module-${integration}`] = '^2.0.0';
+            }
+        }
+
+        await fs.writeJSON(templatePackageJsonPath, backendPackageJson, { spaces: 2 });
+
+        // Create root package.json that delegates to backend
+        const rootPackageJson = {
+            name: this.appName,
+            version: '0.1.0',
+            private: true,
+            scripts: {
+                "start": "cd backend && npm run frigg:start",
+                "docker:start": "cd backend && npm run docker:start",
+                "docker:stop": "cd backend && npm run docker:stop",
+                "test": "cd backend && npm test",
+                "build": "cd backend && npm run build",
+                "deploy": "cd backend && npm run deploy",
+                "lint": "cd backend && npm run lint",
+                "format": "cd backend && npm run format"
             }
         };
 
         // Add demo frontend if requested
         if (config.includeDemoFrontend) {
-            packageJson.workspaces = ['backend', 'frontend'];
-            packageJson.scripts['dev'] = 'concurrently "npm run backend-start" "npm run frontend:dev"';
-            packageJson.scripts['frontend:dev'] = 'cd frontend && npm run dev';
-            
-            await this.createDemoFrontend(config);
-        }
+            rootPackageJson.scripts['dev'] = 'concurrently "cd backend && npm run backend-start" "cd frontend && npm run dev"';
+            rootPackageJson.scripts['frontend:dev'] = 'cd frontend && npm run dev';
+            rootPackageJson.devDependencies = { concurrently: '^8.2.2' };
 
-        // Add selected integrations as dependencies
-        if (config.starterIntegrations && config.starterIntegrations.length > 0) {
-            for (const integration of config.starterIntegrations) {
-                packageJson.dependencies[`@friggframework/api-module-${integration}`] = '^2.0.0';
-            }
+            await this.createDemoFrontend(config);
         }
 
         await fs.writeJSON(
             path.join(this.targetPath, 'package.json'),
-            packageJson,
+            rootPackageJson,
             { spaces: 2 }
         );
 
+        // Create ui-extensions directory with README
+        await fs.ensureDir(uiExtensionsPath);
+        const uiExtensionsReadme = path.join(this.templatesDir, 'backend', 'ui-extensions', 'README.md');
+        if (await fs.pathExists(uiExtensionsReadme)) {
+            await fs.copy(uiExtensionsReadme, path.join(uiExtensionsPath, 'README.md'));
+        }
+
         // Update index.js with selected integrations
         if (config.starterIntegrations && config.starterIntegrations.length > 0) {
-            await this.updateAppDefinition(config.starterIntegrations);
+            await this.updateAppDefinition(config.starterIntegrations, backendPath);
         }
 
         // Validate generated app definition against schema
-        const appDefPath = path.join(this.targetPath, 'index.js');
+        const appDefPath = path.join(backendPath, 'index.js');
         await this.validateGeneratedAppDefinition(appDefPath);
 
         // Update serverless.yml based on provider
         if (config.serverlessProvider === 'aws') {
-            await this.configureAWSServerless();
+            await this.configureAWSServerless(backendPath);
         }
     }
 
@@ -506,9 +578,9 @@ To integrate Frigg into your production application:
     /**
      * Configure AWS serverless
      */
-    async configureAWSServerless() {
+    async configureAWSServerless(targetDir = this.targetPath) {
         // Update serverless.yml for AWS
-        const serverlessPath = path.join(this.targetPath, 'serverless.yml');
+        const serverlessPath = path.join(targetDir, 'serverless.yml');
         if (await fs.pathExists(serverlessPath)) {
             // Keep existing AWS configuration
             console.log(chalk.gray('AWS Lambda configuration ready'));
@@ -533,23 +605,25 @@ To integrate Frigg into your production application:
     }
 
     /**
-     * Install dependencies
+     * Install dependencies in the backend directory
      */
     async installDependencies(config) {
-        console.log(chalk.blue('\n📦 Installing dependencies...'));
-        
+        console.log(chalk.blue('\n📦 Installing dependencies in backend...'));
+
         const useYarn = this.isUsingYarn();
         const command = useYarn ? 'yarn' : 'npm';
         const args = useYarn ? [] : ['install'];
 
+        // Install in backend directory where package.json with dependencies lives
+        const backendPath = path.join(this.targetPath, 'backend');
         const proc = spawn.sync(command, args, {
-            cwd: this.targetPath,
+            cwd: backendPath,
             stdio: 'inherit'
         });
 
         if (proc.status !== 0) {
             console.log(chalk.yellow('\n⚠️  Dependency installation failed'));
-            console.log(chalk.gray(`You can install manually with: ${command} install`));
+            console.log(chalk.gray(`You can install manually with: cd backend && ${command} install`));
         }
     }
 
@@ -596,8 +670,8 @@ To integrate Frigg into your production application:
     /**
      * Update index.js with selected integrations
      */
-    async updateAppDefinition(integrations) {
-        const appDefPath = path.join(this.targetPath, 'index.js');
+    async updateAppDefinition(integrations, targetDir = this.targetPath) {
+        const appDefPath = path.join(targetDir, 'index.js');
         if (await fs.pathExists(appDefPath)) {
             let content = await fs.readFile(appDefPath, 'utf8');
             
@@ -720,14 +794,18 @@ To integrate Frigg into your production application:
         console.log(chalk.cyan(`   cd ${cdPath}\n`));
 
         if (deploymentMode === 'standalone') {
-            console.log(`2. Start the development server:`);
-            console.log(chalk.cyan(`   npm start\n`));
+            console.log(`2. Install backend dependencies:`);
+            console.log(chalk.cyan(`   cd backend && npm install\n`));
 
-            console.log(`3. Open the Frigg UI for development:`);
+            console.log(`3. Start the development server:`);
+            console.log(chalk.cyan(`   npm start\n`));
+            console.log(chalk.gray(`   (or from backend: npm run frigg:start)\n`));
+
+            console.log(`4. Open the Frigg UI for development:`);
             console.log(chalk.cyan(`   frigg ui\n`));
 
             if (config.serverlessProvider === 'aws') {
-                console.log(`4. Deploy to AWS Lambda:`);
+                console.log(`5. Deploy to AWS Lambda:`);
                 console.log(chalk.cyan(`   npm run deploy\n`));
             }
         } else {
@@ -746,6 +824,10 @@ To integrate Frigg into your production application:
             console.log(chalk.gray('   The included frontend is for demonstration only.'));
             console.log(chalk.gray('   See frontend/README.md for integration guidance.'));
         }
+
+        console.log(chalk.gray('\n📁 Project Structure:'));
+        console.log(chalk.gray('   backend/         - Frigg app (run npm install here)'));
+        console.log(chalk.gray('   ui-extensions/   - Platform-specific UI extensions'));
 
         console.log(chalk.green('\n🎉 Happy integrating with Frigg!\n'));
         console.log(chalk.gray('Documentation: https://docs.frigg.dev'));

@@ -6,7 +6,7 @@
   "definitions": {
     "authorizationRequirements": {
       "type": "object",
-      "description": "Authorization requirements response from GET /api/authorize or GET /api/modules/:moduleType/authorization",
+      "description": "Authorization requirements response from GET /api/authorize",
       "required": ["type", "step", "totalSteps", "isMultiStep"],
       "properties": {
         "type": {
@@ -110,9 +110,48 @@
         }
       }
     },
+    "getEntityTypeRequirementsResponse": {
+      "type": "object",
+      "description": "Authorization requirements response from GET /api/entities/types/:typeName/requirements",
+      "required": ["type", "step", "totalSteps", "isMultiStep"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["oauth2", "form", "api-key", "basic"],
+          "description": "Type of authentication required"
+        },
+        "step": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Current step number (1-indexed)"
+        },
+        "totalSteps": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Total number of steps in the auth flow"
+        },
+        "isMultiStep": {
+          "type": "boolean",
+          "description": "Whether this is a multi-step authentication flow"
+        },
+        "sessionId": {
+          "type": "string",
+          "description": "Session ID for multi-step flows (required after step 1)"
+        },
+        "data": {
+          "type": "object",
+          "description": "Step-specific data (schema varies by type)",
+          "oneOf": [
+            { "$ref": "#/definitions/oauth2Requirements" },
+            { "$ref": "#/definitions/formRequirements" },
+            { "$ref": "#/definitions/apiKeyRequirements" }
+          ]
+        }
+      }
+    },
     "authorizationRequest": {
       "type": "object",
-      "description": "Authorization request to POST /api/authorize or POST /api/modules/:moduleType/authorization",
+      "description": "Authorization request to POST /api/authorize",
       "required": ["entityType"],
       "properties": {
         "entityType": {

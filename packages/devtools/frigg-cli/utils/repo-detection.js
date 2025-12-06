@@ -289,12 +289,16 @@ async function discoverFriggRepositories(options = {}) {
         searchPaths = [
             process.cwd(),
             path.join(os.homedir(), 'Documents'),
+            path.join(os.homedir(), 'Documents', 'GitHub'),  // Common GitHub Desktop location
             path.join(os.homedir(), 'Projects'),
             path.join(os.homedir(), 'Development'),
             path.join(os.homedir(), 'dev'),
-            path.join(os.homedir(), 'Code')
+            path.join(os.homedir(), 'Code'),
+            path.join(os.homedir(), 'GitHub'),  // Alternative GitHub location
+            path.join(os.homedir(), 'repos'),   // Common repos folder
+            path.join(os.homedir(), 'src')      // Common source folder
         ],
-        maxDepth = 3,
+        maxDepth = 4,  // Increased to handle deeper nested projects (e.g., org/apps/project)
         excludePatterns = ['node_modules', '.git', 'dist', 'build', '.next', 'coverage']
     } = options;
 

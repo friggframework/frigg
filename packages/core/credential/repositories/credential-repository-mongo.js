@@ -154,18 +154,48 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
     }
 
     /**
-     * Find a credential by filter criteria
-     * Replaces: Credential.findOne(query)
+     * Find credential(s) by filter criteria
+     * Replaces: Credential.find(query) or Credential.findOne(query)
+     *
+     * When filter includes only userId, returns an array of all credentials for that user
+     * When filter includes credentialId or externalId, returns a single credential or null
      *
      * @param {Object} filter
      * @param {string} [filter.userId] - User ID
      * @param {string} [filter.externalId] - External ID
      * @param {string} [filter.credentialId] - Credential ID
-     * @returns {Promise<Object|null>} Credential object or null if not found
+     * @returns {Promise<Array|Object|null>} Credential array, single credential, or null
      */
     async findCredential(filter) {
         const where = this._convertFilterToWhere(filter);
 
+        // If filtering by userId only, return all credentials for that user
+        const hasOnlyUserId = filter.userId && !filter.credentialId && !filter.externalId && !filter.id;
+
+        if (hasOnlyUserId) {
+            const credentials = await this.prisma.credential.findMany({
+                where,
+            });
+
+            return credentials.map(credential => {
+                const data = credential.data || {};
+                return {
+                    id: credential.id,
+                    type: credential.type,
+                    userId: credential.userId,
+                    externalId: credential.externalId,
+                    authIsValid: credential.authIsValid,
+                    entityCount: credential.entityCount,
+                    createdAt: credential.createdAt,
+                    updatedAt: credential.updatedAt,
+                    access_token: data.access_token,
+                    refresh_token: data.refresh_token,
+                    ...data,
+                };
+            });
+        }
+
+        // Otherwise, find single credential
         const credential = await this.prisma.credential.findFirst({
             where,
         });
@@ -178,9 +208,13 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
 
         return {
             id: credential.id,
+            type: credential.type,
             userId: credential.userId,
             externalId: credential.externalId,
             authIsValid: credential.authIsValid,
+            entityCount: credential.entityCount,
+            createdAt: credential.createdAt,
+            updatedAt: credential.updatedAt,
             access_token: data.access_token,
             refresh_token: data.refresh_token,
             ...data,
