@@ -1,25 +1,62 @@
 /**
  * Dynamic OpenAPI Spec Generator
  *
- * Generates OpenAPI specification dynamically from appDefinition and installed modules.
- * Combines base spec with integration-specific endpoints.
+ * Generates OpenAPI specifications dynamically from appDefinition and installed modules.
+ * Supports both v1 (legacy) and v2 (current) API versions.
+ *
+ * Usage:
+ *   const { generateOpenApiSpecV1, generateOpenApiSpecV2 } = require('./openapi-spec-generator');
+ *   const v1Spec = generateOpenApiSpecV1(appDefinition, { serverUrl });
+ *   const v2Spec = generateOpenApiSpecV2(appDefinition, { serverUrl });
  */
 
 const path = require('path');
 const fs = require('fs');
 const yaml = require('js-yaml');
 
-const BASE_SPEC_PATH = path.join(__dirname, 'openapi.yaml');
+const V1_SPEC_PATH = path.join(__dirname, 'openapi-v1.yaml');
+const V2_SPEC_PATH = path.join(__dirname, 'openapi-v2.yaml');
 
-let cachedSpec = null;
-let cachedModules = null;
+// Separate caches for each version
+const cache = {
+    v1: { spec: null, modules: null },
+    v2: { spec: null, modules: null },
+    legacy: { spec: null, modules: null },
+};
 
 /**
- * Load the base OpenAPI spec
+ * Load a YAML spec file
+ * @param {string} specPath - Path to the YAML file
+ * @returns {Object} Parsed spec object
+ */
+function loadSpecFile(specPath) {
+    if (!fs.existsSync(specPath)) {
+        throw new Error(`OpenAPI spec not found: ${specPath}`);
+    }
+    const specContent = fs.readFileSync(specPath, 'utf8');
+    return yaml.load(specContent);
+}
+
+/**
+ * Load the base OpenAPI spec (defaults to v2)
+ * @deprecated Use loadV1Spec or loadV2Spec instead
  */
 function loadBaseSpec() {
-    const specContent = fs.readFileSync(BASE_SPEC_PATH, 'utf8');
-    return yaml.load(specContent);
+    return loadSpecFile(V2_SPEC_PATH);
+}
+
+/**
+ * Load the v1 OpenAPI spec
+ */
+function loadV1Spec() {
+    return loadSpecFile(V1_SPEC_PATH);
+}
+
+/**
+ * Load the v2 OpenAPI spec
+ */
+function loadV2Spec() {
+    return loadSpecFile(V2_SPEC_PATH);
 }
 
 /**
@@ -34,8 +71,11 @@ function extractModuleMetadata(moduleDefinition) {
     const description = Definition?.display?.description || `${displayName} integration`;
     const moduleName = Definition?.moduleName || name;
 
-    // Extract auth type
-    const authType = Definition?.modules?.[Object.keys(Definition?.modules || {})[0]]?.authType || 'oauth2';
+    // Extract auth type from first module
+    const moduleKeys = Object.keys(Definition?.modules || {});
+    const firstModule = moduleKeys.length > 0 ? Definition.modules[moduleKeys[0]] : null;
+    const authType = firstModule?.definition?.getAuthType?.() || firstModule?.authType || 'oauth2';
+    const stepCount = firstModule?.definition?.getAuthStepCount?.() || 1;
 
     return {
         name,
@@ -43,52 +83,19 @@ function extractModuleMetadata(moduleDefinition) {
         description,
         moduleName,
         authType,
+        stepCount,
+        isMultiStep: stepCount > 1,
         hasOptions: typeof Definition?.Options !== 'undefined',
         hasEvents: typeof Definition?.events !== 'undefined',
+        capabilities: firstModule?.definition?.getCapabilities?.() || [],
     };
 }
 
 /**
- * Generate entity type schema for a module
- */
-function generateEntityTypeSchema(module) {
-    return {
-        type: 'object',
-        properties: {
-            type: { type: 'string', example: module.name },
-            name: { type: 'string', example: module.displayName },
-            description: { type: 'string', example: module.description },
-            authType: { type: 'string', enum: ['oauth2', 'apiKey', 'basic', 'form'] },
-            hasOptions: { type: 'boolean' },
-        }
-    };
-}
-
-/**
- * Generate dynamic paths for installed integrations
- */
-function generateIntegrationPaths(installedModules) {
-    const paths = {};
-
-    // Add dynamic entity type examples in responses
-    const entityTypeExamples = {};
-    installedModules.forEach(module => {
-        entityTypeExamples[module.name] = {
-            value: {
-                type: module.name,
-                name: module.displayName,
-                description: module.description,
-                authType: module.authType,
-                hasOptions: module.hasOptions
-            }
-        };
-    });
-
-    return { paths, entityTypeExamples };
-}
-
-/**
- * Add installed modules to spec's entity type examples
+ * Enrich spec with installed module information
+ * @param {Object} spec - OpenAPI spec object
+ * @param {Array} installedModules - Array of module metadata
+ * @returns {Object} Enriched spec
  */
 function enrichSpecWithModules(spec, installedModules) {
     if (!installedModules.length) return spec;
@@ -101,18 +108,32 @@ function enrichSpecWithModules(spec, installedModules) {
                 name: m.displayName,
                 description: m.description,
                 authType: m.authType,
+                isMultiStep: m.isMultiStep,
+                stepCount: m.stepCount,
             }));
     }
 
-    // Add module-specific enum values to entityType parameters
+    // Update IntegrationOption examples
+    if (spec.components?.schemas?.IntegrationOption) {
+        const examples = installedModules.slice(0, 3).map(m => ({
+            type: m.name,
+            name: m.displayName,
+            description: m.description,
+            hasAuth: true,
+        }));
+        if (spec.components.schemas.ListIntegrationOptionsResponse?.properties?.integrations) {
+            spec.components.schemas.ListIntegrationOptionsResponse.properties.integrations.example = examples;
+        }
+    }
+
+    // Add module-specific enum values to parameters
     const moduleNames = installedModules.map(m => m.name);
     if (moduleNames.length > 0) {
-        // Add enum suggestions to entity type parameters throughout spec
         Object.values(spec.paths || {}).forEach(pathItem => {
             Object.values(pathItem).forEach(operation => {
                 if (operation.parameters) {
                     operation.parameters.forEach(param => {
-                        if (param.name === 'entityType' || param.name === 'typeName') {
+                        if (param.name === 'entityType' || param.name === 'typeName' || param.name === 'moduleType') {
                             param.schema = param.schema || { type: 'string' };
                             param.schema.enum = moduleNames;
                             param.schema.example = moduleNames[0];
@@ -124,31 +145,23 @@ function enrichSpecWithModules(spec, installedModules) {
     }
 
     // Add installed modules section to spec info
-    spec.info.description = `${spec.info.description || ''}\n\n## Installed Modules\n` +
-        installedModules.map(m => `- **${m.displayName}** (\`${m.name}\`): ${m.description}`).join('\n');
+    const moduleList = installedModules
+        .map(m => `- **${m.displayName}** (\`${m.name}\`): ${m.description}`)
+        .join('\n');
+
+    spec.info.description = `${spec.info.description || ''}\n\n## Installed Modules\n${moduleList}`;
 
     return spec;
 }
 
 /**
- * Generate complete OpenAPI spec from appDefinition
- * @param {Object} appDefinition - The app definition containing integrations
- * @param {Object} options - Generation options
- * @returns {Object} Complete OpenAPI specification
+ * Extract installed modules from appDefinition
+ * @param {Object} appDefinition - App definition object
+ * @returns {Array} Array of module metadata
  */
-function generateOpenApiSpec(appDefinition = null, options = {}) {
-    const { useCache = true, serverUrl = null } = options;
-
-    // Return cached spec if available and caching enabled
-    if (useCache && cachedSpec && cachedModules === JSON.stringify(appDefinition?.integrations)) {
-        return cachedSpec;
-    }
-
-    // Load base spec
-    const spec = loadBaseSpec();
-
-    // Extract installed modules from appDefinition
+function extractInstalledModules(appDefinition) {
     const installedModules = [];
+
     if (appDefinition?.integrations) {
         appDefinition.integrations.forEach(integration => {
             try {
@@ -162,16 +175,24 @@ function generateOpenApiSpec(appDefinition = null, options = {}) {
         });
     }
 
-    // Enrich spec with module information
-    if (installedModules.length > 0) {
-        enrichSpecWithModules(spec, installedModules);
-    }
+    return installedModules;
+}
+
+/**
+ * Add server URL and generation metadata to spec
+ * @param {Object} spec - OpenAPI spec
+ * @param {Object} options - Options including serverUrl
+ * @param {Array} installedModules - Installed modules for metadata
+ * @returns {Object} Updated spec
+ */
+function finalizeSpec(spec, options, installedModules) {
+    const { serverUrl } = options;
 
     // Add custom server URL if provided
     if (serverUrl) {
         spec.servers = [
             { url: serverUrl, description: 'Current server' },
-            ...spec.servers
+            ...(spec.servers || []),
         ];
     }
 
@@ -179,38 +200,151 @@ function generateOpenApiSpec(appDefinition = null, options = {}) {
     spec.info['x-generated'] = {
         timestamp: new Date().toISOString(),
         moduleCount: installedModules.length,
-        modules: installedModules.map(m => m.name)
+        modules: installedModules.map(m => m.name),
     };
+
+    return spec;
+}
+
+/**
+ * Generate v1 (legacy) OpenAPI spec from appDefinition
+ * @param {Object} appDefinition - The app definition containing integrations
+ * @param {Object} options - Generation options
+ * @returns {Object} Complete v1 OpenAPI specification
+ */
+function generateOpenApiSpecV1(appDefinition = null, options = {}) {
+    const { useCache = true, serverUrl = null } = options;
+    const modulesKey = JSON.stringify(appDefinition?.integrations);
+
+    // Return cached spec if available
+    if (useCache && cache.v1.spec && cache.v1.modules === modulesKey) {
+        // Clone and update server URL if different
+        const spec = JSON.parse(JSON.stringify(cache.v1.spec));
+        if (serverUrl) {
+            spec.servers = [
+                { url: serverUrl, description: 'Current server' },
+                ...(spec.servers?.filter(s => s.description !== 'Current server') || []),
+            ];
+        }
+        return spec;
+    }
+
+    // Load v1 spec
+    const spec = loadV1Spec();
+
+    // Extract and enrich with installed modules
+    const installedModules = extractInstalledModules(appDefinition);
+    if (installedModules.length > 0) {
+        enrichSpecWithModules(spec, installedModules);
+    }
+
+    // Finalize spec
+    finalizeSpec(spec, { serverUrl }, installedModules);
 
     // Cache result
     if (useCache) {
-        cachedSpec = spec;
-        cachedModules = JSON.stringify(appDefinition?.integrations);
+        cache.v1.spec = JSON.parse(JSON.stringify(spec));
+        cache.v1.modules = modulesKey;
     }
 
     return spec;
 }
 
 /**
- * Clear cached spec
+ * Generate v2 (current) OpenAPI spec from appDefinition
+ * @param {Object} appDefinition - The app definition containing integrations
+ * @param {Object} options - Generation options
+ * @returns {Object} Complete v2 OpenAPI specification
+ */
+function generateOpenApiSpecV2(appDefinition = null, options = {}) {
+    const { useCache = true, serverUrl = null } = options;
+    const modulesKey = JSON.stringify(appDefinition?.integrations);
+
+    // Return cached spec if available
+    if (useCache && cache.v2.spec && cache.v2.modules === modulesKey) {
+        // Clone and update server URL if different
+        const spec = JSON.parse(JSON.stringify(cache.v2.spec));
+        if (serverUrl) {
+            spec.servers = [
+                { url: serverUrl, description: 'Current server' },
+                ...(spec.servers?.filter(s => s.description !== 'Current server') || []),
+            ];
+        }
+        return spec;
+    }
+
+    // Load v2 spec
+    const spec = loadV2Spec();
+
+    // Extract and enrich with installed modules
+    const installedModules = extractInstalledModules(appDefinition);
+    if (installedModules.length > 0) {
+        enrichSpecWithModules(spec, installedModules);
+    }
+
+    // Finalize spec
+    finalizeSpec(spec, { serverUrl }, installedModules);
+
+    // Cache result
+    if (useCache) {
+        cache.v2.spec = JSON.parse(JSON.stringify(spec));
+        cache.v2.modules = modulesKey;
+    }
+
+    return spec;
+}
+
+/**
+ * Generate OpenAPI spec (defaults to v2 for backwards compatibility)
+ * @deprecated Use generateOpenApiSpecV1 or generateOpenApiSpecV2 instead
+ * @param {Object} appDefinition - The app definition containing integrations
+ * @param {Object} options - Generation options
+ * @returns {Object} Complete OpenAPI specification
+ */
+function generateOpenApiSpec(appDefinition = null, options = {}) {
+    return generateOpenApiSpecV2(appDefinition, options);
+}
+
+/**
+ * Clear all cached specs
  */
 function clearCache() {
-    cachedSpec = null;
-    cachedModules = null;
+    cache.v1.spec = null;
+    cache.v1.modules = null;
+    cache.v2.spec = null;
+    cache.v2.modules = null;
+    cache.legacy.spec = null;
+    cache.legacy.modules = null;
 }
 
 /**
  * Get spec as YAML string
+ * @param {Object} appDefinition - App definition
+ * @param {Object} options - Options including version ('v1' or 'v2')
+ * @returns {string} YAML string
  */
 function generateOpenApiYaml(appDefinition = null, options = {}) {
-    const spec = generateOpenApiSpec(appDefinition, options);
+    const { version = 'v2', ...restOptions } = options;
+    const spec = version === 'v1'
+        ? generateOpenApiSpecV1(appDefinition, restOptions)
+        : generateOpenApiSpecV2(appDefinition, restOptions);
     return yaml.dump(spec);
 }
 
 module.exports = {
+    // Primary exports for v1/v2
+    generateOpenApiSpecV1,
+    generateOpenApiSpecV2,
+
+    // Legacy/utility exports
     generateOpenApiSpec,
     generateOpenApiYaml,
     clearCache,
     extractModuleMetadata,
+
+    // Internal utilities (exported for testing)
     loadBaseSpec,
+    loadV1Spec,
+    loadV2Spec,
+    enrichSpecWithModules,
 };

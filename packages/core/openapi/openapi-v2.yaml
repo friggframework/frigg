@@ -1,10 +1,30 @@
 openapi: 3.0.3
 info:
-  title: Frigg Framework API
+  title: Frigg Framework API (v2)
   version: 2.0.0
   description: |
     Enterprise-grade serverless integration framework API for managing integrations,
     entities, credentials, and proxying requests to external systems.
+
+    ## API Version: v2 (Current)
+
+    This is the **v2 API** with clean, well-separated endpoints and response structures.
+    All v2 endpoints are prefixed with `/api/v2/`.
+
+    ### Key v2 Improvements
+
+    - **Clean responses**: Each endpoint returns only the relevant data
+    - **Separation of concerns**: Integrations, entities, and options are separate endpoints
+    - **Consistent structure**: All list endpoints return `{ <resource>: [...] }`
+    - **Better REST semantics**: Resources are properly organized
+
+    ### Migration from v1
+
+    | v1 Endpoint | v2 Equivalent | Change |
+    |-------------|---------------|--------|
+    | `GET /api/integrations` (combined) | `GET /api/v2/integrations` | Returns only `{ integrations }` |
+    | (from v1 combined response) | `GET /api/v2/integrations/options` | Separate endpoint for options |
+    | (from v1 combined response) | `GET /api/v2/entities` | Separate endpoint for entities |
 
     ## Overview
     The Frigg Framework enables direct/native integrations between products and external
@@ -42,35 +62,207 @@ security:
   - bearerAuth: []
 
 tags:
+  - name: Integrations
+    description: Integration configuration and management
   - name: Authorization
     description: OAuth and authentication flows for connecting external systems
   - name: Entities
     description: Connected accounts and entity management
   - name: Credentials
     description: Credential management and reauthorization
-  - name: Integrations
-    description: Integration configuration and management
   - name: Health
     description: Service health and readiness checks
 
 paths:
+  # Integration Endpoints (v2 clean response)
+  /api/v2/integrations:
+    get:
+      tags:
+        - Integrations
+      summary: List user's integrations
+      description: |
+        Retrieve all integrations owned by the authenticated user.
+
+        **v2 Response Format**: Returns only the integrations array.
+        For integration options, use `GET /api/v2/integrations/options`.
+        For authorized entities, use `GET /api/v2/entities`.
+      operationId: listIntegrationsV2
+      responses:
+        '200':
+          description: List of integrations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListIntegrationsResponse'
+              example:
+                integrations:
+                  - id: int-456
+                    userId: user-789
+                    config:
+                      type: hubspot-salesforce
+                    status: ENABLED
+                    entities:
+                      - entity-123
+                      - entity-456
+                    dateCreated: '2024-01-15T10:30:00Z'
+                    dateUpdated: '2024-01-15T10:30:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Integrations
+      summary: Create integration
+      description: Create a new integration between two or more entities
+      operationId: createIntegrationV2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateIntegrationRequest'
+            example:
+              entities:
+                - entity-123
+                - entity-456
+              config:
+                syncDirection: bidirectional
+                syncInterval: 3600
+      responses:
+        '201':
+          description: Integration created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Integration'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v2/integrations/options:
+    get:
+      tags:
+        - Integrations
+      summary: List available integration types
+      description: |
+        Get available integration types that can be configured.
+        This replaces the `entities.options` field from the v1 combined response.
+      operationId: listIntegrationOptionsV2
+      responses:
+        '200':
+          description: List of available integration types
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListIntegrationOptionsResponse'
+              example:
+                integrations:
+                  - type: hubspot
+                    name: HubSpot
+                    description: HubSpot CRM integration
+                    hasAuth: true
+                    modules:
+                      - name: hubspot
+                        authType: oauth2
+                        stepCount: 1
+                  - type: salesforce
+                    name: Salesforce
+                    description: Salesforce CRM integration
+                    hasAuth: true
+                    modules:
+                      - name: salesforce
+                        authType: oauth2
+                        stepCount: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v2/integrations/{integrationId}:
+    get:
+      tags:
+        - Integrations
+      summary: Get integration
+      description: Retrieve detailed information about a specific integration
+      operationId: getIntegrationV2
+      parameters:
+        - $ref: '#/components/parameters/IntegrationId'
+      responses:
+        '200':
+          description: Integration retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Integration'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags:
+        - Integrations
+      summary: Update integration
+      description: Update integration configuration
+      operationId: updateIntegrationV2
+      parameters:
+        - $ref: '#/components/parameters/IntegrationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateIntegrationRequest'
+      responses:
+        '200':
+          description: Integration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Integration'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Integrations
+      summary: Delete integration
+      description: Delete an integration (entities and credentials remain)
+      operationId: deleteIntegrationV2
+      parameters:
+        - $ref: '#/components/parameters/IntegrationId'
+      responses:
+        '200':
+          description: Integration deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   # Authorization Endpoints
-  /api/authorize:
+  /api/v2/authorize:
     get:
       tags:
         - Authorization
       summary: Get authorization requirements
       description: |
-        Retrieve the authentication requirements for a given entity type and step.
+        Retrieve the authentication requirements for a given module type and step.
         Used to start or continue a multi-step authorization flow.
-      operationId: getAuthorizationRequirements
+      operationId: getAuthorizationRequirementsV2
       parameters:
-        - name: entityType
+        - name: moduleType
           in: query
           required: true
           schema:
             type: string
-          description: Module/entity type to authorize (e.g., 'hubspot', 'salesforce')
+          description: Module type to authorize (e.g., 'hubspot', 'salesforce')
         - name: step
           in: query
           schema:
@@ -90,6 +282,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthorizationRequirements'
+              example:
+                type: oauth2
+                step: 1
+                totalSteps: 1
+                isMultiStep: false
+                data:
+                  url: https://app.hubspot.com/oauth/authorize?client_id=xxx&redirect_uri=xxx&scope=contacts
+                  scopes:
+                    - contacts
+                    - crm.objects.contacts.read
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -104,13 +306,18 @@ paths:
       description: |
         Submit authentication data to authorize an entity. This may complete the
         authorization or return next step requirements for multi-step flows.
-      operationId: submitAuthorization
+      operationId: submitAuthorizationV2
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/AuthorizationRequest'
+            example:
+              moduleType: hubspot
+              data:
+                code: oauth_authorization_code_here
+                redirect_uri: https://app.example.com/oauth/callback
       responses:
         '200':
           description: Authorization completed or next step returned
@@ -126,13 +333,15 @@ paths:
           $ref: '#/components/responses/ValidationError'
 
   # Entity Endpoints
-  /api/entities:
+  /api/v2/entities:
     get:
       tags:
         - Entities
       summary: List user's entities
-      description: Retrieve all entities owned by the authenticated user
-      operationId: listEntities
+      description: |
+        Retrieve all entities owned by the authenticated user.
+        This replaces the `entities.authorized` field from the v1 combined response.
+      operationId: listEntitiesV2
       responses:
         '200':
           description: List of entities retrieved successfully
@@ -140,6 +349,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ListEntitiesResponse'
+              example:
+                entities:
+                  - id: entity-123
+                    type: hubspot
+                    name: My HubSpot Account
+                    externalId: hub-12345
+                    credentialId: cred-abc
+                    userId: user-789
+                    dateCreated: '2024-01-15T10:30:00Z'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -148,7 +366,7 @@ paths:
         - Entities
       summary: Create entity from credential
       description: Create a new entity linked to an existing credential
-      operationId: createEntity
+      operationId: createEntityV2
       requestBody:
         required: true
         content:
@@ -169,13 +387,13 @@ paths:
         '422':
           $ref: '#/components/responses/ValidationError'
 
-  /api/entities/types:
+  /api/v2/entities/types:
     get:
       tags:
         - Entities
       summary: List available entity types
       description: Get a list of all available entity types (API modules) that can be integrated
-      operationId: listEntityTypes
+      operationId: listEntityTypesV2
       responses:
         '200':
           description: List of available entity types
@@ -183,16 +401,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ListEntityTypesResponse'
+              example:
+                types:
+                  - type: hubspot
+                    name: HubSpot
+                    description: HubSpot CRM and Marketing
+                    authType: oauth2
+                    isMultiStep: false
+                    stepCount: 1
+                    capabilities:
+                      - contacts
+                      - companies
+                      - deals
+                  - type: salesforce
+                    name: Salesforce
+                    description: Salesforce CRM
+                    authType: oauth2
+                    isMultiStep: false
+                    stepCount: 1
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /api/entities/types/{typeName}:
+  /api/v2/entities/types/{typeName}:
     get:
       tags:
         - Entities
       summary: Get entity type metadata
       description: Retrieve detailed information about a specific entity type
-      operationId: getEntityType
+      operationId: getEntityTypeV2
       parameters:
         - $ref: '#/components/parameters/TypeName'
       responses:
@@ -201,13 +437,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GetEntityTypeResponse'
+                $ref: '#/components/schemas/EntityType'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/entities/types/{typeName}/requirements:
+  /api/v2/entities/types/{typeName}/requirements:
     get:
       tags:
         - Entities
@@ -215,7 +451,7 @@ paths:
       description: |
         Get the authentication requirements (OAuth URLs, form schemas, etc.)
         needed to authorize this entity type
-      operationId: getEntityTypeRequirements
+      operationId: getEntityTypeRequirementsV2
       parameters:
         - $ref: '#/components/parameters/TypeName'
         - name: step
@@ -231,49 +467,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GetEntityTypeRequirementsResponse'
+                $ref: '#/components/schemas/AuthorizationRequirements'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/entities/options/{credentialId}:
-    get:
-      tags:
-        - Entities
-      summary: Get entity options by credential
-      description: Retrieve available configuration options for entities using this credential
-      operationId: getEntityOptionsByCredential
-      parameters:
-        - name: credentialId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: Credential ID to get options for
-      responses:
-        '200':
-          description: Entity options retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  options:
-                    type: object
-                    additionalProperties: true
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /api/entities/{entityId}:
+  /api/v2/entities/{entityId}:
     get:
       tags:
         - Entities
       summary: Get specific entity
       description: Retrieve detailed information about a specific entity
-      operationId: getEntity
+      operationId: getEntityV2
       parameters:
         - $ref: '#/components/parameters/EntityId'
       responses:
@@ -288,98 +494,57 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/entities/{entityId}/test-auth:
+    delete:
+      tags:
+        - Entities
+      summary: Delete entity
+      description: Delete an entity (credential remains unless orphaned)
+      operationId: deleteEntityV2
+      parameters:
+        - $ref: '#/components/parameters/EntityId'
+      responses:
+        '200':
+          description: Entity deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v2/entities/{entityId}/test-auth:
     get:
       tags:
         - Entities
       summary: Test entity authentication
       description: Verify that the entity's credentials are valid and working
-      operationId: testEntityAuth
+      operationId: testEntityAuthV2
       parameters:
         - $ref: '#/components/parameters/EntityId'
       responses:
         '200':
-          description: Authentication test successful
+          description: Authentication test result
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  valid:
-                    type: boolean
-                  message:
-                    type: string
+                $ref: '#/components/schemas/TestAuthResponse'
+              example:
+                valid: true
+                message: Authentication successful
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/entities/{entityId}/options:
-    post:
-      tags:
-        - Entities
-      summary: Get entity options
-      description: Retrieve configuration options available for this entity
-      operationId: getEntityOptions
-      parameters:
-        - $ref: '#/components/parameters/EntityId'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                refresh:
-                  type: boolean
-                  default: false
-      responses:
-        '200':
-          description: Options retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  options:
-                    type: object
-                    additionalProperties: true
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /api/entities/{entityId}/options/refresh:
-    post:
-      tags:
-        - Entities
-      summary: Refresh entity options
-      description: Force refresh of cached entity options from the external system
-      operationId: refreshEntityOptions
-      parameters:
-        - $ref: '#/components/parameters/EntityId'
-      responses:
-        '200':
-          description: Options refreshed successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  options:
-                    type: object
-                    additionalProperties: true
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /api/entities/{entityId}/reauthorize:
+  /api/v2/entities/{entityId}/reauthorize:
     get:
       tags:
         - Entities
-      summary: Get reauthorization requirements
+      summary: Get entity reauthorization requirements
       description: Get authentication requirements to reauthorize an existing entity
-      operationId: getEntityReauthorizationRequirements
+      operationId: getEntityReauthorizationRequirementsV2
       parameters:
         - $ref: '#/components/parameters/EntityId'
         - name: step
@@ -403,9 +568,9 @@ paths:
     post:
       tags:
         - Entities
-      summary: Submit reauthorization data
+      summary: Submit entity reauthorization
       description: Reauthorize an existing entity with new credentials
-      operationId: reauthorizeEntity
+      operationId: reauthorizeEntityV2
       parameters:
         - $ref: '#/components/parameters/EntityId'
       requestBody:
@@ -413,14 +578,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ReauthorizeEntityRequest'
+              $ref: '#/components/schemas/ReauthorizeRequest'
       responses:
         '200':
           description: Reauthorization completed or next step returned
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ReauthorizeEntityResponse'
+                $ref: '#/components/schemas/ReauthorizeResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -430,7 +595,7 @@ paths:
         '422':
           $ref: '#/components/responses/ValidationError'
 
-  /api/entities/{entityId}/proxy:
+  /api/v2/entities/{entityId}/proxy:
     post:
       tags:
         - Entities
@@ -438,7 +603,16 @@ paths:
       description: |
         Forward an API request to the external system using the entity's credentials.
         Automatically handles authentication headers and token refresh.
-      operationId: proxyEntityRequest
+
+        **Example**: To call HubSpot's contacts API:
+        ```json
+        {
+          "method": "GET",
+          "path": "/crm/v3/objects/contacts",
+          "query": { "limit": 10 }
+        }
+        ```
+      operationId: proxyEntityRequestV2
       parameters:
         - $ref: '#/components/parameters/EntityId'
       requestBody:
@@ -447,6 +621,12 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ProxyRequest'
+            example:
+              method: GET
+              path: /crm/v3/objects/contacts
+              query:
+                limit: 10
+                properties: firstname,lastname,email
       responses:
         '200':
           description: Request proxied successfully
@@ -468,13 +648,13 @@ paths:
                 $ref: '#/components/schemas/ProxyErrorResponse'
 
   # Credential Endpoints
-  /api/credentials:
+  /api/v2/credentials:
     get:
       tags:
         - Credentials
       summary: List user's credentials
       description: Retrieve all credentials owned by the authenticated user (tokens masked)
-      operationId: listCredentials
+      operationId: listCredentialsV2
       responses:
         '200':
           description: List of credentials retrieved successfully
@@ -482,16 +662,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ListCredentialsResponse'
+              example:
+                credentials:
+                  - id: cred-abc
+                    type: hubspot
+                    externalId: hub-12345
+                    userId: user-789
+                    entityCount: 1
+                    dateCreated: '2024-01-15T10:30:00Z'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /api/credentials/{credentialId}:
+  /api/v2/credentials/{credentialId}:
     get:
       tags:
         - Credentials
       summary: Get specific credential
       description: Retrieve detailed information about a specific credential (tokens masked)
-      operationId: getCredential
+      operationId: getCredentialV2
       parameters:
         - $ref: '#/components/parameters/CredentialId'
       responses:
@@ -511,7 +699,7 @@ paths:
         - Credentials
       summary: Delete credential
       description: Delete a credential and all associated entities
-      operationId: deleteCredential
+      operationId: deleteCredentialV2
       parameters:
         - $ref: '#/components/parameters/CredentialId'
       responses:
@@ -520,19 +708,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DeleteCredentialResponse'
+                $ref: '#/components/schemas/DeleteResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/credentials/{credentialId}/reauthorize:
+  /api/v2/credentials/{credentialId}/reauthorize:
     get:
       tags:
         - Credentials
       summary: Get credential reauthorization requirements
       description: Get authentication requirements to reauthorize an existing credential
-      operationId: getCredentialReauthorizationRequirements
+      operationId: getCredentialReauthorizationRequirementsV2
       parameters:
         - $ref: '#/components/parameters/CredentialId'
         - name: step
@@ -558,7 +746,7 @@ paths:
         - Credentials
       summary: Submit credential reauthorization
       description: Reauthorize an existing credential with new authentication data
-      operationId: reauthorizeCredential
+      operationId: reauthorizeCredentialV2
       parameters:
         - $ref: '#/components/parameters/CredentialId'
       requestBody:
@@ -566,14 +754,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ReauthorizeCredentialRequest'
+              $ref: '#/components/schemas/ReauthorizeRequest'
       responses:
         '200':
           description: Reauthorization completed or next step returned
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ReauthorizeCredentialResponse'
+                $ref: '#/components/schemas/ReauthorizeResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -583,7 +771,7 @@ paths:
         '422':
           $ref: '#/components/responses/ValidationError'
 
-  /api/credentials/{credentialId}/proxy:
+  /api/v2/credentials/{credentialId}/proxy:
     post:
       tags:
         - Credentials
@@ -591,7 +779,7 @@ paths:
       description: |
         Forward an API request to the external system using this credential.
         Similar to entity proxy but doesn't require an entity to be created.
-      operationId: proxyCredentialRequest
+      operationId: proxyCredentialRequestV2
       parameters:
         - $ref: '#/components/parameters/CredentialId'
       requestBody:
@@ -620,144 +808,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProxyErrorResponse'
 
-  # Integration Endpoints (brief documentation)
-  /api/integrations:
-    get:
-      tags:
-        - Integrations
-      summary: List user's integrations
-      description: Retrieve all integrations owned by the authenticated user
-      operationId: listIntegrations
-      responses:
-        '200':
-          description: List of integrations
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  integrations:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Integration'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
-    post:
-      tags:
-        - Integrations
-      summary: Create integration
-      description: Create a new integration between two entities
-      operationId: createIntegration
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - entities
-              properties:
-                entities:
-                  type: array
-                  items:
-                    type: string
-                  description: Array of entity IDs to integrate
-                config:
-                  type: object
-                  description: Integration configuration
-      responses:
-        '201':
-          description: Integration created successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Integration'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
-  /api/integrations/{integrationId}:
-    get:
-      tags:
-        - Integrations
-      summary: Get integration
-      description: Retrieve detailed information about a specific integration
-      operationId: getIntegration
-      parameters:
-        - $ref: '#/components/parameters/IntegrationId'
-      responses:
-        '200':
-          description: Integration retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Integration'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-    patch:
-      tags:
-        - Integrations
-      summary: Update integration
-      description: Update integration configuration
-      operationId: updateIntegration
-      parameters:
-        - $ref: '#/components/parameters/IntegrationId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                config:
-                  type: object
-                  description: Updated configuration
-                enabled:
-                  type: boolean
-                  description: Enable or disable the integration
-      responses:
-        '200':
-          description: Integration updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Integration'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-    delete:
-      tags:
-        - Integrations
-      summary: Delete integration
-      description: Delete an integration (entities and credentials remain)
-      operationId: deleteIntegration
-      parameters:
-        - $ref: '#/components/parameters/IntegrationId'
-      responses:
-        '200':
-          description: Integration deleted successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  # Health Endpoints
+  # Health Endpoints (same as v1 - not versioned)
   /health:
     get:
       tags:
@@ -772,14 +823,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: ok
-                  timestamp:
-                    type: string
-                    format: date-time
+                $ref: '#/components/schemas/HealthResponse'
 
   /health/ready:
     get:
@@ -797,42 +841,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  ready:
-                    type: boolean
-                  timestamp:
-                    type: string
-                    format: date-time
-                  checks:
-                    type: object
-                    properties:
-                      database:
-                        type: boolean
-                      modules:
-                        type: boolean
-                      encryption:
-                        type: object
-                        properties:
-                          status:
-                            type: string
-                          testResult:
-                            type: string
+                $ref: '#/components/schemas/ReadinessResponse'
         '503':
           description: Service not ready
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  ready:
-                    type: boolean
-                    example: false
-                  timestamp:
-                    type: string
-                    format: date-time
-                  checks:
-                    type: object
+                $ref: '#/components/schemas/ReadinessResponse'
 
 components:
   securitySchemes:
@@ -876,15 +891,126 @@ components:
       description: Entity type name (e.g., 'hubspot', 'salesforce')
 
   schemas:
-    # Import from api-entities.schema.json
+    # v2 clean responses
+    ListIntegrationsResponse:
+      type: object
+      description: |
+        **v2 Clean Response Format**
+
+        Returns only the integrations array. For integration options and entities,
+        use the dedicated endpoints.
+      required:
+        - integrations
+      properties:
+        integrations:
+          type: array
+          description: User's active integrations
+          items:
+            $ref: '#/components/schemas/Integration'
+
+    ListIntegrationOptionsResponse:
+      type: object
+      required:
+        - integrations
+      properties:
+        integrations:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntegrationOption'
+
+    IntegrationOption:
+      type: object
+      description: An available integration type
+      required:
+        - type
+        - name
+      properties:
+        type:
+          type: string
+          description: Integration type identifier
+        name:
+          type: string
+          description: Display name
+        description:
+          type: string
+          description: Integration description
+        hasAuth:
+          type: boolean
+          description: Whether this integration requires authentication
+        modules:
+          type: array
+          description: List of modules included in this integration
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              authType:
+                type: string
+                enum: [oauth2, form, api-key, basic]
+              stepCount:
+                type: integer
+
+    Integration:
+      type: object
+      required:
+        - id
+        - userId
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        config:
+          type: object
+          description: Integration configuration
+        status:
+          type: string
+          enum: [ENABLED, DISABLED, PAUSED, ERROR]
+        entities:
+          type: array
+          items:
+            type: string
+          description: Array of entity IDs
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+
+    CreateIntegrationRequest:
+      type: object
+      required:
+        - entities
+      properties:
+        entities:
+          type: array
+          items:
+            type: string
+          description: Array of entity IDs to integrate
+          minItems: 1
+        config:
+          type: object
+          description: Integration configuration
+
+    UpdateIntegrationRequest:
+      type: object
+      properties:
+        config:
+          type: object
+        enabled:
+          type: boolean
+        status:
+          type: string
+          enum: [ENABLED, DISABLED, PAUSED]
+
     Entity:
       type: object
-      description: A connected account/entity object representing an external integration
+      description: A connected account/entity representing an external integration
       required:
         - id
         - type
-        - credentialId
-        - userId
       properties:
         id:
           type: string
@@ -904,17 +1030,12 @@ components:
         userId:
           type: string
           description: ID of the user who owns this entity
-        authIsValid:
-          type: boolean
-          description: Whether authentication is currently valid
-        createdAt:
+        dateCreated:
           type: string
           format: date-time
-          description: Entity creation timestamp
-        updatedAt:
+        dateUpdated:
           type: string
           format: date-time
-          description: Last update timestamp
 
     ListEntitiesResponse:
       type: object
@@ -925,43 +1046,37 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Entity'
-          description: List of entities for the authenticated user
 
     CreateEntityRequest:
       type: object
       required:
-        - entityType
-        - data
+        - moduleType
+        - credentialId
       properties:
-        entityType:
+        moduleType:
           type: string
           description: Type of entity to create (module name)
-        data:
+        credentialId:
+          type: string
+          description: ID of the credential to link to this entity
+        options:
           type: object
-          required:
-            - credential_id
-          properties:
-            credential_id:
-              type: string
-              description: ID of the credential to link to this entity
+          description: Additional entity options
           additionalProperties: true
 
     CreateEntityResponse:
       type: object
       required:
-        - entity_id
-        - credential_id
+        - entityId
+        - credentialId
         - type
       properties:
-        entity_id:
+        entityId:
           type: string
-          description: ID of the created entity
-        credential_id:
+        credentialId:
           type: string
-          description: ID of the linked credential
         type:
           type: string
-          description: Entity type (module name)
 
     EntityType:
       type: object
@@ -974,30 +1089,21 @@ components:
           description: Module name (e.g., 'hubspot', 'salesforce')
         name:
           type: string
-          description: Display name for the entity type
+          description: Display name
         description:
           type: string
-          description: Description of the entity type
         authType:
           type: string
-          enum:
-            - oauth2
-            - form
-            - api-key
-            - basic
-          description: Type of authentication required
+          enum: [oauth2, form, api-key, basic]
         isMultiStep:
           type: boolean
-          description: Whether this entity type uses multi-step authentication
         stepCount:
           type: integer
           minimum: 1
-          description: Number of steps in the authentication flow
         capabilities:
           type: array
           items:
             type: string
-          description: List of capabilities this entity type supports
 
     ListEntityTypesResponse:
       type: object
@@ -1009,118 +1115,37 @@ components:
           items:
             $ref: '#/components/schemas/EntityType'
 
-    GetEntityTypeResponse:
-      allOf:
-        - $ref: '#/components/schemas/EntityType'
-
-    ReauthorizeEntityRequest:
+    TestAuthResponse:
       type: object
-      required:
-        - data
       properties:
-        data:
-          type: object
-          description: Authentication data (OAuth code, form fields, API keys, etc.)
-          additionalProperties: true
-        step:
-          type: integer
-          minimum: 1
-          default: 1
-          description: Current step number for multi-step flows
-        sessionId:
-          type: string
-          description: Session ID from previous step (required for step > 1)
-
-    ReauthorizeEntityResponse:
-      oneOf:
-        - $ref: '#/components/schemas/ReauthorizeEntitySuccess'
-        - $ref: '#/components/schemas/ReauthorizeEntityNextStep'
-
-    ReauthorizeEntitySuccess:
-      type: object
-      required:
-        - success
-        - credential_id
-        - entity_id
-        - authIsValid
-      properties:
-        success:
+        valid:
           type: boolean
-          enum:
-            - true
-          description: Indicates successful reauthorization
-        credential_id:
-          type: string
-          description: ID of the updated credential
-        entity_id:
-          type: string
-          description: ID of the reauthorized entity
-        authIsValid:
-          type: boolean
-          enum:
-            - true
-          description: Confirms authentication is now valid
-
-    ReauthorizeEntityNextStep:
-      type: object
-      required:
-        - step
-        - totalSteps
-        - sessionId
-        - requirements
-      properties:
-        step:
-          type: integer
-          minimum: 2
-          description: Next step number
-        totalSteps:
-          type: integer
-          minimum: 2
-          description: Total number of steps in the flow
-        sessionId:
-          type: string
-          description: Session ID to use for next step
-        requirements:
-          type: object
-          description: Requirements for the next step (varies by auth type)
-          additionalProperties: true
         message:
           type: string
-          description: Message to display to user (e.g., 'OTP sent to your email')
 
-    # Import from api-credentials.schema.json
     Credential:
       type: object
-      description: A credential object representing authentication data (tokens masked in responses)
+      description: A credential object (tokens are masked in responses)
       required:
         - id
         - type
-        - userId
-        - authIsValid
       properties:
         id:
           type: string
-          description: Unique identifier for the credential
         type:
           type: string
-          description: Module type (e.g., 'hubspot', 'salesforce', 'slack')
+          description: Module type (e.g., 'hubspot', 'salesforce')
         externalId:
           type: string
-          description: ID from the external system
         userId:
           type: string
-          description: ID of the user who owns this credential
-        authIsValid:
-          type: boolean
-          description: Whether the authentication is currently valid
         entityCount:
           type: integer
-          minimum: 0
           description: Number of entities using this credential
-        createdAt:
+        dateCreated:
           type: string
           format: date-time
-        updatedAt:
+        dateUpdated:
           type: string
           format: date-time
 
@@ -1134,218 +1159,16 @@ components:
           items:
             $ref: '#/components/schemas/Credential'
 
-    DeleteCredentialResponse:
-      type: object
-      required:
-        - success
-      properties:
-        success:
-          type: boolean
-        message:
-          type: string
-
-    ReauthorizeCredentialRequest:
-      type: object
-      required:
-        - data
-      properties:
-        data:
-          type: object
-          description: Authentication data (OAuth code, API keys, form fields, etc.)
-          additionalProperties: true
-        step:
-          type: integer
-          minimum: 1
-          default: 1
-        sessionId:
-          type: string
-          description: Session ID from previous step (required for step > 1)
-
-    ReauthorizeCredentialResponse:
-      oneOf:
-        - $ref: '#/components/schemas/ReauthorizeCredentialSuccess'
-        - $ref: '#/components/schemas/ReauthorizeCredentialNextStep'
-
-    ReauthorizeCredentialSuccess:
-      type: object
-      required:
-        - success
-        - credential_id
-        - authIsValid
-      properties:
-        success:
-          type: boolean
-          enum:
-            - true
-        credential_id:
-          type: string
-        authIsValid:
-          type: boolean
-          enum:
-            - true
-        message:
-          type: string
-
-    ReauthorizeCredentialNextStep:
-      type: object
-      required:
-        - step
-        - totalSteps
-        - sessionId
-        - requirements
-      properties:
-        step:
-          type: integer
-          minimum: 2
-        totalSteps:
-          type: integer
-          minimum: 2
-        sessionId:
-          type: string
-        requirements:
-          type: object
-          additionalProperties: true
-        message:
-          type: string
-
-    # Import from api-proxy.schema.json
-    ProxyRequest:
-      type: object
-      required:
-        - method
-        - path
-      properties:
-        method:
-          type: string
-          enum:
-            - GET
-            - POST
-            - PUT
-            - PATCH
-            - DELETE
-          description: HTTP method to use for the upstream API request
-        path:
-          type: string
-          description: API path to call on the upstream service
-          pattern: ^/
-          minLength: 1
-        query:
-          type: object
-          description: Query parameters to include in the request
-          additionalProperties:
-            oneOf:
-              - type: string
-              - type: number
-              - type: boolean
-              - type: array
-                items:
-                  type: string
-        headers:
-          type: object
-          description: Additional headers (authorization added automatically)
-          additionalProperties:
-            type: string
-        body:
-          description: Request body for POST, PUT, or PATCH requests
-          oneOf:
-            - type: object
-            - type: array
-            - type: string
-            - type: 'null'
-
-    ProxyResponse:
-      type: object
-      required:
-        - success
-        - status
-        - data
-      properties:
-        success:
-          type: boolean
-          enum:
-            - true
-        status:
-          type: integer
-          minimum: 200
-          maximum: 299
-        headers:
-          type: object
-          description: Response headers from upstream API
-          additionalProperties:
-            type: string
-        data:
-          description: Response body from upstream API
-          oneOf:
-            - type: object
-            - type: array
-            - type: string
-            - type: number
-            - type: boolean
-            - type: 'null'
-
-    ProxyErrorResponse:
-      type: object
-      required:
-        - success
-        - status
-        - error
-      properties:
-        success:
-          type: boolean
-          enum:
-            - false
-        status:
-          type: integer
-          minimum: 400
-          maximum: 599
-        error:
-          type: object
-          required:
-            - code
-            - message
-          properties:
-            code:
-              type: string
-              enum:
-                - INVALID_AUTH
-                - EXPIRED_TOKEN
-                - UPSTREAM_ERROR
-                - TIMEOUT
-                - NETWORK_ERROR
-                - RATE_LIMITED
-                - INVALID_REQUEST
-                - NOT_FOUND
-                - PERMISSION_DENIED
-                - INVALID_CREDENTIALS
-                - SERVICE_UNAVAILABLE
-            message:
-              type: string
-            details:
-              oneOf:
-                - type: object
-                - type: array
-                - type: string
-                - type: 'null'
-            upstreamStatus:
-              type: integer
-
-    # Import from api-authorization.schema.json
     AuthorizationRequirements:
       type: object
       required:
         - type
         - step
         - totalSteps
-        - isMultiStep
       properties:
         type:
           type: string
-          enum:
-            - oauth2
-            - form
-            - api-key
-            - basic
-          description: Type of authentication required
+          enum: [oauth2, form, api-key, basic]
         step:
           type: integer
           minimum: 1
@@ -1356,7 +1179,6 @@ components:
           type: boolean
         sessionId:
           type: string
-          description: Session ID for multi-step flows
         data:
           oneOf:
             - $ref: '#/components/schemas/OAuth2Requirements'
@@ -1384,29 +1206,10 @@ components:
       properties:
         jsonSchema:
           type: object
-          description: JSON Schema for the form fields
-          required:
-            - type
-            - properties
-          properties:
-            title:
-              type: string
-            description:
-              type: string
-            type:
-              type: string
-              enum:
-                - object
-            required:
-              type: array
-              items:
-                type: string
-            properties:
-              type: object
-              additionalProperties: true
+          description: JSON Schema for form fields
         uiSchema:
           type: object
-          description: UI schema for form rendering
+          description: UI hints for form rendering
 
     ApiKeyRequirements:
       type: object
@@ -1417,41 +1220,28 @@ components:
           type: array
           items:
             type: object
-            required:
-              - name
-              - type
             properties:
               name:
                 type: string
               type:
                 type: string
-                enum:
-                  - api_key
-                  - secret
-                  - token
+                enum: [api_key, secret, token]
               label:
                 type: string
               required:
                 type: boolean
 
-    GetEntityTypeRequirementsResponse:
-      allOf:
-        - $ref: '#/components/schemas/AuthorizationRequirements'
-
     AuthorizationRequest:
       type: object
       required:
-        - entityType
+        - moduleType
       properties:
-        entityType:
-          type: string
-          description: Type of entity being authorized
         moduleType:
           type: string
-          description: Module type (v2 API) - same as entityType
+          description: Module type to authorize
         data:
           type: object
-          description: Authentication credentials or OAuth callback data
+          description: Authentication data (OAuth code, form fields, API keys)
           additionalProperties: true
         step:
           type: integer
@@ -1459,9 +1249,6 @@ components:
           default: 1
         sessionId:
           type: string
-        connectingEntityType:
-          type: string
-          description: Type of entity being connected to (for paired integrations)
 
     AuthorizationResponse:
       oneOf:
@@ -1471,18 +1258,19 @@ components:
     AuthorizationSuccess:
       type: object
       required:
-        - entity_id
-        - credential_id
+        - entityId
+        - credentialId
         - type
       properties:
-        entity_id:
+        entityId:
           type: string
-        credential_id:
+        credentialId:
           type: string
         type:
           type: string
-        display:
+        name:
           type: string
+          description: Display name of the connected account
 
     AuthorizationNextStep:
       type: object
@@ -1501,37 +1289,188 @@ components:
         message:
           type: string
 
-    # Integration schema (simplified)
-    Integration:
+    ReauthorizeRequest:
       type: object
       required:
-        - id
-        - userId
-        - entities
+        - data
       properties:
-        id:
-          type: string
-        userId:
-          type: string
-        entities:
-          type: array
-          items:
-            type: string
-          description: Array of entity IDs
-        config:
+        data:
           type: object
-          description: Integration configuration
-        enabled:
-          type: boolean
-          default: true
-        createdAt:
+          additionalProperties: true
+        step:
+          type: integer
+          minimum: 1
+          default: 1
+        sessionId:
           type: string
-          format: date-time
-        updatedAt:
+
+    ReauthorizeResponse:
+      oneOf:
+        - $ref: '#/components/schemas/ReauthorizeSuccess'
+        - $ref: '#/components/schemas/ReauthorizeNextStep'
+
+    ReauthorizeSuccess:
+      type: object
+      required:
+        - success
+        - credentialId
+      properties:
+        success:
+          type: boolean
+        credentialId:
+          type: string
+        entityId:
+          type: string
+        message:
+          type: string
+
+    ReauthorizeNextStep:
+      type: object
+      required:
+        - step
+        - totalSteps
+        - sessionId
+        - requirements
+      properties:
+        step:
+          type: integer
+        totalSteps:
+          type: integer
+        sessionId:
+          type: string
+        requirements:
+          type: object
+
+    ProxyRequest:
+      type: object
+      required:
+        - method
+        - path
+      properties:
+        method:
+          type: string
+          enum: [GET, POST, PUT, PATCH, DELETE]
+          description: HTTP method for the upstream request
+        path:
+          type: string
+          pattern: ^/
+          description: API path on the upstream service
+        query:
+          type: object
+          description: Query parameters
+          additionalProperties: true
+        headers:
+          type: object
+          description: Additional headers (auth added automatically)
+          additionalProperties:
+            type: string
+        body:
+          description: Request body for POST/PUT/PATCH
+          oneOf:
+            - type: object
+            - type: array
+            - type: string
+            - type: 'null'
+
+    ProxyResponse:
+      type: object
+      required:
+        - success
+        - status
+        - data
+      properties:
+        success:
+          type: boolean
+        status:
+          type: integer
+          description: HTTP status from upstream
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+        data:
+          description: Response body from upstream API
+
+    ProxyErrorResponse:
+      type: object
+      required:
+        - success
+        - status
+        - error
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        status:
+          type: integer
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              enum:
+                - INVALID_AUTH
+                - EXPIRED_TOKEN
+                - UPSTREAM_ERROR
+                - TIMEOUT
+                - NETWORK_ERROR
+                - RATE_LIMITED
+                - INVALID_REQUEST
+                - NOT_FOUND
+                - PERMISSION_DENIED
+            message:
+              type: string
+            details:
+              type: object
+            upstreamStatus:
+              type: integer
+
+    DeleteResponse:
+      type: object
+      required:
+        - success
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        timestamp:
           type: string
           format: date-time
 
-    # Error responses
+    ReadinessResponse:
+      type: object
+      properties:
+        ready:
+          type: boolean
+        timestamp:
+          type: string
+          format: date-time
+        checks:
+          type: object
+          properties:
+            database:
+              type: boolean
+            modules:
+              type: boolean
+            encryption:
+              type: object
+              properties:
+                status:
+                  type: string
+                testResult:
+                  type: string
+
     Error:
       type: object
       required:
@@ -1549,7 +1488,6 @@ components:
               type: string
             details:
               type: object
-              additionalProperties: true
 
   responses:
     BadRequest:
@@ -1595,6 +1533,3 @@ components:
             error:
               code: VALIDATION_ERROR
               message: Data validation failed
-              details:
-                field: entityType
-                reason: required
