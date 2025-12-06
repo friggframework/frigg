@@ -1,7 +1,7 @@
 import React from 'react'
 import { Button } from '../ui/button'
 import { cn } from '../../../lib/utils'
-import { Code, TestTube, Settings, Play } from 'lucide-react'
+import { Code, TestTube, Settings, Play, Bot } from 'lucide-react'
 
 const ZoneNavigation = ({ activeZone, onZoneChange, className }) => {
   const zones = [
@@ -12,6 +12,14 @@ const ZoneNavigation = ({ activeZone, onZoneChange, className }) => {
       icon: Code,
       color: 'bg-blue-500/10 text-blue-600 border-blue-200',
       activeColor: 'bg-blue-500 text-white border-blue-500'
+    },
+    {
+      id: 'build',
+      name: 'Build Zone',
+      description: 'AI-Assisted Dev',
+      icon: Bot,
+      color: 'bg-purple-500/10 text-purple-600 border-purple-200',
+      activeColor: 'bg-purple-500 text-white border-purple-500'
     },
     {
       id: 'testing',
