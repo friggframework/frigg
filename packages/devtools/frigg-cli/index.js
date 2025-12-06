@@ -85,6 +85,7 @@ const { uiCommand } = require('./ui-command');
 const { dbSetupCommand } = require('./db-setup-command');
 const { doctorCommand } = require('./doctor-command');
 const { repairCommand } = require('./repair-command');
+const { createValidateCommand } = require('./validate-command/adapters/cli/validate-command');
 
 const program = new Command();
 
@@ -175,9 +176,11 @@ program
     .option('-v, --verbose', 'enable verbose output')
     .action(repairCommand);
 
+createValidateCommand(program);
+
 // Only parse arguments when run directly, not when imported by tests
 if (require.main === module) {
     program.parse(process.argv);
 }
 
-module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, generateIamCommand, uiCommand, dbSetupCommand, doctorCommand, repairCommand, program };
+module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, generateIamCommand, uiCommand, dbSetupCommand, doctorCommand, repairCommand, createValidateCommand, program };
