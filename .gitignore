@@ -30,3 +30,7 @@ yarn-error.log*
 CLAUDE.md
 /.claude
 /.claude-flow
+
+# VitePress docs
+/docs/.vitepress/dist
+/docs/.vitepress/cache

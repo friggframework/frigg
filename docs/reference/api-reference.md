@@ -1,59 +1,73 @@
----
-hidden: true
----
-
 # API Reference
 
-Management API
+The Frigg Management API provides endpoints for managing integrations, credentials, and entities.
 
-{% swagger src="../.gitbook/assets/Frigg Management API.yml" path="/api/authorize" method="get" expanded="false" fullWidth="false" %}
-[Frigg Management API.yml](<../.gitbook/assets/Frigg Management API.yml>)
-{% endswagger %}
+## OpenAPI Specification
 
-{% swagger src="../.gitbook/assets/Frigg Management API.yml" path="/api/authorize" method="post" %}
-[Frigg Management API.yml](<../.gitbook/assets/Frigg Management API.yml>)
-{% endswagger %}
+The complete API specification is available as an [OpenAPI/Swagger document](/.gitbook/assets/Frigg%20Management%20API.yml).
 
-{% swagger src="../.gitbook/assets/Frigg Management API.yml" path="/api/entities/options/{credentialId}" method="get" %}
-[Frigg Management API.yml](<../.gitbook/assets/Frigg Management API.yml>)
-{% endswagger %}
+## Endpoints Overview
 
-{% swagger src="../.gitbook/assets/Frigg Management API.yml" path="/api/entities" method="post" %}
-[Frigg Management API.yml](<../.gitbook/assets/Frigg Management API.yml>)
-{% endswagger %}
+### Authorization
 
-{% swagger src="../.gitbook/assets/Frigg Management API.yml" path="/api/integrations" method="get" %}
-[Frigg Management API.yml](<../.gitbook/assets/Frigg Management API.yml>)
-{% endswagger %}
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/authorize` | Get authorization options |
+| `POST` | `/api/authorize` | Create authorization |
 
-{% swagger src="../.gitbook/assets/Frigg Management API.yml" path="/api/integrations" method="post" %}
-[Frigg Management API.yml](<../.gitbook/assets/Frigg Management API.yml>)
-{% endswagger %}
+### Entities
 
-{% swagger src="../.gitbook/assets/Frigg Management API.yml" path="/api/integrations/options" method="get" %}
-[Frigg Management API.yml](<../.gitbook/assets/Frigg Management API.yml>)
-{% endswagger %}
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/entities/options/{credentialId}` | Get entity options for a credential |
+| `POST` | `/api/entities` | Create a new entity |
 
-{% swagger src="../.gitbook/assets/Frigg Management API.yml" path="/api/integrations/{integrationId}" method="get" %}
-[Frigg Management API.yml](<../.gitbook/assets/Frigg Management API.yml>)
-{% endswagger %}
+### Integrations
 
-{% swagger src="../.gitbook/assets/Frigg Management API.yml" path="/api/integrations/{integrationId}" method="delete" %}
-[Frigg Management API.yml](<../.gitbook/assets/Frigg Management API.yml>)
-{% endswagger %}
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/integrations` | List all integrations |
+| `POST` | `/api/integrations` | Create a new integration |
+| `GET` | `/api/integrations/options` | Get integration options |
+| `GET` | `/api/integrations/{integrationId}` | Get a specific integration |
+| `PATCH` | `/api/integrations/{integrationId}` | Update an integration |
+| `DELETE` | `/api/integrations/{integrationId}` | Delete an integration |
 
-{% swagger src="../.gitbook/assets/Frigg Management API.yml" path="/api/integrations/{integrationId}" method="patch" %}
-[Frigg Management API.yml](<../.gitbook/assets/Frigg Management API.yml>)
-{% endswagger %}
+### Integration Configuration
 
-{% swagger src="../.gitbook/assets/Frigg Management API.yml" path="/api/integrations/{integrationId}/config/options" method="get" %}
-[Frigg Management API.yml](<../.gitbook/assets/Frigg Management API.yml>)
-{% endswagger %}
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/integrations/{integrationId}/config/options` | Get configuration options |
+| `GET` | `/api/integrations/{integrationId}/actions/{actionId}/options` | Get action options |
+| `POST` | `/api/integrations/{integrationId}/actions/{actionId}` | Execute an action |
 
-{% swagger src="../.gitbook/assets/Frigg Management API.yml" path="/api/integrations/{integrationId}/actions/{actionId}/options" method="get" %}
-[Frigg Management API.yml](<../.gitbook/assets/Frigg Management API.yml>)
-{% endswagger %}
+## Authentication
 
-{% swagger src="../.gitbook/assets/Frigg Management API.yml" path="/api/integrations/65bbfe8e4124ba1e42b939e4/actions/DELETE_ALL_CUSTOM_OBJECTS" method="post" %}
-[Frigg Management API.yml](<../.gitbook/assets/Frigg Management API.yml>)
-{% endswagger %}
+All API endpoints require authentication. Include your API token in the request headers:
+
+```http
+Authorization: Bearer <your-api-token>
+```
+
+## Response Format
+
+All responses are returned in JSON format:
+
+```json
+{
+  "success": true,
+  "data": { ... }
+}
+```
+
+Error responses follow this format:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Human-readable error message"
+  }
+}
+```
