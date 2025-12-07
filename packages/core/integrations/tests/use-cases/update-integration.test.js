@@ -9,6 +9,7 @@ const { UpdateIntegration } = require('../../use-cases/update-integration');
 const { TestIntegrationRepository } = require('../doubles/test-integration-repository');
 const { TestModuleFactory } = require('../../../modules/tests/doubles/test-module-factory');
 const { DummyIntegration } = require('../doubles/dummy-integration-class');
+const { ConfigCapturingIntegration } = require('../doubles/config-capturing-integration');
 
 describe('UpdateIntegration Use-Case', () => {
     let integrationRepository;
@@ -121,7 +122,7 @@ describe('UpdateIntegration Use-Case', () => {
             expect(dto.config.bar).toBeUndefined();
         });
 
-        it('handles deeply nested config updates', async () => {
+        it('handles deeply nested config updates with merge semantics', async () => {
             const record = await integrationRepository.createIntegration(['e1'], 'user-1', { type: 'dummy', nested: { old: 'value' } });
 
             const newConfig = {
@@ -135,7 +136,73 @@ describe('UpdateIntegration Use-Case', () => {
 
             expect(dto.config.nested.new).toBe('value');
             expect(dto.config.nested.deep.level).toBe('test');
-            expect(dto.config.nested.old).toBeUndefined();
+            expect(dto.config.nested.old).toBe('value');
+        });
+    });
+
+    describe('partial config update semantics (issue #514)', () => {
+        let configCapturingUseCase;
+
+        beforeEach(() => {
+            ConfigCapturingIntegration.resetCaptures();
+            configCapturingUseCase = new UpdateIntegration({
+                integrationRepository,
+                integrationClasses: [ConfigCapturingIntegration],
+                moduleFactory,
+            });
+        });
+
+        it('passes existing database config to integration constructor', async () => {
+            const existingConfig = { type: 'config-capturing', a: 1, b: 2, c: 3 };
+            const record = await integrationRepository.createIntegration(
+                ['e1'],
+                'user-1',
+                existingConfig
+            );
+
+            const partialUpdateConfig = { type: 'config-capturing', a: 10 };
+            await configCapturingUseCase.execute(record.id, 'user-1', partialUpdateConfig);
+
+            const captured = ConfigCapturingIntegration.getCapturedOnUpdateState();
+            expect(captured.thisConfig).toEqual(existingConfig);
+            expect(captured.paramsConfig).toEqual(partialUpdateConfig);
+        });
+
+        it('allows onUpdate to merge partial config with existing config', async () => {
+            const existingConfig = { type: 'config-capturing', a: 1, b: 2, c: 3 };
+            const record = await integrationRepository.createIntegration(
+                ['e1'],
+                'user-1',
+                existingConfig
+            );
+
+            const partialUpdateConfig = { type: 'config-capturing', a: 10 };
+            const dto = await configCapturingUseCase.execute(record.id, 'user-1', partialUpdateConfig);
+
+            expect(dto.config).toEqual({ type: 'config-capturing', a: 10, b: 2, c: 3 });
+        });
+
+        it('preserves nested existing values during partial update', async () => {
+            const existingConfig = {
+                type: 'config-capturing',
+                settings: { theme: 'dark', notifications: true },
+                credentials: { apiKey: 'secret123' }
+            };
+            const record = await integrationRepository.createIntegration(
+                ['e1'],
+                'user-1',
+                existingConfig
+            );
+
+            const partialUpdateConfig = {
+                type: 'config-capturing',
+                settings: { theme: 'light' }
+            };
+            const dto = await configCapturingUseCase.execute(record.id, 'user-1', partialUpdateConfig);
+
+            expect(dto.config.settings.theme).toBe('light');
+            expect(dto.config.settings.notifications).toBe(true);
+            expect(dto.config.credentials.apiKey).toBe('secret123');
         });
     });
 }); 
