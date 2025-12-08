@@ -1,4 +1,3 @@
-// Removed Integration wrapper - using IntegrationBase directly
 const {
     mapIntegrationClassToIntegrationDTO,
 } = require('../utils/map-integration-dto');
@@ -82,7 +81,7 @@ class UpdateIntegration {
             modules,
         });
 
-        // 6. Complete async initialization (load dynamic actions, register handlers)
+        // 5. Complete async initialization and trigger update event
         await integrationInstance.initialize();
         await integrationInstance.send('ON_UPDATE', { config });
 
