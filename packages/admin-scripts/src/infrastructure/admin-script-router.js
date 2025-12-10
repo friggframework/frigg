@@ -300,10 +300,12 @@ router.put('/scripts/:scriptName/schedule', async (req, res) => {
             timezone: timezone || 'UTC',
         });
 
-        // 4. TODO (Phase 3): Create/update EventBridge schedule if enabled
+        // Optional: Provision EventBridge Scheduler rule for automatic triggering
+        // Currently schedules are stored in DB only - polling or manual triggers required
+        // To enable automatic execution, wire AWSSchedulerAdapter here:
+        // const adapter = createSchedulerAdapter();
         // if (enabled && cronExpression) {
-        //     const awsInfo = await provisionEventBridgeSchedule(scriptName, cronExpression, timezone);
-        //     await commands.updateScheduleAwsRule(scriptName, awsInfo);
+        //     await adapter.createOrUpdateSchedule(scriptName, cronExpression, timezone);
         // }
 
         res.json({
@@ -347,12 +349,11 @@ router.delete('/scripts/:scriptName/schedule', async (req, res) => {
         // 2. Delete schedule from database
         const result = await commands.deleteSchedule(scriptName);
 
-        // 3. TODO (Phase 3): Delete EventBridge schedule if exists
-        // if (result.deleted?.awsRuleArn) {
-        //     await deleteEventBridgeSchedule(result.deleted.awsRuleName);
-        // }
+        // Optional: Delete EventBridge Scheduler rule if using automatic triggering
+        // const adapter = createSchedulerAdapter();
+        // await adapter.deleteSchedule(scriptName);
 
-        // 4. Check if Definition default exists
+        // 3. Check if Definition default exists
         const scriptClass = factory.get(scriptName);
         const definitionSchedule = scriptClass.Definition?.schedule;
 
