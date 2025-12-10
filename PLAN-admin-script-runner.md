@@ -1385,7 +1385,9 @@ packages/admin-scripts/                  # Application logic & builtins
 │   │   ├── script-factory.js            # Script registration
 │   │   ├── script-context.js            # Execution context
 │   │   ├── script-runner.js             # Orchestrates execution
-│   │   └── admin-frigg-commands.js      # Helper API for scripts
+│   │   ├── admin-frigg-commands.js      # Helper API for scripts
+│   │   ├── dry-run-repository-wrapper.js    # Phase 3: DB write interception
+│   │   └── dry-run-http-interceptor.js      # Phase 3: HTTP call interception
 │   ├── infrastructure/
 │   │   ├── admin-script-router.js       # Express router
 │   │   ├── script-executor-handler.js   # Lambda handler for async
@@ -1625,15 +1627,319 @@ async function getEffectiveSchedule(scriptName, scriptClass) {
 **Scope**:
 - Rate limiting middleware
 - Tenant isolation
-- Dry-run mode
-- Approval workflow
+- Dry-run mode (ADR-10)
 
-### Phase 4: Enterprise & Advanced
+### ADR-10: Dry Run Mode
+
+**Decision**: Implement dry run via adapter interception (repositories + HTTP client).
+
+**Components**:
+1. **Repository Wrapper** - Intercepts DB writes, logs operations, returns unchanged data
+2. **HTTP Client Interceptor** - Intercepts external API calls, logs requests, returns mock responses
+
+**Repository Wrapper**:
+```javascript
+// packages/admin-scripts/src/application/dry-run-repository-wrapper.js
+
+class DryRunRepositoryWrapper {
+    constructor(realRepository, operationLog) {
+        this.realRepo = realRepository;
+        this.log = operationLog;
+    }
+
+    // READ operations pass through
+    async findIntegrationById(id) {
+        return this.realRepo.findIntegrationById(id);
+    }
+
+    async listIntegrations(filter) {
+        return this.realRepo.listIntegrations(filter);
+    }
+
+    // WRITE operations are logged, not executed
+    async updateIntegrationConfig(integrationId, config) {
+        const existing = await this.realRepo.findIntegrationById(integrationId);
+        this.log.push({
+            operation: 'UPDATE',
+            model: 'Integration',
+            id: integrationId,
+            field: 'config',
+            before: existing?.config,
+            after: config,
+            wouldAffect: 1
+        });
+        return existing; // Return unchanged
+    }
+
+    async deleteIntegration(integrationId) {
+        const existing = await this.realRepo.findIntegrationById(integrationId);
+        this.log.push({
+            operation: 'DELETE',
+            model: 'Integration',
+            id: integrationId,
+            record: existing,
+            wouldAffect: existing ? 1 : 0
+        });
+        return { deleted: false, dryRun: true };
+    }
+}
+```
+
+**HTTP Client Interceptor** (for external API calls):
+```javascript
+// packages/admin-scripts/src/application/dry-run-http-interceptor.js
+
+function createDryRunAxiosInstance(operationLog) {
+    const sanitizeHeaders = (headers) => {
+        const safe = { ...headers };
+        delete safe.Authorization;
+        delete safe['x-api-key'];
+        return safe;
+    };
+
+    const detectService = (baseURL) => {
+        if (baseURL?.includes('hubspot')) return 'HubSpot';
+        if (baseURL?.includes('salesforce')) return 'Salesforce';
+        if (baseURL?.includes('attio')) return 'Attio';
+        if (baseURL?.includes('zoho')) return 'Zoho';
+        return 'unknown';
+    };
+
+    const mockRequest = async (config) => {
+        operationLog.push({
+            operation: 'HTTP_REQUEST',
+            method: config.method?.toUpperCase() || 'GET',
+            url: config.url,
+            baseURL: config.baseURL,
+            data: config.data,
+            headers: sanitizeHeaders(config.headers || {}),
+            service: detectService(config.baseURL),
+        });
+
+        // Return mock response
+        return {
+            status: 200,
+            data: { _dryRun: true, _wouldHaveExecuted: config.url }
+        };
+    };
+
+    return {
+        request: mockRequest,
+        get: (url, config = {}) => mockRequest({ ...config, method: 'GET', url }),
+        post: (url, data, config = {}) => mockRequest({ ...config, method: 'POST', url, data }),
+        put: (url, data, config = {}) => mockRequest({ ...config, method: 'PUT', url, data }),
+        patch: (url, data, config = {}) => mockRequest({ ...config, method: 'PATCH', url, data }),
+        delete: (url, config = {}) => mockRequest({ ...config, method: 'DELETE', url }),
+    };
+}
+
+module.exports = { createDryRunAxiosInstance };
+```
+
+**Script Runner Integration**:
+```javascript
+// In script-runner.js
+
+async executeScript(scriptClass, params, options = {}) {
+    const { dryRun = false } = options;
+    const operationLog = [];
+
+    // Create frigg commands with real or dry-run adapters
+    const frigg = dryRun
+        ? this.createDryRunFriggCommands(operationLog)
+        : this.createFriggCommands();
+
+    const script = new scriptClass({ executionId: this.executionId });
+    const result = await script.execute(frigg, params);
+
+    if (dryRun) {
+        return {
+            dryRun: true,
+            preview: {
+                operations: operationLog,
+                summary: this.summarizeOperations(operationLog),
+                scriptOutput: result
+            }
+        };
+    }
+
+    return result;
+}
+
+createDryRunFriggCommands(operationLog) {
+    const realCommands = this.createFriggCommands();
+    const dryRunHttpClient = createDryRunAxiosInstance(operationLog);
+
+    return {
+        ...realCommands,
+        // Wrap repositories with dry-run versions
+        integrationRepository: new DryRunRepositoryWrapper(
+            realCommands.integrationRepository, operationLog
+        ),
+        // Override instantiate to inject dry-run HTTP client
+        instantiate: async (integrationId) => {
+            const instance = await realCommands.instantiate(integrationId);
+            // Replace HTTP clients in API modules
+            if (instance.primary?.api?._httpClient) {
+                instance.primary.api._httpClient = dryRunHttpClient;
+            }
+            if (instance.target?.api?._httpClient) {
+                instance.target.api._httpClient = dryRunHttpClient;
+            }
+            return instance;
+        }
+    };
+}
+
+summarizeOperations(log) {
+    const summary = { dbUpdates: 0, dbDeletes: 0, dbCreates: 0, httpRequests: 0, byModel: {}, byService: {} };
+
+    for (const op of log) {
+        if (op.operation === 'UPDATE') summary.dbUpdates += op.wouldAffect || 1;
+        if (op.operation === 'DELETE') summary.dbDeletes += op.wouldAffect || 1;
+        if (op.operation === 'CREATE') summary.dbCreates += op.wouldAffect || 1;
+        if (op.operation === 'HTTP_REQUEST') {
+            summary.httpRequests++;
+            summary.byService[op.service] = (summary.byService[op.service] || 0) + 1;
+        }
+
+        if (op.model) {
+            summary.byModel[op.model] = summary.byModel[op.model] || [];
+            summary.byModel[op.model].push(op);
+        }
+    }
+
+    return summary;
+}
+```
+
+**API Usage**:
+```javascript
+// POST /admin/scripts/attio-healing/execute
+{
+    "params": { "integrationIds": ["abc"] },
+    "dryRun": true
+}
+
+// Response
+{
+    "dryRun": true,
+    "preview": {
+        "summary": {
+            "dbUpdates": 1,
+            "dbDeletes": 0,
+            "httpRequests": 2,
+            "byService": { "Attio": 2 }
+        },
+        "operations": [
+            { "operation": "HTTP_REQUEST", "method": "GET", "service": "Attio",
+              "url": "/v2/objects/people/abc" },
+            { "operation": "UPDATE", "model": "Integration", "id": "abc",
+              "field": "config", "before": {...}, "after": {...} },
+            { "operation": "HTTP_REQUEST", "method": "PATCH", "service": "Attio",
+              "url": "/v2/objects/people/abc", "data": {...} }
+        ],
+        "scriptOutput": { "fixed": 1, "failed": 0 }
+    }
+}
+```
+
+**Rationale**:
+- Script code unchanged - same script works in normal and dry-run mode
+- Hexagonal pattern - adapters are swapped at infrastructure layer
+- Full visibility - see before/after for DB ops, full request details for HTTP
+- Safe testing - test healing scripts against production data without risk
+
+### ADR-11: Self-Queuing for Long-Running Scripts
+
+**Decision**: Scripts self-manage long-running work by chunking and re-queuing.
+
+**Pattern**:
+```javascript
+class LargeScaleHealingScript extends AdminScriptBase {
+    static Definition = {
+        name: 'large-scale-healing',
+        config: {
+            timeout: 840000,  // 14 min (leave 1 min buffer)
+        }
+    };
+
+    async execute(frigg, params) {
+        const { cursor = null, batchSize = 100, processedTotal = 0 } = params;
+
+        const integrations = await frigg.listIntegrations({
+            cursor,
+            limit: batchSize,
+            filter: { status: 'ERROR' }
+        });
+
+        let processed = 0;
+        for (const int of integrations.data) {
+            await this.healIntegration(frigg, int);
+            processed++;
+        }
+
+        const newTotal = processedTotal + processed;
+
+        // More work? Re-queue with cursor
+        if (integrations.nextCursor) {
+            await frigg.queueScript(this.constructor.Definition.name, {
+                ...params,
+                cursor: integrations.nextCursor,
+                processedTotal: newTotal
+            });
+
+            return {
+                status: 'CONTINUING',
+                processedThisBatch: processed,
+                processedTotal: newTotal,
+                hasMore: true
+            };
+        }
+
+        return {
+            status: 'COMPLETED',
+            processedThisBatch: processed,
+            processedTotal: newTotal,
+            hasMore: false
+        };
+    }
+}
+```
+
+**AdminFriggCommands.queueScript()**:
+```javascript
+// In admin-frigg-commands.js
+
+async queueScript(scriptName, params) {
+    const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
+    const sqs = new SQSClient({});
+
+    await sqs.send(new SendMessageCommand({
+        QueueUrl: process.env.ADMIN_SCRIPT_QUEUE_URL,
+        MessageBody: JSON.stringify({
+            scriptName,
+            trigger: 'QUEUE',  // Self-queued continuation
+            params,
+            parentExecutionId: this.executionId,  // Track lineage
+        }),
+    }));
+
+    this.log('info', `Queued continuation for ${scriptName}`, { params });
+}
+```
+
+**Benefits**:
+- No Lambda timeout issues (each batch < 15 min)
+- Progress tracking via execution records
+- Fault tolerance (failed batch can retry independently)
+- No Step Functions complexity
+
+### Phase 4: Enterprise Features
 
 **Scope**:
-- VM sandbox (isolated-vm)
-- Rollback mechanism
-- Step Functions for long-running scripts (>15 min)
+- Approval workflow (two-admin sign-off for production scripts)
+- Rollback mechanism (pre-execution snapshots)
 
 ---
 
