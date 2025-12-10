@@ -37,100 +37,234 @@ The `next` branch has a **fundamentally different architecture** from `main`:
 
 ---
 
-## Architecture Decision Records
+## appDefinition Schema Update
 
-### ADR-1: Follow Command Pattern from `next` Branch
+**File to modify**: `/home/user/frigg/packages/devtools/infrastructure/domains/shared/types/app-definition.js`
 
-**Decision**: Create `createAdminScriptCommands()` following the existing command factory pattern.
+Add `adminScripts` to the AppDefinition typedef:
 
-**Rationale**:
-- Consistent with `createIntegrationCommands()`, `createUserCommands()`, etc.
-- Database-agnostic via repository factories
-- Standardized error handling (returns `{ error, reason, code }` objects)
-
-**Implementation**:
 ```javascript
-// packages/core/application/commands/admin-script-commands.js
-function createAdminScriptCommands() {
-    const scriptExecutionRepository = createScriptExecutionRepository();
-    const adminApiKeyRepository = createAdminApiKeyRepository();
+/**
+ * Complete application definition
+ * @typedef {Object} AppDefinition
+ * @property {string} name - Application name
+ * @property {string} stage - Deployment stage
+ * @property {IntegrationDefinition[]} [integrations] - Integration definitions
+ * @property {AdminScriptDefinition[]} [adminScripts] - Admin script definitions (NEW)
+ * @property {AdminConfig} [admin] - Admin configuration (NEW)
+ * ...
+ */
+```
 
-    return {
-        async executeScript({ scriptName, params, adminKeyId }) {
-            try {
-                // Create execution record, run script, update status
-            } catch (error) {
-                return mapErrorToResponse(error);
-            }
+**Usage in backend/index.js**:
+```javascript
+const Definition = {
+    name: 'my-app',
+    integrations: [
+        HubSpotIntegration,
+        SalesforceIntegration,
+    ],
+
+    // NEW: Admin scripts array (OPTIONAL)
+    adminScripts: [
+        AttioHealingScript,
+        ZohoWebhookRefreshScript,
+    ],
+
+    // NEW: Admin configuration (OPTIONAL)
+    admin: {
+        includeBuiltinScripts: true,
+    },
+
+    database: { postgres: { enable: true } },
+};
+
+module.exports = { Definition };
+```
+
+---
+
+## AdminScriptBase Definition Pattern
+
+**Following IntegrationBase pattern from**: `/home/user/frigg/packages/core/integrations/integration-base.js:35-100`
+
+```javascript
+// packages/core/admin-scripts/admin-script-base.js
+
+const { createScriptExecutionRepository } = require('./repositories/script-execution-repository-factory');
+const { createAdminApiKeyRepository } = require('./repositories/admin-api-key-repository-factory');
+
+class AdminScriptBase {
+    // Class-level repository instances (like IntegrationBase lines 37-44)
+    scriptExecutionRepository = createScriptExecutionRepository();
+    adminApiKeyRepository = createAdminApiKeyRepository();
+
+    /**
+     * CHILDREN SHOULD SPECIFY A DEFINITION FOR THE SCRIPT
+     * Pattern matches IntegrationBase.Definition (lines 57-69)
+     */
+    static Definition = {
+        name: 'Script Name',                    // Required: unique identifier
+        version: '0.0.0',                       // Required: semver for migrations
+        description: 'What this script does',  // Required: human-readable
+
+        // Script-specific properties
+        source: 'USER_DEFINED',                 // 'BUILTIN' | 'USER_DEFINED'
+
+        inputSchema: null,                      // Optional: JSON Schema for params
+        outputSchema: null,                     // Optional: JSON Schema for results
+
+        schedule: {                             // Optional: Phase 2
+            enabled: false,
+            cronExpression: null,               // 'cron(0 12 * * ? *)'
         },
-        async findExecutionById(executionId) { ... },
-        async findExecutionsByScriptName(scriptName) { ... },
-        async validateAdminApiKey(rawKey) { ... },
-        // ... more commands
-    };
-}
-```
 
-### ADR-2: Repository Factory Pattern
+        config: {
+            timeout: 300000,                    // Default 5 min (ms)
+            maxRetries: 0,
+            requiresIntegrationFactory: false,  // Hint: does script need to instantiate integrations?
+        },
 
-**Decision**: Create repository interfaces and factories for `AdminApiKey` and `ScriptExecution`.
-
-**Rationale**:
-- Support MongoDB, PostgreSQL, DocumentDB
-- Consistent with existing repository pattern in `next`
-- Testable via mock repositories
-
-**Structure**:
-```
-packages/core/admin-scripts/repositories/
-├── admin-api-key-repository-interface.js
-├── admin-api-key-repository-factory.js
-├── admin-api-key-repository-mongo.js
-├── admin-api-key-repository-postgres.js
-├── admin-api-key-repository-documentdb.js
-├── script-execution-repository-interface.js
-├── script-execution-repository-factory.js
-├── script-execution-repository-mongo.js
-├── script-execution-repository-postgres.js
-└── script-execution-repository-documentdb.js
-```
-
-### ADR-3: Integrate with Existing Commands
-
-**Decision**: Extend `createFriggCommands()` to include admin script commands when configured.
-
-**Rationale**:
-- Single unified command interface
-- Scripts can use existing commands (user, entity, credential, integration)
-- Consistent developer experience
-
-**Implementation**:
-```javascript
-// Extended createFriggCommands in application/index.js
-function createFriggCommands({ integrationClass, enableAdminScripts = false }) {
-    const commands = {
-        ...createIntegrationCommands({ integrationClass }),
-        ...createUserCommands(),
-        ...createEntityCommands(),
-        ...createCredentialCommands(),
+        display: {                              // For future UI
+            label: 'Script Name',
+            description: '',
+            category: 'maintenance',            // 'maintenance' | 'healing' | 'sync' | 'custom'
+        },
     };
 
-    if (enableAdminScripts) {
-        Object.assign(commands, createAdminScriptCommands());
+    static getName() {
+        return this.Definition.name;
     }
 
-    return commands;
+    static getCurrentVersion() {
+        return this.Definition.version;
+    }
+
+    static getDefinition() {
+        return this.Definition;
+    }
+
+    /**
+     * Constructor receives dependencies
+     * Pattern matches IntegrationBase constructor (lines 81-100)
+     */
+    constructor(params = {}) {
+        this.executionId = params.executionId || null;
+        this.logs = [];
+        this._startTime = null;
+
+        // OPTIONAL: Integration factory for scripts that need it
+        this.integrationFactory = params.integrationFactory || null;
+
+        // Injected repositories (can override class-level)
+        if (params.scriptExecutionRepository) {
+            this.scriptExecutionRepository = params.scriptExecutionRepository;
+        }
+        if (params.adminApiKeyRepository) {
+            this.adminApiKeyRepository = params.adminApiKeyRepository;
+        }
+    }
+
+    /**
+     * CHILDREN MUST IMPLEMENT THIS METHOD
+     * @param {AdminFriggCommands} frigg - Helper commands object
+     * @param {Object} params - Script parameters (validated against inputSchema)
+     * @returns {Promise<Object>} - Script results (validated against outputSchema)
+     */
+    async execute(frigg, params) {
+        throw new Error('AdminScriptBase.execute() must be implemented by subclass');
+    }
+
+    // Logging helper
+    log(level, message, data = {}) {
+        const entry = {
+            level,
+            message,
+            data,
+            timestamp: new Date().toISOString(),
+        };
+        this.logs.push(entry);
+        return entry;
+    }
+
+    getLogs() {
+        return this.logs;
+    }
+}
+
+module.exports = { AdminScriptBase };
+```
+
+---
+
+## Architecture Decision Records
+
+### ADR-1: Follow Definition Pattern from IntegrationBase
+
+**Decision**: Create `AdminScriptBase` with `static Definition` matching IntegrationBase pattern.
+
+**Reference**: `/home/user/frigg/packages/core/integrations/integration-base.js:57-69`
+
+**Rationale**:
+- Consistent with existing Frigg patterns
+- Familiar to Frigg developers
+- Supports versioning and migrations
+- Enables validation at load time
+
+### ADR-2: Repository Factory Pattern (No-Arg Constructors)
+
+**Decision**: Create repository factories following existing pattern.
+
+**Reference**: `/home/user/frigg/packages/core/integrations/repositories/integration-repository-factory.js`
+
+**Pattern**:
+```javascript
+// Factory returns instance with NO arguments
+function createScriptExecutionRepository() {
+    const dbType = config.DB_TYPE;
+    switch (dbType) {
+        case 'mongodb': return new ScriptExecutionRepositoryMongo();
+        case 'postgresql': return new ScriptExecutionRepositoryPostgres();
+        case 'documentdb': return new ScriptExecutionRepositoryDocumentDB();
+        default: throw new Error(`Unsupported database type: ${dbType}`);
+    }
 }
 ```
 
-### ADR-4: Separate Package with Core Integration
+### ADR-3: Optional IntegrationFactory
 
-**Decision**: Create `@friggframework/admin-scripts` package that integrates with `@friggframework/core`.
+**Decision**: `integrationFactory` is OPTIONAL for admin scripts.
 
 **Rationale**:
-- Domain models (AdminApiKey, ScriptExecution) go in `core` (like other models)
-- Application logic (ScriptRunner, FriggCommands for scripts) in separate package
-- Allows opt-in installation
+- Many scripts only need database access (cleanup, reporting)
+- Scripts that need to call external APIs require `integrationFactory`
+- Fail-fast with clear error if script needs factory but none provided
+
+**Implementation**:
+```javascript
+// Scripts declare their needs via Definition.config
+static Definition = {
+    config: {
+        requiresIntegrationFactory: true,  // or false
+    }
+};
+
+// ScriptRunner validates before execution
+if (scriptClass.Definition.config.requiresIntegrationFactory && !integrationFactory) {
+    throw new Error(`Script "${scriptName}" requires integrationFactory`);
+}
+```
+
+### ADR-4: Separate adminScripts Array in appDefinition
+
+**Decision**: Add `adminScripts[]` to appDefinition schema (separate from `integrations[]`).
+
+**Reference**: `/home/user/frigg/packages/devtools/infrastructure/domains/shared/types/app-definition.js`
+
+**Rationale**:
+- Clear separation of concerns
+- Scripts are operational, integrations are domain
+- Can be deployed independently
 
 ---
 
@@ -536,55 +670,114 @@ packages/admin-scripts/                  # Application logic & builtins
 
 ---
 
-## FriggCommands for Scripts (AdminFriggCommands)
+## AdminFriggCommands (Helper API for Scripts)
 
-Scripts receive an enhanced `frigg` object that wraps existing commands:
+**Reference**: Uses repository pattern from `/home/user/frigg/packages/core/application/commands/`
+
+Scripts receive a `frigg` object with database access. Integration factory is **OPTIONAL**.
 
 ```javascript
-// packages/admin-scripts/src/application/admin-frigg-commands.js
-const { createFriggCommands } = require('@friggframework/core');
+// packages/core/admin-scripts/admin-frigg-commands.js
+
+const { createIntegrationRepository } = require('../integrations/repositories/integration-repository-factory');
+const { createUserRepository } = require('../user/repositories/user-repository-factory');
+const { createModuleRepository } = require('../modules/repositories/module-repository-factory');
+const { createCredentialRepository } = require('../credential/repositories/credential-repository-factory');
+const { createScriptExecutionRepository } = require('./repositories/script-execution-repository-factory');
 
 class AdminFriggCommands {
-    constructor(params) {
-        this.executionId = params.executionId;
-        this.integrationClass = params.integrationClass;
+    // Repositories created via factories (no args, like other commands)
+    integrationRepository = createIntegrationRepository();
+    userRepository = createUserRepository();
+    moduleRepository = createModuleRepository();
+    credentialRepository = createCredentialRepository();
+    scriptExecutionRepository = createScriptExecutionRepository();
+
+    constructor(params = {}) {
+        this.executionId = params.executionId || null;
         this.logs = [];
 
-        // Get existing Frigg commands
-        this.commands = createFriggCommands({
-            integrationClass: this.integrationClass,
-            enableAdminScripts: true,
+        // OPTIONAL: Integration factory for scripts that need to instantiate integrations
+        this.integrationFactory = params.integrationFactory || null;
+    }
+
+    // ==================== ALWAYS AVAILABLE (Database Access) ====================
+
+    // Integration queries (no instantiation)
+    async listIntegrations(filter = {}) {
+        return this.integrationRepository.findIntegrations(filter);
+    }
+
+    async findIntegrationById(id) {
+        return this.integrationRepository.findIntegrationById(id);
+    }
+
+    async findIntegrationsByUserId(userId) {
+        return this.integrationRepository.findIntegrationsByUserId(userId);
+    }
+
+    async updateIntegrationConfig(integrationId, config) {
+        return this.integrationRepository.updateIntegrationConfig(integrationId, config);
+    }
+
+    async updateIntegrationStatus(integrationId, status) {
+        return this.integrationRepository.updateIntegrationStatus(integrationId, status);
+    }
+
+    // User queries
+    async listUsers(filter = {}) {
+        // Implement based on filter
+        if (filter.appUserId) return this.userRepository.findIndividualUserByAppUserId(filter.appUserId);
+        if (filter.username) return this.userRepository.findIndividualUserByUsername(filter.username);
+        return null;
+    }
+
+    async findUserById(userId) {
+        return this.userRepository.findIndividualUserById(userId);
+    }
+
+    // Entity queries
+    async listEntities(filter = {}) {
+        if (filter.userId) {
+            return this.moduleRepository.findEntitiesByUserId(filter.userId);
+        }
+        return this.moduleRepository.findEntity(filter);
+    }
+
+    async findEntityById(entityId) {
+        return this.moduleRepository.findEntityById(entityId);
+    }
+
+    // Credential queries
+    async findCredential(filter) {
+        return this.credentialRepository.findCredential(filter);
+    }
+
+    async updateCredential(credentialId, updates) {
+        return this.credentialRepository.updateCredential(credentialId, updates);
+    }
+
+    // ==================== REQUIRES integrationFactory ====================
+
+    /**
+     * Instantiate an integration instance (for calling external APIs)
+     * REQUIRES: integrationFactory in constructor
+     */
+    async instantiate(integrationId) {
+        if (!this.integrationFactory) {
+            throw new Error(
+                'instantiate() requires integrationFactory. ' +
+                'Set Definition.config.requiresIntegrationFactory = true'
+            );
+        }
+        return this.integrationFactory.getInstanceFromIntegrationId({
+            integrationId,
+            _isAdminContext: true,  // Bypass user ownership check
         });
     }
 
-    // Integration Access (uses existing commands)
-    async listIntegrations(filter = {}) {
-        // Uses findIntegrationsByUserId or custom query
-        return this.commands.findIntegrationsByUserId(filter.userId);
-    }
+    // ==================== LOGGING & EXECUTION ====================
 
-    async getIntegration(id) {
-        const result = await this.commands.loadIntegrationContextById(id);
-        return result.error ? null : result.context;
-    }
-
-    async instantiate(integrationId) {
-        const result = await this.commands.loadIntegrationContextById(integrationId);
-        if (result.error) {
-            throw new Error(result.reason);
-        }
-        return result.context;
-    }
-
-    // Entity Access
-    async listEntities(filter = {}) {
-        if (filter.userId) {
-            return this.commands.findEntitiesByUserId(filter.userId);
-        }
-        return this.commands.findEntity(filter);
-    }
-
-    // Logging
     log(level, message, data = {}) {
         const entry = {
             level,
@@ -594,11 +787,15 @@ class AdminFriggCommands {
         };
         this.logs.push(entry);
 
-        // Also append to execution record
-        this.commands.appendScriptExecutionLog(this.executionId, entry);
+        // Persist to execution record if we have an executionId
+        if (this.executionId) {
+            this.scriptExecutionRepository.appendExecutionLog(this.executionId, entry)
+                .catch(err => console.error('Failed to persist log:', err));
+        }
+
+        return entry;
     }
 
-    // Execution info
     getExecutionId() {
         return this.executionId;
     }
@@ -610,6 +807,12 @@ class AdminFriggCommands {
 
 module.exports = { AdminFriggCommands };
 ```
+
+**Key Design Points**:
+1. **Repository instances as class properties** (matches IntegrationBase pattern)
+2. **No-arg repository factories** (matches existing pattern)
+3. **integrationFactory is optional** - only needed for `instantiate()`
+4. **Clear error message** when trying to instantiate without factory
 
 ---
 
