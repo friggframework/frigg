@@ -5,6 +5,7 @@ const { getScriptFactory } = require('../application/script-factory');
 const { createScriptRunner } = require('../application/script-runner');
 const { createAdminScriptCommands } = require('@friggframework/core/application/commands/admin-script-commands');
 const { QueuerUtil } = require('@friggframework/core/queues');
+const { createSchedulerAdapter } = require('../adapters/scheduler-adapter-factory');
 
 const router = express.Router();
 
@@ -300,13 +301,38 @@ router.put('/scripts/:scriptName/schedule', async (req, res) => {
             timezone: timezone || 'UTC',
         });
 
-        // Optional: Provision EventBridge Scheduler rule for automatic triggering
-        // Currently schedules are stored in DB only - polling or manual triggers required
-        // To enable automatic execution, wire AWSSchedulerAdapter here:
-        // const adapter = createSchedulerAdapter();
-        // if (enabled && cronExpression) {
-        //     await adapter.createOrUpdateSchedule(scriptName, cronExpression, timezone);
-        // }
+        // 4. Provision EventBridge Scheduler rule for automatic triggering
+        let awsScheduleInfo = null;
+        let schedulerError = null;
+        try {
+            const adapter = createSchedulerAdapter();
+            if (enabled && cronExpression) {
+                // Create or update the EventBridge schedule
+                awsScheduleInfo = await adapter.createSchedule({
+                    scriptName,
+                    cronExpression,
+                    timezone: timezone || 'UTC',
+                });
+                // Store AWS rule info in database
+                if (awsScheduleInfo?.ruleArn) {
+                    await commands.updateScheduleAwsRule(scriptName, {
+                        awsRuleArn: awsScheduleInfo.ruleArn,
+                        awsRuleName: awsScheduleInfo.ruleName,
+                    });
+                }
+            } else if (!enabled && schedule.awsRuleArn) {
+                // Disable: delete the EventBridge schedule
+                await adapter.deleteSchedule(scriptName);
+                await commands.updateScheduleAwsRule(scriptName, {
+                    awsRuleArn: null,
+                    awsRuleName: null,
+                });
+            }
+        } catch (error) {
+            // Log but don't fail - DB schedule is saved, AWS provisioning can be retried
+            console.error('EventBridge Scheduler error (non-fatal):', error.message);
+            schedulerError = error.message;
+        }
 
         res.json({
             success: true,
@@ -320,7 +346,10 @@ router.put('/scripts/:scriptName/schedule', async (req, res) => {
                 nextTriggerAt: schedule.nextTriggerAt,
                 createdAt: schedule.createdAt,
                 updatedAt: schedule.updatedAt,
+                awsRuleArn: awsScheduleInfo?.ruleArn || schedule.awsRuleArn,
+                awsRuleName: awsScheduleInfo?.ruleName || schedule.awsRuleName,
             },
+            ...(schedulerError && { schedulerWarning: schedulerError }),
         });
     } catch (error) {
         console.error('Error updating schedule:', error);
@@ -349,11 +378,20 @@ router.delete('/scripts/:scriptName/schedule', async (req, res) => {
         // 2. Delete schedule from database
         const result = await commands.deleteSchedule(scriptName);
 
-        // Optional: Delete EventBridge Scheduler rule if using automatic triggering
-        // const adapter = createSchedulerAdapter();
-        // await adapter.deleteSchedule(scriptName);
+        // 3. Delete EventBridge Scheduler rule if it exists
+        let schedulerError = null;
+        if (result.deleted?.awsRuleArn) {
+            try {
+                const adapter = createSchedulerAdapter();
+                await adapter.deleteSchedule(scriptName);
+            } catch (error) {
+                // Log but don't fail - DB schedule is deleted, AWS cleanup can be retried
+                console.error('EventBridge Scheduler delete error (non-fatal):', error.message);
+                schedulerError = error.message;
+            }
+        }
 
-        // 3. Check if Definition default exists
+        // 4. Check if Definition default exists
         const scriptClass = factory.get(scriptName);
         const definitionSchedule = scriptClass.Definition?.schedule;
 
@@ -372,6 +410,7 @@ router.delete('/scripts/:scriptName/schedule', async (req, res) => {
                       timezone: definitionSchedule.timezone || 'UTC',
                   }
                 : { source: 'none', enabled: false },
+            ...(schedulerError && { schedulerWarning: schedulerError }),
         });
     } catch (error) {
         console.error('Error deleting schedule:', error);
