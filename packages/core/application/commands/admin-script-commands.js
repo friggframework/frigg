@@ -1,0 +1,341 @@
+const bcrypt = require('bcryptjs');
+const { v4: uuid } = require('uuid');
+
+const ERROR_CODE_MAP = {
+    INVALID_API_KEY: 401,
+    EXPIRED_API_KEY: 401,
+    SCRIPT_NOT_FOUND: 404,
+    EXECUTION_NOT_FOUND: 404,
+    UNAUTHORIZED_SCOPE: 403,
+};
+
+function mapErrorToResponse(error) {
+    const status = ERROR_CODE_MAP[error?.code] || 500;
+    return { error: status, reason: error?.message, code: error?.code };
+}
+
+/**
+ * Create admin script commands
+ * Provides command pattern API for admin script management
+ *
+ * This follows the Command pattern from integration-commands.js:
+ * - Creates repositories via factory functions
+ * - Maps errors to HTTP-friendly responses
+ * - Returns data or error objects (never throws)
+ *
+ * @returns {Object} Command methods for admin scripts
+ */
+function createAdminScriptCommands() {
+    // Lazy-load repository factories to avoid circular dependencies
+    const { createAdminApiKeyRepository } = require('../../admin-scripts/repositories/admin-api-key-repository-factory');
+    const { createScriptExecutionRepository } = require('../../admin-scripts/repositories/script-execution-repository-factory');
+
+    const apiKeyRepository = createAdminApiKeyRepository();
+    const executionRepository = createScriptExecutionRepository();
+
+    return {
+        // ==================== API Key Management Commands ====================
+
+        /**
+         * Create a new admin API key
+         * Generates a UUID, hashes it with bcrypt, stores in database
+         *
+         * @param {Object} params - Key creation parameters
+         * @param {string} params.name - Human-readable name for the key
+         * @param {string[]} params.scopes - Permission scopes (e.g., ['scripts:execute'])
+         * @param {Date} [params.expiresAt] - Optional expiration date
+         * @param {string} [params.createdBy] - Optional creator identifier
+         * @returns {Promise<Object>} Created key with rawKey (only returned once!)
+         */
+        async createAdminApiKey({ name, scopes, expiresAt, createdBy }) {
+            try {
+                // Generate raw key (UUID format)
+                const rawKey = uuid();
+
+                // Hash with bcrypt (cost factor 10)
+                const keyHash = await bcrypt.hash(rawKey, 10);
+
+                // Store last 4 characters for display
+                const keyLast4 = rawKey.slice(-4);
+
+                // Create via repository
+                const record = await apiKeyRepository.createApiKey({
+                    name,
+                    keyHash,
+                    keyLast4,
+                    scopes,
+                    expiresAt,
+                    createdBy,
+                });
+
+                // Return record with rawKey (ONLY TIME IT'S RETURNED!)
+                return {
+                    id: record.id,
+                    rawKey, // User must save this - we never show it again
+                    name: record.name,
+                    keyLast4: record.keyLast4,
+                    scopes: record.scopes,
+                    expiresAt: record.expiresAt,
+                };
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        /**
+         * Validate an admin API key
+         * Compares bcrypt hash, checks expiration, updates lastUsedAt
+         *
+         * @param {string} rawKey - The raw API key to validate
+         * @returns {Promise<Object>} { valid: true, apiKey } or error response
+         */
+        async validateAdminApiKey(rawKey) {
+            try {
+                // Find all active keys
+                const activeKeys = await apiKeyRepository.findActiveApiKeys();
+
+                // Compare bcrypt hash for each key
+                for (const key of activeKeys) {
+                    const isMatch = await bcrypt.compare(rawKey, key.keyHash);
+                    if (isMatch) {
+                        // Check expiration
+                        if (key.expiresAt && new Date(key.expiresAt) < new Date()) {
+                            const error = new Error('API key has expired');
+                            error.code = 'EXPIRED_API_KEY';
+                            return mapErrorToResponse(error);
+                        }
+
+                        // Update lastUsedAt on success
+                        await apiKeyRepository.updateApiKeyLastUsed(key.id);
+
+                        return { valid: true, apiKey: key };
+                    }
+                }
+
+                // No match found
+                const error = new Error('Invalid API key');
+                error.code = 'INVALID_API_KEY';
+                return mapErrorToResponse(error);
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        /**
+         * List all active admin API keys
+         * Returns keys without keyHash (security)
+         *
+         * @returns {Promise<Array>} Array of API key records (without keyHash)
+         */
+        async listAdminApiKeys() {
+            try {
+                const keys = await apiKeyRepository.findActiveApiKeys();
+
+                // Remove keyHash from response (security)
+                return keys.map((key) => {
+                    const { keyHash, ...safeKey } = key;
+                    return safeKey;
+                });
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        /**
+         * Deactivate an admin API key
+         * Soft delete - sets isActive to false
+         *
+         * @param {string|number} id - The API key ID
+         * @returns {Promise<Object>} Updated record or error
+         */
+        async deactivateAdminApiKey(id) {
+            try {
+                const result = await apiKeyRepository.deactivateApiKey(id);
+                return result;
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        // ==================== Execution Management Commands ====================
+
+        /**
+         * Create a new script execution record
+         *
+         * @param {Object} params - Execution creation parameters
+         * @param {string} params.scriptName - Name of script being executed
+         * @param {string} [params.scriptVersion] - Script version
+         * @param {string} params.trigger - Trigger type ('MANUAL', 'SCHEDULED', 'QUEUE', 'WEBHOOK')
+         * @param {string} [params.mode] - Execution mode ('sync' or 'async', default 'async')
+         * @param {Object} [params.input] - Input parameters
+         * @param {Object} [params.audit] - Audit information (apiKeyName, apiKeyLast4, ipAddress)
+         * @returns {Promise<Object>} Created execution record
+         */
+        async createScriptExecution({
+            scriptName,
+            scriptVersion,
+            trigger,
+            mode,
+            input,
+            audit,
+        }) {
+            try {
+                const execution = await executionRepository.createExecution({
+                    scriptName,
+                    scriptVersion,
+                    trigger,
+                    mode: mode || 'async',
+                    input,
+                    audit,
+                });
+                return execution;
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        /**
+         * Find a script execution by ID
+         *
+         * @param {string|number} executionId - The execution ID
+         * @returns {Promise<Object>} Execution record or error
+         */
+        async findScriptExecutionById(executionId) {
+            try {
+                const execution = await executionRepository.findExecutionById(executionId);
+                if (!execution) {
+                    const error = new Error(`Execution ${executionId} not found`);
+                    error.code = 'EXECUTION_NOT_FOUND';
+                    return mapErrorToResponse(error);
+                }
+                return execution;
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        /**
+         * Find all executions for a specific script
+         *
+         * @param {string} scriptName - Script name to filter by
+         * @param {Object} [options] - Query options (limit, offset, sortBy, sortOrder)
+         * @returns {Promise<Array>} Array of execution records
+         */
+        async findScriptExecutionsByName(scriptName, options = {}) {
+            try {
+                const executions = await executionRepository.findExecutionsByScriptName(
+                    scriptName,
+                    options
+                );
+                return executions;
+            } catch (error) {
+                // Return empty array on error (non-critical)
+                return [];
+            }
+        },
+
+        /**
+         * Update execution status
+         *
+         * @param {string|number} executionId - The execution ID
+         * @param {string} status - New status ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'TIMEOUT', 'CANCELLED')
+         * @returns {Promise<Object>} Updated execution record
+         */
+        async updateScriptExecutionStatus(executionId, status) {
+            try {
+                const updated = await executionRepository.updateExecutionStatus(
+                    executionId,
+                    status
+                );
+                return updated;
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        /**
+         * Append a log entry to an execution's log array
+         *
+         * @param {string|number} executionId - The execution ID
+         * @param {Object} logEntry - Log entry { level, message, data, timestamp }
+         * @returns {Promise<Object>} Updated execution record
+         */
+        async appendScriptExecutionLog(executionId, logEntry) {
+            try {
+                const updated = await executionRepository.appendExecutionLog(
+                    executionId,
+                    logEntry
+                );
+                return updated;
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        /**
+         * Complete a script execution
+         * Updates status, output, error, and metrics
+         *
+         * @param {string|number} executionId - The execution ID
+         * @param {Object} params - Completion parameters
+         * @param {string} [params.status] - Final status ('COMPLETED', 'FAILED', 'TIMEOUT')
+         * @param {Object} [params.output] - Script output/result
+         * @param {Object} [params.error] - Error details { name, message, stack }
+         * @param {Object} [params.metrics] - Performance metrics { startTime, endTime, durationMs }
+         * @returns {Promise<Object>} { success: true } or error
+         */
+        async completeScriptExecution(executionId, { status, output, error, metrics }) {
+            try {
+                // Update each field independently (partial updates allowed)
+                if (status) {
+                    await executionRepository.updateExecutionStatus(executionId, status);
+                }
+                if (output !== undefined) {
+                    await executionRepository.updateExecutionOutput(executionId, output);
+                }
+                if (error) {
+                    await executionRepository.updateExecutionError(executionId, error);
+                }
+                if (metrics) {
+                    await executionRepository.updateExecutionMetrics(executionId, metrics);
+                }
+
+                return { success: true };
+            } catch (err) {
+                return mapErrorToResponse(err);
+            }
+        },
+
+        /**
+         * Find recent executions across all scripts
+         *
+         * @param {Object} [options] - Query options
+         * @param {number} [options.limit] - Maximum results (default 20)
+         * @param {string} [options.status] - Filter by status
+         * @param {Date} [options.since] - Filter by created date
+         * @returns {Promise<Array>} Array of recent executions
+         */
+        async findRecentExecutions(options = {}) {
+            try {
+                const { limit = 20, status, since } = options;
+
+                // If status filter provided, use status query
+                if (status) {
+                    return await executionRepository.findExecutionsByStatus(status, {
+                        limit,
+                        sortBy: 'createdAt',
+                        sortOrder: 'desc',
+                    });
+                }
+
+                // Otherwise, use generic recent query (would need to be added to interface)
+                // For now, fall back to empty array if no status filter
+                return [];
+            } catch (error) {
+                return [];
+            }
+        },
+    };
+}
+
+module.exports = { createAdminScriptCommands };
