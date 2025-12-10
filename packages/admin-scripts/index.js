@@ -29,6 +29,15 @@ const {
     registerBuiltinScripts,
 } = require('./src/builtins');
 
+// Adapters
+const { SchedulerAdapter } = require('./src/adapters/scheduler-adapter');
+const { AWSSchedulerAdapter } = require('./src/adapters/aws-scheduler-adapter');
+const { LocalSchedulerAdapter } = require('./src/adapters/local-scheduler-adapter');
+const {
+    createSchedulerAdapter,
+    detectSchedulerAdapterType,
+} = require('./src/adapters/scheduler-adapter-factory');
+
 // Factory function for creating the admin backend (TODO: implement when infrastructure is ready)
 // function createAdminBackend(params) {
 //     const {
@@ -84,4 +93,11 @@ module.exports = {
     IntegrationHealthCheckScript,
     builtinScripts,
     registerBuiltinScripts,
+
+    // Adapters
+    SchedulerAdapter,
+    AWSSchedulerAdapter,
+    LocalSchedulerAdapter,
+    createSchedulerAdapter,
+    detectSchedulerAdapterType,
 };

@@ -428,3 +428,24 @@ model ScriptExecution {
   @@index([status])
   @@map("ScriptExecution")
 }
+
+/// Script scheduling configuration for hybrid scheduling (SQS + EventBridge)
+model ScriptSchedule {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  scriptName      String    @unique
+  enabled         Boolean   @default(false)
+  cronExpression  String?
+  timezone        String    @default("UTC")
+  lastTriggeredAt DateTime?
+  nextTriggerAt   DateTime?
+
+  // AWS EventBridge Rule (if provisioned)
+  awsRuleArn  String?
+  awsRuleName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([enabled])
+  @@map("ScriptSchedule")
+}
