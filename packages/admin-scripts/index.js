@@ -21,8 +21,13 @@ const { adminAuthMiddleware } = require('./src/infrastructure/admin-auth-middlew
 const { router, app, handler: routerHandler } = require('./src/infrastructure/admin-script-router');
 const { handler: executorHandler } = require('./src/infrastructure/script-executor-handler');
 
-// Built-in Scripts (TODO: implement these)
-// const builtinScripts = require('./src/builtins');
+// Built-in Scripts
+const {
+    OAuthTokenRefreshScript,
+    IntegrationHealthCheckScript,
+    builtinScripts,
+    registerBuiltinScripts,
+} = require('./src/builtins');
 
 // Factory function for creating the admin backend (TODO: implement when infrastructure is ready)
 // function createAdminBackend(params) {
@@ -73,4 +78,10 @@ module.exports = {
     app,
     routerHandler,
     executorHandler,
+
+    // Built-in scripts
+    OAuthTokenRefreshScript,
+    IntegrationHealthCheckScript,
+    builtinScripts,
+    registerBuiltinScripts,
 };
