@@ -274,4 +274,257 @@ describe('Admin Script Router', () => {
             });
         });
     });
+
+    describe('GET /admin/scripts/:scriptName/schedule', () => {
+        it('should return database schedule when override exists', async () => {
+            const dbSchedule = {
+                scriptName: 'test-script',
+                enabled: true,
+                cronExpression: '0 9 * * *',
+                timezone: 'America/New_York',
+                lastTriggeredAt: new Date('2025-01-01T09:00:00Z'),
+                nextTriggerAt: new Date('2025-01-02T09:00:00Z'),
+                awsRuleArn: 'arn:aws:events:us-east-1:123456789012:rule/test',
+                awsRuleName: 'test-script-schedule',
+                createdAt: new Date('2025-01-01T00:00:00Z'),
+                updatedAt: new Date('2025-01-01T00:00:00Z'),
+            };
+
+            mockCommands.getScheduleByScriptName = jest.fn().mockResolvedValue(dbSchedule);
+
+            const response = await request(app).get('/admin/scripts/test-script/schedule');
+
+            expect(response.status).toBe(200);
+            expect(response.body.source).toBe('database');
+            expect(response.body.enabled).toBe(true);
+            expect(response.body.cronExpression).toBe('0 9 * * *');
+            expect(response.body.timezone).toBe('America/New_York');
+        });
+
+        it('should return definition schedule when no database override', async () => {
+            mockCommands.getScheduleByScriptName = jest.fn().mockResolvedValue(null);
+
+            // Update test script to include schedule
+            class ScheduledTestScript extends TestScript {
+                static Definition = {
+                    ...TestScript.Definition,
+                    schedule: {
+                        enabled: true,
+                        cronExpression: '0 0 * * *',
+                        timezone: 'UTC',
+                    },
+                };
+            }
+
+            mockFactory.get.mockReturnValue(ScheduledTestScript);
+
+            const response = await request(app).get('/admin/scripts/test-script/schedule');
+
+            expect(response.status).toBe(200);
+            expect(response.body.source).toBe('definition');
+            expect(response.body.enabled).toBe(true);
+            expect(response.body.cronExpression).toBe('0 0 * * *');
+            expect(response.body.timezone).toBe('UTC');
+        });
+
+        it('should return none when no schedule configured', async () => {
+            mockCommands.getScheduleByScriptName = jest.fn().mockResolvedValue(null);
+
+            const response = await request(app).get('/admin/scripts/test-script/schedule');
+
+            expect(response.status).toBe(200);
+            expect(response.body.source).toBe('none');
+            expect(response.body.enabled).toBe(false);
+        });
+
+        it('should return 404 for non-existent script', async () => {
+            mockFactory.has.mockReturnValue(false);
+
+            const response = await request(app).get(
+                '/admin/scripts/non-existent/schedule'
+            );
+
+            expect(response.status).toBe(404);
+            expect(response.body.code).toBe('SCRIPT_NOT_FOUND');
+        });
+    });
+
+    describe('PUT /admin/scripts/:scriptName/schedule', () => {
+        it('should create new schedule', async () => {
+            const newSchedule = {
+                scriptName: 'test-script',
+                enabled: true,
+                cronExpression: '0 12 * * *',
+                timezone: 'America/Los_Angeles',
+                lastTriggeredAt: null,
+                nextTriggerAt: null,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            };
+
+            mockCommands.upsertSchedule = jest.fn().mockResolvedValue(newSchedule);
+
+            const response = await request(app)
+                .put('/admin/scripts/test-script/schedule')
+                .send({
+                    enabled: true,
+                    cronExpression: '0 12 * * *',
+                    timezone: 'America/Los_Angeles',
+                });
+
+            expect(response.status).toBe(200);
+            expect(response.body.success).toBe(true);
+            expect(response.body.schedule.source).toBe('database');
+            expect(response.body.schedule.enabled).toBe(true);
+            expect(response.body.schedule.cronExpression).toBe('0 12 * * *');
+            expect(mockCommands.upsertSchedule).toHaveBeenCalledWith({
+                scriptName: 'test-script',
+                enabled: true,
+                cronExpression: '0 12 * * *',
+                timezone: 'America/Los_Angeles',
+            });
+        });
+
+        it('should update existing schedule', async () => {
+            const updatedSchedule = {
+                scriptName: 'test-script',
+                enabled: false,
+                cronExpression: null,
+                timezone: 'UTC',
+                lastTriggeredAt: new Date('2025-01-01T09:00:00Z'),
+                nextTriggerAt: null,
+                createdAt: new Date('2025-01-01T00:00:00Z'),
+                updatedAt: new Date(),
+            };
+
+            mockCommands.upsertSchedule = jest.fn().mockResolvedValue(updatedSchedule);
+
+            const response = await request(app)
+                .put('/admin/scripts/test-script/schedule')
+                .send({
+                    enabled: false,
+                });
+
+            expect(response.status).toBe(200);
+            expect(response.body.success).toBe(true);
+            expect(response.body.schedule.enabled).toBe(false);
+        });
+
+        it('should require enabled field', async () => {
+            const response = await request(app)
+                .put('/admin/scripts/test-script/schedule')
+                .send({
+                    cronExpression: '0 12 * * *',
+                });
+
+            expect(response.status).toBe(400);
+            expect(response.body.code).toBe('INVALID_INPUT');
+            expect(response.body.error).toContain('enabled');
+        });
+
+        it('should require cronExpression when enabled is true', async () => {
+            const response = await request(app)
+                .put('/admin/scripts/test-script/schedule')
+                .send({
+                    enabled: true,
+                });
+
+            expect(response.status).toBe(400);
+            expect(response.body.code).toBe('INVALID_INPUT');
+            expect(response.body.error).toContain('cronExpression');
+        });
+
+        it('should return 404 for non-existent script', async () => {
+            mockFactory.has.mockReturnValue(false);
+
+            const response = await request(app)
+                .put('/admin/scripts/non-existent/schedule')
+                .send({
+                    enabled: true,
+                    cronExpression: '0 12 * * *',
+                });
+
+            expect(response.status).toBe(404);
+            expect(response.body.code).toBe('SCRIPT_NOT_FOUND');
+        });
+    });
+
+    describe('DELETE /admin/scripts/:scriptName/schedule', () => {
+        it('should delete schedule override', async () => {
+            mockCommands.deleteSchedule = jest.fn().mockResolvedValue({
+                acknowledged: true,
+                deletedCount: 1,
+                deleted: {
+                    scriptName: 'test-script',
+                    enabled: true,
+                    cronExpression: '0 12 * * *',
+                },
+            });
+
+            const response = await request(app).delete(
+                '/admin/scripts/test-script/schedule'
+            );
+
+            expect(response.status).toBe(200);
+            expect(response.body.success).toBe(true);
+            expect(response.body.deletedCount).toBe(1);
+            expect(response.body.message).toContain('removed');
+            expect(mockCommands.deleteSchedule).toHaveBeenCalledWith('test-script');
+        });
+
+        it('should return definition schedule after deleting override', async () => {
+            mockCommands.deleteSchedule = jest.fn().mockResolvedValue({
+                acknowledged: true,
+                deletedCount: 1,
+            });
+
+            // Update test script to include schedule
+            class ScheduledTestScript extends TestScript {
+                static Definition = {
+                    ...TestScript.Definition,
+                    schedule: {
+                        enabled: true,
+                        cronExpression: '0 0 * * *',
+                        timezone: 'UTC',
+                    },
+                };
+            }
+
+            mockFactory.get.mockReturnValue(ScheduledTestScript);
+
+            const response = await request(app).delete(
+                '/admin/scripts/test-script/schedule'
+            );
+
+            expect(response.status).toBe(200);
+            expect(response.body.effectiveSchedule.source).toBe('definition');
+            expect(response.body.effectiveSchedule.enabled).toBe(true);
+        });
+
+        it('should handle no schedule found', async () => {
+            mockCommands.deleteSchedule = jest.fn().mockResolvedValue({
+                acknowledged: true,
+                deletedCount: 0,
+            });
+
+            const response = await request(app).delete(
+                '/admin/scripts/test-script/schedule'
+            );
+
+            expect(response.status).toBe(200);
+            expect(response.body.deletedCount).toBe(0);
+            expect(response.body.message).toContain('No schedule override found');
+        });
+
+        it('should return 404 for non-existent script', async () => {
+            mockFactory.has.mockReturnValue(false);
+
+            const response = await request(app).delete(
+                '/admin/scripts/non-existent/schedule'
+            );
+
+            expect(response.status).toBe(404);
+            expect(response.body.code).toBe('SCRIPT_NOT_FOUND');
+        });
+    });
 });

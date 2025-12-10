@@ -29,9 +29,11 @@ function createAdminScriptCommands() {
     // Lazy-load repository factories to avoid circular dependencies
     const { createAdminApiKeyRepository } = require('../../admin-scripts/repositories/admin-api-key-repository-factory');
     const { createScriptExecutionRepository } = require('../../admin-scripts/repositories/script-execution-repository-factory');
+    const { createScriptScheduleRepository } = require('../../admin-scripts/repositories/script-schedule-repository-factory');
 
     const apiKeyRepository = createAdminApiKeyRepository();
     const executionRepository = createScriptExecutionRepository();
+    const scheduleRepository = createScriptScheduleRepository();
 
     return {
         // ==================== API Key Management Commands ====================
@@ -331,6 +333,120 @@ function createAdminScriptCommands() {
                 // Otherwise, use generic recent query (would need to be added to interface)
                 // For now, fall back to empty array if no status filter
                 return [];
+            } catch (error) {
+                return [];
+            }
+        },
+
+        // ==================== Schedule Management Commands ====================
+
+        /**
+         * Get schedule by script name
+         * Returns database override or null
+         *
+         * @param {string} scriptName - The script name
+         * @returns {Promise<Object|null>} Schedule record or null
+         */
+        async getScheduleByScriptName(scriptName) {
+            try {
+                const schedule = await scheduleRepository.findScheduleByScriptName(scriptName);
+                return schedule;
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        /**
+         * Create or update a schedule (upsert)
+         *
+         * @param {Object} params - Schedule parameters
+         * @param {string} params.scriptName - Name of the script
+         * @param {boolean} params.enabled - Whether schedule is enabled
+         * @param {string} params.cronExpression - Cron expression
+         * @param {string} [params.timezone] - Timezone (default 'UTC')
+         * @returns {Promise<Object>} Created or updated schedule
+         */
+        async upsertSchedule({ scriptName, enabled, cronExpression, timezone }) {
+            try {
+                const schedule = await scheduleRepository.upsertSchedule({
+                    scriptName,
+                    enabled,
+                    cronExpression,
+                    timezone,
+                });
+                return schedule;
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        /**
+         * Delete a schedule by script name
+         *
+         * @param {string} scriptName - The script name
+         * @returns {Promise<Object>} Deletion result
+         */
+        async deleteSchedule(scriptName) {
+            try {
+                const result = await scheduleRepository.deleteSchedule(scriptName);
+                return result;
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        /**
+         * Update AWS EventBridge rule information
+         *
+         * @param {string} scriptName - The script name
+         * @param {Object} awsInfo - AWS rule information
+         * @param {string} [awsInfo.awsRuleArn] - AWS EventBridge rule ARN
+         * @param {string} [awsInfo.awsRuleName] - AWS EventBridge rule name
+         * @returns {Promise<Object>} Updated schedule
+         */
+        async updateScheduleAwsRule(scriptName, { awsRuleArn, awsRuleName }) {
+            try {
+                const schedule = await scheduleRepository.updateScheduleAwsRule(scriptName, {
+                    awsRuleArn,
+                    awsRuleName,
+                });
+                return schedule;
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        /**
+         * Update last triggered timestamp
+         * Called when a schedule triggers
+         *
+         * @param {string} scriptName - The script name
+         * @param {Date} [timestamp] - Trigger timestamp (default: now)
+         * @returns {Promise<Object>} Updated schedule
+         */
+        async updateScheduleLastTriggered(scriptName, timestamp) {
+            try {
+                const schedule = await scheduleRepository.updateScheduleLastTriggered(
+                    scriptName,
+                    timestamp
+                );
+                return schedule;
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        /**
+         * List all schedules
+         *
+         * @param {Object} [options] - Query options
+         * @param {boolean} [options.enabledOnly] - Only return enabled schedules
+         * @returns {Promise<Array>} Array of schedule records
+         */
+        async listSchedules(options = {}) {
+            try {
+                const schedules = await scheduleRepository.listSchedules(options);
+                return schedules;
             } catch (error) {
                 return [];
             }
