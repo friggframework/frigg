@@ -107,6 +107,25 @@
  */
 
 /**
+ * Admin script definition
+ * @typedef {Object} AdminScriptDefinition
+ * @property {Object} Definition - Static definition from script class
+ * @property {string} Definition.name - Script name identifier
+ * @property {string} Definition.version - Script version (semver)
+ * @property {string} [Definition.description] - Human-readable description
+ * @property {Object} [Definition.schedule] - Schedule configuration
+ * @property {boolean} [Definition.schedule.enabled] - Whether scheduling is enabled
+ * @property {string} [Definition.schedule.cronExpression] - Cron expression
+ */
+
+/**
+ * Admin configuration
+ * @typedef {Object} AdminConfig
+ * @property {boolean} [includeBuiltinScripts] - Whether to include built-in scripts
+ * @property {boolean} [enableScheduling] - Whether to enable EventBridge scheduling
+ */
+
+/**
  * Complete application definition
  * @typedef {Object} AppDefinition
  * @property {string} name - Application name
@@ -122,6 +141,8 @@
  * @property {MigrationDefinition} [migrations] - Database migration configuration
  * @property {WebsocketDefinition} [websockets] - WebSocket API configuration
  * @property {IntegrationDefinition[]} [integrations] - Integration definitions
+ * @property {AdminScriptDefinition[]} [adminScripts] - Admin script definitions
+ * @property {AdminConfig} [admin] - Admin configuration
  *
  * @property {Object} [environment] - Environment variables
  */
