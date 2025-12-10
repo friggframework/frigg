@@ -219,8 +219,8 @@ class ScriptExecutionRepositoryMongo extends ScriptExecutionRepositoryInterface 
             throw new Error(`Execution ${id} not found`);
         }
 
-        // Append log entry to logs array
-        const logs = Array.isArray(execution.logs) ? execution.logs : [];
+        // Append log entry to logs array (copy to avoid mutating original)
+        const logs = Array.isArray(execution.logs) ? [...execution.logs] : [];
         logs.push(logEntry);
 
         // Update with new logs array
