@@ -1,0 +1,215 @@
+const { AdminScriptBase } = require('../application/admin-script-base');
+
+/**
+ * OAuth Token Refresh Script
+ *
+ * Refreshes OAuth tokens for integrations that are near expiry.
+ * This helps prevent authentication failures due to expired tokens.
+ */
+class OAuthTokenRefreshScript extends AdminScriptBase {
+    static Definition = {
+        name: 'oauth-token-refresh',
+        version: '1.0.0',
+        description: 'Refreshes OAuth tokens for integrations near expiry',
+        source: 'BUILTIN',
+
+        inputSchema: {
+            type: 'object',
+            properties: {
+                integrationIds: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Specific integration IDs to refresh (optional, defaults to all)'
+                },
+                expiryThresholdHours: {
+                    type: 'number',
+                    default: 24,
+                    description: 'Refresh tokens expiring within this many hours'
+                },
+                dryRun: {
+                    type: 'boolean',
+                    default: false,
+                    description: 'Preview without making changes'
+                }
+            }
+        },
+
+        outputSchema: {
+            type: 'object',
+            properties: {
+                refreshed: { type: 'number' },
+                failed: { type: 'number' },
+                skipped: { type: 'number' },
+                details: { type: 'array' }
+            }
+        },
+
+        config: {
+            timeout: 600000, // 10 minutes
+            maxRetries: 1,
+            requiresIntegrationFactory: true, // Needs to call external APIs
+        },
+
+        display: {
+            label: 'OAuth Token Refresh',
+            description: 'Refresh OAuth tokens before they expire',
+            category: 'maintenance',
+        },
+    };
+
+    async execute(frigg, params = {}) {
+        const {
+            integrationIds = null,
+            expiryThresholdHours = 24,
+            dryRun = false
+        } = params;
+
+        const results = {
+            refreshed: 0,
+            failed: 0,
+            skipped: 0,
+            details: []
+        };
+
+        frigg.log('info', 'Starting OAuth token refresh', {
+            expiryThresholdHours,
+            dryRun,
+            specificIds: integrationIds?.length || 'all'
+        });
+
+        // Get integrations to check
+        let integrations;
+        if (integrationIds && integrationIds.length > 0) {
+            integrations = await Promise.all(
+                integrationIds.map(id => frigg.findIntegrationById(id).catch(() => null))
+            );
+            integrations = integrations.filter(Boolean);
+        } else {
+            // Get all integrations (this would need to be paginated for large deployments)
+            integrations = await this.getAllIntegrations(frigg);
+        }
+
+        frigg.log('info', `Found ${integrations.length} integrations to check`);
+
+        for (const integration of integrations) {
+            try {
+                const detail = await this.processIntegration(frigg, integration, {
+                    expiryThresholdHours,
+                    dryRun
+                });
+
+                results.details.push(detail);
+
+                if (detail.action === 'refreshed') {
+                    results.refreshed++;
+                } else if (detail.action === 'skipped') {
+                    results.skipped++;
+                } else if (detail.action === 'failed') {
+                    results.failed++;
+                }
+            } catch (error) {
+                frigg.log('error', `Error processing integration ${integration.id}`, {
+                    error: error.message
+                });
+                results.failed++;
+                results.details.push({
+                    integrationId: integration.id,
+                    action: 'failed',
+                    reason: error.message
+                });
+            }
+        }
+
+        frigg.log('info', 'OAuth token refresh completed', {
+            refreshed: results.refreshed,
+            failed: results.failed,
+            skipped: results.skipped
+        });
+
+        return results;
+    }
+
+    async getAllIntegrations(frigg) {
+        // This is a simplified implementation
+        // In production, would need pagination for large datasets
+        return frigg.listIntegrations({});
+    }
+
+    async processIntegration(frigg, integration, options) {
+        const { expiryThresholdHours, dryRun } = options;
+
+        // Check if integration has OAuth credentials
+        if (!integration.config?.credentials?.access_token) {
+            return {
+                integrationId: integration.id,
+                action: 'skipped',
+                reason: 'No OAuth credentials found'
+            };
+        }
+
+        // Check token expiry
+        const expiresAt = integration.config?.credentials?.expires_at;
+        if (!expiresAt) {
+            return {
+                integrationId: integration.id,
+                action: 'skipped',
+                reason: 'No expiry time found'
+            };
+        }
+
+        const expiryTime = new Date(expiresAt);
+        const thresholdTime = new Date(Date.now() + (expiryThresholdHours * 60 * 60 * 1000));
+
+        if (expiryTime > thresholdTime) {
+            return {
+                integrationId: integration.id,
+                action: 'skipped',
+                reason: 'Token not near expiry',
+                expiresAt: expiresAt
+            };
+        }
+
+        if (dryRun) {
+            frigg.log('info', `[DRY RUN] Would refresh token for ${integration.id}`);
+            return {
+                integrationId: integration.id,
+                action: 'skipped',
+                reason: 'Dry run - would have refreshed'
+            };
+        }
+
+        // Refresh the token
+        try {
+            const instance = await frigg.instantiate(integration.id);
+
+            // Call refresh on the primary API
+            if (instance.primary?.api?.refreshAccessToken) {
+                await instance.primary.api.refreshAccessToken();
+
+                frigg.log('info', `Refreshed token for integration ${integration.id}`);
+                return {
+                    integrationId: integration.id,
+                    action: 'refreshed',
+                    previousExpiry: expiresAt
+                };
+            } else {
+                return {
+                    integrationId: integration.id,
+                    action: 'skipped',
+                    reason: 'API does not support token refresh'
+                };
+            }
+        } catch (error) {
+            frigg.log('error', `Failed to refresh token for ${integration.id}`, {
+                error: error.message
+            });
+            return {
+                integrationId: integration.id,
+                action: 'failed',
+                reason: error.message
+            };
+        }
+    }
+}
+
+module.exports = { OAuthTokenRefreshScript };
