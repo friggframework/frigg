@@ -1911,23 +1911,38 @@ class LargeScaleHealingScript extends AdminScriptBase {
 ```javascript
 // In admin-frigg-commands.js
 
-async queueScript(scriptName, params) {
-    const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
-    const sqs = new SQSClient({});
+const { QueuerUtil } = require('@friggframework/core/queues');
 
-    await sqs.send(new SendMessageCommand({
-        QueueUrl: process.env.ADMIN_SCRIPT_QUEUE_URL,
-        MessageBody: JSON.stringify({
+async queueScript(scriptName, params) {
+    await QueuerUtil.send(
+        {
             scriptName,
             trigger: 'QUEUE',  // Self-queued continuation
             params,
             parentExecutionId: this.executionId,  // Track lineage
-        }),
-    }));
+        },
+        process.env.ADMIN_SCRIPT_QUEUE_URL
+    );
 
     this.log('info', `Queued continuation for ${scriptName}`, { params });
 }
+
+// For batch operations (e.g., queuing multiple scripts)
+async queueScriptBatch(entries) {
+    // entries = [{ scriptName, params }, ...]
+    const messages = entries.map(entry => ({
+        scriptName: entry.scriptName,
+        trigger: 'QUEUE',
+        params: entry.params,
+        parentExecutionId: this.executionId,
+    }));
+
+    await QueuerUtil.batchSend(messages, process.env.ADMIN_SCRIPT_QUEUE_URL);
+    this.log('info', `Queued ${entries.length} script continuations`);
+}
 ```
+
+**Reference**: `/home/user/frigg/packages/core/queues/queuer-util.js`
 
 **Benefits**:
 - No Lambda timeout issues (each batch < 15 min)
