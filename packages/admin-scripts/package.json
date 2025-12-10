@@ -1,0 +1,49 @@
+{
+    "name": "@friggframework/admin-scripts",
+    "prettier": "@friggframework/prettier-config",
+    "version": "2.0.0-next.0",
+    "description": "Admin Script Runner for Frigg - Execute maintenance and operational scripts in hosted environments",
+    "dependencies": {
+        "@friggframework/core": "^2.0.0-next.0",
+        "@aws-sdk/client-scheduler": "^3.588.0",
+        "bcryptjs": "^2.4.3",
+        "lodash": "4.17.21",
+        "mongoose": "6.11.6",
+        "uuid": "^9.0.1"
+    },
+    "devDependencies": {
+        "@friggframework/eslint-config": "^2.0.0-next.0",
+        "@friggframework/prettier-config": "^2.0.0-next.0",
+        "@friggframework/test": "^2.0.0-next.0",
+        "chai": "^4.3.6",
+        "eslint": "^8.22.0",
+        "jest": "^29.7.0",
+        "prettier": "^2.7.1",
+        "sinon": "^16.1.1"
+    },
+    "scripts": {
+        "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
+        "test": "jest --passWithNoTests"
+    },
+    "author": "",
+    "license": "MIT",
+    "main": "index.js",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/friggframework/frigg.git"
+    },
+    "bugs": {
+        "url": "https://github.com/friggframework/frigg/issues"
+    },
+    "homepage": "https://github.com/friggframework/frigg#readme",
+    "publishConfig": {
+        "access": "public"
+    },
+    "keywords": [
+        "frigg",
+        "admin",
+        "scripts",
+        "maintenance",
+        "operations"
+    ]
+}
