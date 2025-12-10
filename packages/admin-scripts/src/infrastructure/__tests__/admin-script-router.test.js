@@ -19,16 +19,19 @@ jest.mock('../../application/script-factory');
 jest.mock('../../application/script-runner');
 jest.mock('@friggframework/core/application/commands/admin-script-commands');
 jest.mock('@friggframework/core/queues');
+jest.mock('../../adapters/scheduler-adapter-factory');
 
 const { getScriptFactory } = require('../../application/script-factory');
 const { createScriptRunner } = require('../../application/script-runner');
 const { createAdminScriptCommands } = require('@friggframework/core/application/commands/admin-script-commands');
 const { QueuerUtil } = require('@friggframework/core/queues');
+const { createSchedulerAdapter } = require('../../adapters/scheduler-adapter-factory');
 
 describe('Admin Script Router', () => {
     let mockFactory;
     let mockRunner;
     let mockCommands;
+    let mockSchedulerAdapter;
 
     class TestScript extends AdminScriptBase {
         static Definition = {
@@ -61,9 +64,16 @@ describe('Admin Script Router', () => {
             findRecentExecutions: jest.fn(),
         };
 
+        mockSchedulerAdapter = {
+            createSchedule: jest.fn(),
+            deleteSchedule: jest.fn(),
+            setScheduleEnabled: jest.fn(),
+        };
+
         getScriptFactory.mockReturnValue(mockFactory);
         createScriptRunner.mockReturnValue(mockRunner);
         createAdminScriptCommands.mockReturnValue(mockCommands);
+        createSchedulerAdapter.mockReturnValue(mockSchedulerAdapter);
         QueuerUtil.send = jest.fn().mockResolvedValue({});
 
         // Default mock implementations
@@ -447,6 +457,102 @@ describe('Admin Script Router', () => {
             expect(response.status).toBe(404);
             expect(response.body.code).toBe('SCRIPT_NOT_FOUND');
         });
+
+        it('should provision EventBridge schedule when enabled', async () => {
+            const newSchedule = {
+                scriptName: 'test-script',
+                enabled: true,
+                cronExpression: '0 12 * * *',
+                timezone: 'America/Los_Angeles',
+                lastTriggeredAt: null,
+                nextTriggerAt: null,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            };
+
+            mockCommands.upsertSchedule = jest.fn().mockResolvedValue(newSchedule);
+            mockCommands.updateScheduleAwsRule = jest.fn().mockResolvedValue(newSchedule);
+            mockSchedulerAdapter.createSchedule.mockResolvedValue({
+                ruleArn: 'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
+                ruleName: 'frigg-script-test-script',
+            });
+
+            const response = await request(app)
+                .put('/admin/scripts/test-script/schedule')
+                .send({
+                    enabled: true,
+                    cronExpression: '0 12 * * *',
+                    timezone: 'America/Los_Angeles',
+                });
+
+            expect(response.status).toBe(200);
+            expect(mockSchedulerAdapter.createSchedule).toHaveBeenCalledWith({
+                scriptName: 'test-script',
+                cronExpression: '0 12 * * *',
+                timezone: 'America/Los_Angeles',
+            });
+            expect(mockCommands.updateScheduleAwsRule).toHaveBeenCalledWith('test-script', {
+                awsRuleArn: 'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
+                awsRuleName: 'frigg-script-test-script',
+            });
+            expect(response.body.schedule.awsRuleArn).toBe('arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script');
+        });
+
+        it('should delete EventBridge schedule when disabling existing schedule', async () => {
+            const existingSchedule = {
+                scriptName: 'test-script',
+                enabled: false,
+                cronExpression: null,
+                timezone: 'UTC',
+                awsRuleArn: 'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
+                awsRuleName: 'frigg-script-test-script',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            };
+
+            mockCommands.upsertSchedule = jest.fn().mockResolvedValue(existingSchedule);
+            mockCommands.updateScheduleAwsRule = jest.fn().mockResolvedValue(existingSchedule);
+            mockSchedulerAdapter.deleteSchedule.mockResolvedValue();
+
+            const response = await request(app)
+                .put('/admin/scripts/test-script/schedule')
+                .send({
+                    enabled: false,
+                });
+
+            expect(response.status).toBe(200);
+            expect(mockSchedulerAdapter.deleteSchedule).toHaveBeenCalledWith('test-script');
+            expect(mockCommands.updateScheduleAwsRule).toHaveBeenCalledWith('test-script', {
+                awsRuleArn: null,
+                awsRuleName: null,
+            });
+        });
+
+        it('should handle scheduler errors gracefully (non-fatal)', async () => {
+            const newSchedule = {
+                scriptName: 'test-script',
+                enabled: true,
+                cronExpression: '0 12 * * *',
+                timezone: 'UTC',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            };
+
+            mockCommands.upsertSchedule = jest.fn().mockResolvedValue(newSchedule);
+            mockSchedulerAdapter.createSchedule.mockRejectedValue(new Error('AWS Scheduler API error'));
+
+            const response = await request(app)
+                .put('/admin/scripts/test-script/schedule')
+                .send({
+                    enabled: true,
+                    cronExpression: '0 12 * * *',
+                });
+
+            // Request should succeed despite scheduler error
+            expect(response.status).toBe(200);
+            expect(response.body.success).toBe(true);
+            expect(response.body.schedulerWarning).toBe('AWS Scheduler API error');
+        });
     });
 
     describe('DELETE /admin/scripts/:scriptName/schedule', () => {
@@ -525,6 +631,71 @@ describe('Admin Script Router', () => {
 
             expect(response.status).toBe(404);
             expect(response.body.code).toBe('SCRIPT_NOT_FOUND');
+        });
+
+        it('should delete EventBridge schedule when AWS rule exists', async () => {
+            mockCommands.deleteSchedule = jest.fn().mockResolvedValue({
+                acknowledged: true,
+                deletedCount: 1,
+                deleted: {
+                    scriptName: 'test-script',
+                    enabled: true,
+                    cronExpression: '0 12 * * *',
+                    awsRuleArn: 'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
+                    awsRuleName: 'frigg-script-test-script',
+                },
+            });
+            mockSchedulerAdapter.deleteSchedule.mockResolvedValue();
+
+            const response = await request(app).delete(
+                '/admin/scripts/test-script/schedule'
+            );
+
+            expect(response.status).toBe(200);
+            expect(mockSchedulerAdapter.deleteSchedule).toHaveBeenCalledWith('test-script');
+        });
+
+        it('should not call scheduler when no AWS rule exists', async () => {
+            mockCommands.deleteSchedule = jest.fn().mockResolvedValue({
+                acknowledged: true,
+                deletedCount: 1,
+                deleted: {
+                    scriptName: 'test-script',
+                    enabled: true,
+                    cronExpression: '0 12 * * *',
+                    // No awsRuleArn
+                },
+            });
+
+            const response = await request(app).delete(
+                '/admin/scripts/test-script/schedule'
+            );
+
+            expect(response.status).toBe(200);
+            expect(mockSchedulerAdapter.deleteSchedule).not.toHaveBeenCalled();
+        });
+
+        it('should handle scheduler delete errors gracefully (non-fatal)', async () => {
+            mockCommands.deleteSchedule = jest.fn().mockResolvedValue({
+                acknowledged: true,
+                deletedCount: 1,
+                deleted: {
+                    scriptName: 'test-script',
+                    enabled: true,
+                    cronExpression: '0 12 * * *',
+                    awsRuleArn: 'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
+                },
+            });
+            mockSchedulerAdapter.deleteSchedule.mockRejectedValue(new Error('AWS Scheduler delete failed'));
+
+            const response = await request(app).delete(
+                '/admin/scripts/test-script/schedule'
+            );
+
+            // Request should succeed despite scheduler error
+            expect(response.status).toBe(200);
+            expect(response.body.success).toBe(true);
+            expect(response.body.schedulerWarning).toBe('AWS Scheduler delete failed');
         });
     });
 });
