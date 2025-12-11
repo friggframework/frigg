@@ -6,11 +6,24 @@ const { createScriptRunner } = require('../application/script-runner');
 const { createAdminScriptCommands } = require('@friggframework/core/application/commands/admin-script-commands');
 const { QueuerUtil } = require('@friggframework/core/queues');
 const { createSchedulerAdapter } = require('../adapters/scheduler-adapter-factory');
+const { ScheduleManagementUseCase } = require('../application/schedule-management-use-case');
 
 const router = express.Router();
 
 // Apply auth middleware to all admin routes
 router.use(adminAuthMiddleware);
+
+/**
+ * Create ScheduleManagementUseCase instance
+ * @private
+ */
+function createScheduleManagementUseCase() {
+    return new ScheduleManagementUseCase({
+        commands: createAdminScriptCommands(),
+        schedulerAdapter: createSchedulerAdapter(),
+        scriptFactory: getScriptFactory(),
+    });
+}
 
 /**
  * GET /admin/scripts
@@ -200,60 +213,22 @@ router.get('/executions', async (req, res) => {
 router.get('/scripts/:scriptName/schedule', async (req, res) => {
     try {
         const { scriptName } = req.params;
-        const factory = getScriptFactory();
-        const commands = createAdminScriptCommands();
+        const useCase = createScheduleManagementUseCase();
 
-        // 1. Validate script exists
-        if (!factory.has(scriptName)) {
-            return res.status(404).json({
-                error: `Script "${scriptName}" not found`,
-                code: 'SCRIPT_NOT_FOUND',
-            });
-        }
+        const result = await useCase.getEffectiveSchedule(scriptName);
 
-        // 2. Get script class to access Definition
-        const scriptClass = factory.get(scriptName);
-        const definitionSchedule = scriptClass.Definition?.schedule;
-
-        // 3. Get database schedule (if exists)
-        const dbSchedule = await commands.getScheduleByScriptName(scriptName);
-
-        // 4. Apply hybrid schedule logic: DB override > Definition default > none
-        if (dbSchedule) {
-            // Database override exists
-            return res.json({
-                source: 'database',
-                scriptName,
-                enabled: dbSchedule.enabled,
-                cronExpression: dbSchedule.cronExpression,
-                timezone: dbSchedule.timezone,
-                lastTriggeredAt: dbSchedule.lastTriggeredAt,
-                nextTriggerAt: dbSchedule.nextTriggerAt,
-                awsScheduleArn: dbSchedule.awsScheduleArn,
-                awsScheduleName: dbSchedule.awsScheduleName,
-                createdAt: dbSchedule.createdAt,
-                updatedAt: dbSchedule.updatedAt,
-            });
-        }
-
-        if (definitionSchedule?.enabled) {
-            // Definition default exists
-            return res.json({
-                source: 'definition',
-                scriptName,
-                enabled: definitionSchedule.enabled,
-                cronExpression: definitionSchedule.cronExpression,
-                timezone: definitionSchedule.timezone || 'UTC',
-            });
-        }
-
-        // No schedule configured
-        return res.json({
-            source: 'none',
+        res.json({
+            source: result.source,
             scriptName,
-            enabled: false,
+            ...result.schedule,
         });
     } catch (error) {
+        if (error.code === 'SCRIPT_NOT_FOUND') {
+            return res.status(404).json({
+                error: error.message,
+                code: error.code,
+            });
+        }
         console.error('Error getting schedule:', error);
         res.status(500).json({ error: 'Failed to get schedule' });
     }
@@ -267,91 +242,35 @@ router.put('/scripts/:scriptName/schedule', async (req, res) => {
     try {
         const { scriptName } = req.params;
         const { enabled, cronExpression, timezone } = req.body;
-        const factory = getScriptFactory();
-        const commands = createAdminScriptCommands();
+        const useCase = createScheduleManagementUseCase();
 
-        // 1. Validate script exists
-        if (!factory.has(scriptName)) {
-            return res.status(404).json({
-                error: `Script "${scriptName}" not found`,
-                code: 'SCRIPT_NOT_FOUND',
-            });
-        }
-
-        // 2. Validate required fields
-        if (typeof enabled !== 'boolean') {
-            return res.status(400).json({
-                error: 'Field "enabled" is required and must be a boolean',
-                code: 'INVALID_INPUT',
-            });
-        }
-
-        if (enabled && !cronExpression) {
-            return res.status(400).json({
-                error: 'Field "cronExpression" is required when enabled is true',
-                code: 'INVALID_INPUT',
-            });
-        }
-
-        // 3. Upsert schedule to database
-        const schedule = await commands.upsertSchedule({
-            scriptName,
+        const result = await useCase.upsertSchedule(scriptName, {
             enabled,
-            cronExpression: cronExpression || null,
-            timezone: timezone || 'UTC',
+            cronExpression,
+            timezone,
         });
-
-        // 4. Provision EventBridge Scheduler rule for automatic triggering
-        let awsScheduleInfo = null;
-        let schedulerError = null;
-        try {
-            const adapter = createSchedulerAdapter();
-            if (enabled && cronExpression) {
-                // Create or update the EventBridge schedule
-                awsScheduleInfo = await adapter.createSchedule({
-                    scriptName,
-                    cronExpression,
-                    timezone: timezone || 'UTC',
-                });
-                // Store AWS schedule info in database
-                if (awsScheduleInfo?.scheduleArn) {
-                    await commands.updateScheduleAwsInfo(scriptName, {
-                        awsScheduleArn: awsScheduleInfo.scheduleArn,
-                        awsScheduleName: awsScheduleInfo.scheduleName,
-                    });
-                }
-            } else if (!enabled && schedule.awsScheduleArn) {
-                // Disable: delete the EventBridge schedule
-                await adapter.deleteSchedule(scriptName);
-                await commands.updateScheduleAwsInfo(scriptName, {
-                    awsScheduleArn: null,
-                    awsScheduleName: null,
-                });
-            }
-        } catch (error) {
-            // Log but don't fail - DB schedule is saved, AWS provisioning can be retried
-            console.error('EventBridge Scheduler error (non-fatal):', error.message);
-            schedulerError = error.message;
-        }
 
         res.json({
-            success: true,
+            success: result.success,
             schedule: {
                 source: 'database',
-                scriptName: schedule.scriptName,
-                enabled: schedule.enabled,
-                cronExpression: schedule.cronExpression,
-                timezone: schedule.timezone,
-                lastTriggeredAt: schedule.lastTriggeredAt,
-                nextTriggerAt: schedule.nextTriggerAt,
-                createdAt: schedule.createdAt,
-                updatedAt: schedule.updatedAt,
-                awsScheduleArn: awsScheduleInfo?.scheduleArn || schedule.awsScheduleArn,
-                awsScheduleName: awsScheduleInfo?.scheduleName || schedule.awsScheduleName,
+                ...result.schedule,
             },
-            ...(schedulerError && { schedulerWarning: schedulerError }),
+            ...(result.schedulerWarning && { schedulerWarning: result.schedulerWarning }),
         });
     } catch (error) {
+        if (error.code === 'SCRIPT_NOT_FOUND') {
+            return res.status(404).json({
+                error: error.message,
+                code: error.code,
+            });
+        }
+        if (error.code === 'INVALID_INPUT') {
+            return res.status(400).json({
+                error: error.message,
+                code: error.code,
+            });
+        }
         console.error('Error updating schedule:', error);
         res.status(500).json({ error: 'Failed to update schedule' });
     }
@@ -364,55 +283,18 @@ router.put('/scripts/:scriptName/schedule', async (req, res) => {
 router.delete('/scripts/:scriptName/schedule', async (req, res) => {
     try {
         const { scriptName } = req.params;
-        const factory = getScriptFactory();
-        const commands = createAdminScriptCommands();
+        const useCase = createScheduleManagementUseCase();
 
-        // 1. Validate script exists
-        if (!factory.has(scriptName)) {
+        const result = await useCase.deleteSchedule(scriptName);
+
+        res.json(result);
+    } catch (error) {
+        if (error.code === 'SCRIPT_NOT_FOUND') {
             return res.status(404).json({
-                error: `Script "${scriptName}" not found`,
-                code: 'SCRIPT_NOT_FOUND',
+                error: error.message,
+                code: error.code,
             });
         }
-
-        // 2. Delete schedule from database
-        const result = await commands.deleteSchedule(scriptName);
-
-        // 3. Delete EventBridge Scheduler if it exists
-        let schedulerError = null;
-        if (result.deleted?.awsScheduleArn) {
-            try {
-                const adapter = createSchedulerAdapter();
-                await adapter.deleteSchedule(scriptName);
-            } catch (error) {
-                // Log but don't fail - DB schedule is deleted, AWS cleanup can be retried
-                console.error('EventBridge Scheduler delete error (non-fatal):', error.message);
-                schedulerError = error.message;
-            }
-        }
-
-        // 4. Check if Definition default exists
-        const scriptClass = factory.get(scriptName);
-        const definitionSchedule = scriptClass.Definition?.schedule;
-
-        res.json({
-            success: true,
-            deletedCount: result.deletedCount,
-            message:
-                result.deletedCount > 0
-                    ? 'Schedule override removed'
-                    : 'No schedule override found',
-            effectiveSchedule: definitionSchedule?.enabled
-                ? {
-                      source: 'definition',
-                      enabled: definitionSchedule.enabled,
-                      cronExpression: definitionSchedule.cronExpression,
-                      timezone: definitionSchedule.timezone || 'UTC',
-                  }
-                : { source: 'none', enabled: false },
-            ...(schedulerError && { schedulerWarning: schedulerError }),
-        });
-    } catch (error) {
         console.error('Error deleting schedule:', error);
         res.status(500).json({ error: 'Failed to delete schedule' });
     }

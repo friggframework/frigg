@@ -149,50 +149,77 @@ class IntegrationHealthCheckScript extends AdminScriptBase {
 
     async checkIntegration(frigg, integration, options) {
         const { checkCredentials, checkConnectivity } = options;
+        const result = this._createCheckResult(integration);
 
-        const result = {
+        try {
+            await this._runChecks(frigg, integration, result, { checkCredentials, checkConnectivity });
+            this._determineOverallStatus(result);
+        } catch (error) {
+            this._handleCheckError(frigg, integration, result, error);
+        }
+
+        return result;
+    }
+
+    /**
+     * Create initial check result object
+     * @private
+     */
+    _createCheckResult(integration) {
+        return {
             integrationId: integration.id,
             integrationType: integration.config?.type || 'unknown',
             status: 'unknown',
             checks: {},
             issues: []
         };
+    }
 
-        try {
-            // Check credentials
-            if (checkCredentials) {
-                const credCheck = this.checkCredentialValidity(integration);
-                result.checks.credentials = credCheck;
-                if (!credCheck.valid) {
-                    result.issues.push(credCheck.issue);
-                }
-            }
+    /**
+     * Run all requested checks
+     * @private
+     */
+    async _runChecks(frigg, integration, result, options) {
+        const { checkCredentials, checkConnectivity } = options;
 
-            // Check connectivity
-            if (checkConnectivity) {
-                const connCheck = await this.checkApiConnectivity(frigg, integration);
-                result.checks.connectivity = connCheck;
-                if (!connCheck.valid) {
-                    result.issues.push(connCheck.issue);
-                }
-            }
-
-            // Determine overall status
-            if (result.issues.length === 0) {
-                result.status = 'healthy';
-            } else {
-                result.status = 'unhealthy';
-            }
-
-        } catch (error) {
-            frigg.log('error', `Error checking integration ${integration.id}`, {
-                error: error.message
-            });
-            result.status = 'unknown';
-            result.issues.push(`Check failed: ${error.message}`);
+        if (checkCredentials) {
+            this._addCheckResult(result, 'credentials', this.checkCredentialValidity(integration));
         }
 
-        return result;
+        if (checkConnectivity) {
+            this._addCheckResult(result, 'connectivity', await this.checkApiConnectivity(frigg, integration));
+        }
+    }
+
+    /**
+     * Add a check result and track any issues
+     * @private
+     */
+    _addCheckResult(result, checkName, checkResult) {
+        result.checks[checkName] = checkResult;
+        if (!checkResult.valid) {
+            result.issues.push(checkResult.issue);
+        }
+    }
+
+    /**
+     * Determine overall health status from issues
+     * @private
+     */
+    _determineOverallStatus(result) {
+        result.status = result.issues.length === 0 ? 'healthy' : 'unhealthy';
+    }
+
+    /**
+     * Handle check error and update result
+     * @private
+     */
+    _handleCheckError(frigg, integration, result, error) {
+        frigg.log('error', `Error checking integration ${integration.id}`, {
+            error: error.message
+        });
+        result.status = 'unknown';
+        result.issues.push(`Check failed: ${error.message}`);
     }
 
     checkCredentialValidity(integration) {

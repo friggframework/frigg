@@ -138,77 +138,83 @@ class OAuthTokenRefreshScript extends AdminScriptBase {
     async processIntegration(frigg, integration, options) {
         const { expiryThresholdHours, dryRun } = options;
 
-        // Check if integration has OAuth credentials
-        if (!integration.config?.credentials?.access_token) {
-            return {
-                integrationId: integration.id,
-                action: 'skipped',
-                reason: 'No OAuth credentials found'
-            };
+        // Check prerequisites
+        const skipReason = this._checkRefreshPrerequisites(integration, expiryThresholdHours);
+        if (skipReason) {
+            return this._createResult(integration.id, 'skipped', skipReason);
         }
 
-        // Check token expiry
+        // Handle dry run
+        if (dryRun) {
+            frigg.log('info', `[DRY RUN] Would refresh token for ${integration.id}`);
+            return this._createResult(integration.id, 'skipped', 'Dry run - would have refreshed');
+        }
+
+        // Perform refresh
+        return this._performTokenRefresh(frigg, integration);
+    }
+
+    /**
+     * Check if integration meets prerequisites for token refresh
+     * @private
+     * @returns {string|null} Skip reason or null if eligible
+     */
+    _checkRefreshPrerequisites(integration, expiryThresholdHours) {
+        if (!integration.config?.credentials?.access_token) {
+            return 'No OAuth credentials found';
+        }
+
         const expiresAt = integration.config?.credentials?.expires_at;
         if (!expiresAt) {
-            return {
-                integrationId: integration.id,
-                action: 'skipped',
-                reason: 'No expiry time found'
-            };
+            return 'No expiry time found';
         }
 
         const expiryTime = new Date(expiresAt);
         const thresholdTime = new Date(Date.now() + (expiryThresholdHours * 60 * 60 * 1000));
 
         if (expiryTime > thresholdTime) {
-            return {
-                integrationId: integration.id,
-                action: 'skipped',
-                reason: 'Token not near expiry',
-                expiresAt: expiresAt
-            };
+            return 'Token not near expiry';
         }
 
-        if (dryRun) {
-            frigg.log('info', `[DRY RUN] Would refresh token for ${integration.id}`);
-            return {
-                integrationId: integration.id,
-                action: 'skipped',
-                reason: 'Dry run - would have refreshed'
-            };
-        }
+        return null;
+    }
 
-        // Refresh the token
+    /**
+     * Perform the actual token refresh
+     * @private
+     */
+    async _performTokenRefresh(frigg, integration) {
+        const expiresAt = integration.config?.credentials?.expires_at;
+
         try {
             const instance = await frigg.instantiate(integration.id);
 
-            // Call refresh on the primary API
-            if (instance.primary?.api?.refreshAccessToken) {
-                await instance.primary.api.refreshAccessToken();
-
-                frigg.log('info', `Refreshed token for integration ${integration.id}`);
-                return {
-                    integrationId: integration.id,
-                    action: 'refreshed',
-                    previousExpiry: expiresAt
-                };
-            } else {
-                return {
-                    integrationId: integration.id,
-                    action: 'skipped',
-                    reason: 'API does not support token refresh'
-                };
+            if (!instance.primary?.api?.refreshAccessToken) {
+                return this._createResult(integration.id, 'skipped', 'API does not support token refresh');
             }
+
+            await instance.primary.api.refreshAccessToken();
+            frigg.log('info', `Refreshed token for integration ${integration.id}`);
+
+            return {
+                integrationId: integration.id,
+                action: 'refreshed',
+                previousExpiry: expiresAt
+            };
         } catch (error) {
             frigg.log('error', `Failed to refresh token for ${integration.id}`, {
                 error: error.message
             });
-            return {
-                integrationId: integration.id,
-                action: 'failed',
-                reason: error.message
-            };
+            return this._createResult(integration.id, 'failed', error.message);
         }
+    }
+
+    /**
+     * Create a result object
+     * @private
+     */
+    _createResult(integrationId, action, reason) {
+        return { integrationId, action, reason };
     }
 }
 
