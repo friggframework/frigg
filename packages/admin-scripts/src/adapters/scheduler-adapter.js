@@ -18,7 +18,7 @@ class SchedulerAdapter {
      * @param {string} config.cronExpression - Cron expression
      * @param {string} [config.timezone] - Timezone (default UTC)
      * @param {Object} [config.input] - Optional input params
-     * @returns {Promise<Object>} Created schedule { ruleArn, ruleName }
+     * @returns {Promise<Object>} Created schedule { scheduleArn, scheduleName }
      */
     async createSchedule(config) {
         throw new Error('SchedulerAdapter.createSchedule() must be implemented');

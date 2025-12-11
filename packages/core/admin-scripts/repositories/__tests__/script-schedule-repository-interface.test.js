@@ -31,13 +31,13 @@ describe('ScriptScheduleRepositoryInterface', () => {
             ).rejects.toThrow('Method deleteSchedule must be implemented by subclass');
         });
 
-        it('should throw error when updateScheduleAwsRule is not implemented', async () => {
+        it('should throw error when updateScheduleAwsInfo is not implemented', async () => {
             await expect(
-                repository.updateScheduleAwsRule('test-script', {
-                    awsRuleArn: 'arn:aws:events:us-east-1:123456789012:rule/test-rule',
-                    awsRuleName: 'test-rule',
+                repository.updateScheduleAwsInfo('test-script', {
+                    awsScheduleArn: 'arn:aws:events:us-east-1:123456789012:rule/test-rule',
+                    awsScheduleName: 'test-rule',
                 })
-            ).rejects.toThrow('Method updateScheduleAwsRule must be implemented by subclass');
+            ).rejects.toThrow('Method updateScheduleAwsInfo must be implemented by subclass');
         });
 
         it('should throw error when updateScheduleLastTriggered is not implemented', async () => {
@@ -72,8 +72,8 @@ describe('ScriptScheduleRepositoryInterface', () => {
                 enabled: true,
                 cronExpression: '0 0 * * *',
                 timezone: 'America/New_York',
-                awsRuleArn: 'arn:aws:events:us-east-1:123456789012:rule/test',
-                awsRuleName: 'test-rule',
+                awsScheduleArn: 'arn:aws:events:us-east-1:123456789012:rule/test',
+                awsScheduleName: 'test-rule',
             };
 
             await expect(repository.upsertSchedule(params)).rejects.toThrow();
@@ -85,11 +85,11 @@ describe('ScriptScheduleRepositoryInterface', () => {
             ).rejects.toThrow();
         });
 
-        it('should accept scriptName and awsInfo in updateScheduleAwsRule', async () => {
+        it('should accept scriptName and awsInfo in updateScheduleAwsInfo', async () => {
             await expect(
-                repository.updateScheduleAwsRule('test-script', {
-                    awsRuleArn: 'arn:aws:events:us-east-1:123456789012:rule/test',
-                    awsRuleName: 'test-rule',
+                repository.updateScheduleAwsInfo('test-script', {
+                    awsScheduleArn: 'arn:aws:events:us-east-1:123456789012:rule/test',
+                    awsScheduleName: 'test-rule',
                 })
             ).rejects.toThrow();
         });

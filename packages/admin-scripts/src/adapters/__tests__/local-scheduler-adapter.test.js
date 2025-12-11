@@ -32,8 +32,8 @@ describe('LocalSchedulerAdapter', () => {
             const result = await adapter.createSchedule(config);
 
             expect(result).toEqual({
-                ruleName: 'test-script',
-                ruleArn: 'local:schedule:test-script',
+                scheduleName: 'test-script',
+                scheduleArn: 'local:schedule:test-script',
             });
             expect(adapter.size).toBe(1);
         });
@@ -49,8 +49,8 @@ describe('LocalSchedulerAdapter', () => {
             const result = await adapter.createSchedule(config);
 
             expect(result).toEqual({
-                ruleName: 'test-script',
-                ruleArn: 'local:schedule:test-script',
+                scheduleName: 'test-script',
+                scheduleArn: 'local:schedule:test-script',
             });
 
             const schedule = await adapter.getSchedule('test-script');

@@ -73,8 +73,8 @@ class AWSSchedulerAdapter extends SchedulerAdapter {
 
         const response = await client.send(command);
         return {
-            ruleArn: response.ScheduleArn,
-            ruleName: scheduleName,
+            scheduleArn: response.ScheduleArn,
+            scheduleName: scheduleName,
         };
     }
 

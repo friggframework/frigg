@@ -53,7 +53,7 @@ describe('SchedulerAdapter', () => {
                 }
 
                 async createSchedule(config) {
-                    return { ruleName: config.scriptName };
+                    return { scheduleName: config.scriptName };
                 }
 
                 async deleteSchedule(scriptName) {

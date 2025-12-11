@@ -104,8 +104,8 @@ describe('AWSSchedulerAdapter', () => {
             });
 
             expect(result).toEqual({
-                ruleArn: 'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
-                ruleName: 'frigg-script-test-script',
+                scheduleArn: 'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
+                scheduleName: 'frigg-script-test-script',
             });
 
             expect(mockSend).toHaveBeenCalledTimes(1);

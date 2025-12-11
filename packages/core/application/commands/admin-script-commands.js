@@ -396,19 +396,19 @@ function createAdminScriptCommands() {
         },
 
         /**
-         * Update AWS EventBridge rule information
+         * Update AWS EventBridge Scheduler information
          *
          * @param {string} scriptName - The script name
-         * @param {Object} awsInfo - AWS rule information
-         * @param {string} [awsInfo.awsRuleArn] - AWS EventBridge rule ARN
-         * @param {string} [awsInfo.awsRuleName] - AWS EventBridge rule name
+         * @param {Object} awsInfo - AWS schedule information
+         * @param {string} [awsInfo.awsScheduleArn] - AWS EventBridge Scheduler ARN
+         * @param {string} [awsInfo.awsScheduleName] - AWS EventBridge Scheduler name
          * @returns {Promise<Object>} Updated schedule
          */
-        async updateScheduleAwsRule(scriptName, { awsRuleArn, awsRuleName }) {
+        async updateScheduleAwsInfo(scriptName, { awsScheduleArn, awsScheduleName }) {
             try {
-                const schedule = await scheduleRepository.updateScheduleAwsRule(scriptName, {
-                    awsRuleArn,
-                    awsRuleName,
+                const schedule = await scheduleRepository.updateScheduleAwsInfo(scriptName, {
+                    awsScheduleArn,
+                    awsScheduleName,
                 });
                 return schedule;
             } catch (error) {
