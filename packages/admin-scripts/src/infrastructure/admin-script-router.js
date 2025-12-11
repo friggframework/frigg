@@ -183,7 +183,7 @@ router.get('/executions', async (req, res) => {
         const executions = await commands.findRecentExecutions({
             scriptName,
             status,
-            limit: parseInt(limit, 10),
+            limit: Number.parseInt(limit, 10),
         });
 
         res.json({ executions });

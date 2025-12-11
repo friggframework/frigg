@@ -28,8 +28,8 @@ class ScriptExecutionRepositoryPostgres extends ScriptExecutionRepositoryInterfa
      */
     _convertId(id) {
         if (id === null || id === undefined) return id;
-        const parsed = parseInt(id, 10);
-        if (isNaN(parsed)) {
+        const parsed = Number.parseInt(id, 10);
+        if (Number.isNaN(parsed)) {
             throw new Error(`Invalid ID: ${id} cannot be converted to integer`);
         }
         return parsed;
