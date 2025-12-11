@@ -420,9 +420,9 @@ model ScriptSchedule {
   lastTriggeredAt DateTime?
   nextTriggerAt   DateTime?
 
-  // AWS EventBridge Rule (if provisioned)
-  awsRuleArn  String?
-  awsRuleName String?
+  // AWS EventBridge Schedule (if provisioned)
+  awsScheduleArn  String?
+  awsScheduleName String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

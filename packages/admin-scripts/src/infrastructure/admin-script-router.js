@@ -229,8 +229,8 @@ router.get('/scripts/:scriptName/schedule', async (req, res) => {
                 timezone: dbSchedule.timezone,
                 lastTriggeredAt: dbSchedule.lastTriggeredAt,
                 nextTriggerAt: dbSchedule.nextTriggerAt,
-                awsRuleArn: dbSchedule.awsRuleArn,
-                awsRuleName: dbSchedule.awsRuleName,
+                awsScheduleArn: dbSchedule.awsScheduleArn,
+                awsScheduleName: dbSchedule.awsScheduleName,
                 createdAt: dbSchedule.createdAt,
                 updatedAt: dbSchedule.updatedAt,
             });
@@ -313,19 +313,19 @@ router.put('/scripts/:scriptName/schedule', async (req, res) => {
                     cronExpression,
                     timezone: timezone || 'UTC',
                 });
-                // Store AWS rule info in database
-                if (awsScheduleInfo?.ruleArn) {
-                    await commands.updateScheduleAwsRule(scriptName, {
-                        awsRuleArn: awsScheduleInfo.ruleArn,
-                        awsRuleName: awsScheduleInfo.ruleName,
+                // Store AWS schedule info in database
+                if (awsScheduleInfo?.scheduleArn) {
+                    await commands.updateScheduleAwsInfo(scriptName, {
+                        awsScheduleArn: awsScheduleInfo.scheduleArn,
+                        awsScheduleName: awsScheduleInfo.scheduleName,
                     });
                 }
-            } else if (!enabled && schedule.awsRuleArn) {
+            } else if (!enabled && schedule.awsScheduleArn) {
                 // Disable: delete the EventBridge schedule
                 await adapter.deleteSchedule(scriptName);
-                await commands.updateScheduleAwsRule(scriptName, {
-                    awsRuleArn: null,
-                    awsRuleName: null,
+                await commands.updateScheduleAwsInfo(scriptName, {
+                    awsScheduleArn: null,
+                    awsScheduleName: null,
                 });
             }
         } catch (error) {
@@ -346,8 +346,8 @@ router.put('/scripts/:scriptName/schedule', async (req, res) => {
                 nextTriggerAt: schedule.nextTriggerAt,
                 createdAt: schedule.createdAt,
                 updatedAt: schedule.updatedAt,
-                awsRuleArn: awsScheduleInfo?.ruleArn || schedule.awsRuleArn,
-                awsRuleName: awsScheduleInfo?.ruleName || schedule.awsRuleName,
+                awsScheduleArn: awsScheduleInfo?.scheduleArn || schedule.awsScheduleArn,
+                awsScheduleName: awsScheduleInfo?.scheduleName || schedule.awsScheduleName,
             },
             ...(schedulerError && { schedulerWarning: schedulerError }),
         });
@@ -378,9 +378,9 @@ router.delete('/scripts/:scriptName/schedule', async (req, res) => {
         // 2. Delete schedule from database
         const result = await commands.deleteSchedule(scriptName);
 
-        // 3. Delete EventBridge Scheduler rule if it exists
+        // 3. Delete EventBridge Scheduler if it exists
         let schedulerError = null;
-        if (result.deleted?.awsRuleArn) {
+        if (result.deleted?.awsScheduleArn) {
             try {
                 const adapter = createSchedulerAdapter();
                 await adapter.deleteSchedule(scriptName);

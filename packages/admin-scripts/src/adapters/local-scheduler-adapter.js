@@ -33,8 +33,8 @@ class LocalSchedulerAdapter extends SchedulerAdapter {
         });
 
         return {
-            ruleName: scriptName,
-            ruleArn: `local:schedule:${scriptName}`,
+            scheduleName: scriptName,
+            scheduleArn: `local:schedule:${scriptName}`,
         };
     }
 

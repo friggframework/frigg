@@ -34,12 +34,12 @@ class ScriptScheduleRepositoryInterface {
      * @param {boolean} params.enabled - Whether schedule is enabled
      * @param {string} params.cronExpression - Cron expression
      * @param {string} [params.timezone] - Timezone (default 'UTC')
-     * @param {string} [params.awsRuleArn] - AWS EventBridge rule ARN
-     * @param {string} [params.awsRuleName] - AWS EventBridge rule name
+     * @param {string} [params.awsScheduleArn] - AWS EventBridge Scheduler ARN
+     * @param {string} [params.awsScheduleName] - AWS EventBridge Scheduler name
      * @returns {Promise<Object>} Created or updated schedule record
      * @abstract
      */
-    async upsertSchedule({ scriptName, enabled, cronExpression, timezone, awsRuleArn, awsRuleName }) {
+    async upsertSchedule({ scriptName, enabled, cronExpression, timezone, awsScheduleArn, awsScheduleName }) {
         throw new Error('Method upsertSchedule must be implemented by subclass');
     }
 
@@ -55,17 +55,17 @@ class ScriptScheduleRepositoryInterface {
     }
 
     /**
-     * Update AWS EventBridge rule information
+     * Update AWS EventBridge Scheduler information
      *
      * @param {string} scriptName - The script name
-     * @param {Object} awsInfo - AWS rule information
-     * @param {string} [awsInfo.awsRuleArn] - AWS EventBridge rule ARN
-     * @param {string} [awsInfo.awsRuleName] - AWS EventBridge rule name
+     * @param {Object} awsInfo - AWS schedule information
+     * @param {string} [awsInfo.awsScheduleArn] - AWS EventBridge Scheduler ARN
+     * @param {string} [awsInfo.awsScheduleName] - AWS EventBridge Scheduler name
      * @returns {Promise<Object>} Updated schedule record
      * @abstract
      */
-    async updateScheduleAwsRule(scriptName, { awsRuleArn, awsRuleName }) {
-        throw new Error('Method updateScheduleAwsRule must be implemented by subclass');
+    async updateScheduleAwsInfo(scriptName, { awsScheduleArn, awsScheduleName }) {
+        throw new Error('Method updateScheduleAwsInfo must be implemented by subclass');
     }
 
     /**
