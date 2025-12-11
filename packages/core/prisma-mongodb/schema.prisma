@@ -396,7 +396,6 @@ model AdminApiKey {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  @@index([keyHash])
   @@index([isActive])
   @@map("AdminApiKey")
 }
