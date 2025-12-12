@@ -1,76 +1,60 @@
 const { IntegrationBase } = require('../../integration-base');
 
-class DummyModule {
+class ConfigCapturingModule {
     static definition = {
-        getName: () => 'dummy'
+        getName: () => 'config-capturing-module'
     };
 }
 
-class DummyIntegration extends IntegrationBase {
+class ConfigCapturingIntegration extends IntegrationBase {
     static Definition = {
-        name: 'dummy',
+        name: 'config-capturing',
         version: '1.0.0',
         modules: {
-            dummy: DummyModule
+            primary: ConfigCapturingModule
         },
         display: {
-            label: 'Dummy Integration',
-            description: 'A dummy integration for testing',
+            label: 'Config Capturing Integration',
+            description: 'Test double for capturing config state during updates',
             detailsUrl: 'https://example.com',
-            icon: 'dummy-icon'
+            icon: 'test-icon'
         }
     };
 
-    static getOptionDetails() {
-        return {
-            name: this.Definition.name,
-            version: this.Definition.version,
-            display: this.Definition.display
-        };
+    static _capturedOnUpdateState = null;
+
+    static resetCaptures() {
+        this._capturedOnUpdateState = null;
+    }
+
+    static getCapturedOnUpdateState() {
+        return this._capturedOnUpdateState;
     }
 
     constructor(params) {
         super(params);
-        this.sendSpy = jest.fn();
-        this.eventCallHistory = [];
-        this.events = {};
-
         this.integrationRepository = {
             updateIntegrationById: jest.fn().mockResolvedValue({}),
             findIntegrationById: jest.fn().mockResolvedValue({}),
         };
-
         this.updateIntegrationStatus = {
             execute: jest.fn().mockResolvedValue({})
         };
-
         this.updateIntegrationMessages = {
             execute: jest.fn().mockResolvedValue({})
         };
     }
 
-    async loadDynamicUserActions() {
-        return {};
-    }
-
-    async send(event, data) {
-        this.sendSpy(event, data);
-        this.eventCallHistory.push({ event, data, timestamp: Date.now() });
-        if (event === 'ON_UPDATE') {
-            await this.onUpdate(data);
-        }
-        return { event, data };
-    }
-
     async initialize() {
-        return;
-    }
-
-    async onCreate({ integrationId }) {
-        return;
+        this.registerEventHandlers();
     }
 
     async onUpdate(params) {
+        ConfigCapturingIntegration._capturedOnUpdateState = {
+            thisConfig: JSON.parse(JSON.stringify(this.config)),
+            paramsConfig: params.config
+        };
+
         this.config = this._deepMerge(this.config, params.config);
     }
 
@@ -92,14 +76,6 @@ class DummyIntegration extends IntegrationBase {
         }
         return result;
     }
-
-    async onDelete(params) {
-        return;
-    }
-
-    getConfig() {
-        return this.config || {};
-    }
 }
 
-module.exports = { DummyIntegration }; 
+module.exports = { ConfigCapturingIntegration };

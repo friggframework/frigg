@@ -235,6 +235,45 @@ function createUserCommands() {
                 return mapErrorToResponse(error);
             }
         },
+
+        /**
+         * Delete a user by ID
+         *
+         * IMPORTANT: This does NOT automatically cascade delete related records in MongoDB.
+         * Integration developers MUST manually delete related data first:
+         * 1. Delete integrations (via deleteIntegrationById)
+         * 2. Delete entities (via deleteEntityById)
+         * 3. Delete credentials (via deleteCredentialById)
+         * 4. Finally delete user (via deleteUserById)
+         *
+         * @param {string} userId - User ID to delete
+         * @returns {Promise<Object>} Deletion result
+         */
+        async deleteUserById(userId) {
+            try {
+                if (!userId) {
+                    const error = new Error('userId is required');
+                    error.code = 'INVALID_USER_DATA';
+                    throw error;
+                }
+
+                const deleted = await userRepository.deleteUser(userId);
+
+                if (!deleted) {
+                    const error = new Error(`User ${userId} not found`);
+                    error.code = 'USER_NOT_FOUND';
+                    return mapErrorToResponse(error);
+                }
+
+                return {
+                    success: true,
+                    userId,
+                    message: 'User deleted successfully',
+                };
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
     };
 }
 

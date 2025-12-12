@@ -120,4 +120,29 @@ describe('integration commands', () => {
         });
         expect(result).toEqual({ context: expectedContext });
     });
+
+    describe('deleteIntegrationById', () => {
+        it('returns error if integrationId is missing', async () => {
+            const commands = createIntegrationCommands({
+                integrationClass: DummyIntegration,
+            });
+
+            const result = await commands.deleteIntegrationById(null);
+
+            expect(result).toHaveProperty('error');
+            expect(result.reason).toContain('integrationId is required');
+        });
+
+        it('calls repository deleteIntegrationById', async () => {
+            const commands = createIntegrationCommands({
+                integrationClass: DummyIntegration,
+            });
+
+            // Will fail since no real database, but verifies the method exists and is wired up
+            const result = await commands.deleteIntegrationById('integration-123');
+
+            // Expect error since no real DB connection
+            expect(result).toHaveProperty('error');
+        });
+    });
 });

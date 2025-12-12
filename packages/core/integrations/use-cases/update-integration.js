@@ -1,4 +1,3 @@
-// Removed Integration wrapper - using IntegrationBase directly
 const {
     mapIntegrationClassToIntegrationDTO,
 } = require('../utils/map-integration-dto');
@@ -70,19 +69,19 @@ class UpdateIntegration {
             modules.push(moduleInstance);
         }
 
-        // 4. Create the Integration domain entity with modules and updated config
+        // 4. Create the Integration domain entity with modules and existing config
         const integrationInstance = new integrationClass({
             id: integrationRecord.id,
             userId: integrationRecord.userId,
             entities: integrationRecord.entitiesIds,
-            config: config,
+            config: integrationRecord.config,
             status: integrationRecord.status,
             version: integrationRecord.version,
             messages: integrationRecord.messages,
             modules,
         });
 
-        // 6. Complete async initialization (load dynamic actions, register handlers)
+        // 5. Complete async initialization and trigger update event
         await integrationInstance.initialize();
         await integrationInstance.send('ON_UPDATE', { config });
 

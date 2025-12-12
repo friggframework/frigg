@@ -259,6 +259,15 @@ class UserRepositoryMongo extends UserRepositoryInterface {
 
     /**
      * Delete user by ID
+     *
+     * NOTE: This only deletes the user record itself.
+     * Prisma's onDelete: Cascade does NOT work reliably with MongoDB (no database-level referential integrity).
+     * Integration developers MUST manually cascade delete related records before calling this method:
+     * 1. Delete integrations (via deleteIntegrationById)
+     * 2. Delete entities (via deleteEntityById)
+     * 3. Delete credentials (via deleteCredentialById)
+     * 4. Finally delete user (via deleteUserById)
+     *
      * @param {string} userId - User ID to delete
      * @returns {Promise<boolean>} True if deleted successfully
      */
