@@ -22,6 +22,9 @@ An ADR documents a significant architectural decision made in the project, inclu
 | [003](./003-runtime-state-only.md) | Runtime State Only for Management GUI | Accepted | 2025-01-25 |
 | [004](./004-migration-tool-design.md) | Migration Tool Design | Proposed | 2025-01-25 |
 | [005](./005-admin-script-runner.md) | Admin Script Runner Service | Accepted | 2025-12-10 |
+| [006](./006-integration-router-v2.md) | Integration Router v2 Restructuring | Accepted | 2025-12-14 |
+| [007](./007-management-ui-architecture.md) | Management UI Architecture | Accepted | 2025-12-14 |
+| [008](./008-frigg-cli-start-command.md) | Frigg CLI Start Command | Accepted | 2025-12-14 |
 
 ## ADR Template
 
