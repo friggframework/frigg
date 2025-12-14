@@ -379,3 +379,91 @@ model WebsocketConnection {
   @@index([connectionId])
   @@map("WebsocketConnection")
 }
+
+// ============================================================================
+// ADMIN SCRIPT RUNNER MODELS
+// ============================================================================
+
+enum ScriptExecutionStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  TIMEOUT
+  CANCELLED
+}
+
+enum ScriptTrigger {
+  MANUAL
+  SCHEDULED
+  QUEUE
+  WEBHOOK
+}
+
+/// Admin API keys for script execution authentication
+/// Key hashes stored with bcrypt
+model AdminApiKey {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  keyHash    String    @unique // bcrypt hashed
+  keyLast4   String // Last 4 chars for display
+  name       String // Human-readable name
+  scopes     String[] // ['scripts:execute', 'scripts:read']
+  expiresAt  DateTime?
+  createdBy  String? // User/admin who created
+  lastUsedAt DateTime?
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([isActive])
+  @@map("AdminApiKey")
+}
+
+/// Script execution tracking and audit log
+model ScriptExecution {
+  id                String                @id @default(auto()) @map("_id") @db.ObjectId
+  scriptName        String
+  scriptVersion     String?
+  status            ScriptExecutionStatus @default(PENDING)
+  trigger           ScriptTrigger
+  mode              String                @default("async") // "sync" | "async"
+  input             Json?
+  output            Json?
+  logs              Json[] // [{level, message, data, timestamp}]
+  metricsStartTime  DateTime?
+  metricsEndTime    DateTime?
+  metricsDurationMs Int?
+  errorName         String?
+  errorMessage      String?
+  errorStack        String?
+  auditApiKeyName   String?
+  auditApiKeyLast4  String?
+  auditIpAddress    String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@index([scriptName, createdAt(sort: Desc)])
+  @@index([status])
+  @@map("ScriptExecution")
+}
+
+/// Script scheduling configuration for hybrid scheduling (SQS + EventBridge)
+model ScriptSchedule {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  scriptName      String    @unique
+  enabled         Boolean   @default(false)
+  cronExpression  String?
+  timezone        String    @default("UTC")
+  lastTriggeredAt DateTime?
+  nextTriggerAt   DateTime?
+
+  // AWS EventBridge Schedule (if provisioned)
+  awsScheduleArn  String?
+  awsScheduleName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([enabled])
+  @@map("ScriptSchedule")
+}

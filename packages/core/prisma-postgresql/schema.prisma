@@ -361,3 +361,88 @@ model WebsocketConnection {
 
   @@index([connectionId])
 }
+
+// ============================================================================
+// ADMIN SCRIPT RUNNER MODELS
+// ============================================================================
+
+enum ScriptExecutionStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  TIMEOUT
+  CANCELLED
+}
+
+enum ScriptTrigger {
+  MANUAL
+  SCHEDULED
+  QUEUE
+  WEBHOOK
+}
+
+/// Admin API keys for script execution authentication
+/// Key hashes stored with bcrypt
+model AdminApiKey {
+  id         Int       @id @default(autoincrement())
+  keyHash    String    @unique
+  keyLast4   String
+  name       String
+  scopes     String[]
+  expiresAt  DateTime?
+  createdBy  String?
+  lastUsedAt DateTime?
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([isActive])
+}
+
+/// Script execution tracking and audit log
+model ScriptExecution {
+  id                Int                   @id @default(autoincrement())
+  scriptName        String
+  scriptVersion     String?
+  status            ScriptExecutionStatus @default(PENDING)
+  trigger           ScriptTrigger
+  mode              String                @default("async")
+  input             Json?
+  output            Json?
+  logs              Json[]
+  metricsStartTime  DateTime?
+  metricsEndTime    DateTime?
+  metricsDurationMs Int?
+  errorName         String?
+  errorMessage      String?
+  errorStack        String?
+  auditApiKeyName   String?
+  auditApiKeyLast4  String?
+  auditIpAddress    String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@index([scriptName, createdAt(sort: Desc)])
+  @@index([status])
+}
+
+/// Script scheduling configuration for hybrid scheduling (SQS + EventBridge)
+model ScriptSchedule {
+  id              Int       @id @default(autoincrement())
+  scriptName      String    @unique
+  enabled         Boolean   @default(false)
+  cronExpression  String?
+  timezone        String    @default("UTC")
+  lastTriggeredAt DateTime?
+  nextTriggerAt   DateTime?
+
+  // AWS EventBridge Schedule (if provisioned)
+  awsScheduleArn  String?
+  awsScheduleName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([enabled])
+}
