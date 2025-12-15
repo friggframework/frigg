@@ -10,6 +10,7 @@
     "infrastructure/",
     "migrations/",
     "management-ui/dist/",
+    "test/",
     "index.js",
     "README.md"
   ],
