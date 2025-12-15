@@ -1,8 +1,9 @@
-import React, { useState } from 'react'
-import { Users, Database, AlertCircle, FlaskConical, Settings } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Users, Database, AlertCircle, FlaskConical, Settings, UserCog, Loader2 } from 'lucide-react'
 import UserManagement from './UserManagement'
 import GlobalEntityManagement from './GlobalEntityManagement'
 import AdminConnectionPanel from './AdminConnectionPanel'
+import SharedSecretSimulation from './SharedSecretSimulation'
 import { useFriggAppConnection } from '../../hooks/useFriggAppConnection'
 import { TestingDashboard } from '@friggframework/ui'
 import '@friggframework/ui/dist/style.css'
@@ -14,9 +15,10 @@ import { Card } from '../ui/Card'
  * 1. Connection - Connect to running Frigg app with admin credentials
  * 2. Users - User management with org associations
  * 3. Global Entities - Shared entity management (admin only)
- * 4. Testing - Comprehensive testing dashboard for user and system actions
+ * 4. User Simulation - Shared secret user simulation (when enabled)
+ * 5. Testing - Comprehensive testing dashboard for user and system actions
  *
- * Note: Admin features require connection to the running Frigg app's admin API
+ * Features auto-connect for local Frigg apps using server-side FRIGG_ADMIN_API_KEY
  */
 const AdminViewContainer = ({ friggBaseUrl, onUserSelect }) => {
   const [activeTab, setActiveTab] = useState('connection')
@@ -28,15 +30,26 @@ const AdminViewContainer = ({ friggBaseUrl, onUserSelect }) => {
     userManagementMode,
     appDefinition,
     error,
+    autoConnectAttempted,
     connect,
     disconnect,
     clearError
-  } = useFriggAppConnection()
+  } = useFriggAppConnection({ friggBaseUrl, autoConnect: true })
+
+  // Auto-switch to users tab when connected
+  useEffect(() => {
+    if (isConnected && activeTab === 'connection') {
+      setActiveTab('users')
+    }
+  }, [isConnected, activeTab])
+
+  const sharedSecretEnabled = userManagementMode?.sharedSecretEnabled || false
 
   const tabs = [
     { id: 'connection', label: 'Connection', icon: Settings, requiresConnection: false },
     { id: 'users', label: 'Users', icon: Users, requiresConnection: true },
     { id: 'global-entities', label: 'Global Entities', icon: Database, requiresConnection: true },
+    ...(sharedSecretEnabled ? [{ id: 'user-simulation', label: 'User Simulation', icon: UserCog, requiresConnection: true }] : []),
     { id: 'testing', label: 'Testing', icon: FlaskConical, requiresConnection: true }
   ]
 
@@ -97,6 +110,23 @@ const AdminViewContainer = ({ friggBaseUrl, onUserSelect }) => {
       <div className="flex-1 overflow-auto p-6">
         {activeTab === 'connection' && (
           <div className="space-y-4 max-w-2xl">
+            {/* Auto-connecting indicator */}
+            {isConnecting && !autoConnectAttempted && (
+              <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+                <div className="flex items-center gap-3 p-4">
+                  <Loader2 className="w-5 h-5 text-blue-600 dark:text-blue-400 animate-spin" />
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                      Auto-connecting to local Frigg...
+                    </h3>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      Attempting to connect using server-side FRIGG_ADMIN_API_KEY
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            )}
+
             <AdminConnectionPanel
               isConnected={isConnected}
               isConnecting={isConnecting}
@@ -108,7 +138,7 @@ const AdminViewContainer = ({ friggBaseUrl, onUserSelect }) => {
               onClearError={clearError}
             />
 
-            {!isConnected && (
+            {!isConnected && !isConnecting && (
               <Card className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
                 <div className="flex items-start gap-3 p-4">
                   <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
@@ -117,8 +147,10 @@ const AdminViewContainer = ({ friggBaseUrl, onUserSelect }) => {
                       Connection Required
                     </h3>
                     <p className="text-sm text-amber-700 dark:text-amber-300">
-                      Connect to your running Frigg app to access user management, global entities, and testing features.
-                      Make sure your Frigg app is running and you have the admin API key.
+                      {autoConnectAttempted
+                        ? 'Auto-connect failed. Please enter your admin API key manually.'
+                        : 'Connect to your running Frigg app to access user management, global entities, and testing features.'
+                      }
                     </p>
                   </div>
                 </div>
@@ -168,6 +200,13 @@ const AdminViewContainer = ({ friggBaseUrl, onUserSelect }) => {
             {/* Global Entity Management */}
             <GlobalEntityManagement />
           </div>
+        )}
+
+        {activeTab === 'user-simulation' && isConnected && sharedSecretEnabled && (
+          <SharedSecretSimulation
+            friggBaseUrl={effectiveFriggUrl}
+            onUserSelect={onUserSelect}
+          />
         )}
 
         {activeTab === 'testing' && isConnected && (

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { cn } from '../../../lib/utils'
+import { useResizable } from '../../hooks/useResizable'
 import {
   Terminal,
   Download,
@@ -18,7 +19,8 @@ import {
   XCircle,
   Clock,
   Copy,
-  Check
+  Check,
+  GripHorizontal
 } from 'lucide-react'
 
 const LiveLogPanel = ({
@@ -27,7 +29,10 @@ const LiveLogPanel = ({
   onDownload,
   isStreaming = false,
   onToggleStreaming,
-  className
+  className,
+  initialHeight = 256,
+  minHeight = 100,
+  maxHeight = 600
 }) => {
   const [isPaused, setIsPaused] = useState(false)
   const [selectedLevel, setSelectedLevel] = useState('all')
@@ -35,6 +40,13 @@ const LiveLogPanel = ({
   const [autoScroll, setAutoScroll] = useState(true)
   const [copied, setCopied] = useState(false)
   const logContainerRef = useRef(null)
+
+  const { height, handleMouseDown, handleKeyDown } = useResizable({
+    initialHeight,
+    minHeight,
+    maxHeight,
+    storageKey: 'frigg-log-panel-height'
+  })
 
   const logLevels = [
     { id: 'all', label: 'All', color: 'bg-gray-500' },
@@ -138,7 +150,10 @@ const LiveLogPanel = ({
           >
             <ChevronRight className="w-4 h-4" />
             <Terminal className="w-4 h-4" />
-            Logs ({filteredLogs.length})
+            <span>Expand Logs</span>
+            <Badge variant="outline" className="text-xs ml-1">
+              {filteredLogs.length}
+            </Badge>
           </Button>
 
           <div className="flex items-center gap-1">
@@ -155,7 +170,23 @@ const LiveLogPanel = ({
   }
 
   return (
-    <Card className={cn('border-t-2 border-t-primary/20', className)}>
+    <Card className={cn('border-t-2 border-t-primary/20 flex flex-col', className)}>
+      {/* Resize Handle - Accessible */}
+      <div
+        onMouseDown={handleMouseDown}
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
+        role="separator"
+        aria-orientation="horizontal"
+        aria-valuenow={height}
+        aria-valuemin={minHeight}
+        aria-valuemax={maxHeight}
+        aria-label="Resize log panel. Use up/down arrow keys to adjust height."
+        className="h-2 cursor-ns-resize flex items-center justify-center bg-muted/50 hover:bg-muted border-b border-border group focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
+      >
+        <GripHorizontal className="w-4 h-4 text-muted-foreground group-hover:text-foreground" />
+      </div>
+
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -163,9 +194,10 @@ const LiveLogPanel = ({
               variant="ghost"
               size="sm"
               onClick={() => setIsCollapsed(true)}
-              className="p-1"
+              className="flex items-center gap-1 px-2"
             >
               <ChevronDown className="w-4 h-4" />
+              <span className="text-xs">Collapse</span>
             </Button>
 
             <CardTitle className="text-base flex items-center gap-2">
@@ -238,11 +270,12 @@ const LiveLogPanel = ({
         </div>
       </CardHeader>
 
-      <CardContent className="p-0">
+      <CardContent className="p-0 flex-1 min-h-0">
         <div
           ref={logContainerRef}
           onScroll={handleScroll}
-          className="h-64 overflow-y-auto bg-slate-950 text-slate-100 font-mono text-xs"
+          style={{ height: `${height}px` }}
+          className="overflow-y-auto bg-slate-950 text-slate-100 font-mono text-xs"
         >
           {filteredLogs.length === 0 ? (
             <div className="flex items-center justify-center h-full text-slate-400">

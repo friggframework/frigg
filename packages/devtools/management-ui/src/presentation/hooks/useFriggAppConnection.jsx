@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import api from '../../infrastructure/http/api-client.js'
 
 /**
@@ -7,14 +7,18 @@ import api from '../../infrastructure/http/api-client.js'
  *
  * The Management UI server acts as a proxy to the Frigg app's admin API,
  * using the FRIGG_ADMIN_API_KEY for authentication.
+ *
+ * Supports auto-connect for local development when friggBaseUrl is localhost.
  */
-export function useFriggAppConnection() {
+export function useFriggAppConnection({ friggBaseUrl = null, autoConnect = true } = {}) {
   const [isConnected, setIsConnected] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
   const [connection, setConnection] = useState(null)
   const [userManagementMode, setUserManagementMode] = useState(null)
   const [appDefinition, setAppDefinition] = useState(null)
   const [error, setError] = useState(null)
+  const [autoConnectAttempted, setAutoConnectAttempted] = useState(false)
+  const autoConnectRef = useRef(false)
 
   /**
    * Check connection status on mount
@@ -23,6 +27,22 @@ export function useFriggAppConnection() {
     checkConnectionStatus()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Intentionally run only on mount
+
+  /**
+   * Auto-connect to local Frigg app when friggBaseUrl is localhost
+   */
+  useEffect(() => {
+    if (!autoConnect || autoConnectRef.current || isConnected || isConnecting) return
+    if (!friggBaseUrl) return
+
+    const isLocalhost = friggBaseUrl.includes('localhost') || friggBaseUrl.includes('127.0.0.1')
+    if (!isLocalhost) return
+
+    autoConnectRef.current = true
+    setAutoConnectAttempted(true)
+    tryAutoConnect(friggBaseUrl)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [friggBaseUrl, autoConnect, isConnected, isConnecting])
 
   /**
    * Check current connection status
@@ -39,16 +59,39 @@ export function useFriggAppConnection() {
       } : null)
 
       if (data.isConnected) {
-        // Also fetch user management mode
         const modeResponse = await api.get('/api/frigg-app/user-management-mode')
         if (modeResponse.data.success) {
           setUserManagementMode(modeResponse.data.mode)
         }
       }
     } catch (err) {
-      // Connection check failed - probably not connected
       setIsConnected(false)
       setConnection(null)
+    }
+  }, [])
+
+  /**
+   * Try auto-connect to local Frigg using server-side API key
+   */
+  const tryAutoConnect = useCallback(async (url) => {
+    setIsConnecting(true)
+    setError(null)
+
+    try {
+      const response = await api.post('/api/frigg-app/auto-connect', { friggAppUrl: url })
+      const data = response.data
+
+      if (data.success) {
+        setIsConnected(true)
+        setConnection(data.connection)
+        setUserManagementMode(data.userManagementMode)
+        setAppDefinition(data.appDefinition)
+      }
+    } catch (err) {
+      // Auto-connect failed silently - user can still manually connect
+      console.debug('Auto-connect failed, manual connection required:', err.message)
+    } finally {
+      setIsConnecting(false)
     }
   }, [])
 
@@ -132,13 +175,15 @@ export function useFriggAppConnection() {
     userManagementMode,
     appDefinition,
     error,
+    autoConnectAttempted,
 
     // Actions
     connect,
     disconnect,
     checkConnectionStatus,
     getAuthMethods,
-    clearError
+    clearError,
+    tryAutoConnect
   }
 }
 

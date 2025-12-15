@@ -860,7 +860,7 @@ const TestingZone = ({ className }) => {
   }
 
   return (
-    <div className={cn('h-full flex flex-col', className)}>
+    <div className={cn('h-full flex flex-col overflow-hidden', className)}>
       {/* CLI Prompt Dialog - Shown when CLI requests user input */}
       {pendingPrompt && (
         <CliPromptDialog
@@ -869,23 +869,24 @@ const TestingZone = ({ className }) => {
         />
       )}
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex-1 min-h-0">
-          <TestAreaErrorBoundary>
-            {renderContent()}
-          </TestAreaErrorBoundary>
-        </div>
+      {/* Main Content Area - flex-1 to take remaining space, min-h-0 for proper flex overflow */}
+      <div className="flex-1 min-h-0 overflow-auto">
+        <TestAreaErrorBoundary>
+          {renderContent()}
+        </TestAreaErrorBoundary>
+      </div>
 
-        {/* Live Log Panel - Always visible at bottom */}
-        <div className="flex-shrink-0">
-          <LiveLogPanel
-            logs={logs}
-            onClear={clearLogs}
-            onDownload={downloadLogs}
-            isStreaming={testAreaState !== 'not_started'}
-          />
-        </div>
+      {/* Live Log Panel - Resizable, always visible at bottom */}
+      <div className="flex-shrink-0">
+        <LiveLogPanel
+          logs={logs}
+          onClear={clearLogs}
+          onDownload={downloadLogs}
+          isStreaming={testAreaState !== 'not_started'}
+          initialHeight={200}
+          minHeight={80}
+          maxHeight={500}
+        />
       </div>
     </div>
   )

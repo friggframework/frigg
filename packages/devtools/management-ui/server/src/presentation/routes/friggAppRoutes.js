@@ -12,6 +12,7 @@ export function createFriggAppRoutes(friggAppController) {
   // Bind controller methods
   const controller = {
     connect: friggAppController.connect.bind(friggAppController),
+    autoConnect: friggAppController.autoConnect.bind(friggAppController),
     disconnect: friggAppController.disconnect.bind(friggAppController),
     getConnectionStatus: friggAppController.getConnectionStatus.bind(friggAppController),
     getUserManagementMode: friggAppController.getUserManagementMode.bind(friggAppController),
@@ -41,6 +42,19 @@ export function createFriggAppRoutes(friggAppController) {
   router.post('/connect', async (req, res, next) => {
     try {
       await controller.connect(req, res)
+    } catch (error) {
+      next(error)
+    }
+  })
+
+  /**
+   * POST /api/frigg-app/auto-connect
+   * Auto-connect to local Frigg app using server-side FRIGG_ADMIN_API_KEY
+   * Body: { friggAppUrl: string }
+   */
+  router.post('/auto-connect', async (req, res, next) => {
+    try {
+      await controller.autoConnect(req, res)
     } catch (error) {
       next(error)
     }

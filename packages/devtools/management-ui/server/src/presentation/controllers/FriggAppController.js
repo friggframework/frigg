@@ -60,6 +60,52 @@ export class FriggAppController {
   }
 
   /**
+   * POST /api/frigg-app/auto-connect
+   * Auto-connect to local Frigg using server-side FRIGG_ADMIN_API_KEY
+   * Only allowed for localhost URLs for security
+   */
+  async autoConnect(req, res) {
+    const { friggAppUrl } = req.body
+
+    // SECURITY: Validate URL is localhost only
+    const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/.test(friggAppUrl)
+    if (!isLocalhost) {
+      return res.status(403).json({
+        success: false,
+        error: 'Auto-connect only allowed for localhost URLs'
+      })
+    }
+
+    const adminApiKey = process.env.FRIGG_ADMIN_API_KEY
+
+    if (!adminApiKey) {
+      return res.status(400).json({
+        success: false,
+        error: 'FRIGG_ADMIN_API_KEY not configured on server'
+      })
+    }
+
+    const result = await this._connectUseCase.execute({
+      friggAppUrl,
+      adminApiKey
+    })
+
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        error: result.error
+      })
+    }
+
+    return res.json({
+      success: true,
+      connection: result.connection,
+      userManagementMode: result.userManagementMode,
+      appDefinition: result.appDefinition
+    })
+  }
+
+  /**
    * POST /api/frigg-app/disconnect
    * Disconnect from Frigg app
    */
