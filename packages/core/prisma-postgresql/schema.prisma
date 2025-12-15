@@ -345,68 +345,51 @@ model WebsocketConnection {
 }
 
 // ============================================================================
-// ADMIN SCRIPT RUNNER MODELS
+// ADMIN PROCESS MODELS
 // ============================================================================
 
-enum ScriptExecutionStatus {
+/// Admin process state machine
+enum AdminProcessState {
   PENDING
   RUNNING
   COMPLETED
   FAILED
-  TIMEOUT
-  CANCELLED
 }
 
-enum ScriptTrigger {
+/// Admin trigger types
+enum AdminTrigger {
   MANUAL
   SCHEDULED
   QUEUE
   WEBHOOK
 }
 
-/// Admin API keys for script execution authentication
-/// Key hashes stored with bcrypt
-model AdminApiKey {
-  id         Int       @id @default(autoincrement())
-  keyHash    String    @unique
-  keyLast4   String
-  name       String
-  scopes     String[]
-  expiresAt  DateTime?
-  createdBy  String?
-  lastUsedAt DateTime?
-  isActive   Boolean   @default(true)
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+/// Admin process tracking (like Process but without user/integration FK)
+/// Used for: admin scripts, db migrations, system maintenance tasks
+model AdminProcess {
+  id   Int    @id @default(autoincrement())
+  name String // e.g., "oauth-token-refresh", "db-migration-xyz"
+  type String // e.g., "ADMIN_SCRIPT", "DB_MIGRATION"
 
-  @@index([isActive])
-}
+  // State machine
+  state AdminProcessState @default(PENDING)
 
-/// Script execution tracking and audit log
-model ScriptExecution {
-  id                Int                   @id @default(autoincrement())
-  scriptName        String
-  scriptVersion     String?
-  status            ScriptExecutionStatus @default(PENDING)
-  trigger           ScriptTrigger
-  mode              String                @default("async")
-  input             Json?
-  output            Json?
-  logs              Json[]
-  metricsStartTime  DateTime?
-  metricsEndTime    DateTime?
-  metricsDurationMs Int?
-  errorName         String?
-  errorMessage      String?
-  errorStack        String?
-  auditApiKeyName   String?
-  auditApiKeyLast4  String?
-  auditIpAddress    String?
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
+  // Flexible storage (mirrors Process model pattern)
+  context Json @default("{}") // input, trigger, audit info, script version
+  results Json @default("{}") // output, logs, metrics, errors
 
-  @@index([scriptName, createdAt(sort: Desc)])
-  @@index([status])
+  // Hierarchy support - self-referential relation
+  parentProcessId Int?
+  parentProcess   AdminProcess?  @relation("AdminProcessHierarchy", fields: [parentProcessId], references: [id], onDelete: SetNull)
+  childProcesses  AdminProcess[] @relation("AdminProcessHierarchy")
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name, createdAt(sort: Desc)])
+  @@index([state])
+  @@index([type])
 }
 
 /// Script scheduling configuration for hybrid scheduling (SQS + EventBridge)

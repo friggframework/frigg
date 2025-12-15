@@ -1,12 +1,6 @@
-const bcrypt = require('bcryptjs');
-const { v4: uuid } = require('uuid');
-
 const ERROR_CODE_MAP = {
-    INVALID_API_KEY: 401,
-    EXPIRED_API_KEY: 401,
     SCRIPT_NOT_FOUND: 404,
     EXECUTION_NOT_FOUND: 404,
-    UNAUTHORIZED_SCOPE: 403,
 };
 
 function mapErrorToResponse(error) {
@@ -23,142 +17,21 @@ function mapErrorToResponse(error) {
  * - Maps errors to HTTP-friendly responses
  * - Returns data or error objects (never throws)
  *
+ * Authentication:
+ * - Uses ENV-based ADMIN_API_KEY (see handlers/middleware/admin-auth.js)
+ * - No database-backed API keys (simplified from original design)
+ *
  * @returns {Object} Command methods for admin scripts
  */
 function createAdminScriptCommands() {
     // Lazy-load repository factories to avoid circular dependencies
-    const { createAdminApiKeyRepository } = require('../../admin-scripts/repositories/admin-api-key-repository-factory');
     const { createScriptExecutionRepository } = require('../../admin-scripts/repositories/script-execution-repository-factory');
     const { createScriptScheduleRepository } = require('../../admin-scripts/repositories/script-schedule-repository-factory');
 
-    const apiKeyRepository = createAdminApiKeyRepository();
     const executionRepository = createScriptExecutionRepository();
     const scheduleRepository = createScriptScheduleRepository();
 
     return {
-        // ==================== API Key Management Commands ====================
-
-        /**
-         * Create a new admin API key
-         * Generates a UUID, hashes it with bcrypt, stores in database
-         *
-         * @param {Object} params - Key creation parameters
-         * @param {string} params.name - Human-readable name for the key
-         * @param {string[]} params.scopes - Permission scopes (e.g., ['scripts:execute'])
-         * @param {Date} [params.expiresAt] - Optional expiration date
-         * @param {string} [params.createdBy] - Optional creator identifier
-         * @returns {Promise<Object>} Created key with rawKey (only returned once!)
-         */
-        async createAdminApiKey({ name, scopes, expiresAt, createdBy }) {
-            try {
-                // Generate raw key (UUID format)
-                const rawKey = uuid();
-
-                // Hash with bcrypt (cost factor 10)
-                const keyHash = await bcrypt.hash(rawKey, 10);
-
-                // Store last 4 characters for display
-                const keyLast4 = rawKey.slice(-4);
-
-                // Create via repository
-                const record = await apiKeyRepository.createApiKey({
-                    name,
-                    keyHash,
-                    keyLast4,
-                    scopes,
-                    expiresAt,
-                    createdBy,
-                });
-
-                // Return record with rawKey (ONLY TIME IT'S RETURNED!)
-                return {
-                    id: record.id,
-                    rawKey, // User must save this - we never show it again
-                    name: record.name,
-                    keyLast4: record.keyLast4,
-                    scopes: record.scopes,
-                    expiresAt: record.expiresAt,
-                };
-            } catch (error) {
-                return mapErrorToResponse(error);
-            }
-        },
-
-        /**
-         * Validate an admin API key
-         * Compares bcrypt hash, checks expiration, updates lastUsedAt
-         *
-         * @param {string} rawKey - The raw API key to validate
-         * @returns {Promise<Object>} { valid: true, apiKey } or error response
-         */
-        async validateAdminApiKey(rawKey) {
-            try {
-                // Find all active keys
-                const activeKeys = await apiKeyRepository.findActiveApiKeys();
-
-                // Compare bcrypt hash for each key
-                for (const key of activeKeys) {
-                    const isMatch = await bcrypt.compare(rawKey, key.keyHash);
-                    if (isMatch) {
-                        // Check expiration
-                        if (key.expiresAt && new Date(key.expiresAt) < new Date()) {
-                            const error = new Error('API key has expired');
-                            error.code = 'EXPIRED_API_KEY';
-                            return mapErrorToResponse(error);
-                        }
-
-                        // Update lastUsedAt on success
-                        await apiKeyRepository.updateApiKeyLastUsed(key.id);
-
-                        return { valid: true, apiKey: key };
-                    }
-                }
-
-                // No match found
-                const error = new Error('Invalid API key');
-                error.code = 'INVALID_API_KEY';
-                return mapErrorToResponse(error);
-            } catch (error) {
-                return mapErrorToResponse(error);
-            }
-        },
-
-        /**
-         * List all active admin API keys
-         * Returns keys without keyHash (security)
-         *
-         * @returns {Promise<Array>} Array of API key records (without keyHash)
-         */
-        async listAdminApiKeys() {
-            try {
-                const keys = await apiKeyRepository.findActiveApiKeys();
-
-                // Remove keyHash from response (security)
-                return keys.map((key) => {
-                    const { keyHash, ...safeKey } = key;
-                    return safeKey;
-                });
-            } catch (error) {
-                return mapErrorToResponse(error);
-            }
-        },
-
-        /**
-         * Deactivate an admin API key
-         * Soft delete - sets isActive to false
-         *
-         * @param {string|number} id - The API key ID
-         * @returns {Promise<Object>} Updated record or error
-         */
-        async deactivateAdminApiKey(id) {
-            try {
-                const result = await apiKeyRepository.deactivateApiKey(id);
-                return result;
-            } catch (error) {
-                return mapErrorToResponse(error);
-            }
-        },
-
         // ==================== Execution Management Commands ====================
 
         /**

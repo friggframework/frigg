@@ -9,20 +9,17 @@
  * - Enable dependency injection
  * - Allow testing with mocks
  * - Support multiple database implementations
+ *
+ * Authentication:
+ * - Uses ENV-based ADMIN_API_KEY (see handlers/middleware/admin-auth.js)
+ * - No database-backed API keys (simplified from original design)
  */
 
 // Repository Interfaces
-const { AdminApiKeyRepositoryInterface } = require('./repositories/admin-api-key-repository-interface');
 const { ScriptExecutionRepositoryInterface } = require('./repositories/script-execution-repository-interface');
 const { ScriptScheduleRepositoryInterface } = require('./repositories/script-schedule-repository-interface');
 
 // Repository Factories
-const {
-    createAdminApiKeyRepository,
-    AdminApiKeyRepositoryMongo,
-    AdminApiKeyRepositoryPostgres,
-    AdminApiKeyRepositoryDocumentDB,
-} = require('./repositories/admin-api-key-repository-factory');
 const {
     createScriptExecutionRepository,
     ScriptExecutionRepositoryMongo,
@@ -38,19 +35,14 @@ const {
 
 module.exports = {
     // Repository Interfaces
-    AdminApiKeyRepositoryInterface,
     ScriptExecutionRepositoryInterface,
     ScriptScheduleRepositoryInterface,
 
     // Repository Factories (primary exports for use cases)
-    createAdminApiKeyRepository,
     createScriptExecutionRepository,
     createScriptScheduleRepository,
 
     // Concrete Implementations (for testing)
-    AdminApiKeyRepositoryMongo,
-    AdminApiKeyRepositoryPostgres,
-    AdminApiKeyRepositoryDocumentDB,
     ScriptExecutionRepositoryMongo,
     ScriptExecutionRepositoryPostgres,
     ScriptExecutionRepositoryDocumentDB,
