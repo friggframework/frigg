@@ -1,8 +1,6 @@
 const { getScriptFactory } = require('./script-factory');
 const { createAdminFriggCommands } = require('./admin-frigg-commands');
 const { createAdminScriptCommands } = require('@friggframework/core/application/commands/admin-script-commands');
-const { wrapAdminFriggCommandsForDryRun } = require('./dry-run-repository-wrapper');
-const { createDryRunHttpClient, injectDryRunHttpClient } = require('./dry-run-http-interceptor');
 
 /**
  * Script Runner
@@ -30,7 +28,7 @@ class ScriptRunner {
      * @param {string} options.mode - 'sync' | 'async'
      * @param {Object} options.audit - Audit info { apiKeyName, apiKeyLast4, ipAddress }
      * @param {string} options.executionId - Reuse existing execution ID
-     * @param {boolean} options.dryRun - Execute in dry-run mode (no writes, log operations)
+     * @param {boolean} options.dryRun - Dry-run mode: validate and preview without executing
      */
     async execute(scriptName, params = {}, options = {}) {
         const { trigger = 'MANUAL', audit = {}, executionId: existingExecutionId, dryRun = false } = options;
@@ -44,6 +42,11 @@ class ScriptRunner {
             throw new Error(
                 `Script "${scriptName}" requires integrationFactory but none was provided`
             );
+        }
+
+        // Dry-run mode: validate and return preview without executing
+        if (dryRun) {
+            return this.createDryRunPreview(scriptName, definition, params);
         }
 
         let executionId = existingExecutionId;
@@ -64,25 +67,13 @@ class ScriptRunner {
         const startTime = new Date();
 
         try {
-            // Update status to RUNNING (skip in dry-run)
-            if (!dryRun) {
-                await this.commands.updateAdminProcessState(executionId, 'RUNNING');
-            }
+            await this.commands.updateAdminProcessState(executionId, 'RUNNING');
 
             // Create frigg commands for the script
-            let frigg;
-            let operationLog = [];
-
-            if (dryRun) {
-                // Dry-run mode: wrap commands to intercept writes
-                frigg = this.createDryRunFriggCommands(operationLog);
-            } else {
-                // Normal mode: create real commands
-                frigg = createAdminFriggCommands({
-                    executionId,
-                    integrationFactory: this.integrationFactory,
-                });
-            }
+            const frigg = createAdminFriggCommands({
+                executionId,
+                integrationFactory: this.integrationFactory,
+            });
 
             // Create script instance
             const script = this.scriptFactory.createInstance(scriptName, {
@@ -97,34 +88,15 @@ class ScriptRunner {
             const endTime = new Date();
             const durationMs = endTime - startTime;
 
-            // Complete execution (skip in dry-run)
-            if (!dryRun) {
-                await this.commands.completeAdminProcess(executionId, {
-                    status: 'COMPLETED',
-                    output,
-                    metrics: {
-                        startTime: startTime.toISOString(),
-                        endTime: endTime.toISOString(),
-                        durationMs,
-                    },
-                });
-            }
-
-            // Return dry-run preview if in dry-run mode
-            if (dryRun) {
-                return {
-                    executionId,
-                    dryRun: true,
-                    status: 'DRY_RUN_COMPLETED',
-                    scriptName,
-                    preview: {
-                        operations: operationLog,
-                        summary: this.summarizeOperations(operationLog),
-                        scriptOutput: output,
-                    },
-                    metrics: { durationMs },
-                };
-            }
+            await this.commands.completeAdminProcess(executionId, {
+                state: 'COMPLETED',
+                output,
+                metrics: {
+                    startTime: startTime.toISOString(),
+                    endTime: endTime.toISOString(),
+                    durationMs,
+                },
+            });
 
             return {
                 executionId,
@@ -134,31 +106,26 @@ class ScriptRunner {
                 metrics: { durationMs },
             };
         } catch (error) {
-            // Calculate metrics even on failure
             const endTime = new Date();
             const durationMs = endTime - startTime;
 
-            // Record failure (skip in dry-run)
-            if (!dryRun) {
-                await this.commands.completeAdminProcess(executionId, {
-                    status: 'FAILED',
-                    error: {
-                        name: error.name,
-                        message: error.message,
-                        stack: error.stack,
-                    },
-                    metrics: {
-                        startTime: startTime.toISOString(),
-                        endTime: endTime.toISOString(),
-                        durationMs,
-                    },
-                });
-            }
+            await this.commands.completeAdminProcess(executionId, {
+                state: 'FAILED',
+                error: {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack,
+                },
+                metrics: {
+                    startTime: startTime.toISOString(),
+                    endTime: endTime.toISOString(),
+                    durationMs,
+                },
+            });
 
             return {
                 executionId,
-                dryRun,
-                status: dryRun ? 'DRY_RUN_FAILED' : 'FAILED',
+                status: 'FAILED',
                 scriptName,
                 error: {
                     name: error.name,
@@ -170,80 +137,107 @@ class ScriptRunner {
     }
 
     /**
-     * Create dry-run version of AdminFriggCommands
-     * Intercepts all write operations and logs them
+     * Create dry-run preview without executing the script
+     * Validates inputs and shows what would be executed
      *
-     * @param {Array} operationLog - Array to collect logged operations
-     * @returns {Object} Wrapped AdminFriggCommands
+     * @param {string} scriptName - Script name
+     * @param {Object} definition - Script definition
+     * @param {Object} params - Input parameters
+     * @returns {Object} Dry-run preview
      */
-    createDryRunFriggCommands(operationLog) {
-        // Create real commands (for read operations)
-        const realCommands = createAdminFriggCommands({
-            executionId: null, // Don't persist logs in dry-run
-            integrationFactory: this.integrationFactory,
-        });
+    createDryRunPreview(scriptName, definition, params) {
+        const validation = this.validateParams(definition, params);
 
-        // Wrap commands to intercept writes
-        const wrappedCommands = wrapAdminFriggCommandsForDryRun(realCommands, operationLog);
-
-        // Create dry-run HTTP client
-        const dryRunHttpClient = createDryRunHttpClient(operationLog);
-
-        // Override instantiate to inject dry-run HTTP client
-        const originalInstantiate = wrappedCommands.instantiate.bind(wrappedCommands);
-        wrappedCommands.instantiate = async (integrationId) => {
-            const instance = await originalInstantiate(integrationId);
-
-            // Inject dry-run HTTP client into the integration instance
-            injectDryRunHttpClient(instance, dryRunHttpClient);
-
-            return instance;
+        return {
+            dryRun: true,
+            status: validation.valid ? 'DRY_RUN_VALID' : 'DRY_RUN_INVALID',
+            scriptName,
+            preview: {
+                script: {
+                    name: definition.name,
+                    version: definition.version,
+                    description: definition.description,
+                    requiresIntegrationFactory: definition.config?.requiresIntegrationFactory || false,
+                },
+                input: params,
+                inputSchema: definition.inputSchema || null,
+                validation,
+            },
+            message: validation.valid
+                ? 'Dry-run validation passed. Script is ready to execute with provided parameters.'
+                : `Dry-run validation failed: ${validation.errors.join(', ')}`,
         };
-
-        return wrappedCommands;
     }
 
     /**
-     * Summarize operations from dry-run log
+     * Validate parameters against script's input schema
      *
-     * @param {Array} log - Operation log
-     * @returns {Object} Summary statistics
+     * @param {Object} definition - Script definition
+     * @param {Object} params - Input parameters
+     * @returns {Object} Validation result { valid, errors }
      */
-    summarizeOperations(log) {
-        const summary = {
-            totalOperations: log.length,
-            databaseWrites: 0,
-            httpRequests: 0,
-            byOperation: {},
-            byModel: {},
-            byService: {},
-        };
+    validateParams(definition, params) {
+        const errors = [];
+        const schema = definition.inputSchema;
 
-        for (const op of log) {
-            // Count by operation type
-            const operation = op.operation || op.method || 'UNKNOWN';
-            summary.byOperation[operation] = (summary.byOperation[operation] || 0) + 1;
+        if (!schema) {
+            return { valid: true, errors: [] };
+        }
 
-            // Database operations
-            if (op.model) {
-                summary.databaseWrites++;
-                summary.byModel[op.model] = summary.byModel[op.model] || [];
-                summary.byModel[op.model].push({
-                    operation: op.operation,
-                    method: op.method,
-                    timestamp: op.timestamp,
-                });
-            }
-
-            // HTTP requests
-            if (op.operation === 'HTTP_REQUEST') {
-                summary.httpRequests++;
-                const service = op.service || 'unknown';
-                summary.byService[service] = (summary.byService[service] || 0) + 1;
+        // Check required fields
+        if (schema.required && Array.isArray(schema.required)) {
+            for (const field of schema.required) {
+                if (params[field] === undefined || params[field] === null) {
+                    errors.push(`Missing required parameter: ${field}`);
+                }
             }
         }
 
-        return summary;
+        // Basic type validation for properties
+        if (schema.properties) {
+            for (const [key, prop] of Object.entries(schema.properties)) {
+                const value = params[key];
+                if (value !== undefined && value !== null) {
+                    const typeError = this.validateType(key, value, prop);
+                    if (typeError) {
+                        errors.push(typeError);
+                    }
+                }
+            }
+        }
+
+        return { valid: errors.length === 0, errors };
+    }
+
+    /**
+     * Validate a single parameter type
+     */
+    validateType(key, value, schema) {
+        const expectedType = schema.type;
+        if (!expectedType) return null;
+
+        const actualType = Array.isArray(value) ? 'array' : typeof value;
+
+        if (expectedType === 'integer' && (typeof value !== 'number' || !Number.isInteger(value))) {
+            return `Parameter "${key}" must be an integer`;
+        }
+        if (expectedType === 'number' && typeof value !== 'number') {
+            return `Parameter "${key}" must be a number`;
+        }
+        if (expectedType === 'string' && typeof value !== 'string') {
+            return `Parameter "${key}" must be a string`;
+        }
+        if (expectedType === 'boolean' && typeof value !== 'boolean') {
+            return `Parameter "${key}" must be a boolean`;
+        }
+        if (expectedType === 'array' && !Array.isArray(value)) {
+            return `Parameter "${key}" must be an array`;
+        }
+        if (expectedType === 'object' && (typeof value !== 'object' || Array.isArray(value))) {
+            return `Parameter "${key}" must be an object`;
+        }
+
+        return null;
     }
 }
 

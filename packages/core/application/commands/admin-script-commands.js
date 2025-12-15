@@ -17,6 +17,20 @@ function mapErrorToResponse(error) {
  * - Maps errors to HTTP-friendly responses
  * - Returns data or error objects (never throws)
  *
+ * WHY SEPARATE FROM integration-commands.js:
+ * These commands are intentionally separate because they serve different domains:
+ * - integration-commands: User-context operations on integrations
+ *   - Requires integrationClass constructor parameter
+ *   - Works with userId, entityIds, integration contexts
+ *   - Uses IntegrationRepository, ModuleRepository
+ * - admin-script-commands: System/admin operations without user context
+ *   - No user context required
+ *   - Works with AdminProcess, ScriptSchedule
+ *   - Uses AdminProcessRepository, ScriptScheduleRepository
+ *
+ * Merging them would violate SRP and create coupling between
+ * user-facing integration code and admin/system code.
+ *
  * Authentication:
  * - Uses ENV-based ADMIN_API_KEY (see handlers/middleware/admin-auth.js)
  * - No database-backed API keys (simplified from original design)
