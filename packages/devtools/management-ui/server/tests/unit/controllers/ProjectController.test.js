@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { ProjectController } from '../../../src/presentation/controllers/ProjectController.js'
 import { ProcessConflictError } from '../../../src/domain/errors/ProcessConflictError.js'
 
@@ -14,17 +14,17 @@ describe('ProjectController - startProject', () => {
   beforeEach(() => {
     // Mock services
     mockProjectService = {
-      startProject: jest.fn(),
-      stopProject: jest.fn(),
-      getStatus: jest.fn()
+      startProject: vi.fn(),
+      stopProject: vi.fn(),
+      getStatus: vi.fn()
     }
 
     mockInspectProjectUseCase = {
-      execute: jest.fn()
+      execute: vi.fn()
     }
 
     mockGitService = {
-      getStatus: jest.fn()
+      getStatus: vi.fn()
     }
 
     controller = new ProjectController({
@@ -43,11 +43,11 @@ describe('ProjectController - startProject', () => {
     }
 
     res = {
-      json: jest.fn(),
-      status: jest.fn().mockReturnThis()
+      json: vi.fn(),
+      status: vi.fn().mockReturnThis()
     }
 
-    next = jest.fn()
+    next = vi.fn()
   })
 
   describe('Successful Start', () => {

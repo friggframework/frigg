@@ -3,7 +3,7 @@
  * Presentation Layer - Routes should handle HTTP concerns only, delegate to controllers
  */
 
-import { jest } from '@jest/globals'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import express from 'express'
 import request from 'supertest'
 
@@ -13,25 +13,25 @@ describe('Project Routes - Presentation Layer', () => {
 
   beforeEach(async () => {
     // Reset all mocks
-    jest.clearAllMocks()
+    vi.clearAllMocks()
 
     // Create mock controller with all required methods
     mockProjectController = {
-      getRepositories: jest.fn((req, res) => res.json({ success: true, data: [] })),
-      getProjectById: jest.fn((req, res) => res.json({ success: true, data: {} })),
-      switchRepository: jest.fn((req, res) => res.json({ success: true })),
-      getProjectDefinition: jest.fn((req, res) => res.json({ success: true, data: {} })),
-      getGitBranches: jest.fn((req, res) => res.json({ success: true, data: [] })),
-      getGitStatus: jest.fn((req, res) => res.json({ success: true, data: {} })),
-      switchGitBranch: jest.fn((req, res) => res.json({ success: true })),
-      openInIDE: jest.fn((req, res) => res.json({ success: true })),
-      getAvailableIDEs: jest.fn((req, res) => res.json({ success: true, data: {} })),
-      startProject: jest.fn((req, res) => res.json({ success: true })),
-      stopProject: jest.fn((req, res) => res.json({ success: true })),
-      getStatus: jest.fn((req, res) => res.json({ success: true, data: {} })),
-      getEnvironment: jest.fn((req, res) => res.json({ success: true, data: {} })),
-      debugRepository: jest.fn((req, res) => res.json({ success: true })),
-      _findProjectPathById: jest.fn().mockResolvedValue('/Users/test/project')
+      getRepositories: vi.fn((req, res) => res.json({ success: true, data: [] })),
+      getProjectById: vi.fn((req, res) => res.json({ success: true, data: {} })),
+      switchRepository: vi.fn((req, res) => res.json({ success: true })),
+      getProjectDefinition: vi.fn((req, res) => res.json({ success: true, data: {} })),
+      getGitBranches: vi.fn((req, res) => res.json({ success: true, data: [] })),
+      getGitStatus: vi.fn((req, res) => res.json({ success: true, data: {} })),
+      switchGitBranch: vi.fn((req, res) => res.json({ success: true })),
+      openInIDE: vi.fn((req, res) => res.json({ success: true })),
+      getAvailableIDEs: vi.fn((req, res) => res.json({ success: true, data: {} })),
+      startProject: vi.fn((req, res) => res.json({ success: true })),
+      stopProject: vi.fn((req, res) => res.json({ success: true })),
+      getStatus: vi.fn((req, res) => res.json({ success: true, data: {} })),
+      getEnvironment: vi.fn((req, res) => res.json({ success: true, data: {} })),
+      debugRepository: vi.fn((req, res) => res.json({ success: true })),
+      _findProjectPathById: vi.fn().mockResolvedValue('/Users/test/project')
     }
 
     // Import and create routes

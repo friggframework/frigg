@@ -1,8 +1,9 @@
-import { ProjectStatus } from '../../domain/value-objects/ProjectStatus.js'
-
 /**
  * Use case for getting the current project status
  * Provides information about the running Frigg instance
+ *
+ * Note: The ProcessManager singleton is the source of truth for running process state.
+ * The projectRepository is used for project metadata, but process state comes from ProcessManager.
  */
 export class GetProjectStatusUseCase {
   constructor({ projectRepository, processManager }) {
@@ -11,27 +12,26 @@ export class GetProjectStatusUseCase {
   }
 
   async execute({ projectPath }) {
-    // Get the current project
+    // Get the current project metadata
     const project = await this.projectRepository.findByPath(projectPath)
     if (!project) {
       throw new Error(`Project not found at ${projectPath}`)
     }
 
-    // If project is supposedly running, verify the process is actually alive
-    if (project.processId) {
-      const isAlive = await this.processManager.isProcessRunning(project.processId)
-      if (!isAlive) {
-        // Process died, update status
-        project.status = new ProjectStatus(ProjectStatus.STOPPED)
-        project.processId = null
-        await this.projectRepository.save(project)
-      }
-    }
+    // Get runtime info from the ProcessManager singleton
+    // ProcessManager tracks the actual running process state
+    const processStatus = this.processManager.getStatus()
 
-    // Get additional runtime info if running
+    // Build runtime info if process is running
     let runtimeInfo = null
-    if (project.status?.value === ProjectStatus.RUNNING && project.processId) {
-      runtimeInfo = await this.processManager.getProcessInfo(project.processId)
+    if (processStatus.isRunning) {
+      runtimeInfo = {
+        pid: processStatus.pid,
+        port: processStatus.port,
+        startedAt: processStatus.startTime,
+        uptime: processStatus.uptime,
+        repositoryPath: processStatus.repositoryPath
+      }
     }
 
     return {

@@ -1,196 +1,122 @@
+import {
+  sendSuccess,
+  sendCreated,
+  sendBadRequest,
+  emitSocketEvent
+} from '../utils/responseHelpers.js'
+import { asyncHandler } from '../utils/controllerWrapper.js'
+
 /**
  * Controller for Git operations
  * Handles branch management and repository status
+ *
+ * Uses response helpers and asyncHandler to reduce boilerplate
  */
 export class GitController {
   constructor({ gitService }) {
     this.gitService = gitService
+
+    // Bind methods to preserve 'this' context when used with asyncHandler
+    this.getRepository = asyncHandler(this._getRepository.bind(this))
+    this.getStatus = asyncHandler(this._getStatus.bind(this))
+    this.listBranches = asyncHandler(this._listBranches.bind(this))
+    this.createBranch = asyncHandler(this._createBranch.bind(this))
+    this.switchBranch = asyncHandler(this._switchBranch.bind(this))
+    this.deleteBranch = asyncHandler(this._deleteBranch.bind(this))
+    this.stashChanges = asyncHandler(this._stashChanges.bind(this))
+    this.applyStash = asyncHandler(this._applyStash.bind(this))
+    this.syncBranch = asyncHandler(this._syncBranch.bind(this))
   }
 
-  async getRepository(req, res, next) {
-    try {
-      const repository = await this.gitService.getRepositoryStatus()
+  async _getRepository() {
+    const repository = await this.gitService.getRepositoryStatus()
+    return repository
+  }
 
-      res.json({
-        success: true,
-        data: repository
-      })
-    } catch (error) {
-      next(error)
+  async _getStatus(req, res) {
+    const { path } = req.body
+
+    if (!path) {
+      sendBadRequest(res, 'Path is required')
+      return
+    }
+
+    const repository = await this.gitService.getRepositoryStatus()
+
+    sendSuccess(res, {
+      branch: repository.currentBranch,
+      status: repository.status,
+      hasChanges: Object.values(repository.status).some(arr =>
+        Array.isArray(arr) && arr.length > 0
+      )
+    })
+  }
+
+  async _listBranches() {
+    const repository = await this.gitService.getRepositoryStatus()
+    return {
+      current: repository.currentBranch,
+      branches: repository.branches,
+      workflow: repository.workflow
     }
   }
 
-  async getStatus(req, res, next) {
-    try {
-      const { path } = req.body
+  async _createBranch(req, res) {
+    const { name, baseBranch, type, description } = req.body
 
-      if (!path) {
-        return res.status(400).json({
-          success: false,
-          error: 'Path is required'
-        })
-      }
-
-      // Use the existing gitService but with a different project path
-      // For now, let's use the existing repository endpoint logic
-      const repository = await this.gitService.getRepositoryStatus()
-
-      res.json({
-        success: true,
-        branch: repository.currentBranch,
-        status: repository.status,
-        hasChanges: Object.values(repository.status).some(arr =>
-          Array.isArray(arr) && arr.length > 0
-        )
-      })
-    } catch (error) {
-      next(error)
+    if (!name && (!type || !description)) {
+      sendBadRequest(res, 'Either branch name or type+description is required')
+      return
     }
+
+    const result = await this.gitService.createBranch({
+      name,
+      baseBranch,
+      type,
+      description
+    })
+
+    emitSocketEvent(req, 'git:branch-created', result)
+    sendCreated(res, result)
   }
 
-  async listBranches(req, res, next) {
-    try {
-      const repository = await this.gitService.getRepositoryStatus()
+  async _switchBranch(req, res) {
+    const { branch } = req.params
+    const { autoStash = false } = req.body
 
-      res.json({
-        success: true,
-        data: {
-          current: repository.currentBranch,
-          branches: repository.branches,
-          workflow: repository.workflow
-        }
-      })
-    } catch (error) {
-      next(error)
-    }
+    const result = await this.gitService.switchBranch(branch, autoStash)
+
+    emitSocketEvent(req, 'git:branch-switched', result)
+    sendSuccess(res, result)
   }
 
-  async createBranch(req, res, next) {
-    try {
-      const { name, baseBranch, type, description } = req.body
+  async _deleteBranch(req, res) {
+    const { branch } = req.params
+    const { force = false } = req.body
 
-      if (!name && (!type || !description)) {
-        return res.status(400).json({
-          success: false,
-          error: 'Either branch name or type+description is required'
-        })
-      }
+    const result = await this.gitService.deleteBranch(branch, force)
 
-      const result = await this.gitService.createBranch({
-        name,
-        baseBranch,
-        type,
-        description
-      })
-
-      // Emit WebSocket event for branch change
-      const io = req.app.get('io')
-      if (io) {
-        io.emit('git:branch-created', result)
-      }
-
-      res.status(201).json({
-        success: true,
-        data: result
-      })
-    } catch (error) {
-      next(error)
-    }
+    emitSocketEvent(req, 'git:branch-deleted', result)
+    sendSuccess(res, result)
   }
 
-  async switchBranch(req, res, next) {
-    try {
-      const { branch } = req.params
-      const { autoStash = false } = req.body
-
-      const result = await this.gitService.switchBranch(branch, autoStash)
-
-      // Emit WebSocket event
-      const io = req.app.get('io')
-      if (io) {
-        io.emit('git:branch-switched', result)
-      }
-
-      res.json({
-        success: true,
-        data: result
-      })
-    } catch (error) {
-      next(error)
-    }
+  async _stashChanges(req) {
+    const { message } = req.body
+    return await this.gitService.stashChanges(message)
   }
 
-  async deleteBranch(req, res, next) {
-    try {
-      const { branch } = req.params
-      const { force = false } = req.body
-
-      const result = await this.gitService.deleteBranch(branch, force)
-
-      // Emit WebSocket event
-      const io = req.app.get('io')
-      if (io) {
-        io.emit('git:branch-deleted', result)
-      }
-
-      res.json({
-        success: true,
-        data: result
-      })
-    } catch (error) {
-      next(error)
-    }
+  async _applyStash(req) {
+    const { stashId } = req.body
+    return await this.gitService.applyStash(stashId)
   }
 
-  async stashChanges(req, res, next) {
-    try {
-      const { message } = req.body
+  async _syncBranch(req, res) {
+    const { branch } = req.params
+    const { operation = 'pull' } = req.body
 
-      const result = await this.gitService.stashChanges(message)
+    const result = await this.gitService.syncBranch(branch, operation)
 
-      res.json({
-        success: true,
-        data: result
-      })
-    } catch (error) {
-      next(error)
-    }
-  }
-
-  async applyStash(req, res, next) {
-    try {
-      const { stashId } = req.body
-
-      const result = await this.gitService.applyStash(stashId)
-
-      res.json({
-        success: true,
-        data: result
-      })
-    } catch (error) {
-      next(error)
-    }
-  }
-
-  async syncBranch(req, res, next) {
-    try {
-      const { branch } = req.params
-      const { operation = 'pull' } = req.body
-
-      const result = await this.gitService.syncBranch(branch, operation)
-
-      // Emit WebSocket event
-      const io = req.app.get('io')
-      if (io) {
-        io.emit('git:branch-synced', result)
-      }
-
-      res.json({
-        success: true,
-        data: result
-      })
-    } catch (error) {
-      next(error)
-    }
+    emitSocketEvent(req, 'git:branch-synced', result)
+    sendSuccess(res, result)
   }
 }

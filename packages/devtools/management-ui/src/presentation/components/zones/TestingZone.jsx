@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useFrigg } from '../../hooks/useFrigg'
 import { useSocket } from '../../hooks/useSocket'
 import TestAreaWelcome from './TestAreaWelcome'
@@ -7,6 +7,7 @@ import TestAreaContainer from './TestAreaContainer'
 import AdminViewContainer from '../admin/AdminViewContainer'
 import LiveLogPanel from '../common/LiveLogPanel'
 import TestAreaErrorBoundary from './TestAreaErrorBoundary'
+import CliPromptDialog from '../test/CliPromptDialog'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { cn } from '../../../lib/utils'
@@ -73,6 +74,7 @@ const TestingZone = ({ className }) => {
   const [logs, setLogs] = useState([])
   const [isStopping, setIsStopping] = useState(false)
   const [existingProcess, setExistingProcess] = useState(null)
+  const [pendingPrompt, setPendingPrompt] = useState(null) // CLI prompt requiring user response
 
   // Load Frigg status and restore from localStorage on mount
   useEffect(() => {
@@ -157,9 +159,19 @@ const TestingZone = ({ className }) => {
 
     socket.socket.on('frigg:log', handleLog)
 
+    // Handle CLI prompt requests from pre-flight checks
+    const handlePromptRequest = (data) => {
+      console.log('CLI prompt request received:', data)
+      setPendingPrompt(data)
+      addLog('info', `CLI prompt: ${data.prompt?.message || 'Action required'}`)
+    }
+
+    socket.socket.on('frigg:prompt_request', handlePromptRequest)
+
     return () => {
       if (socket.socket) {
         socket.socket.off('frigg:log', handleLog)
+        socket.socket.off('frigg:prompt_request', handlePromptRequest)
       }
     }
   }, [socket, testAreaState])
@@ -531,6 +543,23 @@ const TestingZone = ({ className }) => {
     URL.revokeObjectURL(url)
   }
 
+  // Handle CLI prompt response
+  const handlePromptRespond = useCallback((requestId, response) => {
+    if (!socket?.socket) {
+      console.error('Socket not available for prompt response')
+      return
+    }
+
+    console.log('Sending prompt response:', { requestId, response })
+    addLog('info', `User responded: ${response === true ? 'Yes' : response === false ? 'No' : response}`)
+
+    // Send response via WebSocket
+    socket.socket.emit('frigg:prompt_response', { requestId, response })
+
+    // Clear the pending prompt
+    setPendingPrompt(null)
+  }, [socket])
+
   // Render view mode selection
   const renderViewModeSelection = () => {
     return (
@@ -832,6 +861,14 @@ const TestingZone = ({ className }) => {
 
   return (
     <div className={cn('h-full flex flex-col', className)}>
+      {/* CLI Prompt Dialog - Shown when CLI requests user input */}
+      {pendingPrompt && (
+        <CliPromptDialog
+          prompt={pendingPrompt}
+          onRespond={handlePromptRespond}
+        />
+      )}
+
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="flex-1 min-h-0">

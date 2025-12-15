@@ -12,39 +12,33 @@ const Layout = ({ children, activeZone, onZoneChange }) => {
     <div className="min-h-screen bg-background">
       {/* Global Header */}
       <header className="bg-card border-b border-border sticky top-0 z-40 backdrop-blur-sm bg-card/95">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            {/* Brand Section */}
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 flex items-center justify-center">
-                  <img
-                    src={FriggLogo}
-                    alt="Frigg"
-                    className="w-8 h-8"
-                  />
-                </div>
-                <div>
-                  <h1 className="font-semibold text-xl">Frigg Management UI</h1>
-                  <p className="text-sm text-muted-foreground">
-                    {currentProject ? `Project: ${currentProject}` : 'Integration Management Interface'}
-                  </p>
-                </div>
+        <div className="max-w-[1600px] mx-auto px-4 py-3">
+          <div className="flex items-center justify-between gap-4">
+            {/* Brand Section - Compact */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="w-8 h-8 flex items-center justify-center">
+                <img
+                  src={FriggLogo}
+                  alt="Frigg"
+                  className="w-7 h-7"
+                />
               </div>
-
-              {/* Zone Navigation - Always show for two-zone architecture */}
-              {activeZone && onZoneChange && (
-                <div className="ml-8">
-                  <ZoneNavigation
-                    activeZone={activeZone}
-                    onZoneChange={onZoneChange}
-                  />
-                </div>
-              )}
+              <div className="hidden sm:block">
+                <h1 className="font-semibold text-base leading-tight">Frigg</h1>
+                <p className="text-xs text-muted-foreground leading-tight">Management UI</p>
+              </div>
             </div>
 
-            {/* Action Section */}
-            <div className="flex items-center gap-3">
+            {/* Zone Navigation - Center */}
+            {activeZone && onZoneChange && (
+              <ZoneNavigation
+                activeZone={activeZone}
+                onZoneChange={onZoneChange}
+              />
+            )}
+
+            {/* Action Section - Right */}
+            <div className="flex items-center gap-2 flex-shrink-0">
               <RepositoryPicker
                 currentRepo={currentRepository}
                 onRepoChange={(repo) => {

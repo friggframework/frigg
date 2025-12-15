@@ -12,6 +12,7 @@ import { resolve, basename } from 'path'
  * - Stream process output to WebSocket clients
  * - Handle graceful shutdown and cleanup
  * - Detect port from process output
+ * - Handle IPC prompts from CLI (for interactive pre-flight checks)
  */
 export class ProcessManager extends EventEmitter {
   constructor() {
@@ -22,6 +23,14 @@ export class ProcessManager extends EventEmitter {
     this.startTime = null
     this.repositoryPath = null
     this.isStarting = false
+    this.ipcMode = false
+    this.pendingPrompts = new Map() // requestId -> {prompt, timestamp}
+
+    // Add default error handler to prevent unhandled 'error' events from crashing
+    // Node.js EventEmitter throws if 'error' is emitted with no listeners
+    this.on('error', (err) => {
+      console.error('[ProcessManager] Error event:', err.message)
+    })
   }
 
   /**
@@ -222,11 +231,20 @@ export class ProcessManager extends EventEmitter {
           ...(options.env || {})
         }
 
-        const friggProcess = spawn('frigg', ['start'], {
+        // Build command arguments - include --ipc flag for IPC mode
+        const friggArgs = ['start', '--ipc']
+
+        const friggProcess = spawn('frigg', friggArgs, {
           cwd: backendPath,
-          env: processEnv,
+          env: {
+            ...processEnv,
+            FRIGG_IPC: 'true' // Also set env var for IPC mode
+          },
           shell: true // Enable shell to find frigg command
         })
+
+        // Enable IPC mode
+        this.enableIpcMode()
 
         this.process = friggProcess
         this.pid = friggProcess.pid
@@ -234,18 +252,55 @@ export class ProcessManager extends EventEmitter {
 
         let portDetected = false
         let startupBuffer = ''
+
+        // Extended timeout for IPC mode - pre-flight checks can take time
+        // (starting Docker, docker-compose, building Prisma layer, etc.)
+        const timeoutMs = this.ipcMode ? 180000 : 30000 // 3 minutes for IPC, 30s otherwise
+
         const startupTimeout = setTimeout(() => {
           if (!portDetected) {
             this.isStarting = false
             this.cleanup()
             reject(new Error('Timeout waiting for Frigg to start (no port detected)'))
           }
-        }, 30000) // 30 second timeout
+        }, timeoutMs)
 
         // Listen to stdout
         friggProcess.stdout.on('data', (data) => {
           const message = data.toString()
           startupBuffer += message
+
+          // Check for IPC messages first (when in IPC mode)
+          if (this.ipcMode) {
+            // IPC messages may come as separate lines
+            const lines = message.split('\n').filter(line => line.trim())
+            for (const line of lines) {
+              const ipcData = this._parseIpcMessage(line)
+              if (ipcData) {
+                // Handle IPC message based on type
+                if (ipcData.type === 'prompt_request') {
+                  this._handleIpcPrompt(ipcData)
+                  // Forward to WebSocket
+                  webSocketService.emit('frigg:prompt_request', {
+                    requestId: ipcData.requestId,
+                    prompt: ipcData.prompt
+                  })
+                } else if (ipcData.type === 'log') {
+                  // IPC log message
+                  const log = {
+                    level: ipcData.level || 'info',
+                    message: ipcData.message,
+                    timestamp: new Date().toISOString(),
+                    source: 'frigg-process'
+                  }
+                  webSocketService.emit('frigg:log', log)
+                  this.emit('log', log)
+                }
+                // Skip non-IPC processing for this line
+                continue
+              }
+            }
+          }
 
           // Parse log level from console output (e.g., [INFO], [ERROR], [WARN])
           let logLevel = 'info'
@@ -312,6 +367,7 @@ export class ProcessManager extends EventEmitter {
         // Listen to stderr
         friggProcess.stderr.on('data', (data) => {
           const message = data.toString()
+          startupBuffer += message // Also capture stderr for error reporting
 
           // Parse log level from console output first
           let logLevel = 'error' // Default for stderr
@@ -427,17 +483,41 @@ export class ProcessManager extends EventEmitter {
               return
             }
 
-            // Other startup failure
+            // Other startup failure - extract last meaningful lines from buffer
+            const bufferLines = startupBuffer.trim().split('\n').filter(line => line.trim())
+            const lastLines = bufferLines.slice(-10).join('\n') // Last 10 lines
+
+            // Try to find error messages in the buffer
+            const errorLines = bufferLines.filter(line =>
+              line.toLowerCase().includes('error') ||
+              line.toLowerCase().includes('failed') ||
+              line.toLowerCase().includes('cannot find') ||
+              line.toLowerCase().includes('module not found')
+            )
+            const errorSummary = errorLines.length > 0 ? errorLines.slice(-3).join(' | ') : ''
+
             const errorLog = {
               level: 'error',
-              message: `Frigg process failed to start (exit code ${code}). Check logs for details.`,
+              message: `Frigg process failed to start (exit code ${code}). ${errorSummary || 'Check logs for details.'}`,
               timestamp: new Date().toISOString(),
               source: 'process-manager'
             }
             webSocketService.emit('frigg:log', errorLog)
+
+            // Also emit the last lines of output to help debug
+            if (lastLines) {
+              const outputLog = {
+                level: 'error',
+                message: `Last output before exit:\n${lastLines}`,
+                timestamp: new Date().toISOString(),
+                source: 'process-manager'
+              }
+              webSocketService.emit('frigg:log', outputLog)
+            }
+
             this.emit('error', new Error(`Process exited with code ${code}`))
             this.cleanup()
-            reject(new Error(`Failed to start Frigg (exit code ${code}). Check logs for details.`))
+            reject(new Error(`Failed to start Frigg (exit code ${code}). ${errorSummary || 'Check logs for details.'}`))
             return
           }
 
@@ -575,5 +655,124 @@ export class ProcessManager extends EventEmitter {
     this.startTime = null
     this.repositoryPath = null
     this.isStarting = false
+    this.ipcMode = false
+    this.pendingPrompts.clear()
+  }
+
+  /**
+   * Enable IPC mode for communicating with CLI
+   */
+  enableIpcMode() {
+    this.ipcMode = true
+  }
+
+  /**
+   * Parse an IPC message from CLI stdout
+   * @param {string} message - Raw message string (may include newline)
+   * @returns {object|null} Parsed IPC data or null if not an IPC message
+   */
+  _parseIpcMessage(message) {
+    if (!message || typeof message !== 'string') {
+      return null
+    }
+
+    try {
+      const trimmed = message.trim()
+      if (!trimmed) {
+        return null
+      }
+
+      const parsed = JSON.parse(trimmed)
+
+      // Check if this is a Frigg IPC message
+      if (!parsed.frigg_ipc) {
+        return null
+      }
+
+      // Return normalized IPC data
+      return {
+        type: parsed.frigg_ipc,
+        ...parsed
+      }
+    } catch {
+      // Not valid JSON or not IPC message
+      return null
+    }
+  }
+
+  /**
+   * Handle an IPC prompt request from CLI
+   * Stores the prompt and emits an event for WebSocket forwarding
+   * @param {object} ipcData - Parsed IPC prompt data
+   */
+  _handleIpcPrompt(ipcData) {
+    const { requestId, prompt } = ipcData
+
+    // Store in pending prompts
+    this.pendingPrompts.set(requestId, {
+      prompt,
+      timestamp: Date.now()
+    })
+
+    // Emit event for WebSocket service to forward to clients
+    this.emit('frigg:prompt_request', {
+      requestId,
+      prompt
+    })
+  }
+
+  /**
+   * Respond to a pending CLI prompt
+   * @param {string} requestId - The prompt request ID
+   * @param {any} response - The response value (boolean, string, etc.)
+   * @returns {boolean} True if response was sent, false otherwise
+   */
+  respondToPrompt(requestId, response) {
+    // Check process is running
+    if (!this.process) {
+      return false
+    }
+
+    // Check prompt exists
+    if (!this.pendingPrompts.has(requestId)) {
+      return false
+    }
+
+    // Format IPC response
+    const ipcResponse = JSON.stringify({
+      frigg_ipc: 'prompt_response',
+      requestId,
+      response
+    }) + '\n'
+
+    // Write to process stdin
+    this.process.stdin.write(ipcResponse)
+
+    // Remove from pending prompts
+    this.pendingPrompts.delete(requestId)
+
+    // Emit response event
+    this.emit('frigg:prompt_response', {
+      requestId,
+      response
+    })
+
+    return true
+  }
+
+  /**
+   * Get all pending prompts as an array
+   * @returns {Array} Array of {requestId, prompt, timestamp} objects
+   */
+  getPendingPrompts() {
+    const prompts = []
+    for (const [requestId, data] of this.pendingPrompts) {
+      prompts.push({
+        requestId,
+        prompt: data.prompt,
+        timestamp: data.timestamp
+      })
+    }
+    return prompts
   }
 }

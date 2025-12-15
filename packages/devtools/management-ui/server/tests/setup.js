@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals'
+import { vi, afterAll, beforeEach } from 'vitest'
 import { config } from 'dotenv'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -15,23 +15,23 @@ process.env.PROJECT_ROOT = path.join(__dirname, '../../test-fixtures/sample-proj
 
 // Mock WebSocket broadcasts during tests
 global.mockWebSocket = {
-  emit: jest.fn(),
-  broadcast: jest.fn(),
-  on: jest.fn(),
-  to: jest.fn(() => ({
-    emit: jest.fn()
+  emit: vi.fn(),
+  broadcast: vi.fn(),
+  on: vi.fn(),
+  to: vi.fn(() => ({
+    emit: vi.fn()
   }))
 }
 
 // Mock process manager
 global.mockProcessManager = {
-  getStatus: jest.fn(() => ({ status: 'stopped', pid: null })),
-  getLogs: jest.fn(() => []),
-  getMetrics: jest.fn(() => ({ cpu: 0, memory: 0 })),
-  start: jest.fn(() => Promise.resolve({ status: 'running', pid: 12345 })),
-  stop: jest.fn(() => Promise.resolve()),
-  restart: jest.fn(() => Promise.resolve({ status: 'running', pid: 12346 })),
-  addStatusListener: jest.fn()
+  getStatus: vi.fn(() => ({ status: 'stopped', pid: null })),
+  getLogs: vi.fn(() => []),
+  getMetrics: vi.fn(() => ({ cpu: 0, memory: 0 })),
+  start: vi.fn(() => Promise.resolve({ status: 'running', pid: 12345 })),
+  stop: vi.fn(() => Promise.resolve()),
+  restart: vi.fn(() => Promise.resolve({ status: 'running', pid: 12346 })),
+  addStatusListener: vi.fn()
 }
 
 // Clean up after all tests
@@ -44,5 +44,5 @@ afterAll(async () => {
 
 // Clear all mocks before each test
 beforeEach(() => {
-  jest.clearAllMocks()
+  vi.clearAllMocks()
 })

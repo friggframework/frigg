@@ -85,24 +85,18 @@ const RepositoryPicker = ({ currentRepo, onRepoChange }) => {
       <div className="flex items-center gap-1">
         <button
           onClick={() => setIsOpen(!isOpen)}
+          title={currentRepo?.path || 'Select a repository'}
           className={cn(
-            "flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md min-w-[300px]",
+            "flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md max-w-[280px]",
             "bg-background border border-border hover:bg-accent",
             "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
             "transition-colors duration-150"
           )}
         >
           <Folder className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          <div className="flex-1 min-w-0 text-left">
-            <div className="truncate text-foreground font-medium">
-              {currentRepo?.name || 'Select Repository'}
-            </div>
-            {currentRepo?.path && (
-              <div className="truncate text-xs text-muted-foreground">
-                {currentRepo.path}
-              </div>
-            )}
-          </div>
+          <span className="truncate text-foreground font-medium">
+            {currentRepo?.name || 'Select Repository'}
+          </span>
           <ChevronDown className={cn(
             "h-4 w-4 text-muted-foreground transition-transform duration-200 flex-shrink-0",
             isOpen && "transform rotate-180"

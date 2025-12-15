@@ -5,6 +5,7 @@ import AppRouter from './components/layout/AppRouter'
 import ErrorBoundary from './components/layout/ErrorBoundary'
 import { SocketProvider } from './hooks/useSocket'
 import { FriggProvider } from './hooks/useFrigg'
+import { AISettingsProvider } from './hooks/useAISettings'
 import ThemeProvider from './components/theme/ThemeProvider'
 
 // Create a client
@@ -25,9 +26,11 @@ function App() {
         <ThemeProvider defaultTheme="system">
           <SocketProvider>
             <FriggProvider>
-              <Router>
-                <AppRouter />
-              </Router>
+              <AISettingsProvider>
+                <Router>
+                  <AppRouter />
+                </Router>
+              </AISettingsProvider>
             </FriggProvider>
           </SocketProvider>
         </ThemeProvider>

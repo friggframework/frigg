@@ -214,7 +214,6 @@ const container = new Container()
 export default container
 
 // Export specific services for convenience
-export const getIntegrationService = () => container.resolve('integrationService')
 export const getProjectService = () => container.resolve('projectService')
 export const getUserService = () => container.resolve('userService')
 export const getEnvironmentService = () => container.resolve('environmentService')

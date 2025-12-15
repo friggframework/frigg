@@ -3,206 +3,211 @@
  * Infrastructure Layer - Repository should handle file system operations atomically
  */
 
-import { jest } from '@jest/globals'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import path from 'path'
 
-// Mock fs and fs-extra modules
-jest.unstable_mockModule('fs', () => ({
-  existsSync: jest.fn(),
-  readdirSync: jest.fn()
-}))
+// Mock fs/promises module
+vi.mock('fs/promises', async (importOriginal) => {
+  return {
+    default: {
+      readFile: vi.fn(),
+      writeFile: vi.fn(),
+      access: vi.fn(),
+      readdir: vi.fn(),
+      stat: vi.fn()
+    }
+  }
+})
 
-jest.unstable_mockModule('fs-extra', () => ({
-  readJson: jest.fn(),
-  writeJson: jest.fn(),
-  ensureDir: jest.fn(),
-  pathExists: jest.fn()
-}))
+// Mock node:module - need to provide actual createRequire
+vi.mock('node:module', async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    createRequire: vi.fn(() => vi.fn())
+  }
+})
 
-const { FileSystemProjectRepository } = await import('../../../../src/infrastructure/repositories/FileSystemProjectRepository.js')
-const { existsSync, readdirSync } = await import('fs')
-const fsExtra = await import('fs-extra')
+import fs from 'fs/promises'
+import { FileSystemProjectRepository } from '../../../../src/infrastructure/repositories/FileSystemProjectRepository.js'
 
 describe('FileSystemProjectRepository - Infrastructure Layer', () => {
   let repository
-  const mockProjectPath = '/Users/test/frigg-project'
+  const mockProjectPath = '/Users/test/frigg-project/backend'
 
   beforeEach(() => {
-    jest.clearAllMocks()
-    repository = new FileSystemProjectRepository()
+    vi.clearAllMocks()
+    repository = new FileSystemProjectRepository({ projectPath: mockProjectPath })
+  })
+
+  describe('Constructor', () => {
+    it('should initialize with project path', () => {
+      expect(repository.projectPath).toBe(mockProjectPath)
+      expect(repository.appDefinitionPath).toBe(path.join(mockProjectPath, 'src', 'app.js'))
+      expect(repository.configPath).toBe(path.join(mockProjectPath, 'frigg.config.json'))
+      expect(repository.packageJsonPath).toBe(path.join(mockProjectPath, 'package.json'))
+    })
+
+    it('should throw when projectPath not provided', () => {
+      expect(() => new FileSystemProjectRepository({})).toThrow()
+    })
   })
 
   describe('findByPath - Atomic Operation', () => {
-    it('should return null when path does not exist', async () => {
-      existsSync.mockReturnValue(false)
+    it('should return null when package.json fails to load', async () => {
+      fs.readFile.mockRejectedValue(new Error('ENOENT'))
+      fs.access.mockRejectedValue(new Error('ENOENT'))
 
       const result = await repository.findByPath(mockProjectPath)
 
       expect(result).toBeNull()
-      expect(existsSync).toHaveBeenCalledWith(mockProjectPath)
     })
 
-    it('should return project data when path exists with package.json', async () => {
-      existsSync.mockReturnValue(true)
-      fsExtra.readJson.mockResolvedValue({
+    it('should return AppDefinition when package.json exists', async () => {
+      fs.readFile.mockResolvedValue(JSON.stringify({
+        name: 'test-project',
+        version: '1.0.0',
+        description: 'Test project'
+      }))
+      fs.access.mockRejectedValue(new Error('ENOENT')) // No index.js or app.js
+
+      const result = await repository.findByPath(mockProjectPath)
+
+      expect(result).toBeDefined()
+      expect(result.name).toBe('test-project')
+      expect(result.version).toBe('1.0.0')
+    })
+
+    it('should use the requested projectPath when provided', async () => {
+      fs.readFile.mockResolvedValue(JSON.stringify({
+        name: 'other-project',
+        version: '2.0.0'
+      }))
+      fs.access.mockRejectedValue(new Error('ENOENT'))
+
+      const customPath = '/Users/test/other-project'
+      await repository.findByPath(customPath)
+
+      expect(fs.readFile).toHaveBeenCalledWith(
+        path.join(customPath, 'package.json'),
+        'utf-8'
+      )
+    })
+  })
+
+  describe('loadPackageJson', () => {
+    it('should load and parse package.json', async () => {
+      const mockPackage = {
         name: 'test-project',
         version: '1.0.0',
         dependencies: {
           '@friggframework/core': '^2.0.0'
         }
-      })
+      }
+      fs.readFile.mockResolvedValue(JSON.stringify(mockPackage))
 
-      const result = await repository.findByPath(mockProjectPath)
+      const result = await repository.loadPackageJson()
 
-      expect(result).toBeDefined()
-      expect(result.path).toBe(mockProjectPath)
-      expect(result.name).toBe('test-project')
-      expect(result.version).toBe('1.0.0')
+      expect(result).toEqual(mockPackage)
+      expect(fs.readFile).toHaveBeenCalledWith(
+        path.join(mockProjectPath, 'package.json'),
+        'utf-8'
+      )
     })
 
-    it('should handle missing package.json gracefully', async () => {
-      existsSync.mockImplementation((path) => {
-        return !path.includes('package.json')
-      })
+    it('should allow custom path for loadPackageJson', async () => {
+      fs.readFile.mockResolvedValue(JSON.stringify({ name: 'custom' }))
 
-      const result = await repository.findByPath(mockProjectPath)
+      const customPath = '/custom/path'
+      await repository.loadPackageJson(customPath)
 
-      expect(result).toBeDefined()
-      expect(result.path).toBe(mockProjectPath)
-      expect(result.name).toBe('frigg-project') // basename fallback
+      expect(fs.readFile).toHaveBeenCalledWith(
+        path.join(customPath, 'package.json'),
+        'utf-8'
+      )
     })
+  })
 
-    it('should detect backend subdirectory for workspace projects', async () => {
-      existsSync.mockImplementation((testPath) => {
-        // Root exists, backend exists
-        if (testPath === mockProjectPath) return true
-        if (testPath === path.join(mockProjectPath, 'backend')) return true
-        if (testPath.includes('backend/index.js')) return true
-        if (testPath.includes('package.json')) return true
-        return false
-      })
+  describe('save', () => {
+    it('should save project state to .frigg-state.json', async () => {
+      fs.writeFile.mockResolvedValue()
 
-      fsExtra.readJson.mockResolvedValue({
-        name: 'workspace-project',
+      const mockAppDefinition = {
+        name: 'test',
         version: '1.0.0',
-        workspaces: ['backend', 'frontend']
-      })
+        status: { value: 'running' },
+        processId: 12345,
+        port: 3001,
+        integrations: []
+      }
 
-      const result = await repository.findByPath(mockProjectPath)
+      await repository.save(mockAppDefinition)
 
-      expect(result).toBeDefined()
-      // Should prefer backend subdirectory
-      expect(result.path).toBe(path.join(mockProjectPath, 'backend'))
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        path.join(mockProjectPath, '.frigg-state.json'),
+        expect.stringContaining('"status": "running"'),
+        'utf-8'
+      )
     })
   })
 
-  describe('findAll - Repository Pattern', () => {
-    it('should return empty array when no repositories env var', async () => {
-      delete process.env.AVAILABLE_REPOSITORIES
+  describe('fileExists', () => {
+    it('should return true when file exists', async () => {
+      fs.access.mockResolvedValue()
 
-      const result = await repository.findAll()
+      const result = await repository.fileExists('/some/file.js')
 
-      expect(Array.isArray(result)).toBe(true)
-      expect(result).toHaveLength(0)
+      expect(result).toBe(true)
     })
 
-    it('should parse repositories from environment variable', async () => {
-      const repos = [
-        { path: '/Users/test/project1', name: 'project1' },
-        { path: '/Users/test/project2', name: 'project2' }
-      ]
-      process.env.AVAILABLE_REPOSITORIES = JSON.stringify(repos)
+    it('should return false when file does not exist', async () => {
+      fs.access.mockRejectedValue(new Error('ENOENT'))
 
-      const result = await repository.findAll()
+      const result = await repository.fileExists('/nonexistent/file.js')
 
-      expect(result).toHaveLength(2)
-      expect(result[0].path).toBe('/Users/test/project1')
-      expect(result[1].path).toBe('/Users/test/project2')
-
-      delete process.env.AVAILABLE_REPOSITORIES
-    })
-
-    it('should handle invalid JSON gracefully', async () => {
-      process.env.AVAILABLE_REPOSITORIES = 'invalid json{'
-
-      const result = await repository.findAll()
-
-      expect(result).toEqual([])
-
-      delete process.env.AVAILABLE_REPOSITORIES
-    })
-
-    it('should filter out non-existent paths', async () => {
-      const repos = [
-        { path: '/Users/test/exists', name: 'exists' },
-        { path: '/Users/test/missing', name: 'missing' }
-      ]
-      process.env.AVAILABLE_REPOSITORIES = JSON.stringify(repos)
-
-      existsSync.mockImplementation((testPath) => {
-        return testPath.includes('exists')
-      })
-
-      const result = await repository.findAll()
-
-      expect(result.length).toBeLessThanOrEqual(repos.length)
-
-      delete process.env.AVAILABLE_REPOSITORIES
+      expect(result).toBe(false)
     })
   })
 
-  describe('findById - ID Resolution', () => {
-    it('should find project by generated ID', async () => {
-      const repos = [
-        { path: '/Users/test/project1', id: '1a7501a0' },
-        { path: '/Users/test/project2', id: 'abc123de' }
-      ]
-      process.env.AVAILABLE_REPOSITORIES = JSON.stringify(repos)
+  describe('loadProjectState', () => {
+    it('should return state when .frigg-state.json exists', async () => {
+      const mockState = {
+        status: 'running',
+        processId: 12345,
+        port: 3001
+      }
+      fs.access.mockResolvedValue() // File exists
+      fs.readFile.mockResolvedValue(JSON.stringify(mockState))
 
-      existsSync.mockReturnValue(true)
-      fsExtra.readJson.mockResolvedValue({
-        name: 'project1',
-        version: '1.0.0'
-      })
+      const result = await repository.loadProjectState()
 
-      const result = await repository.findById('1a7501a0')
-
-      expect(result).toBeDefined()
-      expect(result.path).toBe('/Users/test/project1')
-
-      delete process.env.AVAILABLE_REPOSITORIES
+      expect(result).toEqual(mockState)
     })
 
-    it('should return null when ID not found', async () => {
-      const repos = [
-        { path: '/Users/test/project1', id: '1a7501a0' }
-      ]
-      process.env.AVAILABLE_REPOSITORIES = JSON.stringify(repos)
+    it('should return null when state file does not exist', async () => {
+      fs.access.mockRejectedValue(new Error('ENOENT'))
 
-      const result = await repository.findById('99999999')
+      const result = await repository.loadProjectState()
 
       expect(result).toBeNull()
-
-      delete process.env.AVAILABLE_REPOSITORIES
     })
   })
 
   describe('Error Handling', () => {
-    it('should throw errors from file system operations', async () => {
-      existsSync.mockReturnValue(true)
-      fsExtra.readJson.mockRejectedValue(new Error('Permission denied'))
+    it('should handle parse errors gracefully', async () => {
+      fs.readFile.mockResolvedValue('invalid json{')
 
-      await expect(
-        repository.findByPath(mockProjectPath)
-      ).rejects.toThrow('Permission denied')
+      const result = await repository.findByPath(mockProjectPath)
+
+      expect(result).toBeNull()
     })
 
     it('should handle concurrent read operations', async () => {
-      existsSync.mockReturnValue(true)
-      fsExtra.readJson.mockResolvedValue({
+      fs.readFile.mockResolvedValue(JSON.stringify({
         name: 'test',
         version: '1.0.0'
-      })
+      }))
+      fs.access.mockRejectedValue(new Error('ENOENT'))
 
       const promises = [
         repository.findByPath('/path1'),
@@ -213,7 +218,7 @@ describe('FileSystemProjectRepository - Infrastructure Layer', () => {
       const results = await Promise.all(promises)
 
       expect(results).toHaveLength(3)
-      expect(fsExtra.readJson).toHaveBeenCalledTimes(3)
+      expect(fs.readFile).toHaveBeenCalledTimes(3)
     })
   })
 })

@@ -15,9 +15,10 @@ import { ProcessConflictError } from '../../domain/errors/ProcessConflictError.j
  * 7. Return complete status
  */
 export class StartProjectUseCase {
-  constructor({ processManager, webSocketService }) {
+  constructor({ processManager, webSocketService, findProjectByIdUseCase }) {
     this.processManager = processManager
     this.webSocketService = webSocketService
+    this.findProjectByIdUseCase = findProjectByIdUseCase
   }
 
   /**
@@ -74,31 +75,19 @@ export class StartProjectUseCase {
 
     let repositoryPath = projectIdOrPath
 
-    // If it looks like an ID (8 hex chars), resolve it to a path
+    // If it looks like an ID (8 hex chars), resolve it to a path using FindProjectByIdUseCase
     if (/^[a-f0-9]{8}$/.test(projectIdOrPath)) {
-      // Find the project path from available repositories
-      const availableReposEnv = process.env.AVAILABLE_REPOSITORIES
-      if (availableReposEnv) {
-        try {
-          const repositories = JSON.parse(availableReposEnv)
-          const { ProjectId } = await import('../../domain/value-objects/ProjectId.js')
-
-          for (const repo of repositories) {
-            const repoId = ProjectId.generate(repo.path)
-            if (repoId === projectIdOrPath) {
-              repositoryPath = repo.path
-              break
-            }
-          }
-        } catch (error) {
-          throw new Error(`Failed to resolve project ID: ${error.message}`)
-        }
+      if (!this.findProjectByIdUseCase) {
+        throw new Error('FindProjectByIdUseCase is required to resolve project IDs')
       }
 
-      // If we still don't have a path, the project wasn't found
-      if (repositoryPath === projectIdOrPath) {
+      const result = await this.findProjectByIdUseCase.execute({ id: projectIdOrPath })
+
+      if (!result) {
         throw new Error(`Project with ID "${projectIdOrPath}" not found`)
       }
+
+      repositoryPath = result.path
     }
 
     // 2. Validate repository path

@@ -6,6 +6,8 @@ import { Container } from './container.js'
 import { createProjectRoutes } from './presentation/routes/projectRoutes.js'
 import { createGitRoutes } from './presentation/routes/gitRoutes.js'
 import { createTestAreaRoutes } from './presentation/routes/testAreaRoutes.js'
+import { createFriggAppRoutes } from './presentation/routes/friggAppRoutes.js'
+import { getExpressCorsConfig, getSocketIoCorsConfig } from './config/cors.js'
 
 /**
  * Creates and configures the Express application with DDD architecture
@@ -13,12 +15,13 @@ import { createTestAreaRoutes } from './presentation/routes/testAreaRoutes.js'
 export function createApp({ projectPath = process.cwd() } = {}) {
   const app = express()
   const httpServer = createServer(app)
+
+  // Get CORS configuration from environment or defaults
+  const socketIoCorsConfig = getSocketIoCorsConfig()
+  const expressCorsConfig = getExpressCorsConfig()
+
   const io = new Server(httpServer, {
-    cors: {
-      origin: ["http://localhost:5173", "http://localhost:3000"],
-      methods: ["GET", "POST", "PUT", "DELETE"],
-      credentials: true
-    }
+    cors: socketIoCorsConfig
   })
 
   const container = new Container({ projectPath, io })
@@ -30,14 +33,11 @@ export function createApp({ projectPath = process.cwd() } = {}) {
   app.locals.projectPath = projectPath
 
   // Middleware
-  app.use(cors({
-    origin: ["http://localhost:5173", "http://localhost:3000"],
-    credentials: true
-  }))
+  app.use(cors(expressCorsConfig))
   app.use(express.json({ limit: '10mb' }))
   app.use(express.urlencoded({ extended: true }))
 
-  // Setup WebSocket events
+  // Setup WebSocket events - basic connection logging
   io.on('connection', (socket) => {
     console.log('Client connected:', socket.id)
 
@@ -45,6 +45,9 @@ export function createApp({ projectPath = process.cwd() } = {}) {
       console.log('Client disconnected:', socket.id)
     })
   })
+
+  // Setup AI agent WebSocket handlers
+  container.setupAgentWebSocketHandlers()
 
   // API Routes (Clean Architecture)
   // Projects - management of local Frigg projects
@@ -55,6 +58,9 @@ export function createApp({ projectPath = process.cwd() } = {}) {
 
   // Test Area - start/stop Frigg for testing with @friggframework/ui
   app.use('/api/test-area', createTestAreaRoutes(container))
+
+  // Frigg App - connection to running Frigg app and admin API proxy
+  app.use('/api/frigg-app', createFriggAppRoutes(container.getFriggAppController()))
 
   // Health check
   app.get('/api/health', (req, res) => {

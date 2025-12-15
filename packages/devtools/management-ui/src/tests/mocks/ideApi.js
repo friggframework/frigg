@@ -1,6 +1,7 @@
 /**
  * Mock IDE API responses for testing
  */
+import { vi } from 'vitest'
 
 export const mockIDEsList = {
   vscode: {
@@ -104,7 +105,7 @@ export const mockAPIResponses = {
 
 // Mock fetch function for API calls
 export const mockFetch = (responses = mockAPIResponses) => {
-  return jest.fn().mockImplementation((url, options = {}) => {
+  return vi.fn().mockImplementation((url, options = {}) => {
     const method = options.method || 'GET'
 
     // Handle different API endpoints

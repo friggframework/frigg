@@ -114,6 +114,8 @@ program
     .description('Run the backend and optional frontend')
     .option('-s, --stage <stage>', 'deployment stage', 'dev')
     .option('-v, --verbose', 'enable verbose output')
+    .option('--ipc', 'enable IPC mode for Management UI communication')
+    .option('--no-interactive', 'skip interactive pre-flight prompts')
     .action(startCommand);
 
 program

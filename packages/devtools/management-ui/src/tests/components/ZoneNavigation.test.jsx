@@ -21,17 +21,22 @@ describe('ZoneNavigation', () => {
     it('renders all zone navigation buttons', () => {
       renderWithProviders(<ZoneNavigation {...defaultProps} />)
 
-      expect(screen.getByText('Definitions Zone')).toBeInTheDocument()
-      expect(screen.getByText('Build & Configure')).toBeInTheDocument()
-      expect(screen.getByText('Test Area')).toBeInTheDocument()
-      expect(screen.getByText('Live Run & Test')).toBeInTheDocument()
+      // Compact labels shown in buttons
+      expect(screen.getByText('Definitions')).toBeInTheDocument()
+      expect(screen.getByText('Build')).toBeInTheDocument()
+      expect(screen.getByText('Test')).toBeInTheDocument()
+
+      // Full names in title attributes
+      expect(screen.getByTitle(/Definitions Zone/i)).toBeInTheDocument()
+      expect(screen.getByTitle(/Build Zone/i)).toBeInTheDocument()
+      expect(screen.getByTitle(/Test Area/i)).toBeInTheDocument()
     })
 
     it('highlights the active zone', () => {
       renderWithProviders(<ZoneNavigation {...defaultProps} />)
 
-      const definitionsButton = screen.getByRole('button', { name: /definitions zone/i })
-      const testButton = screen.getByRole('button', { name: /test area/i })
+      const definitionsButton = screen.getByRole('button', { name: /definitions/i })
+      const testButton = screen.getByRole('button', { name: /^test$/i })
 
       expect(definitionsButton).toHaveClass('bg-background', 'shadow-sm', 'border')
       expect(testButton).not.toHaveClass('bg-background', 'shadow-sm', 'border')
@@ -45,7 +50,7 @@ describe('ZoneNavigation', () => {
         button.querySelector('svg')
       )
 
-      expect(icons).toHaveLength(2)
+      expect(icons).toHaveLength(3)
       icons.forEach(icon => {
         expect(icon).toBeInTheDocument()
         expect(icon).toHaveClass('w-4', 'h-4')
@@ -58,8 +63,8 @@ describe('ZoneNavigation', () => {
       )
 
       // Find the actual component container (not the test wrapper)
-      const zoneNavigation = screen.getByRole('button', { name: /definitions zone/i }).closest('div[class*="custom-class"]') ||
-                            screen.getByRole('button', { name: /definitions zone/i }).parentElement.parentElement
+      const zoneNavigation = screen.getByRole('button', { name: /definitions/i }).closest('div[class*="custom-class"]') ||
+                            screen.getByRole('button', { name: /definitions/i }).parentElement.parentElement
 
       expect(zoneNavigation).toHaveClass('custom-class')
     })
@@ -70,7 +75,7 @@ describe('ZoneNavigation', () => {
       const user = userEvent.setup()
       renderWithProviders(<ZoneNavigation {...defaultProps} activeZone="testing" />)
 
-      const definitionsButton = screen.getByRole('button', { name: /definitions zone/i })
+      const definitionsButton = screen.getByRole('button', { name: /definitions/i })
       await user.click(definitionsButton)
 
       expect(mockOnZoneChange).toHaveBeenCalledWith('definitions')
@@ -80,7 +85,7 @@ describe('ZoneNavigation', () => {
       const user = userEvent.setup()
       renderWithProviders(<ZoneNavigation {...defaultProps} />)
 
-      const testButton = screen.getByRole('button', { name: /test area/i })
+      const testButton = screen.getByRole('button', { name: /^test$/i })
       await user.click(testButton)
 
       expect(mockOnZoneChange).toHaveBeenCalledWith('testing')
@@ -90,14 +95,19 @@ describe('ZoneNavigation', () => {
       const user = userEvent.setup()
       renderWithProviders(<ZoneNavigation {...defaultProps} />)
 
-      const definitionsButton = screen.getByRole('button', { name: /definitions zone/i })
-      const testButton = screen.getByRole('button', { name: /test area/i })
+      const definitionsButton = screen.getByRole('button', { name: /definitions/i })
+      const buildButton = screen.getByRole('button', { name: /build/i })
+      const testButton = screen.getByRole('button', { name: /^test$/i })
 
       // Tab to first button and press Enter
       await user.tab()
       expect(definitionsButton).toHaveFocus()
 
-      // Tab to second button
+      // Tab to second button (Build)
+      await user.tab()
+      expect(buildButton).toHaveFocus()
+
+      // Tab to third button (Test)
       await user.tab()
       expect(testButton).toHaveFocus()
 
@@ -110,7 +120,7 @@ describe('ZoneNavigation', () => {
       const user = userEvent.setup()
       renderWithProviders(<ZoneNavigation {...defaultProps} />)
 
-      const testButton = screen.getByRole('button', { name: /test area/i })
+      const testButton = screen.getByRole('button', { name: /^test$/i })
 
       // Rapid clicks
       await user.click(testButton)
@@ -139,10 +149,13 @@ describe('ZoneNavigation', () => {
 
       // Should be able to tab through all buttons
       await user.tab()
-      expect(screen.getByRole('button', { name: /definitions zone/i })).toHaveFocus()
+      expect(screen.getByRole('button', { name: /definitions/i })).toHaveFocus()
 
       await user.tab()
-      expect(screen.getByRole('button', { name: /test area/i })).toHaveFocus()
+      expect(screen.getByRole('button', { name: /build/i })).toHaveFocus()
+
+      await user.tab()
+      expect(screen.getByRole('button', { name: /^test$/i })).toHaveFocus()
 
       // Should cycle back
       await user.tab()
@@ -152,8 +165,8 @@ describe('ZoneNavigation', () => {
     it('provides clear visual feedback for active state', () => {
       renderWithProviders(<ZoneNavigation {...defaultProps} activeZone="testing" />)
 
-      const activeButton = screen.getByRole('button', { name: /test area/i })
-      const inactiveButton = screen.getByRole('button', { name: /definitions zone/i })
+      const activeButton = screen.getByRole('button', { name: /^test$/i })
+      const inactiveButton = screen.getByRole('button', { name: /definitions/i })
 
       // Active button should have distinct styling
       expect(activeButton).toHaveClass('bg-background')
@@ -166,15 +179,15 @@ describe('ZoneNavigation', () => {
       const { rerender } = renderWithProviders(<ZoneNavigation {...defaultProps} />)
 
       // Initially definitions active
-      expect(screen.getByRole('button', { name: /definitions zone/i }))
+      expect(screen.getByRole('button', { name: /definitions/i }))
         .toHaveClass('bg-background')
 
       // Switch to testing
       rerender(<ZoneNavigation {...defaultProps} activeZone="testing" />)
 
-      expect(screen.getByRole('button', { name: /test area/i }))
+      expect(screen.getByRole('button', { name: /^test$/i }))
         .toHaveClass('bg-background')
-      expect(screen.getByRole('button', { name: /definitions zone/i }))
+      expect(screen.getByRole('button', { name: /definitions/i }))
         .not.toHaveClass('bg-background')
     })
 
@@ -182,8 +195,9 @@ describe('ZoneNavigation', () => {
       renderWithProviders(<ZoneNavigation {...defaultProps} activeZone="invalid" />)
 
       // Should render without errors
-      expect(screen.getByText('Definitions Zone')).toBeInTheDocument()
-      expect(screen.getByText('Test Area')).toBeInTheDocument()
+      expect(screen.getByText('Definitions')).toBeInTheDocument()
+      expect(screen.getByText('Build')).toBeInTheDocument()
+      expect(screen.getByText('Test')).toBeInTheDocument()
 
       // No button should be active
       const buttons = screen.getAllByRole('button')
@@ -198,7 +212,7 @@ describe('ZoneNavigation', () => {
       const user = userEvent.setup()
       renderWithProviders(<ZoneNavigation {...defaultProps} />)
 
-      const testButton = screen.getByRole('button', { name: /test area/i })
+      const testButton = screen.getByRole('button', { name: /^test$/i })
 
       await user.hover(testButton)
       expect(testButton).toHaveClass('hover:bg-background/80')
@@ -217,7 +231,7 @@ describe('ZoneNavigation', () => {
     it('displays active indicator overlay', () => {
       renderWithProviders(<ZoneNavigation {...defaultProps} />)
 
-      const activeButton = screen.getByRole('button', { name: /definitions zone/i })
+      const activeButton = screen.getByRole('button', { name: /definitions/i })
       const overlay = activeButton.querySelector('.absolute.inset-0.bg-primary\\/5')
 
       expect(overlay).toBeInTheDocument()
@@ -237,8 +251,9 @@ describe('ZoneNavigation', () => {
     it('handles undefined activeZone', () => {
       renderWithProviders(<ZoneNavigation onZoneChange={mockOnZoneChange} />)
 
-      expect(screen.getByText('Definitions Zone')).toBeInTheDocument()
-      expect(screen.getByText('Test Area')).toBeInTheDocument()
+      expect(screen.getByText('Definitions')).toBeInTheDocument()
+      expect(screen.getByText('Build')).toBeInTheDocument()
+      expect(screen.getByText('Test')).toBeInTheDocument()
     })
 
     it('works without className prop', () => {
@@ -259,16 +274,17 @@ describe('ZoneNavigation', () => {
       rerender(<ZoneNavigation {...defaultProps} />)
 
       // Component should still be functional
-      expect(screen.getByText('Definitions Zone')).toBeInTheDocument()
-      expect(screen.getByText('Test Area')).toBeInTheDocument()
+      expect(screen.getByText('Definitions')).toBeInTheDocument()
+      expect(screen.getByText('Build')).toBeInTheDocument()
+      expect(screen.getByText('Test')).toBeInTheDocument()
     })
 
     it('handles rapid zone changes', async () => {
       const user = userEvent.setup()
       renderWithProviders(<ZoneNavigation {...defaultProps} />)
 
-      const testButton = screen.getByRole('button', { name: /test area/i })
-      const definitionsButton = screen.getByRole('button', { name: /definitions zone/i })
+      const testButton = screen.getByRole('button', { name: /^test$/i })
+      const definitionsButton = screen.getByRole('button', { name: /definitions/i })
 
       // Rapid switching
       await user.click(testButton)

@@ -1,7 +1,11 @@
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react'
 import io from 'socket.io-client'
 
 const SocketContext = createContext()
+
+// Module-level singleton to persist across React StrictMode remounts
+let globalSocket = null
+let globalSocketUrl = null
 
 export const useSocket = () => {
   const context = useContext(SocketContext)
@@ -12,18 +16,32 @@ export const useSocket = () => {
 }
 
 export const SocketProvider = ({ children }) => {
-  const [socket, setSocket] = useState(null)
-  const [connected, setConnected] = useState(false)
+  const [socket, setSocket] = useState(globalSocket)
+  const [connected, setConnected] = useState(globalSocket?.connected || false)
+  const mountedRef = useRef(false)
 
   useEffect(() => {
-    // Only create one socket connection
-    if (socket) {
+    // Use environment variable or default to current origin
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || window.location.origin
+
+    // Reuse existing socket if it's still valid and for the same URL
+    if (globalSocket && globalSocket.connected && globalSocketUrl === socketUrl) {
+      setSocket(globalSocket)
+      setConnected(true)
       return
     }
 
-    // Use environment variable or default to current origin
-    const socketUrl = import.meta.env.VITE_SOCKET_URL || window.location.origin
-    console.log('Connecting to WebSocket at:', socketUrl)
+    // Clean up any existing disconnected socket
+    if (globalSocket && !globalSocket.connected) {
+      globalSocket.removeAllListeners()
+      globalSocket = null
+    }
+
+    // Only log and create on first mount (not StrictMode remount)
+    if (!mountedRef.current) {
+      console.log('Connecting to WebSocket at:', socketUrl)
+    }
+    mountedRef.current = true
 
     const newSocket = io(socketUrl, {
       transports: ['websocket', 'polling'],
@@ -33,6 +51,10 @@ export const SocketProvider = ({ children }) => {
       reconnectionAttempts: 5,
       maxReconnectionAttempts: 5,
     })
+
+    // Store globally to persist across StrictMode remounts
+    globalSocket = newSocket
+    globalSocketUrl = socketUrl
 
     newSocket.on('connect', () => {
       console.log('Connected to server:', newSocket.id)
@@ -51,11 +73,12 @@ export const SocketProvider = ({ children }) => {
 
     setSocket(newSocket)
 
+    // Don't disconnect on cleanup - keep socket alive across StrictMode remounts
+    // Socket will be cleaned up when the page unloads
     return () => {
-      if (newSocket && newSocket.connected) {
-        newSocket.removeAllListeners()
-        newSocket.disconnect()
-      }
+      // Only disconnect if we're actually unmounting (not StrictMode)
+      // We can detect this by checking if the socket is still the global one
+      // If a new socket was created, the old one should be cleaned up
     }
   }, []) // Empty dependency array to prevent re-creation
 

@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useFrigg } from '../../hooks/useFrigg'
 import Layout from './Layout'
 import DefinitionsZone from '../zones/DefinitionsZone'
+import BuildZone from '../zones/BuildZone'
 import TestingZone from '../zones/TestingZone'
 import Settings from '../../pages/Settings'
 import RepositoryPicker from '../common/RepositoryPicker'
@@ -64,6 +65,7 @@ export default function AppRouter() {
           element={
             <div className="h-full">
               {activeZone === 'definitions' && <DefinitionsZone />}
+              {activeZone === 'build' && <BuildZone />}
               {activeZone === 'testing' && <TestingZone />}
             </div>
           }

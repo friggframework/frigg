@@ -362,51 +362,77 @@ const SettingsModal = ({ isOpen, onClose }) => {
                   </div>
                 </div>
 
-                <div className="border-t border-border pt-6">
-                  <h4 className="font-medium text-foreground mb-2">API Key</h4>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Enter your API key for the selected provider
-                  </p>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1">
-                        API Key
-                      </label>
-                      <input
-                        type="password"
-                        value={aiConfig?.apiKey || ''}
-                        onChange={(e) => setAIConfig({ ...aiConfig, apiKey: e.target.value })}
-                        placeholder="sk-..."
-                        className="w-full px-3 py-2 border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring font-mono text-sm"
-                      />
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          setConnectionStatus('testing')
-                          const result = await testConnection()
-                          setConnectionStatus(result.success ? 'success' : 'error')
-                          setTimeout(() => setConnectionStatus(null), 3000)
-                        }}
-                        disabled={!aiConfig?.apiKey || connectionStatus === 'testing'}
-                      >
-                        {connectionStatus === 'testing' ? 'Testing...' : 'Test Connection'}
-                      </Button>
-                      {connectionStatus === 'success' && (
-                        <span className="text-sm text-green-600 flex items-center gap-1">
-                          <Check className="w-4 h-4" /> Connected
-                        </span>
-                      )}
-                      {connectionStatus === 'error' && (
-                        <span className="text-sm text-destructive">
-                          Connection failed
-                        </span>
-                      )}
+                {aiConfig?.provider === 'claude-code' ? (
+                  <div className="border-t border-border pt-6">
+                    <h4 className="font-medium text-foreground mb-2">Claude Code Setup</h4>
+                    <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg space-y-3">
+                      <p className="text-sm text-foreground">
+                        Use your Claude Pro/MAX subscription instead of API credits.
+                      </p>
+                      <div className="text-sm text-muted-foreground space-y-2">
+                        <p><strong>Requirements:</strong></p>
+                        <ul className="list-disc list-inside space-y-1 ml-2">
+                          <li>Claude Code CLI installed and authenticated</li>
+                          <li>Active Claude Pro ($20/mo) or MAX ($100-200/mo) subscription</li>
+                        </ul>
+                        <p className="mt-3"><strong>Setup:</strong></p>
+                        <code className="block p-2 bg-background rounded text-xs font-mono">
+                          npm install -g @anthropic-ai/claude-code<br/>
+                          claude login
+                        </code>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Learn more at <a href="https://claude.com/claude-code" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">claude.com/claude-code</a>
+                      </p>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="border-t border-border pt-6">
+                    <h4 className="font-medium text-foreground mb-2">API Key</h4>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Enter your API key for the selected provider
+                    </p>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-1">
+                          API Key
+                        </label>
+                        <input
+                          type="password"
+                          value={aiConfig?.apiKey || ''}
+                          onChange={(e) => setAIConfig({ ...aiConfig, apiKey: e.target.value })}
+                          placeholder="sk-..."
+                          className="w-full px-3 py-2 border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring font-mono text-sm"
+                        />
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            setConnectionStatus('testing')
+                            const result = await testConnection()
+                            setConnectionStatus(result.success ? 'success' : 'error')
+                            setTimeout(() => setConnectionStatus(null), 3000)
+                          }}
+                          disabled={!aiConfig?.apiKey || connectionStatus === 'testing'}
+                        >
+                          {connectionStatus === 'testing' ? 'Testing...' : 'Test Connection'}
+                        </Button>
+                        {connectionStatus === 'success' && (
+                          <span className="text-sm text-green-600 flex items-center gap-1">
+                            <Check className="w-4 h-4" /> Connected
+                          </span>
+                        )}
+                        {connectionStatus === 'error' && (
+                          <span className="text-sm text-destructive">
+                            Connection failed
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="border-t border-border pt-6">
                   <h4 className="font-medium text-foreground mb-2">Model Selection</h4>
@@ -419,25 +445,46 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     className="w-full px-3 py-2 border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   >
                     <option value="">Select a model...</option>
-                    {aiConfig?.provider === 'anthropic' && (
+                    {(aiConfig?.provider === 'anthropic' || aiConfig?.provider === 'claude-code') && (
                       <>
-                        <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet (Recommended)</option>
-                        <option value="claude-3-opus-20240229">Claude 3 Opus</option>
-                        <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku (Fast)</option>
+                        <optgroup label="Claude 4 (Latest)">
+                          <option value="claude-sonnet-4-20250514">Claude Sonnet 4 (Recommended)</option>
+                          <option value="claude-opus-4-20250514">Claude Opus 4</option>
+                        </optgroup>
+                        <optgroup label="Claude 4.5">
+                          <option value="claude-opus-4-5-20251101">Claude Opus 4.5 (Most Capable)</option>
+                        </optgroup>
+                        <optgroup label="Claude 3.5 (Legacy)">
+                          <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                          <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku (Fast)</option>
+                        </optgroup>
                       </>
                     )}
                     {aiConfig?.provider === 'openai' && (
                       <>
-                        <option value="gpt-4-turbo">GPT-4 Turbo (Recommended)</option>
-                        <option value="gpt-4o">GPT-4o</option>
-                        <option value="gpt-4o-mini">GPT-4o Mini (Fast)</option>
+                        <optgroup label="GPT-4o">
+                          <option value="gpt-4o">GPT-4o (Recommended)</option>
+                          <option value="gpt-4o-mini">GPT-4o Mini (Fast)</option>
+                        </optgroup>
+                        <optgroup label="GPT-4 Turbo">
+                          <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                        </optgroup>
                       </>
                     )}
                     {aiConfig?.provider === 'openrouter' && (
                       <>
-                        <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
-                        <option value="openai/gpt-4-turbo">GPT-4 Turbo</option>
-                        <option value="google/gemini-pro">Gemini Pro</option>
+                        <optgroup label="Anthropic">
+                          <option value="anthropic/claude-sonnet-4">Claude Sonnet 4</option>
+                          <option value="anthropic/claude-opus-4">Claude Opus 4</option>
+                          <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+                        </optgroup>
+                        <optgroup label="OpenAI">
+                          <option value="openai/gpt-4o">GPT-4o</option>
+                          <option value="openai/gpt-4-turbo">GPT-4 Turbo</option>
+                        </optgroup>
+                        <optgroup label="Google">
+                          <option value="google/gemini-pro">Gemini Pro</option>
+                        </optgroup>
                       </>
                     )}
                   </select>

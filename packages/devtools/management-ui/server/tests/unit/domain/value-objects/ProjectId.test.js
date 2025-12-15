@@ -3,7 +3,7 @@
  * Domain Layer - Value Objects should be immutable and deterministic
  */
 
-import { jest } from '@jest/globals'
+import { describe, it, expect } from 'vitest'
 import { ProjectId } from '../../../../src/domain/value-objects/ProjectId.js'
 import crypto from 'crypto'
 

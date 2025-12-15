@@ -1,152 +1,188 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { Bot, Send, StopCircle, CheckCircle, XCircle, FileCode, GitBranch, Play, RotateCcw, AlertTriangle } from 'lucide-react'
+/**
+ * BuildZone - AI-assisted integration development
+ *
+ * Uses assistant-ui for chat interface with streaming, markdown rendering,
+ * and tool call display. Includes session sidebar for managing chat threads.
+ */
+
+import React, { useState, useEffect } from 'react'
+import { Bot, FolderOpen, Settings, Cpu, Loader2, Bug, PanelLeftClose, PanelLeft } from 'lucide-react'
 import { Button } from '../ui/button'
 import { cn } from '../../../lib/utils'
 import { useSocket } from '../../hooks/useSocket'
-import { useAISettings } from '../../hooks/useAISettings'
+import { useAISettings, getProviderDisplayName, getModelDisplayName, providerRequiresApiKey } from '../../hooks/useAISettings'
+import { useFrigg } from '../../hooks/useFrigg'
+import RepositoryPicker from '../common/RepositoryPicker'
+import SettingsModal from '../common/SettingsModal'
+import ModelSelector from '../common/ModelSelector'
+import { FriggRuntimeProvider } from '../chat/FriggRuntimeProvider'
+import { AssistantThread } from '../chat/AssistantThread'
+import { ChatSessionsSidebar } from '../chat/ChatSessionsSidebar'
+
+// Debug mode helpers
+const DEBUG_STORAGE_KEY = 'frigg:debug'
+const getDebugMode = () => localStorage.getItem(DEBUG_STORAGE_KEY) === 'true'
+const setDebugMode = (enabled) => {
+  localStorage.setItem(DEBUG_STORAGE_KEY, enabled ? 'true' : 'false')
+  // Also notify backend to enable verbose logging for this session
+  return enabled
+}
+
+// Sidebar collapsed state persistence
+const SIDEBAR_COLLAPSED_KEY = 'frigg:sidebar-collapsed'
+const getSidebarCollapsed = () => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true'
+const setSidebarCollapsed = (collapsed) => {
+  localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? 'true' : 'false')
+}
 
 const BuildZone = ({ className }) => {
   const { socket, connected } = useSocket()
   const { aiConfig } = useAISettings()
-  const [prompt, setPrompt] = useState('')
-  const [messages, setMessages] = useState([])
-  const [isRunning, setIsRunning] = useState(false)
-  const [currentProposal, setCurrentProposal] = useState(null)
-  const [sessionId, setSessionId] = useState(null)
-  const messagesEndRef = useRef(null)
+  const { currentRepository, repositories, switchRepository, isLoading } = useFrigg()
+  const [showSettings, setShowSettings] = useState(false)
+  const [agentStatus, setAgentStatus] = useState({ checking: false, available: null, error: null })
+  const [debugMode, setDebugModeState] = useState(getDebugMode)
+  const [sidebarCollapsed, setSidebarCollapsedState] = useState(getSidebarCollapsed)
 
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [])
+  // Handle sidebar collapse toggle with persistence
+  const handleSidebarCollapsedChange = (collapsed) => {
+    setSidebarCollapsed(collapsed)
+    setSidebarCollapsedState(collapsed)
+  }
 
+  // Check agent availability on mount and when provider changes
   useEffect(() => {
-    scrollToBottom()
-  }, [messages, scrollToBottom])
+    if (!socket || !connected) return
 
-  useEffect(() => {
-    if (!socket) return
-
-    const handleAgentEvent = (event) => {
-      if (event.sessionId !== sessionId) return
-
-      switch (event.type) {
-        case 'content':
-          setMessages(prev => {
-            const last = prev[prev.length - 1]
-            if (last?.type === 'assistant' && !last.complete) {
-              return [...prev.slice(0, -1), { ...last, content: last.content + event.content }]
-            }
-            return [...prev, { type: 'assistant', content: event.content, complete: false }]
-          })
-          break
-        case 'tool_call':
-          setMessages(prev => [...prev, { type: 'tool', name: event.name, args: event.args, status: 'running' }])
-          break
-        case 'tool_result':
-          setMessages(prev => {
-            const idx = prev.findLastIndex(m => m.type === 'tool' && m.name === event.name && m.status === 'running')
-            if (idx >= 0) {
-              const updated = [...prev]
-              updated[idx] = { ...updated[idx], result: event.result, status: 'complete' }
-              return updated
-            }
-            return prev
-          })
-          break
-        case 'done':
-          setIsRunning(false)
-          setMessages(prev => {
-            const last = prev[prev.length - 1]
-            if (last?.type === 'assistant') {
-              return [...prev.slice(0, -1), { ...last, complete: true }]
-            }
-            return prev
-          })
-          break
-        case 'error':
-          setIsRunning(false)
-          setMessages(prev => [...prev, { type: 'error', content: event.error?.message || 'An error occurred' }])
-          break
-      }
+    const checkAgentStatus = () => {
+      setAgentStatus(prev => ({ ...prev, checking: true }))
+      socket.emit('agent:status', { provider: aiConfig?.provider })
     }
 
-    const handleProposal = (data) => {
-      if (data.sessionId !== sessionId) return
-      setCurrentProposal(data.proposal)
-      setIsRunning(false)
+    // Check on mount
+    checkAgentStatus()
+
+    // Listen for status response
+    const handleStatusResponse = (data) => {
+      setAgentStatus({
+        checking: false,
+        available: data.available,
+        error: data.error || null
+      })
     }
 
-    socket.on('agent:event', handleAgentEvent)
-    socket.on('agent:proposal', handleProposal)
+    socket.on('agent:status:response', handleStatusResponse)
 
     return () => {
-      socket.off('agent:event', handleAgentEvent)
-      socket.off('agent:proposal', handleProposal)
+      socket.off('agent:status:response', handleStatusResponse)
     }
-  }, [socket, sessionId])
+  }, [socket, connected, aiConfig?.provider])
 
-  const handleSubmit = useCallback((e) => {
-    e.preventDefault()
-    if (!prompt.trim() || isRunning || !aiConfig?.apiKey) return
+  // Determine connection status display
+  const getConnectionStatus = () => {
+    if (!connected) {
+      return { color: 'bg-red-500', text: 'Disconnected', title: 'WebSocket disconnected from server' }
+    }
+    if (agentStatus.checking) {
+      return { color: 'bg-yellow-500 animate-pulse', text: 'Checking...', title: 'Checking agent availability' }
+    }
+    if (agentStatus.available === false) {
+      return { color: 'bg-red-500', text: 'Agent Unavailable', title: agentStatus.error || 'Agent not available' }
+    }
+    if (agentStatus.available === true) {
+      return { color: 'bg-green-500', text: 'Agent Ready', title: 'Agent is available and ready' }
+    }
+    return { color: 'bg-yellow-500', text: 'Server Connected', title: 'Connected to server, agent status unknown' }
+  }
 
-    const newSessionId = `session-${Date.now()}`
-    setSessionId(newSessionId)
-    setMessages(prev => [...prev, { type: 'user', content: prompt }])
-    setPrompt('')
-    setIsRunning(true)
-    setCurrentProposal(null)
+  const connectionStatus = getConnectionStatus()
 
-    socket?.emit('agent:start', {
-      sessionId: newSessionId,
-      prompt,
-      config: {
-        provider: aiConfig.provider,
-        model: aiConfig.model,
-        requireApproval: aiConfig.requireApproval,
-        confidenceThreshold: aiConfig.confidenceThreshold
-      }
-    })
-  }, [prompt, isRunning, aiConfig, socket])
+  // Toggle debug mode - updates localStorage and notifies backend
+  const toggleDebugMode = () => {
+    const newMode = !debugMode
+    setDebugMode(newMode)
+    setDebugModeState(newMode)
 
-  const handleStop = useCallback(() => {
-    socket?.emit('agent:stop', { sessionId })
-    setIsRunning(false)
-  }, [socket, sessionId])
+    // Notify backend to toggle verbose logging
+    if (socket && connected) {
+      socket.emit('agent:debug', { enabled: newMode })
+    }
 
-  const handleApprove = useCallback(() => {
-    socket?.emit('agent:approve', { sessionId, proposalId: currentProposal?.id })
-    setCurrentProposal(null)
-    setMessages(prev => [...prev, { type: 'system', content: 'Changes approved and applied.' }])
-  }, [socket, sessionId, currentProposal])
+    // Log to console so user knows it's working
+    if (newMode) {
+      console.log('%c[Frigg Debug Mode ENABLED]', 'color: #a855f7; font-weight: bold', 'Verbose logging active. Check console for detailed agent events.')
+    } else {
+      console.log('%c[Frigg Debug Mode DISABLED]', 'color: #6b7280; font-weight: bold', 'Verbose logging disabled.')
+    }
+  }
 
-  const handleReject = useCallback(() => {
-    socket?.emit('agent:reject', { sessionId, proposalId: currentProposal?.id })
-    setCurrentProposal(null)
-    setMessages(prev => [...prev, { type: 'system', content: 'Changes rejected.' }])
-  }, [socket, sessionId, currentProposal])
-
-  const handleRollback = useCallback(() => {
-    socket?.emit('agent:rollback', { sessionId, proposalId: currentProposal?.id })
-    setCurrentProposal(null)
-    setMessages(prev => [...prev, { type: 'system', content: 'Rolling back changes...' }])
-  }, [socket, sessionId, currentProposal])
-
-  if (!aiConfig?.apiKey) {
+  // Show repository selection prompt if no repository is selected
+  if (!isLoading && !currentRepository) {
     return (
       <div className={cn('flex flex-col items-center justify-center h-full p-8', className)}>
-        <div className="max-w-md text-center space-y-4">
-          <div className="w-16 h-16 mx-auto bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
-            <Bot className="w-8 h-8 text-purple-500" />
+        <div className="max-w-lg text-center space-y-6">
+          <div className="w-20 h-20 mx-auto bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-center justify-center">
+            <FolderOpen className="w-10 h-10 text-blue-500" />
           </div>
-          <h2 className="text-xl font-semibold text-foreground">Configure AI Settings</h2>
-          <p className="text-muted-foreground">
-            To use the Build Zone, please configure your AI provider and API key in Settings → AI Agents.
-          </p>
-          <Button variant="outline">
-            Open Settings
-          </Button>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-semibold text-foreground">Select a Repository</h2>
+            <p className="text-muted-foreground">
+              Choose a Frigg project to start building integrations with AI assistance.
+            </p>
+          </div>
+
+          {repositories.length > 0 ? (
+            <div className="flex justify-center">
+              <RepositoryPicker
+                currentRepo={currentRepository}
+                onRepoChange={(repo) => {
+                  if (repo?.id) {
+                    switchRepository(repo.id)
+                  }
+                }}
+              />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="p-4 bg-muted/50 border border-border rounded-lg">
+                <p className="text-sm text-muted-foreground">
+                  No Frigg repositories found. Start the Management UI from within a Frigg project directory,
+                  or create a new project using:
+                </p>
+                <code className="block mt-2 p-2 bg-background rounded text-sm font-mono text-foreground">
+                  npx create-frigg-app my-project
+                </code>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+    )
+  }
+
+  // Check if AI is configured - some providers don't need an API key
+  const isAIConfigured = !providerRequiresApiKey(aiConfig?.provider) || aiConfig?.apiKey
+
+  if (!isAIConfigured) {
+    return (
+      <>
+        <div className={cn('flex flex-col items-center justify-center h-full p-8', className)}>
+          <div className="max-w-md text-center space-y-4">
+            <div className="w-16 h-16 mx-auto bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
+              <Bot className="w-8 h-8 text-purple-500" />
+            </div>
+            <h2 className="text-xl font-semibold text-foreground">Configure AI Settings</h2>
+            <p className="text-muted-foreground">
+              To use the Build Zone, configure your AI provider in Settings. Choose "Claude Code (MAX Subscription)" if you have a Claude Pro/MAX subscription, or use an API key.
+            </p>
+            <Button variant="outline" onClick={() => setShowSettings(true)}>
+              <Settings className="w-4 h-4 mr-2" />
+              Open Settings
+            </Button>
+          </div>
+        </div>
+        <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
+      </>
     )
   }
 
@@ -165,182 +201,77 @@ const BuildZone = ({ className }) => {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className={cn(
-            'w-2 h-2 rounded-full',
-            connected ? 'bg-green-500' : 'bg-red-500'
-          )} />
-          {connected ? 'Connected' : 'Disconnected'}
+
+        {/* Agent Info & Status */}
+        <div className="flex items-center gap-4">
+          {/* Provider & Model Info */}
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 rounded-lg border">
+            <Cpu className="w-3.5 h-3.5 text-purple-500" />
+            <div className="text-xs">
+              <span className="text-muted-foreground">{getProviderDisplayName(aiConfig?.provider)}</span>
+              <span className="mx-1.5 text-muted-foreground/50">•</span>
+              <span className="font-medium text-foreground">{getModelDisplayName(aiConfig?.model, aiConfig?.provider)}</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-5 w-5 p-0 ml-1"
+              onClick={() => setShowSettings(true)}
+              title="Configure AI Settings"
+            >
+              <Settings className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+            </Button>
+          </div>
+
+          {/* Model Selector */}
+          <ModelSelector compact />
+
+          {/* Debug Toggle */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn(
+              'h-7 px-2 gap-1.5',
+              debugMode && 'bg-purple-500/10 text-purple-500'
+            )}
+            onClick={toggleDebugMode}
+            title={debugMode ? 'Debug mode ON - Click to disable verbose logging' : 'Debug mode OFF - Click to enable verbose logging'}
+          >
+            <Bug className={cn('w-3.5 h-3.5', debugMode ? 'text-purple-500' : 'text-muted-foreground')} />
+            <span className="text-xs">{debugMode ? 'Debug ON' : 'Debug'}</span>
+          </Button>
+
+          {/* Agent Status */}
+          <div
+            className="flex items-center gap-2 text-xs text-muted-foreground cursor-help"
+            title={connectionStatus.title}
+          >
+            {agentStatus.checking ? (
+              <Loader2 className="w-3 h-3 animate-spin text-yellow-500" />
+            ) : (
+              <span className={cn('w-2 h-2 rounded-full', connectionStatus.color)} />
+            )}
+            {connectionStatus.text}
+          </div>
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 && (
-          <div className="text-center text-muted-foreground py-12">
-            <p className="text-lg font-medium mb-2">Start Building</p>
-            <p className="text-sm max-w-md mx-auto">
-              Describe what integration you want to build, and the AI agent will generate the code following Frigg patterns.
-            </p>
-            <div className="mt-6 space-y-2 text-sm text-left max-w-md mx-auto">
-              <p className="font-medium text-foreground">Try asking:</p>
-              <ul className="space-y-1 text-muted-foreground">
-                <li>• "Create a HubSpot CRM integration with OAuth2"</li>
-                <li>• "Add webhook handling to the Slack integration"</li>
-                <li>• "Generate a Stripe payment integration"</li>
-              </ul>
-            </div>
-          </div>
-        )}
-
-        {messages.map((msg, idx) => (
-          <div key={idx} className={cn(
-            'flex gap-3',
-            msg.type === 'user' && 'flex-row-reverse'
-          )}>
-            {msg.type === 'user' && (
-              <div className="w-8 h-8 bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
-                <span className="text-xs font-medium text-primary">You</span>
-              </div>
-            )}
-            {msg.type === 'assistant' && (
-              <div className="w-8 h-8 bg-purple-500/10 border border-purple-500/20 flex items-center justify-center flex-shrink-0">
-                <Bot className="w-4 h-4 text-purple-500" />
-              </div>
-            )}
-            {msg.type === 'tool' && (
-              <div className="w-8 h-8 bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
-                <Play className="w-4 h-4 text-blue-500" />
-              </div>
-            )}
-            {msg.type === 'error' && (
-              <div className="w-8 h-8 bg-destructive/10 border border-destructive/20 flex items-center justify-center flex-shrink-0">
-                <AlertTriangle className="w-4 h-4 text-destructive" />
-              </div>
-            )}
-            {msg.type === 'system' && (
-              <div className="w-8 h-8 bg-muted border border-border flex items-center justify-center flex-shrink-0">
-                <GitBranch className="w-4 h-4 text-muted-foreground" />
-              </div>
-            )}
-
-            <div className={cn(
-              'flex-1 max-w-[80%] rounded-lg p-3',
-              msg.type === 'user' && 'bg-primary text-primary-foreground',
-              msg.type === 'assistant' && 'bg-muted',
-              msg.type === 'tool' && 'bg-blue-500/10 border border-blue-500/20',
-              msg.type === 'error' && 'bg-destructive/10 border border-destructive/20 text-destructive',
-              msg.type === 'system' && 'bg-muted/50 border border-border text-muted-foreground'
-            )}>
-              {msg.type === 'tool' ? (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <span className="text-blue-600">{msg.name}</span>
-                    {msg.status === 'running' && (
-                      <span className="text-xs text-muted-foreground animate-pulse">Running...</span>
-                    )}
-                    {msg.status === 'complete' && (
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                    )}
-                  </div>
-                  {msg.result && (
-                    <pre className="text-xs bg-background/50 p-2 rounded overflow-x-auto">
-                      {JSON.stringify(msg.result, null, 2)}
-                    </pre>
-                  )}
-                </div>
-              ) : (
-                <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
-              )}
-            </div>
-          </div>
-        ))}
-
-        {isRunning && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" />
-            Agent is thinking...
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Proposal Review */}
-      {currentProposal && (
-        <div className="border-t border-border p-4 bg-muted/30">
-          <div className="flex items-start gap-3 mb-4">
-            <div className="w-8 h-8 bg-amber-500/10 border border-amber-500/20 flex items-center justify-center flex-shrink-0">
-              <FileCode className="w-4 h-4 text-amber-500" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-medium text-foreground">Review Proposed Changes</h3>
-              <p className="text-sm text-muted-foreground">
-                {currentProposal.files?.length || 0} files • Confidence: {currentProposal.confidence}%
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-2 mb-4 max-h-40 overflow-y-auto">
-            {currentProposal.files?.map((file, idx) => (
-              <div key={idx} className="flex items-center gap-2 text-sm p-2 bg-background rounded border">
-                <FileCode className="w-4 h-4 text-muted-foreground" />
-                <span className="font-mono text-xs flex-1 truncate">{file.path}</span>
-                <span className={cn(
-                  'text-xs px-2 py-0.5 rounded',
-                  file.action === 'create' && 'bg-green-500/10 text-green-600',
-                  file.action === 'modify' && 'bg-blue-500/10 text-blue-600',
-                  file.action === 'delete' && 'bg-red-500/10 text-red-600'
-                )}>
-                  {file.action}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button onClick={handleApprove} className="flex-1">
-              <CheckCircle className="w-4 h-4 mr-2" />
-              Approve & Apply
-            </Button>
-            <Button variant="outline" onClick={handleReject}>
-              <XCircle className="w-4 h-4 mr-2" />
-              Reject
-            </Button>
-            {currentProposal.checkpointId && (
-              <Button variant="ghost" onClick={handleRollback}>
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Rollback
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Input */}
-      <form onSubmit={handleSubmit} className="border-t border-border p-4">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Describe what integration to build..."
-            className="flex-1 px-4 py-2 border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            disabled={isRunning}
+      {/* Main content with sidebar and chat */}
+      <div className="flex-1 overflow-hidden flex">
+        <FriggRuntimeProvider>
+          {/* Sessions Sidebar */}
+          <ChatSessionsSidebar
+            collapsed={sidebarCollapsed}
+            onCollapsedChange={handleSidebarCollapsedChange}
           />
-          {isRunning ? (
-            <Button type="button" variant="destructive" onClick={handleStop}>
-              <StopCircle className="w-4 h-4 mr-2" />
-              Stop
-            </Button>
-          ) : (
-            <Button type="submit" disabled={!prompt.trim()}>
-              <Send className="w-4 h-4 mr-2" />
-              Send
-            </Button>
-          )}
-        </div>
-      </form>
+
+          {/* Chat Thread */}
+          <AssistantThread className="flex-1 h-full" />
+        </FriggRuntimeProvider>
+      </div>
+
+      {/* Settings Modal */}
+      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   )
 }

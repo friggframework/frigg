@@ -3,7 +3,7 @@
  * Following DDD principles - pure domain logic
  */
 
-import { jest } from '@jest/globals'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 describe('GitService', () => {
   let GitService
@@ -17,11 +17,11 @@ describe('GitService', () => {
 
     // Mock git adapter
     mockGitAdapter = {
-      getStatus: jest.fn(),
-      getBranches: jest.fn(),
-      getCurrentBranch: jest.fn(),
-      switchBranch: jest.fn(),
-      getRepository: jest.fn()
+      getStatus: vi.fn(),
+      getBranches: vi.fn(),
+      getCurrentBranch: vi.fn(),
+      switchBranch: vi.fn(),
+      getRepository: vi.fn()
     }
 
     gitService = new GitService({ gitAdapter: mockGitAdapter })
