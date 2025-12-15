@@ -1,6 +1,6 @@
 const express = require('express');
 const serverless = require('serverless-http');
-const { adminAuthMiddleware } = require('./admin-auth-middleware');
+const { validateAdminApiKey } = require('./admin-auth-middleware');
 const { getScriptFactory } = require('../application/script-factory');
 const { createScriptRunner } = require('../application/script-runner');
 const { createAdminScriptCommands } = require('@friggframework/core/application/commands/admin-script-commands');
@@ -11,7 +11,7 @@ const { ScheduleManagementUseCase } = require('../application/schedule-managemen
 const router = express.Router();
 
 // Apply auth middleware to all admin routes
-router.use(adminAuthMiddleware);
+router.use(validateAdminApiKey);
 
 /**
  * Create ScheduleManagementUseCase instance
@@ -87,10 +87,10 @@ router.get('/scripts/:scriptName', async (req, res) => {
 });
 
 /**
- * POST /admin/scripts/:scriptName/execute
+ * POST /admin/scripts/:scriptName
  * Execute a script (sync, async, or dry-run)
  */
-router.post('/scripts/:scriptName/execute', async (req, res) => {
+router.post('/scripts/:scriptName', async (req, res) => {
     try {
         const { scriptName } = req.params;
         const { params = {}, mode = 'async', dryRun = false } = req.body;
@@ -110,7 +110,6 @@ router.post('/scripts/:scriptName/execute', async (req, res) => {
                 trigger: 'MANUAL',
                 mode: 'sync',
                 dryRun: true,
-                audit: req.adminAudit,
             });
             return res.json(result);
         }
@@ -121,20 +120,18 @@ router.post('/scripts/:scriptName/execute', async (req, res) => {
             const result = await runner.execute(scriptName, params, {
                 trigger: 'MANUAL',
                 mode: 'sync',
-                audit: req.adminAudit,
             });
             return res.json(result);
         }
 
         // Async execution - queue and return immediately
         const commands = createAdminScriptCommands();
-        const execution = await commands.createScriptExecution({
+        const execution = await commands.createAdminProcess({
             scriptName,
             scriptVersion: factory.get(scriptName).Definition.version,
             trigger: 'MANUAL',
             mode: 'async',
             input: params,
-            audit: req.adminAudit,
         });
 
         // Queue the execution
@@ -161,14 +158,14 @@ router.post('/scripts/:scriptName/execute', async (req, res) => {
 });
 
 /**
- * GET /admin/executions/:executionId
- * Get execution status
+ * GET /admin/scripts/:scriptName/executions/:executionId
+ * Get execution status for specific script
  */
-router.get('/executions/:executionId', async (req, res) => {
+router.get('/scripts/:scriptName/executions/:executionId', async (req, res) => {
     try {
         const { executionId } = req.params;
         const commands = createAdminScriptCommands();
-        const execution = await commands.findScriptExecutionById(executionId);
+        const execution = await commands.findAdminProcessById(executionId);
 
         if (execution.error) {
             return res.status(execution.error).json({
@@ -185,12 +182,13 @@ router.get('/executions/:executionId', async (req, res) => {
 });
 
 /**
- * GET /admin/executions
- * List recent executions
+ * GET /admin/scripts/:scriptName/executions
+ * List recent executions for specific script
  */
-router.get('/executions', async (req, res) => {
+router.get('/scripts/:scriptName/executions', async (req, res) => {
     try {
-        const { scriptName, status, limit = 50 } = req.query;
+        const { scriptName } = req.params;
+        const { status, limit = 50 } = req.query;
         const commands = createAdminScriptCommands();
 
         const executions = await commands.findRecentExecutions({

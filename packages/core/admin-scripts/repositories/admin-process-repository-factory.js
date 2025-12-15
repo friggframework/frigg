@@ -1,12 +1,12 @@
-const { ScriptExecutionRepositoryMongo } = require('./script-execution-repository-mongo');
-const { ScriptExecutionRepositoryPostgres } = require('./script-execution-repository-postgres');
+const { AdminProcessRepositoryMongo } = require('./admin-process-repository-mongo');
+const { AdminProcessRepositoryPostgres } = require('./admin-process-repository-postgres');
 const {
-    ScriptExecutionRepositoryDocumentDB,
-} = require('./script-execution-repository-documentdb');
+    AdminProcessRepositoryDocumentDB,
+} = require('./admin-process-repository-documentdb');
 const config = require('../../database/config');
 
 /**
- * Script Execution Repository Factory
+ * Admin Process Repository Factory
  * Creates the appropriate repository adapter based on database type
  *
  * This implements the Factory pattern for Hexagonal Architecture:
@@ -16,24 +16,24 @@ const config = require('../../database/config');
  *
  * Usage:
  * ```javascript
- * const repository = createScriptExecutionRepository();
+ * const repository = createAdminProcessRepository();
  * ```
  *
- * @returns {ScriptExecutionRepositoryInterface} Configured repository adapter
+ * @returns {AdminProcessRepositoryInterface} Configured repository adapter
  * @throws {Error} If database type is not supported
  */
-function createScriptExecutionRepository() {
+function createAdminProcessRepository() {
     const dbType = config.DB_TYPE;
 
     switch (dbType) {
         case 'mongodb':
-            return new ScriptExecutionRepositoryMongo();
+            return new AdminProcessRepositoryMongo();
 
         case 'postgresql':
-            return new ScriptExecutionRepositoryPostgres();
+            return new AdminProcessRepositoryPostgres();
 
         case 'documentdb':
-            return new ScriptExecutionRepositoryDocumentDB();
+            return new AdminProcessRepositoryDocumentDB();
 
         default:
             throw new Error(
@@ -43,9 +43,9 @@ function createScriptExecutionRepository() {
 }
 
 module.exports = {
-    createScriptExecutionRepository,
+    createAdminProcessRepository,
     // Export adapters for direct testing
-    ScriptExecutionRepositoryMongo,
-    ScriptExecutionRepositoryPostgres,
-    ScriptExecutionRepositoryDocumentDB,
+    AdminProcessRepositoryMongo,
+    AdminProcessRepositoryPostgres,
+    AdminProcessRepositoryDocumentDB,
 };

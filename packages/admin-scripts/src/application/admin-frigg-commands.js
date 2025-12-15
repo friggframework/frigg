@@ -25,7 +25,7 @@ class AdminFriggCommands {
         this._userRepository = null;
         this._moduleRepository = null;
         this._credentialRepository = null;
-        this._scriptExecutionRepository = null;
+        this._adminProcessRepository = null;
     }
 
     // ==================== LAZY-LOADED REPOSITORIES ====================
@@ -62,12 +62,12 @@ class AdminFriggCommands {
         return this._credentialRepository;
     }
 
-    get scriptExecutionRepository() {
-        if (!this._scriptExecutionRepository) {
-            const { createScriptExecutionRepository } = require('@friggframework/core/admin-scripts/repositories/script-execution-repository-factory');
-            this._scriptExecutionRepository = createScriptExecutionRepository();
+    get adminProcessRepository() {
+        if (!this._adminProcessRepository) {
+            const { createAdminProcessRepository } = require('@friggframework/core/admin-scripts/repositories/admin-process-repository-factory');
+            this._adminProcessRepository = createAdminProcessRepository();
         }
-        return this._scriptExecutionRepository;
+        return this._adminProcessRepository;
     }
 
     // ==================== INTEGRATION QUERIES ====================
@@ -209,7 +209,7 @@ class AdminFriggCommands {
 
         // Persist to execution record if we have an executionId
         if (this.executionId) {
-            this.scriptExecutionRepository.appendExecutionLog(this.executionId, entry)
+            this.adminProcessRepository.appendProcessLog(this.executionId, entry)
                 .catch(err => console.error('Failed to persist log:', err));
         }
 

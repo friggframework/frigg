@@ -36,9 +36,9 @@ describe('ScriptRunner', () => {
         scriptFactory = new ScriptFactory([TestScript]);
 
         mockCommands = {
-            createScriptExecution: jest.fn(),
-            updateScriptExecutionStatus: jest.fn(),
-            completeScriptExecution: jest.fn(),
+            createAdminProcess: jest.fn(),
+            updateAdminProcessState: jest.fn(),
+            completeAdminProcess: jest.fn(),
         };
 
         mockFrigg = {
@@ -49,11 +49,11 @@ describe('ScriptRunner', () => {
         createAdminScriptCommands.mockReturnValue(mockCommands);
         createAdminFriggCommands.mockReturnValue(mockFrigg);
 
-        mockCommands.createScriptExecution.mockResolvedValue({
+        mockCommands.createAdminProcess.mockResolvedValue({
             id: 'exec-123',
         });
-        mockCommands.updateScriptExecutionStatus.mockResolvedValue({});
-        mockCommands.completeScriptExecution.mockResolvedValue({ success: true });
+        mockCommands.updateAdminProcessState.mockResolvedValue({});
+        mockCommands.completeAdminProcess.mockResolvedValue({ success: true });
     });
 
     afterEach(() => {
@@ -76,7 +76,7 @@ describe('ScriptRunner', () => {
             expect(result.executionId).toBe('exec-123');
             expect(result.metrics.durationMs).toBeGreaterThanOrEqual(0);
 
-            expect(mockCommands.createScriptExecution).toHaveBeenCalledWith({
+            expect(mockCommands.createAdminProcess).toHaveBeenCalledWith({
                 scriptName: 'test-script',
                 scriptVersion: '1.0.0',
                 trigger: 'MANUAL',
@@ -85,12 +85,12 @@ describe('ScriptRunner', () => {
                 audit: { apiKeyName: 'test-key' },
             });
 
-            expect(mockCommands.updateScriptExecutionStatus).toHaveBeenCalledWith(
+            expect(mockCommands.updateAdminProcessState).toHaveBeenCalledWith(
                 'exec-123',
                 'RUNNING'
             );
 
-            expect(mockCommands.completeScriptExecution).toHaveBeenCalledWith(
+            expect(mockCommands.completeAdminProcess).toHaveBeenCalledWith(
                 'exec-123',
                 expect.objectContaining({
                     status: 'COMPLETED',
@@ -128,7 +128,7 @@ describe('ScriptRunner', () => {
             expect(result.scriptName).toBe('failing-script');
             expect(result.error.message).toBe('Script failed');
 
-            expect(mockCommands.completeScriptExecution).toHaveBeenCalledWith(
+            expect(mockCommands.completeAdminProcess).toHaveBeenCalledWith(
                 'exec-123',
                 expect.objectContaining({
                     status: 'FAILED',
@@ -178,8 +178,8 @@ describe('ScriptRunner', () => {
             });
 
             expect(result.executionId).toBe('existing-exec-456');
-            expect(mockCommands.createScriptExecution).not.toHaveBeenCalled();
-            expect(mockCommands.updateScriptExecutionStatus).toHaveBeenCalledWith(
+            expect(mockCommands.createAdminProcess).not.toHaveBeenCalled();
+            expect(mockCommands.updateAdminProcessState).toHaveBeenCalledWith(
                 'existing-exec-456',
                 'RUNNING'
             );

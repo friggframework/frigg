@@ -60,7 +60,7 @@ describe('CheckDatabaseStateUseCase', () => {
                 pendingMigrations: 3,
                 dbType: 'postgresql',
                 stage: 'prod',
-                recommendation: 'Run POST /db-migrate to apply 3 pending migration(s)',
+                recommendation: 'Run POST /admin/db-migrate to apply 3 pending migration(s)',
             });
         });
 
@@ -78,7 +78,7 @@ describe('CheckDatabaseStateUseCase', () => {
                 dbType: 'postgresql',
                 stage: 'dev',
                 error: 'Database not initialized',
-                recommendation: 'Run POST /db-migrate to initialize database',
+                recommendation: 'Run POST /admin/db-migrate to initialize database',
             });
         });
 

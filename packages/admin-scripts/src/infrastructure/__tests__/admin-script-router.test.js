@@ -4,13 +4,8 @@ const { AdminScriptBase } = require('../../application/admin-script-base');
 
 // Mock dependencies
 jest.mock('../admin-auth-middleware', () => ({
-    adminAuthMiddleware: (req, res, next) => {
-        // Mock auth - attach admin audit info
-        req.adminAudit = {
-            apiKeyName: 'test-key',
-            apiKeyLast4: '1234',
-            ipAddress: '127.0.0.1',
-        };
+    validateAdminApiKey: (req, res, next) => {
+        // Mock auth - no audit trail with simplified auth
         next();
     },
 }));
@@ -59,8 +54,8 @@ describe('Admin Script Router', () => {
         };
 
         mockCommands = {
-            createScriptExecution: jest.fn(),
-            findScriptExecutionById: jest.fn(),
+            createAdminProcess: jest.fn(),
+            findAdminProcessById: jest.fn(),
             findRecentExecutions: jest.fn(),
         };
 
@@ -143,7 +138,7 @@ describe('Admin Script Router', () => {
         });
     });
 
-    describe('POST /admin/scripts/:scriptName/execute', () => {
+    describe('POST /admin/scripts/:scriptName', () => {
         it('should execute script synchronously', async () => {
             mockRunner.execute.mockResolvedValue({
                 executionId: 'exec-123',
@@ -154,7 +149,7 @@ describe('Admin Script Router', () => {
             });
 
             const response = await request(app)
-                .post('/admin/scripts/test-script/execute')
+                .post('/admin/scripts/test-script')
                 .send({
                     params: { foo: 'bar' },
                     mode: 'sync',
@@ -174,12 +169,12 @@ describe('Admin Script Router', () => {
         });
 
         it('should queue script for async execution', async () => {
-            mockCommands.createScriptExecution.mockResolvedValue({
+            mockCommands.createAdminProcess.mockResolvedValue({
                 id: 'exec-456',
             });
 
             const response = await request(app)
-                .post('/admin/scripts/test-script/execute')
+                .post('/admin/scripts/test-script')
                 .send({
                     params: { foo: 'bar' },
                     mode: 'async',
@@ -198,12 +193,12 @@ describe('Admin Script Router', () => {
         });
 
         it('should default to async mode', async () => {
-            mockCommands.createScriptExecution.mockResolvedValue({
+            mockCommands.createAdminProcess.mockResolvedValue({
                 id: 'exec-789',
             });
 
             const response = await request(app)
-                .post('/admin/scripts/test-script/execute')
+                .post('/admin/scripts/test-script')
                 .send({
                     params: { foo: 'bar' },
                 });
@@ -216,7 +211,7 @@ describe('Admin Script Router', () => {
             mockFactory.has.mockReturnValue(false);
 
             const response = await request(app)
-                .post('/admin/scripts/non-existent/execute')
+                .post('/admin/scripts/non-existent')
                 .send({
                     params: {},
                 });
@@ -226,15 +221,15 @@ describe('Admin Script Router', () => {
         });
     });
 
-    describe('GET /admin/executions/:executionId', () => {
+    describe('GET /admin/scripts/:scriptName/executions/:executionId', () => {
         it('should return execution details', async () => {
-            mockCommands.findScriptExecutionById.mockResolvedValue({
+            mockCommands.findAdminProcessById.mockResolvedValue({
                 id: 'exec-123',
                 scriptName: 'test-script',
                 status: 'COMPLETED',
             });
 
-            const response = await request(app).get('/admin/executions/exec-123');
+            const response = await request(app).get('/admin/scripts/test-script/executions/exec-123');
 
             expect(response.status).toBe(200);
             expect(response.body.id).toBe('exec-123');
@@ -242,14 +237,14 @@ describe('Admin Script Router', () => {
         });
 
         it('should return 404 for non-existent execution', async () => {
-            mockCommands.findScriptExecutionById.mockResolvedValue({
+            mockCommands.findAdminProcessById.mockResolvedValue({
                 error: 404,
                 reason: 'Execution not found',
                 code: 'EXECUTION_NOT_FOUND',
             });
 
             const response = await request(app).get(
-                '/admin/executions/non-existent'
+                '/admin/scripts/test-script/executions/non-existent'
             );
 
             expect(response.status).toBe(404);
@@ -257,24 +252,28 @@ describe('Admin Script Router', () => {
         });
     });
 
-    describe('GET /admin/executions', () => {
-        it('should list recent executions', async () => {
+    describe('GET /admin/scripts/:scriptName/executions', () => {
+        it('should list executions for specific script', async () => {
             mockCommands.findRecentExecutions.mockResolvedValue([
                 { id: 'exec-1', scriptName: 'test-script', status: 'COMPLETED' },
                 { id: 'exec-2', scriptName: 'test-script', status: 'RUNNING' },
             ]);
 
-            const response = await request(app).get('/admin/executions');
+            const response = await request(app).get('/admin/scripts/test-script/executions');
 
             expect(response.status).toBe(200);
             expect(response.body.executions).toHaveLength(2);
+            expect(mockCommands.findRecentExecutions).toHaveBeenCalledWith({
+                scriptName: 'test-script',
+                limit: 50,
+            });
         });
 
         it('should accept query parameters', async () => {
             mockCommands.findRecentExecutions.mockResolvedValue([]);
 
             await request(app).get(
-                '/admin/executions?scriptName=test-script&status=COMPLETED&limit=10'
+                '/admin/scripts/test-script/executions?status=COMPLETED&limit=10'
             );
 
             expect(mockCommands.findRecentExecutions).toHaveBeenCalledWith({

@@ -21,7 +21,7 @@ async function handler(event) {
 
             // If executionId provided (async from API), update existing record
             if (executionId) {
-                await commands.updateScriptExecutionStatus(executionId, 'RUNNING');
+                await commands.updateAdminProcessState(executionId, 'RUNNING');
             }
 
             const result = await runner.execute(scriptName, params, {
@@ -45,7 +45,7 @@ async function handler(event) {
             if (executionId) {
                 const commands = createAdminScriptCommands();
                 await commands
-                    .completeScriptExecution(executionId, {
+                    .completeAdminProcess(executionId, {
                         status: 'FAILED',
                         error: {
                             name: error.name,

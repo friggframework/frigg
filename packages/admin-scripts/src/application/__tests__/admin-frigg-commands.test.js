@@ -5,7 +5,7 @@ jest.mock('@friggframework/core/integrations/repositories/integration-repository
 jest.mock('@friggframework/core/user/repositories/user-repository-factory');
 jest.mock('@friggframework/core/modules/repositories/module-repository-factory');
 jest.mock('@friggframework/core/credential/repositories/credential-repository-factory');
-jest.mock('@friggframework/core/admin-scripts/repositories/script-execution-repository-factory');
+jest.mock('@friggframework/core/admin-scripts/repositories/admin-process-repository-factory');
 jest.mock('@friggframework/core/queues');
 
 describe('AdminFriggCommands', () => {
@@ -13,7 +13,7 @@ describe('AdminFriggCommands', () => {
     let mockUserRepo;
     let mockModuleRepo;
     let mockCredentialRepo;
-    let mockScriptExecutionRepo;
+    let mockAdminProcessRepo;
     let mockQueuerUtil;
 
     beforeEach(() => {
@@ -46,8 +46,8 @@ describe('AdminFriggCommands', () => {
             updateCredential: jest.fn(),
         };
 
-        mockScriptExecutionRepo = {
-            appendExecutionLog: jest.fn().mockResolvedValue(undefined),
+        mockAdminProcessRepo = {
+            appendProcessLog: jest.fn().mockResolvedValue(undefined),
         };
 
         mockQueuerUtil = {
@@ -60,14 +60,14 @@ describe('AdminFriggCommands', () => {
         const { createUserRepository } = require('@friggframework/core/user/repositories/user-repository-factory');
         const { createModuleRepository } = require('@friggframework/core/modules/repositories/module-repository-factory');
         const { createCredentialRepository } = require('@friggframework/core/credential/repositories/credential-repository-factory');
-        const { createScriptExecutionRepository } = require('@friggframework/core/admin-scripts/repositories/script-execution-repository-factory');
+        const { createAdminProcessRepository } = require('@friggframework/core/admin-scripts/repositories/admin-process-repository-factory');
         const { QueuerUtil } = require('@friggframework/core/queues');
 
         createIntegrationRepository.mockReturnValue(mockIntegrationRepo);
         createUserRepository.mockReturnValue(mockUserRepo);
         createModuleRepository.mockReturnValue(mockModuleRepo);
         createCredentialRepository.mockReturnValue(mockCredentialRepo);
-        createScriptExecutionRepository.mockReturnValue(mockScriptExecutionRepo);
+        createAdminProcessRepository.mockReturnValue(mockAdminProcessRepo);
 
         // Mock QueuerUtil methods
         QueuerUtil.send = mockQueuerUtil.send;
@@ -158,16 +158,16 @@ describe('AdminFriggCommands', () => {
             expect(repo).toBe(mockCredentialRepo);
         });
 
-        it('creates scriptExecutionRepository on first access', () => {
+        it('creates adminProcessRepository on first access', () => {
             const commands = new AdminFriggCommands();
-            const { createScriptExecutionRepository } = require('@friggframework/core/admin-scripts/repositories/script-execution-repository-factory');
+            const { createAdminProcessRepository } = require('@friggframework/core/admin-scripts/repositories/admin-process-repository-factory');
 
-            expect(createScriptExecutionRepository).not.toHaveBeenCalled();
+            expect(createAdminProcessRepository).not.toHaveBeenCalled();
 
-            const repo = commands.scriptExecutionRepository;
+            const repo = commands.adminProcessRepository;
 
-            expect(createScriptExecutionRepository).toHaveBeenCalledTimes(1);
-            expect(repo).toBe(mockScriptExecutionRepo);
+            expect(createAdminProcessRepository).toHaveBeenCalledTimes(1);
+            expect(repo).toBe(mockAdminProcessRepo);
         });
     });
 
@@ -551,15 +551,15 @@ describe('AdminFriggCommands', () => {
         it('log() persists if executionId set', async () => {
             const commands = new AdminFriggCommands({ executionId: 'exec_123' });
             // Force repository creation
-            commands.scriptExecutionRepository;
+            commands.adminProcessRepository;
 
             commands.log('warn', 'Warning message', { detail: 'xyz' });
 
             // Give async operation a chance to execute
             await new Promise(resolve => setImmediate(resolve));
 
-            expect(mockScriptExecutionRepo.appendExecutionLog).toHaveBeenCalled();
-            const callArgs = mockScriptExecutionRepo.appendExecutionLog.mock.calls[0];
+            expect(mockAdminProcessRepo.appendProcessLog).toHaveBeenCalled();
+            const callArgs = mockAdminProcessRepo.appendProcessLog.mock.calls[0];
             expect(callArgs[0]).toBe('exec_123');
             expect(callArgs[1].level).toBe('warn');
             expect(callArgs[1].message).toBe('Warning message');
@@ -572,14 +572,14 @@ describe('AdminFriggCommands', () => {
 
             await new Promise(resolve => setImmediate(resolve));
 
-            expect(mockScriptExecutionRepo.appendExecutionLog).not.toHaveBeenCalled();
+            expect(mockAdminProcessRepo.appendProcessLog).not.toHaveBeenCalled();
         });
 
         it('log() handles persistence failure gracefully', async () => {
             const commands = new AdminFriggCommands({ executionId: 'exec_123' });
             // Force repository creation
-            commands.scriptExecutionRepository;
-            mockScriptExecutionRepo.appendExecutionLog.mockRejectedValue(new Error('DB Error'));
+            commands.adminProcessRepository;
+            mockAdminProcessRepo.appendProcessLog.mockRejectedValue(new Error('DB Error'));
 
             // Should not throw
             expect(() => commands.log('error', 'Test error')).not.toThrow();

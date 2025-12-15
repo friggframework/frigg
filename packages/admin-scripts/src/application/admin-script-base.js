@@ -1,5 +1,4 @@
-const { createScriptExecutionRepository } = require('@friggframework/core/admin-scripts/repositories/script-execution-repository-factory');
-const { createAdminApiKeyRepository } = require('@friggframework/core/admin-scripts/repositories/admin-api-key-repository-factory');
+const { createAdminProcessRepository } = require('@friggframework/core/admin-scripts/repositories/admin-process-repository-factory');
 
 /**
  * Admin Script Base Class
@@ -87,8 +86,7 @@ class AdminScriptBase {
         this.integrationFactory = params.integrationFactory || null;
 
         // OPTIONAL: Injected repositories (for testing or custom implementations)
-        this.scriptExecutionRepository = params.scriptExecutionRepository || null;
-        this.adminApiKeyRepository = params.adminApiKeyRepository || null;
+        this.adminProcessRepository = params.adminProcessRepository || null;
     }
 
     /**

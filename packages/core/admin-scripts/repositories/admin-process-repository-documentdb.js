@@ -1,9 +1,9 @@
 const {
-    ScriptExecutionRepositoryMongo,
-} = require('./script-execution-repository-mongo');
+    AdminProcessRepositoryMongo,
+} = require('./admin-process-repository-mongo');
 
 /**
- * DocumentDB Script Execution Repository Adapter
+ * DocumentDB Admin Process Repository Adapter
  * Extends MongoDB implementation since DocumentDB uses the same Prisma client
  *
  * DocumentDB-specific characteristics:
@@ -12,10 +12,10 @@ const {
  * - IDs are strings with ObjectId format
  * - All operations identical to MongoDB implementation
  */
-class ScriptExecutionRepositoryDocumentDB extends ScriptExecutionRepositoryMongo {
+class AdminProcessRepositoryDocumentDB extends AdminProcessRepositoryMongo {
     constructor() {
         super();
     }
 }
 
-module.exports = { ScriptExecutionRepositoryDocumentDB };
+module.exports = { AdminProcessRepositoryDocumentDB };

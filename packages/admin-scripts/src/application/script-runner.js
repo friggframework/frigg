@@ -50,7 +50,7 @@ class ScriptRunner {
 
         // Create execution record if not provided
         if (!executionId) {
-            const execution = await this.commands.createScriptExecution({
+            const execution = await this.commands.createAdminProcess({
                 scriptName,
                 scriptVersion: definition.version,
                 trigger,
@@ -66,7 +66,7 @@ class ScriptRunner {
         try {
             // Update status to RUNNING (skip in dry-run)
             if (!dryRun) {
-                await this.commands.updateScriptExecutionStatus(executionId, 'RUNNING');
+                await this.commands.updateAdminProcessState(executionId, 'RUNNING');
             }
 
             // Create frigg commands for the script
@@ -99,7 +99,7 @@ class ScriptRunner {
 
             // Complete execution (skip in dry-run)
             if (!dryRun) {
-                await this.commands.completeScriptExecution(executionId, {
+                await this.commands.completeAdminProcess(executionId, {
                     status: 'COMPLETED',
                     output,
                     metrics: {
@@ -140,7 +140,7 @@ class ScriptRunner {
 
             // Record failure (skip in dry-run)
             if (!dryRun) {
-                await this.commands.completeScriptExecution(executionId, {
+                await this.commands.completeAdminProcess(executionId, {
                     status: 'FAILED',
                     error: {
                         name: error.name,

@@ -12,7 +12,7 @@ const { AdminFriggCommands, createAdminFriggCommands } = require('./src/applicat
 const { ScriptRunner, createScriptRunner } = require('./src/application/script-runner');
 
 // Infrastructure
-const { adminAuthMiddleware } = require('./src/infrastructure/admin-auth-middleware');
+const { validateAdminApiKey } = require('./src/infrastructure/admin-auth-middleware');
 const { router, app, handler: routerHandler } = require('./src/infrastructure/admin-script-router');
 const { handler: executorHandler } = require('./src/infrastructure/script-executor-handler');
 
@@ -45,7 +45,7 @@ module.exports = {
     createScriptRunner,
 
     // Infrastructure layer
-    adminAuthMiddleware,
+    validateAdminApiKey,
     router,
     app,
     routerHandler,

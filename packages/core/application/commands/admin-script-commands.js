@@ -25,28 +25,28 @@ function mapErrorToResponse(error) {
  */
 function createAdminScriptCommands() {
     // Lazy-load repository factories to avoid circular dependencies
-    const { createScriptExecutionRepository } = require('../../admin-scripts/repositories/script-execution-repository-factory');
+    const { createAdminProcessRepository } = require('../../admin-scripts/repositories/admin-process-repository-factory');
     const { createScriptScheduleRepository } = require('../../admin-scripts/repositories/script-schedule-repository-factory');
 
-    const executionRepository = createScriptExecutionRepository();
+    const adminProcessRepository = createAdminProcessRepository();
     const scheduleRepository = createScriptScheduleRepository();
 
     return {
-        // ==================== Execution Management Commands ====================
+        // ==================== Admin Process Management Commands ====================
 
         /**
-         * Create a new script execution record
+         * Create a new admin process record
          *
-         * @param {Object} params - Execution creation parameters
+         * @param {Object} params - Process creation parameters
          * @param {string} params.scriptName - Name of script being executed
          * @param {string} [params.scriptVersion] - Script version
          * @param {string} params.trigger - Trigger type ('MANUAL', 'SCHEDULED', 'QUEUE', 'WEBHOOK')
          * @param {string} [params.mode] - Execution mode ('sync' or 'async', default 'async')
          * @param {Object} [params.input] - Input parameters
          * @param {Object} [params.audit] - Audit information (apiKeyName, apiKeyLast4, ipAddress)
-         * @returns {Promise<Object>} Created execution record
+         * @returns {Promise<Object>} Created admin process record
          */
-        async createScriptExecution({
+        async createAdminProcess({
             scriptName,
             scriptVersion,
             trigger,
@@ -55,7 +55,7 @@ function createAdminScriptCommands() {
             audit,
         }) {
             try {
-                const execution = await executionRepository.createExecution({
+                const process = await adminProcessRepository.createAdminProcess({
                     scriptName,
                     scriptVersion,
                     trigger,
@@ -63,46 +63,46 @@ function createAdminScriptCommands() {
                     input,
                     audit,
                 });
-                return execution;
+                return process;
             } catch (error) {
                 return mapErrorToResponse(error);
             }
         },
 
         /**
-         * Find a script execution by ID
+         * Find an admin process by ID
          *
-         * @param {string|number} executionId - The execution ID
-         * @returns {Promise<Object>} Execution record or error
+         * @param {string|number} processId - The admin process ID
+         * @returns {Promise<Object>} Admin process record or error
          */
-        async findScriptExecutionById(executionId) {
+        async findAdminProcessById(processId) {
             try {
-                const execution = await executionRepository.findExecutionById(executionId);
-                if (!execution) {
-                    const error = new Error(`Execution ${executionId} not found`);
+                const process = await adminProcessRepository.findAdminProcessById(processId);
+                if (!process) {
+                    const error = new Error(`Execution ${processId} not found`);
                     error.code = 'EXECUTION_NOT_FOUND';
                     return mapErrorToResponse(error);
                 }
-                return execution;
+                return process;
             } catch (error) {
                 return mapErrorToResponse(error);
             }
         },
 
         /**
-         * Find all executions for a specific script
+         * Find all admin processes for a specific script
          *
          * @param {string} scriptName - Script name to filter by
          * @param {Object} [options] - Query options (limit, offset, sortBy, sortOrder)
-         * @returns {Promise<Array>} Array of execution records
+         * @returns {Promise<Array>} Array of admin process records
          */
-        async findScriptExecutionsByName(scriptName, options = {}) {
+        async findAdminProcessesByName(scriptName, options = {}) {
             try {
-                const executions = await executionRepository.findExecutionsByScriptName(
+                const processes = await adminProcessRepository.findAdminProcessesByName(
                     scriptName,
                     options
                 );
-                return executions;
+                return processes;
             } catch (error) {
                 // Return empty array on error (non-critical)
                 return [];
@@ -110,17 +110,17 @@ function createAdminScriptCommands() {
         },
 
         /**
-         * Update execution status
+         * Update admin process state
          *
-         * @param {string|number} executionId - The execution ID
-         * @param {string} status - New status ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'TIMEOUT', 'CANCELLED')
-         * @returns {Promise<Object>} Updated execution record
+         * @param {string|number} processId - The admin process ID
+         * @param {string} state - New state ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED')
+         * @returns {Promise<Object>} Updated admin process record
          */
-        async updateScriptExecutionStatus(executionId, status) {
+        async updateAdminProcessState(processId, state) {
             try {
-                const updated = await executionRepository.updateExecutionStatus(
-                    executionId,
-                    status
+                const updated = await adminProcessRepository.updateAdminProcessState(
+                    processId,
+                    state
                 );
                 return updated;
             } catch (error) {
@@ -129,16 +129,16 @@ function createAdminScriptCommands() {
         },
 
         /**
-         * Append a log entry to an execution's log array
+         * Append a log entry to an admin process's results.logs array
          *
-         * @param {string|number} executionId - The execution ID
+         * @param {string|number} processId - The admin process ID
          * @param {Object} logEntry - Log entry { level, message, data, timestamp }
-         * @returns {Promise<Object>} Updated execution record
+         * @returns {Promise<Object>} Updated admin process record
          */
-        async appendScriptExecutionLog(executionId, logEntry) {
+        async appendAdminProcessLog(processId, logEntry) {
             try {
-                const updated = await executionRepository.appendExecutionLog(
-                    executionId,
+                const updated = await adminProcessRepository.appendAdminProcessLog(
+                    processId,
                     logEntry
                 );
                 return updated;
@@ -148,31 +148,31 @@ function createAdminScriptCommands() {
         },
 
         /**
-         * Complete a script execution
-         * Updates status, output, error, and metrics
+         * Complete an admin process
+         * Updates state, output, error, and metrics
          *
-         * @param {string|number} executionId - The execution ID
+         * @param {string|number} processId - The admin process ID
          * @param {Object} params - Completion parameters
-         * @param {string} [params.status] - Final status ('COMPLETED', 'FAILED', 'TIMEOUT')
-         * @param {Object} [params.output] - Script output/result
-         * @param {Object} [params.error] - Error details { name, message, stack }
-         * @param {Object} [params.metrics] - Performance metrics { startTime, endTime, durationMs }
+         * @param {string} [params.state] - Final state ('COMPLETED', 'FAILED')
+         * @param {Object} [params.output] - Script output/result (stored in results.output)
+         * @param {Object} [params.error] - Error details { name, message, stack } (stored in results.error)
+         * @param {Object} [params.metrics] - Performance metrics { startTime, endTime, durationMs } (stored in results.metrics)
          * @returns {Promise<Object>} { success: true } or error
          */
-        async completeScriptExecution(executionId, { status, output, error, metrics }) {
+        async completeAdminProcess(processId, { state, output, error, metrics }) {
             try {
                 // Update each field independently (partial updates allowed)
-                if (status) {
-                    await executionRepository.updateExecutionStatus(executionId, status);
+                if (state) {
+                    await adminProcessRepository.updateAdminProcessState(processId, state);
                 }
                 if (output !== undefined) {
-                    await executionRepository.updateExecutionOutput(executionId, output);
+                    await adminProcessRepository.updateAdminProcessOutput(processId, output);
                 }
                 if (error) {
-                    await executionRepository.updateExecutionError(executionId, error);
+                    await adminProcessRepository.updateAdminProcessError(processId, error);
                 }
                 if (metrics) {
-                    await executionRepository.updateExecutionMetrics(executionId, metrics);
+                    await adminProcessRepository.updateAdminProcessMetrics(processId, metrics);
                 }
 
                 return { success: true };
@@ -182,21 +182,21 @@ function createAdminScriptCommands() {
         },
 
         /**
-         * Find recent executions across all scripts
+         * Find recent admin processes across all scripts
          *
          * @param {Object} [options] - Query options
          * @param {number} [options.limit] - Maximum results (default 20)
-         * @param {string} [options.status] - Filter by status
+         * @param {string} [options.state] - Filter by state
          * @param {Date} [options.since] - Filter by created date
-         * @returns {Promise<Array>} Array of recent executions
+         * @returns {Promise<Array>} Array of recent admin processes
          */
-        async findRecentExecutions(options = {}) {
+        async findRecentAdminProcesses(options = {}) {
             try {
-                const { limit = 20, status, since } = options;
+                const { limit = 20, state, since } = options;
 
-                // If status filter provided, use status query
-                if (status) {
-                    return await executionRepository.findExecutionsByStatus(status, {
+                // If state filter provided, use state query
+                if (state) {
+                    return await adminProcessRepository.findAdminProcessesByState(state, {
                         limit,
                         sortBy: 'createdAt',
                         sortOrder: 'desc',
@@ -204,7 +204,7 @@ function createAdminScriptCommands() {
                 }
 
                 // Otherwise, use generic recent query (would need to be added to interface)
-                // For now, fall back to empty array if no status filter
+                // For now, fall back to empty array if no state filter
                 return [];
             } catch (error) {
                 return [];
