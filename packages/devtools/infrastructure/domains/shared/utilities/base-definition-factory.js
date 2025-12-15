@@ -81,7 +81,13 @@ function createBaseDefinition(
             'node_modules/serverless-kms-grants/**',
             // Note: DO NOT exclude serverless-http - it's a runtime dependency!
 
-            // Exclude local dev files
+            // Exclude local dev files and environment files (NEVER deploy .env files!)
+            '.env',
+            '.env.*',
+            '.env.local',
+            '.env.*.local',
+            '**/.env',
+            '**/.env.*',
             'deploy.log',
             '.env.backup',
             'docker-compose.yml',
@@ -123,6 +129,14 @@ function createBaseDefinition(
             // Exclude nested node_modules from symlinked frigg packages (for npm link development)
             'node_modules/@friggframework/core/node_modules/**',
             'node_modules/@friggframework/devtools/node_modules/**',
+
+            // Exclude environment files (NEVER deploy .env files!)
+            '.env',
+            '.env.*',
+            '.env.local',
+            '.env.*.local',
+            '**/.env',
+            '**/.env.*',
 
             // Exclude development/test files from backend project
             'coverage/**',
