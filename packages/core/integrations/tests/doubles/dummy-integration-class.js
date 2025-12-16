@@ -1,4 +1,5 @@
 const { IntegrationBase } = require('../../integration-base');
+const { Options } = require('../../options');
 
 class DummyModule {
     static definition = {
@@ -22,10 +23,16 @@ class DummyIntegration extends IntegrationBase {
     };
 
     static getOptionDetails() {
+        // Use Options class just like IntegrationBase does
+        // to properly map label → name and handle optional fields
+        const options = new Options({
+            module: Object.values(this.Definition.modules)[0],
+            ...this.Definition,
+        });
         return {
             name: this.Definition.name,
             version: this.Definition.version,
-            display: this.Definition.display
+            ...options.get()
         };
     }
 

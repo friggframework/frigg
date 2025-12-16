@@ -14,10 +14,12 @@ class Options {
         }
 
         this.display = {};
+        // Required fields
         this.display.name = get(params.display, 'label');
         this.display.description = get(params.display, 'description');
-        this.display.detailsUrl = get(params.display, 'detailsUrl');
-        this.display.icon = get(params.display, 'icon');
+        // Optional fields - use defaults if not provided
+        this.display.detailsUrl = params.display.detailsUrl || null;
+        this.display.icon = params.display.icon || null;
     }
 
     get() {
@@ -26,8 +28,11 @@ class Options {
             ? Object.keys(this.modules)
             : [];
 
+        // Get module type name - handle both getName() method and moduleName property
+        const moduleType = this._getModuleTypeName();
+
         return {
-            type: this.module.definition.getName(),
+            type: moduleType,
 
             // Flag for if the User can configure any settings
             hasUserConfig: this.hasUserConfig,
@@ -39,6 +44,38 @@ class Options {
             // this is information required for the display side of things on the front end
             display: this.display,
         };
+    }
+
+    /**
+     * Get the module type name from the module definition.
+     * Supports both:
+     * - getName() method (standard Frigg API modules)
+     * - moduleName property (custom API modules)
+     * @returns {string} The module type name
+     * @private
+     */
+    _getModuleTypeName() {
+        const definition = this.module?.definition;
+        if (!definition) {
+            return 'unknown';
+        }
+
+        // Try getName() method first (standard pattern)
+        if (typeof definition.getName === 'function') {
+            return definition.getName();
+        }
+
+        // Fall back to moduleName property
+        if (definition.moduleName) {
+            return definition.moduleName;
+        }
+
+        // Last resort - try name property
+        if (definition.name) {
+            return definition.name;
+        }
+
+        return 'unknown';
     }
 }
 

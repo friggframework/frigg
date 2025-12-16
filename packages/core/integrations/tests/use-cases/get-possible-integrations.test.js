@@ -10,7 +10,8 @@ describe('GetPossibleIntegrations Use-Case', () => {
             expect(Array.isArray(result)).toBe(true);
             expect(result.length).toBe(1);
             expect(result[0].display).toBeDefined();
-            expect(result[0].display.label).toBe('Dummy Integration');
+            // Options class maps display.label → display.name
+            expect(result[0].display.name).toBe('Dummy Integration');
             expect(result[0].display.description).toBe('A dummy integration for testing');
             expect(result[0].name).toBe('dummy');
             expect(result[0].version).toBe('1.0.0');
@@ -54,10 +55,48 @@ describe('GetPossibleIntegrations Use-Case', () => {
             const result = await useCase.execute();
 
             const integration = result[0];
-            expect(integration.display.label).toBeDefined();
+            // Required fields
+            expect(integration.display.name).toBeDefined();
             expect(integration.display.description).toBeDefined();
+            // Optional fields (DummyIntegration has them, but they're not required)
             expect(integration.display.detailsUrl).toBeDefined();
             expect(integration.display.icon).toBeDefined();
+        });
+
+        it('works with minimal display configuration (only required fields)', async () => {
+            class MinimalIntegration {
+                static Definition = {
+                    name: 'minimal',
+                    version: '1.0.0',
+                    modules: { dummy: { definition: { getName: () => 'dummy' } } },
+                    display: {
+                        label: 'Minimal',
+                        description: 'A minimal integration'
+                    }
+                };
+
+                static getOptionDetails() {
+                    const { Options } = require('../../options');
+                    const options = new Options({
+                        module: Object.values(this.Definition.modules)[0],
+                        ...this.Definition
+                    });
+                    return {
+                        name: this.Definition.name,
+                        version: this.Definition.version,
+                        ...options.get()
+                    };
+                }
+            }
+
+            const useCase = new GetPossibleIntegrations({ integrationClasses: [MinimalIntegration] });
+            const result = await useCase.execute();
+
+            expect(result.length).toBe(1);
+            expect(result[0].display.name).toBe('Minimal');
+            expect(result[0].display.description).toBe('A minimal integration');
+            expect(result[0].display.detailsUrl).toBeNull();
+            expect(result[0].display.icon).toBeNull();
         });
     });
 
