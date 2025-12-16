@@ -14,7 +14,8 @@ class Options {
         }
 
         this.display = {};
-        this.display.name = get(params.display, 'label');
+        // Accept either 'name' (new convention) or 'label' (legacy) for display name
+        this.display.name = params.display.name || get(params.display, 'label');
         this.display.description = get(params.display, 'description');
         this.display.detailsUrl = get(params.display, 'detailsUrl');
         this.display.icon = get(params.display, 'icon');
