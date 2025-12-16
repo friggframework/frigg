@@ -25,6 +25,7 @@ An ADR documents a significant architectural decision made in the project, inclu
 | [006](./006-integration-router-v2.md) | Integration Router v2 Restructuring | Accepted | 2025-12-14 |
 | [007](./007-management-ui-architecture.md) | Management UI Architecture | Accepted | 2025-12-14 |
 | [008](./008-frigg-cli-start-command.md) | Frigg CLI Start Command | Accepted | 2025-12-14 |
+| [009](./009-e2e-test-package.md) | E2E Test Package Architecture | Accepted | 2025-12-15 |
 
 ## ADR Template
 
