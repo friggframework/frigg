@@ -36,20 +36,34 @@ const AdminViewContainer = ({ friggBaseUrl, repositoryPath, onUserSelect }) => {
     clearError
   } = useFriggAppConnection({ friggBaseUrl, repositoryPath, autoConnect: true })
 
-  // Auto-switch to users tab when connected
+  // Auto-switch to user-simulation tab when connected (or on local dev)
   useEffect(() => {
     if (isConnected && activeTab === 'connection') {
-      setActiveTab('users')
+      setActiveTab('user-simulation')
     }
   }, [isConnected, activeTab])
 
   const sharedSecretEnabled = userManagementMode?.sharedSecretEnabled || false
 
+  // Check if friggBaseUrl is localhost (for showing dev features)
+  const isLocalDev = (() => {
+    try {
+      if (!friggBaseUrl) return false
+      const url = new URL(friggBaseUrl)
+      return url.hostname === 'localhost' || url.hostname === '127.0.0.1'
+    } catch {
+      return false
+    }
+  })()
+
   const tabs = [
     { id: 'connection', label: 'Connection', icon: Settings, requiresConnection: false },
-    { id: 'users', label: 'Users', icon: Users, requiresConnection: true },
+    // In shared secret mode or local dev, show User Simulation instead of traditional Users
+    ...(sharedSecretEnabled || isLocalDev
+      ? [{ id: 'user-simulation', label: 'User Simulation', icon: UserCog, requiresConnection: false }]
+      : [{ id: 'users', label: 'Users', icon: Users, requiresConnection: true }]
+    ),
     { id: 'global-entities', label: 'Global Entities', icon: Database, requiresConnection: true },
-    ...(sharedSecretEnabled ? [{ id: 'user-simulation', label: 'User Simulation', icon: UserCog, requiresConnection: true }] : []),
     { id: 'testing', label: 'Testing', icon: FlaskConical, requiresConnection: true }
   ]
 
@@ -179,6 +193,14 @@ const AdminViewContainer = ({ friggBaseUrl, repositoryPath, onUserSelect }) => {
           <UserManagement friggBaseUrl={effectiveFriggUrl} onUserSelect={onUserSelect} />
         )}
 
+        {activeTab === 'user-simulation' && (isConnected || isLocalDev) && (
+          <SharedSecretSimulation
+            repositoryPath={repositoryPath}
+            friggAppUrl={effectiveFriggUrl}
+            onUserSelect={onUserSelect}
+          />
+        )}
+
         {activeTab === 'global-entities' && isConnected && (
           <div className="space-y-4">
             {/* Banner explaining global entities */}
@@ -202,12 +224,6 @@ const AdminViewContainer = ({ friggBaseUrl, repositoryPath, onUserSelect }) => {
           </div>
         )}
 
-        {activeTab === 'user-simulation' && isConnected && sharedSecretEnabled && (
-          <SharedSecretSimulation
-            friggBaseUrl={effectiveFriggUrl}
-            onUserSelect={onUserSelect}
-          />
-        )}
 
         {activeTab === 'testing' && isConnected && (
           <div className="space-y-4">

@@ -1,17 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import api from '../../infrastructure/http/api-client.js'
 
-/**
- * useFriggAppConnection
- * Hook for managing connection to a running Frigg app via the Management UI server
- *
- * The Management UI server acts as a proxy to the Frigg app's admin API,
- * using the FRIGG_ADMIN_API_KEY for authentication.
- *
- * Supports auto-connect for local development when friggBaseUrl is localhost.
- * When repositoryPath is provided, auto-connect will read the admin API key
- * from that repository's .env file.
- */
 export function useFriggAppConnection({ friggBaseUrl = null, repositoryPath = null, autoConnect = true } = {}) {
   const [isConnected, setIsConnected] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
@@ -21,37 +10,29 @@ export function useFriggAppConnection({ friggBaseUrl = null, repositoryPath = nu
   const [error, setError] = useState(null)
   const [autoConnectAttempted, setAutoConnectAttempted] = useState(false)
   const autoConnectRef = useRef(false)
+  const autoConnectPathRef = useRef(null)
 
-  /**
-   * Check connection status on mount
-   */
   useEffect(() => {
     checkConnectionStatus()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Intentionally run only on mount
-
-  /**
-   * Auto-connect to local Frigg app when friggBaseUrl is localhost
-   * Passes repositoryPath so the server can read FRIGG_ADMIN_API_KEY from .env
-   *
-   * Note: We track the repositoryPath we used for auto-connect. If it was null/undefined
-   * initially but becomes available later, we retry once with the path.
-   */
-  const autoConnectPathRef = useRef(null)
+  }, [])
 
   useEffect(() => {
     if (!autoConnect || isConnected || isConnecting) return
     if (!friggBaseUrl) return
 
-    const isLocalhost = friggBaseUrl.includes('localhost') || friggBaseUrl.includes('127.0.0.1')
+    let isLocalhost = false
+    try {
+      const url = new URL(friggBaseUrl)
+      isLocalhost = url.hostname === 'localhost' || url.hostname === '127.0.0.1'
+    } catch {
+      return
+    }
     if (!isLocalhost) return
 
-    // If we already tried with a path, don't retry
     if (autoConnectRef.current && autoConnectPathRef.current) return
 
-    // If we tried without a path and now have one, retry
     const shouldRetry = autoConnectRef.current && !autoConnectPathRef.current && repositoryPath
-
     if (!autoConnectRef.current || shouldRetry) {
       autoConnectRef.current = true
       autoConnectPathRef.current = repositoryPath || null
@@ -61,9 +42,6 @@ export function useFriggAppConnection({ friggBaseUrl = null, repositoryPath = nu
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [friggBaseUrl, repositoryPath, autoConnect, isConnected, isConnecting])
 
-  /**
-   * Check current connection status
-   */
   const checkConnectionStatus = useCallback(async () => {
     try {
       const response = await api.get('/api/frigg-app/connection-status')
@@ -87,11 +65,6 @@ export function useFriggAppConnection({ friggBaseUrl = null, repositoryPath = nu
     }
   }, [])
 
-  /**
-   * Try auto-connect to local Frigg using API key from repository .env
-   * @param {string} url - Frigg app URL
-   * @param {string} repoPath - Repository path to read .env from
-   */
   const tryAutoConnect = useCallback(async (url, repoPath = null) => {
     setIsConnecting(true)
     setError(null)
@@ -113,19 +86,14 @@ export function useFriggAppConnection({ friggBaseUrl = null, repositoryPath = nu
         }
       }
     } catch (err) {
-      // Auto-connect failed silently - user can still manually connect
-      console.debug('Auto-connect failed, manual connection required:', err.message)
+      const errorMessage = err.response?.data?.error || err.message
+      console.debug('Auto-connect failed:', errorMessage)
+      // Don't set error state for auto-connect failures - user can still connect manually
     } finally {
       setIsConnecting(false)
     }
   }, [])
 
-  /**
-   * Connect to a running Frigg app
-   * @param {object} params
-   * @param {string} params.friggAppUrl - URL of the running Frigg app
-   * @param {string} params.adminApiKey - Admin API key for authentication
-   */
   const connect = useCallback(async ({ friggAppUrl, adminApiKey }) => {
     setIsConnecting(true)
     setError(null)
@@ -157,9 +125,6 @@ export function useFriggAppConnection({ friggBaseUrl = null, repositoryPath = nu
     }
   }, [])
 
-  /**
-   * Disconnect from the Frigg app
-   */
   const disconnect = useCallback(async () => {
     try {
       await api.post('/api/frigg-app/disconnect')
@@ -172,9 +137,6 @@ export function useFriggAppConnection({ friggBaseUrl = null, repositoryPath = nu
     }
   }, [])
 
-  /**
-   * Get available authentication methods
-   */
   const getAuthMethods = useCallback(async () => {
     try {
       const response = await api.get('/api/frigg-app/auth-methods')
@@ -185,15 +147,11 @@ export function useFriggAppConnection({ friggBaseUrl = null, repositoryPath = nu
     }
   }, [])
 
-  /**
-   * Clear any connection errors
-   */
   const clearError = useCallback(() => {
     setError(null)
   }, [])
 
   return {
-    // Connection state
     isConnected,
     isConnecting,
     connection,
@@ -201,8 +159,6 @@ export function useFriggAppConnection({ friggBaseUrl = null, repositoryPath = nu
     appDefinition,
     error,
     autoConnectAttempted,
-
-    // Actions
     connect,
     disconnect,
     checkConnectionStatus,

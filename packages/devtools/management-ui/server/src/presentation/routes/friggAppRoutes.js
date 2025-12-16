@@ -27,7 +27,8 @@ export function createFriggAppRoutes(friggAppController) {
     createGlobalEntity: friggAppController.createGlobalEntity.bind(friggAppController),
     updateGlobalEntity: friggAppController.updateGlobalEntity.bind(friggAppController),
     deleteGlobalEntity: friggAppController.deleteGlobalEntity.bind(friggAppController),
-    testGlobalEntity: friggAppController.testGlobalEntity.bind(friggAppController)
+    testGlobalEntity: friggAppController.testGlobalEntity.bind(friggAppController),
+    proxySharedSecret: friggAppController.proxySharedSecret.bind(friggAppController)
   }
 
   // ============================================
@@ -251,6 +252,30 @@ export function createFriggAppRoutes(friggAppController) {
   router.post('/admin/global-entities/:entityId/test', async (req, res, next) => {
     try {
       await controller.testGlobalEntity(req, res)
+    } catch (error) {
+      next(error)
+    }
+  })
+
+  // ============================================
+  // Shared Secret Proxy (User API via shared secret auth)
+  // ============================================
+
+  /**
+   * POST /api/frigg-app/proxy/shared-secret
+   * Proxy requests to Frigg app using shared secret authentication
+   * Body: {
+   *   appUserId: string,
+   *   appOrgId: string,
+   *   path: string (target API path),
+   *   method?: string (GET, POST, PUT, DELETE),
+   *   data?: object (request body for POST/PUT),
+   *   repositoryPath?: string (to read FRIGG_API_KEY from .env)
+   * }
+   */
+  router.post('/proxy/shared-secret', async (req, res, next) => {
+    try {
+      await controller.proxySharedSecret(req, res)
     } catch (error) {
       next(error)
     }

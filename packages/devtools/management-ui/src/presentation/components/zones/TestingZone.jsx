@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useFrigg } from '../../hooks/useFrigg'
 import { useSocket } from '../../hooks/useSocket'
+import { useFriggAppConnection } from '../../hooks/useFriggAppConnection'
 import TestAreaWelcome from './TestAreaWelcome'
 import TestAreaUserSelection from './TestAreaUserSelection'
 import TestAreaContainer from './TestAreaContainer'
@@ -13,14 +14,11 @@ import { Badge } from '../ui/badge'
 import { cn } from '../../../lib/utils'
 import {
   ArrowLeft,
-  Settings,
   User,
   AlertCircle,
   CheckCircle,
   Loader2,
   Square,
-  Shield,
-  Users,
   ChevronDown,
   Check,
   Code
@@ -34,9 +32,6 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import api from '../../../infrastructure/http/api-client'
-import { AdminService } from '../../../application/services/AdminService'
-import { AdminRepositoryAdapter } from '../../../infrastructure/adapters/AdminRepositoryAdapter'
-import axios from 'axios'
 
 /**
  * TestingZone Component - Refactored with proper state machine
@@ -55,7 +50,6 @@ import axios from 'axios'
  */
 const TestingZone = ({ className }) => {
   const {
-    switchZone,
     currentRepository,
     startFrigg,
     stopFrigg,
@@ -63,6 +57,12 @@ const TestingZone = ({ className }) => {
   } = useFrigg()
 
   const socket = useSocket()
+
+  const {
+    isConnected: isFriggAppConnected,
+    isConnecting: isFriggAppConnecting,
+    tryAutoConnect
+  } = useFriggAppConnection({ autoConnect: false })
 
   // Test Area State Machine
   const [testAreaState, setTestAreaState] = useState('not_started')
@@ -75,6 +75,7 @@ const TestingZone = ({ className }) => {
   const [isStopping, setIsStopping] = useState(false)
   const [existingProcess, setExistingProcess] = useState(null)
   const [pendingPrompt, setPendingPrompt] = useState(null) // CLI prompt requiring user response
+  const autoConnectAttemptedRef = useRef(false) // Track if auto-connect was attempted to prevent infinite loop
 
   // Load Frigg status and restore from localStorage on mount
   useEffect(() => {
@@ -176,35 +177,41 @@ const TestingZone = ({ className }) => {
     }
   }, [socket, testAreaState])
 
+  // Auto-connect to Frigg app via server proxy when running
+  useEffect(() => {
+    // Prevent infinite loop: only attempt auto-connect once per Frigg session
+    if (autoConnectAttemptedRef.current) return
+    if (testAreaState === 'running' && friggStatus?.friggBaseUrl && !isFriggAppConnected && !isFriggAppConnecting) {
+      autoConnectAttemptedRef.current = true
+      addLog('info', 'Auto-connecting to Frigg app via server proxy...')
+      tryAutoConnect(friggStatus.friggBaseUrl, currentRepository?.path)
+    }
+  }, [testAreaState, friggStatus?.friggBaseUrl, isFriggAppConnected, isFriggAppConnecting, tryAutoConnect, currentRepository?.path])
+
+  // Log connection status
+  useEffect(() => {
+    if (isFriggAppConnected && testAreaState === 'running') {
+      addLog('info', '✅ Connected to Frigg app via server proxy')
+    }
+  }, [isFriggAppConnected, testAreaState])
+
   // Load users when entering user_view
   useEffect(() => {
-    if (testAreaState === 'user_view' && friggStatus?.friggBaseUrl) {
+    if (testAreaState === 'user_view' && isFriggAppConnected) {
       loadUsers()
     }
-  }, [testAreaState, friggStatus?.friggBaseUrl])
+  }, [testAreaState, isFriggAppConnected])
 
   const loadUsers = async () => {
     try {
-      const baseUrl = friggStatus?.friggBaseUrl || `http://localhost:${friggStatus?.port || 3000}`
-
-      // Create Frigg API client and admin service
-      const friggApiClient = axios.create({
-        baseURL: baseUrl,
-        headers: { 'Content-Type': 'application/json' }
-      })
-      const adminRepository = new AdminRepositoryAdapter(friggApiClient)
-      const adminService = new AdminService(adminRepository)
-
-      // Fetch users using admin service
-      const result = await adminService.listUsers({
-        page: 1,
-        limit: 100, // Get all users
-        sortBy: 'createdAt',
-        sortOrder: 'desc'
+      const response = await api.get('/api/frigg-app/admin/users', {
+        params: { page: 1, limit: 100 }
       })
 
-      console.log('Loaded users for dropdown:', result.users.length, result.users)
-      setAllUsers(result.users)
+      if (response.data.success) {
+        console.log('Loaded users for dropdown:', response.data.users?.length)
+        setAllUsers(response.data.users || [])
+      }
     } catch (err) {
       console.error('Error loading users:', err)
     }
@@ -271,7 +278,7 @@ const TestingZone = ({ className }) => {
 
               // If there was a selected user, restore but re-login to get fresh token
               if (session.selectedUser) {
-                reloginUser(session.selectedUser, statusData.friggBaseUrl)
+                reloginUser(session.selectedUser)
               } else {
                 setSelectedUser(null)
               }
@@ -314,6 +321,7 @@ const TestingZone = ({ className }) => {
       setViewMode(null)
       setFriggStatus(null)
       setSelectedUser(null)
+      autoConnectAttemptedRef.current = false // Reset so auto-connect can try again on restart
       localStorage.removeItem('frigg-test-area-session')
       sessionStorage.removeItem('frigg-execution-id')
       addLog('info', '✅ Frigg application stopped successfully')
@@ -332,6 +340,7 @@ const TestingZone = ({ className }) => {
       setTestAreaState('starting')
       setError(null)
       setExistingProcess(null)
+      autoConnectAttemptedRef.current = false // Reset for fresh start
 
       // Log BEFORE making the request
       addLog('info', 'Starting Frigg application...')
@@ -434,40 +443,27 @@ const TestingZone = ({ className }) => {
     }
   }
 
-  const reloginUser = async (user, baseUrl) => {
+  const reloginUser = async (user) => {
     try {
       console.log('Re-impersonating user after session restore:', user.username || user.email)
 
-      const response = await fetch(`${baseUrl}/api/admin/users/${user.id}/impersonate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          expiresInMinutes: 120
+      const userId = user.id || user._id
+      const response = await api.post(`/api/frigg-app/admin/users/${userId}/impersonate`)
+
+      if (response.data.success && response.data.token) {
+        setSelectedUser({
+          ...user,
+          token: response.data.token
         })
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null)
-        const errorMessage = errorData?.message || 'Failed to re-impersonate user'
-        throw new Error(errorMessage)
+        addLog('info', `✅ Re-authenticated as ${user.username || user.email}`)
+      } else {
+        throw new Error(response.data.error || 'Impersonation failed')
       }
-
-      const data = await response.json()
-
-      // Restore user with fresh token
-      setSelectedUser({
-        ...user,
-        token: data.token
-      })
-
-      addLog('info', `✅ Re-authenticated as ${user.username || user.email}`)
     } catch (err) {
       console.error('Error re-impersonating user:', err)
       setSelectedUser(null)
       setTestAreaState('running')
-      addLog('error', `Failed to re-authenticate user: ${err.message}`)
+      addLog('error', `Failed to re-authenticate user: ${err.response?.data?.error || err.message}`)
     }
   }
 
@@ -481,30 +477,19 @@ const TestingZone = ({ className }) => {
   }
 
   const handleUserSwitch = async (user) => {
-    // When switching users from the dropdown, use impersonation to get fresh token
     try {
-      const baseUrl = friggStatus?.friggBaseUrl || `http://localhost:${friggStatus?.port || 3000}`
+      const userId = user.id || user._id
+      const response = await api.post(`/api/frigg-app/admin/users/${userId}/impersonate`)
 
-      const response = await fetch(`${baseUrl}/api/admin/users/${user.id}/impersonate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          expiresInMinutes: 120
-        })
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null)
-        const errorMessage = errorData?.message || 'Failed to impersonate user'
-        throw new Error(errorMessage)
+      if (response.data.success && response.data.token) {
+        setSelectedUser({ ...user, token: response.data.token })
+        addLog('info', `Switched to user: ${user.username || user.email}`)
+      } else {
+        throw new Error(response.data.error || 'Impersonation failed')
       }
-
-      const data = await response.json()
-      setSelectedUser({ ...user, token: data.token })
-      addLog('info', `Switched to user: ${user.username || user.email}`)
     } catch (err) {
       console.error('Error switching user:', err)
-      addLog('error', `Failed to switch user: ${err.message}`)
+      addLog('error', `Failed to switch user: ${err.response?.data?.error || err.message}`)
     }
   }
 
@@ -733,7 +718,7 @@ const TestingZone = ({ className }) => {
             </div>
             <div className="flex-1 overflow-auto">
               <TestAreaUserSelection
-                friggBaseUrl={friggStatus?.friggBaseUrl || `http://localhost:${friggStatus?.port || 3000}`}
+                isConnected={isFriggAppConnected}
                 onUserSelected={handleUserSelected}
               />
             </div>
@@ -762,7 +747,7 @@ const TestingZone = ({ className }) => {
             </div>
             <div className="flex-1 overflow-auto">
               <AdminViewContainer
-                friggBaseUrl={friggStatus?.friggBaseUrl || `http://localhost:${friggStatus?.port || 3000}`}
+                friggBaseUrl={friggStatus?.isRunning ? (friggStatus?.friggBaseUrl || `http://localhost:${friggStatus?.port || 3000}`) : null}
                 repositoryPath={currentRepository?.path}
                 onUserSelect={handleUserSelected}
               />
@@ -832,7 +817,7 @@ const TestingZone = ({ className }) => {
             </div>
             <div className="flex-1 overflow-auto">
               <TestAreaContainer
-                friggBaseUrl={friggStatus?.friggBaseUrl || `http://localhost:${friggStatus?.port || 3000}`}
+                friggBaseUrl={friggStatus?.isRunning ? (friggStatus?.friggBaseUrl || `http://localhost:${friggStatus?.port || 3000}`) : null}
                 authToken={selectedUser?.token}
                 selectedUser={selectedUser}
                 allUsers={allUsers}

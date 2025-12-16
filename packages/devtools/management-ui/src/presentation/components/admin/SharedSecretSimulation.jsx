@@ -6,15 +6,18 @@ import { Card } from '../ui/Card'
 const MAX_HEADER_LENGTH = 100
 const VALID_HEADER_PATTERN = /^[a-zA-Z0-9_@.\-]+$/
 
-function sanitizeHeaderValue(value) {
-  const sanitized = value.replace(/[\r\n\0]/g, '').trim()
-  if (sanitized.length > MAX_HEADER_LENGTH) {
-    throw new Error(`Value too long (max ${MAX_HEADER_LENGTH} characters)`)
+function validateId(value, fieldName) {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    throw new Error(`${fieldName} is required`)
   }
-  if (sanitized && !VALID_HEADER_PATTERN.test(sanitized)) {
-    throw new Error('Invalid characters. Use alphanumeric, underscores, hyphens, @, or dots.')
+  if (trimmed.length > MAX_HEADER_LENGTH) {
+    throw new Error(`${fieldName} too long (max ${MAX_HEADER_LENGTH} characters)`)
   }
-  return sanitized
+  if (!VALID_HEADER_PATTERN.test(trimmed)) {
+    throw new Error(`Invalid characters in ${fieldName}. Use alphanumeric, underscores, hyphens, @, or dots.`)
+  }
+  return trimmed
 }
 
 /**
@@ -22,11 +25,12 @@ function sanitizeHeaderValue(value) {
  * Allows developers to simulate requests as any user using shared secret headers.
  * This is only available when the Frigg app has sharedSecretEnabled in user config.
  *
- * Sends requests with:
- * - X-Frigg-AppOrgId: Arbitrary organization/tenant identifier
- * - X-Frigg-AppUserId: Arbitrary user identifier within the org
+ * Uses the server proxy to keep FRIGG_API_KEY server-side.
+ * Sends requests through /api/frigg-app/proxy/shared-secret with:
+ * - appOrgId: Arbitrary organization/tenant identifier
+ * - appUserId: Arbitrary user identifier within the org
  */
-const SharedSecretSimulation = ({ friggBaseUrl, onUserSelect }) => {
+const SharedSecretSimulation = ({ repositoryPath, friggAppUrl, onUserSelect }) => {
   const [appOrgId, setAppOrgId] = useState('')
   const [appUserId, setAppUserId] = useState('')
   const [isSimulating, setIsSimulating] = useState(false)
@@ -34,16 +38,11 @@ const SharedSecretSimulation = ({ friggBaseUrl, onUserSelect }) => {
   const [error, setError] = useState(null)
 
   const handleSimulate = useCallback(async () => {
-    if (!appOrgId.trim() || !appUserId.trim()) {
-      setError('Both App Org ID and App User ID are required')
-      return
-    }
-
-    // Sanitize and validate header values
+    // Validate input values
     let validOrgId, validUserId
     try {
-      validOrgId = sanitizeHeaderValue(appOrgId)
-      validUserId = sanitizeHeaderValue(appUserId)
+      validOrgId = validateId(appOrgId, 'App Org ID')
+      validUserId = validateId(appUserId, 'App User ID')
     } catch (err) {
       setError(err.message)
       return
@@ -54,48 +53,53 @@ const SharedSecretSimulation = ({ friggBaseUrl, onUserSelect }) => {
     setResult(null)
 
     try {
-      const response = await fetch(`${friggBaseUrl}/api/integrations`, {
-        method: 'GET',
+      // Use the server proxy to keep FRIGG_API_KEY server-side
+      const response = await fetch('/api/frigg-app/proxy/shared-secret', {
+        method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'X-Frigg-AppOrgId': validOrgId,
-          'X-Frigg-AppUserId': validUserId
-        }
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          appOrgId: validOrgId,
+          appUserId: validUserId,
+          path: '/api/integrations',
+          method: 'GET',
+          repositoryPath,
+          friggAppUrl
+        })
       })
 
-      const data = await response.json()
+      const responseData = await response.json()
 
-      if (response.ok) {
+      if (response.ok && responseData.success) {
         setResult({
           success: true,
           message: 'Successfully authenticated as simulated user',
           userContext: {
-            appOrgId: appOrgId.trim(),
-            appUserId: appUserId.trim()
+            appOrgId: validOrgId,
+            appUserId: validUserId
           },
-          integrations: data
+          integrations: responseData.data
         })
 
         if (onUserSelect) {
           onUserSelect({
             type: 'shared-secret',
-            appOrgId: appOrgId.trim(),
-            appUserId: appUserId.trim(),
-            headers: {
-              'X-Frigg-AppOrgId': appOrgId.trim(),
-              'X-Frigg-AppUserId': appUserId.trim()
-            }
+            appOrgId: validOrgId,
+            appUserId: validUserId,
+            // No headers exposed - proxy handles auth server-side
+            repositoryPath
           })
         }
       } else {
-        setError(data.error || data.message || `Request failed with status ${response.status}`)
+        setError(responseData.error || `Request failed with status ${response.status}`)
       }
     } catch (err) {
-      setError(err.message || 'Failed to connect to Frigg app')
+      setError(err.message || 'Failed to connect to server')
     } finally {
       setIsSimulating(false)
     }
-  }, [friggBaseUrl, appOrgId, appUserId, onUserSelect])
+  }, [appOrgId, appUserId, repositoryPath, onUserSelect])
 
   const handleClear = useCallback(() => {
     setAppOrgId('')
@@ -250,7 +254,7 @@ const SharedSecretSimulation = ({ friggBaseUrl, onUserSelect }) => {
             <li>Use any string values for testing - Frigg will create/lookup users automatically</li>
             <li>The AppOrgId typically maps to your customer/tenant identifier</li>
             <li>The AppUserId should be unique within each organization</li>
-            <li>These headers are forwarded to all Frigg API requests when simulating</li>
+            <li>Requests are proxied through the server to keep the API key secure</li>
           </ul>
         </div>
       </Card>

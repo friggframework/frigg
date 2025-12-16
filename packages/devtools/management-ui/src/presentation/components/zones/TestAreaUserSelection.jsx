@@ -1,87 +1,43 @@
 import React, { useState, useEffect } from 'react'
 import { Button } from '../ui/button'
 import { Card } from '../ui/card'
-import { Badge } from '../ui/badge'
 import { Input } from '../ui/input'
 import { User, Plus, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import api from '../../../infrastructure/http/api-client'
 
-/**
- * User selection/creation interface for Test Area
- * Allows selecting existing user or creating new one
- */
 const TestAreaUserSelection = ({
-  friggBaseUrl,
+  isConnected = false,
   onUserSelected,
   className
 }) => {
   const [users, setUsers] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [creating, setCreating] = useState(false)
   const [loggingIn, setLoggingIn] = useState(false)
   const [error, setError] = useState(null)
   const [showCreateForm, setShowCreateForm] = useState(false)
-  const [newUser, setNewUser] = useState({
-    email: '',
-    username: ''
-  })
+  const [newUser, setNewUser] = useState({ email: '', username: '' })
 
-  // Load users when component mounts AND friggBaseUrl is available
   useEffect(() => {
-    if (friggBaseUrl) {
-      console.log('TestAreaUserSelection mounted, loading users from:', friggBaseUrl)
+    if (isConnected) {
       loadUsers()
     }
-  }, [friggBaseUrl])
+  }, [isConnected])
 
   const loadUsers = async () => {
     try {
       setLoading(true)
       setError(null)
 
-      // Call the Frigg app's admin API directly
-      const usersUrl = `${friggBaseUrl}/api/admin/users`
-      console.log('Loading users from Frigg admin API:', usersUrl)
-
-      const response = await fetch(usersUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
-
-      console.log('Admin users response status:', response.status)
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('Failed to load users:', response.status, errorText)
-        throw new Error(`Failed to load users: ${response.status}`)
+      const response = await api.get('/api/frigg-app/admin/users')
+      if (response.data.success) {
+        setUsers(response.data.users || [])
+      } else {
+        setError(response.data.error || 'Failed to load users')
       }
-
-      const data = await response.json()
-      console.log('Admin users response:', data)
-
-      // Admin API returns { users: [...], pagination: {...} }
-      const usersData = data?.users || []
-
-      // Populate users with org info if available
-      const usersWithOrg = usersData.map((user) => {
-        // If user has organizationUser reference, include it
-        if (user.organizationUser) {
-          return {
-            ...user,
-            orgId: user.organizationUser,
-            orgName: null // Will be populated when we add org fetch
-          }
-        }
-        return user
-      })
-
-      setUsers(usersWithOrg)
     } catch (err) {
-      console.error('Error loading users:', err)
-      setError(err.message)
+      setError(err.response?.data?.error || err.message)
     } finally {
       setLoading(false)
     }
@@ -92,48 +48,17 @@ const TestAreaUserSelection = ({
       setLoggingIn(true)
       setError(null)
 
-      console.log('Impersonating user:', user.username || user.email)
+      const userId = user.id || user._id
 
-      // Use admin impersonation API to get token without password
-      const impersonateUrl = `${friggBaseUrl}/api/admin/users/${user.id}/impersonate`
-      console.log('Impersonation URL:', impersonateUrl)
-
-      const response = await fetch(impersonateUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          expiresInMinutes: 120
-        })
-      })
-
-      console.log('Impersonation response status:', response.status)
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null)
-        const errorMessage = errorData?.message || `Impersonation failed: ${response.status}`
-        console.error('Impersonation failed:', errorMessage)
-        throw new Error(errorMessage)
+      const response = await api.post(`/api/frigg-app/admin/users/${userId}/impersonate`)
+      if (response.data.success && response.data.token) {
+        localStorage.setItem('frigg_auth_token', response.data.token)
+        onUserSelected({ ...user, token: response.data.token })
+      } else {
+        setError(response.data.error || 'Impersonation failed')
       }
-
-      const data = await response.json()
-      console.log('Impersonation successful, token received:', data.token ? 'Yes' : 'No')
-
-      // Persist token to localStorage for API client interceptor
-      if (data.token) {
-        localStorage.setItem('frigg_auth_token', data.token)
-        console.log('Token persisted to localStorage')
-      }
-
-      // Pass user and token to parent
-      onUserSelected({
-        ...user,
-        token: data.token
-      })
     } catch (err) {
-      console.error('Error impersonating user:', err)
-      setError(err.message)
+      setError(err.response?.data?.error || err.message)
     } finally {
       setLoggingIn(false)
     }
@@ -151,39 +76,40 @@ const TestAreaUserSelection = ({
       setCreating(true)
       setError(null)
 
-      // Create user via RESTful Frigg API (POST /users)
-      const response = await fetch(`${friggBaseUrl}/users`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          username: newUser.username || newUser.email,
-          password: 'defaultPassword123' // TODO: Let user set password
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to create user')
+      const userData = {
+        username: newUser.username || newUser.email,
+        email: newUser.email
       }
 
-      const data = await response.json()
-
-      // User is created with token already, pass it to parent
-      onUserSelected({
-        username: newUser.username || newUser.email,
-        token: data.token
-      })
-
-      // Reset form
-      setNewUser({ email: '', username: '' })
-      setShowCreateForm(false)
+      const response = await api.post('/api/frigg-app/admin/users', userData)
+      if (response.data.success) {
+        setNewUser({ email: '', username: '' })
+        setShowCreateForm(false)
+        await loadUsers()
+        if (response.data.user?.id) {
+          await handleSelectUser(response.data.user)
+        }
+      } else {
+        setError(response.data.error || 'Failed to create user')
+      }
     } catch (err) {
-      console.error('Error creating user:', err)
-      setError(err.message)
+      setError(err.response?.data?.error || err.message)
     } finally {
       setCreating(false)
     }
+  }
+
+  if (!isConnected) {
+    return (
+      <div className={cn('h-full flex items-center justify-center', className)}>
+        <div className="text-center space-y-4">
+          <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground/50" />
+          <p className="text-muted-foreground">
+            Connect to a Frigg app first
+          </p>
+        </div>
+      </div>
+    )
   }
 
   if (loading) {
@@ -201,7 +127,6 @@ const TestAreaUserSelection = ({
     <div className={cn('h-full flex items-center justify-center p-8', className)}>
       <Card className="max-w-2xl w-full p-8">
         <div className="space-y-6">
-          {/* Header */}
           <div className="text-center">
             <div className="flex justify-center mb-4">
               <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
@@ -214,7 +139,6 @@ const TestAreaUserSelection = ({
             </p>
           </div>
 
-          {/* Error Message */}
           {error && (
             <div className="flex items-start gap-2 p-4 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/20 rounded-lg">
               <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
@@ -222,7 +146,6 @@ const TestAreaUserSelection = ({
             </div>
           )}
 
-          {/* Existing Users */}
           {users.length > 0 && !showCreateForm && (
             <div className="space-y-3">
               <h3 className="font-semibold text-sm text-muted-foreground">Existing Users</h3>
@@ -243,16 +166,6 @@ const TestAreaUserSelection = ({
                         {user.email && user.username && (
                           <div className="text-sm text-muted-foreground">{user.email}</div>
                         )}
-                        {user.orgName && (
-                          <div className="text-xs text-muted-foreground mt-0.5">
-                            Org: {user.orgName}
-                          </div>
-                        )}
-                        {user.orgId && !user.orgName && (
-                          <div className="text-xs text-muted-foreground mt-0.5">
-                            Org ID: {user.orgId.toString().slice(-8)}
-                          </div>
-                        )}
                       </div>
                     </div>
                     <CheckCircle className="w-5 h-5 text-muted-foreground" />
@@ -262,11 +175,9 @@ const TestAreaUserSelection = ({
             </div>
           )}
 
-          {/* Create New User Form */}
           {showCreateForm ? (
             <form onSubmit={handleCreateUser} className="space-y-4">
               <h3 className="font-semibold text-sm text-muted-foreground">Create New User</h3>
-
               <div className="space-y-3">
                 <div>
                   <label className="text-sm font-medium mb-1.5 block">Email</label>
@@ -277,7 +188,6 @@ const TestAreaUserSelection = ({
                     onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
                   />
                 </div>
-
                 <div>
                   <label className="text-sm font-medium mb-1.5 block">Username (optional)</label>
                   <Input
@@ -288,13 +198,8 @@ const TestAreaUserSelection = ({
                   />
                 </div>
               </div>
-
               <div className="flex gap-2">
-                <Button
-                  type="submit"
-                  disabled={creating}
-                  className="flex-1"
-                >
+                <Button type="submit" disabled={creating} className="flex-1">
                   {creating ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />

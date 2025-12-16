@@ -47,8 +47,10 @@ import { DeleteChatSessionUseCase } from './application/use-cases/chat/DeleteCha
 
 // Application - Frigg App Use Cases
 import { ConnectToFriggAppUseCase } from './application/use-cases/frigg-app/ConnectToFriggAppUseCase.js'
+import { AutoConnectUseCase } from './application/use-cases/frigg-app/AutoConnectUseCase.js'
 import { GetUserManagementModeUseCase } from './application/use-cases/frigg-app/GetUserManagementModeUseCase.js'
 import { ManageGlobalEntitiesUseCase } from './application/use-cases/frigg-app/ManageGlobalEntitiesUseCase.js'
+import { SharedSecretProxyUseCase } from './application/use-cases/frigg-app/SharedSecretProxyUseCase.js'
 
 // Application - Services
 import { ProjectService } from './application/services/ProjectService.js'
@@ -69,6 +71,7 @@ import { FileSystemAdapter } from './infrastructure/adapters/FileSystemAdapter.j
 import axios from 'axios'
 import { FriggAppHttpAdapter } from './infrastructure/adapters/FriggAppHttpAdapter.js'
 import { FriggAdminApiAdapter } from './infrastructure/adapters/FriggAdminApiAdapter.js'
+import { EnvFileReader } from './infrastructure/adapters/EnvFileReader.js'
 
 // Infrastructure - Repositories
 import { InMemoryProposalRepository } from './infrastructure/repositories/InMemoryProposalRepository.js'
@@ -400,11 +403,24 @@ export class Container {
   }
 
   // Use Cases - Frigg App
+  getEnvFileReader() {
+    return this.singleton('envFileReader', () => new EnvFileReader())
+  }
+
   getConnectToFriggAppUseCase() {
     return this.singleton('connectToFriggAppUseCase', () =>
       new ConnectToFriggAppUseCase({
         friggAppAdapter: this.getFriggAppHttpAdapter(),
         settingsRepository: this.getSettingsRepository()
+      })
+    )
+  }
+
+  getAutoConnectUseCase() {
+    return this.singleton('autoConnectUseCase', () =>
+      new AutoConnectUseCase({
+        connectToFriggAppUseCase: this.getConnectToFriggAppUseCase(),
+        envFileReader: this.getEnvFileReader()
       })
     )
   }
@@ -425,14 +441,25 @@ export class Container {
     )
   }
 
-  // Frigg App Controller
+  getSharedSecretProxyUseCase() {
+    return this.singleton('sharedSecretProxyUseCase', () =>
+      new SharedSecretProxyUseCase({
+        connectionStateService: this.getFriggAppHttpAdapter(),
+        envFileReader: this.getEnvFileReader(),
+        httpClient: this.getHttpClient()
+      })
+    )
+  }
+
   getFriggAppController() {
     return this.singleton('friggAppController', () =>
       new FriggAppController({
         connectToFriggAppUseCase: this.getConnectToFriggAppUseCase(),
+        autoConnectUseCase: this.getAutoConnectUseCase(),
         getUserManagementModeUseCase: this.getGetUserManagementModeUseCase(),
         manageGlobalEntitiesUseCase: this.getManageGlobalEntitiesUseCase(),
-        adminApiAdapter: this.getFriggAdminApiAdapter()
+        adminApiAdapter: this.getFriggAdminApiAdapter(),
+        sharedSecretProxyUseCase: this.getSharedSecretProxyUseCase()
       })
     )
   }

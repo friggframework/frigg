@@ -1,65 +1,75 @@
 import fs from 'fs/promises'
 import path from 'path'
 
-/**
- * EnvFileReader
- * Utility for reading environment variables from .env files
- */
+const ENV_FILE_PATTERNS = ['.env', '.env.local', 'backend/.env', 'backend/.env.local']
+
 export class EnvFileReader {
-  /**
-   * Read and parse a .env file
-   * @param {string} filePath - Path to the .env file
-   * @returns {Promise<object>} Parsed environment variables
-   */
+  constructor({ allowedBasePaths = [] } = {}) {
+    this._allowedBasePaths = allowedBasePaths.map(p => path.resolve(p))
+  }
+
+  validatePath(repositoryPath) {
+    if (!repositoryPath || typeof repositoryPath !== 'string') {
+      throw new Error('Invalid repository path')
+    }
+
+    const canonicalPath = path.resolve(repositoryPath)
+
+    // If allowed base paths configured, enforce them
+    if (this._allowedBasePaths.length > 0) {
+      const isAllowed = this._allowedBasePaths.some(base =>
+        canonicalPath.startsWith(base + path.sep) || canonicalPath === base
+      )
+      if (!isAllowed) {
+        throw new Error('Repository path outside allowed directories')
+      }
+    }
+
+    // Block obvious traversal attempts
+    if (repositoryPath.includes('..')) {
+      throw new Error('Path traversal not allowed')
+    }
+
+    return canonicalPath
+  }
+
+  getEnvPaths(repositoryPath) {
+    const canonicalPath = this.validatePath(repositoryPath)
+    return ENV_FILE_PATTERNS.map(pattern => path.join(canonicalPath, pattern))
+  }
+
   async readEnvFile(filePath) {
     try {
       const content = await fs.readFile(filePath, 'utf-8')
       return this.parseEnvContent(content)
     } catch (error) {
-      if (error.code === 'ENOENT') {
-        return null // File doesn't exist
+      if (error.code === 'ENOENT' || error.code === 'ENOTDIR') {
+        return null
+      }
+      if (error.code === 'EACCES' || error.code === 'EPERM') {
+        return null // Permission denied - treat as not found
       }
       throw error
     }
   }
 
-  /**
-   * Parse .env file content into an object
-   * @param {string} content - Raw .env file content
-   * @returns {object} Parsed environment variables
-   */
   parseEnvContent(content) {
     const env = {}
-    const lines = content.split('\n')
 
-    for (const line of lines) {
-      // Skip empty lines and comments
+    for (const line of content.split('\n')) {
       const trimmed = line.trim()
-      if (!trimmed || trimmed.startsWith('#')) {
-        continue
-      }
+      if (!trimmed || trimmed.startsWith('#')) continue
 
-      // Parse KEY=VALUE format
-      const equalIndex = trimmed.indexOf('=')
-      if (equalIndex === -1) {
-        continue
-      }
+      const eqIdx = trimmed.indexOf('=')
+      if (eqIdx <= 0) continue
 
-      const key = trimmed.substring(0, equalIndex).trim()
-      let value = trimmed.substring(equalIndex + 1).trim()
+      const key = trimmed.substring(0, eqIdx).trim()
+      let value = trimmed.substring(eqIdx + 1).trim()
 
-      // Remove surrounding quotes if present
+      // Remove quotes
       if ((value.startsWith('"') && value.endsWith('"')) ||
           (value.startsWith("'") && value.endsWith("'"))) {
         value = value.slice(1, -1)
-      }
-
-      // Handle escaped characters in double-quoted strings
-      if (trimmed.substring(equalIndex + 1).trim().startsWith('"')) {
-        value = value.replace(/\\n/g, '\n')
-          .replace(/\\r/g, '\r')
-          .replace(/\\t/g, '\t')
-          .replace(/\\\\/g, '\\')
       }
 
       env[key] = value
@@ -68,24 +78,12 @@ export class EnvFileReader {
     return env
   }
 
-  /**
-   * Read a specific variable from a repository's .env file
-   * @param {string} repositoryPath - Path to the repository
-   * @param {string} varName - Name of the variable to read
-   * @returns {Promise<string|null>} Variable value or null if not found
-   */
   async readVariable(repositoryPath, varName) {
-    // Try multiple possible .env file locations
-    const envPaths = [
-      path.join(repositoryPath, '.env'),
-      path.join(repositoryPath, '.env.local'),
-      path.join(repositoryPath, 'backend', '.env'),
-      path.join(repositoryPath, 'backend', '.env.local')
-    ]
+    const envPaths = this.getEnvPaths(repositoryPath)
 
     for (const envPath of envPaths) {
       const env = await this.readEnvFile(envPath)
-      if (env && env[varName]) {
+      if (env?.[varName]) {
         return env[varName]
       }
     }
@@ -93,12 +91,14 @@ export class EnvFileReader {
     return null
   }
 
-  /**
-   * Read FRIGG_ADMIN_API_KEY from a repository's .env file
-   * @param {string} repositoryPath - Path to the repository
-   * @returns {Promise<string|null>} Admin API key or null if not found
-   */
   async readAdminApiKey(repositoryPath) {
-    return this.readVariable(repositoryPath, 'FRIGG_ADMIN_API_KEY')
+    // Try FRIGG_ADMIN_API_KEY first, fall back to ADMIN_API_KEY for backwards compatibility
+    const key = await this.readVariable(repositoryPath, 'FRIGG_ADMIN_API_KEY')
+    if (key) return key
+    return this.readVariable(repositoryPath, 'ADMIN_API_KEY')
+  }
+
+  async readSharedSecret(repositoryPath) {
+    return this.readVariable(repositoryPath, 'FRIGG_API_KEY')
   }
 }

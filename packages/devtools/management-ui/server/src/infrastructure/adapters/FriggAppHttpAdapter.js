@@ -50,8 +50,9 @@ export class FriggAppHttpAdapter {
 
       const healthStatus = healthResponse.data
 
-      // If unhealthy, return error state
-      if (healthStatus.status !== 'healthy') {
+      // If unhealthy, return error state (accept both 'healthy' and 'ok' as healthy statuses)
+      const isHealthy = healthStatus.status === 'healthy' || healthStatus.status === 'ok'
+      if (!isHealthy) {
         this._connection = FriggAppConnection.error(
           config,
           `Frigg app is unhealthy: ${healthStatus.error || 'Unknown error'}`
