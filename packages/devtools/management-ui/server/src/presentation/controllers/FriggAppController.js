@@ -84,6 +84,7 @@ export class FriggAppController {
     let keySource = null
 
     // Try to read from repository's .env file first
+    let searchedPaths = []
     if (repositoryPath) {
       try {
         const envReader = new EnvFileReader()
@@ -91,6 +92,13 @@ export class FriggAppController {
         if (adminApiKey) {
           keySource = 'repository .env'
         }
+        // Track paths we checked for error message
+        searchedPaths = [
+          `${repositoryPath}/.env`,
+          `${repositoryPath}/.env.local`,
+          `${repositoryPath}/backend/.env`,
+          `${repositoryPath}/backend/.env.local`
+        ]
       } catch (error) {
         console.debug('Failed to read .env from repository:', error.message)
       }
@@ -105,11 +113,12 @@ export class FriggAppController {
     }
 
     if (!adminApiKey) {
+      const hint = repositoryPath
+        ? `Searched: ${searchedPaths.join(', ')}`
+        : 'No repository path provided'
       return res.status(400).json({
         success: false,
-        error: repositoryPath
-          ? 'FRIGG_ADMIN_API_KEY not found in repository .env or server environment'
-          : 'FRIGG_ADMIN_API_KEY not configured on server'
+        error: `FRIGG_ADMIN_API_KEY not found. ${hint}. Add it to your Frigg app's .env file.`
       })
     }
 

@@ -33,17 +33,31 @@ export function useFriggAppConnection({ friggBaseUrl = null, repositoryPath = nu
   /**
    * Auto-connect to local Frigg app when friggBaseUrl is localhost
    * Passes repositoryPath so the server can read FRIGG_ADMIN_API_KEY from .env
+   *
+   * Note: We track the repositoryPath we used for auto-connect. If it was null/undefined
+   * initially but becomes available later, we retry once with the path.
    */
+  const autoConnectPathRef = useRef(null)
+
   useEffect(() => {
-    if (!autoConnect || autoConnectRef.current || isConnected || isConnecting) return
+    if (!autoConnect || isConnected || isConnecting) return
     if (!friggBaseUrl) return
 
     const isLocalhost = friggBaseUrl.includes('localhost') || friggBaseUrl.includes('127.0.0.1')
     if (!isLocalhost) return
 
-    autoConnectRef.current = true
-    setAutoConnectAttempted(true)
-    tryAutoConnect(friggBaseUrl, repositoryPath)
+    // If we already tried with a path, don't retry
+    if (autoConnectRef.current && autoConnectPathRef.current) return
+
+    // If we tried without a path and now have one, retry
+    const shouldRetry = autoConnectRef.current && !autoConnectPathRef.current && repositoryPath
+
+    if (!autoConnectRef.current || shouldRetry) {
+      autoConnectRef.current = true
+      autoConnectPathRef.current = repositoryPath || null
+      setAutoConnectAttempted(true)
+      tryAutoConnect(friggBaseUrl, repositoryPath)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [friggBaseUrl, repositoryPath, autoConnect, isConnected, isConnecting])
 
