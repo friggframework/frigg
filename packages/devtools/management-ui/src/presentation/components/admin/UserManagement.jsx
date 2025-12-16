@@ -1,17 +1,21 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect } from 'react'
 import { UserPlus, Search, RefreshCw, ChevronRight, Trash2 } from 'lucide-react'
 import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { LoadingSpinner } from '@friggframework/ui'
 import CreateUserModal from './CreateUserModal'
-import { AdminService } from '../../../application/services/AdminService'
-import { AdminRepositoryAdapter } from '../../../infrastructure/adapters/AdminRepositoryAdapter'
-import axios from 'axios'
 
 /**
  * UserManagement
  * Admin view for managing users with organization associations
+ *
+ * IMPORTANT: This component calls the Management UI server proxy endpoints
+ * (NOT the Frigg app directly) because the server maintains the authenticated
+ * connection with the Frigg app's admin API.
+ *
+ * Server proxy endpoints: /api/frigg-app/admin/users/*
+ *
  * Features:
  * - List all users with pagination
  * - Search users
@@ -28,39 +32,41 @@ const UserManagement = ({ friggBaseUrl, onUserSelect }) => {
   const [deletingUserId, setDeletingUserId] = useState(null)
   const [userToDelete, setUserToDelete] = useState(null)
 
-  // Create axios client for Frigg API
-  const friggApiClient = useMemo(() => {
-    return axios.create({
-      baseURL: friggBaseUrl,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-  }, [friggBaseUrl])
-
-  // Initialize admin service
-  const adminRepository = useMemo(() => new AdminRepositoryAdapter(friggApiClient), [friggApiClient])
-  const adminService = useMemo(() => new AdminService(adminRepository), [adminRepository])
+  // Management UI server base URL (where the proxy endpoints live)
+  const serverBaseUrl = ''  // Same origin as the UI
 
   // Load users on mount and when pagination changes
   useEffect(() => {
     loadUsers()
   }, [pagination.page])
 
+  // Helper to get display name for a user
+  const getDisplayName = (user) => {
+    return user.username || user.email || user.appUserId || user.id || 'Unknown User'
+  }
+
   const loadUsers = async () => {
     try {
       setLoading(true)
       setError(null)
 
-      const result = await adminService.listUsers({
-        page: pagination.page,
-        limit: pagination.limit,
-        sortBy: 'createdAt',
-        sortOrder: 'desc'
+      const params = new URLSearchParams({
+        page: pagination.page.toString(),
+        limit: pagination.limit.toString()
       })
 
-      setUsers(result.users)
-      setPagination(prev => ({ ...prev, total: result.pagination.total }))
+      const response = await fetch(`${serverBaseUrl}/api/frigg-app/admin/users?${params}`)
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || `Failed to load users: ${response.status}`)
+      }
+
+      setUsers(result.users || [])
+      setPagination(prev => ({
+        ...prev,
+        total: result.pagination?.total || result.users?.length || 0
+      }))
     } catch (err) {
       console.error('Failed to load users:', err)
       setError(err.message)
@@ -79,13 +85,24 @@ const UserManagement = ({ friggBaseUrl, onUserSelect }) => {
       setLoading(true)
       setError(null)
 
-      const result = await adminService.searchUsers(searchQuery, {
-        page: 1,
-        limit: pagination.limit
+      const params = new URLSearchParams({
+        q: searchQuery,
+        limit: pagination.limit.toString()
       })
 
-      setUsers(result.users)
-      setPagination(prev => ({ ...prev, page: 1, total: result.pagination.total }))
+      const response = await fetch(`${serverBaseUrl}/api/frigg-app/admin/users/search?${params}`)
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || `Search failed: ${response.status}`)
+      }
+
+      setUsers(result.users || [])
+      setPagination(prev => ({
+        ...prev,
+        page: 1,
+        total: result.pagination?.total || result.users?.length || 0
+      }))
     } catch (err) {
       console.error('Failed to search users:', err)
       setError(err.message)
@@ -96,7 +113,17 @@ const UserManagement = ({ friggBaseUrl, onUserSelect }) => {
 
   const handleCreateUser = async (userData) => {
     try {
-      await adminService.createUser(userData)
+      const response = await fetch(`${serverBaseUrl}/api/frigg-app/admin/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      })
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || `Failed to create user: ${response.status}`)
+      }
+
       setShowCreateModal(false)
       loadUsers() // Refresh list
     } catch (err) {
@@ -112,33 +139,27 @@ const UserManagement = ({ friggBaseUrl, onUserSelect }) => {
       setLoading(true)
       setError(null)
 
-      console.log('Admin impersonating user:', user.username || user.email)
+      console.log('Admin impersonating user:', getDisplayName(user))
 
-      // Use admin impersonation API to get token without password
-      const response = await fetch(`${friggBaseUrl}/api/admin/users/${user.id}/impersonate`, {
+      // Use server proxy for impersonation
+      const response = await fetch(`${serverBaseUrl}/api/frigg-app/admin/users/${user.id}/impersonate`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          expiresInMinutes: 120
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expiresInMinutes: 120 })
       })
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null)
-        const errorMessage = errorData?.message || `Failed to impersonate user: ${response.status}`
-        console.error('Impersonation failed:', errorMessage)
-        throw new Error(errorMessage)
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || `Failed to impersonate user: ${response.status}`)
       }
 
-      const data = await response.json()
       console.log('User impersonation successful, got token')
 
       // Pass user with token to parent
       onUserSelect({
         ...user,
-        token: data.token
+        token: result.token
       })
     } catch (err) {
       console.error('Error impersonating user:', err)
@@ -160,7 +181,14 @@ const UserManagement = ({ friggBaseUrl, onUserSelect }) => {
       setDeletingUserId(userToDelete.id)
       setError(null)
 
-      await adminService.deleteUser(userToDelete.id)
+      const response = await fetch(`${serverBaseUrl}/api/frigg-app/admin/users/${userToDelete.id}`, {
+        method: 'DELETE'
+      })
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || `Failed to delete user: ${response.status}`)
+      }
 
       // Remove user from list
       setUsers(prev => prev.filter(u => u.id !== userToDelete.id))
@@ -254,7 +282,7 @@ const UserManagement = ({ friggBaseUrl, onUserSelect }) => {
               <div className="p-4 flex items-center justify-between">
                 <div className="space-y-1 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium">{user.getDisplayName()}</span>
+                    <span className="font-medium">{getDisplayName(user)}</span>
                     {user.type && (
                       <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
                         {user.type}
@@ -339,7 +367,7 @@ const UserManagement = ({ friggBaseUrl, onUserSelect }) => {
               <div className="space-y-2">
                 <h3 className="text-lg font-semibold">Delete User</h3>
                 <p className="text-sm text-muted-foreground">
-                  Are you sure you want to delete user <strong>{userToDelete.getDisplayName()}</strong>?
+                  Are you sure you want to delete user <strong>{getDisplayName(userToDelete)}</strong>?
                   This action cannot be undone.
                 </p>
               </div>

@@ -20,7 +20,7 @@ import { Card } from '../ui/Card'
  *
  * Features auto-connect for local Frigg apps using server-side FRIGG_ADMIN_API_KEY
  */
-const AdminViewContainer = ({ friggBaseUrl, onUserSelect }) => {
+const AdminViewContainer = ({ friggBaseUrl, repositoryPath, onUserSelect }) => {
   const [activeTab, setActiveTab] = useState('connection')
 
   const {
@@ -34,7 +34,7 @@ const AdminViewContainer = ({ friggBaseUrl, onUserSelect }) => {
     connect,
     disconnect,
     clearError
-  } = useFriggAppConnection({ friggBaseUrl, autoConnect: true })
+  } = useFriggAppConnection({ friggBaseUrl, repositoryPath, autoConnect: true })
 
   // Auto-switch to users tab when connected
   useEffect(() => {

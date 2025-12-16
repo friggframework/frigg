@@ -1,3 +1,5 @@
+import { EnvFileReader } from '../../infrastructure/adapters/EnvFileReader.js'
+
 /**
  * FriggAppController
  * Presentation Layer - Controller for Frigg app connection and admin API operations
@@ -61,11 +63,13 @@ export class FriggAppController {
 
   /**
    * POST /api/frigg-app/auto-connect
-   * Auto-connect to local Frigg using server-side FRIGG_ADMIN_API_KEY
+   * Auto-connect to local Frigg using FRIGG_ADMIN_API_KEY
+   * Reads from repository's .env file if repositoryPath provided,
+   * falls back to server's environment variable
    * Only allowed for localhost URLs for security
    */
   async autoConnect(req, res) {
-    const { friggAppUrl } = req.body
+    const { friggAppUrl, repositoryPath } = req.body
 
     // SECURITY: Validate URL is localhost only
     const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/.test(friggAppUrl)
@@ -76,14 +80,40 @@ export class FriggAppController {
       })
     }
 
-    const adminApiKey = process.env.FRIGG_ADMIN_API_KEY
+    let adminApiKey = null
+    let keySource = null
+
+    // Try to read from repository's .env file first
+    if (repositoryPath) {
+      try {
+        const envReader = new EnvFileReader()
+        adminApiKey = await envReader.readAdminApiKey(repositoryPath)
+        if (adminApiKey) {
+          keySource = 'repository .env'
+        }
+      } catch (error) {
+        console.debug('Failed to read .env from repository:', error.message)
+      }
+    }
+
+    // Fall back to server environment variable
+    if (!adminApiKey) {
+      adminApiKey = process.env.FRIGG_ADMIN_API_KEY
+      if (adminApiKey) {
+        keySource = 'server environment'
+      }
+    }
 
     if (!adminApiKey) {
       return res.status(400).json({
         success: false,
-        error: 'FRIGG_ADMIN_API_KEY not configured on server'
+        error: repositoryPath
+          ? 'FRIGG_ADMIN_API_KEY not found in repository .env or server environment'
+          : 'FRIGG_ADMIN_API_KEY not configured on server'
       })
     }
+
+    console.debug(`Auto-connect using admin key from ${keySource}`)
 
     const result = await this._connectUseCase.execute({
       friggAppUrl,
@@ -101,7 +131,8 @@ export class FriggAppController {
       success: true,
       connection: result.connection,
       userManagementMode: result.userManagementMode,
-      appDefinition: result.appDefinition
+      appDefinition: result.appDefinition,
+      keySource
     })
   }
 

@@ -763,6 +763,7 @@ const TestingZone = ({ className }) => {
             <div className="flex-1 overflow-auto">
               <AdminViewContainer
                 friggBaseUrl={friggStatus?.friggBaseUrl || `http://localhost:${friggStatus?.port || 3000}`}
+                repositoryPath={currentRepository?.path}
                 onUserSelect={handleUserSelected}
               />
             </div>
