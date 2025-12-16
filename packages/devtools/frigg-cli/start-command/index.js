@@ -132,19 +132,42 @@ async function runInteractivePreflightChecks(projectPath, options) {
         console.log(chalk.gray('Running pre-flight checks...'));
     }
 
-    // Run initial checks
-    let result = await preflightUseCase.execute({ projectPath });
+    // Track which checks we've already processed to avoid infinite loops
+    const processedChecks = new Set();
 
-    // If all passed, we're done
-    if (result.allPassed) {
-        return true;
-    }
+    // Keep running checks and resolving issues until all pass or no more can be resolved
+    let maxIterations = 10; // Safety limit to prevent infinite loops
+    while (maxIterations > 0) {
+        maxIterations--;
 
-    // Get checks that failed but can be resolved
-    const resolvableChecks = preflightUseCase.getResolvableChecks(result);
+        // Run checks
+        const result = await preflightUseCase.execute({ projectPath });
 
-    // Process each resolvable check
-    for (const check of resolvableChecks) {
+        // If all passed, we're done
+        if (result.allPassed) {
+            return true;
+        }
+
+        // Get resolvable checks that we haven't already processed
+        const resolvableChecks = preflightUseCase.getResolvableChecks(result)
+            .filter(check => !processedChecks.has(check.name));
+
+        // If no new resolvable checks, show failures and exit
+        if (resolvableChecks.length === 0) {
+            const failedChecks = result.checks.filter(c => c.status === 'failed');
+            for (const check of failedChecks) {
+                console.log(chalk.red(`   ✗ ${check.name}: ${check.message}`));
+                if (check.resolution?.instructions) {
+                    console.log(chalk.gray(`      ${check.resolution.instructions}`));
+                }
+            }
+            return false;
+        }
+
+        // Process the first resolvable check
+        const check = resolvableChecks[0];
+        processedChecks.add(check.name);
+
         // Display the failure
         console.log(chalk.yellow(`\n⚠️  ${check.message}`));
 
@@ -161,7 +184,14 @@ async function runInteractivePreflightChecks(projectPath, options) {
 
         if (!response.shouldResolve) {
             console.log(chalk.gray('   Skipping resolution'));
-            continue;
+            // User declined, show remaining failures and exit
+            const failedChecks = result.checks.filter(c => c.status === 'failed');
+            for (const failedCheck of failedChecks) {
+                if (failedCheck.name !== check.name) {
+                    console.log(chalk.red(`   ✗ ${failedCheck.name}: ${failedCheck.message}`));
+                }
+            }
+            return false;
         }
 
         // Execute the resolution
@@ -171,56 +201,12 @@ async function runInteractivePreflightChecks(projectPath, options) {
             return false;
         }
 
-        // Re-run checks after resolution
-        result = await preflightUseCase.execute({ projectPath });
-
-        // If still not passing, check for new resolvable issues
-        if (!result.allPassed) {
-            const newResolvableChecks = preflightUseCase.getResolvableChecks(result);
-
-            // If there are new resolvable checks, handle them
-            for (const newCheck of newResolvableChecks) {
-                // Skip if we already processed this check type
-                if (resolvableChecks.some(c => c.name === newCheck.name)) {
-                    continue;
-                }
-
-                console.log(chalk.yellow(`\n⚠️  ${newCheck.message}`));
-
-                if (!newCheck.canResolve) {
-                    if (newCheck.resolution?.instructions) {
-                        console.log(chalk.gray(`   ${newCheck.resolution.instructions}`));
-                    }
-                    continue;
-                }
-
-                const newResponse = await promptAdapter.promptForResolution(newCheck);
-
-                if (!newResponse.shouldResolve) {
-                    console.log(chalk.gray('   Skipping resolution'));
-                    continue;
-                }
-
-                const newResolved = await executeResolution(newCheck, dockerAdapter, options);
-                if (!newResolved) {
-                    return false;
-                }
-
-                // Re-run checks again
-                result = await preflightUseCase.execute({ projectPath });
-            }
-        }
+        // Loop will continue and re-run checks
     }
 
-    // Show what's still failing if not all passed
-    if (!result.allPassed) {
-        const failedChecks = result.checks.filter(c => c.status === 'failed');
-        for (const check of failedChecks) {
-            console.log(chalk.red(`   ✗ ${check.name}: ${check.message}`));
-        }
-    }
-
-    return result.allPassed;
+    // If we exhausted iterations, something went wrong
+    console.log(chalk.yellow('   ⚠️  Pre-flight check loop limit reached'));
+    return false;
 }
 
 /**
@@ -315,6 +301,23 @@ async function executeResolution(check, dockerAdapter, options) {
                 console.log(chalk.gray('   Please create a .env file manually with DATABASE_URL'));
                 return false;
             }
+
+        case 'run_migrations':
+            console.log(chalk.blue('   Running PostgreSQL migrations...'));
+            const databaseAdapter = new DatabaseAdapter();
+            const migrationProjectPath = process.cwd();
+
+            // Use deploy mode (default) - non-interactive, applies existing migrations
+            const migrateResult = await databaseAdapter.runMigrations(migrationProjectPath);
+
+            if (!migrateResult.success) {
+                console.error(chalk.red(`   Failed to run migrations: ${migrateResult.error}`));
+                console.log(chalk.gray('   Try running "frigg db:setup" manually'));
+                return false;
+            }
+
+            console.log(chalk.green('   ✓ Database migrations applied successfully'));
+            return true;
 
         default:
             if (options.verbose) {

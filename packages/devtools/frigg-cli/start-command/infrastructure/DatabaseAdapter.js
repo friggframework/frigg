@@ -6,6 +6,8 @@
  */
 
 const net = require('net');
+const { spawn } = require('child_process');
+const path = require('path');
 
 class DatabaseAdapter {
     /**
@@ -288,6 +290,301 @@ class DatabaseAdapter {
         }
 
         return null;
+    }
+
+    /**
+     * Check PostgreSQL migration status using Prisma
+     * @param {string} projectPath - Path to the project
+     * @returns {Promise<{migrated: boolean, pendingMigrations?: string[], error?: string}>}
+     */
+    async checkMigrationStatus(projectPath) {
+        return new Promise((resolve) => {
+            // Look for prisma schema in common locations
+            // Frigg apps use the schema from @friggframework/core
+            const possibleSchemaPaths = [
+                // Project-local prisma schemas
+                path.join(projectPath, 'prisma', 'postgresql', 'schema.prisma'),
+                path.join(projectPath, 'prisma', 'schema.prisma'),
+                // Frigg core schemas (in node_modules)
+                path.join(projectPath, 'node_modules', '@friggframework', 'core', 'prisma-postgresql', 'schema.prisma'),
+                path.join(projectPath, 'node_modules', '@friggframework', 'core', 'generated', 'prisma-postgresql', 'schema.prisma')
+            ];
+
+            // Find the first existing schema path
+            const fs = require('fs');
+            let schemaPath = null;
+            for (const p of possibleSchemaPaths) {
+                if (fs.existsSync(p)) {
+                    schemaPath = p;
+                    break;
+                }
+            }
+
+            if (!schemaPath) {
+                // No schema found - might be MongoDB project
+                resolve({ migrated: true, note: 'No Prisma PostgreSQL schema found' });
+                return;
+            }
+
+            // Find prisma binary - check local node_modules first
+            const possiblePrismaPaths = [
+                path.join(projectPath, 'node_modules', '.bin', 'prisma'),
+                path.join(projectPath, 'node_modules', 'prisma', 'build', 'index.js')
+            ];
+
+            let prismaBin = 'npx';
+            let args = ['prisma', 'migrate', 'status', '--schema', schemaPath];
+
+            // Try to find local prisma binary for pnpm/yarn workspaces
+            for (const p of possiblePrismaPaths) {
+                if (fs.existsSync(p)) {
+                    if (p.endsWith('.js')) {
+                        prismaBin = 'node';
+                        args = [p, 'migrate', 'status', '--schema', schemaPath];
+                    } else {
+                        prismaBin = p;
+                        args = ['migrate', 'status', '--schema', schemaPath];
+                    }
+                    break;
+                }
+            }
+
+            const child = spawn(prismaBin, args, {
+                cwd: projectPath,
+                env: { ...process.env },
+                stdio: ['pipe', 'pipe', 'pipe'],
+                shell: prismaBin === 'npx'  // Use shell for npx to help with path resolution
+            });
+
+            let stdout = '';
+            let stderr = '';
+
+            child.stdout.on('data', (data) => {
+                stdout += data.toString();
+            });
+
+            child.stderr.on('data', (data) => {
+                stderr += data.toString();
+            });
+
+            child.on('error', (error) => {
+                resolve({
+                    migrated: false,
+                    error: `Failed to run prisma migrate status: ${error.message}`
+                });
+            });
+
+            child.on('close', (code) => {
+                // Parse the output to determine migration status
+                const output = stdout + stderr;
+
+                // Check for Prisma not found / not installed error
+                if (output.includes('Cannot find module') && output.includes('prisma')) {
+                    resolve({
+                        migrated: false,
+                        error: 'Prisma CLI not properly installed. Run "npm install" or "pnpm install" to fix.',
+                        needsInstall: true
+                    });
+                    return;
+                }
+
+                // Check for common error patterns
+                if (output.includes('P1001') || output.includes('Can\'t reach database server')) {
+                    resolve({
+                        migrated: false,
+                        error: 'Cannot connect to database to check migrations'
+                    });
+                    return;
+                }
+
+                if (output.includes('P1003') || output.includes('does not exist')) {
+                    resolve({
+                        migrated: false,
+                        error: 'Database does not exist',
+                        needsSetup: true
+                    });
+                    return;
+                }
+
+                // Check for "Database schema is not empty" - tables exist but no migrations
+                if (output.includes('Database schema is not empty')) {
+                    resolve({
+                        migrated: false,
+                        error: 'Database has tables but no migration history. Run prisma migrate to baseline.',
+                        needsBaseline: true
+                    });
+                    return;
+                }
+
+                // Check for pending migrations
+                if (output.includes('Following migration') && output.includes('have not yet been applied')) {
+                    const pendingMatch = output.match(/Following migration[s]? have not yet been applied:\s*([\s\S]*?)(?:To apply|$)/);
+                    const pendingMigrations = pendingMatch
+                        ? pendingMatch[1].trim().split('\n').map(m => m.trim()).filter(Boolean)
+                        : [];
+
+                    resolve({
+                        migrated: false,
+                        pendingMigrations,
+                        error: 'Database has pending migrations'
+                    });
+                    return;
+                }
+
+                // Check for "no migration found" - empty migrations folder
+                if (output.includes('No migration found') || output.includes('Database schema is up to date')) {
+                    resolve({ migrated: true });
+                    return;
+                }
+
+                // Check for table not found errors (P2021)
+                if (output.includes('P2021') || output.includes('does not exist in the current database')) {
+                    resolve({
+                        migrated: false,
+                        error: 'Required database tables do not exist. Run migrations first.',
+                        needsSetup: true
+                    });
+                    return;
+                }
+
+                // If exit code is 0 and no error patterns, assume migrated
+                if (code === 0) {
+                    resolve({ migrated: true });
+                    return;
+                }
+
+                // Unknown error
+                resolve({
+                    migrated: false,
+                    error: output.trim() || `prisma migrate status exited with code ${code}`
+                });
+            });
+
+            // Timeout after 30 seconds
+            setTimeout(() => {
+                child.kill();
+                resolve({
+                    migrated: false,
+                    error: 'Timeout checking migration status'
+                });
+            }, 30000);
+        });
+    }
+
+    /**
+     * Run Prisma migrations
+     * @param {string} projectPath - Path to the project
+     * @param {object} options - Options
+     * @param {boolean} options.dev - Use dev mode (interactive, can create migrations)
+     * @returns {Promise<{success: boolean, output?: string, error?: string}>}
+     */
+    async runMigrations(projectPath, options = {}) {
+        return new Promise((resolve) => {
+            const fs = require('fs');
+
+            // Look for prisma schema
+            // Frigg apps use the schema from @friggframework/core
+            const possibleSchemaPaths = [
+                // Project-local prisma schemas
+                path.join(projectPath, 'prisma', 'postgresql', 'schema.prisma'),
+                path.join(projectPath, 'prisma', 'schema.prisma'),
+                // Frigg core schemas (in node_modules)
+                path.join(projectPath, 'node_modules', '@friggframework', 'core', 'prisma-postgresql', 'schema.prisma'),
+                path.join(projectPath, 'node_modules', '@friggframework', 'core', 'generated', 'prisma-postgresql', 'schema.prisma')
+            ];
+
+            let schemaPath = null;
+            for (const p of possibleSchemaPaths) {
+                if (fs.existsSync(p)) {
+                    schemaPath = p;
+                    break;
+                }
+            }
+
+            if (!schemaPath) {
+                resolve({ success: false, error: 'No Prisma schema found' });
+                return;
+            }
+
+            // Find prisma binary - check local node_modules first
+            const possiblePrismaPaths = [
+                path.join(projectPath, 'node_modules', '.bin', 'prisma'),
+                path.join(projectPath, 'node_modules', 'prisma', 'build', 'index.js')
+            ];
+
+            let prismaBin = 'npx';
+            // Default to 'deploy' mode - non-interactive, just applies existing migrations
+            // Use 'dev' only if explicitly requested (which requires interactive terminal)
+            const migrateCommand = options.dev ? 'dev' : 'deploy';
+            let args = ['prisma', 'migrate', migrateCommand, '--schema', schemaPath];
+
+            // Try to find local prisma binary for pnpm/yarn workspaces
+            for (const p of possiblePrismaPaths) {
+                if (fs.existsSync(p)) {
+                    if (p.endsWith('.js')) {
+                        prismaBin = 'node';
+                        args = [p, 'migrate', migrateCommand, '--schema', schemaPath];
+                    } else {
+                        prismaBin = p;
+                        args = ['migrate', migrateCommand, '--schema', schemaPath];
+                    }
+                    break;
+                }
+            }
+
+            console.log(`   Executing: ${prismaBin} ${args.join(' ')}`);
+
+            const child = spawn(prismaBin, args, {
+                cwd: projectPath,
+                env: { ...process.env },
+                stdio: ['pipe', 'pipe', 'pipe'],
+                shell: prismaBin === 'npx'
+            });
+
+            let stdout = '';
+            let stderr = '';
+
+            child.stdout.on('data', (data) => {
+                const text = data.toString();
+                stdout += text;
+                // Log progress in real-time
+                process.stdout.write(text);
+            });
+
+            child.stderr.on('data', (data) => {
+                const text = data.toString();
+                stderr += text;
+                // Log errors in real-time
+                process.stderr.write(text);
+            });
+
+            child.on('error', (error) => {
+                resolve({
+                    success: false,
+                    error: `Failed to run migrations: ${error.message}`
+                });
+            });
+
+            child.on('close', (code) => {
+                if (code === 0) {
+                    resolve({ success: true, output: stdout });
+                } else {
+                    resolve({
+                        success: false,
+                        error: stderr || stdout || `Migration failed with exit code ${code}`
+                    });
+                }
+            });
+
+            // Timeout after 60 seconds for migrations (deploy mode is fast)
+            setTimeout(() => {
+                child.kill();
+                resolve({
+                    success: false,
+                    error: 'Timeout running migrations (60s)'
+                });
+            }, 60000);
+        });
     }
 }
 

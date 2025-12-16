@@ -57,7 +57,19 @@ class RunPreflightChecksUseCase {
         const dbReachableCheck = await this._checkDatabaseReachable(projectPath);
         checks.push(dbReachableCheck);
 
-        // Check 5: LocalStack is reachable (only if AWS_ENDPOINT is configured for local)
+        // Short-circuit if database is not reachable
+        if (dbReachableCheck.status === 'failed') {
+            return { allPassed: false, checks };
+        }
+
+        // Check 5: PostgreSQL migrations (only for PostgreSQL databases)
+        const dbType = this.databaseAdapter.getDatabaseType(process.env.DATABASE_URL);
+        if (dbType === 'postgresql') {
+            const migrationCheck = await this._checkPostgresMigrations(projectPath);
+            checks.push(migrationCheck);
+        }
+
+        // Check 6: LocalStack is reachable (only if AWS_ENDPOINT is configured for local)
         const localstackCheck = await this._checkLocalStackReachable(projectPath);
         if (localstackCheck) {
             checks.push(localstackCheck);
@@ -281,6 +293,64 @@ class RunPreflightChecksUseCase {
             message: `LocalStack is reachable at ${endpoint}`,
             canResolve: false,
             resolution: null
+        };
+    }
+
+    /**
+     * Check if PostgreSQL migrations have been applied
+     * @param {string} projectPath - Path to project
+     * @returns {Promise<object>} Check result
+     */
+    async _checkPostgresMigrations(projectPath) {
+        const result = await this.databaseAdapter.checkMigrationStatus(projectPath);
+
+        if (result.migrated) {
+            return {
+                name: 'postgres_migrations',
+                status: 'passed',
+                message: 'PostgreSQL database schema is up to date',
+                canResolve: false,
+                resolution: null
+            };
+        }
+
+        // Handle Prisma not installed case
+        if (result.needsInstall) {
+            return {
+                name: 'postgres_migrations',
+                status: 'failed',
+                message: result.error,
+                canResolve: false,
+                resolution: {
+                    type: 'manual',
+                    instructions: 'Run "npm install" or "pnpm install" to properly install Prisma, then try again.'
+                }
+            };
+        }
+
+        // Determine if this is auto-resolvable
+        const canResolve = result.needsSetup || result.pendingMigrations?.length > 0;
+
+        let message = result.error || 'PostgreSQL migrations have not been applied';
+        if (result.pendingMigrations?.length > 0) {
+            message = `${result.pendingMigrations.length} pending migration(s) need to be applied`;
+        }
+
+        return {
+            name: 'postgres_migrations',
+            status: 'failed',
+            message,
+            canResolve,
+            resolution: canResolve ? {
+                type: 'run_migrations',
+                prompt: 'Would you like to run database migrations now?',
+                action: 'prisma_migrate',
+                pendingMigrations: result.pendingMigrations,
+                needsSetup: result.needsSetup
+            } : {
+                type: 'manual',
+                instructions: 'Run "frigg db:setup" or "npx prisma migrate dev" to apply database migrations.'
+            }
         };
     }
 
