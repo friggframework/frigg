@@ -1,0 +1,15 @@
+# Test files
+test/
+
+# Dev config
+.eslintrc.json
+
+# Environment files - never publish these
+.env
+.env.*
+.env.local
+.env.*.local
+*.env
+
+# Changelog (optional, can be included if desired)
+CHANGELOG.md

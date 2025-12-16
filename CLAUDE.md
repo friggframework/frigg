@@ -78,6 +78,66 @@ lerna publish                 # Publish all packages
 npm run test:api-module-managers  # Test API module managers with watch mode
 ```
 
+## Pull Request Guidelines
+
+When contributing to the Frigg Framework, follow these guidelines for creating pull requests:
+
+### Target Branch
+
+- **Always create PRs targeting the `next` branch** - Never PR directly to `main`
+- The `next` branch is used for pre-release versions and testing before stable releases
+
+### Required Labels
+
+Always add **both** of these labels to your PR:
+
+- `release` - Triggers a new release version
+- `prerelease` - Creates a pre-release version (e.g., `2.0.0-next.63`)
+
+These labels ensure automated versioning and npm publishing via GitHub Actions.
+
+### Pre-PR Checklist
+
+Before creating a pull request, ensure:
+
+1. **Project compiles successfully**:
+   ```bash
+   npm install
+   npm run test:all
+   ```
+
+2. **No linting errors**:
+   ```bash
+   npm run lint:fix
+   ```
+
+3. **Changes are tested** - Add or update tests for your changes
+
+### PR Workflow Example
+
+```bash
+# 1. Create feature branch from next
+git checkout next
+git pull origin next
+git checkout -b fix/your-fix-description
+
+# 2. Make changes and verify compilation
+npm install
+npm run test:all
+
+# 3. Commit and push
+git add .
+git commit -m "fix(package): description of the fix"
+git push -u origin fix/your-fix-description
+
+# 4. Create PR targeting next branch with required labels
+gh pr create --base next \
+  --title "fix(package): description" \
+  --body "## Summary\n- Your changes\n\n## Test plan\n- [ ] Tests pass" \
+  --label "release" \
+  --label "prerelease"
+```
+
 ## Core Package Architecture (@friggframework/core)
 
 ### Integration Base Class Pattern

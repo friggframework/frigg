@@ -5,6 +5,15 @@
   "bin": {
     "frigg": "./frigg-cli/index.js"
   },
+  "files": [
+    "frigg-cli/",
+    "infrastructure/",
+    "migrations/",
+    "management-ui/dist/",
+    "test/",
+    "index.js",
+    "README.md"
+  ],
   "dependencies": {
     "@aws-sdk/client-cloudformation": "^3.705.0",
     "@aws-sdk/client-ec2": "^3.835.0",
