@@ -3,7 +3,7 @@
  *
  * Minimal Lambda wrapper that avoids loading core/index.js
  * (which would try to load user/** modules excluded from migration packages)
- * 
+ *
  * This handler is intentionally simpler than health.handler.js to avoid dependencies.
  */
 
@@ -26,4 +26,3 @@ app.use((err, req, res, next) => {
 
 // Export as .handler property (Lambda config: db-migration.handler)
 module.exports.handler = serverlessHttp(app);
-

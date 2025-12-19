@@ -42,7 +42,8 @@ module.exports = {
     },
     get OrganizationUser() {
         if (!_OrganizationUser) {
-            _OrganizationUser = require('./models/OrganizationUser').OrganizationUser;
+            _OrganizationUser =
+                require('./models/OrganizationUser').OrganizationUser;
         }
         return _OrganizationUser;
     },
@@ -54,7 +55,8 @@ module.exports = {
     },
     get WebsocketConnection() {
         if (!_WebsocketConnection) {
-            _WebsocketConnection = require('./models/WebsocketConnection').WebsocketConnection;
+            _WebsocketConnection =
+                require('./models/WebsocketConnection').WebsocketConnection;
         }
         return _WebsocketConnection;
     },

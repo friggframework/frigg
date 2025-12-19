@@ -19,27 +19,30 @@ const Boom = require('@hapi/boom');
 
 // Mock dependencies before requiring the router
 jest.mock('../handlers/app-definition-loader', () => ({
-    loadAppDefinition: jest.fn()
+    loadAppDefinition: jest.fn(),
 }));
 
 jest.mock('./repositories/integration-repository-factory', () => ({
-    createIntegrationRepository: jest.fn()
+    createIntegrationRepository: jest.fn(),
 }));
 
 jest.mock('../credential/repositories/credential-repository-factory', () => ({
-    createCredentialRepository: jest.fn()
+    createCredentialRepository: jest.fn(),
 }));
 
 jest.mock('../user/repositories/user-repository-factory', () => ({
-    createUserRepository: jest.fn()
+    createUserRepository: jest.fn(),
 }));
 
-jest.mock('../modules/repositories/authorization-session-repository-factory', () => ({
-    createAuthorizationSessionRepository: jest.fn()
-}));
+jest.mock(
+    '../modules/repositories/authorization-session-repository-factory',
+    () => ({
+        createAuthorizationSessionRepository: jest.fn(),
+    })
+);
 
 jest.mock('../modules/repositories/module-repository-factory', () => ({
-    createModuleRepository: jest.fn()
+    createModuleRepository: jest.fn(),
 }));
 
 jest.mock('../database/config', () => ({
@@ -53,33 +56,43 @@ jest.mock('../database/config', () => ({
 const mockProcessAuthorizationCallbackExecute = jest.fn();
 jest.mock('../modules/use-cases/process-authorization-callback', () => ({
     ProcessAuthorizationCallback: jest.fn().mockImplementation(() => ({
-        execute: mockProcessAuthorizationCallbackExecute
-    }))
+        execute: mockProcessAuthorizationCallbackExecute,
+    })),
 }));
 
 // Mock ProcessAuthorizationStepUseCase for multi-step reauthorize tests
 const mockProcessAuthorizationStepExecute = jest.fn();
 jest.mock('../modules/use-cases/process-authorization-step', () => ({
     ProcessAuthorizationStepUseCase: jest.fn().mockImplementation(() => ({
-        execute: mockProcessAuthorizationStepExecute
-    }))
+        execute: mockProcessAuthorizationStepExecute,
+    })),
 }));
 
 // Mock StartAuthorizationSessionUseCase for multi-step flows
 const mockStartAuthorizationSessionExecute = jest.fn();
 jest.mock('../modules/use-cases/start-authorization-session', () => ({
     StartAuthorizationSessionUseCase: jest.fn().mockImplementation(() => ({
-        execute: mockStartAuthorizationSessionExecute
-    }))
+        execute: mockStartAuthorizationSessionExecute,
+    })),
 }));
 
 const { createIntegrationRouter } = require('./integration-router');
 const { loadAppDefinition } = require('../handlers/app-definition-loader');
-const { createIntegrationRepository } = require('./repositories/integration-repository-factory');
-const { createCredentialRepository } = require('../credential/repositories/credential-repository-factory');
-const { createUserRepository } = require('../user/repositories/user-repository-factory');
-const { createAuthorizationSessionRepository } = require('../modules/repositories/authorization-session-repository-factory');
-const { createModuleRepository } = require('../modules/repositories/module-repository-factory');
+const {
+    createIntegrationRepository,
+} = require('./repositories/integration-repository-factory');
+const {
+    createCredentialRepository,
+} = require('../credential/repositories/credential-repository-factory');
+const {
+    createUserRepository,
+} = require('../user/repositories/user-repository-factory');
+const {
+    createAuthorizationSessionRepository,
+} = require('../modules/repositories/authorization-session-repository-factory');
+const {
+    createModuleRepository,
+} = require('../modules/repositories/module-repository-factory');
 
 describe('Entity Types Router - TDD Tests', () => {
     let app;
@@ -93,17 +106,19 @@ describe('Entity Types Router - TDD Tests', () => {
         // Mock user for authentication
         mockUser = {
             getId: jest.fn().mockReturnValue('user-123'),
-            id: 'user-123'
+            id: 'user-123',
         };
 
         // Mock user repository with all auth-related methods
         mockUserRepository = {
             findById: jest.fn().mockResolvedValue(mockUser),
             findByToken: jest.fn().mockResolvedValue(mockUser),
-            getSessionToken: jest.fn().mockResolvedValue({ user: 'user-123', token: 'valid-token' }),
+            getSessionToken: jest
+                .fn()
+                .mockResolvedValue({ user: 'user-123', token: 'valid-token' }),
             findIndividualUserById: jest.fn().mockResolvedValue(mockUser),
             findOrganizationUserById: jest.fn().mockResolvedValue(null),
-            findByEmail: jest.fn().mockResolvedValue(mockUser)
+            findByEmail: jest.fn().mockResolvedValue(mockUser),
         };
 
         // Mock module repository
@@ -112,14 +127,14 @@ describe('Entity Types Router - TDD Tests', () => {
             findByUserId: jest.fn(),
             findByUserIdAndType: jest.fn(),
             save: jest.fn(),
-            update: jest.fn()
+            update: jest.fn(),
         };
 
         // Mock credential repository
         mockCredentialRepository = {
             findById: jest.fn(),
             save: jest.fn(),
-            update: jest.fn()
+            update: jest.fn(),
         };
 
         // Mock module definitions with various auth types
@@ -136,12 +151,15 @@ describe('Entity Types Router - TDD Tests', () => {
                         type: 'oauth2',
                         data: {
                             url: 'https://app.hubspot.com/oauth/authorize?client_id=test',
-                            scopes: ['crm.objects.contacts.read', 'crm.objects.companies.read']
-                        }
+                            scopes: [
+                                'crm.objects.contacts.read',
+                                'crm.objects.companies.read',
+                            ],
+                        },
                     }),
-                    processAuthorizationStep: jest.fn()
+                    processAuthorizationStep: jest.fn(),
                 },
-                apiClass: jest.fn()
+                apiClass: jest.fn(),
             },
             {
                 moduleName: 'salesforce',
@@ -150,17 +168,21 @@ describe('Entity Types Router - TDD Tests', () => {
                     getDescription: () => 'Connect to Salesforce CRM',
                     getAuthType: () => 'oauth2',
                     getAuthStepCount: () => 1,
-                    getCapabilities: () => ['accounts', 'contacts', 'opportunities'],
+                    getCapabilities: () => [
+                        'accounts',
+                        'contacts',
+                        'opportunities',
+                    ],
                     getAuthRequirementsForStep: jest.fn().mockResolvedValue({
                         type: 'oauth2',
                         data: {
                             url: 'https://login.salesforce.com/services/oauth2/authorize',
-                            scopes: ['api', 'refresh_token']
-                        }
+                            scopes: ['api', 'refresh_token'],
+                        },
                     }),
-                    processAuthorizationStep: jest.fn()
+                    processAuthorizationStep: jest.fn(),
                 },
-                apiClass: jest.fn()
+                apiClass: jest.fn(),
             },
             {
                 moduleName: 'slack',
@@ -171,9 +193,9 @@ describe('Entity Types Router - TDD Tests', () => {
                     getAuthStepCount: () => 1,
                     getCapabilities: () => ['channels', 'messages', 'users'],
                     getAuthRequirementsForStep: jest.fn(),
-                    processAuthorizationStep: jest.fn()
+                    processAuthorizationStep: jest.fn(),
                 },
-                apiClass: jest.fn()
+                apiClass: jest.fn(),
             },
             {
                 moduleName: 'custom-api',
@@ -187,72 +209,96 @@ describe('Entity Types Router - TDD Tests', () => {
                         type: 'api-key',
                         data: {
                             fields: [
-                                { name: 'api_key', type: 'api_key', label: 'API Key', required: true },
-                                { name: 'api_secret', type: 'secret', label: 'API Secret', required: true }
-                            ]
-                        }
+                                {
+                                    name: 'api_key',
+                                    type: 'api_key',
+                                    label: 'API Key',
+                                    required: true,
+                                },
+                                {
+                                    name: 'api_secret',
+                                    type: 'secret',
+                                    label: 'API Secret',
+                                    required: true,
+                                },
+                            ],
+                        },
                     }),
-                    processAuthorizationStep: jest.fn()
+                    processAuthorizationStep: jest.fn(),
                 },
-                apiClass: jest.fn()
+                apiClass: jest.fn(),
             },
             {
                 moduleName: 'multi-step-service',
                 definition: {
                     getDisplayName: () => 'Multi-Step Service',
-                    getDescription: () => 'Service with multi-step authentication',
+                    getDescription: () =>
+                        'Service with multi-step authentication',
                     getAuthType: () => 'form',
                     getAuthStepCount: () => 3,
                     getCapabilities: () => ['read', 'write'],
-                    getAuthRequirementsForStep: jest.fn().mockImplementation((step) => {
-                        if (step === 1) {
-                            return Promise.resolve({
-                                type: 'form',
-                                data: {
-                                    jsonSchema: {
-                                        title: 'Step 1: Email',
-                                        type: 'object',
-                                        required: ['email'],
-                                        properties: {
-                                            email: { type: 'string', format: 'email', title: 'Email' }
-                                        }
-                                    }
-                                }
-                            });
-                        } else if (step === 2) {
-                            return Promise.resolve({
-                                type: 'form',
-                                data: {
-                                    jsonSchema: {
-                                        title: 'Step 2: OTP',
-                                        type: 'object',
-                                        required: ['otp'],
-                                        properties: {
-                                            otp: { type: 'string', title: 'One-Time Password' }
-                                        }
-                                    }
-                                }
-                            });
-                        } else {
-                            return Promise.resolve({
-                                type: 'form',
-                                data: {
-                                    jsonSchema: {
-                                        title: 'Step 3: Password',
-                                        type: 'object',
-                                        required: ['password'],
-                                        properties: {
-                                            password: { type: 'string', format: 'password', title: 'Password' }
-                                        }
-                                    }
-                                }
-                            });
-                        }
-                    }),
-                    processAuthorizationStep: jest.fn()
+                    getAuthRequirementsForStep: jest
+                        .fn()
+                        .mockImplementation((step) => {
+                            if (step === 1) {
+                                return Promise.resolve({
+                                    type: 'form',
+                                    data: {
+                                        jsonSchema: {
+                                            title: 'Step 1: Email',
+                                            type: 'object',
+                                            required: ['email'],
+                                            properties: {
+                                                email: {
+                                                    type: 'string',
+                                                    format: 'email',
+                                                    title: 'Email',
+                                                },
+                                            },
+                                        },
+                                    },
+                                });
+                            } else if (step === 2) {
+                                return Promise.resolve({
+                                    type: 'form',
+                                    data: {
+                                        jsonSchema: {
+                                            title: 'Step 2: OTP',
+                                            type: 'object',
+                                            required: ['otp'],
+                                            properties: {
+                                                otp: {
+                                                    type: 'string',
+                                                    title: 'One-Time Password',
+                                                },
+                                            },
+                                        },
+                                    },
+                                });
+                            } else {
+                                return Promise.resolve({
+                                    type: 'form',
+                                    data: {
+                                        jsonSchema: {
+                                            title: 'Step 3: Password',
+                                            type: 'object',
+                                            required: ['password'],
+                                            properties: {
+                                                password: {
+                                                    type: 'string',
+                                                    format: 'password',
+                                                    title: 'Password',
+                                                },
+                                            },
+                                        },
+                                    },
+                                });
+                            }
+                        }),
+                    processAuthorizationStep: jest.fn(),
                 },
-                apiClass: jest.fn()
-            }
+                apiClass: jest.fn(),
+            },
         ];
 
         // Mock loadAppDefinition to return our module definitions
@@ -260,8 +306,8 @@ describe('Entity Types Router - TDD Tests', () => {
             integrations: mockModuleDefinitions,
             userConfig: {
                 usePassword: true,
-                primary: 'individual'
-            }
+                primary: 'individual',
+            },
         });
 
         // Mock repository factories
@@ -271,12 +317,12 @@ describe('Entity Types Router - TDD Tests', () => {
         createIntegrationRepository.mockReturnValue({
             findById: jest.fn(),
             findByUserId: jest.fn(),
-            save: jest.fn()
+            save: jest.fn(),
         });
         createAuthorizationSessionRepository.mockReturnValue({
             findBySessionId: jest.fn(),
             create: jest.fn(),
-            update: jest.fn()
+            update: jest.fn(),
         });
 
         // Create Express app with router
@@ -292,13 +338,13 @@ describe('Entity Types Router - TDD Tests', () => {
                 return res.status(statusCode).json({
                     error: payload.error,
                     message: payload.message,
-                    statusCode: payload.statusCode
+                    statusCode: payload.statusCode,
                 });
             }
             // Handle non-Boom errors
             res.status(500).json({
                 error: 'Internal Server Error',
-                message: err.message
+                message: err.message,
             });
         });
     });
@@ -346,7 +392,9 @@ describe('Entity Types Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .expect(200);
 
-                const hubspot = response.body.types.find(t => t.type === 'hubspot');
+                const hubspot = response.body.types.find(
+                    (t) => t.type === 'hubspot'
+                );
 
                 expect(hubspot).toBeDefined();
                 expect(hubspot.description).toBe('Connect to HubSpot CRM');
@@ -363,7 +411,9 @@ describe('Entity Types Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .expect(200);
 
-                const singleStep = response.body.types.find(t => t.type === 'salesforce');
+                const singleStep = response.body.types.find(
+                    (t) => t.type === 'salesforce'
+                );
 
                 expect(singleStep).toBeDefined();
                 expect(singleStep.isMultiStep).toBe(false);
@@ -376,7 +426,9 @@ describe('Entity Types Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .expect(200);
 
-                const multiStep = response.body.types.find(t => t.type === 'multi-step-service');
+                const multiStep = response.body.types.find(
+                    (t) => t.type === 'multi-step-service'
+                );
 
                 expect(multiStep).toBeDefined();
                 expect(multiStep.isMultiStep).toBe(true);
@@ -389,7 +441,9 @@ describe('Entity Types Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .expect(200);
 
-                const authTypes = new Set(response.body.types.map(t => t.authType));
+                const authTypes = new Set(
+                    response.body.types.map((t) => t.authType)
+                );
 
                 expect(authTypes.has('oauth2')).toBe(true);
                 expect(authTypes.has('api-key')).toBe(true);
@@ -402,7 +456,7 @@ describe('Entity Types Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .expect(200);
 
-                const names = response.body.types.map(t => t.name);
+                const names = response.body.types.map((t) => t.name);
                 const sortedNames = [...names].sort();
 
                 expect(names).toEqual(sortedNames);
@@ -449,12 +503,12 @@ describe('Entity Types Router - TDD Tests', () => {
                             return res.status(statusCode).json({
                                 error: payload.error,
                                 message: payload.message,
-                                statusCode: payload.statusCode
+                                statusCode: payload.statusCode,
                             });
                         }
                         res.status(500).json({
                             error: 'Internal Server Error',
-                            message: err.message
+                            message: err.message,
                         });
                     });
 
@@ -467,7 +521,9 @@ describe('Entity Types Router - TDD Tests', () => {
                     expect(response.body).toHaveProperty('error');
                 } catch (error) {
                     // Router creation failed, which is also acceptable behavior
-                    expect(error.message).toContain('Failed to load module definitions');
+                    expect(error.message).toContain(
+                        'Failed to load module definitions'
+                    );
                 }
             });
         });
@@ -488,7 +544,9 @@ describe('Entity Types Router - TDD Tests', () => {
                 // Validate response structure matches getEntityTypeResponse schema
                 expect(response.body.type).toBe('hubspot');
                 expect(response.body.name).toBe('HubSpot');
-                expect(response.body.description).toBe('Connect to HubSpot CRM');
+                expect(response.body.description).toBe(
+                    'Connect to HubSpot CRM'
+                );
                 expect(response.body.authType).toBe('oauth2');
             });
 
@@ -500,7 +558,9 @@ describe('Entity Types Router - TDD Tests', () => {
 
                 expect(response.body.type).toBe('multi-step-service');
                 expect(response.body.name).toBe('Multi-Step Service');
-                expect(response.body.description).toBe('Service with multi-step authentication');
+                expect(response.body.description).toBe(
+                    'Service with multi-step authentication'
+                );
                 expect(response.body.authType).toBe('form');
                 expect(response.body.isMultiStep).toBe(true);
                 expect(response.body.stepCount).toBe(3);
@@ -645,7 +705,7 @@ describe('Entity Types Router - TDD Tests', () => {
                     .expect(200);
 
                 const fields = response.body.data.fields;
-                const apiKeyField = fields.find(f => f.name === 'api_key');
+                const apiKeyField = fields.find((f) => f.name === 'api_key');
 
                 expect(apiKeyField).toBeDefined();
                 expect(apiKeyField.type).toBe('api_key');
@@ -677,7 +737,9 @@ describe('Entity Types Router - TDD Tests', () => {
 
                 expect(response.body.data).toHaveProperty('jsonSchema');
                 expect(response.body.data.jsonSchema.title).toContain('Step 1');
-                expect(response.body.data.jsonSchema.properties).toHaveProperty('email');
+                expect(response.body.data.jsonSchema.properties).toHaveProperty(
+                    'email'
+                );
             });
 
             it('should return step 2 requirements with sessionId', async () => {
@@ -767,7 +829,7 @@ describe('Entity Types Router - TDD Tests', () => {
                 // It does NOT validate against a session store as it's stateless
                 const response = await request(app)
                     .get('/api/entities/types/multi-step-service/requirements')
-                    .query({ step: 2, sessionId: '   ' })  // Empty/whitespace sessionId
+                    .query({ step: 2, sessionId: '   ' }) // Empty/whitespace sessionId
                     .set('Authorization', 'Bearer valid-token')
                     .expect(400);
 
@@ -800,7 +862,7 @@ describe('Entity Types Router - TDD Tests', () => {
                 type: 'hubspot',
                 userId: 'user-123',
                 credentialId: 'credential-123',
-                authIsValid: false
+                authIsValid: false,
             };
 
             mockCredential = {
@@ -808,8 +870,8 @@ describe('Entity Types Router - TDD Tests', () => {
                 userId: 'user-123',
                 data: {
                     access_token: 'old-token',
-                    refresh_token: 'old-refresh'
-                }
+                    refresh_token: 'old-refresh',
+                },
             };
 
             mockModuleRepository.findById.mockResolvedValue(mockEntity);
@@ -818,7 +880,7 @@ describe('Entity Types Router - TDD Tests', () => {
             // Set up default mock for ProcessAuthorizationCallback
             mockProcessAuthorizationCallbackExecute.mockResolvedValue({
                 credential_id: 'credential-123',
-                entity_id: 'entity-123'
+                entity_id: 'entity-123',
             });
 
             // Set up default mock for ProcessAuthorizationStep
@@ -828,7 +890,7 @@ describe('Entity Types Router - TDD Tests', () => {
                 totalSteps: 3,
                 sessionId: 'session-123',
                 requirements: { type: 'form', data: { jsonSchema: {} } },
-                message: 'Continue to step 2'
+                message: 'Continue to step 2',
             });
 
             // Set up default mock for StartAuthorizationSession
@@ -837,7 +899,7 @@ describe('Entity Types Router - TDD Tests', () => {
                 type: 'multi-step-service',
                 totalSteps: 3,
                 currentStep: 1,
-                userId: 'user-123'
+                userId: 'user-123',
             });
         });
 
@@ -847,10 +909,12 @@ describe('Entity Types Router - TDD Tests', () => {
                     ...mockCredential,
                     data: {
                         access_token: 'new-token',
-                        refresh_token: 'new-refresh'
-                    }
+                        refresh_token: 'new-refresh',
+                    },
                 };
-                mockCredentialRepository.update.mockResolvedValue(newCredential);
+                mockCredentialRepository.update.mockResolvedValue(
+                    newCredential
+                );
 
                 const updatedEntity = { ...mockEntity, authIsValid: true };
                 mockModuleRepository.update.mockResolvedValue(updatedEntity);
@@ -861,8 +925,8 @@ describe('Entity Types Router - TDD Tests', () => {
                     .send({
                         data: {
                             code: 'oauth2-authorization-code',
-                            redirect_uri: 'https://app.example.com/callback'
-                        }
+                            redirect_uri: 'https://app.example.com/callback',
+                        },
                     })
                     .expect(200);
 
@@ -881,10 +945,12 @@ describe('Entity Types Router - TDD Tests', () => {
                     ...mockCredential,
                     data: {
                         api_key: 'new-api-key',
-                        api_secret: 'new-secret'
-                    }
+                        api_secret: 'new-secret',
+                    },
                 };
-                mockCredentialRepository.update.mockResolvedValue(newCredential);
+                mockCredentialRepository.update.mockResolvedValue(
+                    newCredential
+                );
 
                 const updatedEntity = { ...mockEntity, authIsValid: true };
                 mockModuleRepository.update.mockResolvedValue(updatedEntity);
@@ -895,8 +961,8 @@ describe('Entity Types Router - TDD Tests', () => {
                     .send({
                         data: {
                             api_key: 'new-api-key',
-                            api_secret: 'new-secret'
-                        }
+                            api_secret: 'new-secret',
+                        },
                     })
                     .expect(200);
 
@@ -913,25 +979,29 @@ describe('Entity Types Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         data: {
-                            code: 'oauth2-code'
-                        }
+                            code: 'oauth2-code',
+                        },
                     })
                     .expect(200);
 
                 // Verify processAuthorizationCallback was called with correct params
-                expect(mockProcessAuthorizationCallbackExecute).toHaveBeenCalledWith(
-                    'user-123',       // userId
-                    'hubspot',        // entity type
-                    { code: 'oauth2-code' }  // auth data
+                expect(
+                    mockProcessAuthorizationCallbackExecute
+                ).toHaveBeenCalledWith(
+                    'user-123', // userId
+                    'hubspot', // entity type
+                    { code: 'oauth2-code' } // auth data
                 );
             });
 
             it('should mark entity as authIsValid after successful reauth', async () => {
                 const newCredential = {
                     ...mockCredential,
-                    data: { access_token: 'new-token' }
+                    data: { access_token: 'new-token' },
                 };
-                mockCredentialRepository.update.mockResolvedValue(newCredential);
+                mockCredentialRepository.update.mockResolvedValue(
+                    newCredential
+                );
 
                 const updatedEntity = { ...mockEntity, authIsValid: true };
                 mockModuleRepository.update.mockResolvedValue(updatedEntity);
@@ -940,14 +1010,14 @@ describe('Entity Types Router - TDD Tests', () => {
                     .post('/api/entities/entity-123/reauthorize')
                     .set('Authorization', 'Bearer valid-token')
                     .send({
-                        data: { code: 'oauth2-code' }
+                        data: { code: 'oauth2-code' },
                     })
                     .expect(200);
 
                 expect(mockModuleRepository.update).toHaveBeenCalledWith(
                     expect.objectContaining({
                         id: 'entity-123',
-                        authIsValid: true
+                        authIsValid: true,
                     })
                 );
             });
@@ -966,7 +1036,7 @@ describe('Entity Types Router - TDD Tests', () => {
                     .send({
                         data: { email: 'user@example.com' },
                         step: 1,
-                        sessionId: 'session-123'
+                        sessionId: 'session-123',
                     })
                     .expect(200);
 
@@ -982,14 +1052,16 @@ describe('Entity Types Router - TDD Tests', () => {
                 // Mock processAuthorizationStep to return completed: true for final step
                 mockProcessAuthorizationStepExecute.mockResolvedValueOnce({
                     completed: true,
-                    authData: { access_token: 'final-token' }
+                    authData: { access_token: 'final-token' },
                 });
 
                 const newCredential = {
                     ...mockCredential,
-                    data: { access_token: 'final-token' }
+                    data: { access_token: 'final-token' },
                 };
-                mockCredentialRepository.update.mockResolvedValue(newCredential);
+                mockCredentialRepository.update.mockResolvedValue(
+                    newCredential
+                );
 
                 const updatedEntity = { ...mockEntity, authIsValid: true };
                 mockModuleRepository.update.mockResolvedValue(updatedEntity);
@@ -1000,7 +1072,7 @@ describe('Entity Types Router - TDD Tests', () => {
                     .send({
                         data: { password: 'secure-password' },
                         step: 3,
-                        sessionId: 'session-123'
+                        sessionId: 'session-123',
                     })
                     .expect(200);
 
@@ -1019,7 +1091,7 @@ describe('Entity Types Router - TDD Tests', () => {
                     totalSteps: 3,
                     sessionId: sessionId,
                     requirements: { type: 'form', data: { jsonSchema: {} } },
-                    message: 'Continue to step 2'
+                    message: 'Continue to step 2',
                 });
 
                 // Step 2 - also maintains the session
@@ -1029,7 +1101,7 @@ describe('Entity Types Router - TDD Tests', () => {
                     totalSteps: 3,
                     sessionId: sessionId,
                     requirements: { type: 'form', data: { jsonSchema: {} } },
-                    message: 'Continue to step 3'
+                    message: 'Continue to step 3',
                 });
 
                 // Step 1
@@ -1039,7 +1111,7 @@ describe('Entity Types Router - TDD Tests', () => {
                     .send({
                         data: { email: 'user@example.com' },
                         step: 1,
-                        sessionId
+                        sessionId,
                     })
                     .expect(200);
 
@@ -1052,7 +1124,7 @@ describe('Entity Types Router - TDD Tests', () => {
                     .send({
                         data: { otp: '123456' },
                         step: 2,
-                        sessionId
+                        sessionId,
                     })
                     .expect(200);
 
@@ -1126,7 +1198,7 @@ describe('Entity Types Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         data: { otp: '123456' },
-                        step: 2
+                        step: 2,
                     })
                     .expect(400);
 
@@ -1142,7 +1214,7 @@ describe('Entity Types Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         data: { code: 'test' },
-                        step: -1
+                        step: -1,
                     })
                     .expect(400);
 
@@ -1159,7 +1231,7 @@ describe('Entity Types Router - TDD Tests', () => {
                     .send({
                         data: { code: 'test' },
                         step: 5,
-                        sessionId: 'session-123'
+                        sessionId: 'session-123',
                     })
                     .expect(400);
 
@@ -1176,7 +1248,7 @@ describe('Entity Types Router - TDD Tests', () => {
                     .post('/api/entities/entity-123/reauthorize')
                     .set('Authorization', 'Bearer valid-token')
                     .send({
-                        data: { code: 'invalid-code' }
+                        data: { code: 'invalid-code' },
                     })
                     .expect(400);
 
@@ -1194,7 +1266,7 @@ describe('Entity Types Router - TDD Tests', () => {
                     .post('/api/entities/entity-123/reauthorize')
                     .set('Authorization', 'Bearer valid-token')
                     .send({
-                        data: { code: 'valid-code' }
+                        data: { code: 'valid-code' },
                     })
                     .expect(400);
 
@@ -1227,7 +1299,9 @@ describe('Entity Types Router - TDD Tests', () => {
                 expect(typeof entityType.description).toBe('string');
             }
             if (entityType.authType) {
-                expect(['oauth2', 'form', 'api-key', 'basic']).toContain(entityType.authType);
+                expect(['oauth2', 'form', 'api-key', 'basic']).toContain(
+                    entityType.authType
+                );
             }
             if (entityType.isMultiStep !== undefined) {
                 expect(typeof entityType.isMultiStep).toBe('boolean');
@@ -1252,7 +1326,9 @@ describe('Entity Types Router - TDD Tests', () => {
             expect(response.body).toHaveProperty('step');
             expect(response.body).toHaveProperty('totalSteps');
             expect(response.body).toHaveProperty('isMultiStep');
-            expect(['oauth2', 'form', 'api-key', 'basic']).toContain(response.body.type);
+            expect(['oauth2', 'form', 'api-key', 'basic']).toContain(
+                response.body.type
+            );
             expect(typeof response.body.step).toBe('number');
             expect(response.body.step).toBeGreaterThanOrEqual(1);
             expect(typeof response.body.totalSteps).toBe('number');
@@ -1267,12 +1343,12 @@ describe('Entity Types Router - TDD Tests', () => {
                 type: 'hubspot',
                 userId: 'user-123',
                 credentialId: 'credential-123',
-                authIsValid: false
+                authIsValid: false,
             };
             const mockCredential = {
                 id: 'credential-123',
                 userId: 'user-123',
-                data: { access_token: 'old-token' }
+                data: { access_token: 'old-token' },
             };
 
             mockModuleRepository.findById.mockResolvedValue(mockEntity);
@@ -1281,7 +1357,7 @@ describe('Entity Types Router - TDD Tests', () => {
             // Set up mock for processAuthorizationCallback
             mockProcessAuthorizationCallbackExecute.mockResolvedValueOnce({
                 credential_id: 'credential-123',
-                entity_id: 'entity-123'
+                entity_id: 'entity-123',
             });
 
             const updatedEntity = { ...mockEntity, authIsValid: true };
@@ -1291,7 +1367,7 @@ describe('Entity Types Router - TDD Tests', () => {
                 .post('/api/entities/entity-123/reauthorize')
                 .set('Authorization', 'Bearer valid-token')
                 .send({
-                    data: { code: 'oauth2-code' }
+                    data: { code: 'oauth2-code' },
                 })
                 .expect(200);
 

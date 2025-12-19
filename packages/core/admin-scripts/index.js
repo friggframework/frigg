@@ -12,9 +12,15 @@
  */
 
 // Repository Interfaces
-const { AdminApiKeyRepositoryInterface } = require('./repositories/admin-api-key-repository-interface');
-const { ScriptExecutionRepositoryInterface } = require('./repositories/script-execution-repository-interface');
-const { ScriptScheduleRepositoryInterface } = require('./repositories/script-schedule-repository-interface');
+const {
+    AdminApiKeyRepositoryInterface,
+} = require('./repositories/admin-api-key-repository-interface');
+const {
+    ScriptExecutionRepositoryInterface,
+} = require('./repositories/script-execution-repository-interface');
+const {
+    ScriptScheduleRepositoryInterface,
+} = require('./repositories/script-schedule-repository-interface');
 
 // Repository Factories
 const {

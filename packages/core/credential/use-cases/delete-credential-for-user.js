@@ -23,7 +23,9 @@ class DeleteCredentialForUser {
      */
     async execute(credentialId, userId) {
         // Check if credential exists
-        const credential = await this.credentialRepository.findCredentialById(credentialId);
+        const credential = await this.credentialRepository.findCredentialById(
+            credentialId
+        );
 
         if (!credential) {
             throw Boom.notFound(`Credential ${credentialId} not found`);
@@ -31,11 +33,15 @@ class DeleteCredentialForUser {
 
         // Verify ownership - compare as strings to handle both MongoDB and PostgreSQL
         if (credential.userId.toString() !== userId.toString()) {
-            throw Boom.forbidden('You do not have permission to delete this credential');
+            throw Boom.forbidden(
+                'You do not have permission to delete this credential'
+            );
         }
 
         // Delete the credential
-        const result = await this.credentialRepository.deleteCredentialById(credentialId);
+        const result = await this.credentialRepository.deleteCredentialById(
+            credentialId
+        );
 
         return result;
     }

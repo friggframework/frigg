@@ -42,7 +42,9 @@ class Module extends Delegate {
         const apiParams = {
             ...this.definition.env,
             delegate: this,
-            ...(this.credential?.data ? this.apiParamsFromCredential(this.credential.data) : {}), // Handle case when credential is undefined
+            ...(this.credential?.data
+                ? this.apiParamsFromCredential(this.credential.data)
+                : {}), // Handle case when credential is undefined
             ...this.apiParamsFromEntity(this.entity),
         };
         this.api = new this.apiClass(apiParams);

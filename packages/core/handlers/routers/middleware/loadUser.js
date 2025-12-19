@@ -1,5 +1,7 @@
 const catchAsyncError = require('express-async-handler');
-const { GetUserFromBearerToken } = require('../../../user/use-cases/get-user-from-bearer-token');
+const {
+    GetUserFromBearerToken,
+} = require('../../../user/use-cases/get-user-from-bearer-token');
 const {
     createUserRepository,
 } = require('../../../user/repositories/user-repository-factory');
@@ -23,7 +25,9 @@ module.exports = catchAsyncError(async (req, res, next) => {
 
         try {
             // Execute use case to load user
-            req.user = await getUserFromBearerToken.execute(authorizationHeader);
+            req.user = await getUserFromBearerToken.execute(
+                authorizationHeader
+            );
         } catch (error) {
             // Don't fail - just leave req.user undefined
             // Let requireLoggedInUser middleware handle auth failures

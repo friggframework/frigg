@@ -1,6 +1,12 @@
-const { HealthCheckRepositoryMongoDB } = require('./health-check-repository-mongodb');
-const { HealthCheckRepositoryPostgreSQL } = require('./health-check-repository-postgres');
-const { HealthCheckRepositoryDocumentDB } = require('./health-check-repository-documentdb');
+const {
+    HealthCheckRepositoryMongoDB,
+} = require('./health-check-repository-mongodb');
+const {
+    HealthCheckRepositoryPostgreSQL,
+} = require('./health-check-repository-postgres');
+const {
+    HealthCheckRepositoryDocumentDB,
+} = require('./health-check-repository-documentdb');
 const config = require('../config');
 
 /**

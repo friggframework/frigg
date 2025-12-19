@@ -15,7 +15,10 @@ class UpdateModuleEntity {
         }
 
         // Update the entity using repository method
-        const updatedEntity = await this.moduleRepository.updateEntity(entityId, updates);
+        const updatedEntity = await this.moduleRepository.updateEntity(
+            entityId,
+            updates
+        );
 
         return updatedEntity;
     }

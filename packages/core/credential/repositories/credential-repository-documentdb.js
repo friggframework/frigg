@@ -107,7 +107,10 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
             const updateDocument = {
                 userId: existing.userId,
                 externalId: existing.externalId,
-                authIsValid: authIsValid !== undefined ? authIsValid : existing.authIsValid,
+                authIsValid:
+                    authIsValid !== undefined
+                        ? authIsValid
+                        : existing.authIsValid,
                 data: mergedData,
                 updatedAt: now,
             };
@@ -189,17 +192,26 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
         const query = this._buildFilter(filter);
 
         // If filtering by userId only, return all credentials for that user
-        const hasOnlyUserId = filter.userId && !filter.credentialId && !filter.externalId && !filter.id;
+        const hasOnlyUserId =
+            filter.userId &&
+            !filter.credentialId &&
+            !filter.externalId &&
+            !filter.id;
 
         if (hasOnlyUserId) {
-            const credentials = await findMany(this.prisma, 'Credential', query);
+            const credentials = await findMany(
+                this.prisma,
+                'Credential',
+                query
+            );
 
             const decryptedCredentials = await Promise.all(
                 credentials.map(async (credential) => {
-                    const decrypted = await this.encryptionService.decryptFields(
-                        'Credential',
-                        credential
-                    );
+                    const decrypted =
+                        await this.encryptionService.decryptFields(
+                            'Credential',
+                            credential
+                        );
                     return this._mapCredentialWithMetadata(decrypted);
                 })
             );

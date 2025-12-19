@@ -18,7 +18,7 @@ class HealthCheckRepositoryPostgreSQL extends HealthCheckRepositoryInterface {
     async getDatabaseConnectionState() {
         let isConnected = false;
         let stateName = 'unknown';
-        
+
         try {
             await this.prisma.$queryRaw`SELECT 1`;
             isConnected = true;

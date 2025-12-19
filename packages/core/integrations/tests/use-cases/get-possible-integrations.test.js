@@ -1,10 +1,14 @@
-const { GetPossibleIntegrations } = require('../../use-cases/get-possible-integrations');
+const {
+    GetPossibleIntegrations,
+} = require('../../use-cases/get-possible-integrations');
 const { DummyIntegration } = require('../doubles/dummy-integration-class');
 
 describe('GetPossibleIntegrations Use-Case', () => {
     describe('happy path', () => {
         it('returns option details array for single integration', async () => {
-            const useCase = new GetPossibleIntegrations({ integrationClasses: [DummyIntegration] });
+            const useCase = new GetPossibleIntegrations({
+                integrationClasses: [DummyIntegration],
+            });
             const result = await useCase.execute();
 
             expect(Array.isArray(result)).toBe(true);
@@ -12,7 +16,9 @@ describe('GetPossibleIntegrations Use-Case', () => {
             expect(result[0].display).toBeDefined();
             // Options class maps display.label → display.name
             expect(result[0].display.name).toBe('Dummy Integration');
-            expect(result[0].display.description).toBe('A dummy integration for testing');
+            expect(result[0].display.description).toBe(
+                'A dummy integration for testing'
+            );
             expect(result[0].name).toBe('dummy');
             expect(result[0].version).toBe('1.0.0');
         });
@@ -27,21 +33,21 @@ describe('GetPossibleIntegrations Use-Case', () => {
                         label: 'Another Dummy',
                         description: 'Another test integration',
                         detailsUrl: 'https://another.example.com',
-                        icon: 'another-icon'
-                    }
+                        icon: 'another-icon',
+                    },
                 };
 
                 static getOptionDetails() {
                     return {
                         name: this.Definition.name,
                         version: this.Definition.version,
-                        display: this.Definition.display
+                        display: this.Definition.display,
                     };
                 }
             }
 
             const useCase = new GetPossibleIntegrations({
-                integrationClasses: [DummyIntegration, AnotherDummyIntegration]
+                integrationClasses: [DummyIntegration, AnotherDummyIntegration],
             });
             const result = await useCase.execute();
 
@@ -51,7 +57,9 @@ describe('GetPossibleIntegrations Use-Case', () => {
         });
 
         it('includes all required display properties', async () => {
-            const useCase = new GetPossibleIntegrations({ integrationClasses: [DummyIntegration] });
+            const useCase = new GetPossibleIntegrations({
+                integrationClasses: [DummyIntegration],
+            });
             const result = await useCase.execute();
 
             const integration = result[0];
@@ -68,28 +76,32 @@ describe('GetPossibleIntegrations Use-Case', () => {
                 static Definition = {
                     name: 'minimal',
                     version: '1.0.0',
-                    modules: { dummy: { definition: { getName: () => 'dummy' } } },
+                    modules: {
+                        dummy: { definition: { getName: () => 'dummy' } },
+                    },
                     display: {
                         label: 'Minimal',
-                        description: 'A minimal integration'
-                    }
+                        description: 'A minimal integration',
+                    },
                 };
 
                 static getOptionDetails() {
                     const { Options } = require('../../options');
                     const options = new Options({
                         module: Object.values(this.Definition.modules)[0],
-                        ...this.Definition
+                        ...this.Definition,
                     });
                     return {
                         name: this.Definition.name,
                         version: this.Definition.version,
-                        ...options.get()
+                        ...options.get(),
                     };
                 }
             }
 
-            const useCase = new GetPossibleIntegrations({ integrationClasses: [MinimalIntegration] });
+            const useCase = new GetPossibleIntegrations({
+                integrationClasses: [MinimalIntegration],
+            });
             const result = await useCase.execute();
 
             expect(result.length).toBe(1);
@@ -102,7 +114,9 @@ describe('GetPossibleIntegrations Use-Case', () => {
 
     describe('error cases', () => {
         it('returns empty array when no integration classes provided', async () => {
-            const useCase = new GetPossibleIntegrations({ integrationClasses: [] });
+            const useCase = new GetPossibleIntegrations({
+                integrationClasses: [],
+            });
             const result = await useCase.execute();
 
             expect(Array.isArray(result)).toBe(true);
@@ -114,7 +128,9 @@ describe('GetPossibleIntegrations Use-Case', () => {
                 static Definition = { name: 'invalid' };
             }
 
-            const useCase = new GetPossibleIntegrations({ integrationClasses: [InvalidIntegration] });
+            const useCase = new GetPossibleIntegrations({
+                integrationClasses: [InvalidIntegration],
+            });
 
             await expect(useCase.execute()).rejects.toThrow();
         });
@@ -123,19 +139,21 @@ describe('GetPossibleIntegrations Use-Case', () => {
             class IncompleteIntegration {
                 static Definition = {
                     name: 'incomplete',
-                    modules: { dummy: {} }
+                    modules: { dummy: {} },
                 };
 
                 static getOptionDetails() {
                     return {
                         name: this.Definition.name,
                         version: this.Definition.version,
-                        display: this.Definition.display
+                        display: this.Definition.display,
                     };
                 }
             }
 
-            const useCase = new GetPossibleIntegrations({ integrationClasses: [IncompleteIntegration] });
+            const useCase = new GetPossibleIntegrations({
+                integrationClasses: [IncompleteIntegration],
+            });
             const result = await useCase.execute();
 
             expect(result.length).toBe(1);
@@ -146,20 +164,26 @@ describe('GetPossibleIntegrations Use-Case', () => {
 
     describe('edge cases', () => {
         it('handles null integrationClasses parameter', async () => {
-            const useCase = new GetPossibleIntegrations({ integrationClasses: null });
+            const useCase = new GetPossibleIntegrations({
+                integrationClasses: null,
+            });
 
             await expect(useCase.execute()).rejects.toThrow();
         });
 
         it('handles undefined integrationClasses parameter', async () => {
-            const useCase = new GetPossibleIntegrations({ integrationClasses: undefined });
+            const useCase = new GetPossibleIntegrations({
+                integrationClasses: undefined,
+            });
 
             await expect(useCase.execute()).rejects.toThrow();
         });
 
         it('filters out null/undefined integration classes', async () => {
             const useCase = new GetPossibleIntegrations({
-                integrationClasses: [DummyIntegration, null, undefined].filter(Boolean)
+                integrationClasses: [DummyIntegration, null, undefined].filter(
+                    Boolean
+                ),
             });
             const result = await useCase.execute();
 
@@ -175,24 +199,28 @@ describe('GetPossibleIntegrations Use-Case', () => {
                     modules: { dummy: {} },
                     display: {
                         label: 'Complex Integration with Special Characters! 🚀',
-                        description: 'A very long description that includes\nnewlines and\ttabs and special characters like émojis 🎉',
-                        detailsUrl: 'https://complex.example.com/with/path?param=value&other=123',
+                        description:
+                            'A very long description that includes\nnewlines and\ttabs and special characters like émojis 🎉',
+                        detailsUrl:
+                            'https://complex.example.com/with/path?param=value&other=123',
                         icon: 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=',
                         category: 'Test & Development',
-                        tags: ['testing', 'development', 'complex']
-                    }
+                        tags: ['testing', 'development', 'complex'],
+                    },
                 };
 
                 static getOptionDetails() {
                     return {
                         name: this.Definition.name,
                         version: this.Definition.version,
-                        display: this.Definition.display
+                        display: this.Definition.display,
                     };
                 }
             }
 
-            const useCase = new GetPossibleIntegrations({ integrationClasses: [ComplexIntegration] });
+            const useCase = new GetPossibleIntegrations({
+                integrationClasses: [ComplexIntegration],
+            });
             const result = await useCase.execute();
 
             expect(result[0].display.label).toContain('🚀');
@@ -202,20 +230,57 @@ describe('GetPossibleIntegrations Use-Case', () => {
 
         it('preserves integration class order', async () => {
             class FirstIntegration {
-                static Definition = { name: 'first', version: '1.0.0', modules: { dummy: {} }, display: { label: 'First' } };
-                static getOptionDetails() { return { name: this.Definition.name, version: this.Definition.version, display: this.Definition.display }; }
+                static Definition = {
+                    name: 'first',
+                    version: '1.0.0',
+                    modules: { dummy: {} },
+                    display: { label: 'First' },
+                };
+                static getOptionDetails() {
+                    return {
+                        name: this.Definition.name,
+                        version: this.Definition.version,
+                        display: this.Definition.display,
+                    };
+                }
             }
             class SecondIntegration {
-                static Definition = { name: 'second', version: '1.0.0', modules: { dummy: {} }, display: { label: 'Second' } };
-                static getOptionDetails() { return { name: this.Definition.name, version: this.Definition.version, display: this.Definition.display }; }
+                static Definition = {
+                    name: 'second',
+                    version: '1.0.0',
+                    modules: { dummy: {} },
+                    display: { label: 'Second' },
+                };
+                static getOptionDetails() {
+                    return {
+                        name: this.Definition.name,
+                        version: this.Definition.version,
+                        display: this.Definition.display,
+                    };
+                }
             }
             class ThirdIntegration {
-                static Definition = { name: 'third', version: '1.0.0', modules: { dummy: {} }, display: { label: 'Third' } };
-                static getOptionDetails() { return { name: this.Definition.name, version: this.Definition.version, display: this.Definition.display }; }
+                static Definition = {
+                    name: 'third',
+                    version: '1.0.0',
+                    modules: { dummy: {} },
+                    display: { label: 'Third' },
+                };
+                static getOptionDetails() {
+                    return {
+                        name: this.Definition.name,
+                        version: this.Definition.version,
+                        display: this.Definition.display,
+                    };
+                }
             }
 
             const useCase = new GetPossibleIntegrations({
-                integrationClasses: [FirstIntegration, SecondIntegration, ThirdIntegration]
+                integrationClasses: [
+                    FirstIntegration,
+                    SecondIntegration,
+                    ThirdIntegration,
+                ],
             });
             const result = await useCase.execute();
 
@@ -224,4 +289,4 @@ describe('GetPossibleIntegrations Use-Case', () => {
             expect(result[2].name).toBe('third');
         });
     });
-}); 
+});

@@ -6,7 +6,9 @@ jest.mock('../database/config', () => ({
 }));
 
 const { IntegrationBase } = require('../integrations/integration-base');
-const { IntegrationEventDispatcher } = require('./integration-event-dispatcher');
+const {
+    IntegrationEventDispatcher,
+} = require('./integration-event-dispatcher');
 const { QueuerUtil } = require('../queues');
 
 // Mock AWS SQS
@@ -64,7 +66,8 @@ describe('Webhook Flow Integration Test', () => {
     describe('End-to-End Webhook Flow', () => {
         beforeEach(() => {
             jest.clearAllMocks();
-            process.env.WEBHOOK_TEST_QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue';
+            process.env.WEBHOOK_TEST_QUEUE_URL =
+                'https://sqs.us-east-1.amazonaws.com/123456789/test-queue';
         });
 
         it('should complete full webhook flow: HTTP → Queue → Worker', async () => {
@@ -93,7 +96,10 @@ describe('Webhook Flow Integration Test', () => {
 
             // Verify HTTP response
             expect(res.status).toHaveBeenCalledWith(200);
-            expect(res.json).toHaveBeenCalledWith({ received: true, verified: false });
+            expect(res.json).toHaveBeenCalledWith({
+                received: true,
+                verified: false,
+            });
 
             // Verify message was queued
             const AWS = require('aws-sdk');
@@ -106,11 +112,16 @@ describe('Webhook Flow Integration Test', () => {
             const queuedMessage = JSON.parse(queueCall.MessageBody);
             expect(queuedMessage.event).toBe('ON_WEBHOOK');
             expect(queuedMessage.data.integrationId).toBe('int-789');
-            expect(queuedMessage.data.body).toEqual({ event: 'item.created', itemId: '12345' });
+            expect(queuedMessage.data.body).toEqual({
+                event: 'item.created',
+                itemId: '12345',
+            });
 
             // Step 2: Simulate worker processing from queue
             const workerIntegration = new WebhookTestIntegration();
-            const workerDispatcher = new IntegrationEventDispatcher(workerIntegration);
+            const workerDispatcher = new IntegrationEventDispatcher(
+                workerIntegration
+            );
 
             const result = await workerDispatcher.dispatchJob({
                 event: 'ON_WEBHOOK',
@@ -148,7 +159,9 @@ describe('Webhook Flow Integration Test', () => {
             });
 
             expect(resInvalid.status).toHaveBeenCalledWith(401);
-            expect(resInvalid.json).toHaveBeenCalledWith({ error: 'Invalid signature' });
+            expect(resInvalid.json).toHaveBeenCalledWith({
+                error: 'Invalid signature',
+            });
 
             // Test valid signature
             const reqValid = {
@@ -170,7 +183,10 @@ describe('Webhook Flow Integration Test', () => {
             });
 
             expect(resValid.status).toHaveBeenCalledWith(200);
-            expect(resValid.json).toHaveBeenCalledWith({ received: true, verified: true });
+            expect(resValid.json).toHaveBeenCalledWith({
+                received: true,
+                verified: true,
+            });
         });
 
         it('should handle webhooks without integration ID', async () => {
@@ -198,7 +214,9 @@ describe('Webhook Flow Integration Test', () => {
             // Should queue with integrationId: null
             const AWS = require('aws-sdk');
             const mockSQS = new AWS.SQS();
-            const queuedMessage = JSON.parse(mockSQS.sendMessage.mock.calls[0][0].MessageBody);
+            const queuedMessage = JSON.parse(
+                mockSQS.sendMessage.mock.calls[0][0].MessageBody
+            );
 
             expect(queuedMessage.data.integrationId).toBeNull();
         });
@@ -230,7 +248,9 @@ describe('Webhook Flow Integration Test', () => {
 
             const AWS = require('aws-sdk');
             const mockSQS = new AWS.SQS();
-            const queuedMessage = JSON.parse(mockSQS.sendMessage.mock.calls[0][0].MessageBody);
+            const queuedMessage = JSON.parse(
+                mockSQS.sendMessage.mock.calls[0][0].MessageBody
+            );
 
             expect(queuedMessage.data.headers).toEqual(req.headers);
             expect(queuedMessage.data.query).toEqual(req.query);
@@ -249,7 +269,8 @@ describe('Webhook Flow Integration Test', () => {
                 };
             }
 
-            process.env.DEFAULT_WEBHOOK_QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/123456789/default-queue';
+            process.env.DEFAULT_WEBHOOK_QUEUE_URL =
+                'https://sqs.us-east-1.amazonaws.com/123456789/default-queue';
 
             const integration = new DefaultWebhookIntegration();
             const dispatcher = new IntegrationEventDispatcher(integration);
@@ -301,7 +322,10 @@ describe('Webhook Flow Integration Test', () => {
             });
 
             // Default handler logs the data
-            expect(consoleSpy).toHaveBeenCalledWith('Webhook received:', webhookData);
+            expect(consoleSpy).toHaveBeenCalledWith(
+                'Webhook received:',
+                webhookData
+            );
 
             consoleSpy.mockRestore();
         });
@@ -315,7 +339,8 @@ describe('Webhook Flow Integration Test', () => {
                 callback(new Error('Queue is full'), null);
             });
 
-            process.env.WEBHOOK_TEST_QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue';
+            process.env.WEBHOOK_TEST_QUEUE_URL =
+                'https://sqs.us-east-1.amazonaws.com/123456789/test-queue';
 
             const integration = new WebhookTestIntegration();
             const dispatcher = new IntegrationEventDispatcher(integration);
@@ -353,4 +378,3 @@ describe('Webhook Flow Integration Test', () => {
         });
     });
 });
-

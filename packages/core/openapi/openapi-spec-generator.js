@@ -68,13 +68,18 @@ function extractModuleMetadata(moduleDefinition) {
     const Definition = moduleDefinition.Definition || moduleDefinition;
     const name = Definition?.getName?.() || Definition?.name || 'unknown';
     const displayName = Definition?.display?.name || name;
-    const description = Definition?.display?.description || `${displayName} integration`;
+    const description =
+        Definition?.display?.description || `${displayName} integration`;
     const moduleName = Definition?.moduleName || name;
 
     // Extract auth type from first module
     const moduleKeys = Object.keys(Definition?.modules || {});
-    const firstModule = moduleKeys.length > 0 ? Definition.modules[moduleKeys[0]] : null;
-    const authType = firstModule?.definition?.getAuthType?.() || firstModule?.authType || 'oauth2';
+    const firstModule =
+        moduleKeys.length > 0 ? Definition.modules[moduleKeys[0]] : null;
+    const authType =
+        firstModule?.definition?.getAuthType?.() ||
+        firstModule?.authType ||
+        'oauth2';
     const stepCount = firstModule?.definition?.getAuthStepCount?.() || 1;
 
     return {
@@ -103,7 +108,7 @@ function enrichSpecWithModules(spec, installedModules) {
     // Update ListEntityTypesResponse with actual modules
     if (spec.components?.schemas?.ListEntityTypesResponse) {
         spec.components.schemas.ListEntityTypesResponse.properties.types.example =
-            installedModules.map(m => ({
+            installedModules.map((m) => ({
                 type: m.name,
                 name: m.displayName,
                 description: m.description,
@@ -115,25 +120,33 @@ function enrichSpecWithModules(spec, installedModules) {
 
     // Update IntegrationOption examples
     if (spec.components?.schemas?.IntegrationOption) {
-        const examples = installedModules.slice(0, 3).map(m => ({
+        const examples = installedModules.slice(0, 3).map((m) => ({
             type: m.name,
             name: m.displayName,
             description: m.description,
             hasAuth: true,
         }));
-        if (spec.components.schemas.ListIntegrationOptionsResponse?.properties?.integrations) {
-            spec.components.schemas.ListIntegrationOptionsResponse.properties.integrations.example = examples;
+        if (
+            spec.components.schemas.ListIntegrationOptionsResponse?.properties
+                ?.integrations
+        ) {
+            spec.components.schemas.ListIntegrationOptionsResponse.properties.integrations.example =
+                examples;
         }
     }
 
     // Add module-specific enum values to parameters
-    const moduleNames = installedModules.map(m => m.name);
+    const moduleNames = installedModules.map((m) => m.name);
     if (moduleNames.length > 0) {
-        Object.values(spec.paths || {}).forEach(pathItem => {
-            Object.values(pathItem).forEach(operation => {
+        Object.values(spec.paths || {}).forEach((pathItem) => {
+            Object.values(pathItem).forEach((operation) => {
                 if (operation.parameters) {
-                    operation.parameters.forEach(param => {
-                        if (param.name === 'entityType' || param.name === 'typeName' || param.name === 'moduleType') {
+                    operation.parameters.forEach((param) => {
+                        if (
+                            param.name === 'entityType' ||
+                            param.name === 'typeName' ||
+                            param.name === 'moduleType'
+                        ) {
                             param.schema = param.schema || { type: 'string' };
                             param.schema.enum = moduleNames;
                             param.schema.example = moduleNames[0];
@@ -146,10 +159,12 @@ function enrichSpecWithModules(spec, installedModules) {
 
     // Add installed modules section to spec info
     const moduleList = installedModules
-        .map(m => `- **${m.displayName}** (\`${m.name}\`): ${m.description}`)
+        .map((m) => `- **${m.displayName}** (\`${m.name}\`): ${m.description}`)
         .join('\n');
 
-    spec.info.description = `${spec.info.description || ''}\n\n## Installed Modules\n${moduleList}`;
+    spec.info.description = `${
+        spec.info.description || ''
+    }\n\n## Installed Modules\n${moduleList}`;
 
     return spec;
 }
@@ -163,7 +178,7 @@ function extractInstalledModules(appDefinition) {
     const installedModules = [];
 
     if (appDefinition?.integrations) {
-        appDefinition.integrations.forEach(integration => {
+        appDefinition.integrations.forEach((integration) => {
             try {
                 const metadata = extractModuleMetadata(integration);
                 if (metadata.name !== 'unknown') {
@@ -200,7 +215,7 @@ function finalizeSpec(spec, options, installedModules) {
     spec.info['x-generated'] = {
         timestamp: new Date().toISOString(),
         moduleCount: installedModules.length,
-        modules: installedModules.map(m => m.name),
+        modules: installedModules.map((m) => m.name),
     };
 
     return spec;
@@ -223,7 +238,9 @@ function generateOpenApiSpecV1(appDefinition = null, options = {}) {
         if (serverUrl) {
             spec.servers = [
                 { url: serverUrl, description: 'Current server' },
-                ...(spec.servers?.filter(s => s.description !== 'Current server') || []),
+                ...(spec.servers?.filter(
+                    (s) => s.description !== 'Current server'
+                ) || []),
             ];
         }
         return spec;
@@ -267,7 +284,9 @@ function generateOpenApiSpecV2(appDefinition = null, options = {}) {
         if (serverUrl) {
             spec.servers = [
                 { url: serverUrl, description: 'Current server' },
-                ...(spec.servers?.filter(s => s.description !== 'Current server') || []),
+                ...(spec.servers?.filter(
+                    (s) => s.description !== 'Current server'
+                ) || []),
             ];
         }
         return spec;
@@ -325,9 +344,10 @@ function clearCache() {
  */
 function generateOpenApiYaml(appDefinition = null, options = {}) {
     const { version = 'v2', ...restOptions } = options;
-    const spec = version === 'v1'
-        ? generateOpenApiSpecV1(appDefinition, restOptions)
-        : generateOpenApiSpecV2(appDefinition, restOptions);
+    const spec =
+        version === 'v1'
+            ? generateOpenApiSpecV1(appDefinition, restOptions)
+            : generateOpenApiSpecV2(appDefinition, restOptions);
     return yaml.dump(spec);
 }
 

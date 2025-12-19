@@ -4,9 +4,7 @@ const {
 } = require('./commands/integration-commands');
 const { createUserCommands } = require('./commands/user-commands');
 const { createEntityCommands } = require('./commands/entity-commands');
-const {
-    createCredentialCommands,
-} = require('./commands/credential-commands');
+const { createCredentialCommands } = require('./commands/credential-commands');
 
 /**
  * Create a unified command factory with all CRUD operations

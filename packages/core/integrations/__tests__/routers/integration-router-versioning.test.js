@@ -38,7 +38,9 @@ jest.mock('../../repositories/integration-repository-factory');
 jest.mock('../../../modules/repositories/module-repository-factory');
 jest.mock('../../../credential/repositories/credential-repository-factory');
 jest.mock('../../../user/repositories/user-repository-factory');
-jest.mock('../../../modules/repositories/authorization-session-repository-factory');
+jest.mock(
+    '../../../modules/repositories/authorization-session-repository-factory'
+);
 jest.mock('../../../handlers/app-definition-loader');
 
 // Mock the use cases that have complex dependencies
@@ -49,16 +51,34 @@ jest.mock('../../use-cases/get-possible-integrations');
 const request = require('supertest');
 const express = require('express');
 
-const { createIntegrationRepository } = require('../../repositories/integration-repository-factory');
-const { createModuleRepository } = require('../../../modules/repositories/module-repository-factory');
-const { createCredentialRepository } = require('../../../credential/repositories/credential-repository-factory');
-const { createUserRepository } = require('../../../user/repositories/user-repository-factory');
-const { createAuthorizationSessionRepository } = require('../../../modules/repositories/authorization-session-repository-factory');
-const { loadAppDefinition } = require('../../../handlers/app-definition-loader');
+const {
+    createIntegrationRepository,
+} = require('../../repositories/integration-repository-factory');
+const {
+    createModuleRepository,
+} = require('../../../modules/repositories/module-repository-factory');
+const {
+    createCredentialRepository,
+} = require('../../../credential/repositories/credential-repository-factory');
+const {
+    createUserRepository,
+} = require('../../../user/repositories/user-repository-factory');
+const {
+    createAuthorizationSessionRepository,
+} = require('../../../modules/repositories/authorization-session-repository-factory');
+const {
+    loadAppDefinition,
+} = require('../../../handlers/app-definition-loader');
 
-const { GetIntegrationsForUser } = require('../../use-cases/get-integrations-for-user');
-const { GetEntitiesForUser } = require('../../../modules/use-cases/get-entities-for-user');
-const { GetPossibleIntegrations } = require('../../use-cases/get-possible-integrations');
+const {
+    GetIntegrationsForUser,
+} = require('../../use-cases/get-integrations-for-user');
+const {
+    GetEntitiesForUser,
+} = require('../../../modules/use-cases/get-entities-for-user');
+const {
+    GetPossibleIntegrations,
+} = require('../../use-cases/get-possible-integrations');
 
 const {
     createMockUser,
@@ -108,27 +128,46 @@ describe('Integration Router API Versioning', () => {
 
         // Setup mock returns for repositories
         mocks.userRepository.findById.mockResolvedValue(mockUser);
-        mocks.userRepository.getSessionToken.mockResolvedValue({ user: 'user-123', token: 'valid-token' });
+        mocks.userRepository.getSessionToken.mockResolvedValue({
+            user: 'user-123',
+            token: 'valid-token',
+        });
 
         // Wire up mocked factories
-        createIntegrationRepository.mockReturnValue(mocks.integrationRepository);
+        createIntegrationRepository.mockReturnValue(
+            mocks.integrationRepository
+        );
         createModuleRepository.mockReturnValue(mocks.moduleRepository);
         createCredentialRepository.mockReturnValue(mocks.credentialRepository);
         createUserRepository.mockReturnValue(mocks.userRepository);
-        createAuthorizationSessionRepository.mockReturnValue(mocks.authorizationSessionRepository);
+        createAuthorizationSessionRepository.mockReturnValue(
+            mocks.authorizationSessionRepository
+        );
 
         // Setup mock use case instances
-        mockGetIntegrationsForUser = { execute: jest.fn().mockResolvedValue([]) };
+        mockGetIntegrationsForUser = {
+            execute: jest.fn().mockResolvedValue([]),
+        };
         mockGetEntitiesForUser = { execute: jest.fn().mockResolvedValue([]) };
         mockGetPossibleIntegrations = {
-            execute: jest.fn().mockResolvedValue([
-                { type: 'test-integration', name: 'Test Integration', modules: ['test-module'] }
-            ])
+            execute: jest
+                .fn()
+                .mockResolvedValue([
+                    {
+                        type: 'test-integration',
+                        name: 'Test Integration',
+                        modules: ['test-module'],
+                    },
+                ]),
         };
 
-        GetIntegrationsForUser.mockImplementation(() => mockGetIntegrationsForUser);
+        GetIntegrationsForUser.mockImplementation(
+            () => mockGetIntegrationsForUser
+        );
         GetEntitiesForUser.mockImplementation(() => mockGetEntitiesForUser);
-        GetPossibleIntegrations.mockImplementation(() => mockGetPossibleIntegrations);
+        GetPossibleIntegrations.mockImplementation(
+            () => mockGetPossibleIntegrations
+        );
 
         loadAppDefinition.mockReturnValue({
             integrations: [MockIntegrationClass],
@@ -177,7 +216,9 @@ describe('Integration Router API Versioning', () => {
                 userId: 'user-123',
             });
 
-            mockGetIntegrationsForUser.execute.mockResolvedValue([mockIntegration]);
+            mockGetIntegrationsForUser.execute.mockResolvedValue([
+                mockIntegration,
+            ]);
             mockGetEntitiesForUser.execute.mockResolvedValue([mockEntity]);
 
             // Make v1 request (no version prefix)
@@ -249,7 +290,9 @@ describe('Integration Router API Versioning', () => {
                 status: 'ENABLED',
             };
 
-            mockGetIntegrationsForUser.execute.mockResolvedValue([mockIntegration]);
+            mockGetIntegrationsForUser.execute.mockResolvedValue([
+                mockIntegration,
+            ]);
 
             const res = await request(app)
                 .get('/api/v2/integrations')
@@ -353,43 +396,66 @@ describe('v1 Backwards Compatibility - Path-based versioning', () => {
         const mocks = createMockRepositories();
 
         mocks.userRepository.findById.mockResolvedValue(mockUser);
-        mocks.userRepository.getSessionToken.mockResolvedValue({ user: 'user-123', token: 'valid-token' });
+        mocks.userRepository.getSessionToken.mockResolvedValue({
+            user: 'user-123',
+            token: 'valid-token',
+        });
 
-        createIntegrationRepository.mockReturnValue(mocks.integrationRepository);
+        createIntegrationRepository.mockReturnValue(
+            mocks.integrationRepository
+        );
         createModuleRepository.mockReturnValue(mocks.moduleRepository);
         createCredentialRepository.mockReturnValue(mocks.credentialRepository);
         createUserRepository.mockReturnValue(mocks.userRepository);
-        createAuthorizationSessionRepository.mockReturnValue(mocks.authorizationSessionRepository);
+        createAuthorizationSessionRepository.mockReturnValue(
+            mocks.authorizationSessionRepository
+        );
 
-        mockGetIntegrationsForUser = { execute: jest.fn().mockResolvedValue([]) };
+        mockGetIntegrationsForUser = {
+            execute: jest.fn().mockResolvedValue([]),
+        };
         mockGetEntitiesForUser = { execute: jest.fn().mockResolvedValue([]) };
         mockGetPossibleIntegrations = {
-            execute: jest.fn().mockResolvedValue([
-                { type: 'test-integration', name: 'Test Integration' }
-            ])
+            execute: jest
+                .fn()
+                .mockResolvedValue([
+                    { type: 'test-integration', name: 'Test Integration' },
+                ]),
         };
 
-        GetIntegrationsForUser.mockImplementation(() => mockGetIntegrationsForUser);
+        GetIntegrationsForUser.mockImplementation(
+            () => mockGetIntegrationsForUser
+        );
         GetEntitiesForUser.mockImplementation(() => mockGetEntitiesForUser);
-        GetPossibleIntegrations.mockImplementation(() => mockGetPossibleIntegrations);
+        GetPossibleIntegrations.mockImplementation(
+            () => mockGetPossibleIntegrations
+        );
 
         loadAppDefinition.mockReturnValue({
-            integrations: [{
-                Definition: {
-                    name: 'test-integration',
-                    modules: {
-                        testModule: {
-                            definition: {
-                                moduleName: 'test-module',
-                                getDisplayName: () => 'Test Module',
-                                getAuthStepCount: () => 1,
+            integrations: [
+                {
+                    Definition: {
+                        name: 'test-integration',
+                        modules: {
+                            testModule: {
+                                definition: {
+                                    moduleName: 'test-module',
+                                    getDisplayName: () => 'Test Module',
+                                    getAuthStepCount: () => 1,
+                                },
                             },
                         },
                     },
+                    getOptionDetails: () => ({
+                        type: 'test-integration',
+                        name: 'Test Integration',
+                    }),
                 },
-                getOptionDetails: () => ({ type: 'test-integration', name: 'Test Integration' }),
-            }],
-            userConfig: { primary: 'individual', authModes: { friggToken: true } },
+            ],
+            userConfig: {
+                primary: 'individual',
+                authModes: { friggToken: true },
+            },
         });
 
         const { createIntegrationRouter } = require('../../integration-router');
@@ -443,47 +509,80 @@ describe('Data equivalence between v1 and v2', () => {
     beforeEach(() => {
         jest.clearAllMocks();
 
-        mockIntegration = { id: 'int-1', config: { type: 'test-integration' }, status: 'ENABLED' };
-        mockEntity = createMockEntity({ id: 'entity-1', type: 'test-module', name: 'My Account' });
+        mockIntegration = {
+            id: 'int-1',
+            config: { type: 'test-integration' },
+            status: 'ENABLED',
+        };
+        mockEntity = createMockEntity({
+            id: 'entity-1',
+            type: 'test-module',
+            name: 'My Account',
+        });
         mockOptions = [{ type: 'test-integration', name: 'Test Integration' }];
 
         const mockUser = createMockUser({ id: 'user-123' });
         const mocks = createMockRepositories();
 
         mocks.userRepository.findById.mockResolvedValue(mockUser);
-        mocks.userRepository.getSessionToken.mockResolvedValue({ user: 'user-123', token: 'valid-token' });
+        mocks.userRepository.getSessionToken.mockResolvedValue({
+            user: 'user-123',
+            token: 'valid-token',
+        });
 
-        createIntegrationRepository.mockReturnValue(mocks.integrationRepository);
+        createIntegrationRepository.mockReturnValue(
+            mocks.integrationRepository
+        );
         createModuleRepository.mockReturnValue(mocks.moduleRepository);
         createCredentialRepository.mockReturnValue(mocks.credentialRepository);
         createUserRepository.mockReturnValue(mocks.userRepository);
-        createAuthorizationSessionRepository.mockReturnValue(mocks.authorizationSessionRepository);
+        createAuthorizationSessionRepository.mockReturnValue(
+            mocks.authorizationSessionRepository
+        );
 
-        const mockGetIntegrationsForUser = { execute: jest.fn().mockResolvedValue([mockIntegration]) };
-        const mockGetEntitiesForUser = { execute: jest.fn().mockResolvedValue([mockEntity]) };
-        const mockGetPossibleIntegrations = { execute: jest.fn().mockResolvedValue(mockOptions) };
+        const mockGetIntegrationsForUser = {
+            execute: jest.fn().mockResolvedValue([mockIntegration]),
+        };
+        const mockGetEntitiesForUser = {
+            execute: jest.fn().mockResolvedValue([mockEntity]),
+        };
+        const mockGetPossibleIntegrations = {
+            execute: jest.fn().mockResolvedValue(mockOptions),
+        };
 
-        GetIntegrationsForUser.mockImplementation(() => mockGetIntegrationsForUser);
+        GetIntegrationsForUser.mockImplementation(
+            () => mockGetIntegrationsForUser
+        );
         GetEntitiesForUser.mockImplementation(() => mockGetEntitiesForUser);
-        GetPossibleIntegrations.mockImplementation(() => mockGetPossibleIntegrations);
+        GetPossibleIntegrations.mockImplementation(
+            () => mockGetPossibleIntegrations
+        );
 
         loadAppDefinition.mockReturnValue({
-            integrations: [{
-                Definition: {
-                    name: 'test-integration',
-                    modules: {
-                        testModule: {
-                            definition: {
-                                moduleName: 'test-module',
-                                getDisplayName: () => 'Test Module',
-                                getAuthStepCount: () => 1,
+            integrations: [
+                {
+                    Definition: {
+                        name: 'test-integration',
+                        modules: {
+                            testModule: {
+                                definition: {
+                                    moduleName: 'test-module',
+                                    getDisplayName: () => 'Test Module',
+                                    getAuthStepCount: () => 1,
+                                },
                             },
                         },
                     },
+                    getOptionDetails: () => ({
+                        type: 'test-integration',
+                        name: 'Test Integration',
+                    }),
                 },
-                getOptionDetails: () => ({ type: 'test-integration', name: 'Test Integration' }),
-            }],
-            userConfig: { primary: 'individual', authModes: { friggToken: true } },
+            ],
+            userConfig: {
+                primary: 'individual',
+                authModes: { friggToken: true },
+            },
         });
 
         const { createIntegrationRouter } = require('../../integration-router');

@@ -1,4 +1,6 @@
-const { ScriptExecutionRepositoryInterface } = require('../script-execution-repository-interface');
+const {
+    ScriptExecutionRepositoryInterface,
+} = require('../script-execution-repository-interface');
 
 describe('ScriptExecutionRepositoryInterface', () => {
     let repository;
@@ -22,37 +24,53 @@ describe('ScriptExecutionRepositoryInterface', () => {
                         ipAddress: '192.168.1.1',
                     },
                 })
-            ).rejects.toThrow('Method createExecution must be implemented by subclass');
+            ).rejects.toThrow(
+                'Method createExecution must be implemented by subclass'
+            );
         });
 
         it('should throw error when findExecutionById is not implemented', async () => {
             await expect(
                 repository.findExecutionById('exec123')
-            ).rejects.toThrow('Method findExecutionById must be implemented by subclass');
+            ).rejects.toThrow(
+                'Method findExecutionById must be implemented by subclass'
+            );
         });
 
         it('should throw error when findExecutionsByScriptName is not implemented', async () => {
             await expect(
-                repository.findExecutionsByScriptName('test-script', { limit: 10 })
-            ).rejects.toThrow('Method findExecutionsByScriptName must be implemented by subclass');
+                repository.findExecutionsByScriptName('test-script', {
+                    limit: 10,
+                })
+            ).rejects.toThrow(
+                'Method findExecutionsByScriptName must be implemented by subclass'
+            );
         });
 
         it('should throw error when findExecutionsByStatus is not implemented', async () => {
             await expect(
                 repository.findExecutionsByStatus('PENDING', { limit: 10 })
-            ).rejects.toThrow('Method findExecutionsByStatus must be implemented by subclass');
+            ).rejects.toThrow(
+                'Method findExecutionsByStatus must be implemented by subclass'
+            );
         });
 
         it('should throw error when updateExecutionStatus is not implemented', async () => {
             await expect(
                 repository.updateExecutionStatus('exec123', 'RUNNING')
-            ).rejects.toThrow('Method updateExecutionStatus must be implemented by subclass');
+            ).rejects.toThrow(
+                'Method updateExecutionStatus must be implemented by subclass'
+            );
         });
 
         it('should throw error when updateExecutionOutput is not implemented', async () => {
             await expect(
-                repository.updateExecutionOutput('exec123', { result: 'success' })
-            ).rejects.toThrow('Method updateExecutionOutput must be implemented by subclass');
+                repository.updateExecutionOutput('exec123', {
+                    result: 'success',
+                })
+            ).rejects.toThrow(
+                'Method updateExecutionOutput must be implemented by subclass'
+            );
         });
 
         it('should throw error when updateExecutionError is not implemented', async () => {
@@ -62,7 +80,9 @@ describe('ScriptExecutionRepositoryInterface', () => {
                     message: 'Something went wrong',
                     stack: 'Error: ...',
                 })
-            ).rejects.toThrow('Method updateExecutionError must be implemented by subclass');
+            ).rejects.toThrow(
+                'Method updateExecutionError must be implemented by subclass'
+            );
         });
 
         it('should throw error when updateExecutionMetrics is not implemented', async () => {
@@ -72,7 +92,9 @@ describe('ScriptExecutionRepositoryInterface', () => {
                     endTime: new Date(),
                     durationMs: 1234,
                 })
-            ).rejects.toThrow('Method updateExecutionMetrics must be implemented by subclass');
+            ).rejects.toThrow(
+                'Method updateExecutionMetrics must be implemented by subclass'
+            );
         });
 
         it('should throw error when appendExecutionLog is not implemented', async () => {
@@ -83,13 +105,17 @@ describe('ScriptExecutionRepositoryInterface', () => {
                     data: {},
                     timestamp: new Date().toISOString(),
                 })
-            ).rejects.toThrow('Method appendExecutionLog must be implemented by subclass');
+            ).rejects.toThrow(
+                'Method appendExecutionLog must be implemented by subclass'
+            );
         });
 
         it('should throw error when deleteExecutionsOlderThan is not implemented', async () => {
             await expect(
                 repository.deleteExecutionsOlderThan(new Date('2024-01-01'))
-            ).rejects.toThrow('Method deleteExecutionsOlderThan must be implemented by subclass');
+            ).rejects.toThrow(
+                'Method deleteExecutionsOlderThan must be implemented by subclass'
+            );
         });
     });
 
@@ -143,7 +169,9 @@ describe('ScriptExecutionRepositoryInterface', () => {
 
         it('should accept id and output in updateExecutionOutput', async () => {
             await expect(
-                repository.updateExecutionOutput('exec123', { result: 'success' })
+                repository.updateExecutionOutput('exec123', {
+                    result: 'success',
+                })
             ).rejects.toThrow();
         });
 

@@ -1,7 +1,16 @@
 import React, { useState, useEffect } from 'react'
-import { RefreshCw, Trash2, TestTube, AlertCircle, CheckCircle, XCircle } from 'lucide-react'
+import { RefreshCw, Trash2, TestTube, AlertCircle, CheckCircle, XCircle, Plus, ChevronDown } from 'lucide-react'
 import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
+import { Input } from '../ui/input'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu'
 import api from '../../../infrastructure/http/api-client.js'
 
 /**
@@ -11,6 +20,7 @@ import api from '../../../infrastructure/http/api-client.js'
  *
  * Features:
  * - List all global entities
+ * - Create new global entities via OAuth or form flow
  * - Test entity connections
  * - Delete entities
  *
@@ -23,9 +33,34 @@ const GlobalEntityManagement = () => {
   const [testingEntityId, setTestingEntityId] = useState(null)
   const [testResults, setTestResults] = useState({}) // Store test results by entity ID
 
+  // Create entity state
+  const [availableModules, setAvailableModules] = useState([])
+  const [selectedModule, setSelectedModule] = useState(null)
+  const [authRequirements, setAuthRequirements] = useState(null)
+  const [loadingAuthReqs, setLoadingAuthReqs] = useState(false)
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [formData, setFormData] = useState({})
+  const [creatingEntity, setCreatingEntity] = useState(false)
+
   useEffect(() => {
     loadEntities()
+    loadAvailableModules()
   }, [])
+
+  const loadAvailableModules = async () => {
+    try {
+      // Use admin proxy to get available integrations/modules
+      const response = await api.get('/api/frigg-app/admin/available-modules')
+
+      if (response.data?.success && response.data?.modules) {
+        setAvailableModules(response.data.modules)
+      }
+    } catch (err) {
+      console.error('Failed to load available modules:', err)
+      // Fallback: Try to extract from app definition if available
+      // This would require the app definition to be passed down or fetched
+    }
+  }
 
   const loadEntities = async () => {
     try {
@@ -97,6 +132,85 @@ const GlobalEntityManagement = () => {
     }
   }
 
+  const handleModuleSelect = async (module) => {
+    setSelectedModule(module)
+    setAuthRequirements(null)
+    setFormData({})
+    setShowCreateForm(true)
+
+    try {
+      setLoadingAuthReqs(true)
+      const response = await api.get('/api/frigg-app/admin/auth-requirements', {
+        params: {
+          entityType: module.name,
+          isGlobal: true
+        }
+      })
+
+      if (response.data?.success) {
+        setAuthRequirements(response.data.requirements)
+      } else {
+        setError(response.data?.error || 'Failed to get auth requirements')
+      }
+    } catch (err) {
+      console.error('Failed to get auth requirements:', err)
+      setError(`Failed to get auth requirements: ${err.response?.data?.error || err.message}`)
+    } finally {
+      setLoadingAuthReqs(false)
+    }
+  }
+
+  const handleFormInputChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
+
+  const handleFormSubmit = async (e) => {
+    e.preventDefault()
+
+    try {
+      setCreatingEntity(true)
+      setError(null)
+
+      const response = await api.post('/api/frigg-app/admin/global-entities', {
+        type: selectedModule.name,
+        credentials: formData
+      })
+
+      if (response.data?.success) {
+        alert(`Global entity created successfully`)
+        setShowCreateForm(false)
+        setSelectedModule(null)
+        setAuthRequirements(null)
+        setFormData({})
+        loadEntities() // Refresh list
+      } else {
+        setError(response.data?.error || 'Failed to create entity')
+      }
+    } catch (err) {
+      console.error('Failed to create entity:', err)
+      setError(`Failed to create entity: ${err.response?.data?.error || err.message}`)
+    } finally {
+      setCreatingEntity(false)
+    }
+  }
+
+  const handleOAuthRedirect = () => {
+    if (authRequirements?.url) {
+      const urlWithGlobal = `${authRequirements.url}${authRequirements.url.includes('?') ? '&' : '?'}isGlobal=true`
+      window.location.href = urlWithGlobal
+    }
+  }
+
+  const handleCancelCreate = () => {
+    setShowCreateForm(false)
+    setSelectedModule(null)
+    setAuthRequirements(null)
+    setFormData({})
+  }
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'connected':
@@ -137,18 +251,131 @@ const GlobalEntityManagement = () => {
         </div>
       </div>
 
-      {/* Info message about creating entities */}
-      <Card className="bg-muted/50 border-muted">
-        <div className="flex items-start gap-3 p-4">
-          <AlertCircle className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-          <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">
-              To create a new global entity, use the User View and connect a new account.
-              Global entities are created through the same flow as user-level entities.
+      {/* Create new global entity section */}
+      {!showCreateForm ? (
+        <Card>
+          <div className="p-4">
+            <h4 className="font-medium mb-3">Create Global Entity</h4>
+            <p className="text-sm text-muted-foreground mb-4">
+              Global entities are app owner-level shared accounts that can be used across all user integrations.
             </p>
+
+            {availableModules.length === 0 ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <LoadingSpinner size="sm" />
+                Loading available modules...
+              </div>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Plus className="w-4 h-4" />
+                    Select Module
+                    <ChevronDown className="w-3 h-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-64">
+                  <DropdownMenuLabel>Available Modules</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {availableModules.map((module) => (
+                    <DropdownMenuItem
+                      key={module.name}
+                      onClick={() => handleModuleSelect(module)}
+                      className="flex flex-col items-start gap-0.5 cursor-pointer"
+                    >
+                      <span className="font-medium">{module.display?.name || module.name}</span>
+                      {module.display?.description && (
+                        <span className="text-xs text-muted-foreground">
+                          {module.display.description}
+                        </span>
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
-        </div>
-      </Card>
+        </Card>
+      ) : (
+        <Card>
+          <div className="p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium">
+                Create {selectedModule?.display?.name || selectedModule?.name} Global Entity
+              </h4>
+              <Button
+                onClick={handleCancelCreate}
+                variant="ghost"
+                size="sm"
+                disabled={creatingEntity}
+              >
+                Cancel
+              </Button>
+            </div>
+
+            {loadingAuthReqs ? (
+              <div className="flex items-center gap-2 py-8 justify-center text-sm text-muted-foreground">
+                <LoadingSpinner size="sm" />
+                Loading authentication requirements...
+              </div>
+            ) : authRequirements?.type === 'oauth' ? (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  This module requires OAuth authentication. Click the button below to start the authorization flow.
+                </p>
+                <Button onClick={handleOAuthRedirect} disabled={!authRequirements.url}>
+                  Connect via OAuth
+                </Button>
+              </div>
+            ) : authRequirements?.type === 'form' ? (
+              <form onSubmit={handleFormSubmit} className="space-y-4">
+                {authRequirements.jsonSchema?.properties && (
+                  <div className="space-y-3">
+                    {Object.entries(authRequirements.jsonSchema.properties).map(([field, schema]) => (
+                      <div key={field} className="space-y-1">
+                        <label htmlFor={field} className="text-sm font-medium">
+                          {schema.title || field}
+                          {authRequirements.jsonSchema.required?.includes(field) && (
+                            <span className="text-destructive ml-1">*</span>
+                          )}
+                        </label>
+                        {schema.description && (
+                          <p className="text-xs text-muted-foreground">{schema.description}</p>
+                        )}
+                        <Input
+                          id={field}
+                          type={schema.type === 'string' && schema.format === 'password' ? 'password' : 'text'}
+                          placeholder={schema.placeholder || schema.title || field}
+                          value={formData[field] || ''}
+                          onChange={(e) => handleFormInputChange(field, e.target.value)}
+                          required={authRequirements.jsonSchema.required?.includes(field)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2 pt-2">
+                  <Button type="submit" disabled={creatingEntity}>
+                    {creatingEntity ? (
+                      <>
+                        <LoadingSpinner size="sm" />
+                        Creating...
+                      </>
+                    ) : (
+                      'Create Global Entity'
+                    )}
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <div className="text-sm text-muted-foreground py-4">
+                Unable to load authentication requirements. Please try again.
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* Error message */}
       {error && (
@@ -167,7 +394,7 @@ const GlobalEntityManagement = () => {
       ) : entities.length === 0 ? (
         <Card>
           <div className="p-8 text-center text-muted-foreground">
-            No global entities yet. Switch to User View to create one.
+            No global entities yet. Use the Create Global Entity section above to add one.
           </div>
         </Card>
       ) : (

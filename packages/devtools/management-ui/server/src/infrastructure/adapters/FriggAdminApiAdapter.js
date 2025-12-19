@@ -193,6 +193,36 @@ export class FriggAdminApiAdapter {
     return this._friggAppAdapter.makeRequest('POST', `/api/admin/entities/${entityId}/test`)
   }
 
+  /**
+   * Get available modules/integrations
+   * @returns {Promise<object>} Modules list
+   */
+  async getAvailableModules() {
+    this._requireConnection()
+
+    // Get from integrations options endpoint
+    const result = await this._friggAppAdapter.makeRequest('GET', '/api/v2/integrations/options')
+    return { modules: result.integrations || [] }
+  }
+
+  /**
+   * Get authorization requirements for a module
+   * @param {string} entityType - Module/entity type
+   * @param {object} [options] - Options
+   * @param {boolean} [options.isGlobal] - Whether this is for a global entity
+   * @returns {Promise<object>} Authorization requirements (oauth or form)
+   */
+  async getAuthRequirements(entityType, options = {}) {
+    this._requireConnection()
+
+    const params = { entityType }
+    if (options.isGlobal) {
+      params.isGlobal = 'true'
+    }
+
+    return this._friggAppAdapter.makeRequest('GET', '/api/authorize', { params })
+  }
+
   // ============================================
   // Connection & Status
   // ============================================

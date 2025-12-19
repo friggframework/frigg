@@ -21,25 +21,25 @@ describe('ProcessAuthorizationStepUseCase', () => {
             expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             completed: false,
             isExpired: jest.fn().mockReturnValue(false),
-            advanceStep: jest.fn(function(data) {
+            advanceStep: jest.fn(function (data) {
                 this.currentStep += 1;
                 this.stepData = { ...this.stepData, ...data };
             }),
-            markComplete: jest.fn(function() {
+            markComplete: jest.fn(function () {
                 this.completed = true;
-            })
+            }),
         };
 
         // Mock repository
         mockRepository = {
             findBySessionId: jest.fn(),
-            update: jest.fn()
+            update: jest.fn(),
         };
 
         // Mock module definitions
         const mockNagarisDefinition = {
             processAuthorizationStep: jest.fn(),
-            getAuthRequirementsForStep: jest.fn()
+            getAuthRequirementsForStep: jest.fn(),
         };
 
         const mockNagarisApi = jest.fn();
@@ -48,8 +48,8 @@ describe('ProcessAuthorizationStepUseCase', () => {
             {
                 moduleName: 'nagaris',
                 definition: mockNagarisDefinition,
-                apiClass: mockNagarisApi
-            }
+                apiClass: mockNagarisApi,
+            },
         ];
 
         // Mock use case
@@ -60,10 +60,13 @@ describe('ProcessAuthorizationStepUseCase', () => {
             }
 
             async execute(sessionId, userId, step, stepData) {
-                const session = await this.authSessionRepository.findBySessionId(sessionId);
+                const session =
+                    await this.authSessionRepository.findBySessionId(sessionId);
 
                 if (!session) {
-                    throw new Error('Authorization session not found or expired');
+                    throw new Error(
+                        'Authorization session not found or expired'
+                    );
                 }
 
                 if (session.userId !== userId) {
@@ -76,16 +79,20 @@ describe('ProcessAuthorizationStepUseCase', () => {
 
                 if (session.currentStep + 1 !== step && step !== 1) {
                     throw new Error(
-                        `Expected step ${session.currentStep + 1}, received step ${step}`
+                        `Expected step ${
+                            session.currentStep + 1
+                        }, received step ${step}`
                     );
                 }
 
                 const moduleDefinition = this.moduleDefinitions.find(
-                    def => def.moduleName === session.entityType
+                    (def) => def.moduleName === session.entityType
                 );
 
                 if (!moduleDefinition) {
-                    throw new Error(`Module definition not found: ${session.entityType}`);
+                    throw new Error(
+                        `Module definition not found: ${session.entityType}`
+                    );
                 }
 
                 const ModuleDefinition = moduleDefinition.definition;
@@ -106,30 +113,31 @@ describe('ProcessAuthorizationStepUseCase', () => {
                     return {
                         completed: true,
                         authData: result.authData,
-                        sessionId
+                        sessionId,
                     };
                 }
 
                 session.advanceStep(result.stepData || {});
                 await this.authSessionRepository.update(session);
 
-                const nextRequirements = await ModuleDefinition.getAuthRequirementsForStep(
-                    result.nextStep
-                );
+                const nextRequirements =
+                    await ModuleDefinition.getAuthRequirementsForStep(
+                        result.nextStep
+                    );
 
                 return {
                     nextStep: result.nextStep,
                     totalSteps: session.maxSteps,
                     sessionId,
                     requirements: nextRequirements,
-                    message: result.message
+                    message: result.message,
                 };
             }
         }
 
         useCase = new ProcessAuthorizationStepUseCase({
             authSessionRepository: mockRepository,
-            moduleDefinitions: mockModuleDefinitions
+            moduleDefinitions: mockModuleDefinitions,
         });
     });
 
@@ -175,13 +183,15 @@ describe('ProcessAuthorizationStepUseCase', () => {
             const mockDefinition = mockModuleDefinitions[0].definition;
             mockDefinition.processAuthorizationStep.mockResolvedValue({
                 nextStep: 2,
-                stepData: { email: 'test@example.com' }
+                stepData: { email: 'test@example.com' },
             });
             mockDefinition.getAuthRequirementsForStep.mockResolvedValue({
-                type: 'otp'
+                type: 'otp',
             });
 
-            await useCase.execute('test-session-123', 'user-123', 1, { email: 'test@example.com' });
+            await useCase.execute('test-session-123', 'user-123', 1, {
+                email: 'test@example.com',
+            });
 
             expect(mockDefinition.processAuthorizationStep).toHaveBeenCalled();
         });
@@ -204,16 +214,18 @@ describe('ProcessAuthorizationStepUseCase', () => {
             const mockDefinition = mockModuleDefinitions[0].definition;
             mockDefinition.processAuthorizationStep.mockResolvedValue({
                 nextStep: 2,
-                stepData: { email: 'test@example.com' }
+                stepData: { email: 'test@example.com' },
             });
             mockDefinition.getAuthRequirementsForStep.mockResolvedValue({
-                type: 'otp'
+                type: 'otp',
             });
 
             const stepData = { email: 'test@example.com' };
             await useCase.execute('test-session-123', 'user-123', 1, stepData);
 
-            expect(mockDefinition.processAuthorizationStep).toHaveBeenCalledWith(
+            expect(
+                mockDefinition.processAuthorizationStep
+            ).toHaveBeenCalledWith(
                 expect.any(Object), // API instance
                 1,
                 stepData,
@@ -231,7 +243,7 @@ describe('ProcessAuthorizationStepUseCase', () => {
             const mockDefinition = mockModuleDefinitions[0].definition;
             mockDefinition.processAuthorizationStep.mockResolvedValue({
                 nextStep: 2,
-                stepData: {}
+                stepData: {},
             });
             mockDefinition.getAuthRequirementsForStep.mockResolvedValue({});
 
@@ -249,11 +261,11 @@ describe('ProcessAuthorizationStepUseCase', () => {
             const mockDefinition = mockModuleDefinitions[0].definition;
             mockDefinition.processAuthorizationStep.mockResolvedValue({
                 nextStep: 2,
-                stepData: { email: 'test@example.com' }
+                stepData: { email: 'test@example.com' },
             });
             mockDefinition.getAuthRequirementsForStep.mockResolvedValue({
                 type: 'otp',
-                data: { jsonSchema: {} }
+                data: { jsonSchema: {} },
             });
 
             const result = await useCase.execute(
@@ -264,7 +276,7 @@ describe('ProcessAuthorizationStepUseCase', () => {
             );
 
             expect(mockSession.advanceStep).toHaveBeenCalledWith({
-                email: 'test@example.com'
+                email: 'test@example.com',
             });
             expect(mockRepository.update).toHaveBeenCalledWith(mockSession);
             expect(result).toEqual({
@@ -272,7 +284,7 @@ describe('ProcessAuthorizationStepUseCase', () => {
                 totalSteps: 2,
                 sessionId: 'test-session-123',
                 requirements: { type: 'otp', data: { jsonSchema: {} } },
-                message: undefined
+                message: undefined,
             });
         });
 
@@ -284,10 +296,10 @@ describe('ProcessAuthorizationStepUseCase', () => {
             mockDefinition.processAuthorizationStep.mockResolvedValue({
                 nextStep: 2,
                 stepData: { email: 'test@example.com' },
-                message: 'OTP sent to your email'
+                message: 'OTP sent to your email',
             });
             mockDefinition.getAuthRequirementsForStep.mockResolvedValue({
-                type: 'otp'
+                type: 'otp',
             });
 
             const result = await useCase.execute(
@@ -308,13 +320,17 @@ describe('ProcessAuthorizationStepUseCase', () => {
             const mockDefinition = mockModuleDefinitions[0].definition;
             mockDefinition.processAuthorizationStep.mockResolvedValue({
                 nextStep: 3,
-                stepData: { otp: '123456' }
+                stepData: { otp: '123456' },
             });
             mockDefinition.getAuthRequirementsForStep.mockResolvedValue({});
 
-            await useCase.execute('test-session-123', 'user-123', 2, { otp: '123456' });
+            await useCase.execute('test-session-123', 'user-123', 2, {
+                otp: '123456',
+            });
 
-            expect(mockSession.advanceStep).toHaveBeenCalledWith({ otp: '123456' });
+            expect(mockSession.advanceStep).toHaveBeenCalledWith({
+                otp: '123456',
+            });
         });
 
         it('should pass accumulated stepData to module', async () => {
@@ -326,12 +342,16 @@ describe('ProcessAuthorizationStepUseCase', () => {
             const mockDefinition = mockModuleDefinitions[0].definition;
             mockDefinition.processAuthorizationStep.mockResolvedValue({
                 completed: true,
-                authData: {}
+                authData: {},
             });
 
-            await useCase.execute('test-session-123', 'user-123', 3, { otp: '123456' });
+            await useCase.execute('test-session-123', 'user-123', 3, {
+                otp: '123456',
+            });
 
-            expect(mockDefinition.processAuthorizationStep).toHaveBeenCalledWith(
+            expect(
+                mockDefinition.processAuthorizationStep
+            ).toHaveBeenCalledWith(
                 expect.any(Object),
                 3,
                 { otp: '123456' },
@@ -348,7 +368,7 @@ describe('ProcessAuthorizationStepUseCase', () => {
             const mockDefinition = mockModuleDefinitions[0].definition;
             mockDefinition.processAuthorizationStep.mockResolvedValue({
                 completed: true,
-                authData: { access_token: 'token123' }
+                authData: { access_token: 'token123' },
             });
 
             await useCase.execute('test-session-123', 'user-123', 1, {});
@@ -364,21 +384,26 @@ describe('ProcessAuthorizationStepUseCase', () => {
             const authData = {
                 access_token: 'token123',
                 refresh_token: 'refresh456',
-                user: { id: '789', email: 'test@example.com' }
+                user: { id: '789', email: 'test@example.com' },
             };
 
             const mockDefinition = mockModuleDefinitions[0].definition;
             mockDefinition.processAuthorizationStep.mockResolvedValue({
                 completed: true,
-                authData
+                authData,
             });
 
-            const result = await useCase.execute('test-session-123', 'user-123', 1, {});
+            const result = await useCase.execute(
+                'test-session-123',
+                'user-123',
+                1,
+                {}
+            );
 
             expect(result).toEqual({
                 completed: true,
                 authData,
-                sessionId: 'test-session-123'
+                sessionId: 'test-session-123',
             });
         });
 
@@ -389,12 +414,14 @@ describe('ProcessAuthorizationStepUseCase', () => {
             const mockDefinition = mockModuleDefinitions[0].definition;
             mockDefinition.processAuthorizationStep.mockResolvedValue({
                 completed: true,
-                authData: {}
+                authData: {},
             });
 
             await useCase.execute('test-session-123', 'user-123', 1, {});
 
-            expect(mockDefinition.getAuthRequirementsForStep).not.toHaveBeenCalled();
+            expect(
+                mockDefinition.getAuthRequirementsForStep
+            ).not.toHaveBeenCalled();
         });
     });
 
@@ -429,7 +456,7 @@ describe('ProcessAuthorizationStepUseCase', () => {
             const mockDefinition = mockModuleDefinitions[0].definition;
             mockDefinition.processAuthorizationStep.mockResolvedValue({
                 nextStep: 2,
-                stepData: {}
+                stepData: {},
             });
 
             await expect(
@@ -444,7 +471,7 @@ describe('ProcessAuthorizationStepUseCase', () => {
             const mockDefinition = mockModuleDefinitions[0].definition;
             mockDefinition.processAuthorizationStep.mockResolvedValue({
                 nextStep: 2,
-                stepData: {}
+                stepData: {},
             });
             mockDefinition.getAuthRequirementsForStep.mockRejectedValue(
                 new Error('Step not defined')
@@ -465,10 +492,10 @@ describe('ProcessAuthorizationStepUseCase', () => {
             const mockDefinition = mockModuleDefinitions[0].definition;
             mockDefinition.processAuthorizationStep.mockResolvedValue({
                 nextStep: 2,
-                stepData: { email: 'test@example.com' }
+                stepData: { email: 'test@example.com' },
             });
             mockDefinition.getAuthRequirementsForStep.mockResolvedValue({
-                type: 'otp'
+                type: 'otp',
             });
 
             const step1Result = await useCase.execute(
@@ -486,7 +513,7 @@ describe('ProcessAuthorizationStepUseCase', () => {
             mockSession.stepData = { email: 'test@example.com' };
             mockDefinition.processAuthorizationStep.mockResolvedValue({
                 completed: true,
-                authData: { access_token: 'token123' }
+                authData: { access_token: 'token123' },
             });
 
             const step2Result = await useCase.execute(
@@ -510,11 +537,16 @@ describe('ProcessAuthorizationStepUseCase', () => {
             // Step 1
             mockDefinition.processAuthorizationStep.mockResolvedValue({
                 nextStep: 2,
-                stepData: { email: 'test@example.com' }
+                stepData: { email: 'test@example.com' },
             });
             mockDefinition.getAuthRequirementsForStep.mockResolvedValue({});
 
-            const step1 = await useCase.execute('test-session-123', 'user-123', 1, {});
+            const step1 = await useCase.execute(
+                'test-session-123',
+                'user-123',
+                1,
+                {}
+            );
             expect(step1.nextStep).toBe(2);
             expect(step1.totalSteps).toBe(3);
 
@@ -522,20 +554,30 @@ describe('ProcessAuthorizationStepUseCase', () => {
             mockSession.currentStep = 2;
             mockDefinition.processAuthorizationStep.mockResolvedValue({
                 nextStep: 3,
-                stepData: { otp: '123456' }
+                stepData: { otp: '123456' },
             });
 
-            const step2 = await useCase.execute('test-session-123', 'user-123', 3, {});
+            const step2 = await useCase.execute(
+                'test-session-123',
+                'user-123',
+                3,
+                {}
+            );
             expect(step2.nextStep).toBe(3);
 
             // Step 3
             mockSession.currentStep = 3;
             mockDefinition.processAuthorizationStep.mockResolvedValue({
                 completed: true,
-                authData: {}
+                authData: {},
             });
 
-            const step3 = await useCase.execute('test-session-123', 'user-123', 4, {});
+            const step3 = await useCase.execute(
+                'test-session-123',
+                'user-123',
+                4,
+                {}
+            );
             expect(step3.completed).toBe(true);
         });
     });
@@ -548,11 +590,16 @@ describe('ProcessAuthorizationStepUseCase', () => {
             const mockDefinition = mockModuleDefinitions[0].definition;
             mockDefinition.processAuthorizationStep.mockResolvedValue({
                 nextStep: 2,
-                stepData: undefined
+                stepData: undefined,
             });
             mockDefinition.getAuthRequirementsForStep.mockResolvedValue({});
 
-            const result = await useCase.execute('test-session-123', 'user-123', 1, {});
+            const result = await useCase.execute(
+                'test-session-123',
+                'user-123',
+                1,
+                {}
+            );
 
             expect(mockSession.advanceStep).toHaveBeenCalledWith({});
         });
@@ -564,11 +611,16 @@ describe('ProcessAuthorizationStepUseCase', () => {
             const mockDefinition = mockModuleDefinitions[0].definition;
             mockDefinition.processAuthorizationStep.mockResolvedValue({
                 nextStep: 2,
-                stepData: {}
+                stepData: {},
             });
             mockDefinition.getAuthRequirementsForStep.mockResolvedValue({});
 
-            const result = await useCase.execute('test-session-123', 'user-123', 1, {});
+            const result = await useCase.execute(
+                'test-session-123',
+                'user-123',
+                1,
+                {}
+            );
 
             expect(result.message).toBeUndefined();
         });
@@ -579,19 +631,26 @@ describe('ProcessAuthorizationStepUseCase', () => {
 
             const specialData = {
                 email: 'test+special@example.com',
-                domain: 'example.co.uk'
+                domain: 'example.co.uk',
             };
 
             const mockDefinition = mockModuleDefinitions[0].definition;
             mockDefinition.processAuthorizationStep.mockResolvedValue({
                 nextStep: 2,
-                stepData: specialData
+                stepData: specialData,
             });
             mockDefinition.getAuthRequirementsForStep.mockResolvedValue({});
 
-            await useCase.execute('test-session-123', 'user-123', 1, specialData);
+            await useCase.execute(
+                'test-session-123',
+                'user-123',
+                1,
+                specialData
+            );
 
-            expect(mockDefinition.processAuthorizationStep).toHaveBeenCalledWith(
+            expect(
+                mockDefinition.processAuthorizationStep
+            ).toHaveBeenCalledWith(
                 expect.any(Object),
                 1,
                 specialData,

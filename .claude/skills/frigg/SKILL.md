@@ -316,7 +316,7 @@ class QuoApi extends ApiKeyRequester {
 ### Project Setup
 
 ```bash
-npx create-frigg-app my-integration
+frigg init my-integration
 cd my-integration
 npm install
 ```

@@ -24,9 +24,7 @@ class Options {
 
     get() {
         // Extract module names from the modules object to determine required entities
-        const requiredEntities = this.modules
-            ? Object.keys(this.modules)
-            : [];
+        const requiredEntities = this.modules ? Object.keys(this.modules) : [];
 
         // Get module type name - handle both getName() method and moduleName property
         const moduleType = this._getModuleTypeName();

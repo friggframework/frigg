@@ -188,6 +188,29 @@ export class FriggAppController {
     })
   }
 
+  async getAvailableModules(req, res) {
+    try {
+      const result = await this._adminApiAdapter.getAvailableModules()
+      return res.json({ success: true, modules: result.modules || [] })
+    } catch (error) {
+      return res.status(500).json({ success: false, error: error.message })
+    }
+  }
+
+  async getAuthRequirements(req, res) {
+    try {
+      const { entityType, isGlobal } = req.query
+      if (!entityType) {
+        return res.status(400).json({ success: false, error: 'entityType is required' })
+      }
+
+      const result = await this._adminApiAdapter.getAuthRequirements(entityType, { isGlobal: isGlobal === 'true' })
+      return res.json({ success: true, requirements: result })
+    } catch (error) {
+      return res.status(500).json({ success: false, error: error.message })
+    }
+  }
+
   async proxySharedSecret(req, res) {
     const { appUserId, appOrgId, repositoryPath, friggAppUrl } = req.body
     const method = req.body.method || req.method

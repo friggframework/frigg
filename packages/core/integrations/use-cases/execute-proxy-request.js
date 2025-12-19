@@ -20,7 +20,12 @@ class ExecuteProxyRequest {
      * @param {import('../../modules/module-factory').ModuleFactory} params.moduleFactory - Factory for creating module instances
      * @param {Array} params.moduleDefinitions - Array of module definitions
      */
-    constructor({ moduleRepository, credentialRepository, moduleFactory, moduleDefinitions }) {
+    constructor({
+        moduleRepository,
+        credentialRepository,
+        moduleFactory,
+        moduleDefinitions,
+    }) {
         this.moduleRepository = moduleRepository;
         this.credentialRepository = credentialRepository;
         this.moduleFactory = moduleFactory;
@@ -48,20 +53,28 @@ class ExecuteProxyRequest {
         this._validateProxyRequest(proxyRequest);
 
         // Load entity for user (validates ownership)
-        const entity = await this.moduleRepository.findByIdForUser(entityId, userId);
+        const entity = await this.moduleRepository.findByIdForUser(
+            entityId,
+            userId
+        );
 
         if (!entity) {
             throw Boom.notFound('Entity not found');
         }
 
         // Load credential
-        const credential = await this._loadAndValidateCredential(entity.credential);
+        const credential = await this._loadAndValidateCredential(
+            entity.credential
+        );
 
         // Get module instance with API client
         const moduleInstance = await this._getModuleInstance(entityId, userId);
 
         // Execute proxy request
-        return await this._executeProxyRequest(moduleInstance.api, proxyRequest);
+        return await this._executeProxyRequest(
+            moduleInstance.api,
+            proxyRequest
+        );
     }
 
     /**
@@ -77,7 +90,10 @@ class ExecuteProxyRequest {
         this._validateProxyRequest(proxyRequest);
 
         // Load credential for user (validates ownership)
-        const credential = await this.credentialRepository.findByIdForUser(credentialId, userId);
+        const credential = await this.credentialRepository.findByIdForUser(
+            credentialId,
+            userId
+        );
 
         if (!credential) {
             throw Boom.notFound('Credential not found');
@@ -87,10 +103,16 @@ class ExecuteProxyRequest {
         this._validateCredentialAuth(credential);
 
         // Get API instance for credential
-        const moduleInstance = await this._getModuleInstanceFromCredential(credential, userId);
+        const moduleInstance = await this._getModuleInstanceFromCredential(
+            credential,
+            userId
+        );
 
         // Execute proxy request
-        return await this._executeProxyRequest(moduleInstance.api, proxyRequest);
+        return await this._executeProxyRequest(
+            moduleInstance.api,
+            proxyRequest
+        );
     }
 
     /**
@@ -108,7 +130,9 @@ class ExecuteProxyRequest {
 
         if (!this.VALID_METHODS.includes(proxyRequest.method)) {
             throw Boom.badRequest(
-                `Invalid method. method must be one of: ${this.VALID_METHODS.join(', ')}`
+                `Invalid method. method must be one of: ${this.VALID_METHODS.join(
+                    ', '
+                )}`
             );
         }
 
@@ -117,7 +141,10 @@ class ExecuteProxyRequest {
             throw Boom.badRequest('Missing Parameter: path is required.');
         }
 
-        if (typeof proxyRequest.path !== 'string' || proxyRequest.path.trim() === '') {
+        if (
+            typeof proxyRequest.path !== 'string' ||
+            proxyRequest.path.trim() === ''
+        ) {
             throw Boom.badRequest('path must be a non-empty string');
         }
 
@@ -127,7 +154,10 @@ class ExecuteProxyRequest {
 
         // Validate query parameters (if provided)
         if (proxyRequest.query !== undefined && proxyRequest.query !== null) {
-            if (typeof proxyRequest.query !== 'object' || Array.isArray(proxyRequest.query)) {
+            if (
+                typeof proxyRequest.query !== 'object' ||
+                Array.isArray(proxyRequest.query)
+            ) {
                 throw Boom.badRequest('query must be an object');
             }
 
@@ -160,8 +190,14 @@ class ExecuteProxyRequest {
         }
 
         // Validate headers (if provided)
-        if (proxyRequest.headers !== undefined && proxyRequest.headers !== null) {
-            if (typeof proxyRequest.headers !== 'object' || Array.isArray(proxyRequest.headers)) {
+        if (
+            proxyRequest.headers !== undefined &&
+            proxyRequest.headers !== null
+        ) {
+            if (
+                typeof proxyRequest.headers !== 'object' ||
+                Array.isArray(proxyRequest.headers)
+            ) {
                 throw Boom.badRequest('headers must be an object');
             }
 
@@ -189,7 +225,9 @@ class ExecuteProxyRequest {
             throw Boom.badRequest('Entity has no credential associated');
         }
 
-        const credential = await this.credentialRepository.findById(credentialId);
+        const credential = await this.credentialRepository.findById(
+            credentialId
+        );
 
         if (!credential) {
             throw Boom.notFound('Credential not found');
@@ -235,10 +273,15 @@ class ExecuteProxyRequest {
      */
     async _getModuleInstance(entityId, userId) {
         try {
-            const moduleInstance = await this.moduleFactory.getModuleInstance(entityId, userId);
+            const moduleInstance = await this.moduleFactory.getModuleInstance(
+                entityId,
+                userId
+            );
 
             if (!moduleInstance || !moduleInstance.api) {
-                throw Boom.internal('Failed to initialize API client for entity');
+                throw Boom.internal(
+                    'Failed to initialize API client for entity'
+                );
             }
 
             return moduleInstance;
@@ -262,11 +305,13 @@ class ExecuteProxyRequest {
         try {
             // Find module definition for this credential type
             const moduleDefinition = this.moduleDefinitions.find(
-                def => def.moduleName === credential.type
+                (def) => def.moduleName === credential.type
             );
 
             if (!moduleDefinition) {
-                throw Boom.badRequest(`Unknown credential type: ${credential.type}`);
+                throw Boom.badRequest(
+                    `Unknown credential type: ${credential.type}`
+                );
             }
 
             // Create API instance directly from credential
@@ -278,7 +323,10 @@ class ExecuteProxyRequest {
             if (Boom.isBoom(error)) {
                 throw error;
             }
-            throw Boom.internal('Failed to initialize API client from credential', error);
+            throw Boom.internal(
+                'Failed to initialize API client from credential',
+                error
+            );
         }
     }
 
@@ -292,7 +340,11 @@ class ExecuteProxyRequest {
      * Sensitive headers that should be stripped from upstream responses
      * @private
      */
-    static SENSITIVE_RESPONSE_HEADERS = ['authorization', 'set-cookie', 'x-api-key'];
+    static SENSITIVE_RESPONSE_HEADERS = [
+        'authorization',
+        'set-cookie',
+        'x-api-key',
+    ];
 
     /**
      * Strip sensitive headers from request headers
@@ -304,7 +356,11 @@ class ExecuteProxyRequest {
         if (!headers) return {};
         const sanitized = { ...headers };
         for (const key of Object.keys(sanitized)) {
-            if (ExecuteProxyRequest.SENSITIVE_REQUEST_HEADERS.includes(key.toLowerCase())) {
+            if (
+                ExecuteProxyRequest.SENSITIVE_REQUEST_HEADERS.includes(
+                    key.toLowerCase()
+                )
+            ) {
                 delete sanitized[key];
             }
         }
@@ -321,7 +377,11 @@ class ExecuteProxyRequest {
         if (!headers) return {};
         const sanitized = { ...headers };
         for (const key of Object.keys(sanitized)) {
-            if (ExecuteProxyRequest.SENSITIVE_RESPONSE_HEADERS.includes(key.toLowerCase())) {
+            if (
+                ExecuteProxyRequest.SENSITIVE_RESPONSE_HEADERS.includes(
+                    key.toLowerCase()
+                )
+            ) {
                 delete sanitized[key];
             }
         }
@@ -339,7 +399,9 @@ class ExecuteProxyRequest {
     async _executeProxyRequest(apiClient, proxyRequest) {
         try {
             // Sanitize request headers (strip Authorization, etc.)
-            const sanitizedHeaders = this._sanitizeRequestHeaders(proxyRequest.headers);
+            const sanitizedHeaders = this._sanitizeRequestHeaders(
+                proxyRequest.headers
+            );
 
             // Make the upstream API request
             const upstreamResponse = await apiClient.request({
@@ -347,15 +409,17 @@ class ExecuteProxyRequest {
                 url: proxyRequest.path,
                 query: proxyRequest.query,
                 headers: sanitizedHeaders,
-                body: proxyRequest.body
+                body: proxyRequest.body,
             });
 
             // Return successful response with sanitized headers
             return {
                 success: true,
                 status: upstreamResponse.status,
-                headers: this._sanitizeResponseHeaders(upstreamResponse.headers),
-                data: upstreamResponse.data
+                headers: this._sanitizeResponseHeaders(
+                    upstreamResponse.headers
+                ),
+                data: upstreamResponse.data,
             };
         } catch (error) {
             // Map upstream errors to proxy error responses
@@ -376,17 +440,21 @@ class ExecuteProxyRequest {
         if (error.code === 'ETIMEDOUT' || error.type === 'request-timeout') {
             throw Boom.gatewayTimeout('Request to upstream API timed out', {
                 code: 'TIMEOUT',
-                details: null
+                details: null,
             });
         }
 
         // Check if this is a network error
-        if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || error.type === 'system') {
+        if (
+            error.code === 'ENOTFOUND' ||
+            error.code === 'ECONNREFUSED' ||
+            error.type === 'system'
+        ) {
             throw Boom.badGateway('Failed to connect to upstream API', {
                 code: 'NETWORK_ERROR',
                 details: {
-                    error: error.message
-                }
+                    error: error.message,
+                },
             });
         }
 
@@ -396,8 +464,8 @@ class ExecuteProxyRequest {
             throw Boom.internal('Unexpected error calling upstream API', {
                 code: 'UNKNOWN_ERROR',
                 details: {
-                    error: error.message
-                }
+                    error: error.message,
+                },
             });
         }
 
@@ -410,7 +478,10 @@ class ExecuteProxyRequest {
                 const isExpired =
                     data?.error === 'token_expired' ||
                     data?.error === 'expired_token' ||
-                    (data?.error_description && data.error_description.toLowerCase().includes('expired'));
+                    (data?.error_description &&
+                        data.error_description
+                            .toLowerCase()
+                            .includes('expired'));
 
                 const code = isExpired ? 'EXPIRED_TOKEN' : 'INVALID_AUTH';
                 const message = isExpired
@@ -423,58 +494,66 @@ class ExecuteProxyRequest {
                 boomError.data = {
                     code,
                     details: data,
-                    upstreamStatus: status
+                    upstreamStatus: status,
                 };
                 throw boomError;
             }
 
             case 403:
-                throw Boom.forbidden('Insufficient permissions for this operation', {
-                    code: 'PERMISSION_DENIED',
-                    details: data,
-                    upstreamStatus: status
-                });
+                throw Boom.forbidden(
+                    'Insufficient permissions for this operation',
+                    {
+                        code: 'PERMISSION_DENIED',
+                        details: data,
+                        upstreamStatus: status,
+                    }
+                );
 
             case 404:
                 throw Boom.notFound('Resource not found', {
                     code: 'NOT_FOUND',
                     details: data,
-                    upstreamStatus: status
+                    upstreamStatus: status,
                 });
 
             case 429:
                 throw Boom.tooManyRequests('Rate limit exceeded for this API', {
                     code: 'RATE_LIMITED',
                     details: data,
-                    upstreamStatus: status
+                    upstreamStatus: status,
                 });
 
             case 503:
-                throw Boom.serverUnavailable('Upstream service is unavailable', {
-                    code: 'SERVICE_UNAVAILABLE',
-                    details: data,
-                    upstreamStatus: status
-                });
+                throw Boom.serverUnavailable(
+                    'Upstream service is unavailable',
+                    {
+                        code: 'SERVICE_UNAVAILABLE',
+                        details: data,
+                        upstreamStatus: status,
+                    }
+                );
 
             default: {
                 // For all other errors (400, 500, etc.)
-                const boomError = status >= 500
-                    ? Boom.internal('Upstream API returned an error', {
-                        code: 'UPSTREAM_ERROR',
-                        details: data,
-                        upstreamStatus: status
-                    })
-                    : Boom.badRequest('Upstream API returned an error', {
-                        code: 'UPSTREAM_ERROR',
-                        details: data,
-                        upstreamStatus: status
-                    });
+                const boomError =
+                    status >= 500
+                        ? Boom.internal('Upstream API returned an error', {
+                              code: 'UPSTREAM_ERROR',
+                              details: data,
+                              upstreamStatus: status,
+                          })
+                        : Boom.badRequest('Upstream API returned an error', {
+                              code: 'UPSTREAM_ERROR',
+                              details: data,
+                              upstreamStatus: status,
+                          });
 
                 // Override status to match upstream
                 boomError.output.statusCode = status;
                 // For 5xx errors, Boom.internal uses a generic message, so override it
                 if (status >= 500) {
-                    boomError.output.payload.message = 'Upstream API returned an error';
+                    boomError.output.payload.message =
+                        'Upstream API returned an error';
                 }
                 throw boomError;
             }

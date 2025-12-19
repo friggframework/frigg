@@ -87,7 +87,9 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             return new Map();
         }
 
-        const validIds = credentialIds.filter(id => id !== null && id !== undefined);
+        const validIds = credentialIds.filter(
+            (id) => id !== null && id !== undefined
+        );
 
         if (validIds.length === 0) {
             return new Map();
@@ -154,7 +156,9 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             where: { userId: intUserId },
         });
 
-        const credentialIds = entities.map(e => e.credentialId).filter(Boolean);
+        const credentialIds = entities
+            .map((e) => e.credentialId)
+            .filter(Boolean);
         const credentialMap = await this._fetchCredentialsBulk(credentialIds);
 
         return entities.map((e) => ({
@@ -182,7 +186,9 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             where: { id: { in: intIds } },
         });
 
-        const credentialIds = entities.map(e => e.credentialId).filter(Boolean);
+        const credentialIds = entities
+            .map((e) => e.credentialId)
+            .filter(Boolean);
         const credentialMap = await this._fetchCredentialsBulk(credentialIds);
 
         return entities.map((e) => ({
@@ -214,7 +220,9 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             },
         });
 
-        const credentialIds = entities.map(e => e.credentialId).filter(Boolean);
+        const credentialIds = entities
+            .map((e) => e.credentialId)
+            .filter(Boolean);
         const credentialMap = await this._fetchCredentialsBulk(credentialIds);
 
         return entities.map((e) => ({
@@ -272,6 +280,7 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             name: entity.name,
             externalId: entity.externalId,
             moduleName: entity.moduleName,
+            isGlobal: entity.isGlobal,
         };
     }
 
@@ -298,6 +307,7 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             externalId: e.externalId,
             type: e.subType,
             moduleName: e.moduleName,
+            isGlobal: e.isGlobal,
         }));
     }
 
@@ -309,8 +319,10 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
      * @returns {Promise<Object>} Created entity object with string IDs
      */
     async createEntity(entityData) {
+        const isGlobal = entityData.isGlobal || false;
+
         const data = {
-            userId: this._convertId(entityData.user || entityData.userId),
+            userId: isGlobal ? null : this._convertId(entityData.user || entityData.userId),
             credentialId: this._convertId(
                 entityData.credential || entityData.credentialId
             ),
@@ -318,6 +330,7 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             moduleName: entityData.moduleName,
             externalId: entityData.externalId,
             accountId: entityData.accountId,
+            isGlobal,
         };
 
         const entity = await this.prisma.entity.create({
@@ -334,6 +347,7 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             name: entity.name,
             externalId: entity.externalId,
             moduleName: entity.moduleName,
+            isGlobal: entity.isGlobal,
         };
     }
 
@@ -443,7 +457,9 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             where.credentialId = this._convertId(filter.credentialId);
         if (filter.name) where.name = filter.name;
         if (filter.moduleName) where.moduleName = filter.moduleName;
-        if (filter.externalId) where.externalId = this._toString(filter.externalId);
+        if (filter.externalId)
+            where.externalId = this._toString(filter.externalId);
+        if (filter.isGlobal !== undefined) where.isGlobal = filter.isGlobal;
 
         return where;
     }

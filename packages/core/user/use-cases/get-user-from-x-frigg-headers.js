@@ -76,10 +76,11 @@ class GetUserFromXFriggHeaders {
                 }
 
                 // Auto-link the users
-                individualUserData = await this.userRepository.linkIndividualToOrganization(
-                    individualUserData.id,
-                    organizationUserData.id
-                );
+                individualUserData =
+                    await this.userRepository.linkIndividualToOrganization(
+                        individualUserData.id,
+                        organizationUserData.id
+                    );
             }
         }
 
@@ -89,12 +90,13 @@ class GetUserFromXFriggHeaders {
             appUserId &&
             this.userConfig.individualUserRequired !== false
         ) {
-            individualUserData =
-                await this.userRepository.createIndividualUser({
+            individualUserData = await this.userRepository.createIndividualUser(
+                {
                     appUserId,
                     username: `app-user-${appUserId}`,
                     email: `${appUserId}@app.local`,
-                });
+                }
+            );
         }
 
         if (
@@ -109,10 +111,11 @@ class GetUserFromXFriggHeaders {
 
             // Link individual user to newly created org user if individual exists
             if (individualUserData && organizationUserData) {
-                individualUserData = await this.userRepository.linkIndividualToOrganization(
-                    individualUserData.id,
-                    organizationUserData.id
-                );
+                individualUserData =
+                    await this.userRepository.linkIndividualToOrganization(
+                        individualUserData.id,
+                        organizationUserData.id
+                    );
             }
         }
 

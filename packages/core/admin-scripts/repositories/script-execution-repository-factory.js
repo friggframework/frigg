@@ -1,5 +1,9 @@
-const { ScriptExecutionRepositoryMongo } = require('./script-execution-repository-mongo');
-const { ScriptExecutionRepositoryPostgres } = require('./script-execution-repository-postgres');
+const {
+    ScriptExecutionRepositoryMongo,
+} = require('./script-execution-repository-mongo');
+const {
+    ScriptExecutionRepositoryPostgres,
+} = require('./script-execution-repository-postgres');
 const {
     ScriptExecutionRepositoryDocumentDB,
 } = require('./script-execution-repository-documentdb');

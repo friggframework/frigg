@@ -46,7 +46,10 @@ async function ensureCollectionExists(collectionName) {
             // This is expected in race conditions, silently continue
             return;
         }
-        console.warn(`Error ensuring collection ${collectionName} exists:`, error.message);
+        console.warn(
+            `Error ensuring collection ${collectionName} exists:`,
+            error.message
+        );
     }
 }
 
@@ -62,7 +65,9 @@ async function ensureCollectionExists(collectionName) {
  * ```
  */
 async function ensureCollectionsExist(collectionNames) {
-    await Promise.all(collectionNames.map(name => ensureCollectionExists(name)));
+    await Promise.all(
+        collectionNames.map((name) => ensureCollectionExists(name))
+    );
 }
 
 /**
@@ -79,7 +84,10 @@ async function collectionExists(collectionName) {
 
         return collections.length > 0;
     } catch (error) {
-        console.error(`Error checking if collection ${collectionName} exists:`, error.message);
+        console.error(
+            `Error checking if collection ${collectionName} exists:`,
+            error.message
+        );
         return false;
     }
 }

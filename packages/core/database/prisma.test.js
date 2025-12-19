@@ -23,7 +23,9 @@ describe('Prisma MongoDB Adapter', () => {
 
             ensureMongoDbUrl();
 
-            expect(process.env.DATABASE_URL).toBe('mongodb://localhost:27017/primary');
+            expect(process.env.DATABASE_URL).toBe(
+                'mongodb://localhost:27017/primary'
+            );
         });
 
         it('should set DATABASE_URL from MONGO_URI when DATABASE_URL is not set', () => {
@@ -32,7 +34,9 @@ describe('Prisma MongoDB Adapter', () => {
 
             ensureMongoDbUrl();
 
-            expect(process.env.DATABASE_URL).toBe('mongodb://localhost:27017/from-mongo-uri');
+            expect(process.env.DATABASE_URL).toBe(
+                'mongodb://localhost:27017/from-mongo-uri'
+            );
         });
 
         it('should throw error when neither DATABASE_URL nor MONGO_URI is set', () => {

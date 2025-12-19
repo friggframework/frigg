@@ -50,11 +50,13 @@ function loadAppDefinitionForDocs() {
  * @param {Array} options.sources - Array of spec sources for version selector
  * @param {string} options.title - Page title
  */
-function generateScalarHtml({ specUrl, sources, title = 'Frigg API Documentation' }) {
+function generateScalarHtml({
+    specUrl,
+    sources,
+    title = 'Frigg API Documentation',
+}) {
     // If sources provided, use multi-spec configuration
-    const config = sources
-        ? { sources }
-        : { url: specUrl };
+    const config = sources ? { sources } : { url: specUrl };
 
     return `<!DOCTYPE html>
 <html>
@@ -67,7 +69,9 @@ function generateScalarHtml({ specUrl, sources, title = 'Frigg API Documentation
     </style>
 </head>
 <body>
-    <script id="api-reference" data-configuration='${JSON.stringify(config)}'></script>
+    <script id="api-reference" data-configuration='${JSON.stringify(
+        config
+    )}'></script>
     <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
 </body>
 </html>`;

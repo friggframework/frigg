@@ -1,6 +1,9 @@
 const express = require('express');
 const request = require('supertest');
-const { createCredentialRouter, boomErrorHandler } = require('./credential-router');
+const {
+    createCredentialRouter,
+    boomErrorHandler,
+} = require('./credential-router');
 const Boom = require('@hapi/boom');
 
 // Mock dependencies
@@ -148,9 +151,9 @@ describe('Credential Router', () => {
                 externalId: mockCredential.externalId,
                 entityCount: mockCredential.entityCount,
             });
-            expect(mockCredentialRepository.findCredential).toHaveBeenCalledWith(
-                { userId: mockUserId }
-            );
+            expect(
+                mockCredentialRepository.findCredential
+            ).toHaveBeenCalledWith({ userId: mockUserId });
         });
 
         it('should return empty array when user has no credentials', async () => {
@@ -249,9 +252,9 @@ describe('Credential Router', () => {
                 externalId: mockCredential.externalId,
                 entityCount: mockCredential.entityCount,
             });
-            expect(mockCredentialRepository.findCredentialById).toHaveBeenCalledWith(
-                'cred-123'
-            );
+            expect(
+                mockCredentialRepository.findCredentialById
+            ).toHaveBeenCalledWith('cred-123');
         });
 
         it('should return 404 when credential does not exist', async () => {
@@ -481,7 +484,9 @@ describe('Credential Router', () => {
                     .fn()
                     .mockResolvedValue({ success: true }),
                 Credential: {
-                    findById: jest.fn().mockResolvedValue(mockCredentialInvalid),
+                    findById: jest
+                        .fn()
+                        .mockResolvedValue(mockCredentialInvalid),
                     findByIdAndUpdate: jest.fn().mockResolvedValue({
                         ...mockCredentialInvalid,
                         authIsValid: true,
@@ -528,7 +533,9 @@ describe('Credential Router', () => {
                     message: 'OTP sent to your email',
                 }),
                 Credential: {
-                    findById: jest.fn().mockResolvedValue(mockCredentialInvalid),
+                    findById: jest
+                        .fn()
+                        .mockResolvedValue(mockCredentialInvalid),
                 },
             };
             mockModuleRepository.findModuleById.mockResolvedValue(mockModule);
@@ -574,7 +581,9 @@ describe('Credential Router', () => {
                     .fn()
                     .mockResolvedValue({ success: true }),
                 Credential: {
-                    findById: jest.fn().mockResolvedValue(mockCredentialInvalid),
+                    findById: jest
+                        .fn()
+                        .mockResolvedValue(mockCredentialInvalid),
                     findByIdAndUpdate: jest.fn().mockResolvedValue({
                         ...mockCredentialInvalid,
                         authIsValid: true,
@@ -680,7 +689,9 @@ describe('Credential Router', () => {
                     .fn()
                     .mockRejectedValue(new Error('Invalid OAuth code')),
                 Credential: {
-                    findById: jest.fn().mockResolvedValue(mockCredentialInvalid),
+                    findById: jest
+                        .fn()
+                        .mockResolvedValue(mockCredentialInvalid),
                 },
             };
             mockModuleRepository.findModuleById.mockResolvedValue(mockModule);
@@ -710,7 +721,9 @@ describe('Credential Router', () => {
                     .fn()
                     .mockResolvedValue({ success: true }),
                 Credential: {
-                    findById: jest.fn().mockResolvedValue(mockCredentialInvalid),
+                    findById: jest
+                        .fn()
+                        .mockResolvedValue(mockCredentialInvalid),
                     findByIdAndUpdate: jest.fn().mockResolvedValue({
                         ...mockCredentialInvalid,
                         authIsValid: true,
@@ -765,7 +778,9 @@ describe('Credential Router', () => {
                     message: 'Successfully reauthorized',
                 }),
                 Credential: {
-                    findById: jest.fn().mockResolvedValue(mockCredentialInvalid),
+                    findById: jest
+                        .fn()
+                        .mockResolvedValue(mockCredentialInvalid),
                     findByIdAndUpdate: jest.fn().mockResolvedValue({
                         ...mockCredentialInvalid,
                         authIsValid: true,
@@ -939,7 +954,9 @@ describe('Credential Router', () => {
                     .fn()
                     .mockResolvedValue({ success: true }),
                 Credential: {
-                    findById: jest.fn().mockResolvedValue(mockCredentialInvalid),
+                    findById: jest
+                        .fn()
+                        .mockResolvedValue(mockCredentialInvalid),
                     findByIdAndUpdate: jest.fn().mockResolvedValue({
                         ...mockCredentialInvalid,
                         authIsValid: true,
@@ -978,7 +995,9 @@ describe('Credential Router', () => {
                     message: 'Enter OTP',
                 }),
                 Credential: {
-                    findById: jest.fn().mockResolvedValue(mockCredentialInvalid),
+                    findById: jest
+                        .fn()
+                        .mockResolvedValue(mockCredentialInvalid),
                 },
             };
             mockModuleRepository.findModuleById.mockResolvedValue(mockModule);

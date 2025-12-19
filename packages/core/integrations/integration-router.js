@@ -90,9 +90,7 @@ const {
 const {
     GetAuthorizationRequirementsUseCase,
 } = require('../modules/use-cases/get-authorization-requirements');
-const {
-    ExecuteProxyRequest,
-} = require('./use-cases/execute-proxy-request');
+const { ExecuteProxyRequest } = require('./use-cases/execute-proxy-request');
 
 function createIntegrationRouter() {
     const { integrations: integrationClasses, userConfig } =
@@ -129,8 +127,11 @@ function createIntegrationRouter() {
     });
 
     // Support both integration classes and direct module definitions (for testing)
-    const isModuleDefinitionFormat = integrationClasses && integrationClasses[0] &&
-        integrationClasses[0].moduleName && integrationClasses[0].definition;
+    const isModuleDefinitionFormat =
+        integrationClasses &&
+        integrationClasses[0] &&
+        integrationClasses[0].moduleName &&
+        integrationClasses[0].definition;
 
     const moduleFactory = new ModuleFactory({
         moduleRepository,
@@ -242,9 +243,10 @@ function createIntegrationRouter() {
         moduleDefinitions,
     });
 
-    const getAuthorizationRequirements = new GetAuthorizationRequirementsUseCase({
-        moduleDefinitions,
-    });
+    const getAuthorizationRequirements =
+        new GetAuthorizationRequirementsUseCase({
+            moduleDefinitions,
+        });
 
     const executeProxyRequest = new ExecuteProxyRequest({
         moduleRepository,
@@ -629,7 +631,10 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
         catchAsyncError(async (req, res) => {
             const user = await authenticateUser.execute(req);
             const userId = user.getId();
-            const params = checkRequiredParams(req.body, ['entities', 'config']);
+            const params = checkRequiredParams(req.body, [
+                'entities',
+                'config',
+            ]);
 
             get(params.config, 'type');
 
@@ -710,18 +715,24 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
     );
 
     // POST /api/v2/integrations/:integrationId/config/options/refresh (v2)
-    router.route('/api/v2/integrations/:integrationId/config/options/refresh').post(
-        catchAsyncError(async (req, res) => {
-            const user = await authenticateUser.execute(req);
-            const params = checkRequiredParams(req.params, ['integrationId']);
-            const integration = await getIntegrationInstance.execute(
-                params.integrationId,
-                user.getId()
-            );
+    router
+        .route('/api/v2/integrations/:integrationId/config/options/refresh')
+        .post(
+            catchAsyncError(async (req, res) => {
+                const user = await authenticateUser.execute(req);
+                const params = checkRequiredParams(req.params, [
+                    'integrationId',
+                ]);
+                const integration = await getIntegrationInstance.execute(
+                    params.integrationId,
+                    user.getId()
+                );
 
-            res.json(await integration.send('REFRESH_CONFIG_OPTIONS', req.body));
-        })
-    );
+                res.json(
+                    await integration.send('REFRESH_CONFIG_OPTIONS', req.body)
+                );
+            })
+        );
 
     // ALL /api/v2/integrations/:integrationId/actions - Get user actions (v2)
     router.route('/api/v2/integrations/:integrationId/actions').all(
@@ -737,48 +748,63 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
     );
 
     // ALL /api/v2/integrations/:integrationId/actions/:actionId/options (v2)
-    router.route('/api/v2/integrations/:integrationId/actions/:actionId/options').all(
-        catchAsyncError(async (req, res) => {
-            const user = await authenticateUser.execute(req);
-            const params = checkRequiredParams(req.params, ['integrationId', 'actionId']);
-            const integration = await getIntegrationInstance.execute(
-                params.integrationId,
-                user.getId()
-            );
+    router
+        .route('/api/v2/integrations/:integrationId/actions/:actionId/options')
+        .all(
+            catchAsyncError(async (req, res) => {
+                const user = await authenticateUser.execute(req);
+                const params = checkRequiredParams(req.params, [
+                    'integrationId',
+                    'actionId',
+                ]);
+                const integration = await getIntegrationInstance.execute(
+                    params.integrationId,
+                    user.getId()
+                );
 
-            res.json(
-                await integration.send('GET_USER_ACTION_OPTIONS', {
-                    actionId: params.actionId,
-                    data: req.body,
-                })
-            );
-        })
-    );
+                res.json(
+                    await integration.send('GET_USER_ACTION_OPTIONS', {
+                        actionId: params.actionId,
+                        data: req.body,
+                    })
+                );
+            })
+        );
 
     // POST /api/v2/integrations/:integrationId/actions/:actionId/options/refresh (v2)
-    router.route('/api/v2/integrations/:integrationId/actions/:actionId/options/refresh').post(
-        catchAsyncError(async (req, res) => {
-            const user = await authenticateUser.execute(req);
-            const params = checkRequiredParams(req.params, ['integrationId', 'actionId']);
-            const integration = await getIntegrationInstance.execute(
-                params.integrationId,
-                user.getId()
-            );
+    router
+        .route(
+            '/api/v2/integrations/:integrationId/actions/:actionId/options/refresh'
+        )
+        .post(
+            catchAsyncError(async (req, res) => {
+                const user = await authenticateUser.execute(req);
+                const params = checkRequiredParams(req.params, [
+                    'integrationId',
+                    'actionId',
+                ]);
+                const integration = await getIntegrationInstance.execute(
+                    params.integrationId,
+                    user.getId()
+                );
 
-            res.json(
-                await integration.send('REFRESH_USER_ACTION_OPTIONS', {
-                    actionId: params.actionId,
-                    data: req.body,
-                })
-            );
-        })
-    );
+                res.json(
+                    await integration.send('REFRESH_USER_ACTION_OPTIONS', {
+                        actionId: params.actionId,
+                        data: req.body,
+                    })
+                );
+            })
+        );
 
     // POST /api/v2/integrations/:integrationId/actions/:actionId - Execute action (v2)
     router.route('/api/v2/integrations/:integrationId/actions/:actionId').post(
         catchAsyncError(async (req, res) => {
             const user = await authenticateUser.execute(req);
-            const params = checkRequiredParams(req.params, ['integrationId', 'actionId']);
+            const params = checkRequiredParams(req.params, [
+                'integrationId',
+                'actionId',
+            ]);
             const integration = await getIntegrationInstance.execute(
                 params.integrationId,
                 user.getId()
@@ -900,6 +926,7 @@ function setEntityRoutes(router, authenticateUser, useCases) {
             ]);
             const step = parseInt(req.body.step || '1', 10);
             const sessionId = req.body.sessionId;
+            const isGlobal = req.body.isGlobal || false;
 
             // Find module definition to check step count
             const moduleDefinition = moduleDefinitions.find(
@@ -923,7 +950,8 @@ function setEntityRoutes(router, authenticateUser, useCases) {
                     await processAuthorizationCallback.execute(
                         userId,
                         params.entityType,
-                        params.data
+                        params.data,
+                        isGlobal
                     );
 
                 return res.json(entityDetails);
@@ -965,7 +993,8 @@ function setEntityRoutes(router, authenticateUser, useCases) {
                     await processAuthorizationCallback.execute(
                         userId,
                         params.entityType,
-                        result.authData
+                        result.authData,
+                        isGlobal
                     );
 
                 return res.json(entityDetails);
@@ -1081,9 +1110,7 @@ function setEntityRoutes(router, authenticateUser, useCases) {
             );
 
             if (!moduleDef) {
-                throw Boom.notFound(
-                    `Entity type '${typeName}' not found`
-                );
+                throw Boom.notFound(`Entity type '${typeName}' not found`);
             }
 
             const Definition = moduleDef.definition;
@@ -1140,9 +1167,7 @@ function setEntityRoutes(router, authenticateUser, useCases) {
             );
 
             if (!moduleDef) {
-                throw Boom.notFound(
-                    `Entity type '${typeName}' not found`
-                );
+                throw Boom.notFound(`Entity type '${typeName}' not found`);
             }
 
             const Definition = moduleDef.definition;
@@ -1316,7 +1341,9 @@ function setEntityRoutes(router, authenticateUser, useCases) {
 
             // Check ownership
             if (entity.userId.toString() !== userId) {
-                throw Boom.forbidden('User is not authorized to access this entity');
+                throw Boom.forbidden(
+                    'User is not authorized to access this entity'
+                );
             }
 
             // Get credential
@@ -1330,9 +1357,7 @@ function setEntityRoutes(router, authenticateUser, useCases) {
             );
 
             if (!moduleDef) {
-                throw Boom.badRequest(
-                    `Unknown entity type: ${entity.type}`
-                );
+                throw Boom.badRequest(`Unknown entity type: ${entity.type}`);
             }
 
             const Definition = moduleDef.definition;
@@ -1378,9 +1403,7 @@ function setEntityRoutes(router, authenticateUser, useCases) {
             } else {
                 // Multi-step reauthorization
                 if (step > 1 && !sessionId) {
-                    throw Boom.badRequest(
-                        'sessionId required for step > 1'
-                    );
+                    throw Boom.badRequest('sessionId required for step > 1');
                 }
 
                 let session;
@@ -1411,11 +1434,12 @@ function setEntityRoutes(router, authenticateUser, useCases) {
                 if (result.completed) {
                     // Final step - update credential and entity
                     try {
-                        const authResult = await processAuthorizationCallback.execute(
-                            userId,
-                            entity.type,
-                            result.authData
-                        );
+                        const authResult =
+                            await processAuthorizationCallback.execute(
+                                userId,
+                                entity.type,
+                                result.authData
+                            );
 
                         // Update entity status
                         await moduleRepository?.update({
@@ -1457,11 +1481,12 @@ function setEntityRoutes(router, authenticateUser, useCases) {
 
             try {
                 // Execute proxy request via entity
-                const proxyResponse = await executeProxyRequest.executeViaEntity(
-                    entityId,
-                    userId,
-                    req.body
-                );
+                const proxyResponse =
+                    await executeProxyRequest.executeViaEntity(
+                        entityId,
+                        userId,
+                        req.body
+                    );
 
                 // Return success response
                 res.status(200).json(proxyResponse);
@@ -1476,15 +1501,19 @@ function setEntityRoutes(router, authenticateUser, useCases) {
                         success: false,
                         status: statusCode,
                         error: {
-                            code: errorData.code || _getErrorCodeFromStatus(statusCode),
-                            message: error.output.payload.message || error.message,
-                            details: errorData.details || null
-                        }
+                            code:
+                                errorData.code ||
+                                _getErrorCodeFromStatus(statusCode),
+                            message:
+                                error.output.payload.message || error.message,
+                            details: errorData.details || null,
+                        },
                     };
 
                     // Add upstreamStatus if present
                     if (errorData.upstreamStatus) {
-                        errorResponse.error.upstreamStatus = errorData.upstreamStatus;
+                        errorResponse.error.upstreamStatus =
+                            errorData.upstreamStatus;
                     }
 
                     return res.status(statusCode).json(errorResponse);
@@ -1497,8 +1526,8 @@ function setEntityRoutes(router, authenticateUser, useCases) {
                     error: {
                         code: 'INTERNAL_ERROR',
                         message: 'An unexpected error occurred',
-                        details: null
-                    }
+                        details: null,
+                    },
                 });
             }
         })
@@ -1513,11 +1542,12 @@ function setEntityRoutes(router, authenticateUser, useCases) {
 
             try {
                 // Execute proxy request via credential
-                const proxyResponse = await executeProxyRequest.executeViaCredential(
-                    credentialId,
-                    userId,
-                    req.body
-                );
+                const proxyResponse =
+                    await executeProxyRequest.executeViaCredential(
+                        credentialId,
+                        userId,
+                        req.body
+                    );
 
                 // Return success response
                 res.status(200).json(proxyResponse);
@@ -1532,15 +1562,19 @@ function setEntityRoutes(router, authenticateUser, useCases) {
                         success: false,
                         status: statusCode,
                         error: {
-                            code: errorData.code || _getErrorCodeFromStatus(statusCode),
-                            message: error.output.payload.message || error.message,
-                            details: errorData.details || null
-                        }
+                            code:
+                                errorData.code ||
+                                _getErrorCodeFromStatus(statusCode),
+                            message:
+                                error.output.payload.message || error.message,
+                            details: errorData.details || null,
+                        },
                     };
 
                     // Add upstreamStatus if present
                     if (errorData.upstreamStatus) {
-                        errorResponse.error.upstreamStatus = errorData.upstreamStatus;
+                        errorResponse.error.upstreamStatus =
+                            errorData.upstreamStatus;
                     }
 
                     return res.status(statusCode).json(errorResponse);
@@ -1553,8 +1587,8 @@ function setEntityRoutes(router, authenticateUser, useCases) {
                     error: {
                         code: 'INTERNAL_ERROR',
                         message: 'An unexpected error occurred',
-                        details: null
-                    }
+                        details: null,
+                    },
                 });
             }
         })
@@ -1569,7 +1603,10 @@ function setEntityRoutes(router, authenticateUser, useCases) {
         catchAsyncError(async (req, res) => {
             const user = await authenticateUser.execute(req);
             const userId = user.getId();
-            const params = checkRequiredParams(req.body, ['entityType', 'data']);
+            const params = checkRequiredParams(req.body, [
+                'entityType',
+                'data',
+            ]);
             checkRequiredParams(req.body.data, ['credential_id']);
 
             const credential = await getCredentialForUser.execute(
@@ -1642,10 +1679,14 @@ function setEntityRoutes(router, authenticateUser, useCases) {
             );
 
             if (requirements.isMultiStep && step === 1 && !sessionId) {
-                const session = await startAuthorizationSession.execute(userId, params.entityType, {
-                    step: 1,
-                    totalSteps: requirements.totalSteps,
-                });
+                const session = await startAuthorizationSession.execute(
+                    userId,
+                    params.entityType,
+                    {
+                        step: 1,
+                        totalSteps: requirements.totalSteps,
+                    }
+                );
                 requirements.sessionId = session.id;
             } else if (sessionId) {
                 requirements.sessionId = sessionId;
@@ -1660,7 +1701,10 @@ function setEntityRoutes(router, authenticateUser, useCases) {
         catchAsyncError(async (req, res) => {
             const user = await authenticateUser.execute(req);
             const userId = user.getId();
-            const params = checkRequiredParams(req.body, ['entityType', 'data']);
+            const params = checkRequiredParams(req.body, [
+                'entityType',
+                'data',
+            ]);
             const step = parseInt(req.body.step || '1', 10);
             const sessionId = req.body.sessionId;
 
@@ -1700,7 +1744,10 @@ function setEntityRoutes(router, authenticateUser, useCases) {
         catchAsyncError(async (req, res) => {
             const user = await authenticateUser.execute(req);
             const userId = user.getId();
-            const params = checkRequiredParams(req.body, ['entityType', 'data']);
+            const params = checkRequiredParams(req.body, [
+                'entityType',
+                'data',
+            ]);
             checkRequiredParams(req.body.data, ['credential_id']);
 
             const credential = await getCredentialForUser.execute(
@@ -1736,24 +1783,30 @@ function setEntityRoutes(router, authenticateUser, useCases) {
                 const Definition = moduleDef.definition;
                 return {
                     type: moduleDef.moduleName,
-                    name: typeof Definition.getDisplayName === 'function'
-                        ? Definition.getDisplayName()
-                        : moduleDef.moduleName,
-                    description: typeof Definition.getDescription === 'function'
-                        ? Definition.getDescription()
-                        : undefined,
-                    authType: typeof Definition.getAuthType === 'function'
-                        ? Definition.getAuthType()
-                        : 'oauth2',
-                    isMultiStep: typeof Definition.getAuthStepCount === 'function'
-                        ? Definition.getAuthStepCount() > 1
-                        : false,
-                    stepCount: typeof Definition.getAuthStepCount === 'function'
-                        ? Definition.getAuthStepCount()
-                        : 1,
-                    capabilities: typeof Definition.getCapabilities === 'function'
-                        ? Definition.getCapabilities()
-                        : undefined,
+                    name:
+                        typeof Definition.getDisplayName === 'function'
+                            ? Definition.getDisplayName()
+                            : moduleDef.moduleName,
+                    description:
+                        typeof Definition.getDescription === 'function'
+                            ? Definition.getDescription()
+                            : undefined,
+                    authType:
+                        typeof Definition.getAuthType === 'function'
+                            ? Definition.getAuthType()
+                            : 'oauth2',
+                    isMultiStep:
+                        typeof Definition.getAuthStepCount === 'function'
+                            ? Definition.getAuthStepCount() > 1
+                            : false,
+                    stepCount:
+                        typeof Definition.getAuthStepCount === 'function'
+                            ? Definition.getAuthStepCount()
+                            : 1,
+                    capabilities:
+                        typeof Definition.getCapabilities === 'function'
+                            ? Definition.getCapabilities()
+                            : undefined,
                 };
             });
 
@@ -1778,24 +1831,30 @@ function setEntityRoutes(router, authenticateUser, useCases) {
             const Definition = moduleDef.definition;
             res.json({
                 type: moduleDef.moduleName,
-                name: typeof Definition.getDisplayName === 'function'
-                    ? Definition.getDisplayName()
-                    : moduleDef.moduleName,
-                description: typeof Definition.getDescription === 'function'
-                    ? Definition.getDescription()
-                    : undefined,
-                authType: typeof Definition.getAuthType === 'function'
-                    ? Definition.getAuthType()
-                    : 'oauth2',
-                isMultiStep: typeof Definition.getAuthStepCount === 'function'
-                    ? Definition.getAuthStepCount() > 1
-                    : false,
-                stepCount: typeof Definition.getAuthStepCount === 'function'
-                    ? Definition.getAuthStepCount()
-                    : 1,
-                capabilities: typeof Definition.getCapabilities === 'function'
-                    ? Definition.getCapabilities()
-                    : undefined,
+                name:
+                    typeof Definition.getDisplayName === 'function'
+                        ? Definition.getDisplayName()
+                        : moduleDef.moduleName,
+                description:
+                    typeof Definition.getDescription === 'function'
+                        ? Definition.getDescription()
+                        : undefined,
+                authType:
+                    typeof Definition.getAuthType === 'function'
+                        ? Definition.getAuthType()
+                        : 'oauth2',
+                isMultiStep:
+                    typeof Definition.getAuthStepCount === 'function'
+                        ? Definition.getAuthStepCount() > 1
+                        : false,
+                stepCount:
+                    typeof Definition.getAuthStepCount === 'function'
+                        ? Definition.getAuthStepCount()
+                        : 1,
+                capabilities:
+                    typeof Definition.getCapabilities === 'function'
+                        ? Definition.getCapabilities()
+                        : undefined,
             });
         })
     );
@@ -1819,10 +1878,14 @@ function setEntityRoutes(router, authenticateUser, useCases) {
             );
 
             if (requirements.isMultiStep && step === 1 && !sessionId) {
-                const session = await startAuthorizationSession.execute(userId, typeName, {
-                    step: 1,
-                    totalSteps: requirements.totalSteps,
-                });
+                const session = await startAuthorizationSession.execute(
+                    userId,
+                    typeName,
+                    {
+                        step: 1,
+                        totalSteps: requirements.totalSteps,
+                    }
+                );
                 requirements.sessionId = session.id;
             } else if (sessionId) {
                 requirements.sessionId = sessionId;
@@ -1868,11 +1931,14 @@ function setEntityRoutes(router, authenticateUser, useCases) {
             if (!testAuthResponse) {
                 res.status(400);
                 res.json({
-                    errors: [{
-                        title: 'Authentication Error',
-                        message: 'There was an error with your Entity. Please reconnect/re-authenticate, or reach out to Support for assistance.',
-                        timestamp: Date.now(),
-                    }],
+                    errors: [
+                        {
+                            title: 'Authentication Error',
+                            message:
+                                'There was an error with your Entity. Please reconnect/re-authenticate, or reach out to Support for assistance.',
+                            timestamp: Date.now(),
+                        },
+                    ],
                 });
             } else {
                 res.json({ status: 'ok' });
@@ -1959,15 +2025,20 @@ function setEntityRoutes(router, authenticateUser, useCases) {
             if (result.isComplete) {
                 if (result.credential) {
                     try {
-                        await credentialRepository.updateCredential(credential.id, {
-                            data: result.credential.data,
-                            authIsValid: true,
-                        });
+                        await credentialRepository.updateCredential(
+                            credential.id,
+                            {
+                                data: result.credential.data,
+                                authIsValid: true,
+                            }
+                        );
                         await moduleRepository.updateEntity(entityId, {
                             authIsValid: true,
                         });
                     } catch (error) {
-                        throw Boom.badRequest(error.message || 'Reauthorization failed');
+                        throw Boom.badRequest(
+                            error.message || 'Reauthorization failed'
+                        );
                     }
                 }
 
@@ -1990,11 +2061,12 @@ function setEntityRoutes(router, authenticateUser, useCases) {
             const entityId = req.params.id;
 
             try {
-                const proxyResponse = await executeProxyRequest.executeViaEntity(
-                    entityId,
-                    userId,
-                    req.body
-                );
+                const proxyResponse =
+                    await executeProxyRequest.executeViaEntity(
+                        entityId,
+                        userId,
+                        req.body
+                    );
 
                 res.status(200).json(proxyResponse);
             } catch (error) {
@@ -2006,14 +2078,18 @@ function setEntityRoutes(router, authenticateUser, useCases) {
                         success: false,
                         status: statusCode,
                         error: {
-                            code: errorData.code || _getErrorCodeFromStatus(statusCode),
-                            message: error.output.payload.message || error.message,
-                            details: errorData.details || null
-                        }
+                            code:
+                                errorData.code ||
+                                _getErrorCodeFromStatus(statusCode),
+                            message:
+                                error.output.payload.message || error.message,
+                            details: errorData.details || null,
+                        },
                     };
 
                     if (errorData.upstreamStatus) {
-                        errorResponse.error.upstreamStatus = errorData.upstreamStatus;
+                        errorResponse.error.upstreamStatus =
+                            errorData.upstreamStatus;
                     }
 
                     return res.status(statusCode).json(errorResponse);
@@ -2025,8 +2101,8 @@ function setEntityRoutes(router, authenticateUser, useCases) {
                     error: {
                         code: 'INTERNAL_ERROR',
                         message: 'An unexpected error occurred',
-                        details: null
-                    }
+                        details: null,
+                    },
                 });
             }
         })
@@ -2252,7 +2328,7 @@ function _getErrorCodeFromStatus(statusCode) {
         500: 'INTERNAL_ERROR',
         502: 'NETWORK_ERROR',
         503: 'SERVICE_UNAVAILABLE',
-        504: 'TIMEOUT'
+        504: 'TIMEOUT',
     };
 
     return statusMap[statusCode] || 'UNKNOWN_ERROR';

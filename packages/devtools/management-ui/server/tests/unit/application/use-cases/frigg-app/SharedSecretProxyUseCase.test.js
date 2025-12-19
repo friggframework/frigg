@@ -115,7 +115,7 @@ describe('SharedSecretProxyUseCase', () => {
         })
 
         expect(result.success).toBe(false)
-        expect(result.error).toBe('Not connected to Frigg app')
+        expect(result.error).toBe('Frigg app URL not available. Provide friggAppUrl or connect first.')
       })
 
       it('should reject when connection is null', async () => {
@@ -129,7 +129,7 @@ describe('SharedSecretProxyUseCase', () => {
         })
 
         expect(result.success).toBe(false)
-        expect(result.error).toBe('Not connected to Frigg app')
+        expect(result.error).toBe('Frigg app URL not available. Provide friggAppUrl or connect first.')
       })
     })
 

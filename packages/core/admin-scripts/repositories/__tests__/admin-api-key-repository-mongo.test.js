@@ -1,4 +1,6 @@
-const { AdminApiKeyRepositoryMongo } = require('../admin-api-key-repository-mongo');
+const {
+    AdminApiKeyRepositoryMongo,
+} = require('../admin-api-key-repository-mongo');
 
 describe('AdminApiKeyRepositoryMongo', () => {
     let repository;
@@ -248,7 +250,9 @@ describe('AdminApiKeyRepositoryMongo', () => {
 
             mockPrisma.adminApiKey.delete.mockRejectedValue(error);
 
-            await expect(repository.deleteApiKey(id)).rejects.toThrow('Not found');
+            await expect(repository.deleteApiKey(id)).rejects.toThrow(
+                'Not found'
+            );
         });
     });
 });

@@ -110,14 +110,14 @@ class TemplateHandler {
     async updateServerlessConfig() {
         const serverlessPath = path.join(this.targetPath, 'serverless.yml');
         let serverlessContent = await fs.readFile(serverlessPath, 'utf8');
-        
+
         // Update service name based on directory name
         const projectName = path.basename(this.targetPath);
         serverlessContent = serverlessContent.replace(
-            /^service: create-frigg-app$/m,
+            /^service: frigg-app$/m,
             `service: ${projectName}`
         );
-        
+
         await fs.writeFile(serverlessPath, serverlessContent);
     }
 

@@ -19,7 +19,7 @@ describe('AuthorizationSession Entity', () => {
                 expiresAt,
                 completed = false,
                 createdAt = new Date(),
-                updatedAt = new Date()
+                updatedAt = new Date(),
             }) {
                 this.sessionId = sessionId;
                 this.userId = userId;
@@ -38,7 +38,8 @@ describe('AuthorizationSession Entity', () => {
             validate() {
                 if (!this.sessionId) throw new Error('Session ID is required');
                 if (!this.userId) throw new Error('User ID is required');
-                if (!this.entityType) throw new Error('Entity type is required');
+                if (!this.entityType)
+                    throw new Error('Entity type is required');
                 if (this.currentStep < 1) throw new Error('Step must be >= 1');
                 if (this.currentStep > this.maxSteps) {
                     throw new Error('Current step cannot exceed max steps');
@@ -80,7 +81,7 @@ describe('AuthorizationSession Entity', () => {
                 userId: 'user-123',
                 entityType: 'nagaris',
                 maxSteps: 2,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             expect(session.sessionId).toBe('test-session-id');
@@ -98,7 +99,7 @@ describe('AuthorizationSession Entity', () => {
                     userId: 'user-123',
                     entityType: 'nagaris',
                     maxSteps: 2,
-                    expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                    expiresAt: new Date(Date.now() + 15 * 60 * 1000),
                 });
             }).toThrow('Session ID is required');
         });
@@ -109,7 +110,7 @@ describe('AuthorizationSession Entity', () => {
                     sessionId: 'test-session-id',
                     entityType: 'nagaris',
                     maxSteps: 2,
-                    expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                    expiresAt: new Date(Date.now() + 15 * 60 * 1000),
                 });
             }).toThrow('User ID is required');
         });
@@ -120,7 +121,7 @@ describe('AuthorizationSession Entity', () => {
                     sessionId: 'test-session-id',
                     userId: 'user-123',
                     maxSteps: 2,
-                    expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                    expiresAt: new Date(Date.now() + 15 * 60 * 1000),
                 });
             }).toThrow('Entity type is required');
         });
@@ -133,7 +134,7 @@ describe('AuthorizationSession Entity', () => {
                     entityType: 'nagaris',
                     currentStep: 0,
                     maxSteps: 2,
-                    expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                    expiresAt: new Date(Date.now() + 15 * 60 * 1000),
                 });
             }).toThrow('Step must be >= 1');
         });
@@ -146,7 +147,7 @@ describe('AuthorizationSession Entity', () => {
                     entityType: 'nagaris',
                     currentStep: 3,
                     maxSteps: 2,
-                    expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                    expiresAt: new Date(Date.now() + 15 * 60 * 1000),
                 });
             }).toThrow('Current step cannot exceed max steps');
         });
@@ -158,7 +159,7 @@ describe('AuthorizationSession Entity', () => {
                     userId: 'user-123',
                     entityType: 'nagaris',
                     maxSteps: 2,
-                    expiresAt: new Date(Date.now() - 1000) // Expired
+                    expiresAt: new Date(Date.now() - 1000), // Expired
                 });
             }).toThrow('Session has expired');
         });
@@ -171,7 +172,7 @@ describe('AuthorizationSession Entity', () => {
                 entityType: 'nagaris',
                 maxSteps: 2,
                 stepData,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             expect(session.stepData).toEqual(stepData);
@@ -186,7 +187,7 @@ describe('AuthorizationSession Entity', () => {
                 entityType: 'nagaris',
                 maxSteps: 3,
                 stepData: { email: 'test@example.com' },
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             const newStepData = { otp: '123456' };
@@ -195,7 +196,7 @@ describe('AuthorizationSession Entity', () => {
             expect(session.currentStep).toBe(2);
             expect(session.stepData).toEqual({
                 email: 'test@example.com',
-                otp: '123456'
+                otp: '123456',
             });
         });
 
@@ -205,7 +206,7 @@ describe('AuthorizationSession Entity', () => {
                 userId: 'user-123',
                 entityType: 'nagaris',
                 maxSteps: 2,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             const originalUpdatedAt = session.updatedAt;
@@ -224,7 +225,7 @@ describe('AuthorizationSession Entity', () => {
                 entityType: 'nagaris',
                 maxSteps: 2,
                 completed: true,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             expect(() => {
@@ -239,7 +240,7 @@ describe('AuthorizationSession Entity', () => {
                 entityType: 'nagaris',
                 maxSteps: 3,
                 stepData: { email: 'test@example.com', domain: 'example.com' },
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             session.advanceStep({ otp: '123456' });
@@ -256,7 +257,7 @@ describe('AuthorizationSession Entity', () => {
                 entityType: 'nagaris',
                 maxSteps: 3,
                 stepData: { email: 'old@example.com' },
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             session.advanceStep({ email: 'new@example.com' });
@@ -272,7 +273,7 @@ describe('AuthorizationSession Entity', () => {
                 userId: 'user-123',
                 entityType: 'nagaris',
                 maxSteps: 2,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             session.markComplete();
@@ -286,7 +287,7 @@ describe('AuthorizationSession Entity', () => {
                 userId: 'user-123',
                 entityType: 'nagaris',
                 maxSteps: 2,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             const originalUpdatedAt = session.updatedAt;
@@ -303,7 +304,7 @@ describe('AuthorizationSession Entity', () => {
                 userId: 'user-123',
                 entityType: 'nagaris',
                 maxSteps: 2,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             session.markComplete();
@@ -321,7 +322,7 @@ describe('AuthorizationSession Entity', () => {
                 userId: 'user-123',
                 entityType: 'nagaris',
                 maxSteps: 2,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             expect(session.isExpired()).toBe(false);
@@ -333,7 +334,7 @@ describe('AuthorizationSession Entity', () => {
                 userId: 'user-123',
                 entityType: 'nagaris',
                 maxSteps: 2,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             // Manually set expiresAt to past
@@ -349,7 +350,7 @@ describe('AuthorizationSession Entity', () => {
                 userId: 'user-123',
                 entityType: 'nagaris',
                 maxSteps: 2,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             // Set to exact current time
@@ -367,7 +368,7 @@ describe('AuthorizationSession Entity', () => {
                 entityType: 'nagaris',
                 currentStep: 1,
                 maxSteps: 2,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             expect(session.canAdvance()).toBe(true);
@@ -381,7 +382,7 @@ describe('AuthorizationSession Entity', () => {
                 currentStep: 1,
                 maxSteps: 2,
                 completed: true,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             expect(session.canAdvance()).toBe(false);
@@ -394,7 +395,7 @@ describe('AuthorizationSession Entity', () => {
                 entityType: 'nagaris',
                 currentStep: 2,
                 maxSteps: 2,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             expect(session.canAdvance()).toBe(false);
@@ -408,7 +409,7 @@ describe('AuthorizationSession Entity', () => {
                 currentStep: 2,
                 maxSteps: 2,
                 completed: true,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             expect(session.canAdvance()).toBe(false);
@@ -421,7 +422,7 @@ describe('AuthorizationSession Entity', () => {
                 entityType: 'nagaris',
                 currentStep: 2,
                 maxSteps: 4,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             expect(session.canAdvance()).toBe(true);
@@ -435,7 +436,7 @@ describe('AuthorizationSession Entity', () => {
                 userId: 'user-123',
                 entityType: 'nagaris',
                 maxSteps: 2,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             // Initial state
@@ -461,7 +462,7 @@ describe('AuthorizationSession Entity', () => {
                 userId: 'user-123',
                 entityType: 'complex-auth',
                 maxSteps: 3,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             // Step 1 -> Step 2
@@ -485,7 +486,7 @@ describe('AuthorizationSession Entity', () => {
                 userId: 'user-123',
                 entityType: 'nagaris',
                 maxSteps: 3,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             session.advanceStep({ email: 'test@example.com' });
@@ -493,7 +494,7 @@ describe('AuthorizationSession Entity', () => {
 
             expect(session.stepData).toEqual({
                 email: 'test@example.com',
-                otp: '123456'
+                otp: '123456',
             });
         });
     });
@@ -506,7 +507,7 @@ describe('AuthorizationSession Entity', () => {
                 entityType: 'simple-auth',
                 currentStep: 1,
                 maxSteps: 1,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             expect(session.canAdvance()).toBe(false);
@@ -520,7 +521,7 @@ describe('AuthorizationSession Entity', () => {
                 userId: 'user-123',
                 entityType: 'nagaris',
                 maxSteps: 2,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             session.advanceStep({});
@@ -534,20 +535,21 @@ describe('AuthorizationSession Entity', () => {
                 userId: 'user-123',
                 entityType: 'nagaris',
                 maxSteps: 2,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             expect(session.sessionId).toBe(specialId);
         });
 
         it('should handle very long entityType names', () => {
-            const longEntityType = 'very-long-entity-type-name-that-might-exist-in-production';
+            const longEntityType =
+                'very-long-entity-type-name-that-might-exist-in-production';
             const session = new AuthorizationSession({
                 sessionId: 'test-session-id',
                 userId: 'user-123',
                 entityType: longEntityType,
                 maxSteps: 2,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             expect(session.entityType).toBe(longEntityType);
@@ -559,7 +561,7 @@ describe('AuthorizationSession Entity', () => {
                 userId: 'user-123',
                 entityType: 'complex-flow',
                 maxSteps: 10,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             });
 
             expect(session.maxSteps).toBe(10);

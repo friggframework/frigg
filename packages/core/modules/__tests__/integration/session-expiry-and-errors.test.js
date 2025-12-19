@@ -16,11 +16,11 @@ describe('Session Expiry and Error Scenarios', () => {
 
         // Mock repository
         mockRepository = {
-            create: jest.fn(async session => {
+            create: jest.fn(async (session) => {
                 sessions.set(session.sessionId, { ...session });
                 return session;
             }),
-            findBySessionId: jest.fn(async sessionId => {
+            findBySessionId: jest.fn(async (sessionId) => {
                 const session = sessions.get(sessionId);
                 if (!session) return null;
                 if (session.expiresAt < new Date()) return null;
@@ -33,10 +33,10 @@ describe('Session Expiry and Error Scenarios', () => {
                     },
                     markComplete: function () {
                         this.completed = true;
-                    }
+                    },
                 };
             }),
-            update: jest.fn(async session => {
+            update: jest.fn(async (session) => {
                 sessions.set(session.sessionId, { ...session });
                 return session;
             }),
@@ -50,15 +50,15 @@ describe('Session Expiry and Error Scenarios', () => {
                     }
                 }
                 return count;
-            })
+            }),
         };
 
         // Mock module definitions
         const nagarisDefinition = {
             getAuthStepCount: () => 2,
-            getAuthRequirementsForStep: async step => ({
+            getAuthRequirementsForStep: async (step) => ({
                 type: step === 1 ? 'email' : 'otp',
-                data: {}
+                data: {},
             }),
             processAuthorizationStep: async (api, step, stepData) => {
                 if (step === 1) {
@@ -68,20 +68,20 @@ describe('Session Expiry and Error Scenarios', () => {
                     if (stepData.otp === '123456') {
                         return {
                             completed: true,
-                            authData: { access_token: 'token' }
+                            authData: { access_token: 'token' },
                         };
                     }
                     throw new Error('Invalid OTP');
                 }
-            }
+            },
         };
 
         mockModuleDefinitions = [
             {
                 moduleName: 'nagaris',
                 definition: nagarisDefinition,
-                apiClass: jest.fn()
-            }
+                apiClass: jest.fn(),
+            },
         ];
 
         // Initialize use cases
@@ -104,7 +104,7 @@ describe('Session Expiry and Error Scenarios', () => {
                     maxSteps,
                     stepData: {},
                     expiresAt,
-                    completed: false
+                    completed: false,
                 };
 
                 return await this.authSessionRepository.create(session);
@@ -118,10 +118,13 @@ describe('Session Expiry and Error Scenarios', () => {
             }
 
             async execute(sessionId, userId, step, stepData) {
-                const session = await this.authSessionRepository.findBySessionId(sessionId);
+                const session =
+                    await this.authSessionRepository.findBySessionId(sessionId);
 
                 if (!session) {
-                    throw new Error('Authorization session not found or expired');
+                    throw new Error(
+                        'Authorization session not found or expired'
+                    );
                 }
 
                 if (session.userId !== userId) {
@@ -134,16 +137,20 @@ describe('Session Expiry and Error Scenarios', () => {
 
                 if (session.currentStep + 1 !== step && step !== 1) {
                     throw new Error(
-                        `Expected step ${session.currentStep + 1}, received step ${step}`
+                        `Expected step ${
+                            session.currentStep + 1
+                        }, received step ${step}`
                     );
                 }
 
                 const moduleDefinition = this.moduleDefinitions.find(
-                    def => def.moduleName === session.entityType
+                    (def) => def.moduleName === session.entityType
                 );
 
                 if (!moduleDefinition) {
-                    throw new Error(`Module definition not found: ${session.entityType}`);
+                    throw new Error(
+                        `Module definition not found: ${session.entityType}`
+                    );
                 }
 
                 const ModuleDefinition = moduleDefinition.definition;
@@ -164,22 +171,23 @@ describe('Session Expiry and Error Scenarios', () => {
                     return {
                         completed: true,
                         authData: result.authData,
-                        sessionId
+                        sessionId,
                     };
                 }
 
                 session.advanceStep(result.stepData || {});
                 await this.authSessionRepository.update(session);
 
-                const nextRequirements = await ModuleDefinition.getAuthRequirementsForStep(
-                    result.nextStep
-                );
+                const nextRequirements =
+                    await ModuleDefinition.getAuthRequirementsForStep(
+                        result.nextStep
+                    );
 
                 return {
                     nextStep: result.nextStep,
                     totalSteps: session.maxSteps,
                     sessionId,
-                    requirements: nextRequirements
+                    requirements: nextRequirements,
                 };
             }
         };
@@ -191,7 +199,7 @@ describe('Session Expiry and Error Scenarios', () => {
             const entityType = 'nagaris';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             // Create session that expires immediately
@@ -204,7 +212,7 @@ describe('Session Expiry and Error Scenarios', () => {
 
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             // Manually expire the session
@@ -213,7 +221,7 @@ describe('Session Expiry and Error Scenarios', () => {
 
             await expect(
                 processStep.execute(session.sessionId, userId, 1, {
-                    email: 'test@example.com'
+                    email: 'test@example.com',
                 })
             ).rejects.toThrow('Authorization session has expired');
         });
@@ -223,7 +231,7 @@ describe('Session Expiry and Error Scenarios', () => {
             const entityType = 'nagaris';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             const session = await startSession.execute(userId, entityType, 2);
@@ -233,7 +241,9 @@ describe('Session Expiry and Error Scenarios', () => {
             storedSession.expiresAt = new Date(Date.now() - 1000);
 
             // Repository should return null
-            const retrieved = await mockRepository.findBySessionId(session.sessionId);
+            const retrieved = await mockRepository.findBySessionId(
+                session.sessionId
+            );
             expect(retrieved).toBeNull();
         });
 
@@ -241,7 +251,7 @@ describe('Session Expiry and Error Scenarios', () => {
             const userId = 'user-123';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             // Create multiple sessions
@@ -250,8 +260,12 @@ describe('Session Expiry and Error Scenarios', () => {
             const session3 = await startSession.execute(userId, 'nagaris', 2);
 
             // Expire first two
-            sessions.get(session1.sessionId).expiresAt = new Date(Date.now() - 1000);
-            sessions.get(session2.sessionId).expiresAt = new Date(Date.now() - 1000);
+            sessions.get(session1.sessionId).expiresAt = new Date(
+                Date.now() - 1000
+            );
+            sessions.get(session2.sessionId).expiresAt = new Date(
+                Date.now() - 1000
+            );
 
             // Clean up
             const deletedCount = await mockRepository.deleteExpired();
@@ -267,27 +281,31 @@ describe('Session Expiry and Error Scenarios', () => {
             const entityType = 'nagaris';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             const session = await startSession.execute(userId, entityType, 2);
 
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             // Complete step 1
             await processStep.execute(session.sessionId, userId, 1, {
-                email: 'test@example.com'
+                email: 'test@example.com',
             });
 
             // Expire before step 2
-            sessions.get(session.sessionId).expiresAt = new Date(Date.now() - 1000);
+            sessions.get(session.sessionId).expiresAt = new Date(
+                Date.now() - 1000
+            );
 
             // Step 2 should fail
             await expect(
-                processStep.execute(session.sessionId, userId, 3, { otp: '123456' })
+                processStep.execute(session.sessionId, userId, 3, {
+                    otp: '123456',
+                })
             ).rejects.toThrow('Authorization session not found or expired');
         });
 
@@ -296,15 +314,19 @@ describe('Session Expiry and Error Scenarios', () => {
             const entityType = 'nagaris';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             const before = Date.now() + 15 * 60 * 1000;
             const session = await startSession.execute(userId, entityType, 2);
             const after = Date.now() + 15 * 60 * 1000;
 
-            expect(session.expiresAt.getTime()).toBeGreaterThanOrEqual(before - 100);
-            expect(session.expiresAt.getTime()).toBeLessThanOrEqual(after + 100);
+            expect(session.expiresAt.getTime()).toBeGreaterThanOrEqual(
+                before - 100
+            );
+            expect(session.expiresAt.getTime()).toBeLessThanOrEqual(
+                after + 100
+            );
         });
     });
 
@@ -314,19 +336,21 @@ describe('Session Expiry and Error Scenarios', () => {
             const entityType = 'nagaris';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             const session = await startSession.execute(userId, entityType, 2);
 
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             // Try step 2 before step 1
             await expect(
-                processStep.execute(session.sessionId, userId, 3, { otp: '123456' })
+                processStep.execute(session.sessionId, userId, 3, {
+                    otp: '123456',
+                })
             ).rejects.toThrow('Expected step 2, received step 3');
         });
 
@@ -335,14 +359,14 @@ describe('Session Expiry and Error Scenarios', () => {
             const entityType = 'nagaris';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             const session = await startSession.execute(userId, entityType, 2);
 
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             await expect(
@@ -355,21 +379,23 @@ describe('Session Expiry and Error Scenarios', () => {
             const entityType = 'nagaris';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             const session = await startSession.execute(userId, entityType, 2);
 
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             // Complete both steps
             await processStep.execute(session.sessionId, userId, 1, {
-                email: 'test@example.com'
+                email: 'test@example.com',
             });
-            await processStep.execute(session.sessionId, userId, 3, { otp: '123456' });
+            await processStep.execute(session.sessionId, userId, 3, {
+                otp: '123456',
+            });
 
             // Try step 3 (doesn't exist)
             await expect(
@@ -385,19 +411,19 @@ describe('Session Expiry and Error Scenarios', () => {
             const entityType = 'nagaris';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             const session = await startSession.execute(user1, entityType, 2);
 
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             await expect(
                 processStep.execute(session.sessionId, user2, 1, {
-                    email: 'test@example.com'
+                    email: 'test@example.com',
                 })
             ).rejects.toThrow('Session does not belong to this user');
         });
@@ -407,7 +433,7 @@ describe('Session Expiry and Error Scenarios', () => {
             const user2 = 'user-456';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             const session1 = await startSession.execute(user1, 'nagaris', 2);
@@ -418,15 +444,15 @@ describe('Session Expiry and Error Scenarios', () => {
 
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             // Each user can only access their own session
             await processStep.execute(session1.sessionId, user1, 1, {
-                email: 'user1@example.com'
+                email: 'user1@example.com',
             });
             await processStep.execute(session2.sessionId, user2, 1, {
-                email: 'user2@example.com'
+                email: 'user2@example.com',
             });
 
             // Cross-access fails
@@ -440,7 +466,7 @@ describe('Session Expiry and Error Scenarios', () => {
         it('should reject nonexistent session IDs', async () => {
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             await expect(
@@ -451,7 +477,7 @@ describe('Session Expiry and Error Scenarios', () => {
         it('should reject malformed session IDs', async () => {
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             await expect(
@@ -462,7 +488,7 @@ describe('Session Expiry and Error Scenarios', () => {
         it('should reject null session ID', async () => {
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             await expect(
@@ -473,7 +499,7 @@ describe('Session Expiry and Error Scenarios', () => {
         it('should reject undefined session ID', async () => {
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             await expect(
@@ -487,14 +513,18 @@ describe('Session Expiry and Error Scenarios', () => {
             const userId = 'user-123';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
-            const session = await startSession.execute(userId, 'unknown-module', 2);
+            const session = await startSession.execute(
+                userId,
+                'unknown-module',
+                2
+            );
 
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             await expect(
@@ -507,24 +537,26 @@ describe('Session Expiry and Error Scenarios', () => {
             const entityType = 'nagaris';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             const session = await startSession.execute(userId, entityType, 2);
 
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             // Complete step 1
             await processStep.execute(session.sessionId, userId, 1, {
-                email: 'test@example.com'
+                email: 'test@example.com',
             });
 
             // Invalid OTP should throw
             await expect(
-                processStep.execute(session.sessionId, userId, 3, { otp: 'wrong' })
+                processStep.execute(session.sessionId, userId, 3, {
+                    otp: 'wrong',
+                })
             ).rejects.toThrow('Invalid OTP');
         });
     });
@@ -534,7 +566,7 @@ describe('Session Expiry and Error Scenarios', () => {
             const userId = 'user-123';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             // Create 5 concurrent sessions
@@ -543,17 +575,19 @@ describe('Session Expiry and Error Scenarios', () => {
                 startSession.execute(userId, 'nagaris', 2),
                 startSession.execute(userId, 'nagaris', 2),
                 startSession.execute(userId, 'nagaris', 2),
-                startSession.execute(userId, 'nagaris', 2)
+                startSession.execute(userId, 'nagaris', 2),
             ]);
 
             // All should have unique IDs
-            const ids = sessions.map(s => s.sessionId);
+            const ids = sessions.map((s) => s.sessionId);
             const uniqueIds = new Set(ids);
             expect(uniqueIds.size).toBe(5);
 
             // All should be active
             for (const session of sessions) {
-                const retrieved = await mockRepository.findBySessionId(session.sessionId);
+                const retrieved = await mockRepository.findBySessionId(
+                    session.sessionId
+                );
                 expect(retrieved).not.toBeNull();
                 expect(retrieved.userId).toBe(userId);
             }
@@ -563,7 +597,7 @@ describe('Session Expiry and Error Scenarios', () => {
             const userId = 'user-123';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             const session1 = await startSession.execute(userId, 'nagaris', 2);
@@ -571,20 +605,24 @@ describe('Session Expiry and Error Scenarios', () => {
 
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             // Process different data in each session
             await processStep.execute(session1.sessionId, userId, 1, {
-                email: 'email1@example.com'
+                email: 'email1@example.com',
             });
             await processStep.execute(session2.sessionId, userId, 1, {
-                email: 'email2@example.com'
+                email: 'email2@example.com',
             });
 
             // Check data isolation
-            const updated1 = await mockRepository.findBySessionId(session1.sessionId);
-            const updated2 = await mockRepository.findBySessionId(session2.sessionId);
+            const updated1 = await mockRepository.findBySessionId(
+                session1.sessionId
+            );
+            const updated2 = await mockRepository.findBySessionId(
+                session2.sessionId
+            );
 
             expect(updated1.stepData.email).toBe('email1@example.com');
             expect(updated2.stepData.email).toBe('email2@example.com');
@@ -594,35 +632,39 @@ describe('Session Expiry and Error Scenarios', () => {
             const userId = 'user-123';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             const session = await startSession.execute(userId, 'nagaris', 2);
 
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             // Simulate concurrent step 1 submissions
             const results = await Promise.allSettled([
                 processStep.execute(session.sessionId, userId, 1, {
-                    email: 'email1@example.com'
+                    email: 'email1@example.com',
                 }),
                 processStep.execute(session.sessionId, userId, 1, {
-                    email: 'email2@example.com'
+                    email: 'email2@example.com',
                 }),
                 processStep.execute(session.sessionId, userId, 1, {
-                    email: 'email3@example.com'
-                })
+                    email: 'email3@example.com',
+                }),
             ]);
 
             // At least one should succeed
-            const successCount = results.filter(r => r.status === 'fulfilled').length;
+            const successCount = results.filter(
+                (r) => r.status === 'fulfilled'
+            ).length;
             expect(successCount).toBeGreaterThanOrEqual(1);
 
             // Session should be in valid state
-            const finalSession = await mockRepository.findBySessionId(session.sessionId);
+            const finalSession = await mockRepository.findBySessionId(
+                session.sessionId
+            );
             expect(finalSession.currentStep).toBeGreaterThanOrEqual(1);
         });
     });
@@ -633,7 +675,7 @@ describe('Session Expiry and Error Scenarios', () => {
             const entityType = 'nagaris';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             const session = await startSession.execute(userId, entityType, 2);
@@ -645,7 +687,7 @@ describe('Session Expiry and Error Scenarios', () => {
 
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             await expect(
@@ -658,22 +700,24 @@ describe('Session Expiry and Error Scenarios', () => {
             const entityType = 'nagaris';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             const session = await startSession.execute(userId, entityType, 2);
 
             // Simulate update failure
-            mockRepository.update.mockRejectedValueOnce(new Error('Update failed'));
+            mockRepository.update.mockRejectedValueOnce(
+                new Error('Update failed')
+            );
 
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             await expect(
                 processStep.execute(session.sessionId, userId, 1, {
-                    email: 'test@example.com'
+                    email: 'test@example.com',
                 })
             ).rejects.toThrow('Update failed');
         });

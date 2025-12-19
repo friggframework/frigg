@@ -60,7 +60,14 @@ class AdminApiKeyRepositoryPostgres extends AdminApiKeyRepositoryInterface {
      * @param {string} [params.createdBy] - Optional identifier of creator
      * @returns {Promise<Object>} The created API key record with string ID
      */
-    async createApiKey({ name, keyHash, keyLast4, scopes, expiresAt, createdBy }) {
+    async createApiKey({
+        name,
+        keyHash,
+        keyLast4,
+        scopes,
+        expiresAt,
+        createdBy,
+    }) {
         const apiKey = await this.prisma.adminApiKey.create({
             data: {
                 name,
@@ -116,10 +123,7 @@ class AdminApiKeyRepositoryPostgres extends AdminApiKeyRepositoryInterface {
         const apiKeys = await this.prisma.adminApiKey.findMany({
             where: {
                 isActive: true,
-                OR: [
-                    { expiresAt: null },
-                    { expiresAt: { gt: now } },
-                ],
+                OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
             },
         });
 

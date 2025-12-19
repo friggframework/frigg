@@ -15,7 +15,7 @@ This file provides guidance to Claude Code when working with the Frigg Framework
 
 ### Core Philosophy
 
-Build enterprise-grade integrations as simply as `create-frigg-app`. Framework handles the infrastructure, developers focus on integration logic.
+Build enterprise-grade integrations as simply as `frigg init`. Framework handles the infrastructure, developers focus on integration logic.
 
 ### Monorepo Structure
 
@@ -49,7 +49,7 @@ frigg/
 
 ```bash
 # Create new Frigg app
-npx create-frigg-app my-integration
+frigg init my-integration
 
 # Install API modules
 frigg install hubspot
@@ -814,7 +814,7 @@ When working on the Frigg Framework, always prioritize finding the **best soluti
 
 ### Integration Development
 
-1. Start with `create-frigg-app` for consistent structure
+1. Start with `frigg init` for consistent structure
 2. Use existing API modules when possible
 3. Follow the IntegrationBase method contracts
 4. Implement proper error handling and logging

@@ -41,13 +41,19 @@ const mockExecutionRepo = {
     appendExecutionLog: jest.fn(),
 };
 
-jest.mock('../../../admin-scripts/repositories/admin-api-key-repository-factory', () => ({
-    createAdminApiKeyRepository: () => mockApiKeyRepo,
-}));
+jest.mock(
+    '../../../admin-scripts/repositories/admin-api-key-repository-factory',
+    () => ({
+        createAdminApiKeyRepository: () => mockApiKeyRepo,
+    })
+);
 
-jest.mock('../../../admin-scripts/repositories/script-execution-repository-factory', () => ({
-    createScriptExecutionRepository: () => mockExecutionRepo,
-}));
+jest.mock(
+    '../../../admin-scripts/repositories/script-execution-repository-factory',
+    () => ({
+        createScriptExecutionRepository: () => mockExecutionRepo,
+    })
+);
 
 const { createAdminScriptCommands } = require('../admin-script-commands');
 
@@ -215,8 +221,13 @@ describe('createAdminScriptCommands', () => {
             const result = await commands.validateAdminApiKey(rawKey);
 
             expect(mockApiKeyRepo.findActiveApiKeys).toHaveBeenCalled();
-            expect(mockBcryptCompare).toHaveBeenCalledWith(rawKey, mockKey.keyHash);
-            expect(mockApiKeyRepo.updateApiKeyLastUsed).toHaveBeenCalledWith('key-1');
+            expect(mockBcryptCompare).toHaveBeenCalledWith(
+                rawKey,
+                mockKey.keyHash
+            );
+            expect(mockApiKeyRepo.updateApiKeyLastUsed).toHaveBeenCalledWith(
+                'key-1'
+            );
             expect(result).toEqual({ valid: true, apiKey: mockKey });
         });
 
@@ -269,7 +280,9 @@ describe('createAdminScriptCommands', () => {
 
             await commands.validateAdminApiKey('valid-key');
 
-            expect(mockApiKeyRepo.updateApiKeyLastUsed).toHaveBeenCalledWith('key-1');
+            expect(mockApiKeyRepo.updateApiKeyLastUsed).toHaveBeenCalledWith(
+                'key-1'
+            );
         });
 
         it('checks multiple keys until match found', async () => {
@@ -358,7 +371,9 @@ describe('createAdminScriptCommands', () => {
 
             const result = await commands.deactivateAdminApiKey('key-1');
 
-            expect(mockApiKeyRepo.deactivateApiKey).toHaveBeenCalledWith('key-1');
+            expect(mockApiKeyRepo.deactivateApiKey).toHaveBeenCalledWith(
+                'key-1'
+            );
             expect(result).toEqual(mockDeactivated);
         });
 
@@ -485,18 +500,24 @@ describe('createAdminScriptCommands', () => {
                 status: 'COMPLETED',
             };
 
-            mockExecutionRepo.findExecutionById.mockResolvedValue(mockExecution);
+            mockExecutionRepo.findExecutionById.mockResolvedValue(
+                mockExecution
+            );
 
             const result = await commands.findScriptExecutionById('exec-1');
 
-            expect(mockExecutionRepo.findExecutionById).toHaveBeenCalledWith('exec-1');
+            expect(mockExecutionRepo.findExecutionById).toHaveBeenCalledWith(
+                'exec-1'
+            );
             expect(result).toEqual(mockExecution);
         });
 
         it('returns error if not found', async () => {
             mockExecutionRepo.findExecutionById.mockResolvedValue(null);
 
-            const result = await commands.findScriptExecutionById('non-existent');
+            const result = await commands.findScriptExecutionById(
+                'non-existent'
+            );
 
             expect(result).toHaveProperty('error', 404);
             expect(result).toHaveProperty('code', 'EXECUTION_NOT_FOUND');
@@ -517,10 +538,9 @@ describe('createAdminScriptCommands', () => {
 
             const result = await commands.findScriptExecutionsByName('test');
 
-            expect(mockExecutionRepo.findExecutionsByScriptName).toHaveBeenCalledWith(
-                'test',
-                {}
-            );
+            expect(
+                mockExecutionRepo.findExecutionsByScriptName
+            ).toHaveBeenCalledWith('test', {});
             expect(result).toEqual(mockExecutions);
         });
 
@@ -534,15 +554,14 @@ describe('createAdminScriptCommands', () => {
                 sortOrder: 'desc',
             });
 
-            expect(mockExecutionRepo.findExecutionsByScriptName).toHaveBeenCalledWith(
-                'test',
-                {
-                    limit: 10,
-                    offset: 5,
-                    sortBy: 'createdAt',
-                    sortOrder: 'desc',
-                }
-            );
+            expect(
+                mockExecutionRepo.findExecutionsByScriptName
+            ).toHaveBeenCalledWith('test', {
+                limit: 10,
+                offset: 5,
+                sortBy: 'createdAt',
+                sortOrder: 'desc',
+            });
         });
 
         it('returns empty array on error', async () => {
@@ -563,17 +582,18 @@ describe('createAdminScriptCommands', () => {
                 status: 'RUNNING',
             };
 
-            mockExecutionRepo.updateExecutionStatus.mockResolvedValue(mockUpdated);
+            mockExecutionRepo.updateExecutionStatus.mockResolvedValue(
+                mockUpdated
+            );
 
             const result = await commands.updateScriptExecutionStatus(
                 'exec-1',
                 'RUNNING'
             );
 
-            expect(mockExecutionRepo.updateExecutionStatus).toHaveBeenCalledWith(
-                'exec-1',
-                'RUNNING'
-            );
+            expect(
+                mockExecutionRepo.updateExecutionStatus
+            ).toHaveBeenCalledWith('exec-1', 'RUNNING');
             expect(result).toEqual(mockUpdated);
         });
 
@@ -619,7 +639,10 @@ describe('createAdminScriptCommands', () => {
 
             mockExecutionRepo.appendExecutionLog.mockResolvedValue(mockUpdated);
 
-            const result = await commands.appendScriptExecutionLog('exec-1', logEntry);
+            const result = await commands.appendScriptExecutionLog(
+                'exec-1',
+                logEntry
+            );
 
             expect(mockExecutionRepo.appendExecutionLog).toHaveBeenCalledWith(
                 'exec-1',
@@ -645,7 +668,9 @@ describe('createAdminScriptCommands', () => {
 
                 await commands.appendScriptExecutionLog('exec-1', logEntry);
 
-                expect(mockExecutionRepo.appendExecutionLog).toHaveBeenCalledWith(
+                expect(
+                    mockExecutionRepo.appendExecutionLog
+                ).toHaveBeenCalledWith(
                     'exec-1',
                     expect.objectContaining({ level })
                 );
@@ -671,15 +696,15 @@ describe('createAdminScriptCommands', () => {
                 },
             });
 
-            expect(mockExecutionRepo.updateExecutionStatus).toHaveBeenCalledWith(
-                'exec-1',
-                'COMPLETED'
-            );
-            expect(mockExecutionRepo.updateExecutionOutput).toHaveBeenCalledWith(
-                'exec-1',
-                { result: 'success' }
-            );
-            expect(mockExecutionRepo.updateExecutionMetrics).toHaveBeenCalledWith(
+            expect(
+                mockExecutionRepo.updateExecutionStatus
+            ).toHaveBeenCalledWith('exec-1', 'COMPLETED');
+            expect(
+                mockExecutionRepo.updateExecutionOutput
+            ).toHaveBeenCalledWith('exec-1', { result: 'success' });
+            expect(
+                mockExecutionRepo.updateExecutionMetrics
+            ).toHaveBeenCalledWith(
                 'exec-1',
                 expect.objectContaining({ durationMs: 1234 })
             );
@@ -695,9 +720,15 @@ describe('createAdminScriptCommands', () => {
             });
 
             expect(mockExecutionRepo.updateExecutionStatus).toHaveBeenCalled();
-            expect(mockExecutionRepo.updateExecutionOutput).not.toHaveBeenCalled();
-            expect(mockExecutionRepo.updateExecutionError).not.toHaveBeenCalled();
-            expect(mockExecutionRepo.updateExecutionMetrics).not.toHaveBeenCalled();
+            expect(
+                mockExecutionRepo.updateExecutionOutput
+            ).not.toHaveBeenCalled();
+            expect(
+                mockExecutionRepo.updateExecutionError
+            ).not.toHaveBeenCalled();
+            expect(
+                mockExecutionRepo.updateExecutionMetrics
+            ).not.toHaveBeenCalled();
         });
 
         it('updates error details on failure', async () => {
@@ -733,10 +764,9 @@ describe('createAdminScriptCommands', () => {
                 output: null,
             });
 
-            expect(mockExecutionRepo.updateExecutionOutput).toHaveBeenCalledWith(
-                'exec-1',
-                null
-            );
+            expect(
+                mockExecutionRepo.updateExecutionOutput
+            ).toHaveBeenCalledWith('exec-1', null);
 
             jest.clearAllMocks();
 
@@ -746,7 +776,9 @@ describe('createAdminScriptCommands', () => {
                 // output is undefined
             });
 
-            expect(mockExecutionRepo.updateExecutionOutput).not.toHaveBeenCalled();
+            expect(
+                mockExecutionRepo.updateExecutionOutput
+            ).not.toHaveBeenCalled();
         });
     });
 
@@ -757,18 +789,21 @@ describe('createAdminScriptCommands', () => {
                 { id: 'exec-2', status: 'FAILED' },
             ];
 
-            mockExecutionRepo.findExecutionsByStatus.mockResolvedValue(mockExecutions);
-
-            const result = await commands.findRecentExecutions({ status: 'FAILED' });
-
-            expect(mockExecutionRepo.findExecutionsByStatus).toHaveBeenCalledWith(
-                'FAILED',
-                {
-                    limit: 20,
-                    sortBy: 'createdAt',
-                    sortOrder: 'desc',
-                }
+            mockExecutionRepo.findExecutionsByStatus.mockResolvedValue(
+                mockExecutions
             );
+
+            const result = await commands.findRecentExecutions({
+                status: 'FAILED',
+            });
+
+            expect(
+                mockExecutionRepo.findExecutionsByStatus
+            ).toHaveBeenCalledWith('FAILED', {
+                limit: 20,
+                sortBy: 'createdAt',
+                sortOrder: 'desc',
+            });
             expect(result).toEqual(mockExecutions);
         });
 
@@ -777,7 +812,9 @@ describe('createAdminScriptCommands', () => {
 
             await commands.findRecentExecutions({ status: 'COMPLETED' });
 
-            expect(mockExecutionRepo.findExecutionsByStatus).toHaveBeenCalledWith(
+            expect(
+                mockExecutionRepo.findExecutionsByStatus
+            ).toHaveBeenCalledWith(
                 'COMPLETED',
                 expect.objectContaining({ limit: 20 })
             );
@@ -791,7 +828,9 @@ describe('createAdminScriptCommands', () => {
                 limit: 50,
             });
 
-            expect(mockExecutionRepo.findExecutionsByStatus).toHaveBeenCalledWith(
+            expect(
+                mockExecutionRepo.findExecutionsByStatus
+            ).toHaveBeenCalledWith(
                 'RUNNING',
                 expect.objectContaining({ limit: 50 })
             );
@@ -801,7 +840,9 @@ describe('createAdminScriptCommands', () => {
             const result = await commands.findRecentExecutions({});
 
             expect(result).toEqual([]);
-            expect(mockExecutionRepo.findExecutionsByStatus).not.toHaveBeenCalled();
+            expect(
+                mockExecutionRepo.findExecutionsByStatus
+            ).not.toHaveBeenCalled();
         });
 
         it('returns empty array on error', async () => {
@@ -809,7 +850,9 @@ describe('createAdminScriptCommands', () => {
                 new Error('DB error')
             );
 
-            const result = await commands.findRecentExecutions({ status: 'FAILED' });
+            const result = await commands.findRecentExecutions({
+                status: 'FAILED',
+            });
 
             expect(result).toEqual([]);
         });

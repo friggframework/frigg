@@ -1,5 +1,7 @@
 const { prisma } = require('../../database/prisma');
-const { AuthorizationSession } = require('../domain/entities/AuthorizationSession');
+const {
+    AuthorizationSession,
+} = require('../domain/entities/AuthorizationSession');
 const {
     AuthorizationSessionRepositoryInterface,
 } = require('./authorization-session-repository-interface');

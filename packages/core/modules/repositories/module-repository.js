@@ -169,6 +169,7 @@ class ModuleRepository extends ModuleRepositoryInterface {
             name: entity.name,
             externalId: entity.externalId,
             moduleName: entity.moduleName,
+            isGlobal: entity.isGlobal,
         };
     }
 
@@ -195,6 +196,7 @@ class ModuleRepository extends ModuleRepositoryInterface {
             externalId: e.externalId,
             type: e.subType,
             moduleName: e.moduleName,
+            isGlobal: e.isGlobal,
         }));
     }
 
@@ -206,14 +208,17 @@ class ModuleRepository extends ModuleRepositoryInterface {
      * @returns {Promise<Object>} Created entity object
      */
     async createEntity(entityData) {
+        const isGlobal = entityData.isGlobal || false;
+
         // Convert Mongoose-style fields to Prisma
         const data = {
-            userId: entityData.user || entityData.userId,
+            userId: isGlobal ? null : entityData.user || entityData.userId,
             credentialId: entityData.credential || entityData.credentialId,
             name: entityData.name,
             moduleName: entityData.moduleName,
             externalId: entityData.externalId,
             accountId: entityData.accountId,
+            isGlobal,
         };
 
         const entity = await this.prisma.entity.create({
@@ -229,6 +234,7 @@ class ModuleRepository extends ModuleRepositoryInterface {
             name: entity.name,
             externalId: entity.externalId,
             moduleName: entity.moduleName,
+            isGlobal: entity.isGlobal,
         };
     }
 
@@ -334,6 +340,7 @@ class ModuleRepository extends ModuleRepositoryInterface {
         if (filter.name) where.name = filter.name;
         if (filter.moduleName) where.moduleName = filter.moduleName;
         if (filter.externalId) where.externalId = filter.externalId;
+        if (filter.isGlobal !== undefined) where.isGlobal = filter.isGlobal;
 
         return where;
     }

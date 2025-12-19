@@ -64,7 +64,14 @@ class ScriptExecutionRepositoryPostgres extends ScriptExecutionRepositoryInterfa
      * @param {string} [params.audit.ipAddress] - IP address of requester
      * @returns {Promise<Object>} The created execution record with string ID
      */
-    async createExecution({ scriptName, scriptVersion, trigger, mode, input, audit }) {
+    async createExecution({
+        scriptName,
+        scriptVersion,
+        trigger,
+        mode,
+        input,
+        audit,
+    }) {
         const data = {
             scriptName,
             scriptVersion,
@@ -115,7 +122,12 @@ class ScriptExecutionRepositoryPostgres extends ScriptExecutionRepositoryInterfa
      * @returns {Promise<Array>} Array of execution records with string IDs
      */
     async findExecutionsByScriptName(scriptName, options = {}) {
-        const { limit, offset, sortBy = 'createdAt', sortOrder = 'desc' } = options;
+        const {
+            limit,
+            offset,
+            sortBy = 'createdAt',
+            sortOrder = 'desc',
+        } = options;
 
         const executions = await this.prisma.scriptExecution.findMany({
             where: { scriptName },
@@ -124,7 +136,9 @@ class ScriptExecutionRepositoryPostgres extends ScriptExecutionRepositoryInterfa
             skip: offset,
         });
 
-        return executions.map((execution) => this._convertExecutionIds(execution));
+        return executions.map((execution) =>
+            this._convertExecutionIds(execution)
+        );
     }
 
     /**
@@ -139,7 +153,12 @@ class ScriptExecutionRepositoryPostgres extends ScriptExecutionRepositoryInterfa
      * @returns {Promise<Array>} Array of execution records with string IDs
      */
     async findExecutionsByStatus(status, options = {}) {
-        const { limit, offset, sortBy = 'createdAt', sortOrder = 'desc' } = options;
+        const {
+            limit,
+            offset,
+            sortBy = 'createdAt',
+            sortOrder = 'desc',
+        } = options;
 
         const executions = await this.prisma.scriptExecution.findMany({
             where: { status },
@@ -148,7 +167,9 @@ class ScriptExecutionRepositoryPostgres extends ScriptExecutionRepositoryInterfa
             skip: offset,
         });
 
-        return executions.map((execution) => this._convertExecutionIds(execution));
+        return executions.map((execution) =>
+            this._convertExecutionIds(execution)
+        );
     }
 
     /**
@@ -222,9 +243,12 @@ class ScriptExecutionRepositoryPostgres extends ScriptExecutionRepositoryInterfa
     async updateExecutionMetrics(id, metrics) {
         const intId = this._convertId(id);
         const data = {};
-        if (metrics.startTime !== undefined) data.metricsStartTime = metrics.startTime;
-        if (metrics.endTime !== undefined) data.metricsEndTime = metrics.endTime;
-        if (metrics.durationMs !== undefined) data.metricsDurationMs = metrics.durationMs;
+        if (metrics.startTime !== undefined)
+            data.metricsStartTime = metrics.startTime;
+        if (metrics.endTime !== undefined)
+            data.metricsEndTime = metrics.endTime;
+        if (metrics.durationMs !== undefined)
+            data.metricsDurationMs = metrics.durationMs;
 
         const execution = await this.prisma.scriptExecution.update({
             where: { id: intId },

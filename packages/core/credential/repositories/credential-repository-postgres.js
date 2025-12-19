@@ -139,7 +139,10 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
                 data: {
                     userId: this._convertId(existing.userId),
                     externalId: existing.externalId,
-                    authIsValid: authIsValid !== undefined ? authIsValid : existing.authIsValid,
+                    authIsValid:
+                        authIsValid !== undefined
+                            ? authIsValid
+                            : existing.authIsValid,
                     data: mergedData,
                 },
             });
@@ -188,14 +191,18 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
         const where = this._convertFilterToWhere(filter);
 
         // If filtering by userId only, return all credentials for that user
-        const hasOnlyUserId = filter.userId && !filter.credentialId && !filter.externalId && !filter.id;
+        const hasOnlyUserId =
+            filter.userId &&
+            !filter.credentialId &&
+            !filter.externalId &&
+            !filter.id;
 
         if (hasOnlyUserId) {
             const credentials = await this.prisma.credential.findMany({
                 where,
             });
 
-            return credentials.map(credential => {
+            return credentials.map((credential) => {
                 const data = credential.data || {};
                 return {
                     id: credential.id.toString(),

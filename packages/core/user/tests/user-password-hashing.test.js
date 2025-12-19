@@ -30,8 +30,14 @@ jest.mock('../../database/config', () => ({
 
 const bcrypt = require('bcryptjs');
 const { LoginUser } = require('../use-cases/login-user');
-const { createUserRepository } = require('../repositories/user-repository-factory');
-const { prisma, connectPrisma, disconnectPrisma } = require('../../database/prisma');
+const {
+    createUserRepository,
+} = require('../repositories/user-repository-factory');
+const {
+    prisma,
+    connectPrisma,
+    disconnectPrisma,
+} = require('../../database/prisma');
 const { mongoose } = require('../../database/mongoose');
 
 describe('Password Hashing Verification - Both Databases', () => {
@@ -79,11 +85,16 @@ describe('Password Hashing Verification - Both Databases', () => {
             expect(user.hashword.length).toBeGreaterThan(50);
             expect(user.hashword).not.toContain(':');
 
-            console.log('✅ Password hashed correctly:', user.hashword.substring(0, 20) + '...');
+            console.log(
+                '✅ Password hashed correctly:',
+                user.hashword.substring(0, 20) + '...'
+            );
         });
 
         test('✅ Stored hashword is bcrypt format, NOT encrypted', async () => {
-            const user = await userRepository.findIndividualUserByUsername(TEST_USERNAME);
+            const user = await userRepository.findIndividualUserByUsername(
+                TEST_USERNAME
+            );
 
             expect(user.hashword).toMatch(/^\$2[ab]\$\d{2}\$/);
             expect(user.hashword).not.toContain(':');
@@ -93,7 +104,9 @@ describe('Password Hashing Verification - Both Databases', () => {
         });
 
         test('✅ bcrypt.compare() verifies correct password', async () => {
-            const user = await userRepository.findIndividualUserByUsername(TEST_USERNAME);
+            const user = await userRepository.findIndividualUserByUsername(
+                TEST_USERNAME
+            );
             const isValid = await bcrypt.compare(TEST_PASSWORD, user.hashword);
 
             expect(isValid).toBe(true);
@@ -101,11 +114,18 @@ describe('Password Hashing Verification - Both Databases', () => {
         });
 
         test('✅ bcrypt.compare() rejects incorrect password', async () => {
-            const user = await userRepository.findIndividualUserByUsername(TEST_USERNAME);
-            const isValid = await bcrypt.compare('WrongPassword', user.hashword);
+            const user = await userRepository.findIndividualUserByUsername(
+                TEST_USERNAME
+            );
+            const isValid = await bcrypt.compare(
+                'WrongPassword',
+                user.hashword
+            );
 
             expect(isValid).toBe(false);
-            console.log('✅ bcrypt.compare() correctly rejected wrong password');
+            console.log(
+                '✅ bcrypt.compare() correctly rejected wrong password'
+            );
         });
 
         test('✅ Login succeeds with correct password', async () => {
@@ -136,18 +156,27 @@ describe('Password Hashing Verification - Both Databases', () => {
         test('✅ Password update also hashes the new password', async () => {
             const newPassword = 'NewSecurePassword456!';
 
-            const updatedUser = await userRepository.updateIndividualUser(testUserId, {
-                hashword: newPassword,
-            });
+            const updatedUser = await userRepository.updateIndividualUser(
+                testUserId,
+                {
+                    hashword: newPassword,
+                }
+            );
 
             expect(updatedUser.hashword).not.toBe(newPassword);
             expect(updatedUser.hashword).toMatch(/^\$2[ab]\$\d{2}\$/);
             expect(updatedUser.hashword).not.toContain(':');
 
-            const isNewPasswordValid = await bcrypt.compare(newPassword, updatedUser.hashword);
+            const isNewPasswordValid = await bcrypt.compare(
+                newPassword,
+                updatedUser.hashword
+            );
             expect(isNewPasswordValid).toBe(true);
 
-            const isOldPasswordValid = await bcrypt.compare(TEST_PASSWORD, updatedUser.hashword);
+            const isOldPasswordValid = await bcrypt.compare(
+                TEST_PASSWORD,
+                updatedUser.hashword
+            );
             expect(isOldPasswordValid).toBe(false);
 
             console.log('✅ Password update correctly hashed new password');
@@ -162,11 +191,15 @@ describe('Password Hashing Verification - Both Databases', () => {
                 `;
                 rawUser = rawUser[0];
             } else {
-                rawUser = await prisma.$queryRawUnsafe(
-                    `db.User.findOne({ _id: ObjectId("${testUserId}") })`
-                ).catch(() => {
-                    return userRepository.findIndividualUserById(testUserId);
-                });
+                rawUser = await prisma
+                    .$queryRawUnsafe(
+                        `db.User.findOne({ _id: ObjectId("${testUserId}") })`
+                    )
+                    .catch(() => {
+                        return userRepository.findIndividualUserById(
+                            testUserId
+                        );
+                    });
             }
 
             console.log('\n📊 RAW DATABASE HASHWORD:');
@@ -184,7 +217,10 @@ describe('Password Hashing Verification - Both Databases', () => {
         test('📊 COMPARISON: Credential tokens encrypted, passwords hashed', async () => {
             const credential = await prisma.credential.create({
                 data: {
-                    userId: dbType === 'postgresql' ? parseInt(testUserId, 10) : testUserId,
+                    userId:
+                        dbType === 'postgresql'
+                            ? parseInt(testUserId, 10)
+                            : testUserId,
                     externalId: `test-cred-${Date.now()}`,
                     data: {
                         access_token: 'secret-access-token-12345',
@@ -193,7 +229,9 @@ describe('Password Hashing Verification - Both Databases', () => {
                 },
             });
 
-            const user = await userRepository.findIndividualUserById(testUserId);
+            const user = await userRepository.findIndividualUserById(
+                testUserId
+            );
 
             let rawCred;
             if (dbType === 'postgresql') {
@@ -209,13 +247,20 @@ describe('Password Hashing Verification - Both Databases', () => {
 
             console.log('\n📊 ENCRYPTION COMPARISON:');
             console.log('Credential token (should be encrypted):');
-            console.log('  Format:', rawCred.data.access_token.substring(0, 50) + '...');
-            console.log('  Has ":" separators:', rawCred.data.access_token.includes(':'));
+            console.log(
+                '  Format:',
+                rawCred.data.access_token.substring(0, 50) + '...'
+            );
+            console.log(
+                '  Has ":" separators:',
+                rawCred.data.access_token.includes(':')
+            );
             console.log('\nUser password (should be bcrypt hashed):');
             console.log('  Format:', user.hashword.substring(0, 30) + '...');
             console.log('  Has ":" separators:', user.hashword.includes(':'));
 
-            const encryptionEnabled = rawCred.data.access_token !== 'secret-access-token-12345';
+            const encryptionEnabled =
+                rawCred.data.access_token !== 'secret-access-token-12345';
 
             if (encryptionEnabled) {
                 expect(rawCred.data.access_token).toContain(':');

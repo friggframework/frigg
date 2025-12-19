@@ -1,20 +1,20 @@
 /**
  * UpdateProcessState Use Case
- * 
+ *
  * Updates the state of a process and optionally merges context updates.
  * Handles state transitions in the process state machine.
- * 
+ *
  * Design Philosophy:
  * - State transitions are explicit and tracked
  * - Context updates are merged (not replaced) to preserve data
  * - Repository handles persistence, use case handles business logic
- * 
+ *
  * State Machine (CRM Sync Example):
- * INITIALIZING → FETCHING_TOTAL → QUEUING_PAGES → PROCESSING_BATCHES → 
+ * INITIALIZING → FETCHING_TOTAL → QUEUING_PAGES → PROCESSING_BATCHES →
  * COMPLETING → COMPLETED
- * 
+ *
  * Any state can transition to ERROR on failure.
- * 
+ *
  * @example
  * const updateProcessState = new UpdateProcessState({ processRepository });
  * await updateProcessState.execute(processId, 'FETCHING_TOTAL', {
@@ -75,7 +75,10 @@ class UpdateProcessState {
 
         // Persist updates
         try {
-            const updatedProcess = await this.processRepository.update(processId, updates);
+            const updatedProcess = await this.processRepository.update(
+                processId,
+                updates
+            );
             return updatedProcess;
         } catch (error) {
             throw new Error(`Failed to update process state: ${error.message}`);
@@ -116,4 +119,3 @@ class UpdateProcessState {
 }
 
 module.exports = { UpdateProcessState };
-

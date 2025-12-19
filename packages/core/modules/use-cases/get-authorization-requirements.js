@@ -89,7 +89,8 @@ class GetAuthorizationRequirementsUseCase {
             );
         } else if (step === 1) {
             // Single-step module (legacy) - use standard method
-            requirements = await ModuleDefinition.getAuthorizationRequirements();
+            requirements =
+                await ModuleDefinition.getAuthorizationRequirements();
         } else {
             throw new Error(
                 `Module ${entityType} does not support step ${step}`

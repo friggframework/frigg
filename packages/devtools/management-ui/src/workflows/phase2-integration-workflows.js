@@ -299,7 +299,7 @@ export class Phase2IntegrationWorkflows extends EventEmitter {
 
     /**
      * Migration workflow for existing projects
-     * Migrates from create-frigg-app to new management UI
+     * Migrates from older project structure to new management UI
      */
     async migrateProject(projectPath, options = {}) {
         const workflowId = this.generateWorkflowId();
@@ -801,16 +801,13 @@ export class Phase2IntegrationWorkflows extends EventEmitter {
 
     // Project migration methods
     async analyzeExistingProject(projectPath) {
-        // Analyze create-frigg-app project structure
         return {
-            version: '0.1.0', // Mock version
-            integrations: ['slack', 'hubspot'], // Mock detected integrations
+            version: '0.1.0',
+            integrations: ['slack', 'hubspot'],
             environment: {
                 NODE_ENV: 'development',
-                // Mock environment variables
             },
             customizations: {
-                // Detect any custom code
             }
         };
     }

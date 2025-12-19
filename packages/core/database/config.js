@@ -5,7 +5,7 @@
 
 /**
  * Determines database type from environment or app definition
- * 
+ *
  * Detection order:
  * 1. DB_TYPE environment variable (set for migration handlers)
  * 2. App definition (backend/index.js Definition.database configuration)
@@ -32,7 +32,7 @@ function getDatabaseType() {
         if (!backendPackagePath) {
             throw new Error(
                 '[Frigg] Cannot find backend package.json. ' +
-                'Ensure backend/package.json exists in your project.'
+                    'Ensure backend/package.json exists in your project.'
             );
         }
 
@@ -42,7 +42,7 @@ function getDatabaseType() {
         if (!fs.existsSync(backendIndexPath)) {
             throw new Error(
                 `[Frigg] Backend index.js not found at ${backendIndexPath}. ` +
-                'Ensure backend/index.js exists with a Definition export.'
+                    'Ensure backend/index.js exists with a Definition export.'
             );
         }
 
@@ -57,7 +57,9 @@ function getDatabaseType() {
 
             for (const line of stackLines) {
                 // Match file paths in stack trace, excluding node:internal
-                const match = line.match(/\(([^)]+\.js):\d+:\d+\)/) || line.match(/at ([^(]+\.js):\d+:\d+/);
+                const match =
+                    line.match(/\(([^)]+\.js):\d+:\d+\)/) ||
+                    line.match(/at ([^(]+\.js):\d+:\d+/);
                 if (match && match[1] && !match[1].includes('node:internal')) {
                     errorFile = match[1];
                     break;
@@ -67,11 +69,11 @@ function getDatabaseType() {
             // Provide better error context for syntax/runtime errors
             throw new Error(
                 `[Frigg] Failed to load app definition from ${backendIndexPath}\n` +
-                `Error: ${requireError.message}\n` +
-                `File with error: ${errorFile}\n` +
-                `\nFull stack trace:\n${requireError.stack}\n\n` +
-                'This error occurred while loading your app definition or its dependencies. ' +
-                'Check the file listed above for syntax errors (trailing commas, missing brackets, etc.)'
+                    `Error: ${requireError.message}\n` +
+                    `File with error: ${errorFile}\n` +
+                    `\nFull stack trace:\n${requireError.stack}\n\n` +
+                    'This error occurred while loading your app definition or its dependencies. ' +
+                    'Check the file listed above for syntax errors (trailing commas, missing brackets, etc.)'
             );
         }
 
@@ -80,7 +82,7 @@ function getDatabaseType() {
         if (!database) {
             throw new Error(
                 '[Frigg] App definition missing database configuration. ' +
-                `Add database: { postgres: { enable: true } } (or mongoDB/documentDB) to ${backendIndexPath}`
+                    `Add database: { postgres: { enable: true } } (or mongoDB/documentDB) to ${backendIndexPath}`
             );
         }
 
@@ -98,7 +100,7 @@ function getDatabaseType() {
 
         throw new Error(
             '[Frigg] No database enabled in app definition. ' +
-            'Set one of: database.postgres.enable, database.mongoDB.enable, or database.documentDB.enable to true'
+                'Set one of: database.postgres.enable, database.mongoDB.enable, or database.documentDB.enable to true'
         );
     } catch (error) {
         // Re-throw with context if it's our error
@@ -150,5 +152,5 @@ Object.defineProperty(module.exports, 'DB_TYPE', {
         return cachedDbType;
     },
     enumerable: true,
-    configurable: true
+    configurable: true,
 });

@@ -1,4 +1,6 @@
-const { ScriptExecutionRepositoryMongo } = require('../script-execution-repository-mongo');
+const {
+    ScriptExecutionRepositoryMongo,
+} = require('../script-execution-repository-mongo');
 
 describe('ScriptExecutionRepositoryMongo', () => {
     let repository;
@@ -111,7 +113,9 @@ describe('ScriptExecutionRepositoryMongo', () => {
                 status: 'COMPLETED',
             };
 
-            mockPrisma.scriptExecution.findUnique.mockResolvedValue(mockExecution);
+            mockPrisma.scriptExecution.findUnique.mockResolvedValue(
+                mockExecution
+            );
 
             const result = await repository.findExecutionById(id);
 
@@ -138,9 +142,13 @@ describe('ScriptExecutionRepositoryMongo', () => {
                 { id: '2', scriptName, status: 'RUNNING' },
             ];
 
-            mockPrisma.scriptExecution.findMany.mockResolvedValue(mockExecutions);
+            mockPrisma.scriptExecution.findMany.mockResolvedValue(
+                mockExecutions
+            );
 
-            const result = await repository.findExecutionsByScriptName(scriptName);
+            const result = await repository.findExecutionsByScriptName(
+                scriptName
+            );
 
             expect(result).toEqual(mockExecutions);
             expect(mockPrisma.scriptExecution.findMany).toHaveBeenCalledWith({
@@ -159,11 +167,18 @@ describe('ScriptExecutionRepositoryMongo', () => {
                 sortBy: 'status',
                 sortOrder: 'asc',
             };
-            const mockExecutions = [{ id: '1', scriptName, status: 'COMPLETED' }];
+            const mockExecutions = [
+                { id: '1', scriptName, status: 'COMPLETED' },
+            ];
 
-            mockPrisma.scriptExecution.findMany.mockResolvedValue(mockExecutions);
+            mockPrisma.scriptExecution.findMany.mockResolvedValue(
+                mockExecutions
+            );
 
-            const result = await repository.findExecutionsByScriptName(scriptName, options);
+            const result = await repository.findExecutionsByScriptName(
+                scriptName,
+                options
+            );
 
             expect(result).toEqual(mockExecutions);
             expect(mockPrisma.scriptExecution.findMany).toHaveBeenCalledWith({
@@ -183,7 +198,9 @@ describe('ScriptExecutionRepositoryMongo', () => {
                 { id: '2', scriptName: 'script2', status },
             ];
 
-            mockPrisma.scriptExecution.findMany.mockResolvedValue(mockExecutions);
+            mockPrisma.scriptExecution.findMany.mockResolvedValue(
+                mockExecutions
+            );
 
             const result = await repository.findExecutionsByStatus(status);
 
@@ -330,7 +347,11 @@ describe('ScriptExecutionRepositoryMongo', () => {
             const existingExecution = {
                 id,
                 logs: [
-                    { level: 'debug', message: 'Initialization', timestamp: new Date().toISOString() },
+                    {
+                        level: 'debug',
+                        message: 'Initialization',
+                        timestamp: new Date().toISOString(),
+                    },
                 ],
             };
             const updatedExecution = {
@@ -338,8 +359,12 @@ describe('ScriptExecutionRepositoryMongo', () => {
                 logs: [...existingExecution.logs, logEntry],
             };
 
-            mockPrisma.scriptExecution.findUnique.mockResolvedValue(existingExecution);
-            mockPrisma.scriptExecution.update.mockResolvedValue(updatedExecution);
+            mockPrisma.scriptExecution.findUnique.mockResolvedValue(
+                existingExecution
+            );
+            mockPrisma.scriptExecution.update.mockResolvedValue(
+                updatedExecution
+            );
 
             const result = await repository.appendExecutionLog(id, logEntry);
 
@@ -366,8 +391,12 @@ describe('ScriptExecutionRepositoryMongo', () => {
                 logs: [logEntry],
             };
 
-            mockPrisma.scriptExecution.findUnique.mockResolvedValue(existingExecution);
-            mockPrisma.scriptExecution.update.mockResolvedValue(updatedExecution);
+            mockPrisma.scriptExecution.findUnique.mockResolvedValue(
+                existingExecution
+            );
+            mockPrisma.scriptExecution.update.mockResolvedValue(
+                updatedExecution
+            );
 
             const result = await repository.appendExecutionLog(id, logEntry);
 
@@ -384,9 +413,9 @@ describe('ScriptExecutionRepositoryMongo', () => {
 
             mockPrisma.scriptExecution.findUnique.mockResolvedValue(null);
 
-            await expect(repository.appendExecutionLog(id, logEntry)).rejects.toThrow(
-                `Execution ${id} not found`
-            );
+            await expect(
+                repository.appendExecutionLog(id, logEntry)
+            ).rejects.toThrow(`Execution ${id} not found`);
         });
     });
 

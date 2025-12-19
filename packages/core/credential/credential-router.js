@@ -105,11 +105,21 @@ function createCredentialRouter() {
             } = cred;
 
             // Ensure we have timestamps in ISO format
-            if (safeCredential.createdAt && !(safeCredential.createdAt instanceof Date)) {
-                safeCredential.createdAt = new Date(safeCredential.createdAt).toISOString();
+            if (
+                safeCredential.createdAt &&
+                !(safeCredential.createdAt instanceof Date)
+            ) {
+                safeCredential.createdAt = new Date(
+                    safeCredential.createdAt
+                ).toISOString();
             }
-            if (safeCredential.updatedAt && !(safeCredential.updatedAt instanceof Date)) {
-                safeCredential.updatedAt = new Date(safeCredential.updatedAt).toISOString();
+            if (
+                safeCredential.updatedAt &&
+                !(safeCredential.updatedAt instanceof Date)
+            ) {
+                safeCredential.updatedAt = new Date(
+                    safeCredential.updatedAt
+                ).toISOString();
             }
 
             return safeCredential;
@@ -128,7 +138,10 @@ function createCredentialRouter() {
             if (!req.user) {
                 throw Boom.unauthorized('Authentication required');
             }
-            const userId = typeof req.user.getId === 'function' ? req.user.getId() : req.user.id;
+            const userId =
+                typeof req.user.getId === 'function'
+                    ? req.user.getId()
+                    : req.user.id;
 
             const credentials = await listCredentialsForUser.execute(userId);
 
@@ -146,7 +159,10 @@ function createCredentialRouter() {
             if (!req.user) {
                 throw Boom.unauthorized('Authentication required');
             }
-            const userId = typeof req.user.getId === 'function' ? req.user.getId() : req.user.id;
+            const userId =
+                typeof req.user.getId === 'function'
+                    ? req.user.getId()
+                    : req.user.id;
             const credentialId = req.params.id;
 
             const credential = await getCredentialForUser.execute(
@@ -168,7 +184,10 @@ function createCredentialRouter() {
             if (!req.user) {
                 throw Boom.unauthorized('Authentication required');
             }
-            const userId = typeof req.user.getId === 'function' ? req.user.getId() : req.user.id;
+            const userId =
+                typeof req.user.getId === 'function'
+                    ? req.user.getId()
+                    : req.user.id;
             const credentialId = req.params.id;
 
             const result = await deleteCredentialForUser.execute(
@@ -195,7 +214,10 @@ function createCredentialRouter() {
             if (!req.user) {
                 throw Boom.unauthorized('Authentication required');
             }
-            const userId = typeof req.user.getId === 'function' ? req.user.getId() : req.user.id;
+            const userId =
+                typeof req.user.getId === 'function'
+                    ? req.user.getId()
+                    : req.user.id;
             const credentialId = req.params.id;
 
             // Validate request body

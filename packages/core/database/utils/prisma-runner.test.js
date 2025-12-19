@@ -1,12 +1,12 @@
 // Mock dependencies BEFORE requiring modules
 jest.mock('child_process', () => ({
     execSync: jest.fn(),
-    spawn: jest.fn()
+    spawn: jest.fn(),
 }));
 jest.mock('fs', () => ({
     existsSync: jest.fn(),
     readFileSync: jest.fn(),
-    writeFileSync: jest.fn()
+    writeFileSync: jest.fn(),
 }));
 
 const { execSync, spawn } = require('child_process');
@@ -17,7 +17,7 @@ const {
     checkDatabaseState,
     runPrismaMigrate,
     runPrismaDbPush,
-    getMigrationCommand
+    getMigrationCommand,
 } = require('./prisma-runner');
 
 describe('Prisma Runner Utility', () => {
@@ -36,29 +36,40 @@ describe('Prisma Runner Utility', () => {
         it('should return Lambda layer path when available (MongoDB)', () => {
             // Mock Lambda layer path exists
             fs.existsSync.mockImplementation((path) => {
-                return path.includes('/opt/nodejs/node_modules/generated/prisma-mongodb/schema.prisma');
+                return path.includes(
+                    '/opt/nodejs/node_modules/generated/prisma-mongodb/schema.prisma'
+                );
             });
 
             const path = getPrismaSchemaPath('mongodb');
 
-            expect(path).toBe('/opt/nodejs/node_modules/generated/prisma-mongodb/schema.prisma');
+            expect(path).toBe(
+                '/opt/nodejs/node_modules/generated/prisma-mongodb/schema.prisma'
+            );
         });
 
         it('should return Lambda layer path when available (PostgreSQL)', () => {
             // Mock Lambda layer path exists
             fs.existsSync.mockImplementation((path) => {
-                return path.includes('/opt/nodejs/node_modules/generated/prisma-postgresql/schema.prisma');
+                return path.includes(
+                    '/opt/nodejs/node_modules/generated/prisma-postgresql/schema.prisma'
+                );
             });
 
             const path = getPrismaSchemaPath('postgresql');
 
-            expect(path).toBe('/opt/nodejs/node_modules/generated/prisma-postgresql/schema.prisma');
+            expect(path).toBe(
+                '/opt/nodejs/node_modules/generated/prisma-postgresql/schema.prisma'
+            );
         });
 
         it('should fallback to node_modules path when Lambda layer not available (MongoDB)', () => {
             // Mock Lambda layer path doesn't exist, but node_modules does
             fs.existsSync.mockImplementation((path) => {
-                return path.includes('@friggframework/core') && path.includes('prisma-mongodb');
+                return (
+                    path.includes('@friggframework/core') &&
+                    path.includes('prisma-mongodb')
+                );
             });
 
             const path = getPrismaSchemaPath('mongodb');
@@ -71,7 +82,10 @@ describe('Prisma Runner Utility', () => {
         it('should fallback to node_modules path when Lambda layer not available (PostgreSQL)', () => {
             // Mock Lambda layer path doesn't exist, but node_modules does
             fs.existsSync.mockImplementation((path) => {
-                return path.includes('@friggframework/core') && path.includes('prisma-postgresql');
+                return (
+                    path.includes('@friggframework/core') &&
+                    path.includes('prisma-postgresql')
+                );
             });
 
             const path = getPrismaSchemaPath('postgresql');
@@ -84,20 +98,27 @@ describe('Prisma Runner Utility', () => {
         it('should throw error when schema file does not exist', () => {
             fs.existsSync.mockReturnValue(false);
 
-            expect(() => getPrismaSchemaPath('mongodb')).toThrow('Prisma schema not found');
+            expect(() => getPrismaSchemaPath('mongodb')).toThrow(
+                'Prisma schema not found'
+            );
         });
 
         it('should include helpful error message when schema missing', () => {
             fs.existsSync.mockReturnValue(false);
 
-            expect(() => getPrismaSchemaPath('mongodb')).toThrow('@friggframework/core');
+            expect(() => getPrismaSchemaPath('mongodb')).toThrow(
+                '@friggframework/core'
+            );
         });
 
         it('should use process.cwd() for base path when Lambda layer not available', () => {
             const originalCwd = process.cwd();
             // Mock Lambda layer path doesn't exist, but node_modules does
             fs.existsSync.mockImplementation((path) => {
-                return path.includes('@friggframework/core') && path.includes('prisma-mongodb');
+                return (
+                    path.includes('@friggframework/core') &&
+                    path.includes('prisma-mongodb')
+                );
             });
 
             const path = getPrismaSchemaPath('mongodb');
@@ -109,7 +130,10 @@ describe('Prisma Runner Utility', () => {
             const customRoot = '/custom/project';
             // Mock Lambda layer path doesn't exist, but node_modules does
             fs.existsSync.mockImplementation((path) => {
-                return path.includes('@friggframework/core') && path.includes('prisma-mongodb');
+                return (
+                    path.includes('@friggframework/core') &&
+                    path.includes('prisma-mongodb')
+                );
             });
 
             const path = getPrismaSchemaPath('mongodb', customRoot);
@@ -285,7 +309,7 @@ describe('Prisma Runner Utility', () => {
                     }
                 }),
                 stdout: { on: jest.fn() },
-                stderr: { on: jest.fn() }
+                stderr: { on: jest.fn() },
             };
             spawn.mockReturnValue(mockChildProcess);
         });
@@ -372,7 +396,7 @@ describe('Prisma Runner Utility', () => {
                     }
                 }),
                 stdout: { on: jest.fn() },
-                stderr: { on: jest.fn() }
+                stderr: { on: jest.fn() },
             };
             spawn.mockReturnValue(mockChildProcess);
         });

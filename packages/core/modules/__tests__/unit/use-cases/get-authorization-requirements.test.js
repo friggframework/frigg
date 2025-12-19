@@ -12,33 +12,33 @@ describe('GetAuthorizationRequirementsUseCase', () => {
         const mockNagarisDefinition = {
             getAuthStepCount: jest.fn().mockReturnValue(2),
             getAuthRequirementsForStep: jest.fn(),
-            getAuthorizationRequirements: jest.fn() // Legacy method
+            getAuthorizationRequirements: jest.fn(), // Legacy method
         };
 
         const mockSimpleDefinition = {
             getAuthStepCount: jest.fn().mockReturnValue(1),
             getAuthRequirementsForStep: jest.fn(),
-            getAuthorizationRequirements: jest.fn()
+            getAuthorizationRequirements: jest.fn(),
         };
 
         const mockLegacyDefinition = {
             // No getAuthStepCount or getAuthRequirementsForStep
-            getAuthorizationRequirements: jest.fn()
+            getAuthorizationRequirements: jest.fn(),
         };
 
         mockModuleDefinitions = [
             {
                 moduleName: 'nagaris',
-                definition: mockNagarisDefinition
+                definition: mockNagarisDefinition,
             },
             {
                 moduleName: 'simple-auth',
-                definition: mockSimpleDefinition
+                definition: mockSimpleDefinition,
             },
             {
                 moduleName: 'legacy-auth',
-                definition: mockLegacyDefinition
-            }
+                definition: mockLegacyDefinition,
+            },
         ];
 
         // Mock use case
@@ -49,11 +49,13 @@ describe('GetAuthorizationRequirementsUseCase', () => {
 
             async execute(entityType, step = 1) {
                 const moduleDefinition = this.moduleDefinitions.find(
-                    def => def.moduleName === entityType
+                    (def) => def.moduleName === entityType
                 );
 
                 if (!moduleDefinition) {
-                    throw new Error(`Module definition not found: ${entityType}`);
+                    throw new Error(
+                        `Module definition not found: ${entityType}`
+                    );
                 }
 
                 const ModuleDefinition = moduleDefinition.definition;
@@ -70,13 +72,13 @@ describe('GetAuthorizationRequirementsUseCase', () => {
                     ...requirements,
                     step,
                     totalSteps: stepCount,
-                    isMultiStep: stepCount > 1
+                    isMultiStep: stepCount > 1,
                 };
             }
         }
 
         useCase = new GetAuthorizationRequirementsUseCase({
-            moduleDefinitions: mockModuleDefinitions
+            moduleDefinitions: mockModuleDefinitions,
         });
     });
 
@@ -85,7 +87,7 @@ describe('GetAuthorizationRequirementsUseCase', () => {
             const mockDefinition = mockModuleDefinitions[1].definition;
             mockDefinition.getAuthRequirementsForStep.mockResolvedValue({
                 type: 'oauth2',
-                url: 'https://example.com/oauth'
+                url: 'https://example.com/oauth',
             });
 
             const result = await useCase.execute('simple-auth', 1);
@@ -95,7 +97,7 @@ describe('GetAuthorizationRequirementsUseCase', () => {
                 url: 'https://example.com/oauth',
                 step: 1,
                 totalSteps: 1,
-                isMultiStep: false
+                isMultiStep: false,
             });
         });
 
@@ -106,10 +108,10 @@ describe('GetAuthorizationRequirementsUseCase', () => {
                 data: {
                     jsonSchema: {
                         properties: {
-                            email: { type: 'string' }
-                        }
-                    }
-                }
+                            email: { type: 'string' },
+                        },
+                    },
+                },
             });
 
             const result = await useCase.execute('nagaris', 1);
@@ -119,25 +121,27 @@ describe('GetAuthorizationRequirementsUseCase', () => {
                 data: {
                     jsonSchema: {
                         properties: {
-                            email: { type: 'string' }
-                        }
-                    }
+                            email: { type: 'string' },
+                        },
+                    },
                 },
                 step: 1,
                 totalSteps: 2,
-                isMultiStep: true
+                isMultiStep: true,
             });
         });
 
         it('should default to step 1 when not specified', async () => {
             const mockDefinition = mockModuleDefinitions[0].definition;
             mockDefinition.getAuthRequirementsForStep.mockResolvedValue({
-                type: 'email'
+                type: 'email',
             });
 
             await useCase.execute('nagaris');
 
-            expect(mockDefinition.getAuthRequirementsForStep).toHaveBeenCalledWith(1);
+            expect(
+                mockDefinition.getAuthRequirementsForStep
+            ).toHaveBeenCalledWith(1);
         });
 
         it('should throw error when module not found', async () => {
@@ -155,15 +159,17 @@ describe('GetAuthorizationRequirementsUseCase', () => {
                 data: {
                     jsonSchema: {
                         properties: {
-                            otp: { type: 'string' }
-                        }
-                    }
-                }
+                            otp: { type: 'string' },
+                        },
+                    },
+                },
             });
 
             const result = await useCase.execute('nagaris', 2);
 
-            expect(mockDefinition.getAuthRequirementsForStep).toHaveBeenCalledWith(2);
+            expect(
+                mockDefinition.getAuthRequirementsForStep
+            ).toHaveBeenCalledWith(2);
             expect(result.step).toBe(2);
             expect(result.totalSteps).toBe(2);
             expect(result.isMultiStep).toBe(true);
@@ -172,7 +178,7 @@ describe('GetAuthorizationRequirementsUseCase', () => {
         it('should correctly identify single-step modules', async () => {
             const mockDefinition = mockModuleDefinitions[1].definition;
             mockDefinition.getAuthRequirementsForStep.mockResolvedValue({
-                type: 'oauth2'
+                type: 'oauth2',
             });
 
             const result = await useCase.execute('simple-auth', 1);
@@ -184,7 +190,7 @@ describe('GetAuthorizationRequirementsUseCase', () => {
         it('should correctly identify multi-step modules', async () => {
             const mockDefinition = mockModuleDefinitions[0].definition;
             mockDefinition.getAuthRequirementsForStep.mockResolvedValue({
-                type: 'email'
+                type: 'email',
             });
 
             const result = await useCase.execute('nagaris', 1);
@@ -199,19 +205,21 @@ describe('GetAuthorizationRequirementsUseCase', () => {
             const mockDefinition = mockModuleDefinitions[2].definition;
             mockDefinition.getAuthorizationRequirements.mockResolvedValue({
                 type: 'basic',
-                data: {}
+                data: {},
             });
 
             const result = await useCase.execute('legacy-auth', 1);
 
-            expect(mockDefinition.getAuthorizationRequirements).toHaveBeenCalled();
+            expect(
+                mockDefinition.getAuthorizationRequirements
+            ).toHaveBeenCalled();
             expect(result.type).toBe('basic');
         });
 
         it('should default to single-step for legacy modules', async () => {
             const mockDefinition = mockModuleDefinitions[2].definition;
             mockDefinition.getAuthorizationRequirements.mockResolvedValue({
-                type: 'basic'
+                type: 'basic',
             });
 
             const result = await useCase.execute('legacy-auth', 1);
@@ -226,7 +234,9 @@ describe('GetAuthorizationRequirementsUseCase', () => {
 
             await useCase.execute('legacy-auth', 1);
 
-            expect(mockDefinition.getAuthorizationRequirements).toHaveBeenCalled();
+            expect(
+                mockDefinition.getAuthorizationRequirements
+            ).toHaveBeenCalled();
         });
     });
 
@@ -239,28 +249,32 @@ describe('GetAuthorizationRequirementsUseCase', () => {
                     jsonSchema: {
                         title: 'Email Authentication',
                         properties: {
-                            email: { type: 'string', format: 'email' }
-                        }
+                            email: { type: 'string', format: 'email' },
+                        },
                     },
                     uiSchema: {
-                        email: { 'ui:placeholder': 'your.email@example.com' }
-                    }
-                }
+                        email: { 'ui:placeholder': 'your.email@example.com' },
+                    },
+                },
             };
 
-            mockDefinition.getAuthRequirementsForStep.mockResolvedValue(requirements);
+            mockDefinition.getAuthRequirementsForStep.mockResolvedValue(
+                requirements
+            );
 
             const result = await useCase.execute('nagaris', 1);
 
             expect(result.type).toBe('email');
-            expect(result.data.jsonSchema).toEqual(requirements.data.jsonSchema);
+            expect(result.data.jsonSchema).toEqual(
+                requirements.data.jsonSchema
+            );
             expect(result.data.uiSchema).toEqual(requirements.data.uiSchema);
         });
 
         it('should add step metadata to requirements', async () => {
             const mockDefinition = mockModuleDefinitions[0].definition;
             mockDefinition.getAuthRequirementsForStep.mockResolvedValue({
-                type: 'email'
+                type: 'email',
             });
 
             const result = await useCase.execute('nagaris', 1);
@@ -277,8 +291,8 @@ describe('GetAuthorizationRequirementsUseCase', () => {
                 url: 'https://example.com/oauth/authorize',
                 data: {
                     clientId: 'client-123',
-                    scopes: ['read', 'write']
-                }
+                    scopes: ['read', 'write'],
+                },
             });
 
             const result = await useCase.execute('simple-auth', 1);
@@ -298,16 +312,19 @@ describe('GetAuthorizationRequirementsUseCase', () => {
                         required: ['username', 'password'],
                         properties: {
                             username: { type: 'string' },
-                            password: { type: 'string' }
-                        }
-                    }
-                }
+                            password: { type: 'string' },
+                        },
+                    },
+                },
             });
 
             const result = await useCase.execute('nagaris', 1);
 
             expect(result.type).toBe('form');
-            expect(result.data.jsonSchema.required).toEqual(['username', 'password']);
+            expect(result.data.jsonSchema.required).toEqual([
+                'username',
+                'password',
+            ]);
         });
     });
 
@@ -318,7 +335,9 @@ describe('GetAuthorizationRequirementsUseCase', () => {
                 new Error('Step not defined')
             );
 
-            await expect(useCase.execute('nagaris', 3)).rejects.toThrow('Step not defined');
+            await expect(useCase.execute('nagaris', 3)).rejects.toThrow(
+                'Step not defined'
+            );
         });
 
         it('should propagate errors from getAuthorizationRequirements', async () => {
@@ -343,19 +362,21 @@ describe('GetAuthorizationRequirementsUseCase', () => {
         it('should handle step 0', async () => {
             const mockDefinition = mockModuleDefinitions[0].definition;
             mockDefinition.getAuthRequirementsForStep.mockResolvedValue({
-                type: 'email'
+                type: 'email',
             });
 
             const result = await useCase.execute('nagaris', 0);
 
-            expect(mockDefinition.getAuthRequirementsForStep).toHaveBeenCalledWith(0);
+            expect(
+                mockDefinition.getAuthRequirementsForStep
+            ).toHaveBeenCalledWith(0);
             expect(result.step).toBe(0);
         });
 
         it('should handle very high step numbers', async () => {
             const mockDefinition = mockModuleDefinitions[0].definition;
             mockDefinition.getAuthRequirementsForStep.mockResolvedValue({
-                type: 'unknown'
+                type: 'unknown',
             });
 
             const result = await useCase.execute('nagaris', 100);
@@ -369,9 +390,9 @@ describe('GetAuthorizationRequirementsUseCase', () => {
                 definition: {
                     getAuthStepCount: jest.fn().mockReturnValue(10),
                     getAuthRequirementsForStep: jest.fn().mockResolvedValue({
-                        type: 'form'
-                    })
-                }
+                        type: 'form',
+                    }),
+                },
             };
 
             mockModuleDefinitions.push(complexModule);
@@ -401,11 +422,11 @@ describe('GetAuthorizationRequirementsUseCase', () => {
                     nested: {
                         deep: {
                             structure: {
-                                value: 'test'
-                            }
-                        }
-                    }
-                }
+                                value: 'test',
+                            },
+                        },
+                    },
+                },
             });
 
             const result = await useCase.execute('nagaris', 1);
@@ -418,8 +439,8 @@ describe('GetAuthorizationRequirementsUseCase', () => {
                 moduleName: 'module-name_v2.0',
                 definition: {
                     getAuthStepCount: jest.fn().mockReturnValue(1),
-                    getAuthRequirementsForStep: jest.fn().mockResolvedValue({})
-                }
+                    getAuthRequirementsForStep: jest.fn().mockResolvedValue({}),
+                },
             };
 
             mockModuleDefinitions.push(specialModule);
@@ -437,12 +458,12 @@ describe('GetAuthorizationRequirementsUseCase', () => {
                 definition: {
                     getAuthStepCount: jest.fn().mockReturnValue(2),
                     getAuthRequirementsForStep: jest.fn().mockResolvedValue({
-                        type: 'new'
+                        type: 'new',
                     }),
                     getAuthorizationRequirements: jest.fn().mockResolvedValue({
-                        type: 'old'
-                    })
-                }
+                        type: 'old',
+                    }),
+                },
             };
 
             mockModuleDefinitions.push(hybridModule);
@@ -450,8 +471,12 @@ describe('GetAuthorizationRequirementsUseCase', () => {
             const result = await useCase.execute('hybrid', 1);
 
             // Should prefer new method
-            expect(hybridModule.definition.getAuthRequirementsForStep).toHaveBeenCalled();
-            expect(hybridModule.definition.getAuthorizationRequirements).not.toHaveBeenCalled();
+            expect(
+                hybridModule.definition.getAuthRequirementsForStep
+            ).toHaveBeenCalled();
+            expect(
+                hybridModule.definition.getAuthorizationRequirements
+            ).not.toHaveBeenCalled();
             expect(result.type).toBe('new');
         });
 
@@ -461,9 +486,9 @@ describe('GetAuthorizationRequirementsUseCase', () => {
                 definition: {
                     getAuthStepCount: jest.fn().mockReturnValue(3),
                     getAuthorizationRequirements: jest.fn().mockResolvedValue({
-                        type: 'fallback'
-                    })
-                }
+                        type: 'fallback',
+                    }),
+                },
             };
 
             mockModuleDefinitions.push(partialModule);
@@ -481,7 +506,7 @@ describe('GetAuthorizationRequirementsUseCase', () => {
             const mockDefinition = mockModuleDefinitions[0].definition;
             mockDefinition.getAuthRequirementsForStep.mockImplementation(
                 () =>
-                    new Promise(resolve =>
+                    new Promise((resolve) =>
                         setTimeout(() => resolve({ type: 'async' }), 10)
                     )
             );
@@ -495,7 +520,7 @@ describe('GetAuthorizationRequirementsUseCase', () => {
             const mockDefinition = mockModuleDefinitions[2].definition;
             mockDefinition.getAuthorizationRequirements.mockImplementation(
                 () =>
-                    new Promise(resolve =>
+                    new Promise((resolve) =>
                         setTimeout(() => resolve({ type: 'legacy-async' }), 10)
                     )
             );

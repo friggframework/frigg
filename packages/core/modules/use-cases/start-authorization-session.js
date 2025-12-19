@@ -1,5 +1,7 @@
 const crypto = require('crypto');
-const { AuthorizationSession } = require('../domain/entities/AuthorizationSession');
+const {
+    AuthorizationSession,
+} = require('../domain/entities/AuthorizationSession');
 
 /**
  * Start Authorization Session Use Case

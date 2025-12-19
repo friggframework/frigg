@@ -42,7 +42,12 @@ const createApp = (applyMiddleware) => {
     return app;
 };
 
-function createAppHandler(eventName, router, shouldUseDatabase = true, basePath = null) {
+function createAppHandler(
+    eventName,
+    router,
+    shouldUseDatabase = true,
+    basePath = null
+) {
     const app = createApp((app) => {
         if (basePath) {
             app.use(basePath, router);

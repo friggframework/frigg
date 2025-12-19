@@ -5,7 +5,9 @@ jest.mock('../../../database/config', () => ({
     PRISMA_QUERY_LOGGING: false,
 }));
 
-const { CredentialRepositoryPostgres } = require('../credential-repository-postgres');
+const {
+    CredentialRepositoryPostgres,
+} = require('../credential-repository-postgres');
 
 describe('CredentialRepositoryPostgres - user/userId compatibility', () => {
     let repository;
@@ -71,7 +73,7 @@ describe('CredentialRepositoryPostgres - user/userId compatibility', () => {
             const credentialDetails = {
                 identifiers: {
                     userId: '15', // Preferred field
-                    user: '13',   // Legacy field (should be ignored)
+                    user: '13', // Legacy field (should be ignored)
                     externalId: 'workspace-123',
                 },
                 details: {
@@ -138,7 +140,9 @@ describe('CredentialRepositoryPostgres - user/userId compatibility', () => {
                 authIsValid: true,
             };
 
-            mockPrisma.credential.findFirst.mockResolvedValue(existingCredential);
+            mockPrisma.credential.findFirst.mockResolvedValue(
+                existingCredential
+            );
             mockPrisma.credential.update.mockResolvedValue({
                 ...existingCredential,
                 data: { access_token: 'new-token' },

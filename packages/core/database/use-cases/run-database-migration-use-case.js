@@ -38,12 +38,22 @@ class RunDatabaseMigrationUseCase {
         this._validateParams({ dbType, stage });
 
         // Step 1: Generate Prisma client
-        const generateResult = await this.prismaRunner.runPrismaGenerate(dbType, verbose);
+        const generateResult = await this.prismaRunner.runPrismaGenerate(
+            dbType,
+            verbose
+        );
 
         if (!generateResult.success) {
             throw new MigrationError(
-                `Failed to generate Prisma client: ${generateResult.error || 'Unknown error'}`,
-                { dbType, stage, step: 'generate', output: generateResult.output }
+                `Failed to generate Prisma client: ${
+                    generateResult.error || 'Unknown error'
+                }`,
+                {
+                    dbType,
+                    stage,
+                    step: 'generate',
+                    output: generateResult.output,
+                }
             );
         }
 
@@ -53,23 +63,45 @@ class RunDatabaseMigrationUseCase {
 
         if (dbType === 'postgresql') {
             migrationCommand = this.prismaRunner.getMigrationCommand(stage);
-            migrationResult = await this.prismaRunner.runPrismaMigrate(migrationCommand, verbose);
+            migrationResult = await this.prismaRunner.runPrismaMigrate(
+                migrationCommand,
+                verbose
+            );
 
             if (!migrationResult.success) {
                 throw new MigrationError(
-                    `PostgreSQL migration failed: ${migrationResult.error || 'Unknown error'}`,
-                    { dbType, stage, command: migrationCommand, step: 'migrate', output: migrationResult.output }
+                    `PostgreSQL migration failed: ${
+                        migrationResult.error || 'Unknown error'
+                    }`,
+                    {
+                        dbType,
+                        stage,
+                        command: migrationCommand,
+                        step: 'migrate',
+                        output: migrationResult.output,
+                    }
                 );
             }
         } else if (dbType === 'mongodb' || dbType === 'documentdb') {
             migrationCommand = 'db push';
             // Use non-interactive mode for automated/Lambda environments
-            migrationResult = await this.prismaRunner.runPrismaDbPush(verbose, true);
+            migrationResult = await this.prismaRunner.runPrismaDbPush(
+                verbose,
+                true
+            );
 
             if (!migrationResult.success) {
                 throw new MigrationError(
-                    `Mongo-compatible push failed: ${migrationResult.error || 'Unknown error'}`,
-                    { dbType, stage, command: migrationCommand, step: 'push', output: migrationResult.output }
+                    `Mongo-compatible push failed: ${
+                        migrationResult.error || 'Unknown error'
+                    }`,
+                    {
+                        dbType,
+                        stage,
+                        command: migrationCommand,
+                        step: 'push',
+                        output: migrationResult.output,
+                    }
                 );
             }
         } else {

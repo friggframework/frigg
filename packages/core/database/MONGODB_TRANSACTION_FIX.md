@@ -15,9 +15,9 @@ MongoDB does not allow creating collections (namespaces) inside multi-document t
 
 ### Technical Details
 
-- **MongoDB Constraint**: Collections must exist before being used in multi-document transactions
-- **Prisma Behavior**: Prisma may implicitly use transactions for certain operations
-- **Impact**: Health checks fail on fresh databases or when collections haven't been created yet
+-   **MongoDB Constraint**: Collections must exist before being used in multi-document transactions
+-   **Prisma Behavior**: Prisma may implicitly use transactions for certain operations
+-   **Impact**: Health checks fail on fresh databases or when collections haven't been created yet
 
 ## Solution
 
@@ -37,30 +37,34 @@ This follows the **"fail fast"** principle and ensures consistent state across a
 ### Changes Made
 
 1. **Created MongoDB Schema Initialization** (`packages/core/database/utils/mongodb-schema-init.js`)
-   - `initializeMongoDBSchema()` - Ensures all Prisma collections exist at startup
-   - `getPrismaCollections()` - Returns list of all Prisma collection names
-   - `PRISMA_COLLECTIONS` - Constant array of all 13 Prisma collections
-   - Only runs for MongoDB (skips PostgreSQL)
-   - Fails fast if database not connected
+
+    - `initializeMongoDBSchema()` - Ensures all Prisma collections exist at startup
+    - `getPrismaCollections()` - Returns list of all Prisma collection names
+    - `PRISMA_COLLECTIONS` - Constant array of all 13 Prisma collections
+    - Only runs for MongoDB (skips PostgreSQL)
+    - Fails fast if database not connected
 
 2. **Created MongoDB Collection Utilities** (`packages/core/database/utils/mongodb-collection-utils.js`)
-   - `ensureCollectionExists(collectionName)` - Ensures a single collection exists
-   - `ensureCollectionsExist(collectionNames)` - Batch creates multiple collections
-   - `collectionExists(collectionName)` - Checks if a collection exists
-   - Handles race conditions gracefully (NamespaceExists errors)
+
+    - `ensureCollectionExists(collectionName)` - Ensures a single collection exists
+    - `ensureCollectionsExist(collectionNames)` - Batch creates multiple collections
+    - `collectionExists(collectionName)` - Checks if a collection exists
+    - Handles race conditions gracefully (NamespaceExists errors)
 
 3. **Integrated into Database Connection** (`packages/core/database/prisma.js`)
-   - Modified `connectPrisma()` to call `initializeMongoDBSchema()` after connection
-   - Ensures all collections exist before application handles requests
+
+    - Modified `connectPrisma()` to call `initializeMongoDBSchema()` after connection
+    - Ensures all collections exist before application handles requests
 
 4. **Updated Health Check Repository** (`packages/core/database/repositories/health-check-repository-mongodb.js`)
-   - Removed per-operation collection existence checks
-   - Added documentation noting schema is initialized at startup
+
+    - Removed per-operation collection existence checks
+    - Added documentation noting schema is initialized at startup
 
 5. **Added Comprehensive Tests**
-   - `mongodb-schema-init.test.js` - Tests schema initialization system
-   - `mongodb-collection-utils.test.js` - Tests collection utility functions
-   - Tests error handling, race conditions, and edge cases
+    - `mongodb-schema-init.test.js` - Tests schema initialization system
+    - `mongodb-collection-utils.test.js` - Tests collection utility functions
+    - Tests error handling, race conditions, and edge cases
 
 ### Implementation Flow
 
@@ -93,23 +97,26 @@ await prisma.credential.create({ data: {...} }); // Works without namespace erro
 ## Benefits
 
 ### Immediate Benefits
-- ✅ Fixes encryption health check failures on fresh databases
-- ✅ Prevents transaction namespace errors across **all** Prisma operations
-- ✅ No per-operation overhead - collections created once at startup
-- ✅ Fail fast - database issues discovered immediately at startup
-- ✅ Idempotent - safe to run multiple times and across multiple instances
+
+-   ✅ Fixes encryption health check failures on fresh databases
+-   ✅ Prevents transaction namespace errors across **all** Prisma operations
+-   ✅ No per-operation overhead - collections created once at startup
+-   ✅ Fail fast - database issues discovered immediately at startup
+-   ✅ Idempotent - safe to run multiple times and across multiple instances
 
 ### Architectural Benefits
-- ✅ **Clean separation of concerns**: Schema initialization is infrastructure concern, handled at startup
-- ✅ **Follows DDD/Hexagonal Architecture**: Infrastructure layer handles database setup, repositories focus on business operations
-- ✅ **Consistent across all environments**: Dev, test, staging, production all follow same pattern
-- ✅ **No repository-level checks needed**: All repositories benefit automatically
-- ✅ **Well-tested and documented**: Comprehensive test coverage and documentation
+
+-   ✅ **Clean separation of concerns**: Schema initialization is infrastructure concern, handled at startup
+-   ✅ **Follows DDD/Hexagonal Architecture**: Infrastructure layer handles database setup, repositories focus on business operations
+-   ✅ **Consistent across all environments**: Dev, test, staging, production all follow same pattern
+-   ✅ **No repository-level checks needed**: All repositories benefit automatically
+-   ✅ **Well-tested and documented**: Comprehensive test coverage and documentation
 
 ### Operational Benefits
-- ✅ **Predictable startup**: Clear logging of schema initialization
-- ✅ **Zero runtime overhead**: Collections created once, not on every operation
-- ✅ **Production-ready**: Handles race conditions, errors, and edge cases gracefully
+
+-   ✅ **Predictable startup**: Clear logging of schema initialization
+-   ✅ **Zero runtime overhead**: Collections created once, not on every operation
+-   ✅ **Production-ready**: Handles race conditions, errors, and edge cases gracefully
 
 ## Design Decisions
 
@@ -118,16 +125,19 @@ await prisma.credential.create({ data: {...} }); // Works without namespace erro
 We considered two approaches:
 
 **❌ Per-Operation Checks (Initial approach)**
+
 ```javascript
 async createCredential(data) {
     await ensureCollectionExists('Credential'); // Check every time
     return await prisma.credential.create({ data });
 }
 ```
-- Pros: Guarantees collection exists before each operation
-- Cons: Runtime overhead, repeated checks, scattered logic
+
+-   Pros: Guarantees collection exists before each operation
+-   Cons: Runtime overhead, repeated checks, scattered logic
 
 **✅ Startup Initialization (Final approach)**
+
 ```javascript
 // Once at startup
 await connectPrisma(); // Initializes all collections
@@ -137,8 +147,9 @@ async createCredential(data) {
     return await prisma.credential.create({ data }); // No checks needed
 }
 ```
-- Pros: Zero runtime overhead, centralized logic, fail fast, consistent
-- Cons: Requires database connection at startup (already required)
+
+-   Pros: Zero runtime overhead, centralized logic, fail fast, consistent
+-   Cons: Requires database connection at startup (already required)
 
 ### Benefits of Startup Approach
 
@@ -159,6 +170,7 @@ MongoDB schema initialization complete - 13 collections verified (45ms)
 ```
 
 On subsequent startups (collections already exist):
+
 ```
 Initializing MongoDB schema - ensuring all collections exist...
 MongoDB schema initialization complete - 13 collections verified (12ms)
@@ -166,33 +178,41 @@ MongoDB schema initialization complete - 13 collections verified (12ms)
 
 ## References
 
-- [Prisma Issue #8305](https://github.com/prisma/prisma/issues/8305) - MongoDB "Cannot create namespace" error
-- [Mongoose Issue #6699](https://github.com/Automattic/mongoose/issues/6699) - Similar issue in Mongoose
-- [MongoDB Transactions Documentation](https://www.mongodb.com/docs/manual/core/transactions/#transactions-and-operations) - Operations allowed in transactions
-- [Prisma MongoDB Guide](https://www.prisma.io/docs/guides/database/mongodb) - Using Prisma with MongoDB
+-   [Prisma Issue #8305](https://github.com/prisma/prisma/issues/8305) - MongoDB "Cannot create namespace" error
+-   [Mongoose Issue #6699](https://github.com/Automattic/mongoose/issues/6699) - Similar issue in Mongoose
+-   [MongoDB Transactions Documentation](https://www.mongodb.com/docs/manual/core/transactions/#transactions-and-operations) - Operations allowed in transactions
+-   [Prisma MongoDB Guide](https://www.prisma.io/docs/guides/database/mongodb) - Using Prisma with MongoDB
 
 ## Future Considerations
 
 ### Automatic Schema Sync
+
 Consider enhancing the system to:
-- Parse Prisma schema file dynamically to extract collection names
-- Auto-detect schema changes and create new collections
-- Provide CLI command for manual schema initialization
+
+-   Parse Prisma schema file dynamically to extract collection names
+-   Auto-detect schema changes and create new collections
+-   Provide CLI command for manual schema initialization
 
 ### Migration Support
+
 For production deployments with existing data:
-- Document migration procedures for new collections
-- Consider pre-migration scripts for blue-green deployments
-- Add health check for schema initialization status
+
+-   Document migration procedures for new collections
+-   Consider pre-migration scripts for blue-green deployments
+-   Add health check for schema initialization status
 
 ### Multi-Database Support
+
 The system already handles:
-- ✅ MongoDB - Full schema initialization
-- ✅ PostgreSQL - Skips initialization (uses Prisma migrations)
-- Consider adding explicit migration support for DocumentDB-specific features
+
+-   ✅ MongoDB - Full schema initialization
+-   ✅ PostgreSQL - Skips initialization (uses Prisma migrations)
+-   Consider adding explicit migration support for DocumentDB-specific features
 
 ### Index Creation
+
 Future enhancement could also create indexes at startup:
-- Parse Prisma schema for `@@index` directives
-- Create indexes if they don't exist
-- Provide index health checks
+
+-   Parse Prisma schema for `@@index` directives
+-   Create indexes if they don't exist
+-   Provide index health checks

@@ -21,7 +21,7 @@ const requireAdmin = (req, res, next) => {
         return res.status(401).json({
             status: 'error',
             message: 'Unauthorized - Admin API key required',
-            code: 'MISSING_API_KEY'
+            code: 'MISSING_API_KEY',
         });
     }
 
@@ -30,7 +30,7 @@ const requireAdmin = (req, res, next) => {
         return res.status(401).json({
             status: 'error',
             message: 'Unauthorized - Invalid admin API key',
-            code: 'INVALID_API_KEY'
+            code: 'INVALID_API_KEY',
         });
     }
 

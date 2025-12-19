@@ -114,7 +114,7 @@ class CredentialRepository extends CredentialRepositoryInterface {
             userId,
             externalId,
             authIsValid,
-            
+
             ...oauthData
         } = details;
 
@@ -156,7 +156,7 @@ class CredentialRepository extends CredentialRepositoryInterface {
                 userId: userId || user,
                 externalId,
                 authIsValid: authIsValid,
-                
+
                 data: oauthData,
             },
         });
@@ -229,7 +229,7 @@ class CredentialRepository extends CredentialRepositoryInterface {
             userId,
             externalId,
             authIsValid,
-            
+
             ...oauthData
         } = updates;
 
@@ -243,7 +243,9 @@ class CredentialRepository extends CredentialRepositoryInterface {
                 externalId:
                     externalId !== undefined ? externalId : existing.externalId,
                 authIsValid:
-                    authIsValid !== undefined ? authIsValid : existing.authIsValid,
+                    authIsValid !== undefined
+                        ? authIsValid
+                        : existing.authIsValid,
                 data: mergedData,
             },
         });

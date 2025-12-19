@@ -33,7 +33,14 @@ class ScriptExecutionRepositoryMongo extends ScriptExecutionRepositoryInterface 
      * @param {string} [params.audit.ipAddress] - IP address of requester
      * @returns {Promise<Object>} The created execution record
      */
-    async createExecution({ scriptName, scriptVersion, trigger, mode, input, audit }) {
+    async createExecution({
+        scriptName,
+        scriptVersion,
+        trigger,
+        mode,
+        input,
+        audit,
+    }) {
         const data = {
             scriptName,
             scriptVersion,
@@ -83,7 +90,12 @@ class ScriptExecutionRepositoryMongo extends ScriptExecutionRepositoryInterface 
      * @returns {Promise<Array>} Array of execution records
      */
     async findExecutionsByScriptName(scriptName, options = {}) {
-        const { limit, offset, sortBy = 'createdAt', sortOrder = 'desc' } = options;
+        const {
+            limit,
+            offset,
+            sortBy = 'createdAt',
+            sortOrder = 'desc',
+        } = options;
 
         const executions = await this.prisma.scriptExecution.findMany({
             where: { scriptName },
@@ -107,7 +119,12 @@ class ScriptExecutionRepositoryMongo extends ScriptExecutionRepositoryInterface 
      * @returns {Promise<Array>} Array of execution records
      */
     async findExecutionsByStatus(status, options = {}) {
-        const { limit, offset, sortBy = 'createdAt', sortOrder = 'desc' } = options;
+        const {
+            limit,
+            offset,
+            sortBy = 'createdAt',
+            sortOrder = 'desc',
+        } = options;
 
         const executions = await this.prisma.scriptExecution.findMany({
             where: { status },
@@ -186,9 +203,12 @@ class ScriptExecutionRepositoryMongo extends ScriptExecutionRepositoryInterface 
      */
     async updateExecutionMetrics(id, metrics) {
         const data = {};
-        if (metrics.startTime !== undefined) data.metricsStartTime = metrics.startTime;
-        if (metrics.endTime !== undefined) data.metricsEndTime = metrics.endTime;
-        if (metrics.durationMs !== undefined) data.metricsDurationMs = metrics.durationMs;
+        if (metrics.startTime !== undefined)
+            data.metricsStartTime = metrics.startTime;
+        if (metrics.endTime !== undefined)
+            data.metricsEndTime = metrics.endTime;
+        if (metrics.durationMs !== undefined)
+            data.metricsDurationMs = metrics.durationMs;
 
         const execution = await this.prisma.scriptExecution.update({
             where: { id },

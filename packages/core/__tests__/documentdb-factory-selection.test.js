@@ -17,12 +17,14 @@ const FACTORIES = [
         exportName: 'ModuleRepositoryDocumentDB',
     },
     {
-        modulePath: '../integrations/repositories/integration-repository-factory',
+        modulePath:
+            '../integrations/repositories/integration-repository-factory',
         factoryName: 'createIntegrationRepository',
         exportName: 'IntegrationRepositoryDocumentDB',
     },
     {
-        modulePath: '../integrations/repositories/integration-mapping-repository-factory',
+        modulePath:
+            '../integrations/repositories/integration-mapping-repository-factory',
         factoryName: 'createIntegrationMappingRepository',
         exportName: 'IntegrationMappingRepositoryDocumentDB',
     },
@@ -42,7 +44,8 @@ const FACTORIES = [
         exportName: 'UserRepositoryDocumentDB',
     },
     {
-        modulePath: '../websocket/repositories/websocket-connection-repository-factory',
+        modulePath:
+            '../websocket/repositories/websocket-connection-repository-factory',
         factoryName: 'createWebsocketConnectionRepository',
         exportName: 'WebsocketConnectionRepositoryDocumentDB',
     },
@@ -88,9 +91,10 @@ describe('DocumentDB factory selection', () => {
             $runCommandRaw: jest.fn(),
         };
 
-        const repository = createHealthCheckRepository({ prismaClient: prismaClientStub });
+        const repository = createHealthCheckRepository({
+            prismaClient: prismaClientStub,
+        });
 
         expect(repository).toBeInstanceOf(HealthCheckRepositoryDocumentDB);
     });
 });
-

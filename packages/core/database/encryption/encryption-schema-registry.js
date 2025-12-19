@@ -72,7 +72,9 @@ function validateCustomSchema(schema) {
 
         for (const fieldPath of config.fields) {
             if (typeof fieldPath !== 'string' || !fieldPath) {
-                errors.push(`Model "${modelName}" has invalid field path: ${fieldPath}`);
+                errors.push(
+                    `Model "${modelName}" has invalid field path: ${fieldPath}`
+                );
             }
 
             // Check if trying to override core fields
@@ -104,13 +106,17 @@ function registerCustomSchema(schema) {
     const validation = validateCustomSchema(schema);
     if (!validation.valid) {
         throw new Error(
-            `Invalid custom encryption schema:\n- ${validation.errors.join('\n- ')}`
+            `Invalid custom encryption schema:\n- ${validation.errors.join(
+                '\n- '
+            )}`
         );
     }
 
     customSchema = { ...schema };
     logger.info(
-        `Registered custom encryption schema for models: ${Object.keys(customSchema).join(', ')}`
+        `Registered custom encryption schema for models: ${Object.keys(
+            customSchema
+        ).join(', ')}`
     );
 }
 
@@ -133,7 +139,9 @@ function extractCredentialFieldsFromModules(moduleDefinitions) {
         }
 
         for (const field of credentialFields) {
-            const prefixedField = field.startsWith('data.') ? field : `data.${field}`;
+            const prefixedField = field.startsWith('data.')
+                ? field
+                : `data.${field}`;
             fields.push(prefixedField);
         }
     }
@@ -160,10 +168,14 @@ function loadModuleEncryptionSchemas(integrations) {
         return;
     }
 
-    const { getModulesDefinitionFromIntegrationClasses } = require('../integrations/utils/map-integration-dto');
+    const {
+        getModulesDefinitionFromIntegrationClasses,
+    } = require('../integrations/utils/map-integration-dto');
 
-    const moduleDefinitions = getModulesDefinitionFromIntegrationClasses(integrations);
-    const credentialFields = extractCredentialFieldsFromModules(moduleDefinitions);
+    const moduleDefinitions =
+        getModulesDefinitionFromIntegrationClasses(integrations);
+    const credentialFields =
+        extractCredentialFieldsFromModules(moduleDefinitions);
 
     if (credentialFields.length === 0) {
         return;
@@ -171,8 +183,8 @@ function loadModuleEncryptionSchemas(integrations) {
 
     const moduleSchema = {
         Credential: {
-            fields: credentialFields
-        }
+            fields: credentialFields,
+        },
     };
 
     logger.info(

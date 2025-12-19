@@ -165,7 +165,7 @@ function createBaseDefinition(
 
     return {
         frameworkVersion: '>=3.17.0',
-        service: AppDefinition.name || 'create-frigg-app',
+        service: AppDefinition.name || 'frigg-app',
         package: {
             individually: true,
         },

@@ -27,9 +27,15 @@ function mapErrorToResponse(error) {
  */
 function createAdminScriptCommands() {
     // Lazy-load repository factories to avoid circular dependencies
-    const { createAdminApiKeyRepository } = require('../../admin-scripts/repositories/admin-api-key-repository-factory');
-    const { createScriptExecutionRepository } = require('../../admin-scripts/repositories/script-execution-repository-factory');
-    const { createScriptScheduleRepository } = require('../../admin-scripts/repositories/script-schedule-repository-factory');
+    const {
+        createAdminApiKeyRepository,
+    } = require('../../admin-scripts/repositories/admin-api-key-repository-factory');
+    const {
+        createScriptExecutionRepository,
+    } = require('../../admin-scripts/repositories/script-execution-repository-factory');
+    const {
+        createScriptScheduleRepository,
+    } = require('../../admin-scripts/repositories/script-schedule-repository-factory');
 
     const apiKeyRepository = createAdminApiKeyRepository();
     const executionRepository = createScriptExecutionRepository();
@@ -101,7 +107,10 @@ function createAdminScriptCommands() {
                     const isMatch = await bcrypt.compare(rawKey, key.keyHash);
                     if (isMatch) {
                         // Check expiration
-                        if (key.expiresAt && new Date(key.expiresAt) < new Date()) {
+                        if (
+                            key.expiresAt &&
+                            new Date(key.expiresAt) < new Date()
+                        ) {
                             const error = new Error('API key has expired');
                             error.code = 'EXPIRED_API_KEY';
                             return mapErrorToResponse(error);
@@ -204,9 +213,13 @@ function createAdminScriptCommands() {
          */
         async findScriptExecutionById(executionId) {
             try {
-                const execution = await executionRepository.findExecutionById(executionId);
+                const execution = await executionRepository.findExecutionById(
+                    executionId
+                );
                 if (!execution) {
-                    const error = new Error(`Execution ${executionId} not found`);
+                    const error = new Error(
+                        `Execution ${executionId} not found`
+                    );
                     error.code = 'EXECUTION_NOT_FOUND';
                     return mapErrorToResponse(error);
                 }
@@ -225,10 +238,11 @@ function createAdminScriptCommands() {
          */
         async findScriptExecutionsByName(scriptName, options = {}) {
             try {
-                const executions = await executionRepository.findExecutionsByScriptName(
-                    scriptName,
-                    options
-                );
+                const executions =
+                    await executionRepository.findExecutionsByScriptName(
+                        scriptName,
+                        options
+                    );
                 return executions;
             } catch (error) {
                 // Return empty array on error (non-critical)
@@ -286,20 +300,35 @@ function createAdminScriptCommands() {
          * @param {Object} [params.metrics] - Performance metrics { startTime, endTime, durationMs }
          * @returns {Promise<Object>} { success: true } or error
          */
-        async completeScriptExecution(executionId, { status, output, error, metrics }) {
+        async completeScriptExecution(
+            executionId,
+            { status, output, error, metrics }
+        ) {
             try {
                 // Update each field independently (partial updates allowed)
                 if (status) {
-                    await executionRepository.updateExecutionStatus(executionId, status);
+                    await executionRepository.updateExecutionStatus(
+                        executionId,
+                        status
+                    );
                 }
                 if (output !== undefined) {
-                    await executionRepository.updateExecutionOutput(executionId, output);
+                    await executionRepository.updateExecutionOutput(
+                        executionId,
+                        output
+                    );
                 }
                 if (error) {
-                    await executionRepository.updateExecutionError(executionId, error);
+                    await executionRepository.updateExecutionError(
+                        executionId,
+                        error
+                    );
                 }
                 if (metrics) {
-                    await executionRepository.updateExecutionMetrics(executionId, metrics);
+                    await executionRepository.updateExecutionMetrics(
+                        executionId,
+                        metrics
+                    );
                 }
 
                 return { success: true };
@@ -323,11 +352,14 @@ function createAdminScriptCommands() {
 
                 // If status filter provided, use status query
                 if (status) {
-                    return await executionRepository.findExecutionsByStatus(status, {
-                        limit,
-                        sortBy: 'createdAt',
-                        sortOrder: 'desc',
-                    });
+                    return await executionRepository.findExecutionsByStatus(
+                        status,
+                        {
+                            limit,
+                            sortBy: 'createdAt',
+                            sortOrder: 'desc',
+                        }
+                    );
                 }
 
                 // Otherwise, use generic recent query (would need to be added to interface)
@@ -349,7 +381,10 @@ function createAdminScriptCommands() {
          */
         async getScheduleByScriptName(scriptName) {
             try {
-                const schedule = await scheduleRepository.findScheduleByScriptName(scriptName);
+                const schedule =
+                    await scheduleRepository.findScheduleByScriptName(
+                        scriptName
+                    );
                 return schedule;
             } catch (error) {
                 return mapErrorToResponse(error);
@@ -366,7 +401,12 @@ function createAdminScriptCommands() {
          * @param {string} [params.timezone] - Timezone (default 'UTC')
          * @returns {Promise<Object>} Created or updated schedule
          */
-        async upsertSchedule({ scriptName, enabled, cronExpression, timezone }) {
+        async upsertSchedule({
+            scriptName,
+            enabled,
+            cronExpression,
+            timezone,
+        }) {
             try {
                 const schedule = await scheduleRepository.upsertSchedule({
                     scriptName,
@@ -388,7 +428,9 @@ function createAdminScriptCommands() {
          */
         async deleteSchedule(scriptName) {
             try {
-                const result = await scheduleRepository.deleteSchedule(scriptName);
+                const result = await scheduleRepository.deleteSchedule(
+                    scriptName
+                );
                 return result;
             } catch (error) {
                 return mapErrorToResponse(error);
@@ -404,12 +446,18 @@ function createAdminScriptCommands() {
          * @param {string} [awsInfo.awsScheduleName] - AWS EventBridge Scheduler name
          * @returns {Promise<Object>} Updated schedule
          */
-        async updateScheduleAwsInfo(scriptName, { awsScheduleArn, awsScheduleName }) {
+        async updateScheduleAwsInfo(
+            scriptName,
+            { awsScheduleArn, awsScheduleName }
+        ) {
             try {
-                const schedule = await scheduleRepository.updateScheduleAwsInfo(scriptName, {
-                    awsScheduleArn,
-                    awsScheduleName,
-                });
+                const schedule = await scheduleRepository.updateScheduleAwsInfo(
+                    scriptName,
+                    {
+                        awsScheduleArn,
+                        awsScheduleName,
+                    }
+                );
                 return schedule;
             } catch (error) {
                 return mapErrorToResponse(error);
@@ -426,10 +474,11 @@ function createAdminScriptCommands() {
          */
         async updateScheduleLastTriggered(scriptName, timestamp) {
             try {
-                const schedule = await scheduleRepository.updateScheduleLastTriggered(
-                    scriptName,
-                    timestamp
-                );
+                const schedule =
+                    await scheduleRepository.updateScheduleLastTriggered(
+                        scriptName,
+                        timestamp
+                    );
                 return schedule;
             } catch (error) {
                 return mapErrorToResponse(error);
@@ -445,7 +494,9 @@ function createAdminScriptCommands() {
          */
         async listSchedules(options = {}) {
             try {
-                const schedules = await scheduleRepository.listSchedules(options);
+                const schedules = await scheduleRepository.listSchedules(
+                    options
+                );
                 return schedules;
             } catch (error) {
                 return [];

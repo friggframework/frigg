@@ -17,13 +17,14 @@ describe('StartAuthorizationSessionUseCase', () => {
                 Object.assign(this, data);
                 if (!this.sessionId) throw new Error('Session ID is required');
                 if (!this.userId) throw new Error('User ID is required');
-                if (!this.entityType) throw new Error('Entity type is required');
+                if (!this.entityType)
+                    throw new Error('Entity type is required');
             }
         };
 
         // Mock repository
         mockRepository = {
-            create: jest.fn()
+            create: jest.fn(),
         };
 
         // Mock use case implementation
@@ -44,7 +45,7 @@ describe('StartAuthorizationSessionUseCase', () => {
                     maxSteps,
                     stepData: {},
                     expiresAt,
-                    completed: false
+                    completed: false,
                 });
 
                 return await this.authSessionRepository.create(session);
@@ -52,7 +53,7 @@ describe('StartAuthorizationSessionUseCase', () => {
         }
 
         useCase = new StartAuthorizationSessionUseCase({
-            authSessionRepository: mockRepository
+            authSessionRepository: mockRepository,
         });
     });
 
@@ -66,7 +67,7 @@ describe('StartAuthorizationSessionUseCase', () => {
                 maxSteps: 2,
                 stepData: {},
                 expiresAt: expect.any(Date),
-                completed: false
+                completed: false,
             };
 
             mockRepository.create.mockResolvedValue(mockSession);
@@ -79,18 +80,18 @@ describe('StartAuthorizationSessionUseCase', () => {
                     entityType: 'nagaris',
                     currentStep: 1,
                     maxSteps: 2,
-                    completed: false
+                    completed: false,
                 })
             );
             expect(result).toMatchObject({
                 userId: 'user-123',
                 entityType: 'nagaris',
-                maxSteps: 2
+                maxSteps: 2,
             });
         });
 
         it('should generate a unique session ID', async () => {
-            mockRepository.create.mockImplementation(session => session);
+            mockRepository.create.mockImplementation((session) => session);
 
             const result1 = await useCase.execute('user-123', 'nagaris', 2);
             const result2 = await useCase.execute('user-123', 'nagaris', 2);
@@ -101,18 +102,20 @@ describe('StartAuthorizationSessionUseCase', () => {
         });
 
         it('should set expiration to 15 minutes in the future', async () => {
-            mockRepository.create.mockImplementation(session => session);
+            mockRepository.create.mockImplementation((session) => session);
 
             const before = Date.now() + 15 * 60 * 1000;
             const result = await useCase.execute('user-123', 'nagaris', 2);
             const after = Date.now() + 15 * 60 * 1000;
 
-            expect(result.expiresAt.getTime()).toBeGreaterThanOrEqual(before - 100);
+            expect(result.expiresAt.getTime()).toBeGreaterThanOrEqual(
+                before - 100
+            );
             expect(result.expiresAt.getTime()).toBeLessThanOrEqual(after + 100);
         });
 
         it('should initialize with currentStep as 1', async () => {
-            mockRepository.create.mockImplementation(session => session);
+            mockRepository.create.mockImplementation((session) => session);
 
             const result = await useCase.execute('user-123', 'nagaris', 3);
 
@@ -120,7 +123,7 @@ describe('StartAuthorizationSessionUseCase', () => {
         });
 
         it('should initialize with empty stepData', async () => {
-            mockRepository.create.mockImplementation(session => session);
+            mockRepository.create.mockImplementation((session) => session);
 
             const result = await useCase.execute('user-123', 'nagaris', 2);
 
@@ -128,7 +131,7 @@ describe('StartAuthorizationSessionUseCase', () => {
         });
 
         it('should set completed to false', async () => {
-            mockRepository.create.mockImplementation(session => session);
+            mockRepository.create.mockImplementation((session) => session);
 
             const result = await useCase.execute('user-123', 'nagaris', 2);
 
@@ -136,17 +139,25 @@ describe('StartAuthorizationSessionUseCase', () => {
         });
 
         it('should support different entity types', async () => {
-            mockRepository.create.mockImplementation(session => session);
+            mockRepository.create.mockImplementation((session) => session);
 
-            const nagarisSession = await useCase.execute('user-123', 'nagaris', 2);
-            const hubspotSession = await useCase.execute('user-123', 'hubspot', 1);
+            const nagarisSession = await useCase.execute(
+                'user-123',
+                'nagaris',
+                2
+            );
+            const hubspotSession = await useCase.execute(
+                'user-123',
+                'hubspot',
+                1
+            );
 
             expect(nagarisSession.entityType).toBe('nagaris');
             expect(hubspotSession.entityType).toBe('hubspot');
         });
 
         it('should support different maxSteps values', async () => {
-            mockRepository.create.mockImplementation(session => session);
+            mockRepository.create.mockImplementation((session) => session);
 
             const twoStep = await useCase.execute('user-123', 'nagaris', 2);
             const threeStep = await useCase.execute('user-123', 'complex', 3);
@@ -158,15 +169,17 @@ describe('StartAuthorizationSessionUseCase', () => {
         });
 
         it('should handle repository errors', async () => {
-            mockRepository.create.mockRejectedValue(new Error('Database error'));
-
-            await expect(useCase.execute('user-123', 'nagaris', 2)).rejects.toThrow(
-                'Database error'
+            mockRepository.create.mockRejectedValue(
+                new Error('Database error')
             );
+
+            await expect(
+                useCase.execute('user-123', 'nagaris', 2)
+            ).rejects.toThrow('Database error');
         });
 
         it('should call repository create with correct session object', async () => {
-            mockRepository.create.mockImplementation(session => session);
+            mockRepository.create.mockImplementation((session) => session);
 
             await useCase.execute('user-123', 'nagaris', 2);
 
@@ -179,7 +192,7 @@ describe('StartAuthorizationSessionUseCase', () => {
                     maxSteps: 2,
                     stepData: {},
                     expiresAt: expect.any(Date),
-                    completed: false
+                    completed: false,
                 })
             );
         });
@@ -195,7 +208,7 @@ describe('StartAuthorizationSessionUseCase', () => {
                 expiresAt: new Date(Date.now() + 15 * 60 * 1000),
                 completed: false,
                 createdAt: new Date(),
-                updatedAt: new Date()
+                updatedAt: new Date(),
             };
 
             mockRepository.create.mockResolvedValue(createdSession);
@@ -208,21 +221,27 @@ describe('StartAuthorizationSessionUseCase', () => {
 
     describe('Validation', () => {
         it('should require userId parameter', async () => {
-            mockRepository.create.mockImplementation(session => session);
+            mockRepository.create.mockImplementation((session) => session);
 
             await expect(useCase.execute(null, 'nagaris', 2)).rejects.toThrow();
         });
 
         it('should require entityType parameter', async () => {
-            mockRepository.create.mockImplementation(session => session);
+            mockRepository.create.mockImplementation((session) => session);
 
-            await expect(useCase.execute('user-123', null, 2)).rejects.toThrow();
+            await expect(
+                useCase.execute('user-123', null, 2)
+            ).rejects.toThrow();
         });
 
         it('should handle undefined maxSteps', async () => {
-            mockRepository.create.mockImplementation(session => session);
+            mockRepository.create.mockImplementation((session) => session);
 
-            const result = await useCase.execute('user-123', 'nagaris', undefined);
+            const result = await useCase.execute(
+                'user-123',
+                'nagaris',
+                undefined
+            );
 
             expect(result.maxSteps).toBeUndefined();
         });
@@ -230,7 +249,7 @@ describe('StartAuthorizationSessionUseCase', () => {
 
     describe('Edge Cases', () => {
         it('should handle single-step flows (maxSteps = 1)', async () => {
-            mockRepository.create.mockImplementation(session => session);
+            mockRepository.create.mockImplementation((session) => session);
 
             const result = await useCase.execute('user-123', 'simple-auth', 1);
 
@@ -239,7 +258,7 @@ describe('StartAuthorizationSessionUseCase', () => {
         });
 
         it('should handle complex multi-step flows (maxSteps > 3)', async () => {
-            mockRepository.create.mockImplementation(session => session);
+            mockRepository.create.mockImplementation((session) => session);
 
             const result = await useCase.execute('user-123', 'complex-auth', 5);
 
@@ -247,7 +266,7 @@ describe('StartAuthorizationSessionUseCase', () => {
         });
 
         it('should handle concurrent session creation for same user', async () => {
-            mockRepository.create.mockImplementation(session => session);
+            mockRepository.create.mockImplementation((session) => session);
 
             const session1 = useCase.execute('user-123', 'nagaris', 2);
             const session2 = useCase.execute('user-123', 'hubspot', 1);
@@ -260,15 +279,19 @@ describe('StartAuthorizationSessionUseCase', () => {
         });
 
         it('should handle special characters in entityType', async () => {
-            mockRepository.create.mockImplementation(session => session);
+            mockRepository.create.mockImplementation((session) => session);
 
-            const result = await useCase.execute('user-123', 'entity-type_v2.0', 2);
+            const result = await useCase.execute(
+                'user-123',
+                'entity-type_v2.0',
+                2
+            );
 
             expect(result.entityType).toBe('entity-type_v2.0');
         });
 
         it('should handle very long user IDs', async () => {
-            mockRepository.create.mockImplementation(session => session);
+            mockRepository.create.mockImplementation((session) => session);
 
             const longUserId = 'user-' + 'x'.repeat(100);
             const result = await useCase.execute(longUserId, 'nagaris', 2);
@@ -277,18 +300,19 @@ describe('StartAuthorizationSessionUseCase', () => {
         });
 
         it('should create sessions with UUIDs matching RFC 4122 format', async () => {
-            mockRepository.create.mockImplementation(session => session);
+            mockRepository.create.mockImplementation((session) => session);
 
             const result = await useCase.execute('user-123', 'nagaris', 2);
 
-            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+            const uuidRegex =
+                /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
             expect(result.sessionId).toMatch(uuidRegex);
         });
     });
 
     describe('Session Expiry', () => {
         it('should create sessions that expire in exactly 15 minutes', async () => {
-            mockRepository.create.mockImplementation(session => session);
+            mockRepository.create.mockImplementation((session) => session);
 
             const startTime = Date.now();
             const result = await useCase.execute('user-123', 'nagaris', 2);
@@ -298,26 +322,30 @@ describe('StartAuthorizationSessionUseCase', () => {
             const actualExpiry = result.expiresAt.getTime() - startTime;
 
             expect(actualExpiry).toBeGreaterThanOrEqual(expectedExpiry - 100);
-            expect(actualExpiry).toBeLessThanOrEqual(expectedExpiry + (endTime - startTime) + 100);
+            expect(actualExpiry).toBeLessThanOrEqual(
+                expectedExpiry + (endTime - startTime) + 100
+            );
         });
 
         it('should create fresh expiry time for each session', async () => {
-            mockRepository.create.mockImplementation(session => session);
+            mockRepository.create.mockImplementation((session) => session);
 
             const result1 = await useCase.execute('user-123', 'nagaris', 2);
 
             // Wait a bit
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
 
             const result2 = await useCase.execute('user-123', 'nagaris', 2);
 
-            expect(result2.expiresAt.getTime()).toBeGreaterThan(result1.expiresAt.getTime());
+            expect(result2.expiresAt.getTime()).toBeGreaterThan(
+                result1.expiresAt.getTime()
+            );
         });
     });
 
     describe('Integration with Repository', () => {
         it('should pass complete session object to repository', async () => {
-            mockRepository.create.mockImplementation(session => {
+            mockRepository.create.mockImplementation((session) => {
                 expect(session).toHaveProperty('sessionId');
                 expect(session).toHaveProperty('userId');
                 expect(session).toHaveProperty('entityType');
@@ -348,7 +376,7 @@ describe('StartAuthorizationSessionUseCase', () => {
                 updatedAt: new Date(),
                 // Additional fields from repository
                 _id: 'mongodb-id',
-                __v: 0
+                __v: 0,
             };
 
             mockRepository.create.mockResolvedValue(enrichedSession);

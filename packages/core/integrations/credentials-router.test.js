@@ -14,27 +14,27 @@ const express = require('express');
 const Boom = require('@hapi/boom');
 
 jest.mock('../handlers/app-definition-loader', () => ({
-    loadAppDefinition: jest.fn()
+    loadAppDefinition: jest.fn(),
 }));
 
 jest.mock('./repositories/integration-repository-factory', () => ({
-    createIntegrationRepository: jest.fn()
+    createIntegrationRepository: jest.fn(),
 }));
 
 jest.mock('../credential/repositories/credential-repository-factory', () => ({
-    createCredentialRepository: jest.fn()
+    createCredentialRepository: jest.fn(),
 }));
 
 jest.mock('../user/repositories/user-repository-factory', () => ({
-    createUserRepository: jest.fn()
+    createUserRepository: jest.fn(),
 }));
 
 jest.mock('../modules/repositories/module-repository-factory', () => ({
-    createModuleRepository: jest.fn()
+    createModuleRepository: jest.fn(),
 }));
 
 jest.mock('../modules/module-factory', () => ({
-    ModuleFactory: jest.fn()
+    ModuleFactory: jest.fn(),
 }));
 
 jest.mock('../database/config', () => ({
@@ -46,10 +46,18 @@ jest.mock('../database/config', () => ({
 
 const { createIntegrationRouter } = require('./integration-router');
 const { loadAppDefinition } = require('../handlers/app-definition-loader');
-const { createIntegrationRepository } = require('./repositories/integration-repository-factory');
-const { createCredentialRepository } = require('../credential/repositories/credential-repository-factory');
-const { createUserRepository } = require('../user/repositories/user-repository-factory');
-const { createModuleRepository } = require('../modules/repositories/module-repository-factory');
+const {
+    createIntegrationRepository,
+} = require('./repositories/integration-repository-factory');
+const {
+    createCredentialRepository,
+} = require('../credential/repositories/credential-repository-factory');
+const {
+    createUserRepository,
+} = require('../user/repositories/user-repository-factory');
+const {
+    createModuleRepository,
+} = require('../modules/repositories/module-repository-factory');
 const { ModuleFactory } = require('../modules/module-factory');
 
 describe('Credentials Router - TDD Tests', () => {
@@ -72,8 +80,8 @@ describe('Credentials Router - TDD Tests', () => {
         updatedAt: '2025-01-25T10:00:00.000Z',
         data: {
             access_token: 'secret-token',
-            refresh_token: 'secret-refresh'
-        }
+            refresh_token: 'secret-refresh',
+        },
     };
 
     const mockCredential2 = {
@@ -87,14 +95,14 @@ describe('Credentials Router - TDD Tests', () => {
         updatedAt: '2025-01-24T15:00:00.000Z',
         data: {
             access_token: 'expired-token',
-            refresh_token: 'expired-refresh'
-        }
+            refresh_token: 'expired-refresh',
+        },
     };
 
     beforeEach(() => {
         mockUser = {
             getId: jest.fn().mockReturnValue('user-123'),
-            id: 'user-123'
+            id: 'user-123',
         };
 
         mockUserRepository = {
@@ -103,7 +111,7 @@ describe('Credentials Router - TDD Tests', () => {
             getSessionToken: jest.fn().mockResolvedValue(mockUser),
             findIndividualUserById: jest.fn().mockResolvedValue(mockUser),
             findOrganizationUserById: jest.fn().mockResolvedValue(null),
-            findByEmail: jest.fn().mockResolvedValue(mockUser)
+            findByEmail: jest.fn().mockResolvedValue(mockUser),
         };
 
         mockCredentialRepository = {
@@ -112,7 +120,7 @@ describe('Credentials Router - TDD Tests', () => {
             findByIdForUser: jest.fn(),
             deleteCredentialById: jest.fn(),
             save: jest.fn(),
-            update: jest.fn()
+            update: jest.fn(),
         };
 
         mockModuleRepository = {
@@ -120,18 +128,18 @@ describe('Credentials Router - TDD Tests', () => {
             findByIdForUser: jest.fn(),
             findModuleById: jest.fn(),
             save: jest.fn(),
-            update: jest.fn()
+            update: jest.fn(),
         };
 
         mockIntegrationRepository = {
             findById: jest.fn(),
             findByIdForUser: jest.fn(),
             save: jest.fn(),
-            update: jest.fn()
+            update: jest.fn(),
         };
 
         mockModuleFactory = {
-            getModuleInstance: jest.fn()
+            getModuleInstance: jest.fn(),
         };
 
         createUserRepository.mockReturnValue(mockUserRepository);
@@ -139,7 +147,7 @@ describe('Credentials Router - TDD Tests', () => {
         createModuleRepository.mockReturnValue(mockModuleRepository);
         createIntegrationRepository.mockReturnValue(mockIntegrationRepository);
 
-        ModuleFactory.mockImplementation(function() {
+        ModuleFactory.mockImplementation(function () {
             return mockModuleFactory;
         });
 
@@ -151,12 +159,16 @@ describe('Credentials Router - TDD Tests', () => {
                         getDisplayName: () => 'HubSpot',
                         getAuthType: () => 'oauth2',
                         getAuthStepCount: () => 1,
-                        getAuthRequirementsForStep: jest.fn().mockResolvedValue({
-                            type: 'oauth2',
-                            data: { url: 'https://app.hubspot.com/oauth/authorize' }
-                        }),
-                        processAuthorizationCallback: jest.fn()
-                    }
+                        getAuthRequirementsForStep: jest
+                            .fn()
+                            .mockResolvedValue({
+                                type: 'oauth2',
+                                data: {
+                                    url: 'https://app.hubspot.com/oauth/authorize',
+                                },
+                            }),
+                        processAuthorizationCallback: jest.fn(),
+                    },
                 },
                 {
                     moduleName: 'salesforce',
@@ -164,18 +176,22 @@ describe('Credentials Router - TDD Tests', () => {
                         getDisplayName: () => 'Salesforce',
                         getAuthType: () => 'oauth2',
                         getAuthStepCount: () => 1,
-                        getAuthRequirementsForStep: jest.fn().mockResolvedValue({
-                            type: 'oauth2',
-                            data: { url: 'https://login.salesforce.com/oauth2/authorize' }
-                        }),
-                        processAuthorizationCallback: jest.fn()
-                    }
-                }
+                        getAuthRequirementsForStep: jest
+                            .fn()
+                            .mockResolvedValue({
+                                type: 'oauth2',
+                                data: {
+                                    url: 'https://login.salesforce.com/oauth2/authorize',
+                                },
+                            }),
+                        processAuthorizationCallback: jest.fn(),
+                    },
+                },
             ],
             userConfig: {
                 usePassword: true,
-                primary: 'individual'
-            }
+                primary: 'individual',
+            },
         });
 
         app = express();
@@ -196,7 +212,7 @@ describe('Credentials Router - TDD Tests', () => {
                 const { statusCode, payload } = err.output;
                 return res.status(statusCode).json({
                     error: payload.message,
-                    statusCode: payload.statusCode
+                    statusCode: payload.statusCode,
                 });
             }
             res.status(500).json({ error: err.message });
@@ -205,7 +221,10 @@ describe('Credentials Router - TDD Tests', () => {
 
     describe('GET /api/credentials', () => {
         it('should return list of credentials for authenticated user', async () => {
-            mockCredentialRepository.findCredential.mockResolvedValue([mockCredential, mockCredential2]);
+            mockCredentialRepository.findCredential.mockResolvedValue([
+                mockCredential,
+                mockCredential2,
+            ]);
 
             const response = await request(app)
                 .get('/api/credentials')
@@ -232,7 +251,9 @@ describe('Credentials Router - TDD Tests', () => {
         });
 
         it('should mask sensitive token data in response', async () => {
-            mockCredentialRepository.findCredential.mockResolvedValue([mockCredential]);
+            mockCredentialRepository.findCredential.mockResolvedValue([
+                mockCredential,
+            ]);
 
             const response = await request(app)
                 .get('/api/credentials')
@@ -243,8 +264,7 @@ describe('Credentials Router - TDD Tests', () => {
         });
 
         it('should return 401 when not authenticated', async () => {
-            const response = await request(app)
-                .get('/api/credentials');
+            const response = await request(app).get('/api/credentials');
 
             expect(response.status).toBe(401);
         });
@@ -252,7 +272,9 @@ describe('Credentials Router - TDD Tests', () => {
 
     describe('GET /api/credentials/:id', () => {
         it('should return single credential by id', async () => {
-            mockCredentialRepository.findCredentialById.mockResolvedValue(mockCredential);
+            mockCredentialRepository.findCredentialById.mockResolvedValue(
+                mockCredential
+            );
 
             const response = await request(app)
                 .get('/api/credentials/cred-123')
@@ -275,8 +297,13 @@ describe('Credentials Router - TDD Tests', () => {
         });
 
         it('should return 403 when credential belongs to different user', async () => {
-            const otherUserCredential = { ...mockCredential, userId: 'other-user' };
-            mockCredentialRepository.findCredentialById.mockResolvedValue(otherUserCredential);
+            const otherUserCredential = {
+                ...mockCredential,
+                userId: 'other-user',
+            };
+            mockCredentialRepository.findCredentialById.mockResolvedValue(
+                otherUserCredential
+            );
 
             const response = await request(app)
                 .get('/api/credentials/cred-123')
@@ -286,7 +313,9 @@ describe('Credentials Router - TDD Tests', () => {
         });
 
         it('should mask sensitive token data in response', async () => {
-            mockCredentialRepository.findCredentialById.mockResolvedValue(mockCredential);
+            mockCredentialRepository.findCredentialById.mockResolvedValue(
+                mockCredential
+            );
 
             const response = await request(app)
                 .get('/api/credentials/cred-123')
@@ -297,8 +326,9 @@ describe('Credentials Router - TDD Tests', () => {
         });
 
         it('should return 401 when not authenticated', async () => {
-            const response = await request(app)
-                .get('/api/credentials/cred-123');
+            const response = await request(app).get(
+                '/api/credentials/cred-123'
+            );
 
             expect(response.status).toBe(401);
         });
@@ -306,8 +336,12 @@ describe('Credentials Router - TDD Tests', () => {
 
     describe('DELETE /api/credentials/:id', () => {
         it('should delete credential and return success', async () => {
-            mockCredentialRepository.findCredentialById.mockResolvedValue(mockCredential);
-            mockCredentialRepository.deleteCredentialById.mockResolvedValue({ deletedCount: 1 });
+            mockCredentialRepository.findCredentialById.mockResolvedValue(
+                mockCredential
+            );
+            mockCredentialRepository.deleteCredentialById.mockResolvedValue({
+                deletedCount: 1,
+            });
 
             const response = await request(app)
                 .delete('/api/credentials/cred-123')
@@ -315,7 +349,9 @@ describe('Credentials Router - TDD Tests', () => {
 
             expect(response.status).toBe(200);
             expect(response.body.success).toBe(true);
-            expect(mockCredentialRepository.deleteCredentialById).toHaveBeenCalledWith('cred-123');
+            expect(
+                mockCredentialRepository.deleteCredentialById
+            ).toHaveBeenCalledWith('cred-123');
         });
 
         it('should return 404 when credential not found', async () => {
@@ -329,20 +365,28 @@ describe('Credentials Router - TDD Tests', () => {
         });
 
         it('should return 403 when credential belongs to different user', async () => {
-            const otherUserCredential = { ...mockCredential, userId: 'other-user' };
-            mockCredentialRepository.findCredentialById.mockResolvedValue(otherUserCredential);
+            const otherUserCredential = {
+                ...mockCredential,
+                userId: 'other-user',
+            };
+            mockCredentialRepository.findCredentialById.mockResolvedValue(
+                otherUserCredential
+            );
 
             const response = await request(app)
                 .delete('/api/credentials/cred-123')
                 .set('Authorization', 'Bearer valid-token');
 
             expect(response.status).toBe(403);
-            expect(mockCredentialRepository.deleteCredentialById).not.toHaveBeenCalled();
+            expect(
+                mockCredentialRepository.deleteCredentialById
+            ).not.toHaveBeenCalled();
         });
 
         it('should return 401 when not authenticated', async () => {
-            const response = await request(app)
-                .delete('/api/credentials/cred-123');
+            const response = await request(app).delete(
+                '/api/credentials/cred-123'
+            );
 
             expect(response.status).toBe(401);
         });
@@ -350,7 +394,9 @@ describe('Credentials Router - TDD Tests', () => {
 
     describe('GET /api/credentials/:id/reauthorize', () => {
         it('should return authorization requirements for credential type', async () => {
-            mockCredentialRepository.findCredentialById.mockResolvedValue(mockCredential);
+            mockCredentialRepository.findCredentialById.mockResolvedValue(
+                mockCredential
+            );
 
             const response = await request(app)
                 .get('/api/credentials/cred-123/reauthorize')
@@ -373,8 +419,13 @@ describe('Credentials Router - TDD Tests', () => {
         });
 
         it('should return 403 when credential belongs to different user', async () => {
-            const otherUserCredential = { ...mockCredential, userId: 'other-user' };
-            mockCredentialRepository.findCredentialById.mockResolvedValue(otherUserCredential);
+            const otherUserCredential = {
+                ...mockCredential,
+                userId: 'other-user',
+            };
+            mockCredentialRepository.findCredentialById.mockResolvedValue(
+                otherUserCredential
+            );
 
             const response = await request(app)
                 .get('/api/credentials/cred-123/reauthorize')
@@ -384,8 +435,9 @@ describe('Credentials Router - TDD Tests', () => {
         });
 
         it('should return 401 when not authenticated', async () => {
-            const response = await request(app)
-                .get('/api/credentials/cred-123/reauthorize');
+            const response = await request(app).get(
+                '/api/credentials/cred-123/reauthorize'
+            );
 
             expect(response.status).toBe(401);
         });
@@ -395,20 +447,23 @@ describe('Credentials Router - TDD Tests', () => {
         it('should reauthorize credential and return success', async () => {
             mockCredentialRepository.findCredentialById
                 .mockResolvedValueOnce(mockCredential)
-                .mockResolvedValueOnce({ ...mockCredential, authIsValid: true });
+                .mockResolvedValueOnce({
+                    ...mockCredential,
+                    authIsValid: true,
+                });
 
             mockModuleRepository.findModuleById.mockResolvedValue({
                 processAuthorizationCallback: jest.fn().mockResolvedValue({
                     success: true,
-                    message: 'Reauthorization successful'
-                })
+                    message: 'Reauthorization successful',
+                }),
             });
 
             const response = await request(app)
                 .post('/api/credentials/cred-123/reauthorize')
                 .set('Authorization', 'Bearer valid-token')
                 .send({
-                    data: { code: 'oauth-code-123' }
+                    data: { code: 'oauth-code-123' },
                 });
 
             expect(response.status).toBe(200);
@@ -438,8 +493,13 @@ describe('Credentials Router - TDD Tests', () => {
         });
 
         it('should return 403 when credential belongs to different user', async () => {
-            const otherUserCredential = { ...mockCredential, userId: 'other-user' };
-            mockCredentialRepository.findCredentialById.mockResolvedValue(otherUserCredential);
+            const otherUserCredential = {
+                ...mockCredential,
+                userId: 'other-user',
+            };
+            mockCredentialRepository.findCredentialById.mockResolvedValue(
+                otherUserCredential
+            );
 
             const response = await request(app)
                 .post('/api/credentials/cred-123/reauthorize')

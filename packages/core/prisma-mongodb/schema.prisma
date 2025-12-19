@@ -95,7 +95,6 @@ model AuthorizationSession {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@index([sessionId])
   @@index([userId, entityType])
   @@index([expiresAt])
   @@map("AuthorizationSession")
@@ -139,6 +138,7 @@ model Entity {
   name         String?
   moduleName   String?
   externalId   String?
+  isGlobal     Boolean     @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -157,6 +157,8 @@ model Entity {
   @@index([externalId])
   @@index([moduleName])
   @@index([credentialId])
+  @@index([isGlobal])
+  @@index([isGlobal, moduleName])
   @@map("Entity")
 }
 

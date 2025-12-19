@@ -15,8 +15,8 @@ describe('AuthorizationSessionRepositoryPostgres', () => {
                 create: jest.fn(),
                 findFirst: jest.fn(),
                 update: jest.fn(),
-                deleteMany: jest.fn()
-            }
+                deleteMany: jest.fn(),
+            },
         };
 
         // Mock session entity
@@ -30,7 +30,7 @@ describe('AuthorizationSessionRepositoryPostgres', () => {
             expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             completed: false,
             createdAt: new Date(),
-            updatedAt: new Date()
+            updatedAt: new Date(),
         };
 
         // Mock repository implementation
@@ -49,32 +49,36 @@ describe('AuthorizationSessionRepositoryPostgres', () => {
                         maxSteps: session.maxSteps,
                         stepData: session.stepData,
                         expiresAt: session.expiresAt,
-                        completed: session.completed
-                    }
+                        completed: session.completed,
+                    },
                 });
                 return this._toEntity(created);
             }
 
             async findBySessionId(sessionId) {
-                const record = await this.prisma.authorizationSession.findFirst({
-                    where: {
-                        sessionId,
-                        expiresAt: { gt: new Date() }
+                const record = await this.prisma.authorizationSession.findFirst(
+                    {
+                        where: {
+                            sessionId,
+                            expiresAt: { gt: new Date() },
+                        },
                     }
-                });
+                );
                 return record ? this._toEntity(record) : null;
             }
 
             async findActiveSession(userId, entityType) {
-                const record = await this.prisma.authorizationSession.findFirst({
-                    where: {
-                        userId,
-                        entityType,
-                        completed: false,
-                        expiresAt: { gt: new Date() }
-                    },
-                    orderBy: { createdAt: 'desc' }
-                });
+                const record = await this.prisma.authorizationSession.findFirst(
+                    {
+                        where: {
+                            userId,
+                            entityType,
+                            completed: false,
+                            expiresAt: { gt: new Date() },
+                        },
+                        orderBy: { createdAt: 'desc' },
+                    }
+                );
                 return record ? this._toEntity(record) : null;
             }
 
@@ -85,18 +89,19 @@ describe('AuthorizationSessionRepositoryPostgres', () => {
                         currentStep: session.currentStep,
                         stepData: session.stepData,
                         completed: session.completed,
-                        updatedAt: new Date()
-                    }
+                        updatedAt: new Date(),
+                    },
                 });
                 return this._toEntity(updated);
             }
 
             async deleteExpired() {
-                const result = await this.prisma.authorizationSession.deleteMany({
-                    where: {
-                        expiresAt: { lt: new Date() }
-                    }
-                });
+                const result =
+                    await this.prisma.authorizationSession.deleteMany({
+                        where: {
+                            expiresAt: { lt: new Date() },
+                        },
+                    });
                 return result.count;
             }
 
@@ -110,44 +115,50 @@ describe('AuthorizationSessionRepositoryPostgres', () => {
 
     describe('create', () => {
         it('should create and return a new session', async () => {
-            mockPrisma.authorizationSession.create.mockResolvedValue(mockSession);
+            mockPrisma.authorizationSession.create.mockResolvedValue(
+                mockSession
+            );
 
             const result = await repository.create(mockSession);
 
-            expect(mockPrisma.authorizationSession.create).toHaveBeenCalledWith({
-                data: {
-                    sessionId: 'test-session-123',
-                    userId: 'user-123',
-                    entityType: 'nagaris',
-                    currentStep: 1,
-                    maxSteps: 2,
-                    stepData: {},
-                    expiresAt: expect.any(Date),
-                    completed: false
+            expect(mockPrisma.authorizationSession.create).toHaveBeenCalledWith(
+                {
+                    data: {
+                        sessionId: 'test-session-123',
+                        userId: 'user-123',
+                        entityType: 'nagaris',
+                        currentStep: 1,
+                        maxSteps: 2,
+                        stepData: {},
+                        expiresAt: expect.any(Date),
+                        completed: false,
+                    },
                 }
-            });
+            );
             expect(result).toMatchObject({
                 sessionId: 'test-session-123',
                 userId: 'user-123',
-                entityType: 'nagaris'
+                entityType: 'nagaris',
             });
         });
 
         it('should handle session with custom step data', async () => {
             const sessionWithData = {
                 ...mockSession,
-                stepData: { email: 'test@example.com' }
+                stepData: { email: 'test@example.com' },
             };
 
-            mockPrisma.authorizationSession.create.mockResolvedValue(sessionWithData);
+            mockPrisma.authorizationSession.create.mockResolvedValue(
+                sessionWithData
+            );
 
             const result = await repository.create(sessionWithData);
 
             expect(mockPrisma.authorizationSession.create).toHaveBeenCalledWith(
                 expect.objectContaining({
                     data: expect.objectContaining({
-                        stepData: { email: 'test@example.com' }
-                    })
+                        stepData: { email: 'test@example.com' },
+                    }),
                 })
             );
             expect(result.stepData.email).toBe('test@example.com');
@@ -157,18 +168,20 @@ describe('AuthorizationSessionRepositoryPostgres', () => {
             const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
             const sessionWithExpiry = {
                 ...mockSession,
-                expiresAt
+                expiresAt,
             };
 
-            mockPrisma.authorizationSession.create.mockResolvedValue(sessionWithExpiry);
+            mockPrisma.authorizationSession.create.mockResolvedValue(
+                sessionWithExpiry
+            );
 
             await repository.create(sessionWithExpiry);
 
             expect(mockPrisma.authorizationSession.create).toHaveBeenCalledWith(
                 expect.objectContaining({
                     data: expect.objectContaining({
-                        expiresAt
-                    })
+                        expiresAt,
+                    }),
                 })
             );
         });
@@ -176,18 +189,22 @@ describe('AuthorizationSessionRepositoryPostgres', () => {
 
     describe('findBySessionId', () => {
         it('should find session by ID when not expired', async () => {
-            mockPrisma.authorizationSession.findFirst.mockResolvedValue(mockSession);
+            mockPrisma.authorizationSession.findFirst.mockResolvedValue(
+                mockSession
+            );
 
             const result = await repository.findBySessionId('test-session-123');
 
-            expect(mockPrisma.authorizationSession.findFirst).toHaveBeenCalledWith({
+            expect(
+                mockPrisma.authorizationSession.findFirst
+            ).toHaveBeenCalledWith({
                 where: {
                     sessionId: 'test-session-123',
-                    expiresAt: { gt: expect.any(Date) }
-                }
+                    expiresAt: { gt: expect.any(Date) },
+                },
             });
             expect(result).toMatchObject({
-                sessionId: 'test-session-123'
+                sessionId: 'test-session-123',
             });
         });
 
@@ -204,11 +221,13 @@ describe('AuthorizationSessionRepositoryPostgres', () => {
 
             await repository.findBySessionId('expired-session');
 
-            expect(mockPrisma.authorizationSession.findFirst).toHaveBeenCalledWith({
+            expect(
+                mockPrisma.authorizationSession.findFirst
+            ).toHaveBeenCalledWith({
                 where: {
                     sessionId: 'expired-session',
-                    expiresAt: { gt: expect.any(Date) }
-                }
+                    expiresAt: { gt: expect.any(Date) },
+                },
             });
         });
 
@@ -217,66 +236,84 @@ describe('AuthorizationSessionRepositoryPostgres', () => {
                 new Error('Database connection failed')
             );
 
-            await expect(repository.findBySessionId('test-123')).rejects.toThrow(
-                'Database connection failed'
-            );
+            await expect(
+                repository.findBySessionId('test-123')
+            ).rejects.toThrow('Database connection failed');
         });
     });
 
     describe('findActiveSession', () => {
         it('should find active session for user and entity type', async () => {
-            mockPrisma.authorizationSession.findFirst.mockResolvedValue(mockSession);
+            mockPrisma.authorizationSession.findFirst.mockResolvedValue(
+                mockSession
+            );
 
-            const result = await repository.findActiveSession('user-123', 'nagaris');
+            const result = await repository.findActiveSession(
+                'user-123',
+                'nagaris'
+            );
 
-            expect(mockPrisma.authorizationSession.findFirst).toHaveBeenCalledWith({
+            expect(
+                mockPrisma.authorizationSession.findFirst
+            ).toHaveBeenCalledWith({
                 where: {
                     userId: 'user-123',
                     entityType: 'nagaris',
                     completed: false,
-                    expiresAt: { gt: expect.any(Date) }
+                    expiresAt: { gt: expect.any(Date) },
                 },
-                orderBy: { createdAt: 'desc' }
+                orderBy: { createdAt: 'desc' },
             });
             expect(result).toMatchObject({
                 userId: 'user-123',
-                entityType: 'nagaris'
+                entityType: 'nagaris',
             });
         });
 
         it('should return null when no active session exists', async () => {
             mockPrisma.authorizationSession.findFirst.mockResolvedValue(null);
 
-            const result = await repository.findActiveSession('user-123', 'nagaris');
+            const result = await repository.findActiveSession(
+                'user-123',
+                'nagaris'
+            );
 
             expect(result).toBeNull();
         });
 
         it('should order by createdAt descending to get most recent', async () => {
-            mockPrisma.authorizationSession.findFirst.mockResolvedValue(mockSession);
+            mockPrisma.authorizationSession.findFirst.mockResolvedValue(
+                mockSession
+            );
 
             await repository.findActiveSession('user-123', 'nagaris');
 
-            expect(mockPrisma.authorizationSession.findFirst).toHaveBeenCalledWith(
+            expect(
+                mockPrisma.authorizationSession.findFirst
+            ).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    orderBy: { createdAt: 'desc' }
+                    orderBy: { createdAt: 'desc' },
                 })
             );
         });
 
         it('should filter by all required criteria', async () => {
-            mockPrisma.authorizationSession.findFirst.mockResolvedValue(mockSession);
+            mockPrisma.authorizationSession.findFirst.mockResolvedValue(
+                mockSession
+            );
 
             await repository.findActiveSession('user-123', 'nagaris');
 
-            expect(mockPrisma.authorizationSession.findFirst).toHaveBeenCalledWith(
+            expect(
+                mockPrisma.authorizationSession.findFirst
+            ).toHaveBeenCalledWith(
                 expect.objectContaining({
                     where: {
                         userId: 'user-123',
                         entityType: 'nagaris',
                         completed: false,
-                        expiresAt: { gt: expect.any(Date) }
-                    }
+                        expiresAt: { gt: expect.any(Date) },
+                    },
                 })
             );
         });
@@ -287,22 +324,26 @@ describe('AuthorizationSessionRepositoryPostgres', () => {
             const updatedSession = {
                 ...mockSession,
                 currentStep: 2,
-                stepData: { email: 'test@example.com' }
+                stepData: { email: 'test@example.com' },
             };
 
-            mockPrisma.authorizationSession.update.mockResolvedValue(updatedSession);
+            mockPrisma.authorizationSession.update.mockResolvedValue(
+                updatedSession
+            );
 
             const result = await repository.update(updatedSession);
 
-            expect(mockPrisma.authorizationSession.update).toHaveBeenCalledWith({
-                where: { sessionId: 'test-session-123' },
-                data: {
-                    currentStep: 2,
-                    stepData: { email: 'test@example.com' },
-                    completed: false,
-                    updatedAt: expect.any(Date)
+            expect(mockPrisma.authorizationSession.update).toHaveBeenCalledWith(
+                {
+                    where: { sessionId: 'test-session-123' },
+                    data: {
+                        currentStep: 2,
+                        stepData: { email: 'test@example.com' },
+                        completed: false,
+                        updatedAt: expect.any(Date),
+                    },
                 }
-            });
+            );
             expect(result.currentStep).toBe(2);
             expect(result.stepData.email).toBe('test@example.com');
         });
@@ -310,33 +351,41 @@ describe('AuthorizationSessionRepositoryPostgres', () => {
         it('should update completed status', async () => {
             const completedSession = {
                 ...mockSession,
-                completed: true
+                completed: true,
             };
 
-            mockPrisma.authorizationSession.update.mockResolvedValue(completedSession);
+            mockPrisma.authorizationSession.update.mockResolvedValue(
+                completedSession
+            );
 
             const result = await repository.update(completedSession);
 
-            expect(mockPrisma.authorizationSession.update).toHaveBeenCalledWith({
-                where: expect.anything(),
-                data: expect.objectContaining({
-                    completed: true
-                })
-            });
+            expect(mockPrisma.authorizationSession.update).toHaveBeenCalledWith(
+                {
+                    where: expect.anything(),
+                    data: expect.objectContaining({
+                        completed: true,
+                    }),
+                }
+            );
             expect(result.completed).toBe(true);
         });
 
         it('should update updatedAt timestamp', async () => {
-            mockPrisma.authorizationSession.update.mockResolvedValue(mockSession);
+            mockPrisma.authorizationSession.update.mockResolvedValue(
+                mockSession
+            );
 
             await repository.update(mockSession);
 
-            expect(mockPrisma.authorizationSession.update).toHaveBeenCalledWith({
-                where: expect.anything(),
-                data: expect.objectContaining({
-                    updatedAt: expect.any(Date)
-                })
-            });
+            expect(mockPrisma.authorizationSession.update).toHaveBeenCalledWith(
+                {
+                    where: expect.anything(),
+                    data: expect.objectContaining({
+                        updatedAt: expect.any(Date),
+                    }),
+                }
+            );
         });
 
         it('should handle update conflicts', async () => {
@@ -344,7 +393,9 @@ describe('AuthorizationSessionRepositoryPostgres', () => {
                 new Error('Record not found')
             );
 
-            await expect(repository.update(mockSession)).rejects.toThrow('Record not found');
+            await expect(repository.update(mockSession)).rejects.toThrow(
+                'Record not found'
+            );
         });
 
         it('should update complex stepData', async () => {
@@ -353,16 +404,18 @@ describe('AuthorizationSessionRepositoryPostgres', () => {
                 otp: '123456',
                 metadata: {
                     timestamp: Date.now(),
-                    attempts: 1
-                }
+                    attempts: 1,
+                },
             };
 
             const sessionWithComplexData = {
                 ...mockSession,
-                stepData: complexStepData
+                stepData: complexStepData,
             };
 
-            mockPrisma.authorizationSession.update.mockResolvedValue(sessionWithComplexData);
+            mockPrisma.authorizationSession.update.mockResolvedValue(
+                sessionWithComplexData
+            );
 
             const result = await repository.update(sessionWithComplexData);
 
@@ -372,20 +425,26 @@ describe('AuthorizationSessionRepositoryPostgres', () => {
 
     describe('deleteExpired', () => {
         it('should delete expired sessions and return count', async () => {
-            mockPrisma.authorizationSession.deleteMany.mockResolvedValue({ count: 5 });
+            mockPrisma.authorizationSession.deleteMany.mockResolvedValue({
+                count: 5,
+            });
 
             const count = await repository.deleteExpired();
 
-            expect(mockPrisma.authorizationSession.deleteMany).toHaveBeenCalledWith({
+            expect(
+                mockPrisma.authorizationSession.deleteMany
+            ).toHaveBeenCalledWith({
                 where: {
-                    expiresAt: { lt: expect.any(Date) }
-                }
+                    expiresAt: { lt: expect.any(Date) },
+                },
             });
             expect(count).toBe(5);
         });
 
         it('should return 0 when no sessions deleted', async () => {
-            mockPrisma.authorizationSession.deleteMany.mockResolvedValue({ count: 0 });
+            mockPrisma.authorizationSession.deleteMany.mockResolvedValue({
+                count: 0,
+            });
 
             const count = await repository.deleteExpired();
 
@@ -393,14 +452,18 @@ describe('AuthorizationSessionRepositoryPostgres', () => {
         });
 
         it('should use Prisma lt operator for expired sessions', async () => {
-            mockPrisma.authorizationSession.deleteMany.mockResolvedValue({ count: 3 });
+            mockPrisma.authorizationSession.deleteMany.mockResolvedValue({
+                count: 3,
+            });
 
             await repository.deleteExpired();
 
-            expect(mockPrisma.authorizationSession.deleteMany).toHaveBeenCalledWith({
+            expect(
+                mockPrisma.authorizationSession.deleteMany
+            ).toHaveBeenCalledWith({
                 where: {
-                    expiresAt: { lt: expect.any(Date) }
-                }
+                    expiresAt: { lt: expect.any(Date) },
+                },
             });
         });
 
@@ -427,7 +490,7 @@ describe('AuthorizationSessionRepositoryPostgres', () => {
                 expiresAt: new Date(),
                 completed: false,
                 createdAt: new Date(),
-                updatedAt: new Date()
+                updatedAt: new Date(),
             };
 
             const entity = repository._toEntity(record);
@@ -437,14 +500,14 @@ describe('AuthorizationSessionRepositoryPostgres', () => {
                 userId: 'user-123',
                 entityType: 'nagaris',
                 currentStep: 1,
-                maxSteps: 2
+                maxSteps: 2,
             });
         });
 
         it('should preserve JSON stepData', () => {
             const record = {
                 ...mockSession,
-                stepData: { nested: { data: 'value' } }
+                stepData: { nested: { data: 'value' } },
             };
 
             const entity = repository._toEntity(record);
@@ -461,7 +524,7 @@ describe('AuthorizationSessionRepositoryPostgres', () => {
                 ...mockSession,
                 createdAt,
                 updatedAt,
-                expiresAt
+                expiresAt,
             };
 
             const entity = repository._toEntity(record);
@@ -477,17 +540,19 @@ describe('AuthorizationSessionRepositoryPostgres', () => {
             const jsonData = {
                 complex: {
                     nested: {
-                        structure: ['with', 'arrays']
-                    }
-                }
+                        structure: ['with', 'arrays'],
+                    },
+                },
             };
 
             const sessionWithJson = {
                 ...mockSession,
-                stepData: jsonData
+                stepData: jsonData,
             };
 
-            mockPrisma.authorizationSession.create.mockResolvedValue(sessionWithJson);
+            mockPrisma.authorizationSession.create.mockResolvedValue(
+                sessionWithJson
+            );
 
             const result = await repository.create(sessionWithJson);
 
@@ -515,27 +580,39 @@ describe('AuthorizationSessionRepositoryPostgres', () => {
         });
 
         it('should handle concurrent updates with optimistic locking', async () => {
-            mockPrisma.authorizationSession.update.mockResolvedValue(mockSession);
+            mockPrisma.authorizationSession.update.mockResolvedValue(
+                mockSession
+            );
 
-            const update1 = repository.update({ ...mockSession, currentStep: 2 });
-            const update2 = repository.update({ ...mockSession, currentStep: 2 });
+            const update1 = repository.update({
+                ...mockSession,
+                currentStep: 2,
+            });
+            const update2 = repository.update({
+                ...mockSession,
+                currentStep: 2,
+            });
 
             await Promise.all([update1, update2]);
 
-            expect(mockPrisma.authorizationSession.update).toHaveBeenCalledTimes(2);
+            expect(
+                mockPrisma.authorizationSession.update
+            ).toHaveBeenCalledTimes(2);
         });
 
         it('should handle very large stepData (PostgreSQL JSONB limit)', async () => {
             const largeData = {
-                data: 'x'.repeat(10000)
+                data: 'x'.repeat(10000),
             };
 
             const sessionWithLargeData = {
                 ...mockSession,
-                stepData: largeData
+                stepData: largeData,
             };
 
-            mockPrisma.authorizationSession.create.mockResolvedValue(sessionWithLargeData);
+            mockPrisma.authorizationSession.create.mockResolvedValue(
+                sessionWithLargeData
+            );
 
             const result = await repository.create(sessionWithLargeData);
 

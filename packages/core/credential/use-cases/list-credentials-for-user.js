@@ -19,7 +19,7 @@ class ListCredentialsForUser {
      */
     async execute(userId) {
         const credentials = await this.credentialRepository.findCredential({
-            userId
+            userId,
         });
 
         // Repository returns array for userId-only queries

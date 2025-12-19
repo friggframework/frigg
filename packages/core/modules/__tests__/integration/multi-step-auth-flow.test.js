@@ -17,11 +17,11 @@ describe('Multi-Step Authentication Flow Integration', () => {
 
         // Mock repository with in-memory storage
         mockRepository = {
-            create: jest.fn(async session => {
+            create: jest.fn(async (session) => {
                 sessions.set(session.sessionId, { ...session });
                 return session;
             }),
-            findBySessionId: jest.fn(async sessionId => {
+            findBySessionId: jest.fn(async (sessionId) => {
                 const session = sessions.get(sessionId);
                 if (!session) return null;
                 if (session.expiresAt < new Date()) return null;
@@ -34,21 +34,21 @@ describe('Multi-Step Authentication Flow Integration', () => {
                     },
                     markComplete: function () {
                         this.completed = true;
-                    }
+                    },
                 };
             }),
-            update: jest.fn(async session => {
+            update: jest.fn(async (session) => {
                 sessions.set(session.sessionId, { ...session });
                 return session;
             }),
             findActiveSession: jest.fn(),
-            deleteExpired: jest.fn()
+            deleteExpired: jest.fn(),
         };
 
         // Mock Nagaris module (2-step: email → OTP)
         const nagarisDefinition = {
             getAuthStepCount: () => 2,
-            getAuthRequirementsForStep: async step => {
+            getAuthRequirementsForStep: async (step) => {
                 if (step === 1) {
                     return {
                         type: 'email',
@@ -58,10 +58,10 @@ describe('Multi-Step Authentication Flow Integration', () => {
                                 type: 'object',
                                 required: ['email'],
                                 properties: {
-                                    email: { type: 'string', format: 'email' }
-                                }
-                            }
-                        }
+                                    email: { type: 'string', format: 'email' },
+                                },
+                            },
+                        },
                     };
                 }
                 if (step === 2) {
@@ -74,21 +74,26 @@ describe('Multi-Step Authentication Flow Integration', () => {
                                 required: ['otp'],
                                 properties: {
                                     email: { type: 'string', readOnly: true },
-                                    otp: { type: 'string', minLength: 6 }
-                                }
-                            }
-                        }
+                                    otp: { type: 'string', minLength: 6 },
+                                },
+                            },
+                        },
                     };
                 }
                 throw new Error(`Step ${step} not defined`);
             },
-            processAuthorizationStep: async (api, step, stepData, sessionData) => {
+            processAuthorizationStep: async (
+                api,
+                step,
+                stepData,
+                sessionData
+            ) => {
                 if (step === 1) {
                     // Simulate OTP request
                     return {
                         nextStep: 2,
                         stepData: { email: stepData.email },
-                        message: 'OTP sent to your email'
+                        message: 'OTP sent to your email',
                     };
                 }
                 if (step === 2) {
@@ -101,44 +106,44 @@ describe('Multi-Step Authentication Flow Integration', () => {
                                 refresh_token: 'nagaris_refresh_456',
                                 user: {
                                     id: 'nagaris_user_789',
-                                    email: sessionData.email
-                                }
-                            }
+                                    email: sessionData.email,
+                                },
+                            },
                         };
                     }
                     throw new Error('Invalid OTP');
                 }
                 throw new Error(`Step ${step} not implemented`);
-            }
+            },
         };
 
         // Mock HubSpot module (single-step OAuth2)
         const hubspotDefinition = {
             getAuthStepCount: () => 1,
-            getAuthRequirementsForStep: async step => ({
+            getAuthRequirementsForStep: async (step) => ({
                 type: 'oauth2',
-                url: 'https://app.hubspot.com/oauth/authorize'
+                url: 'https://app.hubspot.com/oauth/authorize',
             }),
             processAuthorizationStep: async (api, step, stepData) => ({
                 completed: true,
                 authData: {
                     access_token: 'hubspot_token_123',
-                    refresh_token: 'hubspot_refresh_456'
-                }
-            })
+                    refresh_token: 'hubspot_refresh_456',
+                },
+            }),
         };
 
         mockModuleDefinitions = [
             {
                 moduleName: 'nagaris',
                 definition: nagarisDefinition,
-                apiClass: jest.fn()
+                apiClass: jest.fn(),
             },
             {
                 moduleName: 'hubspot',
                 definition: hubspotDefinition,
-                apiClass: jest.fn()
-            }
+                apiClass: jest.fn(),
+            },
         ];
 
         // Initialize use cases
@@ -160,7 +165,7 @@ describe('Multi-Step Authentication Flow Integration', () => {
                     maxSteps,
                     stepData: {},
                     expiresAt,
-                    completed: false
+                    completed: false,
                 };
 
                 return await this.authSessionRepository.create(session);
@@ -174,10 +179,13 @@ describe('Multi-Step Authentication Flow Integration', () => {
             }
 
             async execute(sessionId, userId, step, stepData) {
-                const session = await this.authSessionRepository.findBySessionId(sessionId);
+                const session =
+                    await this.authSessionRepository.findBySessionId(sessionId);
 
                 if (!session) {
-                    throw new Error('Authorization session not found or expired');
+                    throw new Error(
+                        'Authorization session not found or expired'
+                    );
                 }
 
                 if (session.userId !== userId) {
@@ -190,16 +198,20 @@ describe('Multi-Step Authentication Flow Integration', () => {
 
                 if (session.currentStep + 1 !== step && step !== 1) {
                     throw new Error(
-                        `Expected step ${session.currentStep + 1}, received step ${step}`
+                        `Expected step ${
+                            session.currentStep + 1
+                        }, received step ${step}`
                     );
                 }
 
                 const moduleDefinition = this.moduleDefinitions.find(
-                    def => def.moduleName === session.entityType
+                    (def) => def.moduleName === session.entityType
                 );
 
                 if (!moduleDefinition) {
-                    throw new Error(`Module definition not found: ${session.entityType}`);
+                    throw new Error(
+                        `Module definition not found: ${session.entityType}`
+                    );
                 }
 
                 const ModuleDefinition = moduleDefinition.definition;
@@ -220,23 +232,24 @@ describe('Multi-Step Authentication Flow Integration', () => {
                     return {
                         completed: true,
                         authData: result.authData,
-                        sessionId
+                        sessionId,
                     };
                 }
 
                 session.advanceStep(result.stepData || {});
                 await this.authSessionRepository.update(session);
 
-                const nextRequirements = await ModuleDefinition.getAuthRequirementsForStep(
-                    result.nextStep
-                );
+                const nextRequirements =
+                    await ModuleDefinition.getAuthRequirementsForStep(
+                        result.nextStep
+                    );
 
                 return {
                     nextStep: result.nextStep,
                     totalSteps: session.maxSteps,
                     sessionId,
                     requirements: nextRequirements,
-                    message: result.message
+                    message: result.message,
                 };
             }
         };
@@ -248,11 +261,13 @@ describe('Multi-Step Authentication Flow Integration', () => {
 
             async execute(entityType, step = 1) {
                 const moduleDefinition = this.moduleDefinitions.find(
-                    def => def.moduleName === entityType
+                    (def) => def.moduleName === entityType
                 );
 
                 if (!moduleDefinition) {
-                    throw new Error(`Module definition not found: ${entityType}`);
+                    throw new Error(
+                        `Module definition not found: ${entityType}`
+                    );
                 }
 
                 const ModuleDefinition = moduleDefinition.definition;
@@ -261,13 +276,14 @@ describe('Multi-Step Authentication Flow Integration', () => {
                     ? ModuleDefinition.getAuthStepCount()
                     : 1;
 
-                const requirements = await ModuleDefinition.getAuthRequirementsForStep(step);
+                const requirements =
+                    await ModuleDefinition.getAuthRequirementsForStep(step);
 
                 return {
                     ...requirements,
                     step,
                     totalSteps: stepCount,
-                    isMultiStep: stepCount > 1
+                    isMultiStep: stepCount > 1,
                 };
             }
         };
@@ -280,7 +296,7 @@ describe('Multi-Step Authentication Flow Integration', () => {
 
             // Step 0: Get requirements
             const getRequirements = new GetAuthorizationRequirementsUseCase({
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             const requirements = await getRequirements.execute(entityType, 1);
@@ -291,7 +307,7 @@ describe('Multi-Step Authentication Flow Integration', () => {
 
             // Step 1: Start session and submit email
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             const session = await startSession.execute(userId, entityType, 2);
@@ -303,7 +319,7 @@ describe('Multi-Step Authentication Flow Integration', () => {
             // Step 2: Process email submission
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             const step1Result = await processStep.execute(
@@ -318,7 +334,9 @@ describe('Multi-Step Authentication Flow Integration', () => {
             expect(step1Result.requirements.type).toBe('otp');
 
             // Step 3: Verify stored session data
-            const updatedSession = await mockRepository.findBySessionId(session.sessionId);
+            const updatedSession = await mockRepository.findBySessionId(
+                session.sessionId
+            );
             expect(updatedSession.currentStep).toBe(2);
             expect(updatedSession.stepData.email).toBe('test@example.com');
 
@@ -335,7 +353,9 @@ describe('Multi-Step Authentication Flow Integration', () => {
             expect(step2Result.authData.user.email).toBe('test@example.com');
 
             // Step 5: Verify session is completed
-            const completedSession = await mockRepository.findBySessionId(session.sessionId);
+            const completedSession = await mockRepository.findBySessionId(
+                session.sessionId
+            );
             expect(completedSession.completed).toBe(true);
         });
 
@@ -344,24 +364,26 @@ describe('Multi-Step Authentication Flow Integration', () => {
             const entityType = 'nagaris';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             const session = await startSession.execute(userId, entityType, 2);
 
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             // Submit email
             await processStep.execute(session.sessionId, userId, 1, {
-                email: 'test@example.com'
+                email: 'test@example.com',
             });
 
             // Submit wrong OTP
             await expect(
-                processStep.execute(session.sessionId, userId, 3, { otp: '000000' })
+                processStep.execute(session.sessionId, userId, 3, {
+                    otp: '000000',
+                })
             ).rejects.toThrow('Invalid OTP');
         });
 
@@ -370,33 +392,37 @@ describe('Multi-Step Authentication Flow Integration', () => {
             const entityType = 'nagaris';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             const session = await startSession.execute(userId, entityType, 2);
 
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             // Step 1: Email
             await processStep.execute(session.sessionId, userId, 1, {
-                email: 'test@example.com'
+                email: 'test@example.com',
             });
 
             // Check session data
-            const sessionAfterStep1 = await mockRepository.findBySessionId(session.sessionId);
+            const sessionAfterStep1 = await mockRepository.findBySessionId(
+                session.sessionId
+            );
             expect(sessionAfterStep1.stepData).toEqual({
-                email: 'test@example.com'
+                email: 'test@example.com',
             });
 
             // Step 2: OTP (should still have email)
             await processStep.execute(session.sessionId, userId, 3, {
-                otp: '123456'
+                otp: '123456',
             });
 
-            const sessionAfterStep2 = await mockRepository.findBySessionId(session.sessionId);
+            const sessionAfterStep2 = await mockRepository.findBySessionId(
+                session.sessionId
+            );
             expect(sessionAfterStep2.stepData.email).toBe('test@example.com');
         });
     });
@@ -408,7 +434,7 @@ describe('Multi-Step Authentication Flow Integration', () => {
 
             // Get requirements
             const getRequirements = new GetAuthorizationRequirementsUseCase({
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             const requirements = await getRequirements.execute(entityType, 1);
@@ -419,14 +445,14 @@ describe('Multi-Step Authentication Flow Integration', () => {
 
             // Start and complete in one step
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             const session = await startSession.execute(userId, entityType, 1);
 
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             const result = await processStep.execute(
@@ -445,19 +471,21 @@ describe('Multi-Step Authentication Flow Integration', () => {
             const entityType = 'hubspot';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             const session = await startSession.execute(userId, entityType, 1);
 
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             await processStep.execute(session.sessionId, userId, 1, {});
 
-            const completedSession = await mockRepository.findBySessionId(session.sessionId);
+            const completedSession = await mockRepository.findBySessionId(
+                session.sessionId
+            );
             expect(completedSession.completed).toBe(true);
         });
     });
@@ -468,26 +496,28 @@ describe('Multi-Step Authentication Flow Integration', () => {
             const entityType = 'nagaris';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             const session = await startSession.execute(userId, entityType, 2);
 
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             // Complete the flow
             await processStep.execute(session.sessionId, userId, 1, {
-                email: 'test@example.com'
+                email: 'test@example.com',
             });
-            await processStep.execute(session.sessionId, userId, 3, { otp: '123456' });
+            await processStep.execute(session.sessionId, userId, 3, {
+                otp: '123456',
+            });
 
             // Try to restart - should fail
             await expect(
                 processStep.execute(session.sessionId, userId, 1, {
-                    email: 'new@example.com'
+                    email: 'new@example.com',
                 })
             ).rejects.toThrow();
         });
@@ -498,7 +528,7 @@ describe('Multi-Step Authentication Flow Integration', () => {
             const entityType = 'nagaris';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             const session1 = await startSession.execute(user1, entityType, 2);
@@ -508,7 +538,7 @@ describe('Multi-Step Authentication Flow Integration', () => {
 
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             // User 1 cannot access User 2's session
@@ -521,11 +551,19 @@ describe('Multi-Step Authentication Flow Integration', () => {
             const userId = 'user-123';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
-            const nagarisSession = await startSession.execute(userId, 'nagaris', 2);
-            const hubspotSession = await startSession.execute(userId, 'hubspot', 1);
+            const nagarisSession = await startSession.execute(
+                userId,
+                'nagaris',
+                2
+            );
+            const hubspotSession = await startSession.execute(
+                userId,
+                'hubspot',
+                1
+            );
 
             expect(nagarisSession.sessionId).not.toBe(hubspotSession.sessionId);
             expect(nagarisSession.entityType).toBe('nagaris');
@@ -534,11 +572,11 @@ describe('Multi-Step Authentication Flow Integration', () => {
             // Both should be processable
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             await processStep.execute(nagarisSession.sessionId, userId, 1, {
-                email: 'test@example.com'
+                email: 'test@example.com',
             });
             await processStep.execute(hubspotSession.sessionId, userId, 1, {});
 
@@ -560,30 +598,37 @@ describe('Multi-Step Authentication Flow Integration', () => {
             const entityType = 'nagaris';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             const session = await startSession.execute(userId, entityType, 2);
 
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             // Step 1: Email
             await processStep.execute(session.sessionId, userId, 1, {
-                email: 'test@example.com'
+                email: 'test@example.com',
             });
 
             // Step 2: Wrong OTP (first attempt)
             await expect(
-                processStep.execute(session.sessionId, userId, 3, { otp: '000000' })
+                processStep.execute(session.sessionId, userId, 3, {
+                    otp: '000000',
+                })
             ).rejects.toThrow('Invalid OTP');
 
             // Step 2: Correct OTP (retry)
-            const result = await processStep.execute(session.sessionId, userId, 3, {
-                otp: '123456'
-            });
+            const result = await processStep.execute(
+                session.sessionId,
+                userId,
+                3,
+                {
+                    otp: '123456',
+                }
+            );
 
             expect(result.completed).toBe(true);
         });
@@ -593,27 +638,31 @@ describe('Multi-Step Authentication Flow Integration', () => {
             const entityType = 'nagaris';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             const session = await startSession.execute(userId, entityType, 2);
 
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             await processStep.execute(session.sessionId, userId, 1, {
-                email: 'test@example.com'
+                email: 'test@example.com',
             });
 
             // Failed OTP
             await expect(
-                processStep.execute(session.sessionId, userId, 3, { otp: '000000' })
+                processStep.execute(session.sessionId, userId, 3, {
+                    otp: '000000',
+                })
             ).rejects.toThrow();
 
             // Verify session still has email
-            const sessionAfterError = await mockRepository.findBySessionId(session.sessionId);
+            const sessionAfterError = await mockRepository.findBySessionId(
+                session.sessionId
+            );
             expect(sessionAfterError.stepData.email).toBe('test@example.com');
             expect(sessionAfterError.currentStep).toBe(2);
             expect(sessionAfterError.completed).toBe(false);
@@ -626,19 +675,21 @@ describe('Multi-Step Authentication Flow Integration', () => {
             const entityType = 'nagaris';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             const session = await startSession.execute(userId, entityType, 2);
 
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             // Try to skip to step 2 without completing step 1
             await expect(
-                processStep.execute(session.sessionId, userId, 3, { otp: '123456' })
+                processStep.execute(session.sessionId, userId, 3, {
+                    otp: '123456',
+                })
             ).rejects.toThrow('Expected step 2, received step 3');
         });
 
@@ -647,25 +698,25 @@ describe('Multi-Step Authentication Flow Integration', () => {
             const entityType = 'nagaris';
 
             const startSession = new StartAuthorizationSessionUseCase({
-                authSessionRepository: mockRepository
+                authSessionRepository: mockRepository,
             });
 
             const session = await startSession.execute(userId, entityType, 2);
 
             const processStep = new ProcessAuthorizationStepUseCase({
                 authSessionRepository: mockRepository,
-                moduleDefinitions: mockModuleDefinitions
+                moduleDefinitions: mockModuleDefinitions,
             });
 
             // Step 1
             await processStep.execute(session.sessionId, userId, 1, {
-                email: 'test@example.com'
+                email: 'test@example.com',
             });
 
             // Try to go back to step 1
             await expect(
                 processStep.execute(session.sessionId, userId, 1, {
-                    email: 'new@example.com'
+                    email: 'new@example.com',
                 })
             ).rejects.toThrow();
         });

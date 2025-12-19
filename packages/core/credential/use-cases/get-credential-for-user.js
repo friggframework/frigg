@@ -31,7 +31,9 @@ class GetCredentialForUser {
 
         // Verify ownership - compare as strings to handle both MongoDB and PostgreSQL
         if (credential.userId.toString() !== userId.toString()) {
-            throw Boom.forbidden('You do not have permission to access this credential');
+            throw Boom.forbidden(
+                'You do not have permission to access this credential'
+            );
         }
 
         return credential;

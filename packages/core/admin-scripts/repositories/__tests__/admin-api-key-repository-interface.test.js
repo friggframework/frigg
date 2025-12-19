@@ -1,4 +1,6 @@
-const { AdminApiKeyRepositoryInterface } = require('../admin-api-key-repository-interface');
+const {
+    AdminApiKeyRepositoryInterface,
+} = require('../admin-api-key-repository-interface');
 
 describe('AdminApiKeyRepositoryInterface', () => {
     let repository;
@@ -18,43 +20,49 @@ describe('AdminApiKeyRepositoryInterface', () => {
                     expiresAt: new Date(),
                     createdBy: 'admin@example.com',
                 })
-            ).rejects.toThrow('Method createApiKey must be implemented by subclass');
+            ).rejects.toThrow(
+                'Method createApiKey must be implemented by subclass'
+            );
         });
 
         it('should throw error when findApiKeyByHash is not implemented', async () => {
             await expect(
                 repository.findApiKeyByHash('hash123')
-            ).rejects.toThrow('Method findApiKeyByHash must be implemented by subclass');
+            ).rejects.toThrow(
+                'Method findApiKeyByHash must be implemented by subclass'
+            );
         });
 
         it('should throw error when findApiKeyById is not implemented', async () => {
-            await expect(
-                repository.findApiKeyById('key123')
-            ).rejects.toThrow('Method findApiKeyById must be implemented by subclass');
+            await expect(repository.findApiKeyById('key123')).rejects.toThrow(
+                'Method findApiKeyById must be implemented by subclass'
+            );
         });
 
         it('should throw error when findActiveApiKeys is not implemented', async () => {
-            await expect(
-                repository.findActiveApiKeys()
-            ).rejects.toThrow('Method findActiveApiKeys must be implemented by subclass');
+            await expect(repository.findActiveApiKeys()).rejects.toThrow(
+                'Method findActiveApiKeys must be implemented by subclass'
+            );
         });
 
         it('should throw error when updateApiKeyLastUsed is not implemented', async () => {
             await expect(
                 repository.updateApiKeyLastUsed('key123')
-            ).rejects.toThrow('Method updateApiKeyLastUsed must be implemented by subclass');
+            ).rejects.toThrow(
+                'Method updateApiKeyLastUsed must be implemented by subclass'
+            );
         });
 
         it('should throw error when deactivateApiKey is not implemented', async () => {
-            await expect(
-                repository.deactivateApiKey('key123')
-            ).rejects.toThrow('Method deactivateApiKey must be implemented by subclass');
+            await expect(repository.deactivateApiKey('key123')).rejects.toThrow(
+                'Method deactivateApiKey must be implemented by subclass'
+            );
         });
 
         it('should throw error when deleteApiKey is not implemented', async () => {
-            await expect(
-                repository.deleteApiKey('key123')
-            ).rejects.toThrow('Method deleteApiKey must be implemented by subclass');
+            await expect(repository.deleteApiKey('key123')).rejects.toThrow(
+                'Method deleteApiKey must be implemented by subclass'
+            );
         });
     });
 
@@ -101,9 +109,7 @@ describe('AdminApiKeyRepositoryInterface', () => {
         });
 
         it('should accept string parameter in deleteApiKey', async () => {
-            await expect(
-                repository.deleteApiKey('some-id')
-            ).rejects.toThrow();
+            await expect(repository.deleteApiKey('some-id')).rejects.toThrow();
         });
     });
 });

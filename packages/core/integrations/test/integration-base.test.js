@@ -1,16 +1,16 @@
 const _ = require('lodash');
 const { mongoose } = require('../../database/mongoose');
 const { expect } = require('chai');
-const { IntegrationBase } = require("../integration-base");
-const {Credential} = require('../../module-plugin/credential');
-const {Entity} = require('../../module-plugin/entity');
-const { IntegrationMapping } = require('../integration-mapping')
-const {IntegrationModel} = require("../integration-model");
+const { IntegrationBase } = require('../integration-base');
+const { Credential } = require('../../module-plugin/credential');
+const { Entity } = require('../../module-plugin/entity');
+const { IntegrationMapping } = require('../integration-mapping');
+const { IntegrationModel } = require('../integration-model');
 
 describe(`Should fully test the IntegrationBase Class`, () => {
     let integrationRecord;
     let userId;
-    const integration = new IntegrationBase;
+    const integration = new IntegrationBase();
 
     beforeAll(async () => {
         await mongoose.connect(process.env.MONGO_URI);
@@ -60,7 +60,7 @@ describe(`Should fully test the IntegrationBase Class`, () => {
         );
         integrationRecord = await IntegrationModel.create({
             entities: [entity1, entity2],
-            user: userId
+            user: userId,
         });
         integration.record = integrationRecord;
     });
@@ -75,7 +75,7 @@ describe(`Should fully test the IntegrationBase Class`, () => {
 
     beforeEach(() => {
         integration.record = integrationRecord;
-    })
+    });
 
     describe('getIntegrationMapping()', () => {
         it('should return null if not found', async () => {
@@ -86,42 +86,46 @@ describe(`Should fully test the IntegrationBase Class`, () => {
         it('should return if valid ids', async () => {
             await integration.upsertMapping('validId', {});
             const mapping = await integration.getMapping('validId');
-            expect(mapping).to.eql({})
+            expect(mapping).to.eql({});
         });
-    })
+    });
 
     describe('upsertIntegrationMapping()', () => {
         it('should throw error if sourceId is null', async () => {
             try {
-                await integration.upsertMapping( null, {});
-                fail('should have thrown error')
-            } catch(err) {
+                await integration.upsertMapping(null, {});
+                fail('should have thrown error');
+            } catch (err) {
                 expect(err.message).to.contain('sourceId must be set');
             }
         });
 
         it('should return for empty mapping', async () => {
-            const mapping = await integration.upsertMapping( 'validId2', {});
-            expect(_.pick(mapping, ['integration', 'sourceId', 'mapping'])).to.eql({
+            const mapping = await integration.upsertMapping('validId2', {});
+            expect(
+                _.pick(mapping, ['integration', 'sourceId', 'mapping'])
+            ).to.eql({
                 integration: integrationRecord._id,
                 sourceId: 'validId2',
-                mapping: {}
-            })
+                mapping: {},
+            });
         });
 
         it('should return for filled mapping', async () => {
             const mapping = await integration.upsertMapping('validId3', {
                 name: 'someName',
-                value: 5
+                value: 5,
             });
-            expect(_.pick(mapping, ['integration', 'sourceId', 'mapping'])).to.eql({
+            expect(
+                _.pick(mapping, ['integration', 'sourceId', 'mapping'])
+            ).to.eql({
                 integration: integrationRecord._id,
                 sourceId: 'validId3',
                 mapping: {
                     name: 'someName',
-                    value: 5
-                }
-            })
+                    value: 5,
+                },
+            });
         });
 
         it('should allow upserting to same id', async () => {
@@ -130,15 +134,16 @@ describe(`Should fully test the IntegrationBase Class`, () => {
                 name: 'trustMe',
                 thisWorks: true,
             });
-            expect(_.pick(mapping, ['integration', 'sourceId', 'mapping'])).to.eql({
+            expect(
+                _.pick(mapping, ['integration', 'sourceId', 'mapping'])
+            ).to.eql({
                 integration: integrationRecord._id,
                 sourceId: 'validId4',
                 mapping: {
                     name: 'trustMe',
                     thisWorks: true,
-                }
-            })
+                },
+            });
         });
-    })
-
+    });
 });

@@ -1,4 +1,6 @@
-const { ScriptScheduleRepositoryInterface } = require('../script-schedule-repository-interface');
+const {
+    ScriptScheduleRepositoryInterface,
+} = require('../script-schedule-repository-interface');
 
 describe('ScriptScheduleRepositoryInterface', () => {
     let repository;
@@ -11,7 +13,9 @@ describe('ScriptScheduleRepositoryInterface', () => {
         it('should throw error when findScheduleByScriptName is not implemented', async () => {
             await expect(
                 repository.findScheduleByScriptName('test-script')
-            ).rejects.toThrow('Method findScheduleByScriptName must be implemented by subclass');
+            ).rejects.toThrow(
+                'Method findScheduleByScriptName must be implemented by subclass'
+            );
         });
 
         it('should throw error when upsertSchedule is not implemented', async () => {
@@ -22,40 +26,54 @@ describe('ScriptScheduleRepositoryInterface', () => {
                     cronExpression: '0 0 * * *',
                     timezone: 'UTC',
                 })
-            ).rejects.toThrow('Method upsertSchedule must be implemented by subclass');
+            ).rejects.toThrow(
+                'Method upsertSchedule must be implemented by subclass'
+            );
         });
 
         it('should throw error when deleteSchedule is not implemented', async () => {
             await expect(
                 repository.deleteSchedule('test-script')
-            ).rejects.toThrow('Method deleteSchedule must be implemented by subclass');
+            ).rejects.toThrow(
+                'Method deleteSchedule must be implemented by subclass'
+            );
         });
 
         it('should throw error when updateScheduleAwsInfo is not implemented', async () => {
             await expect(
                 repository.updateScheduleAwsInfo('test-script', {
-                    awsScheduleArn: 'arn:aws:events:us-east-1:123456789012:rule/test-rule',
+                    awsScheduleArn:
+                        'arn:aws:events:us-east-1:123456789012:rule/test-rule',
                     awsScheduleName: 'test-rule',
                 })
-            ).rejects.toThrow('Method updateScheduleAwsInfo must be implemented by subclass');
+            ).rejects.toThrow(
+                'Method updateScheduleAwsInfo must be implemented by subclass'
+            );
         });
 
         it('should throw error when updateScheduleLastTriggered is not implemented', async () => {
             await expect(
-                repository.updateScheduleLastTriggered('test-script', new Date())
-            ).rejects.toThrow('Method updateScheduleLastTriggered must be implemented by subclass');
+                repository.updateScheduleLastTriggered(
+                    'test-script',
+                    new Date()
+                )
+            ).rejects.toThrow(
+                'Method updateScheduleLastTriggered must be implemented by subclass'
+            );
         });
 
         it('should throw error when updateScheduleNextTrigger is not implemented', async () => {
             await expect(
                 repository.updateScheduleNextTrigger('test-script', new Date())
-            ).rejects.toThrow('Method updateScheduleNextTrigger must be implemented by subclass');
+            ).rejects.toThrow(
+                'Method updateScheduleNextTrigger must be implemented by subclass'
+            );
         });
 
         it('should throw error when listSchedules is not implemented', async () => {
-            await expect(
-                repository.listSchedules()
-            ).rejects.toThrow('Method listSchedules must be implemented by subclass');
+            await expect(repository.listSchedules()).rejects.toThrow(
+                'Method listSchedules must be implemented by subclass'
+            );
         });
     });
 
@@ -72,7 +90,8 @@ describe('ScriptScheduleRepositoryInterface', () => {
                 enabled: true,
                 cronExpression: '0 0 * * *',
                 timezone: 'America/New_York',
-                awsScheduleArn: 'arn:aws:events:us-east-1:123456789012:rule/test',
+                awsScheduleArn:
+                    'arn:aws:events:us-east-1:123456789012:rule/test',
                 awsScheduleName: 'test-rule',
             };
 
@@ -88,7 +107,8 @@ describe('ScriptScheduleRepositoryInterface', () => {
         it('should accept scriptName and awsInfo in updateScheduleAwsInfo', async () => {
             await expect(
                 repository.updateScheduleAwsInfo('test-script', {
-                    awsScheduleArn: 'arn:aws:events:us-east-1:123456789012:rule/test',
+                    awsScheduleArn:
+                        'arn:aws:events:us-east-1:123456789012:rule/test',
                     awsScheduleName: 'test-rule',
                 })
             ).rejects.toThrow();
@@ -96,7 +116,10 @@ describe('ScriptScheduleRepositoryInterface', () => {
 
         it('should accept scriptName and timestamp in updateScheduleLastTriggered', async () => {
             await expect(
-                repository.updateScheduleLastTriggered('test-script', new Date())
+                repository.updateScheduleLastTriggered(
+                    'test-script',
+                    new Date()
+                )
             ).rejects.toThrow();
         });
 

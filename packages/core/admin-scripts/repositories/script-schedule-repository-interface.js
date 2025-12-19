@@ -23,7 +23,9 @@ class ScriptScheduleRepositoryInterface {
      * @abstract
      */
     async findScheduleByScriptName(scriptName) {
-        throw new Error('Method findScheduleByScriptName must be implemented by subclass');
+        throw new Error(
+            'Method findScheduleByScriptName must be implemented by subclass'
+        );
     }
 
     /**
@@ -39,8 +41,17 @@ class ScriptScheduleRepositoryInterface {
      * @returns {Promise<Object>} Created or updated schedule record
      * @abstract
      */
-    async upsertSchedule({ scriptName, enabled, cronExpression, timezone, awsScheduleArn, awsScheduleName }) {
-        throw new Error('Method upsertSchedule must be implemented by subclass');
+    async upsertSchedule({
+        scriptName,
+        enabled,
+        cronExpression,
+        timezone,
+        awsScheduleArn,
+        awsScheduleName,
+    }) {
+        throw new Error(
+            'Method upsertSchedule must be implemented by subclass'
+        );
     }
 
     /**
@@ -51,7 +62,9 @@ class ScriptScheduleRepositoryInterface {
      * @abstract
      */
     async deleteSchedule(scriptName) {
-        throw new Error('Method deleteSchedule must be implemented by subclass');
+        throw new Error(
+            'Method deleteSchedule must be implemented by subclass'
+        );
     }
 
     /**
@@ -64,8 +77,13 @@ class ScriptScheduleRepositoryInterface {
      * @returns {Promise<Object>} Updated schedule record
      * @abstract
      */
-    async updateScheduleAwsInfo(scriptName, { awsScheduleArn, awsScheduleName }) {
-        throw new Error('Method updateScheduleAwsInfo must be implemented by subclass');
+    async updateScheduleAwsInfo(
+        scriptName,
+        { awsScheduleArn, awsScheduleName }
+    ) {
+        throw new Error(
+            'Method updateScheduleAwsInfo must be implemented by subclass'
+        );
     }
 
     /**
@@ -77,7 +95,9 @@ class ScriptScheduleRepositoryInterface {
      * @abstract
      */
     async updateScheduleLastTriggered(scriptName, timestamp) {
-        throw new Error('Method updateScheduleLastTriggered must be implemented by subclass');
+        throw new Error(
+            'Method updateScheduleLastTriggered must be implemented by subclass'
+        );
     }
 
     /**
@@ -89,7 +109,9 @@ class ScriptScheduleRepositoryInterface {
      * @abstract
      */
     async updateScheduleNextTrigger(scriptName, timestamp) {
-        throw new Error('Method updateScheduleNextTrigger must be implemented by subclass');
+        throw new Error(
+            'Method updateScheduleNextTrigger must be implemented by subclass'
+        );
     }
 
     /**

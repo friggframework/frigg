@@ -62,7 +62,7 @@ class TriggerDatabaseMigrationUseCase {
         if (!queueUrl) {
             throw new Error(
                 'DB_MIGRATION_QUEUE_URL environment variable is not set. ' +
-                'Cannot send migration to queue.'
+                    'Cannot send migration to queue.'
             );
         }
 
@@ -77,7 +77,9 @@ class TriggerDatabaseMigrationUseCase {
                 queueUrl
             );
 
-            console.log(`Sent migration job to queue: ${migrationStatus.migrationId}`);
+            console.log(
+                `Sent migration job to queue: ${migrationStatus.migrationId}`
+            );
         } catch (error) {
             console.error(`Failed to send migration to queue:`, error);
 
@@ -89,9 +91,7 @@ class TriggerDatabaseMigrationUseCase {
                 error: `Failed to queue migration: ${error.message}`,
             });
 
-            throw new Error(
-                `Failed to queue migration: ${error.message}`
-            );
+            throw new Error(`Failed to queue migration: ${error.message}`);
         }
 
         // Return migration info immediately (don't wait for migration completion)
@@ -126,7 +126,9 @@ class TriggerDatabaseMigrationUseCase {
         const validDbTypes = ['postgresql', 'mongodb', 'documentdb'];
         if (!validDbTypes.includes(dbType)) {
             throw new ValidationError(
-                `Invalid dbType: "${dbType}". Must be one of: ${validDbTypes.join(', ')}`
+                `Invalid dbType: "${dbType}". Must be one of: ${validDbTypes.join(
+                    ', '
+                )}`
             );
         }
 
@@ -154,4 +156,3 @@ module.exports = {
     TriggerDatabaseMigrationUseCase,
     ValidationError,
 };
-

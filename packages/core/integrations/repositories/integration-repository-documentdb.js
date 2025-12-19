@@ -29,13 +29,17 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
     async deleteIntegrationById(integrationId) {
         const objectId = toObjectId(integrationId);
         if (!objectId) return { acknowledged: true, deletedCount: 0 };
-        const result = await deleteOne(this.prisma, 'Integration', { _id: objectId });
+        const result = await deleteOne(this.prisma, 'Integration', {
+            _id: objectId,
+        });
         const deleted = result?.n ?? 0;
         return { acknowledged: true, deletedCount: deleted };
     }
 
     async findIntegrationByName(name) {
-        const doc = await findOne(this.prisma, 'Integration', { 'config.type': name });
+        const doc = await findOne(this.prisma, 'Integration', {
+            'config.type': name,
+        });
         if (!doc) {
             throw new Error(`Integration with name ${name} not found`);
         }
@@ -47,7 +51,9 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
         if (!objectId) {
             throw new Error(`Integration with id ${id} not found`);
         }
-        const doc = await findOne(this.prisma, 'Integration', { _id: objectId });
+        const doc = await findOne(this.prisma, 'Integration', {
+            _id: objectId,
+        });
         if (!doc) {
             throw new Error(`Integration with id ${id} not found`);
         }
@@ -79,12 +85,16 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
         if (!objectId) {
             throw new Error(`Integration ${integrationId} not found`);
         }
-        const existing = await findOne(this.prisma, 'Integration', { _id: objectId });
+        const existing = await findOne(this.prisma, 'Integration', {
+            _id: objectId,
+        });
         if (!existing) {
             throw new Error(`Integration ${integrationId} not found`);
         }
         const messages = this._extractMessages(existing);
-        const list = Array.isArray(messages[messageType]) ? [...messages[messageType]] : [];
+        const list = Array.isArray(messages[messageType])
+            ? [...messages[messageType]]
+            : [];
         list.push({
             title: messageTitle ?? null,
             message: messageBody,
@@ -125,17 +135,26 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
             createdAt: now,
             updatedAt: now,
         };
-        const insertedId = await insertOne(this.prisma, 'Integration', document);
-        const created = await findOne(this.prisma, 'Integration', { _id: insertedId });
+        const insertedId = await insertOne(
+            this.prisma,
+            'Integration',
+            document
+        );
+        const created = await findOne(this.prisma, 'Integration', {
+            _id: insertedId,
+        });
         if (!created) {
-            console.error('[IntegrationRepositoryDocumentDB] Integration not found after insert', {
-                insertedId: fromObjectId(insertedId),
-                userId,
-                config,
-            });
+            console.error(
+                '[IntegrationRepositoryDocumentDB] Integration not found after insert',
+                {
+                    insertedId: fromObjectId(insertedId),
+                    userId,
+                    config,
+                }
+            );
             throw new Error(
                 'Failed to create integration: Document not found after insert. ' +
-                'This indicates a database consistency issue.'
+                    'This indicates a database consistency issue.'
             );
         }
         return this._mapIntegration(created);
@@ -144,7 +163,9 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
     async findIntegrationByUserId(userId) {
         const objectId = toObjectId(userId);
         if (!objectId) return null;
-        const doc = await findOne(this.prisma, 'Integration', { userId: objectId });
+        const doc = await findOne(this.prisma, 'Integration', {
+            userId: objectId,
+        });
         return doc ? this._mapIntegration(doc) : null;
     }
 
@@ -167,15 +188,20 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
                 },
             }
         );
-        const updated = await findOne(this.prisma, 'Integration', { _id: objectId });
+        const updated = await findOne(this.prisma, 'Integration', {
+            _id: objectId,
+        });
         if (!updated) {
-            console.error('[IntegrationRepositoryDocumentDB] Integration not found after update', {
-                integrationId: fromObjectId(objectId),
-                config,
-            });
+            console.error(
+                '[IntegrationRepositoryDocumentDB] Integration not found after update',
+                {
+                    integrationId: fromObjectId(objectId),
+                    config,
+                }
+            );
             throw new Error(
                 'Failed to update integration: Document not found after update. ' +
-                'This indicates a database consistency issue.'
+                    'This indicates a database consistency issue.'
             );
         }
         return this._mapIntegration(updated);
@@ -185,7 +211,9 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
         const messages = this._extractMessages(doc);
         return {
             id: fromObjectId(doc?._id),
-            entitiesIds: (doc?.entityIds || []).map((value) => fromObjectId(value)),
+            entitiesIds: (doc?.entityIds || []).map((value) =>
+                fromObjectId(value)
+            ),
             userId: fromObjectId(doc?.userId),
             config: doc?.config ?? null,
             version: doc?.version ?? null,
@@ -195,7 +223,10 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
     }
 
     _extractMessages(doc) {
-        const base = doc?.messages && typeof doc.messages === 'object' ? doc.messages : {};
+        const base =
+            doc?.messages && typeof doc.messages === 'object'
+                ? doc.messages
+                : {};
         return {
             errors: base.errors ?? doc?.errors ?? [],
             warnings: base.warnings ?? doc?.warnings ?? [],
@@ -206,5 +237,3 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
 }
 
 module.exports = { IntegrationRepositoryDocumentDB };
-
-

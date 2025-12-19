@@ -44,7 +44,14 @@ class ScriptScheduleRepositoryMongo extends ScriptScheduleRepositoryInterface {
      * @param {string} [params.awsScheduleName] - AWS EventBridge Scheduler name
      * @returns {Promise<Object>} Created or updated schedule record
      */
-    async upsertSchedule({ scriptName, enabled, cronExpression, timezone, awsScheduleArn, awsScheduleName }) {
+    async upsertSchedule({
+        scriptName,
+        enabled,
+        cronExpression,
+        timezone,
+        awsScheduleArn,
+        awsScheduleName,
+    }) {
         const data = {
             enabled,
             cronExpression,
@@ -53,7 +60,8 @@ class ScriptScheduleRepositoryMongo extends ScriptScheduleRepositoryInterface {
 
         // Only set AWS fields if provided
         if (awsScheduleArn !== undefined) data.awsScheduleArn = awsScheduleArn;
-        if (awsScheduleName !== undefined) data.awsScheduleName = awsScheduleName;
+        if (awsScheduleName !== undefined)
+            data.awsScheduleName = awsScheduleName;
 
         const schedule = await this.prisma.scriptSchedule.upsert({
             where: { scriptName },
@@ -105,10 +113,14 @@ class ScriptScheduleRepositoryMongo extends ScriptScheduleRepositoryInterface {
      * @param {string} [awsInfo.awsScheduleName] - AWS EventBridge Scheduler name
      * @returns {Promise<Object>} Updated schedule record
      */
-    async updateScheduleAwsInfo(scriptName, { awsScheduleArn, awsScheduleName }) {
+    async updateScheduleAwsInfo(
+        scriptName,
+        { awsScheduleArn, awsScheduleName }
+    ) {
         const data = {};
         if (awsScheduleArn !== undefined) data.awsScheduleArn = awsScheduleArn;
-        if (awsScheduleName !== undefined) data.awsScheduleName = awsScheduleName;
+        if (awsScheduleName !== undefined)
+            data.awsScheduleName = awsScheduleName;
 
         const schedule = await this.prisma.scriptSchedule.update({
             where: { scriptName },

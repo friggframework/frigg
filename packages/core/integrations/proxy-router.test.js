@@ -21,27 +21,27 @@ const Boom = require('@hapi/boom');
 
 // Mock dependencies before requiring the router
 jest.mock('../handlers/app-definition-loader', () => ({
-    loadAppDefinition: jest.fn()
+    loadAppDefinition: jest.fn(),
 }));
 
 jest.mock('./repositories/integration-repository-factory', () => ({
-    createIntegrationRepository: jest.fn()
+    createIntegrationRepository: jest.fn(),
 }));
 
 jest.mock('../credential/repositories/credential-repository-factory', () => ({
-    createCredentialRepository: jest.fn()
+    createCredentialRepository: jest.fn(),
 }));
 
 jest.mock('../user/repositories/user-repository-factory', () => ({
-    createUserRepository: jest.fn()
+    createUserRepository: jest.fn(),
 }));
 
 jest.mock('../modules/repositories/module-repository-factory', () => ({
-    createModuleRepository: jest.fn()
+    createModuleRepository: jest.fn(),
 }));
 
 jest.mock('../modules/module-factory', () => ({
-    ModuleFactory: jest.fn()
+    ModuleFactory: jest.fn(),
 }));
 
 jest.mock('../database/config', () => ({
@@ -53,10 +53,18 @@ jest.mock('../database/config', () => ({
 
 const { createIntegrationRouter } = require('./integration-router');
 const { loadAppDefinition } = require('../handlers/app-definition-loader');
-const { createIntegrationRepository } = require('./repositories/integration-repository-factory');
-const { createCredentialRepository } = require('../credential/repositories/credential-repository-factory');
-const { createUserRepository } = require('../user/repositories/user-repository-factory');
-const { createModuleRepository } = require('../modules/repositories/module-repository-factory');
+const {
+    createIntegrationRepository,
+} = require('./repositories/integration-repository-factory');
+const {
+    createCredentialRepository,
+} = require('../credential/repositories/credential-repository-factory');
+const {
+    createUserRepository,
+} = require('../user/repositories/user-repository-factory');
+const {
+    createModuleRepository,
+} = require('../modules/repositories/module-repository-factory');
 const { ModuleFactory } = require('../modules/module-factory');
 
 describe('Proxy Router - TDD Tests', () => {
@@ -75,7 +83,7 @@ describe('Proxy Router - TDD Tests', () => {
         // Mock user for authentication
         mockUser = {
             getId: jest.fn().mockReturnValue('user-123'),
-            id: 'user-123'
+            id: 'user-123',
         };
 
         // Mock user repository with all auth-related methods
@@ -85,7 +93,7 @@ describe('Proxy Router - TDD Tests', () => {
             getSessionToken: jest.fn().mockResolvedValue(mockUser),
             findIndividualUserById: jest.fn().mockResolvedValue(mockUser),
             findOrganizationUserById: jest.fn().mockResolvedValue(null),
-            findByEmail: jest.fn().mockResolvedValue(mockUser)
+            findByEmail: jest.fn().mockResolvedValue(mockUser),
         };
 
         // Mock credential repository
@@ -93,7 +101,7 @@ describe('Proxy Router - TDD Tests', () => {
             findById: jest.fn(),
             findByIdForUser: jest.fn(),
             save: jest.fn(),
-            update: jest.fn()
+            update: jest.fn(),
         };
 
         // Mock module repository
@@ -101,7 +109,7 @@ describe('Proxy Router - TDD Tests', () => {
             findById: jest.fn(),
             findByIdForUser: jest.fn(),
             save: jest.fn(),
-            update: jest.fn()
+            update: jest.fn(),
         };
 
         // Mock integration repository
@@ -109,7 +117,7 @@ describe('Proxy Router - TDD Tests', () => {
             findById: jest.fn(),
             findByIdForUser: jest.fn(),
             save: jest.fn(),
-            update: jest.fn()
+            update: jest.fn(),
         };
 
         // Mock API requester that will make upstream calls
@@ -120,7 +128,7 @@ describe('Proxy Router - TDD Tests', () => {
             _put: jest.fn(),
             _patch: jest.fn(),
             _delete: jest.fn(),
-            addAuthHeaders: jest.fn().mockResolvedValue({})
+            addAuthHeaders: jest.fn().mockResolvedValue({}),
         };
 
         // Mock entity (API connection)
@@ -130,7 +138,7 @@ describe('Proxy Router - TDD Tests', () => {
             credential: 'credential-123',
             userId: 'user-123',
             externalId: 'ext-account-123',
-            name: 'Test Account'
+            name: 'Test Account',
         };
 
         // Mock credential with API instance
@@ -141,15 +149,15 @@ describe('Proxy Router - TDD Tests', () => {
             status: 'AUTHORIZED',
             data: {
                 access_token: 'test-access-token',
-                refresh_token: 'test-refresh-token'
-            }
+                refresh_token: 'test-refresh-token',
+            },
         };
 
         // Mock module factory - create a mock that will be returned by the constructor
         mockModuleFactory = {
             getModuleInstance: jest.fn().mockResolvedValue({
-                api: mockApiRequester
-            })
+                api: mockApiRequester,
+            }),
         };
 
         // Setup mocks
@@ -159,7 +167,7 @@ describe('Proxy Router - TDD Tests', () => {
         createIntegrationRepository.mockReturnValue(mockIntegrationRepository);
 
         // Mock ModuleFactory constructor to return our mock instance
-        ModuleFactory.mockImplementation(function() {
+        ModuleFactory.mockImplementation(function () {
             return mockModuleFactory;
         });
 
@@ -172,14 +180,14 @@ describe('Proxy Router - TDD Tests', () => {
                             constructor(credential) {
                                 return mockApiRequester;
                             }
-                        }
-                    }
-                }
+                        },
+                    },
+                },
             ],
             userConfig: {
                 usePassword: true,
-                primary: 'individual'
-            }
+                primary: 'individual',
+            },
         });
 
         // Create Express app with router
@@ -207,8 +215,8 @@ describe('Proxy Router - TDD Tests', () => {
                     error: {
                         code: _getErrorCodeFromStatus(statusCode),
                         message: payload.message,
-                        ...(err.data || {})
-                    }
+                        ...(err.data || {}),
+                    },
                 });
             }
             // Handle non-Boom errors
@@ -217,8 +225,8 @@ describe('Proxy Router - TDD Tests', () => {
                 status: 500,
                 error: {
                     code: 'INTERNAL_ERROR',
-                    message: err.message || 'Internal Server Error'
-                }
+                    message: err.message || 'Internal Server Error',
+                },
             });
         });
     });
@@ -226,16 +234,26 @@ describe('Proxy Router - TDD Tests', () => {
     // Helper function to map HTTP status to error code (matching router implementation)
     function _getErrorCodeFromStatus(status) {
         switch (status) {
-            case 400: return 'INVALID_REQUEST';
-            case 401: return 'INVALID_AUTH';
-            case 403: return 'PERMISSION_DENIED';
-            case 404: return 'NOT_FOUND';
-            case 408: return 'TIMEOUT';
-            case 429: return 'RATE_LIMITED';
-            case 500: return 'UPSTREAM_ERROR';
-            case 502: return 'NETWORK_ERROR';
-            case 503: return 'SERVICE_UNAVAILABLE';
-            default: return 'UNKNOWN_ERROR';
+            case 400:
+                return 'INVALID_REQUEST';
+            case 401:
+                return 'INVALID_AUTH';
+            case 403:
+                return 'PERMISSION_DENIED';
+            case 404:
+                return 'NOT_FOUND';
+            case 408:
+                return 'TIMEOUT';
+            case 429:
+                return 'RATE_LIMITED';
+            case 500:
+                return 'UPSTREAM_ERROR';
+            case 502:
+                return 'NETWORK_ERROR';
+            case 503:
+                return 'SERVICE_UNAVAILABLE';
+            default:
+                return 'UNKNOWN_ERROR';
         }
     }
 
@@ -243,26 +261,34 @@ describe('Proxy Router - TDD Tests', () => {
         describe('Successful Proxy Requests', () => {
             beforeEach(() => {
                 // Mock successful entity lookup
-                mockModuleRepository.findByIdForUser.mockResolvedValue(mockEntity);
-                mockCredentialRepository.findById.mockResolvedValue(mockCredential);
+                mockModuleRepository.findByIdForUser.mockResolvedValue(
+                    mockEntity
+                );
+                mockCredentialRepository.findById.mockResolvedValue(
+                    mockCredential
+                );
             });
 
             it('should proxy successful GET request to upstream API', async () => {
                 // Arrange: Mock upstream API response
                 const upstreamResponse = {
                     results: [
-                        { id: 'contact-1', name: 'John Doe', email: 'john@example.com' }
+                        {
+                            id: 'contact-1',
+                            name: 'John Doe',
+                            email: 'john@example.com',
+                        },
                     ],
-                    total: 1
+                    total: 1,
                 };
 
                 mockApiRequester.request = jest.fn().mockResolvedValue({
                     status: 200,
                     headers: {
                         'content-type': 'application/json',
-                        'x-rate-limit-remaining': '998'
+                        'x-rate-limit-remaining': '998',
                     },
-                    data: upstreamResponse
+                    data: upstreamResponse,
                 });
 
                 // Act: Make proxy request
@@ -274,8 +300,8 @@ describe('Proxy Router - TDD Tests', () => {
                         path: '/v3/contacts',
                         query: {
                             limit: '10',
-                            archived: 'false'
-                        }
+                            archived: 'false',
+                        },
                     });
 
                 // Assert: Verify response format matches proxyResponse schema
@@ -285,9 +311,9 @@ describe('Proxy Router - TDD Tests', () => {
                     status: 200,
                     headers: {
                         'content-type': 'application/json',
-                        'x-rate-limit-remaining': '998'
+                        'x-rate-limit-remaining': '998',
                     },
-                    data: upstreamResponse
+                    data: upstreamResponse,
                 });
 
                 // Assert: Verify upstream request was made correctly
@@ -296,17 +322,16 @@ describe('Proxy Router - TDD Tests', () => {
                     url: '/v3/contacts',
                     query: {
                         limit: '10',
-                        archived: 'false'
+                        archived: 'false',
                     },
                     headers: {},
-                    body: undefined
+                    body: undefined,
                 });
 
                 // Assert: Verify entity was loaded for the authenticated user
-                expect(mockModuleRepository.findByIdForUser).toHaveBeenCalledWith(
-                    'entity-123',
-                    'user-123'
-                );
+                expect(
+                    mockModuleRepository.findByIdForUser
+                ).toHaveBeenCalledWith('entity-123', 'user-123');
             });
 
             it('should proxy successful POST request with body', async () => {
@@ -318,20 +343,22 @@ describe('Proxy Router - TDD Tests', () => {
                     properties: {
                         email: 'contact@example.com',
                         firstname: 'John',
-                        lastname: 'Doe'
-                    }
+                        lastname: 'Doe',
+                    },
                 };
 
                 mockApiRequester.request = jest.fn().mockResolvedValue({
                     status: 201,
                     headers: {
                         'content-type': 'application/json',
-                        'location': '/v3/contacts/contact-456'
+                        location: '/v3/contacts/contact-456',
                     },
-                    data: upstreamResponse
+                    data: upstreamResponse,
                 });
 
-                mockModuleRepository.findByIdForUser.mockResolvedValue(mockEntity);
+                mockModuleRepository.findByIdForUser.mockResolvedValue(
+                    mockEntity
+                );
 
                 // Act: Make proxy POST request
                 const response = await request(app)
@@ -341,15 +368,15 @@ describe('Proxy Router - TDD Tests', () => {
                         method: 'POST',
                         path: '/v3/contacts',
                         headers: {
-                            'Content-Type': 'application/json'
+                            'Content-Type': 'application/json',
                         },
                         body: {
                             properties: {
                                 email: 'contact@example.com',
                                 firstname: 'John',
-                                lastname: 'Doe'
-                            }
-                        }
+                                lastname: 'Doe',
+                            },
+                        },
                     });
 
                 // Assert: Success response with 201 status
@@ -359,9 +386,9 @@ describe('Proxy Router - TDD Tests', () => {
                     status: 201,
                     headers: {
                         'content-type': 'application/json',
-                        'location': '/v3/contacts/contact-456'
+                        location: '/v3/contacts/contact-456',
                     },
-                    data: upstreamResponse
+                    data: upstreamResponse,
                 });
 
                 // Assert: Request was proxied with correct body
@@ -370,15 +397,15 @@ describe('Proxy Router - TDD Tests', () => {
                     url: '/v3/contacts',
                     query: undefined,
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
                     },
                     body: {
                         properties: {
                             email: 'contact@example.com',
                             firstname: 'John',
-                            lastname: 'Doe'
-                        }
-                    }
+                            lastname: 'Doe',
+                        },
+                    },
                 });
             });
 
@@ -387,16 +414,18 @@ describe('Proxy Router - TDD Tests', () => {
                 const upstreamResponse = {
                     id: 'user-789',
                     status: 'active',
-                    updated_at: '2025-01-15T11:00:00Z'
+                    updated_at: '2025-01-15T11:00:00Z',
                 };
 
                 mockApiRequester.request = jest.fn().mockResolvedValue({
                     status: 200,
                     headers: { 'content-type': 'application/json' },
-                    data: upstreamResponse
+                    data: upstreamResponse,
                 });
 
-                mockModuleRepository.findByIdForUser.mockResolvedValue(mockEntity);
+                mockModuleRepository.findByIdForUser.mockResolvedValue(
+                    mockEntity
+                );
 
                 // Act
                 const response = await request(app)
@@ -406,8 +435,8 @@ describe('Proxy Router - TDD Tests', () => {
                         method: 'PUT',
                         path: '/api/v1/users/user-789',
                         body: {
-                            status: 'active'
-                        }
+                            status: 'active',
+                        },
                     });
 
                 // Assert
@@ -421,16 +450,18 @@ describe('Proxy Router - TDD Tests', () => {
                 // Arrange
                 const upstreamResponse = {
                     id: 'record-123',
-                    updated_fields: ['name', 'description']
+                    updated_fields: ['name', 'description'],
                 };
 
                 mockApiRequester.request = jest.fn().mockResolvedValue({
                     status: 200,
                     headers: { 'content-type': 'application/json' },
-                    data: upstreamResponse
+                    data: upstreamResponse,
                 });
 
-                mockModuleRepository.findByIdForUser.mockResolvedValue(mockEntity);
+                mockModuleRepository.findByIdForUser.mockResolvedValue(
+                    mockEntity
+                );
 
                 // Act
                 const response = await request(app)
@@ -441,8 +472,8 @@ describe('Proxy Router - TDD Tests', () => {
                         path: '/api/records/record-123',
                         body: {
                             name: 'Updated Name',
-                            description: 'Updated Description'
-                        }
+                            description: 'Updated Description',
+                        },
                     });
 
                 // Assert
@@ -456,10 +487,12 @@ describe('Proxy Router - TDD Tests', () => {
                 mockApiRequester.request = jest.fn().mockResolvedValue({
                     status: 204,
                     headers: {},
-                    data: null
+                    data: null,
                 });
 
-                mockModuleRepository.findByIdForUser.mockResolvedValue(mockEntity);
+                mockModuleRepository.findByIdForUser.mockResolvedValue(
+                    mockEntity
+                );
 
                 // Act
                 const response = await request(app)
@@ -467,7 +500,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'DELETE',
-                        path: '/api/records/record-123'
+                        path: '/api/records/record-123',
                     });
 
                 // Assert
@@ -486,12 +519,14 @@ describe('Proxy Router - TDD Tests', () => {
                         'x-rate-limit-limit': '1000',
                         'x-rate-limit-remaining': '998',
                         'x-rate-limit-reset': '1642253400',
-                        'x-request-id': 'req-abc-123'
+                        'x-request-id': 'req-abc-123',
                     },
-                    data: { success: true }
+                    data: { success: true },
                 });
 
-                mockModuleRepository.findByIdForUser.mockResolvedValue(mockEntity);
+                mockModuleRepository.findByIdForUser.mockResolvedValue(
+                    mockEntity
+                );
 
                 // Act
                 const response = await request(app)
@@ -499,7 +534,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: '/api/status'
+                        path: '/api/status',
                     });
 
                 // Assert: All upstream headers should be returned
@@ -509,7 +544,7 @@ describe('Proxy Router - TDD Tests', () => {
                     'x-rate-limit-limit': '1000',
                     'x-rate-limit-remaining': '998',
                     'x-rate-limit-reset': '1642253400',
-                    'x-request-id': 'req-abc-123'
+                    'x-request-id': 'req-abc-123',
                 });
             });
 
@@ -518,10 +553,12 @@ describe('Proxy Router - TDD Tests', () => {
                 mockApiRequester.request = jest.fn().mockResolvedValue({
                     status: 200,
                     headers: {},
-                    data: { results: [] }
+                    data: { results: [] },
                 });
 
-                mockModuleRepository.findByIdForUser.mockResolvedValue(mockEntity);
+                mockModuleRepository.findByIdForUser.mockResolvedValue(
+                    mockEntity
+                );
 
                 // Act: Send request with various query parameter types
                 const response = await request(app)
@@ -535,8 +572,8 @@ describe('Proxy Router - TDD Tests', () => {
                             limit: 50,
                             offset: 100,
                             active: true,
-                            tags: ['tag1', 'tag2', 'tag3']
-                        }
+                            tags: ['tag1', 'tag2', 'tag3'],
+                        },
                     });
 
                 // Assert: Query params passed correctly
@@ -549,10 +586,10 @@ describe('Proxy Router - TDD Tests', () => {
                         limit: 50,
                         offset: 100,
                         active: true,
-                        tags: ['tag1', 'tag2', 'tag3']
+                        tags: ['tag1', 'tag2', 'tag3'],
                     },
                     headers: {},
-                    body: undefined
+                    body: undefined,
                 });
             });
 
@@ -561,10 +598,12 @@ describe('Proxy Router - TDD Tests', () => {
                 mockApiRequester.request = jest.fn().mockResolvedValue({
                     status: 200,
                     headers: {},
-                    data: { success: true }
+                    data: { success: true },
                 });
 
-                mockModuleRepository.findByIdForUser.mockResolvedValue(mockEntity);
+                mockModuleRepository.findByIdForUser.mockResolvedValue(
+                    mockEntity
+                );
 
                 // Act: Send request with custom headers
                 const response = await request(app)
@@ -576,9 +615,9 @@ describe('Proxy Router - TDD Tests', () => {
                         headers: {
                             'Content-Type': 'application/json',
                             'X-Custom-Header': 'custom-value',
-                            'X-Request-Id': 'req-xyz-789'
+                            'X-Request-Id': 'req-xyz-789',
                         },
-                        body: { data: 'test' }
+                        body: { data: 'test' },
                     });
 
                 // Assert: Custom headers included in upstream request
@@ -590,9 +629,9 @@ describe('Proxy Router - TDD Tests', () => {
                     headers: {
                         'Content-Type': 'application/json',
                         'X-Custom-Header': 'custom-value',
-                        'X-Request-Id': 'req-xyz-789'
+                        'X-Request-Id': 'req-xyz-789',
                     },
-                    body: { data: 'test' }
+                    body: { data: 'test' },
                 });
             });
 
@@ -601,10 +640,12 @@ describe('Proxy Router - TDD Tests', () => {
                 mockApiRequester.request = jest.fn().mockResolvedValue({
                     status: 200,
                     headers: {},
-                    data: { created: true }
+                    data: { created: true },
                 });
 
-                mockModuleRepository.findByIdForUser.mockResolvedValue(mockEntity);
+                mockModuleRepository.findByIdForUser.mockResolvedValue(
+                    mockEntity
+                );
 
                 // Act
                 const response = await request(app)
@@ -615,8 +656,8 @@ describe('Proxy Router - TDD Tests', () => {
                         path: '/api/items',
                         body: {
                             name: 'Test Item',
-                            properties: { color: 'blue', size: 'large' }
-                        }
+                            properties: { color: 'blue', size: 'large' },
+                        },
                     });
 
                 // Assert
@@ -625,8 +666,8 @@ describe('Proxy Router - TDD Tests', () => {
                     expect.objectContaining({
                         body: {
                             name: 'Test Item',
-                            properties: { color: 'blue', size: 'large' }
-                        }
+                            properties: { color: 'blue', size: 'large' },
+                        },
                     })
                 );
             });
@@ -636,10 +677,12 @@ describe('Proxy Router - TDD Tests', () => {
                 mockApiRequester.request = jest.fn().mockResolvedValue({
                     status: 200,
                     headers: {},
-                    data: { batch_created: 3 }
+                    data: { batch_created: 3 },
                 });
 
-                mockModuleRepository.findByIdForUser.mockResolvedValue(mockEntity);
+                mockModuleRepository.findByIdForUser.mockResolvedValue(
+                    mockEntity
+                );
 
                 // Act
                 const response = await request(app)
@@ -651,8 +694,8 @@ describe('Proxy Router - TDD Tests', () => {
                         body: [
                             { id: 1, name: 'Item 1' },
                             { id: 2, name: 'Item 2' },
-                            { id: 3, name: 'Item 3' }
-                        ]
+                            { id: 3, name: 'Item 3' },
+                        ],
                     });
 
                 // Assert
@@ -662,8 +705,8 @@ describe('Proxy Router - TDD Tests', () => {
                         body: [
                             { id: 1, name: 'Item 1' },
                             { id: 2, name: 'Item 2' },
-                            { id: 3, name: 'Item 3' }
-                        ]
+                            { id: 3, name: 'Item 3' },
+                        ],
                     })
                 );
             });
@@ -673,10 +716,12 @@ describe('Proxy Router - TDD Tests', () => {
                 mockApiRequester.request = jest.fn().mockResolvedValue({
                     status: 200,
                     headers: {},
-                    data: { processed: true }
+                    data: { processed: true },
                 });
 
-                mockModuleRepository.findByIdForUser.mockResolvedValue(mockEntity);
+                mockModuleRepository.findByIdForUser.mockResolvedValue(
+                    mockEntity
+                );
 
                 // Act
                 const response = await request(app)
@@ -685,14 +730,14 @@ describe('Proxy Router - TDD Tests', () => {
                     .send({
                         method: 'POST',
                         path: '/api/text',
-                        body: 'Plain text content for processing'
+                        body: 'Plain text content for processing',
                     });
 
                 // Assert
                 expect(response.status).toBe(200);
                 expect(mockApiRequester.request).toHaveBeenCalledWith(
                     expect.objectContaining({
-                        body: 'Plain text content for processing'
+                        body: 'Plain text content for processing',
                     })
                 );
             });
@@ -702,10 +747,12 @@ describe('Proxy Router - TDD Tests', () => {
                 mockApiRequester.request = jest.fn().mockResolvedValue({
                     status: 200,
                     headers: {},
-                    data: { success: true }
+                    data: { success: true },
                 });
 
-                mockModuleRepository.findByIdForUser.mockResolvedValue(mockEntity);
+                mockModuleRepository.findByIdForUser.mockResolvedValue(
+                    mockEntity
+                );
 
                 // Act
                 const response = await request(app)
@@ -714,14 +761,14 @@ describe('Proxy Router - TDD Tests', () => {
                     .send({
                         method: 'POST',
                         path: '/api/action',
-                        body: null
+                        body: null,
                     });
 
                 // Assert
                 expect(response.status).toBe(200);
                 expect(mockApiRequester.request).toHaveBeenCalledWith(
                     expect.objectContaining({
-                        body: null
+                        body: null,
                     })
                 );
             });
@@ -734,7 +781,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .post('/api/entities/entity-123/proxy')
                     .send({
                         method: 'GET',
-                        path: '/api/test'
+                        path: '/api/test',
                     });
 
                 // Assert
@@ -743,7 +790,7 @@ describe('Proxy Router - TDD Tests', () => {
                 expect(response.body.error).toMatchObject({
                     code: 'INVALID_AUTH',
                     // Message can be "No valid authentication provided" or similar
-                    message: expect.any(String)
+                    message: expect.any(String),
                 });
             });
 
@@ -757,7 +804,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: '/api/test'
+                        path: '/api/test',
                     });
 
                 // Assert
@@ -765,7 +812,7 @@ describe('Proxy Router - TDD Tests', () => {
                 expect(response.body.success).toBe(false);
                 expect(response.body.error).toMatchObject({
                     code: 'NOT_FOUND',
-                    message: expect.stringContaining('Entity not found')
+                    message: expect.stringContaining('Entity not found'),
                 });
             });
 
@@ -773,7 +820,7 @@ describe('Proxy Router - TDD Tests', () => {
                 // Arrange: Entity belongs to different user
                 const otherUserEntity = {
                     ...mockEntity,
-                    userId: 'other-user-456'
+                    userId: 'other-user-456',
                 };
 
                 // Mock repository to return null (access denied pattern)
@@ -785,23 +832,26 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: '/api/test'
+                        path: '/api/test',
                     });
 
                 // Assert
                 expect(response.status).toBe(404); // Using 404 not 403 to prevent entity enumeration
                 expect(response.body.success).toBe(false);
-                expect(mockModuleRepository.findByIdForUser).toHaveBeenCalledWith(
-                    'entity-123',
-                    'user-123'
-                );
+                expect(
+                    mockModuleRepository.findByIdForUser
+                ).toHaveBeenCalledWith('entity-123', 'user-123');
             });
         });
 
         describe('Request Validation', () => {
             beforeEach(() => {
-                mockModuleRepository.findByIdForUser.mockResolvedValue(mockEntity);
-                mockCredentialRepository.findById.mockResolvedValue(mockCredential);
+                mockModuleRepository.findByIdForUser.mockResolvedValue(
+                    mockEntity
+                );
+                mockCredentialRepository.findById.mockResolvedValue(
+                    mockCredential
+                );
             });
 
             it('should return 400 when method is missing', async () => {
@@ -810,7 +860,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .post('/api/entities/entity-123/proxy')
                     .set('Authorization', 'Bearer valid-token')
                     .send({
-                        path: '/api/test'
+                        path: '/api/test',
                     });
 
                 // Assert
@@ -818,7 +868,7 @@ describe('Proxy Router - TDD Tests', () => {
                 expect(response.body.success).toBe(false);
                 expect(response.body.error).toMatchObject({
                     code: 'INVALID_REQUEST',
-                    message: expect.stringContaining('method')
+                    message: expect.stringContaining('method'),
                 });
             });
 
@@ -829,7 +879,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'INVALID',
-                        path: '/api/test'
+                        path: '/api/test',
                     });
 
                 // Assert
@@ -837,7 +887,7 @@ describe('Proxy Router - TDD Tests', () => {
                 expect(response.body.success).toBe(false);
                 expect(response.body.error).toMatchObject({
                     code: 'INVALID_REQUEST',
-                    message: expect.stringContaining('method must be one of')
+                    message: expect.stringContaining('method must be one of'),
                 });
             });
 
@@ -847,7 +897,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .post('/api/entities/entity-123/proxy')
                     .set('Authorization', 'Bearer valid-token')
                     .send({
-                        method: 'GET'
+                        method: 'GET',
                     });
 
                 // Assert
@@ -855,7 +905,7 @@ describe('Proxy Router - TDD Tests', () => {
                 expect(response.body.success).toBe(false);
                 expect(response.body.error).toMatchObject({
                     code: 'INVALID_REQUEST',
-                    message: expect.stringContaining('path')
+                    message: expect.stringContaining('path'),
                 });
             });
 
@@ -866,7 +916,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: 'api/test' // Missing leading slash
+                        path: 'api/test', // Missing leading slash
                     });
 
                 // Assert
@@ -874,7 +924,7 @@ describe('Proxy Router - TDD Tests', () => {
                 expect(response.body.success).toBe(false);
                 expect(response.body.error).toMatchObject({
                     code: 'INVALID_REQUEST',
-                    message: expect.stringContaining('path must start with /')
+                    message: expect.stringContaining('path must start with /'),
                 });
             });
 
@@ -885,7 +935,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: ''
+                        path: '',
                     });
 
                 // Assert
@@ -904,8 +954,8 @@ describe('Proxy Router - TDD Tests', () => {
                         path: '/api/test',
                         query: {
                             valid: 'string',
-                            invalid: { nested: 'object' } // Objects not allowed
-                        }
+                            invalid: { nested: 'object' }, // Objects not allowed
+                        },
                     });
 
                 // Assert
@@ -913,7 +963,7 @@ describe('Proxy Router - TDD Tests', () => {
                 expect(response.body.success).toBe(false);
                 expect(response.body.error).toMatchObject({
                     code: 'INVALID_REQUEST',
-                    message: expect.stringContaining('query parameter')
+                    message: expect.stringContaining('query parameter'),
                 });
             });
 
@@ -927,8 +977,8 @@ describe('Proxy Router - TDD Tests', () => {
                         path: '/api/test',
                         headers: {
                             'X-Valid-Header': 'string-value',
-                            'X-Invalid-Header': 12345 // Must be string
-                        }
+                            'X-Invalid-Header': 12345, // Must be string
+                        },
                     });
 
                 // Assert
@@ -940,8 +990,12 @@ describe('Proxy Router - TDD Tests', () => {
 
         describe('Upstream API Errors', () => {
             beforeEach(() => {
-                mockModuleRepository.findByIdForUser.mockResolvedValue(mockEntity);
-                mockCredentialRepository.findById.mockResolvedValue(mockCredential);
+                mockModuleRepository.findByIdForUser.mockResolvedValue(
+                    mockEntity
+                );
+                mockCredentialRepository.findById.mockResolvedValue(
+                    mockCredential
+                );
             });
 
             it('should return INVALID_AUTH when credentials are invalid (401)', async () => {
@@ -952,11 +1006,14 @@ describe('Proxy Router - TDD Tests', () => {
                     headers: { 'content-type': 'application/json' },
                     data: {
                         category: 'INVALID_AUTHENTICATION',
-                        message: 'The access token provided is invalid or has expired'
-                    }
+                        message:
+                            'The access token provided is invalid or has expired',
+                    },
                 };
 
-                mockApiRequester.request = jest.fn().mockRejectedValue(upstreamError);
+                mockApiRequester.request = jest
+                    .fn()
+                    .mockRejectedValue(upstreamError);
 
                 // Act
                 const response = await request(app)
@@ -964,7 +1021,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: '/v3/contacts'
+                        path: '/v3/contacts',
                     });
 
                 // Assert: Returns proxyErrorResponse format
@@ -974,13 +1031,15 @@ describe('Proxy Router - TDD Tests', () => {
                     status: 401,
                     error: {
                         code: 'INVALID_AUTH',
-                        message: 'Authentication credentials are invalid or expired',
+                        message:
+                            'Authentication credentials are invalid or expired',
                         details: {
                             category: 'INVALID_AUTHENTICATION',
-                            message: 'The access token provided is invalid or has expired'
+                            message:
+                                'The access token provided is invalid or has expired',
                         },
-                        upstreamStatus: 401
-                    }
+                        upstreamStatus: 401,
+                    },
                 });
             });
 
@@ -992,11 +1051,13 @@ describe('Proxy Router - TDD Tests', () => {
                     headers: {},
                     data: {
                         error: 'token_expired',
-                        error_description: 'The access token has expired'
-                    }
+                        error_description: 'The access token has expired',
+                    },
                 };
 
-                mockApiRequester.request = jest.fn().mockRejectedValue(upstreamError);
+                mockApiRequester.request = jest
+                    .fn()
+                    .mockRejectedValue(upstreamError);
 
                 // Act
                 const response = await request(app)
@@ -1004,7 +1065,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: '/api/data'
+                        path: '/api/data',
                     });
 
                 // Assert
@@ -1017,10 +1078,10 @@ describe('Proxy Router - TDD Tests', () => {
                         message: 'Access token has expired',
                         details: {
                             error: 'token_expired',
-                            error_description: 'The access token has expired'
+                            error_description: 'The access token has expired',
                         },
-                        upstreamStatus: 401
-                    }
+                        upstreamStatus: 401,
+                    },
                 });
             });
 
@@ -1033,11 +1094,13 @@ describe('Proxy Router - TDD Tests', () => {
                     data: {
                         error: 'invalid_input',
                         message: 'Required field "email" is missing',
-                        validation_errors: ['email: required']
-                    }
+                        validation_errors: ['email: required'],
+                    },
                 };
 
-                mockApiRequester.request = jest.fn().mockRejectedValue(upstreamError);
+                mockApiRequester.request = jest
+                    .fn()
+                    .mockRejectedValue(upstreamError);
 
                 // Act
                 const response = await request(app)
@@ -1046,7 +1109,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .send({
                         method: 'POST',
                         path: '/api/contacts',
-                        body: { name: 'John Doe' }
+                        body: { name: 'John Doe' },
                     });
 
                 // Assert
@@ -1060,10 +1123,10 @@ describe('Proxy Router - TDD Tests', () => {
                         details: {
                             error: 'invalid_input',
                             message: 'Required field "email" is missing',
-                            validation_errors: ['email: required']
+                            validation_errors: ['email: required'],
                         },
-                        upstreamStatus: 400
-                    }
+                        upstreamStatus: 400,
+                    },
                 });
             });
 
@@ -1075,12 +1138,15 @@ describe('Proxy Router - TDD Tests', () => {
                     headers: {},
                     data: {
                         error: 'insufficient_permissions',
-                        message: 'User does not have permission to access this resource',
-                        required_scope: 'contacts:write'
-                    }
+                        message:
+                            'User does not have permission to access this resource',
+                        required_scope: 'contacts:write',
+                    },
                 };
 
-                mockApiRequester.request = jest.fn().mockRejectedValue(upstreamError);
+                mockApiRequester.request = jest
+                    .fn()
+                    .mockRejectedValue(upstreamError);
 
                 // Act
                 const response = await request(app)
@@ -1088,7 +1154,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'DELETE',
-                        path: '/api/contacts/123'
+                        path: '/api/contacts/123',
                     });
 
                 // Assert
@@ -1101,11 +1167,12 @@ describe('Proxy Router - TDD Tests', () => {
                         message: 'Insufficient permissions for this operation',
                         details: {
                             error: 'insufficient_permissions',
-                            message: 'User does not have permission to access this resource',
-                            required_scope: 'contacts:write'
+                            message:
+                                'User does not have permission to access this resource',
+                            required_scope: 'contacts:write',
                         },
-                        upstreamStatus: 403
-                    }
+                        upstreamStatus: 403,
+                    },
                 });
             });
 
@@ -1117,11 +1184,13 @@ describe('Proxy Router - TDD Tests', () => {
                     headers: {},
                     data: {
                         error: 'resource_not_found',
-                        message: 'Contact with ID 99999 does not exist'
-                    }
+                        message: 'Contact with ID 99999 does not exist',
+                    },
                 };
 
-                mockApiRequester.request = jest.fn().mockRejectedValue(upstreamError);
+                mockApiRequester.request = jest
+                    .fn()
+                    .mockRejectedValue(upstreamError);
 
                 // Act
                 const response = await request(app)
@@ -1129,7 +1198,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: '/api/contacts/99999'
+                        path: '/api/contacts/99999',
                     });
 
                 // Assert
@@ -1142,10 +1211,10 @@ describe('Proxy Router - TDD Tests', () => {
                         message: 'Resource not found',
                         details: {
                             error: 'resource_not_found',
-                            message: 'Contact with ID 99999 does not exist'
+                            message: 'Contact with ID 99999 does not exist',
                         },
-                        upstreamStatus: 404
-                    }
+                        upstreamStatus: 404,
+                    },
                 });
             });
 
@@ -1156,17 +1225,19 @@ describe('Proxy Router - TDD Tests', () => {
                     status: 429,
                     headers: {
                         'x-rate-limit-reset': '1642253400',
-                        'retry-after': '60'
+                        'retry-after': '60',
                     },
                     data: {
                         error: 'rate_limit_exceeded',
                         message: 'Rate limit exceeded',
                         retry_after: 60,
-                        limit: '100 requests per minute'
-                    }
+                        limit: '100 requests per minute',
+                    },
                 };
 
-                mockApiRequester.request = jest.fn().mockRejectedValue(upstreamError);
+                mockApiRequester.request = jest
+                    .fn()
+                    .mockRejectedValue(upstreamError);
 
                 // Act
                 const response = await request(app)
@@ -1174,7 +1245,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: '/api/contacts'
+                        path: '/api/contacts',
                     });
 
                 // Assert: Matches proxyErrorResponse schema
@@ -1189,10 +1260,10 @@ describe('Proxy Router - TDD Tests', () => {
                             error: 'rate_limit_exceeded',
                             message: 'Rate limit exceeded',
                             retry_after: 60,
-                            limit: '100 requests per minute'
+                            limit: '100 requests per minute',
                         },
-                        upstreamStatus: 429
-                    }
+                        upstreamStatus: 429,
+                    },
                 });
             });
 
@@ -1205,11 +1276,13 @@ describe('Proxy Router - TDD Tests', () => {
                     data: {
                         error: 'internal_error',
                         message: 'An unexpected error occurred',
-                        error_id: 'err-abc-123'
-                    }
+                        error_id: 'err-abc-123',
+                    },
                 };
 
-                mockApiRequester.request = jest.fn().mockRejectedValue(upstreamError);
+                mockApiRequester.request = jest
+                    .fn()
+                    .mockRejectedValue(upstreamError);
 
                 // Act
                 const response = await request(app)
@@ -1217,7 +1290,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: '/api/data'
+                        path: '/api/data',
                     });
 
                 // Assert
@@ -1231,10 +1304,10 @@ describe('Proxy Router - TDD Tests', () => {
                         details: {
                             error: 'internal_error',
                             message: 'An unexpected error occurred',
-                            error_id: 'err-abc-123'
+                            error_id: 'err-abc-123',
                         },
-                        upstreamStatus: 500
-                    }
+                        upstreamStatus: 500,
+                    },
                 });
             });
 
@@ -1244,15 +1317,18 @@ describe('Proxy Router - TDD Tests', () => {
                 upstreamError.response = {
                     status: 503,
                     headers: {
-                        'retry-after': '300'
+                        'retry-after': '300',
                     },
                     data: {
                         error: 'service_unavailable',
-                        message: 'Service temporarily unavailable for maintenance'
-                    }
+                        message:
+                            'Service temporarily unavailable for maintenance',
+                    },
                 };
 
-                mockApiRequester.request = jest.fn().mockRejectedValue(upstreamError);
+                mockApiRequester.request = jest
+                    .fn()
+                    .mockRejectedValue(upstreamError);
 
                 // Act
                 const response = await request(app)
@@ -1260,7 +1336,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: '/api/status'
+                        path: '/api/status',
                     });
 
                 // Assert
@@ -1273,10 +1349,11 @@ describe('Proxy Router - TDD Tests', () => {
                         message: 'Upstream service is unavailable',
                         details: {
                             error: 'service_unavailable',
-                            message: 'Service temporarily unavailable for maintenance'
+                            message:
+                                'Service temporarily unavailable for maintenance',
                         },
-                        upstreamStatus: 503
-                    }
+                        upstreamStatus: 503,
+                    },
                 });
             });
 
@@ -1286,7 +1363,9 @@ describe('Proxy Router - TDD Tests', () => {
                 timeoutError.code = 'ETIMEDOUT';
                 timeoutError.type = 'request-timeout';
 
-                mockApiRequester.request = jest.fn().mockRejectedValue(timeoutError);
+                mockApiRequester.request = jest
+                    .fn()
+                    .mockRejectedValue(timeoutError);
 
                 // Act
                 const response = await request(app)
@@ -1294,7 +1373,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: '/api/slow-endpoint'
+                        path: '/api/slow-endpoint',
                     });
 
                 // Assert
@@ -1305,18 +1384,22 @@ describe('Proxy Router - TDD Tests', () => {
                     error: {
                         code: 'TIMEOUT',
                         message: 'Request to upstream API timed out',
-                        details: null
-                    }
+                        details: null,
+                    },
                 });
             });
 
             it('should return NETWORK_ERROR for connection failures', async () => {
                 // Arrange: Simulate network error
-                const networkError = new Error('getaddrinfo ENOTFOUND api.example.com');
+                const networkError = new Error(
+                    'getaddrinfo ENOTFOUND api.example.com'
+                );
                 networkError.code = 'ENOTFOUND';
                 networkError.type = 'system';
 
-                mockApiRequester.request = jest.fn().mockRejectedValue(networkError);
+                mockApiRequester.request = jest
+                    .fn()
+                    .mockRejectedValue(networkError);
 
                 // Act
                 const response = await request(app)
@@ -1324,7 +1407,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: '/api/test'
+                        path: '/api/test',
                     });
 
                 // Assert
@@ -1336,9 +1419,9 @@ describe('Proxy Router - TDD Tests', () => {
                         code: 'NETWORK_ERROR',
                         message: 'Failed to connect to upstream API',
                         details: expect.objectContaining({
-                            error: 'getaddrinfo ENOTFOUND api.example.com'
-                        })
-                    }
+                            error: 'getaddrinfo ENOTFOUND api.example.com',
+                        }),
+                    },
                 });
             });
 
@@ -1346,10 +1429,12 @@ describe('Proxy Router - TDD Tests', () => {
                 // Arrange: Credential exists but has no access token
                 const invalidCredential = {
                     ...mockCredential,
-                    data: {} // Missing access_token
+                    data: {}, // Missing access_token
                 };
 
-                mockCredentialRepository.findById.mockResolvedValue(invalidCredential);
+                mockCredentialRepository.findById.mockResolvedValue(
+                    invalidCredential
+                );
 
                 // Act
                 const response = await request(app)
@@ -1357,7 +1442,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: '/api/test'
+                        path: '/api/test',
                     });
 
                 // Assert: Returns 401 with INVALID_AUTH code (router maps from 401 status)
@@ -1365,17 +1450,21 @@ describe('Proxy Router - TDD Tests', () => {
                 expect(response.status).toBe(401);
                 expect(response.body.success).toBe(false);
                 expect(response.body.error.code).toBe('INVALID_AUTH');
-                expect(response.body.error.message).toContain('missing required authentication data');
+                expect(response.body.error.message).toContain(
+                    'missing required authentication data'
+                );
             });
 
             it('should return 401 when credential status is not AUTHORIZED', async () => {
                 // Arrange: Credential exists but is revoked
                 const revokedCredential = {
                     ...mockCredential,
-                    status: 'REVOKED'
+                    status: 'REVOKED',
                 };
 
-                mockCredentialRepository.findById.mockResolvedValue(revokedCredential);
+                mockCredentialRepository.findById.mockResolvedValue(
+                    revokedCredential
+                );
 
                 // Act
                 const response = await request(app)
@@ -1383,7 +1472,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: '/api/test'
+                        path: '/api/test',
                     });
 
                 // Assert: Returns 401 with INVALID_AUTH code (router maps from 401 status)
@@ -1395,8 +1484,12 @@ describe('Proxy Router - TDD Tests', () => {
 
         describe('Edge Cases', () => {
             beforeEach(() => {
-                mockModuleRepository.findByIdForUser.mockResolvedValue(mockEntity);
-                mockCredentialRepository.findById.mockResolvedValue(mockCredential);
+                mockModuleRepository.findByIdForUser.mockResolvedValue(
+                    mockEntity
+                );
+                mockCredentialRepository.findById.mockResolvedValue(
+                    mockCredential
+                );
             });
 
             it('should handle response with no headers', async () => {
@@ -1404,7 +1497,7 @@ describe('Proxy Router - TDD Tests', () => {
                 mockApiRequester.request = jest.fn().mockResolvedValue({
                     status: 200,
                     headers: null, // Some APIs might return null headers
-                    data: { success: true }
+                    data: { success: true },
                 });
 
                 // Act
@@ -1413,7 +1506,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: '/api/test'
+                        path: '/api/test',
                     });
 
                 // Assert: Should handle gracefully
@@ -1427,7 +1520,7 @@ describe('Proxy Router - TDD Tests', () => {
                 mockApiRequester.request = jest.fn().mockResolvedValue({
                     status: 204,
                     headers: {},
-                    data: null
+                    data: null,
                 });
 
                 // Act
@@ -1436,7 +1529,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'DELETE',
-                        path: '/api/records/123'
+                        path: '/api/records/123',
                     });
 
                 // Assert
@@ -1445,7 +1538,7 @@ describe('Proxy Router - TDD Tests', () => {
                     success: true,
                     status: 204,
                     headers: {},
-                    data: null
+                    data: null,
                 });
             });
 
@@ -1453,10 +1546,12 @@ describe('Proxy Router - TDD Tests', () => {
                 // Arrange: Entity exists but has no credential
                 const entityWithoutCredential = {
                     ...mockEntity,
-                    credential: null
+                    credential: null,
                 };
 
-                mockModuleRepository.findByIdForUser.mockResolvedValue(entityWithoutCredential);
+                mockModuleRepository.findByIdForUser.mockResolvedValue(
+                    entityWithoutCredential
+                );
 
                 // Act
                 const response = await request(app)
@@ -1464,7 +1559,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: '/api/test'
+                        path: '/api/test',
                     });
 
                 // Assert: Returns 400 INVALID_REQUEST when entity has no credential
@@ -1475,7 +1570,9 @@ describe('Proxy Router - TDD Tests', () => {
 
             it('should handle credential that cannot be loaded', async () => {
                 // Arrange: Entity references credential that doesn't exist
-                mockModuleRepository.findByIdForUser.mockResolvedValue(mockEntity);
+                mockModuleRepository.findByIdForUser.mockResolvedValue(
+                    mockEntity
+                );
                 mockCredentialRepository.findById.mockResolvedValue(null);
 
                 // Act
@@ -1484,13 +1581,15 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: '/api/test'
+                        path: '/api/test',
                     });
 
                 // Assert
                 expect(response.status).toBe(404);
                 expect(response.body.error.code).toBe('NOT_FOUND');
-                expect(response.body.error.message).toContain('Credential not found');
+                expect(response.body.error.message).toContain(
+                    'Credential not found'
+                );
             });
 
             it('should handle query parameter with special characters', async () => {
@@ -1498,7 +1597,7 @@ describe('Proxy Router - TDD Tests', () => {
                 mockApiRequester.request = jest.fn().mockResolvedValue({
                     status: 200,
                     headers: {},
-                    data: { results: [] }
+                    data: { results: [] },
                 });
 
                 // Act
@@ -1511,8 +1610,8 @@ describe('Proxy Router - TDD Tests', () => {
                         query: {
                             q: 'test@example.com',
                             filter: 'status=active&type=contact',
-                            'special-chars': '!@#$%^&*()'
-                        }
+                            'special-chars': '!@#$%^&*()',
+                        },
                     });
 
                 // Assert: Should pass through correctly
@@ -1522,8 +1621,8 @@ describe('Proxy Router - TDD Tests', () => {
                         query: {
                             q: 'test@example.com',
                             filter: 'status=active&type=contact',
-                            'special-chars': '!@#$%^&*()'
-                        }
+                            'special-chars': '!@#$%^&*()',
+                        },
                     })
                 );
             });
@@ -1533,13 +1632,13 @@ describe('Proxy Router - TDD Tests', () => {
                 const largeDataset = Array.from({ length: 1000 }, (_, i) => ({
                     id: `item-${i}`,
                     name: `Item ${i}`,
-                    data: 'x'.repeat(100)
+                    data: 'x'.repeat(100),
                 }));
 
                 mockApiRequester.request = jest.fn().mockResolvedValue({
                     status: 200,
                     headers: { 'content-type': 'application/json' },
-                    data: { results: largeDataset }
+                    data: { results: largeDataset },
                 });
 
                 // Act
@@ -1548,7 +1647,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: '/api/items'
+                        path: '/api/items',
                     });
 
                 // Assert: Should return all data
@@ -1563,21 +1662,21 @@ describe('Proxy Router - TDD Tests', () => {
         describe('Successful Proxy Requests', () => {
             beforeEach(() => {
                 // Mock successful credential lookup
-                mockCredentialRepository.findByIdForUser.mockResolvedValue(mockCredential);
+                mockCredentialRepository.findByIdForUser.mockResolvedValue(
+                    mockCredential
+                );
             });
 
             it('should proxy GET request through credential directly', async () => {
                 // Arrange
                 const upstreamResponse = {
-                    data: [
-                        { id: 'record-1', name: 'Record 1' }
-                    ]
+                    data: [{ id: 'record-1', name: 'Record 1' }],
                 };
 
                 mockApiRequester.request = jest.fn().mockResolvedValue({
                     status: 200,
                     headers: { 'content-type': 'application/json' },
-                    data: upstreamResponse
+                    data: upstreamResponse,
                 });
 
                 // Act: Proxy through credential (no entity required)
@@ -1586,7 +1685,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: '/api/records'
+                        path: '/api/records',
                     });
 
                 // Assert
@@ -1595,36 +1694,37 @@ describe('Proxy Router - TDD Tests', () => {
                     success: true,
                     status: 200,
                     headers: { 'content-type': 'application/json' },
-                    data: upstreamResponse
+                    data: upstreamResponse,
                 });
 
                 // Assert: Credential was loaded for authenticated user
-                expect(mockCredentialRepository.findByIdForUser).toHaveBeenCalledWith(
-                    'credential-123',
-                    'user-123'
-                );
+                expect(
+                    mockCredentialRepository.findByIdForUser
+                ).toHaveBeenCalledWith('credential-123', 'user-123');
             });
 
             it('should proxy POST request with body through credential', async () => {
                 // Arrange
                 const requestBody = {
                     name: 'New Record',
-                    description: 'Test record'
+                    description: 'Test record',
                 };
 
                 const upstreamResponse = {
                     id: 'record-new',
                     ...requestBody,
-                    created_at: '2025-01-15T12:00:00Z'
+                    created_at: '2025-01-15T12:00:00Z',
                 };
 
                 mockApiRequester.request = jest.fn().mockResolvedValue({
                     status: 201,
                     headers: {},
-                    data: upstreamResponse
+                    data: upstreamResponse,
                 });
 
-                mockCredentialRepository.findByIdForUser.mockResolvedValue(mockCredential);
+                mockCredentialRepository.findByIdForUser.mockResolvedValue(
+                    mockCredential
+                );
 
                 // Act
                 const response = await request(app)
@@ -1633,7 +1733,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .send({
                         method: 'POST',
                         path: '/api/records',
-                        body: requestBody
+                        body: requestBody,
                     });
 
                 // Assert
@@ -1650,12 +1750,14 @@ describe('Proxy Router - TDD Tests', () => {
                     // No entity association
                 };
 
-                mockCredentialRepository.findByIdForUser.mockResolvedValue(standaloneCredential);
+                mockCredentialRepository.findByIdForUser.mockResolvedValue(
+                    standaloneCredential
+                );
 
                 mockApiRequester.request = jest.fn().mockResolvedValue({
                     status: 200,
                     headers: {},
-                    data: { success: true }
+                    data: { success: true },
                 });
 
                 // Act
@@ -1664,16 +1766,15 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: '/api/test'
+                        path: '/api/test',
                     });
 
                 // Assert: Should work without entity
                 expect(response.status).toBe(200);
                 expect(response.body.success).toBe(true);
-                expect(mockCredentialRepository.findByIdForUser).toHaveBeenCalledWith(
-                    'credential-123',
-                    'user-123'
-                );
+                expect(
+                    mockCredentialRepository.findByIdForUser
+                ).toHaveBeenCalledWith('credential-123', 'user-123');
             });
 
             it('should pass query parameters and custom headers', async () => {
@@ -1681,10 +1782,12 @@ describe('Proxy Router - TDD Tests', () => {
                 mockApiRequester.request = jest.fn().mockResolvedValue({
                     status: 200,
                     headers: {},
-                    data: { results: [] }
+                    data: { results: [] },
                 });
 
-                mockCredentialRepository.findByIdForUser.mockResolvedValue(mockCredential);
+                mockCredentialRepository.findByIdForUser.mockResolvedValue(
+                    mockCredential
+                );
 
                 // Act
                 const response = await request(app)
@@ -1696,11 +1799,11 @@ describe('Proxy Router - TDD Tests', () => {
                         query: {
                             page: 1,
                             per_page: 25,
-                            sort: 'created_at'
+                            sort: 'created_at',
                         },
                         headers: {
-                            'X-Custom-Header': 'test-value'
-                        }
+                            'X-Custom-Header': 'test-value',
+                        },
                     });
 
                 // Assert
@@ -1711,12 +1814,12 @@ describe('Proxy Router - TDD Tests', () => {
                     query: {
                         page: 1,
                         per_page: 25,
-                        sort: 'created_at'
+                        sort: 'created_at',
                     },
                     headers: {
-                        'X-Custom-Header': 'test-value'
+                        'X-Custom-Header': 'test-value',
                     },
-                    body: undefined
+                    body: undefined,
                 });
             });
         });
@@ -1728,7 +1831,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .post('/api/credentials/credential-123/proxy')
                     .send({
                         method: 'GET',
-                        path: '/api/test'
+                        path: '/api/test',
                     });
 
                 // Assert
@@ -1739,7 +1842,9 @@ describe('Proxy Router - TDD Tests', () => {
 
             it('should return 404 when credential not found', async () => {
                 // Arrange: Credential doesn't exist
-                mockCredentialRepository.findByIdForUser.mockResolvedValue(null);
+                mockCredentialRepository.findByIdForUser.mockResolvedValue(
+                    null
+                );
 
                 // Act
                 const response = await request(app)
@@ -1747,7 +1852,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: '/api/test'
+                        path: '/api/test',
                     });
 
                 // Assert
@@ -1758,14 +1863,16 @@ describe('Proxy Router - TDD Tests', () => {
                     error: {
                         code: 'NOT_FOUND',
                         message: 'Credential not found',
-                        details: null
-                    }
+                        details: null,
+                    },
                 });
             });
 
             it('should return 403 when credential does not belong to user', async () => {
                 // Arrange: Repository returns null for access control
-                mockCredentialRepository.findByIdForUser.mockResolvedValue(null);
+                mockCredentialRepository.findByIdForUser.mockResolvedValue(
+                    null
+                );
 
                 // Act
                 const response = await request(app)
@@ -1773,7 +1880,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: '/api/test'
+                        path: '/api/test',
                     });
 
                 // Assert: Using 404 to prevent credential enumeration
@@ -1781,16 +1888,17 @@ describe('Proxy Router - TDD Tests', () => {
                 expect(response.body.error.code).toBe('NOT_FOUND');
 
                 // Assert: Verify access control check was performed
-                expect(mockCredentialRepository.findByIdForUser).toHaveBeenCalledWith(
-                    'credential-456',
-                    'user-123'
-                );
+                expect(
+                    mockCredentialRepository.findByIdForUser
+                ).toHaveBeenCalledWith('credential-456', 'user-123');
             });
         });
 
         describe('Request Validation', () => {
             beforeEach(() => {
-                mockCredentialRepository.findByIdForUser.mockResolvedValue(mockCredential);
+                mockCredentialRepository.findByIdForUser.mockResolvedValue(
+                    mockCredential
+                );
             });
 
             it('should return 400 when method is missing', async () => {
@@ -1799,7 +1907,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .post('/api/credentials/credential-123/proxy')
                     .set('Authorization', 'Bearer valid-token')
                     .send({
-                        path: '/api/test'
+                        path: '/api/test',
                     });
 
                 // Assert
@@ -1814,7 +1922,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .post('/api/credentials/credential-123/proxy')
                     .set('Authorization', 'Bearer valid-token')
                     .send({
-                        method: 'GET'
+                        method: 'GET',
                     });
 
                 // Assert
@@ -1830,7 +1938,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'TRACE', // Not in allowed enum
-                        path: '/api/test'
+                        path: '/api/test',
                     });
 
                 // Assert
@@ -1845,19 +1953,23 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: 'api/test' // Missing leading slash
+                        path: 'api/test', // Missing leading slash
                     });
 
                 // Assert
                 expect(response.status).toBe(400);
                 expect(response.body.error.code).toBe('INVALID_REQUEST');
-                expect(response.body.error.message).toContain('path must start with /');
+                expect(response.body.error.message).toContain(
+                    'path must start with /'
+                );
             });
         });
 
         describe('Upstream API Errors', () => {
             beforeEach(() => {
-                mockCredentialRepository.findByIdForUser.mockResolvedValue(mockCredential);
+                mockCredentialRepository.findByIdForUser.mockResolvedValue(
+                    mockCredential
+                );
             });
 
             it('should return INVALID_AUTH for 401 from upstream', async () => {
@@ -1866,10 +1978,12 @@ describe('Proxy Router - TDD Tests', () => {
                 upstreamError.response = {
                     status: 401,
                     headers: {},
-                    data: { error: 'invalid_token' }
+                    data: { error: 'invalid_token' },
                 };
 
-                mockApiRequester.request = jest.fn().mockRejectedValue(upstreamError);
+                mockApiRequester.request = jest
+                    .fn()
+                    .mockRejectedValue(upstreamError);
 
                 // Act
                 const response = await request(app)
@@ -1877,7 +1991,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: '/api/protected'
+                        path: '/api/protected',
                     });
 
                 // Assert
@@ -1894,11 +2008,13 @@ describe('Proxy Router - TDD Tests', () => {
                     headers: { 'retry-after': '120' },
                     data: {
                         error: 'rate_limit_exceeded',
-                        retry_after: 120
-                    }
+                        retry_after: 120,
+                    },
                 };
 
-                mockApiRequester.request = jest.fn().mockRejectedValue(upstreamError);
+                mockApiRequester.request = jest
+                    .fn()
+                    .mockRejectedValue(upstreamError);
 
                 // Act
                 const response = await request(app)
@@ -1906,7 +2022,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: '/api/data'
+                        path: '/api/data',
                     });
 
                 // Assert
@@ -1920,7 +2036,9 @@ describe('Proxy Router - TDD Tests', () => {
                 const timeoutError = new Error('Timeout');
                 timeoutError.code = 'ETIMEDOUT';
 
-                mockApiRequester.request = jest.fn().mockRejectedValue(timeoutError);
+                mockApiRequester.request = jest
+                    .fn()
+                    .mockRejectedValue(timeoutError);
 
                 // Act
                 const response = await request(app)
@@ -1928,7 +2046,7 @@ describe('Proxy Router - TDD Tests', () => {
                     .set('Authorization', 'Bearer valid-token')
                     .send({
                         method: 'GET',
-                        path: '/api/slow'
+                        path: '/api/slow',
                     });
 
                 // Assert
@@ -1942,7 +2060,9 @@ describe('Proxy Router - TDD Tests', () => {
         beforeEach(() => {
             mockModuleRepository.findByIdForUser.mockResolvedValue(mockEntity);
             mockCredentialRepository.findById.mockResolvedValue(mockCredential);
-            mockCredentialRepository.findByIdForUser.mockResolvedValue(mockCredential);
+            mockCredentialRepository.findByIdForUser.mockResolvedValue(
+                mockCredential
+            );
         });
 
         it('should sanitize sensitive headers from upstream response', async () => {
@@ -1951,12 +2071,12 @@ describe('Proxy Router - TDD Tests', () => {
                 status: 200,
                 headers: {
                     'content-type': 'application/json',
-                    'authorization': 'Bearer secret-token', // Should be sanitized
+                    authorization: 'Bearer secret-token', // Should be sanitized
                     'x-api-key': 'secret-key', // Should be sanitized
                     'set-cookie': 'session=abc123', // Should be sanitized
-                    'x-custom-header': 'safe-value' // Should be kept
+                    'x-custom-header': 'safe-value', // Should be kept
                 },
-                data: { success: true }
+                data: { success: true },
             });
 
             // Act: Test both endpoints
@@ -1973,7 +2093,7 @@ describe('Proxy Router - TDD Tests', () => {
             // Assert: Sensitive headers removed from both
             const expectedHeaders = {
                 'content-type': 'application/json',
-                'x-custom-header': 'safe-value'
+                'x-custom-header': 'safe-value',
             };
 
             expect(entityResponse.body.headers).toEqual(expectedHeaders);
@@ -1986,10 +2106,12 @@ describe('Proxy Router - TDD Tests', () => {
             upstreamError.response = {
                 status: 500,
                 headers: {},
-                data: null // No error body
+                data: null, // No error body
             };
 
-            mockApiRequester.request = jest.fn().mockRejectedValue(upstreamError);
+            mockApiRequester.request = jest
+                .fn()
+                .mockRejectedValue(upstreamError);
 
             // Act: Test both endpoints
             const entityResponse = await request(app)
@@ -2018,7 +2140,7 @@ describe('Proxy Router - TDD Tests', () => {
             mockApiRequester.request = jest.fn().mockResolvedValue({
                 status: 200,
                 headers: {},
-                data: { success: true }
+                data: { success: true },
             });
 
             // Act & Assert: All methods should be supported
@@ -2029,7 +2151,9 @@ describe('Proxy Router - TDD Tests', () => {
                     .send({
                         method,
                         path: '/api/test',
-                        body: ['POST', 'PUT', 'PATCH'].includes(method) ? { test: 'data' } : undefined
+                        body: ['POST', 'PUT', 'PATCH'].includes(method)
+                            ? { test: 'data' }
+                            : undefined,
                     });
 
                 expect(response.status).toBe(200);
@@ -2045,7 +2169,7 @@ describe('Proxy Router - TDD Tests', () => {
             mockApiRequester.request = jest.fn().mockResolvedValue({
                 status: 200,
                 headers: {},
-                data: { id: '123', name: 'Test', nested: { key: 'value' } }
+                data: { id: '123', name: 'Test', nested: { key: 'value' } },
             });
 
             // Act
@@ -2058,7 +2182,7 @@ describe('Proxy Router - TDD Tests', () => {
             expect(response.body.data).toEqual({
                 id: '123',
                 name: 'Test',
-                nested: { key: 'value' }
+                nested: { key: 'value' },
             });
         });
 
@@ -2067,7 +2191,7 @@ describe('Proxy Router - TDD Tests', () => {
             mockApiRequester.request = jest.fn().mockResolvedValue({
                 status: 200,
                 headers: {},
-                data: [{ id: 1 }, { id: 2 }, { id: 3 }]
+                data: [{ id: 1 }, { id: 2 }, { id: 3 }],
             });
 
             // Act
@@ -2077,7 +2201,11 @@ describe('Proxy Router - TDD Tests', () => {
                 .send({ method: 'GET', path: '/api/items' });
 
             // Assert
-            expect(response.body.data).toEqual([{ id: 1 }, { id: 2 }, { id: 3 }]);
+            expect(response.body.data).toEqual([
+                { id: 1 },
+                { id: 2 },
+                { id: 3 },
+            ]);
         });
 
         it('should handle response data types - string', async () => {
@@ -2085,7 +2213,7 @@ describe('Proxy Router - TDD Tests', () => {
             mockApiRequester.request = jest.fn().mockResolvedValue({
                 status: 200,
                 headers: { 'content-type': 'text/plain' },
-                data: 'Plain text response'
+                data: 'Plain text response',
             });
 
             // Act
@@ -2103,7 +2231,7 @@ describe('Proxy Router - TDD Tests', () => {
             mockApiRequester.request = jest.fn().mockResolvedValue({
                 status: 200,
                 headers: {},
-                data: 42
+                data: 42,
             });
 
             // Act
@@ -2121,7 +2249,7 @@ describe('Proxy Router - TDD Tests', () => {
             mockApiRequester.request = jest.fn().mockResolvedValue({
                 status: 200,
                 headers: {},
-                data: true
+                data: true,
             });
 
             // Act
@@ -2139,7 +2267,7 @@ describe('Proxy Router - TDD Tests', () => {
             mockApiRequester.request = jest.fn().mockResolvedValue({
                 status: 204,
                 headers: {},
-                data: null
+                data: null,
             });
 
             // Act
@@ -2164,10 +2292,12 @@ describe('Proxy Router - TDD Tests', () => {
             upstreamError.response = {
                 status: 400,
                 headers: {},
-                data: { error: 'validation_failed' }
+                data: { error: 'validation_failed' },
             };
 
-            mockApiRequester.request = jest.fn().mockRejectedValue(upstreamError);
+            mockApiRequester.request = jest
+                .fn()
+                .mockRejectedValue(upstreamError);
 
             const response = await request(app)
                 .post('/api/entities/entity-123/proxy')
@@ -2184,7 +2314,7 @@ describe('Proxy Router - TDD Tests', () => {
             const authError = new Error('Unauthorized');
             authError.response = {
                 status: 401,
-                data: { error: 'invalid_token' }
+                data: { error: 'invalid_token' },
             };
 
             mockApiRequester.request = jest.fn().mockRejectedValue(authError);
@@ -2195,17 +2325,21 @@ describe('Proxy Router - TDD Tests', () => {
                 .send({ method: 'GET', path: '/api/test' });
 
             expect(response.status).toBe(401);
-            expect(['INVALID_AUTH', 'EXPIRED_TOKEN']).toContain(response.body.error.code);
+            expect(['INVALID_AUTH', 'EXPIRED_TOKEN']).toContain(
+                response.body.error.code
+            );
         });
 
         it('should map 403 errors to PERMISSION_DENIED', async () => {
             const forbiddenError = new Error('Forbidden');
             forbiddenError.response = {
                 status: 403,
-                data: { error: 'access_denied' }
+                data: { error: 'access_denied' },
             };
 
-            mockApiRequester.request = jest.fn().mockRejectedValue(forbiddenError);
+            mockApiRequester.request = jest
+                .fn()
+                .mockRejectedValue(forbiddenError);
 
             const response = await request(app)
                 .post('/api/entities/entity-123/proxy')
@@ -2220,10 +2354,12 @@ describe('Proxy Router - TDD Tests', () => {
             const notFoundError = new Error('Not Found');
             notFoundError.response = {
                 status: 404,
-                data: { error: 'resource_not_found' }
+                data: { error: 'resource_not_found' },
             };
 
-            mockApiRequester.request = jest.fn().mockRejectedValue(notFoundError);
+            mockApiRequester.request = jest
+                .fn()
+                .mockRejectedValue(notFoundError);
 
             const response = await request(app)
                 .post('/api/entities/entity-123/proxy')
@@ -2238,10 +2374,12 @@ describe('Proxy Router - TDD Tests', () => {
             const rateLimitError = new Error('Too Many Requests');
             rateLimitError.response = {
                 status: 429,
-                data: { error: 'rate_limit' }
+                data: { error: 'rate_limit' },
             };
 
-            mockApiRequester.request = jest.fn().mockRejectedValue(rateLimitError);
+            mockApiRequester.request = jest
+                .fn()
+                .mockRejectedValue(rateLimitError);
 
             const response = await request(app)
                 .post('/api/entities/entity-123/proxy')
@@ -2256,7 +2394,7 @@ describe('Proxy Router - TDD Tests', () => {
             const serverError = new Error('Internal Server Error');
             serverError.response = {
                 status: 500,
-                data: { error: 'internal_error' }
+                data: { error: 'internal_error' },
             };
 
             mockApiRequester.request = jest.fn().mockRejectedValue(serverError);
@@ -2274,10 +2412,12 @@ describe('Proxy Router - TDD Tests', () => {
             const unavailableError = new Error('Service Unavailable');
             unavailableError.response = {
                 status: 503,
-                data: { error: 'maintenance_mode' }
+                data: { error: 'maintenance_mode' },
             };
 
-            mockApiRequester.request = jest.fn().mockRejectedValue(unavailableError);
+            mockApiRequester.request = jest
+                .fn()
+                .mockRejectedValue(unavailableError);
 
             const response = await request(app)
                 .post('/api/entities/entity-123/proxy')
@@ -2293,7 +2433,9 @@ describe('Proxy Router - TDD Tests', () => {
             networkError.code = 'ECONNREFUSED';
             networkError.type = 'system';
 
-            mockApiRequester.request = jest.fn().mockRejectedValue(networkError);
+            mockApiRequester.request = jest
+                .fn()
+                .mockRejectedValue(networkError);
 
             const response = await request(app)
                 .post('/api/entities/entity-123/proxy')
@@ -2308,7 +2450,9 @@ describe('Proxy Router - TDD Tests', () => {
             const timeoutError = new Error('Timeout');
             timeoutError.code = 'ETIMEDOUT';
 
-            mockApiRequester.request = jest.fn().mockRejectedValue(timeoutError);
+            mockApiRequester.request = jest
+                .fn()
+                .mockRejectedValue(timeoutError);
 
             const response = await request(app)
                 .post('/api/entities/entity-123/proxy')
@@ -2331,7 +2475,7 @@ describe('Proxy Router - TDD Tests', () => {
             mockApiRequester.request = jest.fn().mockResolvedValue({
                 status: 200,
                 headers: {},
-                data: { test: true }
+                data: { test: true },
             });
 
             // Act
@@ -2360,7 +2504,7 @@ describe('Proxy Router - TDD Tests', () => {
             mockApiRequester.request = jest.fn().mockResolvedValue({
                 status: 201,
                 headers: {},
-                data: {}
+                data: {},
             });
 
             // Act
@@ -2380,7 +2524,7 @@ describe('Proxy Router - TDD Tests', () => {
             const error = new Error('Test Error');
             error.response = {
                 status: 400,
-                data: { error: 'test' }
+                data: { error: 'test' },
             };
 
             mockApiRequester.request = jest.fn().mockRejectedValue(error);
@@ -2403,7 +2547,7 @@ describe('Proxy Router - TDD Tests', () => {
             const error = new Error('Upstream Error');
             error.response = {
                 status: 422,
-                data: { validation_error: true }
+                data: { validation_error: true },
             };
 
             mockApiRequester.request = jest.fn().mockRejectedValue(error);
@@ -2431,7 +2575,7 @@ describe('Proxy Router - TDD Tests', () => {
             const error = new Error('API Error');
             error.response = {
                 status: 500,
-                data: { error: 'internal' }
+                data: { error: 'internal' },
             };
 
             mockApiRequester.request = jest.fn().mockRejectedValue(error);
@@ -2446,14 +2590,20 @@ describe('Proxy Router - TDD Tests', () => {
             const responseString = JSON.stringify(response.body);
             expect(responseString).not.toContain('test-access-token');
             expect(responseString).not.toContain('test-refresh-token');
-            expect(responseString).not.toContain(mockCredential.data.access_token);
+            expect(responseString).not.toContain(
+                mockCredential.data.access_token
+            );
         });
 
         it('should not expose internal system paths in errors', async () => {
             // Arrange: Internal error
-            const internalError = new Error('Internal error at /var/app/src/handler.js:123');
+            const internalError = new Error(
+                'Internal error at /var/app/src/handler.js:123'
+            );
 
-            mockApiRequester.request = jest.fn().mockRejectedValue(internalError);
+            mockApiRequester.request = jest
+                .fn()
+                .mockRejectedValue(internalError);
 
             // Act
             const response = await request(app)
@@ -2471,7 +2621,7 @@ describe('Proxy Router - TDD Tests', () => {
             mockApiRequester.request = jest.fn().mockResolvedValue({
                 status: 200,
                 headers: {},
-                data: { success: true }
+                data: { success: true },
             });
 
             // Act: Try to pass Authorization header manually
@@ -2482,9 +2632,9 @@ describe('Proxy Router - TDD Tests', () => {
                     method: 'GET',
                     path: '/api/test',
                     headers: {
-                        'Authorization': 'Bearer malicious-token', // Should be ignored
-                        'X-Custom': 'allowed'
-                    }
+                        Authorization: 'Bearer malicious-token', // Should be ignored
+                        'X-Custom': 'allowed',
+                    },
                 });
 
             // Assert: Auth header should be stripped, API handles auth
@@ -2507,12 +2657,12 @@ describe('Proxy Router - TDD Tests', () => {
         it('should handle slow but successful upstream responses', async () => {
             // Arrange: Simulate slow response
             mockApiRequester.request = jest.fn().mockImplementation(() => {
-                return new Promise(resolve => {
+                return new Promise((resolve) => {
                     setTimeout(() => {
                         resolve({
                             status: 200,
                             headers: {},
-                            data: { success: true }
+                            data: { success: true },
                         });
                     }, 100); // 100ms delay
                 });
@@ -2540,7 +2690,7 @@ describe('Proxy Router - TDD Tests', () => {
                 return Promise.resolve({
                     status: 200,
                     headers: {},
-                    data: { request: callCount }
+                    data: { request: callCount },
                 });
             });
 
@@ -2557,14 +2707,14 @@ describe('Proxy Router - TDD Tests', () => {
                 request(app)
                     .post('/api/entities/entity-123/proxy')
                     .set('Authorization', 'Bearer valid-token')
-                    .send({ method: 'GET', path: '/api/test3' })
+                    .send({ method: 'GET', path: '/api/test3' }),
             ];
 
             const responses = await Promise.all(promises);
 
             // Assert: All requests succeed independently
             expect(responses).toHaveLength(3);
-            responses.forEach(res => {
+            responses.forEach((res) => {
                 expect(res.status).toBe(200);
                 expect(res.body.success).toBe(true);
             });
@@ -2583,7 +2733,7 @@ describe('Proxy Router - TDD Tests', () => {
             mockApiRequester.request = jest.fn().mockResolvedValue({
                 status: 200,
                 headers: {},
-                data: { success: true }
+                data: { success: true },
             });
 
             // Act
@@ -2593,7 +2743,9 @@ describe('Proxy Router - TDD Tests', () => {
                 .send({ method: 'GET', path: '/api/test' });
 
             // Assert: Credential should be loaded before making request
-            expect(mockCredentialRepository.findById).toHaveBeenCalledWith('credential-123');
+            expect(mockCredentialRepository.findById).toHaveBeenCalledWith(
+                'credential-123'
+            );
             expect(response.status).toBe(200);
         });
 
@@ -2624,7 +2776,7 @@ describe('Proxy Router - TDD Tests', () => {
             mockApiRequester.request = jest.fn().mockResolvedValue({
                 status: 200,
                 headers: {},
-                data: { success: true }
+                data: { success: true },
             });
         });
 
@@ -2644,11 +2796,16 @@ describe('Proxy Router - TDD Tests', () => {
             const response = await request(app)
                 .post('/api/entities/entity-123/proxy')
                 .set('Authorization', 'Bearer valid-token')
-                .send({ method: 'GET', path: '/api/v2/contacts/123/activities' });
+                .send({
+                    method: 'GET',
+                    path: '/api/v2/contacts/123/activities',
+                });
 
             expect(response.status).toBe(200);
             expect(mockApiRequester.request).toHaveBeenCalledWith(
-                expect.objectContaining({ url: '/api/v2/contacts/123/activities' })
+                expect.objectContaining({
+                    url: '/api/v2/contacts/123/activities',
+                })
             );
         });
 
@@ -2656,11 +2813,16 @@ describe('Proxy Router - TDD Tests', () => {
             const response = await request(app)
                 .post('/api/entities/entity-123/proxy')
                 .set('Authorization', 'Bearer valid-token')
-                .send({ method: 'GET', path: '/api/users/john.doe@example.com' });
+                .send({
+                    method: 'GET',
+                    path: '/api/users/john.doe@example.com',
+                });
 
             expect(response.status).toBe(200);
             expect(mockApiRequester.request).toHaveBeenCalledWith(
-                expect.objectContaining({ url: '/api/users/john.doe@example.com' })
+                expect.objectContaining({
+                    url: '/api/users/john.doe@example.com',
+                })
             );
         });
 
@@ -2689,7 +2851,7 @@ describe('Proxy Router - TDD Tests', () => {
                 metadata: {
                     total: 100,
                     page: 1,
-                    per_page: 10
+                    per_page: 10,
                 },
                 data: [
                     {
@@ -2699,21 +2861,21 @@ describe('Proxy Router - TDD Tests', () => {
                             tags: ['tag1', 'tag2'],
                             settings: {
                                 enabled: true,
-                                value: 42
-                            }
-                        }
-                    }
+                                value: 42,
+                            },
+                        },
+                    },
                 ],
                 links: {
                     next: '/api/items?page=2',
-                    prev: null
-                }
+                    prev: null,
+                },
             };
 
             mockApiRequester.request = jest.fn().mockResolvedValue({
                 status: 200,
                 headers: {},
-                data: complexResponse
+                data: complexResponse,
             });
 
             // Act
@@ -2738,13 +2900,15 @@ describe('Proxy Router - TDD Tests', () => {
                     message: 'Multiple validation errors',
                     errors: [
                         { field: 'email', message: 'Invalid email format' },
-                        { field: 'age', message: 'Must be >= 0' }
+                        { field: 'age', message: 'Must be >= 0' },
                     ],
-                    documentation_url: 'https://api.example.com/docs/errors'
-                }
+                    documentation_url: 'https://api.example.com/docs/errors',
+                },
             };
 
-            mockApiRequester.request = jest.fn().mockRejectedValue(complexError);
+            mockApiRequester.request = jest
+                .fn()
+                .mockRejectedValue(complexError);
 
             // Act
             const response = await request(app)
@@ -2759,9 +2923,9 @@ describe('Proxy Router - TDD Tests', () => {
                 message: 'Multiple validation errors',
                 errors: [
                     { field: 'email', message: 'Invalid email format' },
-                    { field: 'age', message: 'Must be >= 0' }
+                    { field: 'age', message: 'Must be >= 0' },
                 ],
-                documentation_url: 'https://api.example.com/docs/errors'
+                documentation_url: 'https://api.example.com/docs/errors',
             });
         });
     });
@@ -2774,7 +2938,7 @@ describe('Proxy Router - TDD Tests', () => {
             mockApiRequester.request = jest.fn().mockResolvedValue({
                 status: 200,
                 headers: {},
-                data: { success: true }
+                data: { success: true },
             });
         });
 
@@ -2785,7 +2949,7 @@ describe('Proxy Router - TDD Tests', () => {
                 .send({
                     method: 'GET',
                     path: '/api/test',
-                    query: {}
+                    query: {},
                 });
 
             expect(response.status).toBe(200);
@@ -2803,14 +2967,14 @@ describe('Proxy Router - TDD Tests', () => {
                     path: '/api/test',
                     query: {
                         active: true,
-                        archived: false
-                    }
+                        archived: false,
+                    },
                 });
 
             expect(response.status).toBe(200);
             expect(mockApiRequester.request).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    query: { active: true, archived: false }
+                    query: { active: true, archived: false },
                 })
             );
         });
@@ -2825,14 +2989,14 @@ describe('Proxy Router - TDD Tests', () => {
                     query: {
                         limit: 100,
                         offset: 0,
-                        score: 4.5
-                    }
+                        score: 4.5,
+                    },
                 });
 
             expect(response.status).toBe(200);
             expect(mockApiRequester.request).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    query: { limit: 100, offset: 0, score: 4.5 }
+                    query: { limit: 100, offset: 0, score: 4.5 },
                 })
             );
         });
@@ -2846,8 +3010,8 @@ describe('Proxy Router - TDD Tests', () => {
                     path: '/api/test',
                     query: {
                         ids: ['id1', 'id2', 'id3'],
-                        tags: ['tag1', 'tag2']
-                    }
+                        tags: ['tag1', 'tag2'],
+                    },
                 });
 
             expect(response.status).toBe(200);
@@ -2855,8 +3019,8 @@ describe('Proxy Router - TDD Tests', () => {
                 expect.objectContaining({
                     query: {
                         ids: ['id1', 'id2', 'id3'],
-                        tags: ['tag1', 'tag2']
-                    }
+                        tags: ['tag1', 'tag2'],
+                    },
                 })
             );
         });
@@ -2872,8 +3036,8 @@ describe('Proxy Router - TDD Tests', () => {
                         search: 'test query',
                         limit: 50,
                         active: true,
-                        tags: ['tag1', 'tag2']
-                    }
+                        tags: ['tag1', 'tag2'],
+                    },
                 });
 
             expect(response.status).toBe(200);
@@ -2883,8 +3047,8 @@ describe('Proxy Router - TDD Tests', () => {
                         search: 'test query',
                         limit: 50,
                         active: true,
-                        tags: ['tag1', 'tag2']
-                    }
+                        tags: ['tag1', 'tag2'],
+                    },
                 })
             );
         });
@@ -2897,8 +3061,8 @@ describe('Proxy Router - TDD Tests', () => {
                     method: 'GET',
                     path: '/api/test',
                     query: {
-                        filter: { status: 'active' } // Not allowed per schema
-                    }
+                        filter: { status: 'active' }, // Not allowed per schema
+                    },
                 });
 
             expect(response.status).toBe(400);
@@ -2913,8 +3077,8 @@ describe('Proxy Router - TDD Tests', () => {
                     method: 'GET',
                     path: '/api/test',
                     query: {
-                        filter: null // Not allowed per schema
-                    }
+                        filter: null, // Not allowed per schema
+                    },
                 });
 
             expect(response.status).toBe(400);
@@ -2929,13 +3093,15 @@ describe('Proxy Router - TDD Tests', () => {
                     method: 'GET',
                     path: '/api/test',
                     query: {
-                        ids: [1, 2, 3] // Must be strings per schema
-                    }
+                        ids: [1, 2, 3], // Must be strings per schema
+                    },
                 });
 
             expect(response.status).toBe(400);
             expect(response.body.error.code).toBe('INVALID_REQUEST');
-            expect(response.body.error.message).toContain('array items must be strings');
+            expect(response.body.error.message).toContain(
+                'array items must be strings'
+            );
         });
     });
 
@@ -2947,7 +3113,7 @@ describe('Proxy Router - TDD Tests', () => {
             mockApiRequester.request = jest.fn().mockResolvedValue({
                 status: 200,
                 headers: {},
-                data: { success: true }
+                data: { success: true },
             });
         });
 
@@ -2957,7 +3123,7 @@ describe('Proxy Router - TDD Tests', () => {
                 .set('Authorization', 'Bearer valid-token')
                 .send({
                     method: 'GET',
-                    path: '/api/test'
+                    path: '/api/test',
                     // No body field
                 });
 
@@ -2971,7 +3137,7 @@ describe('Proxy Router - TDD Tests', () => {
             mockApiRequester.request = jest.fn().mockResolvedValue({
                 status: 204,
                 headers: {},
-                data: null
+                data: null,
             });
 
             const response = await request(app)
@@ -2979,7 +3145,7 @@ describe('Proxy Router - TDD Tests', () => {
                 .set('Authorization', 'Bearer valid-token')
                 .send({
                     method: 'DELETE',
-                    path: '/api/items/123'
+                    path: '/api/items/123',
                 });
 
             expect(response.status).toBe(200);
@@ -2993,13 +3159,13 @@ describe('Proxy Router - TDD Tests', () => {
                 .send({
                     method: 'POST',
                     path: '/api/items',
-                    body: { name: 'Test' }
+                    body: { name: 'Test' },
                 });
 
             expect(response.status).toBe(200);
             expect(mockApiRequester.request).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    body: { name: 'Test' }
+                    body: { name: 'Test' },
                 })
             );
         });
@@ -3011,13 +3177,13 @@ describe('Proxy Router - TDD Tests', () => {
                 .send({
                     method: 'PUT',
                     path: '/api/items/123',
-                    body: { name: 'Updated' }
+                    body: { name: 'Updated' },
                 });
 
             expect(response.status).toBe(200);
             expect(mockApiRequester.request).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    body: { name: 'Updated' }
+                    body: { name: 'Updated' },
                 })
             );
         });
@@ -3029,13 +3195,13 @@ describe('Proxy Router - TDD Tests', () => {
                 .send({
                     method: 'PATCH',
                     path: '/api/items/123',
-                    body: { status: 'active' }
+                    body: { status: 'active' },
                 });
 
             expect(response.status).toBe(200);
             expect(mockApiRequester.request).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    body: { status: 'active' }
+                    body: { status: 'active' },
                 })
             );
         });

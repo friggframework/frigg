@@ -125,10 +125,11 @@ Or simply don't configure any encryption keys. In Production field level encrypt
 Core and custom encrypted fields are defined in `encryption-schema-registry.js`. See that file for the current list of encrypted fields.
 
 **Core fields include**:
-- OAuth tokens: `access_token`, `refresh_token`, `id_token`
-- API keys: `api_key`, `apiKey`, `API_KEY_VALUE`
-- Basic auth: `password`
-- OAuth client credentials: `client_secret`
+
+-   OAuth tokens: `access_token`, `refresh_token`, `id_token`
+-   API keys: `api_key`, `apiKey`, `API_KEY_VALUE`
+-   Basic auth: `password`
+-   OAuth client credentials: `client_secret`
 
 **Note**: API modules should use `api_key` (snake_case) in their `apiPropertiesToPersist.credential` arrays for consistency with OAuth2Requester and BasicAuthRequester conventions.
 
@@ -137,34 +138,36 @@ Core and custom encrypted fields are defined in `encryption-schema-registry.js`.
 When creating API module definitions, use **snake_case** for credential property names to ensure automatic encryption:
 
 **✅ Recommended (automatically encrypted):**
+
 ```javascript
 // API Module Definition
 const Definition = {
     requiredAuthMethods: {
         apiPropertiesToPersist: {
             // For API key authentication
-            credential: ['api_key'],           // ✅ Automatically encrypted
+            credential: ['api_key'], // ✅ Automatically encrypted
             // or for OAuth authentication
-            credential: ['access_token', 'refresh_token'],  // ✅ OAuth - encrypted
+            credential: ['access_token', 'refresh_token'], // ✅ OAuth - encrypted
             // or for Basic authentication
-            credential: ['username', 'password'],           // ✅ Basic auth - encrypted
-        }
-    }
+            credential: ['username', 'password'], // ✅ Basic auth - encrypted
+        },
+    },
 };
 
 // API class (extends ApiKeyRequester)
 class MyApi extends ApiKeyRequester {
     constructor(params) {
         super(params);
-        this.api_key = params.api_key;  // ✅ snake_case convention
+        this.api_key = params.api_key; // ✅ snake_case convention
     }
 }
 ```
 
 **❌ Avoid (requires manual encryption schema):**
+
 ```javascript
 apiPropertiesToPersist: {
-    credential: ['customToken', 'proprietaryKey']  // ❌ Not in core schema
+    credential: ['customToken', 'proprietaryKey']; // ❌ Not in core schema
 }
 ```
 
@@ -184,57 +187,61 @@ const Definition = {
 
     // Declare which credential fields need encryption
     encryption: {
-        credentialFields: ['api_key', 'webhook_secret']
+        credentialFields: ['api_key', 'webhook_secret'],
     },
 
     requiredAuthMethods: {
         apiPropertiesToPersist: {
-            credential: ['api_key', 'webhook_secret'],  // These will be auto-encrypted
-            entity: []
+            credential: ['api_key', 'webhook_secret'], // These will be auto-encrypted
+            entity: [],
         },
         // ... other methods
-    }
+    },
 };
 ```
 
 **How it works**:
+
 1. Module declares `encryption.credentialFields` array
 2. Framework automatically adds `data.` prefix: `['api_key']` → `['data.api_key']`
 3. Fields are merged with core encryption schema on app startup
 4. All modules across all integrations are scanned and combined
 
 **Benefits**:
-- ✅ Module authors control their own security requirements
-- ✅ No need to modify core framework or app configuration
-- ✅ Automatic encryption for API key-based integrations
-- ✅ Works seamlessly with `apiPropertiesToPersist`
+
+-   ✅ Module authors control their own security requirements
+-   ✅ No need to modify core framework or app configuration
+-   ✅ Automatic encryption for API key-based integrations
+-   ✅ Works seamlessly with `apiPropertiesToPersist`
 
 **Example - API Key Module**:
+
 ```javascript
 // API Module Definition
 const Definition = {
     moduleName: 'axiscare',
     API: AxisCareApi,
     encryption: {
-        credentialFields: ['api_key']  // Auto-encrypted as 'data.api_key'
+        credentialFields: ['api_key'], // Auto-encrypted as 'data.api_key'
     },
     requiredAuthMethods: {
         apiPropertiesToPersist: {
-            credential: ['api_key']  // Will be encrypted automatically
-        }
-    }
+            credential: ['api_key'], // Will be encrypted automatically
+        },
+    },
 };
 
 // API Class (extends ApiKeyRequester)
 class AxisCareApi extends ApiKeyRequester {
     constructor(params) {
         super(params);
-        this.api_key = params.api_key;  // snake_case convention
+        this.api_key = params.api_key; // snake_case convention
     }
 }
 ```
 
 **Example - Custom Authentication**:
+
 ```javascript
 const Definition = {
     moduleName: 'customService',
@@ -242,16 +249,17 @@ const Definition = {
         credentialFields: [
             'signing_key',
             'webhook_secret',
-            'data.custom_nested_field'  // Can specify data. prefix explicitly
-        ]
-    }
+            'data.custom_nested_field', // Can specify data. prefix explicitly
+        ],
+    },
 };
 ```
 
 **Limitations**:
-- Only supports Credential model fields (stored in `credential.data`)
-- Cannot encrypt entity fields or custom models (use app-level schema for those)
-- Applied globally once - module schemas loaded at app startup
+
+-   Only supports Credential model fields (stored in `credential.data`)
+-   Cannot encrypt entity fields or custom models (use app-level schema for those)
+-   Applied globally once - module schemas loaded at app startup
 
 #### Option 2: App-Level Custom Schema (Integration Developers)
 
@@ -529,7 +537,9 @@ For DocumentDB repositories, use `DocumentDBEncryptionService` to manually encry
 #### Usage Example
 
 ```javascript
-const { DocumentDBEncryptionService } = require('../documentdb-encryption-service');
+const {
+    DocumentDBEncryptionService,
+} = require('../documentdb-encryption-service');
 const { insertOne, findOne } = require('../documentdb-utils');
 
 class MyRepositoryDocumentDB {
@@ -539,12 +549,18 @@ class MyRepositoryDocumentDB {
 
     async create(data) {
         // Encrypt before write
-        const encrypted = await this.encryptionService.encryptFields('ModelName', data);
+        const encrypted = await this.encryptionService.encryptFields(
+            'ModelName',
+            data
+        );
         const id = await insertOne(this.prisma, 'CollectionName', encrypted);
 
         // Decrypt after read
         const doc = await findOne(this.prisma, 'CollectionName', { _id: id });
-        const decrypted = await this.encryptionService.decryptFields('ModelName', doc);
+        const decrypted = await this.encryptionService.decryptFields(
+            'ModelName',
+            doc
+        );
 
         return decrypted;
     }
@@ -554,9 +570,10 @@ class MyRepositoryDocumentDB {
 #### Configuration
 
 Uses the same environment variables and Cryptor as the Prisma Extension:
-- `STAGE`: Bypasses encryption for dev/test/local
-- `KMS_KEY_ARN`: AWS KMS encryption (production)
-- `AES_KEY_ID` + `AES_KEY`: AES encryption (fallback)
+
+-   `STAGE`: Bypasses encryption for dev/test/local
+-   `KMS_KEY_ARN`: AWS KMS encryption (production)
+-   `AES_KEY_ID` + `AES_KEY`: AES encryption (fallback)
 
 ## Usage Examples
 

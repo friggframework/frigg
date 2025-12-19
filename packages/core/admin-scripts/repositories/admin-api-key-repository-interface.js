@@ -26,7 +26,14 @@ class AdminApiKeyRepositoryInterface {
      * @returns {Promise<Object>} The created API key record
      * @abstract
      */
-    async createApiKey({ name, keyHash, keyLast4, scopes, expiresAt, createdBy }) {
+    async createApiKey({
+        name,
+        keyHash,
+        keyLast4,
+        scopes,
+        expiresAt,
+        createdBy,
+    }) {
         throw new Error('Method createApiKey must be implemented by subclass');
     }
 
@@ -39,7 +46,9 @@ class AdminApiKeyRepositoryInterface {
      * @abstract
      */
     async findApiKeyByHash(keyHash) {
-        throw new Error('Method findApiKeyByHash must be implemented by subclass');
+        throw new Error(
+            'Method findApiKeyByHash must be implemented by subclass'
+        );
     }
 
     /**
@@ -50,7 +59,9 @@ class AdminApiKeyRepositoryInterface {
      * @abstract
      */
     async findApiKeyById(id) {
-        throw new Error('Method findApiKeyById must be implemented by subclass');
+        throw new Error(
+            'Method findApiKeyById must be implemented by subclass'
+        );
     }
 
     /**
@@ -61,7 +72,9 @@ class AdminApiKeyRepositoryInterface {
      * @abstract
      */
     async findActiveApiKeys() {
-        throw new Error('Method findActiveApiKeys must be implemented by subclass');
+        throw new Error(
+            'Method findActiveApiKeys must be implemented by subclass'
+        );
     }
 
     /**
@@ -73,7 +86,9 @@ class AdminApiKeyRepositoryInterface {
      * @abstract
      */
     async updateApiKeyLastUsed(id) {
-        throw new Error('Method updateApiKeyLastUsed must be implemented by subclass');
+        throw new Error(
+            'Method updateApiKeyLastUsed must be implemented by subclass'
+        );
     }
 
     /**
@@ -85,7 +100,9 @@ class AdminApiKeyRepositoryInterface {
      * @abstract
      */
     async deactivateApiKey(id) {
-        throw new Error('Method deactivateApiKey must be implemented by subclass');
+        throw new Error(
+            'Method deactivateApiKey must be implemented by subclass'
+        );
     }
 
     /**

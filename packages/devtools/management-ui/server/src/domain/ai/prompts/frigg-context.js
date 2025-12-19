@@ -376,7 +376,7 @@ export const FRIGG_BEST_PRACTICES = `
 - Follow existing patterns in the codebase
 
 ### Integration Development
-1. Start with \`create-frigg-app\` for consistent structure
+1. Start with \`frigg init\` for consistent structure
 2. Use existing API modules when possible
 3. Follow IntegrationBase method contracts
 4. Test OAuth flows with real credentials in development
@@ -398,7 +398,7 @@ export const FRIGG_CLI_COMMANDS = `
 
 ### Project Creation
 \`\`\`bash
-npx create-frigg-app my-project
+frigg init my-project
 \`\`\`
 
 ### Module Management

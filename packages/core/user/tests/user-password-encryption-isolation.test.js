@@ -29,9 +29,19 @@ jest.mock('../../database/config', () => ({
 }));
 
 const bcrypt = require('bcryptjs');
-const { createUserRepository } = require('../repositories/user-repository-factory');
-const { prisma, connectPrisma, disconnectPrisma, getEncryptionConfig } = require('../../database/prisma');
-const { getEncryptedFields, hasEncryptedFields } = require('../../database/encryption/encryption-schema-registry');
+const {
+    createUserRepository,
+} = require('../repositories/user-repository-factory');
+const {
+    prisma,
+    connectPrisma,
+    disconnectPrisma,
+    getEncryptionConfig,
+} = require('../../database/prisma');
+const {
+    getEncryptedFields,
+    hasEncryptedFields,
+} = require('../../database/encryption/encryption-schema-registry');
 const { mongoose } = require('../../database/mongoose');
 
 describe('Password Encryption Isolation', () => {
@@ -67,8 +77,13 @@ describe('Password Encryption Isolation', () => {
         expect(userEncryptedFields).not.toContain('hashword');
 
         if (userEncryptedFields.length > 0) {
-            console.log('⚠️  WARNING: User model has encrypted fields:', userEncryptedFields);
-            console.log('   Password field (hashword) should NOT be in this list');
+            console.log(
+                '⚠️  WARNING: User model has encrypted fields:',
+                userEncryptedFields
+            );
+            console.log(
+                '   Password field (hashword) should NOT be in this list'
+            );
         } else {
             console.log('✅ User model has no encrypted fields (as expected)');
         }
@@ -95,7 +110,10 @@ describe('Password Encryption Isolation', () => {
 
         console.log('✅ Password correctly hashed with bcrypt');
         console.log('   Encryption enabled:', encryptionConfig.enabled);
-        console.log('   Hashword format:', user.hashword.substring(0, 20) + '...');
+        console.log(
+            '   Hashword format:',
+            user.hashword.substring(0, 20) + '...'
+        );
     });
 
     test('📊 Field-level encryption status comparison', async () => {
@@ -110,11 +128,17 @@ describe('Password Encryption Isolation', () => {
 
             console.log(`\n${model}:`);
             console.log(`  Has encrypted fields: ${hasEncryption}`);
-            console.log(`  Encrypted fields: ${fields.length > 0 ? fields.join(', ') : 'none'}`);
+            console.log(
+                `  Encrypted fields: ${
+                    fields.length > 0 ? fields.join(', ') : 'none'
+                }`
+            );
 
             if (model === 'User') {
                 expect(fields).not.toContain('hashword');
-                console.log('  ✅ Password (hashword) correctly excluded from encryption');
+                console.log(
+                    '  ✅ Password (hashword) correctly excluded from encryption'
+                );
             } else if (model === 'Credential') {
                 expect(fields).toContain('data.access_token');
                 console.log('  ✅ API tokens correctly included in encryption');
@@ -135,7 +159,8 @@ describe('Password Encryption Isolation', () => {
 
         const credential = await prisma.credential.create({
             data: {
-                userId: dbType === 'postgresql' ? parseInt(user.id, 10) : user.id,
+                userId:
+                    dbType === 'postgresql' ? parseInt(user.id, 10) : user.id,
                 externalId: `cred-${Date.now()}`,
                 data: {
                     access_token: secretToken,
@@ -146,11 +171,19 @@ describe('Password Encryption Isolation', () => {
         console.log('\n📊 END-TO-END ISOLATION TEST:');
         console.log('='.repeat(60));
 
-        const fetchedUser = await userRepository.findIndividualUserById(user.id);
+        const fetchedUser = await userRepository.findIndividualUserById(
+            user.id
+        );
         console.log('\n👤 User Password:');
         console.log('  Format:', fetchedUser.hashword.substring(0, 30) + '...');
-        console.log('  Is bcrypt:', /^\$2[ab]\$\d{2}\$/.test(fetchedUser.hashword));
-        console.log('  Is encrypted (has :):', fetchedUser.hashword.includes(':'));
+        console.log(
+            '  Is bcrypt:',
+            /^\$2[ab]\$\d{2}\$/.test(fetchedUser.hashword)
+        );
+        console.log(
+            '  Is encrypted (has :):',
+            fetchedUser.hashword.includes(':')
+        );
 
         const fetchedCred = await prisma.credential.findUnique({
             where: { id: credential.id },
@@ -165,7 +198,10 @@ describe('Password Encryption Isolation', () => {
         expect(fetchedUser.hashword).toMatch(/^\$2[ab]\$\d{2}\$/);
         expect(fetchedUser.hashword).not.toContain(':');
 
-        const isPasswordValid = await bcrypt.compare(TEST_PASSWORD, fetchedUser.hashword);
+        const isPasswordValid = await bcrypt.compare(
+            TEST_PASSWORD,
+            fetchedUser.hashword
+        );
         expect(isPasswordValid).toBe(true);
 
         console.log('\n✅ Password: bcrypt hashed (NOT encrypted)');
@@ -178,14 +214,18 @@ describe('Password Encryption Isolation', () => {
             console.log('⚠️  Encryption disabled in this environment');
         }
 
-        console.log('✅ ISOLATION VERIFIED: Passwords use bcrypt, credentials use encryption');
+        console.log(
+            '✅ ISOLATION VERIFIED: Passwords use bcrypt, credentials use encryption'
+        );
 
         await prisma.credential.delete({ where: { id: credential.id } });
     });
 
     test('🔍 Bcrypt vs Encryption format analysis', () => {
-        const bcryptHash = '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
-        const encryptedValue = 'kms:us-east-1:alias/app-key:AQICAHg...base64...';
+        const bcryptHash =
+            '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
+        const encryptedValue =
+            'kms:us-east-1:alias/app-key:AQICAHg...base64...';
 
         console.log('\n🔍 FORMAT COMPARISON:');
         console.log('='.repeat(60));
@@ -204,7 +244,9 @@ describe('Password Encryption Isolation', () => {
         console.log('  Variable length');
 
         console.log('\n✅ Formats are clearly distinguishable');
-        console.log('✅ Bcrypt never has colon separators between dollar signs');
+        console.log(
+            '✅ Bcrypt never has colon separators between dollar signs'
+        );
         console.log('✅ Encryption always has exactly 3 colon separators');
     });
 
@@ -220,7 +262,9 @@ describe('Password Encryption Isolation', () => {
 
         const hash1 = user.hashword;
 
-        const fetchedUser = await userRepository.findIndividualUserById(user.id);
+        const fetchedUser = await userRepository.findIndividualUserById(
+            user.id
+        );
         const hash2 = fetchedUser.hashword;
 
         console.log('\n⚠️  DOUBLE-PROCESSING CHECK:');

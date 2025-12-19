@@ -1,8 +1,6 @@
 const { TokenRepositoryMongo } = require('./token-repository-mongo');
 const { TokenRepositoryPostgres } = require('./token-repository-postgres');
-const {
-    TokenRepositoryDocumentDB,
-} = require('./token-repository-documentdb');
+const { TokenRepositoryDocumentDB } = require('./token-repository-documentdb');
 const config = require('../../database/config');
 
 /**

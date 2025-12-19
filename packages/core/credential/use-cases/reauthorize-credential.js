@@ -29,7 +29,9 @@ class ReauthorizeCredential {
      */
     async execute(credentialId, userId, authData, step = 1, sessionId = null) {
         // Check if credential exists
-        const credential = await this.credentialRepository.findCredentialById(credentialId);
+        const credential = await this.credentialRepository.findCredentialById(
+            credentialId
+        );
 
         if (!credential) {
             throw Boom.notFound(`Credential ${credentialId} not found`);
@@ -37,14 +39,22 @@ class ReauthorizeCredential {
 
         // Verify ownership - compare as strings to handle both MongoDB and PostgreSQL
         if (credential.userId.toString() !== userId.toString()) {
-            throw Boom.forbidden('You do not have permission to reauthorize this credential');
+            throw Boom.forbidden(
+                'You do not have permission to reauthorize this credential'
+            );
         }
 
         // Load the module for this credential type
-        const module = await this.moduleRepository.findModuleById(credential.id);
+        const module = await this.moduleRepository.findModuleById(
+            credential.id
+        );
 
         if (!module) {
-            throw Boom.badRequest(`Module not found for credential type: ${credential.type || 'unknown'}`);
+            throw Boom.badRequest(
+                `Module not found for credential type: ${
+                    credential.type || 'unknown'
+                }`
+            );
         }
 
         // Process the authorization callback
@@ -53,7 +63,7 @@ class ReauthorizeCredential {
             userId,
             data: authData,
             step,
-            sessionId
+            sessionId,
         });
 
         // Multi-step flow - return next step requirements
@@ -63,25 +73,30 @@ class ReauthorizeCredential {
                 totalSteps: result.totalSteps,
                 sessionId: result.sessionId,
                 requirements: result.requirements,
-                message: result.message
+                message: result.message,
             };
         }
 
         // Single-step or final step - update credential and return success
         if (result.success) {
             // Fetch the updated credential to get the new authIsValid status
-            const updatedCredential = await this.credentialRepository.findCredentialById(credentialId);
+            const updatedCredential =
+                await this.credentialRepository.findCredentialById(
+                    credentialId
+                );
 
             return {
                 success: true,
                 credential_id: credentialId,
                 authIsValid: updatedCredential?.authIsValid || true,
-                ...(result.message && { message: result.message })
+                ...(result.message && { message: result.message }),
             };
         }
 
         // If we get here, something unexpected happened
-        throw new Error('Authorization callback did not return expected result format');
+        throw new Error(
+            'Authorization callback did not return expected result format'
+        );
     }
 }
 

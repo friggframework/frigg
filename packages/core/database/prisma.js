@@ -1,7 +1,9 @@
 const {
     createEncryptionExtension,
 } = require('./encryption/prisma-encryption-extension');
-const { loadCustomEncryptionSchema } = require('./encryption/encryption-schema-registry');
+const {
+    loadCustomEncryptionSchema,
+} = require('./encryption/encryption-schema-registry');
 const { logger } = require('./encryption/logger');
 const { Cryptor } = require('../encrypt/Cryptor');
 const config = require('./config');
@@ -10,7 +12,7 @@ const config = require('./config');
  * Ensures DATABASE_URL is set for MongoDB connections
  * Falls back to MONGO_URI if DATABASE_URL is not set
  * Infrastructure layer concern - maps legacy MONGO_URI to Prisma's expected DATABASE_URL
- * 
+ *
  * Note: This should only be called when DB_TYPE is 'mongodb' or 'documentdb'
  */
 function ensureMongoDbUrl() {
@@ -22,7 +24,9 @@ function ensureMongoDbUrl() {
     // Fallback to MONGO_URI for backwards compatibility with DocumentDB deployments
     if (process.env.MONGO_URI && process.env.MONGO_URI.trim()) {
         process.env.DATABASE_URL = process.env.MONGO_URI;
-        logger.debug('Using MONGO_URI as DATABASE_URL for Mongo-compatible connection');
+        logger.debug(
+            'Using MONGO_URI as DATABASE_URL for Mongo-compatible connection'
+        );
         return;
     }
 
@@ -48,7 +52,7 @@ function getEncryptionConfig() {
     if (!hasKMS && !hasAES) {
         logger.warn(
             'No encryption keys configured (KMS_KEY_ARN or AES_KEY_ID). ' +
-            'Field-level encryption disabled. Set STAGE=production and configure keys to enable.'
+                'Field-level encryption disabled. Set STAGE=production and configure keys to enable.'
         );
         return { enabled: false };
     }
@@ -80,7 +84,9 @@ const prismaClientSingleton = () => {
         }
 
         throw new Error(
-            `Cannot find Prisma client for ${dbType}. Tried paths: ${paths.join(', ')}`
+            `Cannot find Prisma client for ${dbType}. Tried paths: ${paths.join(
+                ', '
+            )}`
         );
     };
 
@@ -125,10 +131,7 @@ const prismaClientSingleton = () => {
                 `Field-level encryption enabled using ${encryptionConfig.method.toUpperCase()}`
             );
         } catch (error) {
-            logger.error(
-                'Failed to initialize encryption extension:',
-                error
-            );
+            logger.error('Failed to initialize encryption extension:', error);
             logger.warn('Continuing without encryption...');
         }
     } else {
@@ -149,11 +152,14 @@ function getPrismaClient() {
 }
 
 // Export a getter for lazy initialization
-const prisma = new Proxy({}, {
-    get(target, prop) {
-        return getPrismaClient()[prop];
+const prisma = new Proxy(
+    {},
+    {
+        get(target, prop) {
+            return getPrismaClient()[prop];
+        },
     }
-});
+);
 
 async function disconnectPrisma() {
     await getPrismaClient().$disconnect();
@@ -166,7 +172,9 @@ async function connectPrisma() {
     // Only run for MongoDB/DocumentDB (not PostgreSQL)
     // This prevents "Cannot create namespace in multi-document transaction" errors
     if (config.DB_TYPE === 'mongodb' || config.DB_TYPE === 'documentdb') {
-        const { initializeMongoDBSchema } = require('./utils/mongodb-schema-init');
+        const {
+            initializeMongoDBSchema,
+        } = require('./utils/mongodb-schema-init');
         await initializeMongoDBSchema();
     }
 

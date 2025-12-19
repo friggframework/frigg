@@ -1,9 +1,9 @@
 /**
  * Check Database State Use Case
- * 
+ *
  * Domain logic for checking database state (pending migrations, errors, etc).
  * Does NOT trigger migrations, just reports current state.
- * 
+ *
  * Architecture: Hexagonal/Clean
  * - Use Case (Domain Layer)
  * - Depends on prismaRunner (Infrastructure abstraction)
@@ -31,7 +31,7 @@ class CheckDatabaseStateUseCase {
 
     /**
      * Execute check migration status
-     * 
+     *
      * @param {string} dbType - Database type (postgresql, mongodb, or documentdb)
      * @param {string} stage - Deployment stage (default: 'production')
      * @returns {Promise<Object>} Migration status
@@ -43,7 +43,9 @@ class CheckDatabaseStateUseCase {
         }
 
         if (!['postgresql', 'mongodb', 'documentdb'].includes(dbType)) {
-            throw new ValidationError('dbType must be postgresql, mongodb, or documentdb');
+            throw new ValidationError(
+                'dbType must be postgresql, mongodb, or documentdb'
+            );
         }
 
         console.log(`Checking migration status for ${dbType} in ${stage}`);
@@ -62,7 +64,8 @@ class CheckDatabaseStateUseCase {
         // Add error if present
         if (state.error) {
             response.error = state.error;
-            response.recommendation = 'Run POST /db-migrate to initialize database';
+            response.recommendation =
+                'Run POST /db-migrate to initialize database';
         }
 
         // Add recommendation if migrations pending
@@ -78,4 +81,3 @@ module.exports = {
     CheckDatabaseStateUseCase,
     ValidationError,
 };
-

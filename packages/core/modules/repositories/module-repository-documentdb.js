@@ -9,7 +9,9 @@ const {
     deleteOne,
 } = require('../../database/documentdb-utils');
 const { ModuleRepositoryInterface } = require('./module-repository-interface');
-const { DocumentDBEncryptionService } = require('../../database/documentdb-encryption-service');
+const {
+    DocumentDBEncryptionService,
+} = require('../../database/documentdb-encryption-service');
 
 /**
  * Module/Entity repository for DocumentDB.
@@ -50,16 +52,34 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
         }
         const filter = { userId: objectId };
         const docs = await findMany(this.prisma, 'Entity', filter);
-        const credentialMap = await this._fetchCredentialsBulk(docs.map((doc) => doc.credentialId));
-        return docs.map((doc) => this._mapEntity(doc, credentialMap.get(fromObjectId(doc.credentialId)) || null));
+        const credentialMap = await this._fetchCredentialsBulk(
+            docs.map((doc) => doc.credentialId)
+        );
+        return docs.map((doc) =>
+            this._mapEntity(
+                doc,
+                credentialMap.get(fromObjectId(doc.credentialId)) || null
+            )
+        );
     }
 
     async findEntitiesByIds(entitiesIds) {
-        const ids = (entitiesIds || []).map((id) => toObjectId(id)).filter(Boolean);
+        const ids = (entitiesIds || [])
+            .map((id) => toObjectId(id))
+            .filter(Boolean);
         if (ids.length === 0) return [];
-        const docs = await findMany(this.prisma, 'Entity', { _id: { $in: ids } });
-        const credentialMap = await this._fetchCredentialsBulk(docs.map((doc) => doc.credentialId));
-        return docs.map((doc) => this._mapEntity(doc, credentialMap.get(fromObjectId(doc.credentialId)) || null));
+        const docs = await findMany(this.prisma, 'Entity', {
+            _id: { $in: ids },
+        });
+        const credentialMap = await this._fetchCredentialsBulk(
+            docs.map((doc) => doc.credentialId)
+        );
+        return docs.map((doc) =>
+            this._mapEntity(
+                doc,
+                credentialMap.get(fromObjectId(doc.credentialId)) || null
+            )
+        );
     }
 
     async findEntitiesByUserIdAndModuleName(userId, moduleName) {
@@ -72,8 +92,15 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
             moduleName,
         };
         const docs = await findMany(this.prisma, 'Entity', filter);
-        const credentialMap = await this._fetchCredentialsBulk(docs.map((doc) => doc.credentialId));
-        return docs.map((doc) => this._mapEntity(doc, credentialMap.get(fromObjectId(doc.credentialId)) || null));
+        const credentialMap = await this._fetchCredentialsBulk(
+            docs.map((doc) => doc.credentialId)
+        );
+        return docs.map((doc) =>
+            this._mapEntity(
+                doc,
+                credentialMap.get(fromObjectId(doc.credentialId)) || null
+            )
+        );
     }
 
     async unsetCredential(entityId) {
@@ -101,16 +128,23 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
     }
 
     async createEntity(entityData) {
+        const isGlobal = entityData.isGlobal || false;
+
         const document = {
-            userId: toObjectId(entityData.user || entityData.userId),
-            credentialId: toObjectId(entityData.credential || entityData.credentialId) || null,
+            userId: isGlobal ? null : toObjectId(entityData.user || entityData.userId),
+            credentialId:
+                toObjectId(entityData.credential || entityData.credentialId) ||
+                null,
             name: entityData.name ?? null,
             moduleName: entityData.moduleName ?? null,
             externalId: entityData.externalId ?? null,
             accountId: entityData.accountId ?? null,
+            isGlobal,
         };
         const insertedId = await insertOne(this.prisma, 'Entity', document);
-        const created = await findOne(this.prisma, 'Entity', { _id: insertedId });
+        const created = await findOne(this.prisma, 'Entity', {
+            _id: insertedId,
+        });
         const credential = await this._fetchCredential(created?.credentialId);
         return this._mapEntity(created, credential);
     }
@@ -120,17 +154,27 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
         if (!objectId) return null;
         const updatePayload = {};
         if (updates.user !== undefined || updates.userId !== undefined) {
-            const userVal = updates.user !== undefined ? updates.user : updates.userId;
+            const userVal =
+                updates.user !== undefined ? updates.user : updates.userId;
             updatePayload.userId = toObjectId(userVal) || null;
         }
-        if (updates.credential !== undefined || updates.credentialId !== undefined) {
-            const credVal = updates.credential !== undefined ? updates.credential : updates.credentialId;
+        if (
+            updates.credential !== undefined ||
+            updates.credentialId !== undefined
+        ) {
+            const credVal =
+                updates.credential !== undefined
+                    ? updates.credential
+                    : updates.credentialId;
             updatePayload.credentialId = toObjectId(credVal) || null;
         }
         if (updates.name !== undefined) updatePayload.name = updates.name;
-        if (updates.moduleName !== undefined) updatePayload.moduleName = updates.moduleName;
-        if (updates.externalId !== undefined) updatePayload.externalId = updates.externalId;
-        if (updates.accountId !== undefined) updatePayload.accountId = updates.accountId;
+        if (updates.moduleName !== undefined)
+            updatePayload.moduleName = updates.moduleName;
+        if (updates.externalId !== undefined)
+            updatePayload.externalId = updates.externalId;
+        if (updates.accountId !== undefined)
+            updatePayload.accountId = updates.accountId;
         const result = await updateOne(
             this.prisma,
             'Entity',
@@ -147,7 +191,9 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
     async deleteEntity(entityId) {
         const objectId = toObjectId(entityId);
         if (!objectId) return false;
-        const result = await deleteOne(this.prisma, 'Entity', { _id: objectId });
+        const result = await deleteOne(this.prisma, 'Entity', {
+            _id: objectId,
+        });
         const deleted = result?.n ?? 0;
         return deleted > 0;
     }
@@ -163,13 +209,17 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
 
             // Use raw findOne to bypass Prisma encryption extension
             const rawCredential = await findOne(this.prisma, 'Credential', {
-                _id: objectId
+                _id: objectId,
             });
 
             if (!rawCredential) return null;
 
             // Decrypt sensitive fields using service
-            const decryptedCredential = await this.encryptionService.decryptFields('Credential', rawCredential);
+            const decryptedCredential =
+                await this.encryptionService.decryptFields(
+                    'Credential',
+                    rawCredential
+                );
 
             // Return in same format
             const credential = {
@@ -179,12 +229,15 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
                 authIsValid: decryptedCredential.authIsValid ?? null,
                 createdAt: decryptedCredential.createdAt,
                 updatedAt: decryptedCredential.updatedAt,
-                data: decryptedCredential.data
+                data: decryptedCredential.data,
             };
 
             return this._convertCredentialIds(credential);
         } catch (error) {
-            console.error(`Failed to fetch/decrypt credential ${id}:`, error.message);
+            console.error(
+                `Failed to fetch/decrypt credential ${id}:`,
+                error.message
+            );
             // Return null instead of throwing to allow graceful degradation
             // This repository is read-only (doesn't create/update credentials)
             // Entities can still be loaded even if their credential is corrupted/unreadable
@@ -202,45 +255,55 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
 
         try {
             // Convert string IDs to ObjectIds for bulk query
-            const objectIds = ids.map(id => toObjectId(id)).filter(Boolean);
+            const objectIds = ids.map((id) => toObjectId(id)).filter(Boolean);
             if (objectIds.length === 0) return new Map();
 
             // Use raw findMany to bypass Prisma encryption extension
             const rawCredentials = await findMany(this.prisma, 'Credential', {
-                _id: { $in: objectIds }
+                _id: { $in: objectIds },
             });
 
             // Decrypt all credentials in parallel
-            const decryptionPromises = rawCredentials.map(async (rawCredential) => {
-                try {
-                    // Decrypt sensitive fields using service
-                    const decryptedCredential = await this.encryptionService.decryptFields('Credential', rawCredential);
+            const decryptionPromises = rawCredentials.map(
+                async (rawCredential) => {
+                    try {
+                        // Decrypt sensitive fields using service
+                        const decryptedCredential =
+                            await this.encryptionService.decryptFields(
+                                'Credential',
+                                rawCredential
+                            );
 
-                    // Build credential object in same format as Prisma would return
-                    const credential = {
-                        id: fromObjectId(decryptedCredential._id),
-                        userId: fromObjectId(decryptedCredential.userId),
-                        externalId: decryptedCredential.externalId ?? null,
-                        authIsValid: decryptedCredential.authIsValid ?? null,
-                        createdAt: decryptedCredential.createdAt,
-                        updatedAt: decryptedCredential.updatedAt,
-                        data: decryptedCredential.data
-                    };
+                        // Build credential object in same format as Prisma would return
+                        const credential = {
+                            id: fromObjectId(decryptedCredential._id),
+                            userId: fromObjectId(decryptedCredential.userId),
+                            externalId: decryptedCredential.externalId ?? null,
+                            authIsValid:
+                                decryptedCredential.authIsValid ?? null,
+                            createdAt: decryptedCredential.createdAt,
+                            updatedAt: decryptedCredential.updatedAt,
+                            data: decryptedCredential.data,
+                        };
 
-                    return this._convertCredentialIds(credential);
-                } catch (error) {
-                    const credId = fromObjectId(rawCredential._id);
-                    console.error(`Failed to decrypt credential ${credId}:`, error.message);
-                    return null;
+                        return this._convertCredentialIds(credential);
+                    } catch (error) {
+                        const credId = fromObjectId(rawCredential._id);
+                        console.error(
+                            `Failed to decrypt credential ${credId}:`,
+                            error.message
+                        );
+                        return null;
+                    }
                 }
-            });
+            );
 
             // Wait for all decryptions to complete
             const decryptedCredentials = await Promise.all(decryptionPromises);
 
             // Build Map from results, filtering out nulls
             const map = new Map();
-            decryptedCredentials.forEach(credential => {
+            decryptedCredentials.forEach((credential) => {
                 if (credential) {
                     map.set(credential.id, credential);
                 }
@@ -281,12 +344,15 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
             if (userObj) query.userId = userObj;
         }
         if (filter.credential || filter.credentialId) {
-            const credObj = toObjectId(filter.credential || filter.credentialId);
+            const credObj = toObjectId(
+                filter.credential || filter.credentialId
+            );
             if (credObj) query.credentialId = credObj;
         }
         if (filter.name) query.name = filter.name;
         if (filter.moduleName) query.moduleName = filter.moduleName;
         if (filter.externalId) query.externalId = filter.externalId;
+        if (filter.isGlobal !== undefined) query.isGlobal = filter.isGlobal;
         return query;
     }
 
@@ -299,9 +365,9 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
             name: doc?.name ?? null,
             externalId: doc?.externalId ?? null,
             moduleName: doc?.moduleName ?? null,
+            isGlobal: doc?.isGlobal ?? null,
         };
     }
 }
 
 module.exports = { ModuleRepositoryDocumentDB };
-

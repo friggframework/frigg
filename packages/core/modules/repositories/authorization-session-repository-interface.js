@@ -29,7 +29,9 @@ class AuthorizationSessionRepositoryInterface {
      * @abstract
      */
     async findBySessionId(sessionId) {
-        throw new Error('Method findBySessionId must be implemented by subclass');
+        throw new Error(
+            'Method findBySessionId must be implemented by subclass'
+        );
     }
 
     /**

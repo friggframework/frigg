@@ -18,7 +18,9 @@
 
 const { Router } = require('express');
 const catchAsyncError = require('express-async-handler');
-const { MigrationStatusRepositoryS3 } = require('../../database/repositories/migration-status-repository-s3');
+const {
+    MigrationStatusRepositoryS3,
+} = require('../../database/repositories/migration-status-repository-s3');
 const {
     TriggerDatabaseMigrationUseCase,
     ValidationError: TriggerValidationError,
@@ -37,19 +39,25 @@ const router = Router();
 
 // Dependency injection
 // Use S3 repository to avoid User table dependency (chicken-and-egg problem)
-const bucketName = process.env.S3_BUCKET_NAME || process.env.MIGRATION_STATUS_BUCKET;
+const bucketName =
+    process.env.S3_BUCKET_NAME || process.env.MIGRATION_STATUS_BUCKET;
 const migrationStatusRepository = new MigrationStatusRepositoryS3(bucketName);
 
 const triggerMigrationUseCase = new TriggerDatabaseMigrationUseCase({
     migrationStatusRepository,
     // Note: QueuerUtil is used directly in the use case (static utility)
 });
-const getStatusUseCase = new GetMigrationStatusUseCase({ migrationStatusRepository });
+const getStatusUseCase = new GetMigrationStatusUseCase({
+    migrationStatusRepository,
+});
 
 // Lambda invocation for database state check (keeps router lightweight)
 const lambdaInvoker = new LambdaInvoker();
-const workerFunctionName = process.env.WORKER_FUNCTION_NAME ||
-    `${process.env.SERVICE || 'unknown'}-${process.env.STAGE || 'production'}-dbMigrationWorker`;
+const workerFunctionName =
+    process.env.WORKER_FUNCTION_NAME ||
+    `${process.env.SERVICE || 'unknown'}-${
+        process.env.STAGE || 'production'
+    }-dbMigrationWorker`;
 
 const getDatabaseStateUseCase = new GetDatabaseStateViaWorkerUseCase({
     lambdaInvoker,
@@ -106,7 +114,11 @@ router.post(
         // TODO: Extract userId from JWT token when auth is implemented
         const userId = req.body.userId || 'admin';
 
-        console.log(`Migration trigger request: dbType=${dbType}, stage=${stage || 'auto-detect'}, userId=${userId}`);
+        console.log(
+            `Migration trigger request: dbType=${dbType}, stage=${
+                stage || 'auto-detect'
+            }, userId=${userId}`
+        );
 
         try {
             const result = await triggerMigrationUseCase.execute({
@@ -136,7 +148,7 @@ router.post(
  * GET /db-migrate/status
  *
  * Check if database has pending migrations
- * 
+ *
  * Query params:
  * - stage: string (optional, defaults to STAGE env var or 'production')
  *
@@ -155,7 +167,9 @@ router.get(
     catchAsyncError(async (req, res) => {
         const stage = req.query.stage || process.env.STAGE || 'production';
 
-        console.log(`Checking database state: stage=${stage}, worker=${workerFunctionName}`);
+        console.log(
+            `Checking database state: stage=${stage}, worker=${workerFunctionName}`
+        );
 
         try {
             // Invoke worker Lambda to check database state
@@ -206,7 +220,9 @@ router.get(
         const { migrationId } = req.params;
         const stage = req.query.stage || process.env.STAGE || 'production';
 
-        console.log(`Migration status request: migrationId=${migrationId}, stage=${stage}`);
+        console.log(
+            `Migration status request: migrationId=${migrationId}, stage=${stage}`
+        );
 
         try {
             const status = await getStatusUseCase.execute(migrationId, stage);
@@ -260,20 +276,22 @@ router.post(
     catchAsyncError(async (req, res) => {
         const { migrationName, action = 'applied' } = req.body;
 
-        console.log(`Migration resolve request: migration=${migrationName}, action=${action}`);
+        console.log(
+            `Migration resolve request: migration=${migrationName}, action=${action}`
+        );
 
         // Validation
         if (!migrationName) {
             return res.status(400).json({
                 success: false,
-                error: 'migrationName is required'
+                error: 'migrationName is required',
             });
         }
 
         if (!['applied', 'rolled-back'].includes(action)) {
             return res.status(400).json({
                 success: false,
-                error: 'action must be either "applied" or "rolled-back"'
+                error: 'action must be either "applied" or "rolled-back"',
             });
         }
 
@@ -281,12 +299,16 @@ router.post(
             // Import prismaRunner here to avoid circular dependencies
             const prismaRunner = require('../../database/utils/prisma-runner');
 
-            const result = await prismaRunner.runPrismaMigrateResolve(migrationName, action, true);
+            const result = await prismaRunner.runPrismaMigrateResolve(
+                migrationName,
+                action,
+                true
+            );
 
             if (!result.success) {
                 return res.status(500).json({
                     success: false,
-                    error: `Failed to resolve migration: ${result.error}`
+                    error: `Failed to resolve migration: ${result.error}`,
                 });
             }
 
@@ -294,13 +316,13 @@ router.post(
                 success: true,
                 message: `Migration ${migrationName} marked as ${action}`,
                 migrationName,
-                action
+                action,
             });
         } catch (error) {
             console.error('Migration resolve failed:', error);
             return res.status(500).json({
                 success: false,
-                error: error.message
+                error: error.message,
             });
         }
     })
@@ -323,4 +345,3 @@ app.use((err, _req, res, _next) => {
 const handler = serverlessHttp(app);
 
 module.exports = { handler, router };
-

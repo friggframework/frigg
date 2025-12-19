@@ -101,7 +101,6 @@ const loadIntegrationForWebhook = async (integrationId) => {
 };
 
 const loadIntegrationForProcess = async (processId, integrationClass) => {
-
     const { processRepository, integrationRepository, moduleRepository } =
         initializeRepositories();
 

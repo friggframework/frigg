@@ -1,7 +1,7 @@
 /**
  * Lambda Invoker Adapter
  * Infrastructure layer - handles AWS Lambda function invocations
- * 
+ *
  * Part of Hexagonal Architecture:
  * - Infrastructure Layer adapter for AWS SDK
  * - Used by Domain Layer use cases
@@ -25,7 +25,7 @@ class LambdaInvocationError extends Error {
 
 /**
  * Adapter for invoking AWS Lambda functions
- * 
+ *
  * Infrastructure layer - handles AWS SDK communication
  * Converts AWS SDK responses to domain-friendly formats
  */
@@ -39,7 +39,7 @@ class LambdaInvoker {
 
     /**
      * Invoke Lambda function synchronously
-     * 
+     *
      * @param {string} functionName - Lambda function name or ARN
      * @param {Object} payload - Event payload to send to Lambda
      * @returns {Promise<Object>} Parsed response body
@@ -74,7 +74,8 @@ class LambdaInvoker {
             }
 
             // Lambda returned error status
-            const errorMessage = result.body?.error || 'Lambda invocation failed';
+            const errorMessage =
+                result.body?.error || 'Lambda invocation failed';
             throw new LambdaInvocationError(
                 `Lambda ${functionName} returned error: ${errorMessage}`,
                 functionName,
@@ -87,11 +88,11 @@ class LambdaInvoker {
             }
 
             // Wrap AWS SDK errors
-            throw new Error(`Failed to invoke Lambda ${functionName}: ${error.message}`);
+            throw new Error(
+                `Failed to invoke Lambda ${functionName}: ${error.message}`
+            );
         }
     }
 }
 
 module.exports = { LambdaInvoker, LambdaInvocationError };
-
-

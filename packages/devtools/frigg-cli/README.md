@@ -1281,7 +1281,7 @@ npm install @friggframework/frigg-cli@latest
 npm install -g @friggframework/frigg-cli
 
 # Local project dependencies
-npx create-frigg-app my-app
+frigg init my-app
 # (Will automatically include @friggframework/frigg-cli in package.json)
 ```
 

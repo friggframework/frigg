@@ -88,8 +88,8 @@ async function gatherDiscoveredResources(appDefinition) {
 
         // Build discovery configuration
         const stage = process.env.SLS_STAGE || 'dev';
-        const stackName = `${appDefinition.name || 'create-frigg-app'}-${stage}`;
-        const serviceName = appDefinition.name || 'create-frigg-app';
+        const stackName = `${appDefinition.name || 'frigg-app'}-${stage}`;
+        const serviceName = appDefinition.name || 'frigg-app';
 
         // Try CloudFormation-first discovery
         const cfDiscovery = new CloudFormationDiscovery(provider, { serviceName, stage });
@@ -135,9 +135,9 @@ async function gatherDiscoveredResources(appDefinition) {
             // KMS keys CAN be shared across stages (encryption keys are safe to reuse)
             const kmsDiscovery = new KmsDiscovery(provider);
             const kmsConfig = {
-                serviceName: appDefinition.name || 'create-frigg-app',
+                serviceName: appDefinition.name || 'frigg-app',
                 stage,
-                keyAlias: `alias/${appDefinition.name || 'create-frigg-app'}-${stage}-frigg-kms`,
+                keyAlias: `alias/${appDefinition.name || 'frigg-app'}-${stage}-frigg-kms`,
             };
             const kmsResult = await kmsDiscovery.discover(kmsConfig);
 
@@ -166,7 +166,7 @@ async function gatherDiscoveredResources(appDefinition) {
         const ssmDiscovery = new SsmDiscovery(provider);
 
         const config = {
-            serviceName: appDefinition.name || 'create-frigg-app',
+            serviceName: appDefinition.name || 'frigg-app',
             stage,
             vpcId: appDefinition.vpc?.vpcId,
             databaseId: appDefinition.database?.postgres?.clusterId ||

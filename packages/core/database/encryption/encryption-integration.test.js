@@ -45,7 +45,9 @@ jest.mock('../config', () => ({
 }));
 
 const { prisma, connectPrisma, disconnectPrisma } = require('../prisma');
-const { createHealthCheckRepository } = require('../repositories/health-check-repository-factory');
+const {
+    createHealthCheckRepository,
+} = require('../repositories/health-check-repository-factory');
 const { mongoose } = require('../mongoose');
 
 describe('Field-Level Encryption Integration Tests', () => {
@@ -449,7 +451,9 @@ describe('Field-Level Encryption Integration Tests', () => {
             });
 
             // Check raw database for first credential
-            const rawDoc = await repository.getRawCredentialById(credentials[0].id);
+            const rawDoc = await repository.getRawCredentialById(
+                credentials[0].id
+            );
             expect(rawDoc.data.access_token).toContain(':');
             expect(rawDoc.data.access_token).not.toMatch(/bulk-secret-/);
 
@@ -510,10 +514,17 @@ describe('Field-Level Encryption Integration Tests', () => {
                     if (mongoose.connection.readyState !== 1) {
                         await mongoose.connect(process.env.DATABASE_URL);
                     }
-                    await mongoose.connection.db.collection('Credential').updateOne(
-                        { _id: new ObjectId(created.id) },
-                        { $set: { 'data.access_token': 'CORRUPT:INVALID:DATA:FAKE=' } }
-                    );
+                    await mongoose.connection.db
+                        .collection('Credential')
+                        .updateOne(
+                            { _id: new ObjectId(created.id) },
+                            {
+                                $set: {
+                                    'data.access_token':
+                                        'CORRUPT:INVALID:DATA:FAKE=',
+                                },
+                            }
+                        );
                 } else {
                     // PostgreSQL - use raw query to corrupt data
                     await prisma.$executeRaw`
@@ -537,9 +548,9 @@ describe('Field-Level Encryption Integration Tests', () => {
                 if (created) {
                     const { ObjectId } = require('mongodb');
                     const { mongoose } = require('../mongoose');
-                    await mongoose.connection.db.collection('Credential').deleteOne(
-                        { _id: new ObjectId(created.id) }
-                    );
+                    await mongoose.connection.db
+                        .collection('Credential')
+                        .deleteOne({ _id: new ObjectId(created.id) });
                 }
             }
         });

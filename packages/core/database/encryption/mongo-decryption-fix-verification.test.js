@@ -10,7 +10,9 @@
  */
 
 process.env.DB_TYPE = 'mongodb';
-process.env.DATABASE_URL = process.env.DATABASE_URL || 'mongodb://localhost:27017/frigg?replicaSet=rs0';
+process.env.DATABASE_URL =
+    process.env.DATABASE_URL ||
+    'mongodb://localhost:27017/frigg?replicaSet=rs0';
 process.env.STAGE = 'integration-test';
 process.env.AES_KEY_ID = 'test-key-id';
 process.env.AES_KEY = 'test-aes-key-32-characters-long!';
@@ -23,7 +25,9 @@ jest.mock('../config', () => ({
 }));
 
 const { prisma, connectPrisma, disconnectPrisma } = require('../prisma');
-const { ModuleRepositoryMongo } = require('../../modules/repositories/module-repository-mongo');
+const {
+    ModuleRepositoryMongo,
+} = require('../../modules/repositories/module-repository-mongo');
 
 describe('Repository Fix Verification - MongoDB Decryption', () => {
     let repository;
@@ -41,19 +45,25 @@ describe('Repository Fix Verification - MongoDB Decryption', () => {
 
     afterAll(async () => {
         if (testEntityId) {
-            await prisma.entity.deleteMany({
-                where: { id: testEntityId }
-            }).catch(() => {});
+            await prisma.entity
+                .deleteMany({
+                    where: { id: testEntityId },
+                })
+                .catch(() => {});
         }
         if (testCredentialId) {
-            await prisma.credential.deleteMany({
-                where: { id: testCredentialId }
-            }).catch(() => {});
+            await prisma.credential
+                .deleteMany({
+                    where: { id: testCredentialId },
+                })
+                .catch(() => {});
         }
         if (testUserId) {
-            await prisma.user.deleteMany({
-                where: { id: testUserId }
-            }).catch(() => {});
+            await prisma.user
+                .deleteMany({
+                    where: { id: testUserId },
+                })
+                .catch(() => {});
         }
 
         await disconnectPrisma();
@@ -61,21 +71,27 @@ describe('Repository Fix Verification - MongoDB Decryption', () => {
 
     afterEach(async () => {
         if (testEntityId) {
-            await prisma.entity.deleteMany({
-                where: { id: testEntityId }
-            }).catch(() => {});
+            await prisma.entity
+                .deleteMany({
+                    where: { id: testEntityId },
+                })
+                .catch(() => {});
             testEntityId = null;
         }
         if (testCredentialId) {
-            await prisma.credential.deleteMany({
-                where: { id: testCredentialId }
-            }).catch(() => {});
+            await prisma.credential
+                .deleteMany({
+                    where: { id: testCredentialId },
+                })
+                .catch(() => {});
             testCredentialId = null;
         }
         if (testUserId) {
-            await prisma.user.deleteMany({
-                where: { id: testUserId }
-            }).catch(() => {});
+            await prisma.user
+                .deleteMany({
+                    where: { id: testUserId },
+                })
+                .catch(() => {});
             testUserId = null;
         }
     });
@@ -84,8 +100,8 @@ describe('Repository Fix Verification - MongoDB Decryption', () => {
         const user = await prisma.user.create({
             data: {
                 type: 'INDIVIDUAL',
-                hashword: 'test-hash'
-            }
+                hashword: 'test-hash',
+            },
         });
         testUserId = user.id;
 
@@ -129,8 +145,8 @@ describe('Repository Fix Verification - MongoDB Decryption', () => {
         const user = await prisma.user.create({
             data: {
                 type: 'INDIVIDUAL',
-                hashword: 'test-hash'
-            }
+                hashword: 'test-hash',
+            },
         });
         testUserId = user.id;
 
@@ -165,15 +181,17 @@ describe('Repository Fix Verification - MongoDB Decryption', () => {
         expect(firstEntity.credential.data.access_token).toBe(TEST_TOKEN);
         expect(firstEntity.credential.data.access_token).not.toContain(':');
 
-        console.log('✅ findEntitiesByUserId: Credentials successfully decrypted!');
+        console.log(
+            '✅ findEntitiesByUserId: Credentials successfully decrypted!'
+        );
     });
 
     test('✅ FIX VERIFICATION: findEntitiesByIds returns decrypted credentials', async () => {
         const user = await prisma.user.create({
             data: {
                 type: 'INDIVIDUAL',
-                hashword: 'test-hash'
-            }
+                hashword: 'test-hash',
+            },
         });
         testUserId = user.id;
 
@@ -207,15 +225,17 @@ describe('Repository Fix Verification - MongoDB Decryption', () => {
         expect(results[0].credential.data.access_token).toBe(TEST_TOKEN);
         expect(results[0].credential.data.access_token).not.toContain(':');
 
-        console.log('✅ findEntitiesByIds: Credentials successfully decrypted!');
+        console.log(
+            '✅ findEntitiesByIds: Credentials successfully decrypted!'
+        );
     });
 
     test('✅ FIX VERIFICATION: createEntity returns decrypted credential', async () => {
         const user = await prisma.user.create({
             data: {
                 type: 'INDIVIDUAL',
-                hashword: 'test-hash'
-            }
+                hashword: 'test-hash',
+            },
         });
         testUserId = user.id;
 
@@ -252,8 +272,8 @@ describe('Repository Fix Verification - MongoDB Decryption', () => {
         const user = await prisma.user.create({
             data: {
                 type: 'INDIVIDUAL',
-                hashword: 'test-hash'
-            }
+                hashword: 'test-hash',
+            },
         });
         testUserId = user.id;
 
@@ -296,8 +316,8 @@ describe('Repository Fix Verification - MongoDB Decryption', () => {
         const user = await prisma.user.create({
             data: {
                 type: 'INDIVIDUAL',
-                hashword: 'test-hash'
-            }
+                hashword: 'test-hash',
+            },
         });
         testUserId = user.id;
 
@@ -325,7 +345,7 @@ describe('Repository Fix Verification - MongoDB Decryption', () => {
 
         const rawCred = await prisma.$runCommandRaw({
             find: 'Credential',
-            filter: { _id: { $oid: testCredentialId } }
+            filter: { _id: { $oid: testCredentialId } },
         });
         const rawDoc = rawCred.cursor.firstBatch[0];
         const rawToken = rawDoc.data.access_token;
@@ -334,7 +354,10 @@ describe('Repository Fix Verification - MongoDB Decryption', () => {
         const repoToken = repoEntity.credential.data.access_token;
 
         console.log('\n📊 COMPARISON RESULTS:');
-        console.log('Raw DB token (encrypted):', rawToken.substring(0, 50) + '...');
+        console.log(
+            'Raw DB token (encrypted):',
+            rawToken.substring(0, 50) + '...'
+        );
         console.log('Repository token (decrypted):', repoToken);
 
         expect(rawToken).toContain(':');
@@ -343,6 +366,8 @@ describe('Repository Fix Verification - MongoDB Decryption', () => {
         expect(repoToken).toBe(TEST_TOKEN);
         expect(repoToken).not.toContain(':');
 
-        console.log('✅ Database stores encrypted, repository returns decrypted - FIX WORKS!');
+        console.log(
+            '✅ Database stores encrypted, repository returns decrypted - FIX WORKS!'
+        );
     });
 });

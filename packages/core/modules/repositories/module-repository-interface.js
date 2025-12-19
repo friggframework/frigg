@@ -99,7 +99,9 @@ class ModuleRepositoryInterface {
      * @abstract
      */
     async findEntitiesBy(filter) {
-        throw new Error('Method findEntitiesBy must be implemented by subclass');
+        throw new Error(
+            'Method findEntitiesBy must be implemented by subclass'
+        );
     }
 
     /**

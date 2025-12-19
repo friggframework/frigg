@@ -1,12 +1,12 @@
 /**
  * Adapter Layer Tests - Database Migration Router
- * 
+ *
  * CRITICAL TEST: Verify handler loads without app definition
- * 
+ *
  * Business logic is tested in:
  * - database/use-cases/trigger-database-migration-use-case.test.js (14 tests)
  * - database/use-cases/get-migration-status-use-case.test.js (11 tests)
- * 
+ *
  * Following hexagonal architecture principles:
  * - Handlers are thin adapters (HTTP → Use Case → HTTP)
  * - Use cases contain all business logic (fully tested)
@@ -17,12 +17,15 @@ process.env.ADMIN_API_KEY = 'test-admin-key';
 process.env.DB_MIGRATION_QUEUE_URL = 'https://sqs.test/queue';
 
 // Mock infrastructure dependencies to prevent app definition loading
-jest.mock('../../integrations/repositories/process-repository-postgres', () => ({
-    ProcessRepositoryPostgres: jest.fn(() => ({
-        create: jest.fn(),
-        findById: jest.fn(),
-    })),
-}));
+jest.mock(
+    '../../integrations/repositories/process-repository-postgres',
+    () => ({
+        ProcessRepositoryPostgres: jest.fn(() => ({
+            create: jest.fn(),
+            findById: jest.fn(),
+        })),
+    })
+);
 
 describe('Database Migration Router - Adapter Layer', () => {
     it('should load without requiring app definition (critical bug fix)', () => {
@@ -51,13 +54,15 @@ describe('Database Migration Router - Adapter Layer', () => {
         it('should have status endpoint registered', () => {
             const router = require('./db-migration').router;
             const routes = router.stack
-                .filter(layer => layer.route)
-                .map(layer => ({
+                .filter((layer) => layer.route)
+                .map((layer) => ({
                     path: layer.route.path,
                     methods: Object.keys(layer.route.methods),
                 }));
 
-            const statusRoute = routes.find(r => r.path === '/db-migrate/status');
+            const statusRoute = routes.find(
+                (r) => r.path === '/db-migrate/status'
+            );
             expect(statusRoute).toBeDefined();
             expect(statusRoute.methods).toContain('get');
         });

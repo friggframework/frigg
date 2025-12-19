@@ -31,7 +31,10 @@ schema.statics.getActiveConnections = async function () {
                     });
                     await apigwManagementApi.send(command);
                 } catch (error) {
-                    if (error.statusCode === 410 || error.$metadata?.httpStatusCode === 410) {
+                    if (
+                        error.statusCode === 410 ||
+                        error.$metadata?.httpStatusCode === 410
+                    ) {
                         console.log(`Stale connection ${conn.connectionId}`);
                         await this.deleteOne({
                             connectionId: conn.connectionId,

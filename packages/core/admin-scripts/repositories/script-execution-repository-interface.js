@@ -33,8 +33,17 @@ class ScriptExecutionRepositoryInterface {
      * @returns {Promise<Object>} The created execution record
      * @abstract
      */
-    async createExecution({ scriptName, scriptVersion, trigger, mode, input, audit }) {
-        throw new Error('Method createExecution must be implemented by subclass');
+    async createExecution({
+        scriptName,
+        scriptVersion,
+        trigger,
+        mode,
+        input,
+        audit,
+    }) {
+        throw new Error(
+            'Method createExecution must be implemented by subclass'
+        );
     }
 
     /**
@@ -45,7 +54,9 @@ class ScriptExecutionRepositoryInterface {
      * @abstract
      */
     async findExecutionById(id) {
-        throw new Error('Method findExecutionById must be implemented by subclass');
+        throw new Error(
+            'Method findExecutionById must be implemented by subclass'
+        );
     }
 
     /**
@@ -61,7 +72,9 @@ class ScriptExecutionRepositoryInterface {
      * @abstract
      */
     async findExecutionsByScriptName(scriptName, options = {}) {
-        throw new Error('Method findExecutionsByScriptName must be implemented by subclass');
+        throw new Error(
+            'Method findExecutionsByScriptName must be implemented by subclass'
+        );
     }
 
     /**
@@ -77,7 +90,9 @@ class ScriptExecutionRepositoryInterface {
      * @abstract
      */
     async findExecutionsByStatus(status, options = {}) {
-        throw new Error('Method findExecutionsByStatus must be implemented by subclass');
+        throw new Error(
+            'Method findExecutionsByStatus must be implemented by subclass'
+        );
     }
 
     /**
@@ -89,7 +104,9 @@ class ScriptExecutionRepositoryInterface {
      * @abstract
      */
     async updateExecutionStatus(id, status) {
-        throw new Error('Method updateExecutionStatus must be implemented by subclass');
+        throw new Error(
+            'Method updateExecutionStatus must be implemented by subclass'
+        );
     }
 
     /**
@@ -101,7 +118,9 @@ class ScriptExecutionRepositoryInterface {
      * @abstract
      */
     async updateExecutionOutput(id, output) {
-        throw new Error('Method updateExecutionOutput must be implemented by subclass');
+        throw new Error(
+            'Method updateExecutionOutput must be implemented by subclass'
+        );
     }
 
     /**
@@ -116,7 +135,9 @@ class ScriptExecutionRepositoryInterface {
      * @abstract
      */
     async updateExecutionError(id, error) {
-        throw new Error('Method updateExecutionError must be implemented by subclass');
+        throw new Error(
+            'Method updateExecutionError must be implemented by subclass'
+        );
     }
 
     /**
@@ -131,7 +152,9 @@ class ScriptExecutionRepositoryInterface {
      * @abstract
      */
     async updateExecutionMetrics(id, metrics) {
-        throw new Error('Method updateExecutionMetrics must be implemented by subclass');
+        throw new Error(
+            'Method updateExecutionMetrics must be implemented by subclass'
+        );
     }
 
     /**
@@ -147,7 +170,9 @@ class ScriptExecutionRepositoryInterface {
      * @abstract
      */
     async appendExecutionLog(id, logEntry) {
-        throw new Error('Method appendExecutionLog must be implemented by subclass');
+        throw new Error(
+            'Method appendExecutionLog must be implemented by subclass'
+        );
     }
 
     /**
@@ -159,7 +184,9 @@ class ScriptExecutionRepositoryInterface {
      * @abstract
      */
     async deleteExecutionsOlderThan(date) {
-        throw new Error('Method deleteExecutionsOlderThan must be implemented by subclass');
+        throw new Error(
+            'Method deleteExecutionsOlderThan must be implemented by subclass'
+        );
     }
 }
 

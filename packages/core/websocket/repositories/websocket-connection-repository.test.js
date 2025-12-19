@@ -1,12 +1,17 @@
 /**
  * Tests for WebSocket Connection Repository - AWS SDK v3 Migration
- * 
+ *
  * Tests API Gateway Management API operations using aws-sdk-client-mock
  */
 
 const { mockClient } = require('aws-sdk-client-mock');
-const { ApiGatewayManagementApiClient, PostToConnectionCommand } = require('@aws-sdk/client-apigatewaymanagementapi');
-const { WebsocketConnectionRepository } = require('./websocket-connection-repository');
+const {
+    ApiGatewayManagementApiClient,
+    PostToConnectionCommand,
+} = require('@aws-sdk/client-apigatewaymanagementapi');
+const {
+    WebsocketConnectionRepository,
+} = require('./websocket-connection-repository');
 
 // Mock Prisma
 jest.mock('../../database/prisma', () => ({
@@ -33,9 +38,10 @@ describe('WebsocketConnectionRepository - AWS SDK v3', () => {
         apiGatewayMock = mockClient(ApiGatewayManagementApiClient);
         repository = new WebsocketConnectionRepository();
         jest.clearAllMocks();
-        process.env = { 
-            ...originalEnv, 
-            WEBSOCKET_API_ENDPOINT: 'https://test.execute-api.us-east-1.amazonaws.com/dev'
+        process.env = {
+            ...originalEnv,
+            WEBSOCKET_API_ENDPOINT:
+                'https://test.execute-api.us-east-1.amazonaws.com/dev',
         };
     });
 
@@ -46,10 +52,15 @@ describe('WebsocketConnectionRepository - AWS SDK v3', () => {
 
     describe('createConnection()', () => {
         it('should create websocket connection record', async () => {
-            const mockConnection = { id: '1', connectionId: 'test-connection-123' };
+            const mockConnection = {
+                id: '1',
+                connectionId: 'test-connection-123',
+            };
             prisma.websocketConnection.create.mockResolvedValue(mockConnection);
 
-            const result = await repository.createConnection('test-connection-123');
+            const result = await repository.createConnection(
+                'test-connection-123'
+            );
 
             expect(result).toEqual(mockConnection);
             expect(prisma.websocketConnection.create).toHaveBeenCalledWith({
@@ -62,7 +73,9 @@ describe('WebsocketConnectionRepository - AWS SDK v3', () => {
         it('should delete websocket connection', async () => {
             prisma.websocketConnection.delete.mockResolvedValue({});
 
-            const result = await repository.deleteConnection('test-connection-123');
+            const result = await repository.deleteConnection(
+                'test-connection-123'
+            );
 
             expect(result).toEqual({ acknowledged: true, deletedCount: 1 });
             expect(prisma.websocketConnection.delete).toHaveBeenCalledWith({
@@ -118,7 +131,7 @@ describe('WebsocketConnectionRepository - AWS SDK v3', () => {
             await connections[0].send({ message: 'hello' });
 
             expect(apiGatewayMock.calls()).toHaveLength(1);
-            
+
             const call = apiGatewayMock.call(0);
             expect(call.args[0].input).toMatchObject({
                 ConnectionId: 'conn-test',
@@ -135,7 +148,9 @@ describe('WebsocketConnectionRepository - AWS SDK v3', () => {
             error.statusCode = 410;
             apiGatewayMock.on(PostToConnectionCommand).rejects(error);
 
-            prisma.websocketConnection.deleteMany.mockResolvedValue({ count: 1 });
+            prisma.websocketConnection.deleteMany.mockResolvedValue({
+                count: 1,
+            });
 
             const connections = await repository.getActiveConnections();
             await connections[0].send({ message: 'test' });
@@ -155,7 +170,9 @@ describe('WebsocketConnectionRepository - AWS SDK v3', () => {
             error.$metadata = { httpStatusCode: 410 };
             apiGatewayMock.on(PostToConnectionCommand).rejects(error);
 
-            prisma.websocketConnection.deleteMany.mockResolvedValue({ count: 1 });
+            prisma.websocketConnection.deleteMany.mockResolvedValue({
+                count: 1,
+            });
 
             const connections = await repository.getActiveConnections();
             await connections[0].send({ message: 'test' });
@@ -170,18 +187,24 @@ describe('WebsocketConnectionRepository - AWS SDK v3', () => {
                 { connectionId: 'conn-1' },
             ]);
 
-            apiGatewayMock.on(PostToConnectionCommand).rejects(new Error('Network error'));
+            apiGatewayMock
+                .on(PostToConnectionCommand)
+                .rejects(new Error('Network error'));
 
             const connections = await repository.getActiveConnections();
 
-            await expect(connections[0].send({ message: 'test' })).rejects.toThrow('Network error');
+            await expect(
+                connections[0].send({ message: 'test' })
+            ).rejects.toThrow('Network error');
         });
     });
 
     describe('findConnection()', () => {
         it('should find connection by connectionId', async () => {
             const mockConnection = { id: '1', connectionId: 'conn-123' };
-            prisma.websocketConnection.findFirst.mockResolvedValue(mockConnection);
+            prisma.websocketConnection.findFirst.mockResolvedValue(
+                mockConnection
+            );
 
             const result = await repository.findConnection('conn-123');
 
@@ -206,7 +229,9 @@ describe('WebsocketConnectionRepository - AWS SDK v3', () => {
                 { id: '1', connectionId: 'conn-1' },
                 { id: '2', connectionId: 'conn-2' },
             ];
-            prisma.websocketConnection.findMany.mockResolvedValue(mockConnections);
+            prisma.websocketConnection.findMany.mockResolvedValue(
+                mockConnections
+            );
 
             const result = await repository.getAllConnections();
 
@@ -216,7 +241,9 @@ describe('WebsocketConnectionRepository - AWS SDK v3', () => {
 
     describe('deleteAllConnections()', () => {
         it('should delete all connections', async () => {
-            prisma.websocketConnection.deleteMany.mockResolvedValue({ count: 5 });
+            prisma.websocketConnection.deleteMany.mockResolvedValue({
+                count: 5,
+            });
 
             const result = await repository.deleteAllConnections();
 
@@ -224,4 +251,3 @@ describe('WebsocketConnectionRepository - AWS SDK v3', () => {
         });
     });
 });
-

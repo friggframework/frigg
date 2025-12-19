@@ -12,8 +12,12 @@ const {
     toObjectId,
     fromObjectId,
 } = require('../../../database/documentdb-utils');
-const { IntegrationMappingRepositoryDocumentDB } = require('../integration-mapping-repository-documentdb');
-const { DocumentDBEncryptionService } = require('../../../database/documentdb-encryption-service');
+const {
+    IntegrationMappingRepositoryDocumentDB,
+} = require('../integration-mapping-repository-documentdb');
+const {
+    DocumentDBEncryptionService,
+} = require('../../../database/documentdb-encryption-service');
 
 describe('IntegrationMappingRepositoryDocumentDB - Encryption Integration', () => {
     let repository;
@@ -29,7 +33,9 @@ describe('IntegrationMappingRepositoryDocumentDB - Encryption Integration', () =
         };
 
         // Mock the constructor to return our mock
-        DocumentDBEncryptionService.mockImplementation(() => mockEncryptionService);
+        DocumentDBEncryptionService.mockImplementation(
+            () => mockEncryptionService
+        );
 
         // Create repository instance
         repository = new IntegrationMappingRepositoryDocumentDB();
@@ -172,7 +178,7 @@ describe('IntegrationMappingRepositoryDocumentDB - Encryption Integration', () =
 
             // Insert command was called with encrypted data
             const insertCalls = prisma.$runCommandRaw.mock.calls.filter(
-                call => call[0].insert
+                (call) => call[0].insert
             );
             expect(insertCalls.length).toBeGreaterThan(0);
         });
@@ -199,7 +205,8 @@ describe('IntegrationMappingRepositoryDocumentDB - Encryption Integration', () =
             // Second find returns updated
             prisma.$runCommandRaw.mockImplementation((command) => {
                 if (command.find) {
-                    const isFirstFind = !command.filter || command.filter.integrationId;
+                    const isFirstFind =
+                        !command.filter || command.filter.integrationId;
                     if (isFirstFind) {
                         return Promise.resolve({
                             cursor: { firstBatch: [existing] },
@@ -306,15 +313,13 @@ describe('IntegrationMappingRepositoryDocumentDB - Encryption Integration', () =
                 mapping: 'keyId:iv:cipher:encKey',
             });
 
-            await repository.upsertMapping(
-                testIntegrationId,
-                testSourceId,
-                { new: 'data' }
-            );
+            await repository.upsertMapping(testIntegrationId, testSourceId, {
+                new: 'data',
+            });
 
             // Verify update was called
             const updateCalls = prisma.$runCommandRaw.mock.calls.filter(
-                call => call[0].update
+                (call) => call[0].update
             );
             expect(updateCalls.length).toBeGreaterThan(0);
         });
@@ -395,7 +400,9 @@ describe('IntegrationMappingRepositoryDocumentDB - Encryption Integration', () =
                 updatedAt: new Date(),
             });
 
-            const result = await repository.findMappingById(fromObjectId(mappingId));
+            const result = await repository.findMappingById(
+                fromObjectId(mappingId)
+            );
 
             expect(mockEncryptionService.decryptFields).toHaveBeenCalledWith(
                 'IntegrationMapping',
@@ -455,7 +462,9 @@ describe('IntegrationMappingRepositoryDocumentDB - Encryption Integration', () =
                 testIntegrationId
             );
 
-            expect(mockEncryptionService.decryptFields).toHaveBeenCalledTimes(2);
+            expect(mockEncryptionService.decryptFields).toHaveBeenCalledTimes(
+                2
+            );
             expect(results).toHaveLength(2);
             expect(results[0].mapping).toEqual({ decrypted: 'data1' });
             expect(results[1].mapping).toEqual({ decrypted: 'data2' });
@@ -528,9 +537,12 @@ describe('IntegrationMappingRepositoryDocumentDB - Encryption Integration', () =
                 updatedAt: new Date(),
             });
 
-            const result = await repository.updateMapping(fromObjectId(mappingId), {
-                mapping: newMapping,
-            });
+            const result = await repository.updateMapping(
+                fromObjectId(mappingId),
+                {
+                    mapping: newMapping,
+                }
+            );
 
             expect(mockEncryptionService.decryptFields).toHaveBeenCalledWith(
                 'IntegrationMapping',
@@ -629,7 +641,9 @@ describe('IntegrationMappingRepositoryDocumentDB - Encryption Integration', () =
                 updatedAt,
             });
 
-            const result = await repository.findMappingById(fromObjectId(mappingId));
+            const result = await repository.findMappingById(
+                fromObjectId(mappingId)
+            );
 
             expect(result).toEqual({
                 id: fromObjectId(mappingId),
@@ -669,7 +683,9 @@ describe('IntegrationMappingRepositoryDocumentDB - Encryption Integration', () =
                 updatedAt: new Date(),
             });
 
-            const result = await repository.findMappingById(fromObjectId(mappingId));
+            const result = await repository.findMappingById(
+                fromObjectId(mappingId)
+            );
 
             expect(result.sourceId).toBeNull();
         });
@@ -691,16 +707,21 @@ describe('IntegrationMappingRepositoryDocumentDB - Real Encryption Integration',
         // Unmock encryption service for real tests
         jest.unmock('../../../database/documentdb-encryption-service');
         const { Cryptor } = require('../../../encrypt/Cryptor');
-        const { DocumentDBEncryptionService } = jest.requireActual('../../../database/documentdb-encryption-service');
+        const { DocumentDBEncryptionService } = jest.requireActual(
+            '../../../database/documentdb-encryption-service'
+        );
 
         // Setup real encryption with test keys
         process.env.AES_KEY_ID = 'test-key-id-for-unit-tests';
         process.env.AES_KEY = '12345678901234567890123456789012'; // 32 bytes
 
         realCryptor = new Cryptor({ shouldUseAws: false });
-        realEncryptionService = new DocumentDBEncryptionService({ cryptor: realCryptor });
+        realEncryptionService = new DocumentDBEncryptionService({
+            cryptor: realCryptor,
+        });
 
-        repositoryWithRealEncryption = new IntegrationMappingRepositoryDocumentDB();
+        repositoryWithRealEncryption =
+            new IntegrationMappingRepositoryDocumentDB();
         repositoryWithRealEncryption.encryptionService = realEncryptionService;
         repositoryWithRealEncryption.prisma = prisma;
 
@@ -715,11 +736,17 @@ describe('IntegrationMappingRepositoryDocumentDB - Real Encryption Integration',
     });
 
     it('encrypts mapping with real AES encryption', async () => {
-        const plainMapping = { apiKey: 'sk_live_secret_key', secret: 'sensitive-data' };
+        const plainMapping = {
+            apiKey: 'sk_live_secret_key',
+            secret: 'sensitive-data',
+        };
 
-        const encrypted = await realEncryptionService.encryptFields('IntegrationMapping', {
-            mapping: plainMapping,
-        });
+        const encrypted = await realEncryptionService.encryptFields(
+            'IntegrationMapping',
+            {
+                mapping: plainMapping,
+            }
+        );
 
         // Verify encrypted format
         expect(encrypted.mapping).not.toBe(JSON.stringify(plainMapping));
@@ -730,13 +757,19 @@ describe('IntegrationMappingRepositoryDocumentDB - Real Encryption Integration',
     it('decrypts mapping with real AES decryption', async () => {
         const plainMapping = { secret: 'test-secret-12345' };
 
-        const encrypted = await realEncryptionService.encryptFields('IntegrationMapping', {
-            mapping: plainMapping,
-        });
+        const encrypted = await realEncryptionService.encryptFields(
+            'IntegrationMapping',
+            {
+                mapping: plainMapping,
+            }
+        );
 
-        const decrypted = await realEncryptionService.decryptFields('IntegrationMapping', {
-            mapping: encrypted.mapping,
-        });
+        const decrypted = await realEncryptionService.decryptFields(
+            'IntegrationMapping',
+            {
+                mapping: encrypted.mapping,
+            }
+        );
 
         expect(decrypted.mapping).toEqual(plainMapping);
     });
@@ -744,24 +777,36 @@ describe('IntegrationMappingRepositoryDocumentDB - Real Encryption Integration',
     it('uses different IV for each encryption (proves randomness)', async () => {
         const plainMapping = { same: 'mapping-data' };
 
-        const encrypted1 = await realEncryptionService.encryptFields('IntegrationMapping', {
-            mapping: plainMapping,
-        });
+        const encrypted1 = await realEncryptionService.encryptFields(
+            'IntegrationMapping',
+            {
+                mapping: plainMapping,
+            }
+        );
 
-        const encrypted2 = await realEncryptionService.encryptFields('IntegrationMapping', {
-            mapping: plainMapping,
-        });
+        const encrypted2 = await realEncryptionService.encryptFields(
+            'IntegrationMapping',
+            {
+                mapping: plainMapping,
+            }
+        );
 
         // Same plaintext produces different ciphertext (due to random IV)
         expect(encrypted1.mapping).not.toBe(encrypted2.mapping);
 
         // Both decrypt to same plaintext
-        const decrypted1 = await realEncryptionService.decryptFields('IntegrationMapping', {
-            mapping: encrypted1.mapping,
-        });
-        const decrypted2 = await realEncryptionService.decryptFields('IntegrationMapping', {
-            mapping: encrypted2.mapping,
-        });
+        const decrypted1 = await realEncryptionService.decryptFields(
+            'IntegrationMapping',
+            {
+                mapping: encrypted1.mapping,
+            }
+        );
+        const decrypted2 = await realEncryptionService.decryptFields(
+            'IntegrationMapping',
+            {
+                mapping: encrypted2.mapping,
+            }
+        );
 
         expect(decrypted1.mapping).toEqual(plainMapping);
         expect(decrypted2.mapping).toEqual(plainMapping);
@@ -779,25 +824,32 @@ describe('IntegrationMappingRepositoryDocumentDB - Real Encryption Integration',
         };
 
         // Encrypt
-        const encrypted = await realEncryptionService.encryptFields('IntegrationMapping', {
-            mapping: originalMapping,
-        });
+        const encrypted = await realEncryptionService.encryptFields(
+            'IntegrationMapping',
+            {
+                mapping: originalMapping,
+            }
+        );
 
         // Verify it's encrypted
         expect(encrypted.mapping).not.toEqual(originalMapping);
         expect(typeof encrypted.mapping).toBe('string');
 
         // Decrypt
-        const decrypted = await realEncryptionService.decryptFields('IntegrationMapping', {
-            mapping: encrypted.mapping,
-        });
+        const decrypted = await realEncryptionService.decryptFields(
+            'IntegrationMapping',
+            {
+                mapping: encrypted.mapping,
+            }
+        );
 
         // Verify round-trip success
         expect(decrypted.mapping).toEqual(originalMapping);
     });
 
     it('throws error when trying to decrypt corrupted ciphertext', async () => {
-        const corruptedCiphertext = 'keyId:invalid-iv:corrupted-cipher:bad-encKey';
+        const corruptedCiphertext =
+            'keyId:invalid-iv:corrupted-cipher:bad-encKey';
 
         await expect(
             realEncryptionService.decryptFields('IntegrationMapping', {
@@ -818,16 +870,22 @@ describe('IntegrationMappingRepositoryDocumentDB - Real Encryption Integration',
             array: [1, 2, 3, { nested: 'value' }],
         };
 
-        const encrypted = await realEncryptionService.encryptFields('IntegrationMapping', {
-            mapping: complexMapping,
-        });
+        const encrypted = await realEncryptionService.encryptFields(
+            'IntegrationMapping',
+            {
+                mapping: complexMapping,
+            }
+        );
 
         expect(typeof encrypted.mapping).toBe('string');
         expect(encrypted.mapping).not.toEqual(complexMapping);
 
-        const decrypted = await realEncryptionService.decryptFields('IntegrationMapping', {
-            mapping: encrypted.mapping,
-        });
+        const decrypted = await realEncryptionService.decryptFields(
+            'IntegrationMapping',
+            {
+                mapping: encrypted.mapping,
+            }
+        );
 
         expect(decrypted.mapping).toEqual(complexMapping);
     });
@@ -835,13 +893,19 @@ describe('IntegrationMappingRepositoryDocumentDB - Real Encryption Integration',
     it('encrypts empty mapping object', async () => {
         const emptyMapping = {};
 
-        const encrypted = await realEncryptionService.encryptFields('IntegrationMapping', {
-            mapping: emptyMapping,
-        });
+        const encrypted = await realEncryptionService.encryptFields(
+            'IntegrationMapping',
+            {
+                mapping: emptyMapping,
+            }
+        );
 
-        const decrypted = await realEncryptionService.decryptFields('IntegrationMapping', {
-            mapping: encrypted.mapping,
-        });
+        const decrypted = await realEncryptionService.decryptFields(
+            'IntegrationMapping',
+            {
+                mapping: encrypted.mapping,
+            }
+        );
 
         expect(decrypted.mapping).toEqual(emptyMapping);
     });
@@ -857,13 +921,19 @@ describe('IntegrationMappingRepositoryDocumentDB - Real Encryption Integration',
             })),
         };
 
-        const encrypted = await realEncryptionService.encryptFields('IntegrationMapping', {
-            mapping: largeMapping,
-        });
+        const encrypted = await realEncryptionService.encryptFields(
+            'IntegrationMapping',
+            {
+                mapping: largeMapping,
+            }
+        );
 
-        const decrypted = await realEncryptionService.decryptFields('IntegrationMapping', {
-            mapping: encrypted.mapping,
-        });
+        const decrypted = await realEncryptionService.decryptFields(
+            'IntegrationMapping',
+            {
+                mapping: encrypted.mapping,
+            }
+        );
 
         expect(decrypted.mapping).toEqual(largeMapping);
     });
@@ -875,13 +945,19 @@ describe('IntegrationMappingRepositoryDocumentDB - Real Encryption Integration',
             quotes: "It's a 'test' with \"quotes\"",
         };
 
-        const encrypted = await realEncryptionService.encryptFields('IntegrationMapping', {
-            mapping: specialCharMapping,
-        });
+        const encrypted = await realEncryptionService.encryptFields(
+            'IntegrationMapping',
+            {
+                mapping: specialCharMapping,
+            }
+        );
 
-        const decrypted = await realEncryptionService.decryptFields('IntegrationMapping', {
-            mapping: encrypted.mapping,
-        });
+        const decrypted = await realEncryptionService.decryptFields(
+            'IntegrationMapping',
+            {
+                mapping: encrypted.mapping,
+            }
+        );
 
         expect(decrypted.mapping).toEqual(specialCharMapping);
     });
@@ -903,7 +979,9 @@ describe('IntegrationMappingRepositoryDocumentDB - Defensive Checks', () => {
             decryptFields: jest.fn(),
         };
 
-        DocumentDBEncryptionService.mockImplementation(() => mockEncryptionService);
+        DocumentDBEncryptionService.mockImplementation(
+            () => mockEncryptionService
+        );
 
         repository = new IntegrationMappingRepositoryDocumentDB();
 
@@ -916,7 +994,9 @@ describe('IntegrationMappingRepositoryDocumentDB - Defensive Checks', () => {
     });
 
     it('throws when mapping not found after insert', async () => {
-        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+        const consoleErrorSpy = jest
+            .spyOn(console, 'error')
+            .mockImplementation();
 
         const insertedId = new ObjectId();
 
@@ -939,12 +1019,12 @@ describe('IntegrationMappingRepositoryDocumentDB - Defensive Checks', () => {
         });
 
         await expect(
-            repository.upsertMapping(
-                testIntegrationId,
-                testSourceId,
-                { data: 'value' }
-            )
-        ).rejects.toThrow(/Failed to create mapping: Document not found after insert/);
+            repository.upsertMapping(testIntegrationId, testSourceId, {
+                data: 'value',
+            })
+        ).rejects.toThrow(
+            /Failed to create mapping: Document not found after insert/
+        );
 
         expect(consoleErrorSpy).toHaveBeenCalledWith(
             '[IntegrationMappingRepositoryDocumentDB] Mapping not found after insert',
@@ -959,7 +1039,9 @@ describe('IntegrationMappingRepositoryDocumentDB - Defensive Checks', () => {
     });
 
     it('throws when mapping not found after update (upsertMapping)', async () => {
-        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+        const consoleErrorSpy = jest
+            .spyOn(console, 'error')
+            .mockImplementation();
 
         const existing = {
             _id: new ObjectId(),
@@ -1003,12 +1085,12 @@ describe('IntegrationMappingRepositoryDocumentDB - Defensive Checks', () => {
         });
 
         await expect(
-            repository.upsertMapping(
-                testIntegrationId,
-                testSourceId,
-                { new: 'data' }
-            )
-        ).rejects.toThrow(/Failed to update mapping: Document not found after update/);
+            repository.upsertMapping(testIntegrationId, testSourceId, {
+                new: 'data',
+            })
+        ).rejects.toThrow(
+            /Failed to update mapping: Document not found after update/
+        );
 
         expect(consoleErrorSpy).toHaveBeenCalledWith(
             '[IntegrationMappingRepositoryDocumentDB] Mapping not found after update',
@@ -1023,7 +1105,9 @@ describe('IntegrationMappingRepositoryDocumentDB - Defensive Checks', () => {
     });
 
     it('throws when mapping not found after update (updateMapping)', async () => {
-        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+        const consoleErrorSpy = jest
+            .spyOn(console, 'error')
+            .mockImplementation();
 
         const mappingId = new ObjectId();
         const existing = {
@@ -1068,8 +1152,12 @@ describe('IntegrationMappingRepositoryDocumentDB - Defensive Checks', () => {
         });
 
         await expect(
-            repository.updateMapping(fromObjectId(mappingId), { mapping: { new: 'data' } })
-        ).rejects.toThrow(/Failed to update mapping: Document not found after update/);
+            repository.updateMapping(fromObjectId(mappingId), {
+                mapping: { new: 'data' },
+            })
+        ).rejects.toThrow(
+            /Failed to update mapping: Document not found after update/
+        );
 
         expect(consoleErrorSpy).toHaveBeenCalledWith(
             '[IntegrationMappingRepositoryDocumentDB] Mapping not found after update',

@@ -28,6 +28,8 @@ export function createFriggAppRoutes(friggAppController) {
     updateGlobalEntity: friggAppController.updateGlobalEntity.bind(friggAppController),
     deleteGlobalEntity: friggAppController.deleteGlobalEntity.bind(friggAppController),
     testGlobalEntity: friggAppController.testGlobalEntity.bind(friggAppController),
+    getAvailableModules: friggAppController.getAvailableModules.bind(friggAppController),
+    getAuthRequirements: friggAppController.getAuthRequirements.bind(friggAppController),
     proxySharedSecret: friggAppController.proxySharedSecret.bind(friggAppController)
   }
 
@@ -252,6 +254,31 @@ export function createFriggAppRoutes(friggAppController) {
   router.post('/admin/global-entities/:entityId/test', async (req, res, next) => {
     try {
       await controller.testGlobalEntity(req, res)
+    } catch (error) {
+      next(error)
+    }
+  })
+
+  /**
+   * GET /api/frigg-app/admin/available-modules
+   * Get list of available API modules/integrations
+   */
+  router.get('/admin/available-modules', async (req, res, next) => {
+    try {
+      await controller.getAvailableModules(req, res)
+    } catch (error) {
+      next(error)
+    }
+  })
+
+  /**
+   * GET /api/frigg-app/admin/auth-requirements
+   * Get authorization requirements for a module
+   * Query: { entityType: string, isGlobal?: boolean }
+   */
+  router.get('/admin/auth-requirements', async (req, res, next) => {
+    try {
+      await controller.getAuthRequirements(req, res)
     } catch (error) {
       next(error)
     }

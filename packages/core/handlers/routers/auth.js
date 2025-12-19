@@ -7,23 +7,29 @@ const router = createIntegrationRouter();
 
 router.route('/api/integrations/redirect/:appId').get((req, res) => {
     res.redirect(
-        `${process.env.FRONTEND_URI}/redirect/${req.params.appId
+        `${process.env.FRONTEND_URI}/redirect/${
+            req.params.appId
         }?${new URLSearchParams(req.query)}`
     );
 });
 
 // Integration settings endpoint
-router.route('/config/integration-settings').get(requireLoggedInUser, (req, res) => {
-    const appDefinition = loadAppDefinition();
+router
+    .route('/config/integration-settings')
+    .get(requireLoggedInUser, (req, res) => {
+        const appDefinition = loadAppDefinition();
 
-    const settings = {
-        autoProvisioningEnabled: appDefinition.integration?.autoProvisioningEnabled ?? true,
-        credentialReuseStrategy: appDefinition.integration?.credentialReuseStrategy ?? 'shared',
-        allowUserManagedEntities: appDefinition.integration?.allowUserManagedEntities ?? true
-    };
+        const settings = {
+            autoProvisioningEnabled:
+                appDefinition.integration?.autoProvisioningEnabled ?? true,
+            credentialReuseStrategy:
+                appDefinition.integration?.credentialReuseStrategy ?? 'shared',
+            allowUserManagedEntities:
+                appDefinition.integration?.allowUserManagedEntities ?? true,
+        };
 
-    res.json(settings);
-});
+        res.json(settings);
+    });
 
 const handler = createAppHandler('HTTP Event: Auth', router);
 

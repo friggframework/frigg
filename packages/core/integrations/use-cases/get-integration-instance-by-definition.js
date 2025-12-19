@@ -14,7 +14,6 @@ class GetIntegrationInstanceByDefinition {
      * @param {import('../../modules/module-repository-interface').ModuleRepositoryInterface} params.moduleRepository - Repository for module and entity data operations.
      */
     constructor({ integrationRepository, moduleFactory, moduleRepository }) {
-
         /**
          * @type {import('../integration-repository-interface').IntegrationRepositoryInterface}
          */
@@ -30,13 +29,20 @@ class GetIntegrationInstanceByDefinition {
      * @throws {Boom.notFound} When integration with the specified definition does not exist.
      */
     async execute(integrationClass) {
-        const integrationRecord = await this.integrationRepository.findIntegrationByName(integrationClass.Definition.name);
+        const integrationRecord =
+            await this.integrationRepository.findIntegrationByName(
+                integrationClass.Definition.name
+            );
 
         if (!integrationRecord) {
-            throw Boom.notFound(`Integration with name of ${integrationClass.Definition.name} does not exist`);
+            throw Boom.notFound(
+                `Integration with name of ${integrationClass.Definition.name} does not exist`
+            );
         }
 
-        const entities = await this.moduleRepository.findEntitiesByIds(integrationRecord.entitiesIds);
+        const entities = await this.moduleRepository.findEntitiesByIds(
+            integrationRecord.entitiesIds
+        );
 
         const modules = [];
         for (const entity of entities) {
@@ -55,13 +61,13 @@ class GetIntegrationInstanceByDefinition {
             status: integrationRecord.status,
             version: integrationRecord.version,
             messages: integrationRecord.messages,
-            modules
+            modules,
         });
 
         await integrationInstance.initialize();
 
-        return integrationInstance
+        return integrationInstance;
     }
 }
 
-module.exports = { GetIntegrationInstanceByDefinition }; 
+module.exports = { GetIntegrationInstanceByDefinition };

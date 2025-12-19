@@ -5,10 +5,18 @@ jest.mock('../../../database/config', () => ({
     PRISMA_QUERY_LOGGING: false,
 }));
 
-const { GetIntegrationsForUser } = require('../../use-cases/get-integrations-for-user');
-const { TestIntegrationRepository } = require('../doubles/test-integration-repository');
-const { TestModuleFactory } = require('../../../modules/tests/doubles/test-module-factory');
-const { TestModuleRepository } = require('../../../modules/tests/doubles/test-module-repository');
+const {
+    GetIntegrationsForUser,
+} = require('../../use-cases/get-integrations-for-user');
+const {
+    TestIntegrationRepository,
+} = require('../doubles/test-integration-repository');
+const {
+    TestModuleFactory,
+} = require('../../../modules/tests/doubles/test-module-factory');
+const {
+    TestModuleRepository,
+} = require('../../../modules/tests/doubles/test-module-repository');
 const { DummyIntegration } = require('../doubles/dummy-integration-class');
 
 describe('GetIntegrationsForUser Use-Case', () => {
@@ -34,7 +42,11 @@ describe('GetIntegrationsForUser Use-Case', () => {
             const entity = { id: 'entity-1' };
             moduleRepository.addEntity(entity);
 
-            await integrationRepository.createIntegration([entity.id], 'user-1', { type: 'dummy' });
+            await integrationRepository.createIntegration(
+                [entity.id],
+                'user-1',
+                { type: 'dummy' }
+            );
 
             const list = await useCase.execute('user-1');
             expect(list.length).toBe(1);
@@ -48,8 +60,16 @@ describe('GetIntegrationsForUser Use-Case', () => {
             moduleRepository.addEntity(entity1);
             moduleRepository.addEntity(entity2);
 
-            await integrationRepository.createIntegration([entity1.id], 'user-1', { type: 'dummy', name: 'first' });
-            await integrationRepository.createIntegration([entity2.id], 'user-1', { type: 'dummy', name: 'second' });
+            await integrationRepository.createIntegration(
+                [entity1.id],
+                'user-1',
+                { type: 'dummy', name: 'first' }
+            );
+            await integrationRepository.createIntegration(
+                [entity2.id],
+                'user-1',
+                { type: 'dummy', name: 'second' }
+            );
 
             const list = await useCase.execute('user-1');
             expect(list.length).toBe(2);
@@ -63,8 +83,16 @@ describe('GetIntegrationsForUser Use-Case', () => {
             moduleRepository.addEntity(entity1);
             moduleRepository.addEntity(entity2);
 
-            await integrationRepository.createIntegration([entity1.id], 'user-1', { type: 'dummy', owner: 'user1' });
-            await integrationRepository.createIntegration([entity2.id], 'user-2', { type: 'dummy', owner: 'user2' });
+            await integrationRepository.createIntegration(
+                [entity1.id],
+                'user-1',
+                { type: 'dummy', owner: 'user1' }
+            );
+            await integrationRepository.createIntegration(
+                [entity2.id],
+                'user-2',
+                { type: 'dummy', owner: 'user2' }
+            );
 
             const user1List = await useCase.execute('user-1');
             const user2List = await useCase.execute('user-2');
@@ -79,7 +107,11 @@ describe('GetIntegrationsForUser Use-Case', () => {
             const entity = { id: 'entity-1' };
             moduleRepository.addEntity(entity);
 
-            await integrationRepository.createIntegration([entity.id], 'user-1', { type: 'dummy' });
+            await integrationRepository.createIntegration(
+                [entity.id],
+                'user-1',
+                { type: 'dummy' }
+            );
 
             const list = await useCase.execute('user-2');
             expect(list).toEqual([]);
@@ -88,17 +120,23 @@ describe('GetIntegrationsForUser Use-Case', () => {
         it('tracks repository operations', async () => {
             const entity = { id: 'entity-1' };
             moduleRepository.addEntity(entity);
-            await integrationRepository.createIntegration([entity.id], 'user-1', { type: 'dummy' });
+            await integrationRepository.createIntegration(
+                [entity.id],
+                'user-1',
+                { type: 'dummy' }
+            );
             integrationRepository.clearHistory();
 
             await useCase.execute('user-1');
 
             const history = integrationRepository.getOperationHistory();
-            const findOperation = history.find(op => op.operation === 'findByUserId');
+            const findOperation = history.find(
+                (op) => op.operation === 'findByUserId'
+            );
             expect(findOperation).toEqual({
                 operation: 'findByUserId',
                 userId: 'user-1',
-                count: 1
+                count: 1,
             });
         });
     });
@@ -114,19 +152,25 @@ describe('GetIntegrationsForUser Use-Case', () => {
 
             const entity = { id: 'entity-1' };
             moduleRepository.addEntity(entity);
-            await integrationRepository.createIntegration([entity.id], 'user-1', { type: 'dummy' });
+            await integrationRepository.createIntegration(
+                [entity.id],
+                'user-1',
+                { type: 'dummy' }
+            );
 
-            await expect(useCaseWithoutClasses.execute('user-1'))
-                .rejects
-                .toThrow();
+            await expect(
+                useCaseWithoutClasses.execute('user-1')
+            ).rejects.toThrow();
         });
 
         it('handles missing entities gracefully', async () => {
-            await integrationRepository.createIntegration(['missing-entity'], 'user-1', { type: 'dummy' });
+            await integrationRepository.createIntegration(
+                ['missing-entity'],
+                'user-1',
+                { type: 'dummy' }
+            );
 
-            await expect(useCase.execute('user-1'))
-                .rejects
-                .toThrow();
+            await expect(useCase.execute('user-1')).rejects.toThrow();
         });
     });
 
@@ -149,11 +193,15 @@ describe('GetIntegrationsForUser Use-Case', () => {
                     nested: { deep: 'value' },
                     array: [1, 2, 3],
                     boolean: true,
-                    nullValue: null
-                }
+                    nullValue: null,
+                },
             };
 
-            await integrationRepository.createIntegration([entity.id], 'user-1', complexConfig);
+            await integrationRepository.createIntegration(
+                [entity.id],
+                'user-1',
+                complexConfig
+            );
 
             const list = await useCase.execute('user-1');
             expect(list[0].config).toEqual(complexConfig);
@@ -167,10 +215,14 @@ describe('GetIntegrationsForUser Use-Case', () => {
             moduleRepository.addEntity(entity2);
             moduleRepository.addEntity(entity3);
 
-            await integrationRepository.createIntegration([entity1.id, entity2.id, entity3.id], 'user-1', { type: 'dummy' });
+            await integrationRepository.createIntegration(
+                [entity1.id, entity2.id, entity3.id],
+                'user-1',
+                { type: 'dummy' }
+            );
 
             const list = await useCase.execute('user-1');
             expect(list[0].entities).toEqual([entity1, entity2, entity3]);
         });
     });
-}); 
+});

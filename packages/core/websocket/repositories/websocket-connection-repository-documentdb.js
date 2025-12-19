@@ -29,13 +29,21 @@ class WebsocketConnectionRepositoryDocumentDB extends WebsocketConnectionReposit
             createdAt: now,
             updatedAt: now,
         };
-        const insertedId = await insertOne(this.prisma, 'WebsocketConnection', document);
-        const created = await findOne(this.prisma, 'WebsocketConnection', { _id: insertedId });
+        const insertedId = await insertOne(
+            this.prisma,
+            'WebsocketConnection',
+            document
+        );
+        const created = await findOne(this.prisma, 'WebsocketConnection', {
+            _id: insertedId,
+        });
         return this._mapConnection(created);
     }
 
     async deleteConnection(connectionId) {
-        const result = await deleteOne(this.prisma, 'WebsocketConnection', { connectionId });
+        const result = await deleteOne(this.prisma, 'WebsocketConnection', {
+            connectionId,
+        });
         const deleted = result?.n ?? 0;
         return { acknowledged: true, deletedCount: deleted };
     }
@@ -66,7 +74,10 @@ class WebsocketConnectionRepositoryDocumentDB extends WebsocketConnectionReposit
                     });
                     await apigwManagementApi.send(command);
                 } catch (error) {
-                    if (error.statusCode === 410 || error.$metadata?.httpStatusCode === 410) {
+                    if (
+                        error.statusCode === 410 ||
+                        error.$metadata?.httpStatusCode === 410
+                    ) {
                         console.log(`Stale connection ${conn.connectionId}`);
                         await deleteMany(this.prisma, 'WebsocketConnection', {
                             connectionId: conn.connectionId,
@@ -80,14 +91,18 @@ class WebsocketConnectionRepositoryDocumentDB extends WebsocketConnectionReposit
     }
 
     async findConnection(connectionId) {
-        const doc = await findOne(this.prisma, 'WebsocketConnection', { connectionId });
+        const doc = await findOne(this.prisma, 'WebsocketConnection', {
+            connectionId,
+        });
         return doc ? this._mapConnection(doc) : null;
     }
 
     async findConnectionById(id) {
         const objectId = toObjectId(id);
         if (!objectId) return null;
-        const doc = await findOne(this.prisma, 'WebsocketConnection', { _id: objectId });
+        const doc = await findOne(this.prisma, 'WebsocketConnection', {
+            _id: objectId,
+        });
         return doc ? this._mapConnection(doc) : null;
     }
 
@@ -115,5 +130,3 @@ class WebsocketConnectionRepositoryDocumentDB extends WebsocketConnectionReposit
 }
 
 module.exports = { WebsocketConnectionRepositoryDocumentDB };
-
-

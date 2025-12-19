@@ -5,36 +5,45 @@ describe('Options', () => {
     // Mock module with required definition.getName()
     const mockModule = {
         definition: {
-            getName: () => 'test-module'
-        }
+            getName: () => 'test-module',
+        },
     };
 
     describe('required fields', () => {
         it('throws RequiredPropertyError when display is missing', () => {
-            expect(() => new Options({
-                module: mockModule,
-                modules: { test: mockModule }
-            })).toThrow(RequiredPropertyError);
+            expect(
+                () =>
+                    new Options({
+                        module: mockModule,
+                        modules: { test: mockModule },
+                    })
+            ).toThrow(RequiredPropertyError);
         });
 
         it('throws RequiredPropertyError when display.label is missing', () => {
-            expect(() => new Options({
-                module: mockModule,
-                modules: { test: mockModule },
-                display: {
-                    description: 'Test description'
-                }
-            })).toThrow(RequiredPropertyError);
+            expect(
+                () =>
+                    new Options({
+                        module: mockModule,
+                        modules: { test: mockModule },
+                        display: {
+                            description: 'Test description',
+                        },
+                    })
+            ).toThrow(RequiredPropertyError);
         });
 
         it('throws RequiredPropertyError when display.description is missing', () => {
-            expect(() => new Options({
-                module: mockModule,
-                modules: { test: mockModule },
-                display: {
-                    label: 'Test Label'
-                }
-            })).toThrow(RequiredPropertyError);
+            expect(
+                () =>
+                    new Options({
+                        module: mockModule,
+                        modules: { test: mockModule },
+                        display: {
+                            label: 'Test Label',
+                        },
+                    })
+            ).toThrow(RequiredPropertyError);
         });
     });
 
@@ -45,8 +54,8 @@ describe('Options', () => {
                 modules: { test: mockModule },
                 display: {
                     label: 'Test Label',
-                    description: 'Test description'
-                }
+                    description: 'Test description',
+                },
             });
 
             expect(options.display.detailsUrl).toBeNull();
@@ -58,8 +67,8 @@ describe('Options', () => {
                 modules: { test: mockModule },
                 display: {
                     label: 'Test Label',
-                    description: 'Test description'
-                }
+                    description: 'Test description',
+                },
             });
 
             expect(options.display.icon).toBeNull();
@@ -72,8 +81,8 @@ describe('Options', () => {
                 display: {
                     label: 'Test Label',
                     description: 'Test description',
-                    detailsUrl: 'https://example.com'
-                }
+                    detailsUrl: 'https://example.com',
+                },
             });
 
             expect(options.display.detailsUrl).toBe('https://example.com');
@@ -86,8 +95,8 @@ describe('Options', () => {
                 display: {
                     label: 'Test Label',
                     description: 'Test description',
-                    icon: 'test-icon.svg'
-                }
+                    icon: 'test-icon.svg',
+                },
             });
 
             expect(options.display.icon).toBe('test-icon.svg');
@@ -101,12 +110,14 @@ describe('Options', () => {
                 modules: { test: mockModule },
                 display: {
                     label: 'Test Integration',
-                    description: 'A minimal test integration'
-                }
+                    description: 'A minimal test integration',
+                },
             });
 
             expect(options.display.name).toBe('Test Integration');
-            expect(options.display.description).toBe('A minimal test integration');
+            expect(options.display.description).toBe(
+                'A minimal test integration'
+            );
             expect(options.display.detailsUrl).toBeNull();
             expect(options.display.icon).toBeNull();
         });
@@ -117,8 +128,8 @@ describe('Options', () => {
                 modules: { test: mockModule },
                 display: {
                     label: 'Test Integration',
-                    description: 'A minimal test integration'
-                }
+                    description: 'A minimal test integration',
+                },
             });
 
             const result = options.get();
@@ -130,7 +141,7 @@ describe('Options', () => {
                 name: 'Test Integration',
                 description: 'A minimal test integration',
                 detailsUrl: null,
-                icon: null
+                icon: null,
             });
         });
     });
@@ -145,8 +156,8 @@ describe('Options', () => {
                     label: 'Full Integration',
                     description: 'An integration with all display fields',
                     detailsUrl: 'https://docs.example.com/integration',
-                    icon: 'https://cdn.example.com/icon.png'
-                }
+                    icon: 'https://cdn.example.com/icon.png',
+                },
             });
 
             const result = options.get();
@@ -158,7 +169,7 @@ describe('Options', () => {
                 name: 'Full Integration',
                 description: 'An integration with all display fields',
                 detailsUrl: 'https://docs.example.com/integration',
-                icon: 'https://cdn.example.com/icon.png'
+                icon: 'https://cdn.example.com/icon.png',
             });
         });
     });
@@ -170,8 +181,8 @@ describe('Options', () => {
                 modules: { test: mockModule },
                 display: {
                     label: 'My Label',
-                    description: 'Test'
-                }
+                    description: 'Test',
+                },
             });
 
             // Input uses 'label', output uses 'name'
@@ -186,8 +197,8 @@ describe('Options', () => {
                 modules: { test: mockModule },
                 display: {
                     label: 'Test',
-                    description: 'Test'
-                }
+                    description: 'Test',
+                },
             });
 
             const result = options.get();
@@ -197,9 +208,9 @@ describe('Options', () => {
         it('falls back to moduleName property when getName() is not available', () => {
             const moduleWithModuleName = {
                 definition: {
-                    moduleName: 'xero'
+                    moduleName: 'xero',
                     // No getName() method
-                }
+                },
             };
 
             const options = new Options({
@@ -207,8 +218,8 @@ describe('Options', () => {
                 modules: { xero: moduleWithModuleName },
                 display: {
                     label: 'Xero',
-                    description: 'Accounting software'
-                }
+                    description: 'Accounting software',
+                },
             });
 
             const result = options.get();
@@ -218,8 +229,8 @@ describe('Options', () => {
         it('falls back to name property when neither getName() nor moduleName exist', () => {
             const moduleWithName = {
                 definition: {
-                    name: 'legacy-module'
-                }
+                    name: 'legacy-module',
+                },
             };
 
             const options = new Options({
@@ -227,8 +238,8 @@ describe('Options', () => {
                 modules: { legacy: moduleWithName },
                 display: {
                     label: 'Legacy',
-                    description: 'Legacy module'
-                }
+                    description: 'Legacy module',
+                },
             });
 
             const result = options.get();
@@ -237,7 +248,7 @@ describe('Options', () => {
 
         it('returns "unknown" when no module type can be determined', () => {
             const moduleWithoutType = {
-                definition: {}
+                definition: {},
             };
 
             const options = new Options({
@@ -245,8 +256,8 @@ describe('Options', () => {
                 modules: { empty: moduleWithoutType },
                 display: {
                     label: 'Empty',
-                    description: 'Empty module'
-                }
+                    description: 'Empty module',
+                },
             });
 
             const result = options.get();
@@ -255,7 +266,7 @@ describe('Options', () => {
 
         it('handles null/undefined module definition gracefully', () => {
             const moduleWithNullDef = {
-                definition: null
+                definition: null,
             };
 
             const options = new Options({
@@ -263,8 +274,8 @@ describe('Options', () => {
                 modules: { empty: moduleWithNullDef },
                 display: {
                     label: 'Null Def',
-                    description: 'Null definition'
-                }
+                    description: 'Null definition',
+                },
             });
 
             const result = options.get();

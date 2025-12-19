@@ -1,7 +1,7 @@
 const fs = require('fs-extra');
 const path = require('path');
 const chalk = require('chalk');
-const { select, confirm, multiselect } = require('@inquirer/prompts');
+const { select, confirm, checkbox } = require('@inquirer/prompts');
 const { execSync } = require('child_process');
 const spawn = require('cross-spawn');
 const npmRegistry = require('../utils/npm-registry');
@@ -178,7 +178,7 @@ class BackendFirstHandler {
                     }
                 });
 
-                config.starterIntegrations = await multiselect({
+                config.starterIntegrations = await checkbox({
                     message: 'Select API modules to integrate (space to select, enter to confirm):',
                     choices,
                     instructions: '\n  Press <space> to select, <a> to toggle all, <enter> to confirm\n',
@@ -651,7 +651,7 @@ To integrate Frigg into your production application:
      * Select from default integrations when npm is unavailable
      */
     async selectDefaultIntegrations() {
-        return await multiselect({
+        return await checkbox({
             message: 'Select starter integrations (space to select, enter to confirm):',
             choices: [
                 { name: 'Salesforce - CRM integration', value: 'salesforce' },
@@ -830,7 +830,7 @@ To integrate Frigg into your production application:
         console.log(chalk.gray('   ui-extensions/   - Platform-specific UI extensions'));
 
         console.log(chalk.green('\n🎉 Happy integrating with Frigg!\n'));
-        console.log(chalk.gray('Documentation: https://docs.frigg.dev'));
+        console.log(chalk.gray('Documentation: https://docs.friggframework.org'));
         console.log(chalk.gray('Support: https://github.com/friggframework/frigg/issues'));
     }
 }

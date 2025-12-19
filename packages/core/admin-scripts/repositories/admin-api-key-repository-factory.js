@@ -1,5 +1,9 @@
-const { AdminApiKeyRepositoryMongo } = require('./admin-api-key-repository-mongo');
-const { AdminApiKeyRepositoryPostgres } = require('./admin-api-key-repository-postgres');
+const {
+    AdminApiKeyRepositoryMongo,
+} = require('./admin-api-key-repository-mongo');
+const {
+    AdminApiKeyRepositoryPostgres,
+} = require('./admin-api-key-repository-postgres');
 const {
     AdminApiKeyRepositoryDocumentDB,
 } = require('./admin-api-key-repository-documentdb');

@@ -3,7 +3,7 @@ import { useFrigg } from '../../hooks/useFrigg'
 import { useSocket } from '../../hooks/useSocket'
 import { useFriggAppConnection } from '../../hooks/useFriggAppConnection'
 import TestAreaWelcome from './TestAreaWelcome'
-import TestAreaUserSelection from './TestAreaUserSelection'
+import UserSelection from '../shared/UserSelection'
 import TestAreaContainer from './TestAreaContainer'
 import AdminViewContainer from '../admin/AdminViewContainer'
 import LiveLogPanel from '../common/LiveLogPanel'
@@ -61,6 +61,7 @@ const TestingZone = ({ className }) => {
   const {
     isConnected: isFriggAppConnected,
     isConnecting: isFriggAppConnecting,
+    userManagementMode,
     tryAutoConnect
   } = useFriggAppConnection({ autoConnect: false })
 
@@ -699,13 +700,8 @@ const TestingZone = ({ className }) => {
       case 'user_selection':
         return (
           <div className="h-full flex flex-col">
-            {/* Header with back button */}
             <div className="flex items-center gap-4 px-6 py-4 border-b border-border bg-muted/30">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleBackToViewSelection}
-              >
+              <Button variant="ghost" size="sm" onClick={handleBackToViewSelection}>
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to View Selection
               </Button>
@@ -716,10 +712,12 @@ const TestingZone = ({ className }) => {
                 </Badge>
               </div>
             </div>
-            <div className="flex-1 overflow-auto">
-              <TestAreaUserSelection
+            <div className="flex-1 overflow-auto p-6">
+              <UserSelection
                 isConnected={isFriggAppConnected}
-                onUserSelected={handleUserSelected}
+                onUserSelect={handleUserSelected}
+                userManagementMode={userManagementMode}
+                repositoryPath={currentRepository?.path}
               />
             </div>
           </div>

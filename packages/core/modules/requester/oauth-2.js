@@ -3,7 +3,6 @@ const { get } = require('../../assertions');
 const { ModuleConstants } = require('../ModuleConstants');
 
 class OAuth2Requester extends Requester {
-
     static requesterType = ModuleConstants.authType.oauth2;
 
     constructor(params) {
@@ -44,7 +43,9 @@ class OAuth2Requester extends Requester {
         );
 
         this.accessTokenExpire = new Date(Date.now() + accessExpiresIn * 1000);
-        this.refreshTokenExpire = new Date(Date.now() + refreshExpiresIn * 1000);
+        this.refreshTokenExpire = new Date(
+            Date.now() + refreshExpiresIn * 1000
+        );
 
         await this.notify(this.DLGT_TOKEN_UPDATE);
     }

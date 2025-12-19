@@ -39,9 +39,7 @@ const {
 const {
     GetUserFromAdopterJwt,
 } = require('./user/use-cases/get-user-from-adopter-jwt');
-const {
-    AuthenticateUser,
-} = require('./user/use-cases/authenticate-user');
+const { AuthenticateUser } = require('./user/use-cases/authenticate-user');
 
 const {
     CredentialRepository,
@@ -52,18 +50,14 @@ const {
 const {
     IntegrationMappingRepository,
 } = require('./integrations/repositories/integration-mapping-repository');
-const {
-    CreateProcess,
-} = require('./integrations/use-cases/create-process');
+const { CreateProcess } = require('./integrations/use-cases/create-process');
 const {
     UpdateProcessState,
 } = require('./integrations/use-cases/update-process-state');
 const {
     UpdateProcessMetrics,
 } = require('./integrations/use-cases/update-process-metrics');
-const {
-    GetProcess,
-} = require('./integrations/use-cases/get-process');
+const { GetProcess } = require('./integrations/use-cases/get-process');
 const { Cryptor } = require('./encrypt');
 const {
     BaseError,

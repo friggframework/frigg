@@ -27,13 +27,13 @@ describe('OpenAPI Spec Generator', () => {
                     getName: () => 'hubspot',
                     display: {
                         name: 'HubSpot',
-                        description: 'CRM and marketing automation'
+                        description: 'CRM and marketing automation',
                     },
                     moduleName: 'hubspot-module',
                     modules: {
-                        api: { authType: 'oauth2' }
-                    }
-                }
+                        api: { authType: 'oauth2' },
+                    },
+                },
             };
 
             const metadata = extractModuleMetadata(mockModule);
@@ -48,9 +48,9 @@ describe('OpenAPI Spec Generator', () => {
                 Definition: {
                     name: 'salesforce',
                     display: {
-                        name: 'Salesforce'
-                    }
-                }
+                        name: 'Salesforce',
+                    },
+                },
             };
 
             const metadata = extractModuleMetadata(mockModule);
@@ -61,7 +61,7 @@ describe('OpenAPI Spec Generator', () => {
         it('handles module without nested Definition', () => {
             const mockModule = {
                 name: 'slack',
-                display: { name: 'Slack' }
+                display: { name: 'Slack' },
             };
 
             const metadata = extractModuleMetadata(mockModule);
@@ -91,7 +91,9 @@ describe('OpenAPI Spec Generator', () => {
         });
 
         it('adds custom server URL when provided', () => {
-            const spec = generateOpenApiSpec(null, { serverUrl: 'http://localhost:3001' });
+            const spec = generateOpenApiSpec(null, {
+                serverUrl: 'http://localhost:3001',
+            });
             expect(spec.servers[0].url).toBe('http://localhost:3001');
             expect(spec.servers[0].description).toBe('Current server');
         });
@@ -102,18 +104,24 @@ describe('OpenAPI Spec Generator', () => {
                     {
                         Definition: {
                             getName: () => 'hubspot',
-                            display: { name: 'HubSpot', description: 'Marketing automation' },
-                            modules: { api: { authType: 'oauth2' } }
-                        }
+                            display: {
+                                name: 'HubSpot',
+                                description: 'Marketing automation',
+                            },
+                            modules: { api: { authType: 'oauth2' } },
+                        },
                     },
                     {
                         Definition: {
                             getName: () => 'salesforce',
-                            display: { name: 'Salesforce', description: 'CRM platform' },
-                            modules: { api: { authType: 'oauth2' } }
-                        }
-                    }
-                ]
+                            display: {
+                                name: 'Salesforce',
+                                description: 'CRM platform',
+                            },
+                            modules: { api: { authType: 'oauth2' } },
+                        },
+                    },
+                ],
             };
 
             const spec = generateOpenApiSpec(appDefinition);
@@ -146,8 +154,13 @@ describe('OpenAPI Spec Generator', () => {
             const appDefinition = {
                 integrations: [
                     null, // Invalid module
-                    { Definition: { getName: () => 'valid', display: { name: 'Valid' } } }
-                ]
+                    {
+                        Definition: {
+                            getName: () => 'valid',
+                            display: { name: 'Valid' },
+                        },
+                    },
+                ],
             };
 
             const spec = generateOpenApiSpec(appDefinition);

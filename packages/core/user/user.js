@@ -14,7 +14,14 @@ class User {
      * @param {boolean} [individualUserRequired=true] - Whether the user is required to have an individual user.
      * @param {boolean} [organizationUserRequired=false] - Whether the user is required to have an organization user.
      */
-    constructor(individualUser = null, organizationUser = null, usePassword = false, primary = 'individual', individualUserRequired = true, organizationUserRequired = false) {
+    constructor(
+        individualUser = null,
+        organizationUser = null,
+        usePassword = false,
+        primary = 'individual',
+        individualUserRequired = true,
+        organizationUserRequired = false
+    ) {
         this.individualUser = individualUser;
         this.organizationUser = organizationUser;
         this.usePassword = usePassword;
@@ -109,12 +116,19 @@ class User {
         }
 
         // When primary is 'organization', also check linked individual user
-        if (this.config.primary === 'organization' && userIdStr === individualId) {
+        if (
+            this.config.primary === 'organization' &&
+            userIdStr === individualId
+        ) {
             return true;
         }
 
         // When primary is 'individual', also check linked organization user if required
-        if (this.config.primary === 'individual' && this.config.organizationUserRequired && userIdStr === organizationId) {
+        if (
+            this.config.primary === 'individual' &&
+            this.config.organizationUserRequired &&
+            userIdStr === organizationId
+        ) {
             return true;
         }
 
@@ -122,4 +136,4 @@ class User {
     }
 }
 
-module.exports = { User }; 
+module.exports = { User };

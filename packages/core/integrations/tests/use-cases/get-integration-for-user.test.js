@@ -5,10 +5,18 @@ jest.mock('../../../database/config', () => ({
     PRISMA_QUERY_LOGGING: false,
 }));
 
-const { GetIntegrationForUser } = require('../../use-cases/get-integration-for-user');
-const { TestIntegrationRepository } = require('../doubles/test-integration-repository');
-const { TestModuleFactory } = require('../../../modules/tests/doubles/test-module-factory');
-const { TestModuleRepository } = require('../../../modules/tests/doubles/test-module-repository');
+const {
+    GetIntegrationForUser,
+} = require('../../use-cases/get-integration-for-user');
+const {
+    TestIntegrationRepository,
+} = require('../doubles/test-integration-repository');
+const {
+    TestModuleFactory,
+} = require('../../../modules/tests/doubles/test-module-factory');
+const {
+    TestModuleRepository,
+} = require('../../../modules/tests/doubles/test-module-repository');
 const { DummyIntegration } = require('../doubles/dummy-integration-class');
 
 describe('GetIntegrationForUser Use-Case', () => {
@@ -34,7 +42,11 @@ describe('GetIntegrationForUser Use-Case', () => {
             const entity = { id: 'entity-1', _id: 'entity-1' };
             moduleRepository.addEntity(entity);
 
-            const record = await integrationRepository.createIntegration([entity.id], 'user-1', { type: 'dummy' });
+            const record = await integrationRepository.createIntegration(
+                [entity.id],
+                'user-1',
+                { type: 'dummy' }
+            );
 
             const dto = await useCase.execute(record.id, 'user-1');
             expect(dto.id).toBe(record.id);
@@ -48,7 +60,11 @@ describe('GetIntegrationForUser Use-Case', () => {
             moduleRepository.addEntity(entity1);
             moduleRepository.addEntity(entity2);
 
-            const record = await integrationRepository.createIntegration([entity1.id, entity2.id], 'user-1', { type: 'dummy' });
+            const record = await integrationRepository.createIntegration(
+                [entity1.id, entity2.id],
+                'user-1',
+                { type: 'dummy' }
+            );
 
             const dto = await useCase.execute(record.id, 'user-1');
             expect(dto.entities).toEqual([entity1, entity2]);
@@ -61,10 +77,14 @@ describe('GetIntegrationForUser Use-Case', () => {
             const complexConfig = {
                 type: 'dummy',
                 settings: { api: { timeout: 5000 }, debug: true },
-                features: ['webhooks', 'sync']
+                features: ['webhooks', 'sync'],
             };
 
-            const record = await integrationRepository.createIntegration([entity.id], 'user-1', complexConfig);
+            const record = await integrationRepository.createIntegration(
+                [entity.id],
+                'user-1',
+                complexConfig
+            );
 
             const dto = await useCase.execute(record.id, 'user-1');
             expect(dto.config).toEqual(complexConfig);
@@ -75,20 +95,24 @@ describe('GetIntegrationForUser Use-Case', () => {
         it('throws error when integration not found', async () => {
             const nonExistentId = 'non-existent-id';
 
-            await expect(useCase.execute(nonExistentId, 'user-1'))
-                .rejects
-                .toThrow();
+            await expect(
+                useCase.execute(nonExistentId, 'user-1')
+            ).rejects.toThrow();
         });
 
         it('throws error when user does not own integration', async () => {
             const entity = { id: 'entity-1', _id: 'entity-1' };
             moduleRepository.addEntity(entity);
 
-            const record = await integrationRepository.createIntegration([entity.id], 'user-1', { type: 'dummy' });
+            const record = await integrationRepository.createIntegration(
+                [entity.id],
+                'user-1',
+                { type: 'dummy' }
+            );
 
-            await expect(useCase.execute(record.id, 'different-user'))
-                .rejects
-                .toThrow();
+            await expect(
+                useCase.execute(record.id, 'different-user')
+            ).rejects.toThrow();
         });
 
         it('throws error when integration class not found', async () => {
@@ -102,19 +126,27 @@ describe('GetIntegrationForUser Use-Case', () => {
             const entity = { id: 'entity-1', _id: 'entity-1' };
             moduleRepository.addEntity(entity);
 
-            const record = await integrationRepository.createIntegration([entity.id], 'user-1', { type: 'dummy' });
+            const record = await integrationRepository.createIntegration(
+                [entity.id],
+                'user-1',
+                { type: 'dummy' }
+            );
 
-            await expect(useCaseWithoutClasses.execute(record.id, 'user-1'))
-                .rejects
-                .toThrow();
+            await expect(
+                useCaseWithoutClasses.execute(record.id, 'user-1')
+            ).rejects.toThrow();
         });
 
         it('handles missing entities gracefully', async () => {
-            const record = await integrationRepository.createIntegration(['missing-entity'], 'user-1', { type: 'dummy' });
+            const record = await integrationRepository.createIntegration(
+                ['missing-entity'],
+                'user-1',
+                { type: 'dummy' }
+            );
 
-            await expect(useCase.execute(record.id, 'user-1'))
-                .rejects
-                .toThrow();
+            await expect(
+                useCase.execute(record.id, 'user-1')
+            ).rejects.toThrow();
         });
     });
 
@@ -123,7 +155,11 @@ describe('GetIntegrationForUser Use-Case', () => {
             const entity = { id: 'entity-1', _id: 'entity-1' };
             moduleRepository.addEntity(entity);
 
-            const record = await integrationRepository.createIntegration([entity.id], 'user-1', { type: 'dummy' });
+            const record = await integrationRepository.createIntegration(
+                [entity.id],
+                'user-1',
+                { type: 'dummy' }
+            );
 
             const dto1 = await useCase.execute(record.id, 'user-1');
             const dto2 = await useCase.execute(record.id, 'user-1');
@@ -135,7 +171,11 @@ describe('GetIntegrationForUser Use-Case', () => {
             const entity = { id: 'entity-1', _id: 'entity-1' };
             moduleRepository.addEntity(entity);
 
-            const record = await integrationRepository.createIntegration([entity.id], 'user-1', { type: 'dummy' });
+            const record = await integrationRepository.createIntegration(
+                [entity.id],
+                'user-1',
+                { type: 'dummy' }
+            );
 
             record.status = 'ACTIVE';
             record.version = '1.0.0';
@@ -144,7 +184,9 @@ describe('GetIntegrationForUser Use-Case', () => {
             const dto = await useCase.execute(record.id, 'user-1');
             expect(dto.status).toBe('ACTIVE');
             expect(dto.version).toBe('1.0.0');
-            expect(dto.messages).toEqual({ info: [{ title: 'Test', message: 'Message' }] });
+            expect(dto.messages).toEqual({
+                info: [{ title: 'Test', message: 'Message' }],
+            });
         });
     });
-}); 
+});

@@ -14,7 +14,7 @@ class MyIntegration extends IntegrationBase {
         modules: {
             myapi: { definition: MyApiDefinition },
         },
-        webhooks: true,  // ← Add this line
+        webhooks: true, // ← Add this line
     };
 }
 ```
@@ -55,10 +55,11 @@ POST /api/my-integration-integration/webhooks/:integrationId
 ## That's It!
 
 The default behavior handles:
-- ✅ Receiving webhooks (instant 200 OK response)
-- ✅ Queuing to SQS
-- ✅ Loading your integration with DB and API modules
-- ✅ Calling your `onWebhook` handler
+
+-   ✅ Receiving webhooks (instant 200 OK response)
+-   ✅ Queuing to SQS
+-   ✅ Loading your integration with DB and API modules
+-   ✅ Calling your `onWebhook` handler
 
 ## Optional: Custom Signature Verification
 
@@ -85,20 +86,24 @@ async onWebhookReceived({ req, res }) {
 ## Two Webhook Routes
 
 ### With Integration ID (Recommended)
+
 ```
 POST /api/{name}-integration/webhooks/:integrationId
 ```
-- Full integration loaded in worker
-- Access to DB, config, and API modules
-- Use `this.myapi`, `this.config`, etc.
+
+-   Full integration loaded in worker
+-   Access to DB, config, and API modules
+-   Use `this.myapi`, `this.config`, etc.
 
 ### Without Integration ID
+
 ```
 POST /api/{name}-integration/webhooks
 ```
-- Unhydrated integration
-- Useful for system-wide events
-- Limited context
+
+-   Unhydrated integration
+-   Useful for system-wide events
+-   Limited context
 
 ## Need Help?
 
@@ -107,6 +112,7 @@ See full documentation: `packages/core/handlers/WEBHOOKS.md`
 ## Common Patterns
 
 ### Slack
+
 ```javascript
 async onWebhookReceived({ req, res }) {
     if (req.body.type === 'url_verification') {
@@ -117,6 +123,7 @@ async onWebhookReceived({ req, res }) {
 ```
 
 ### Stripe
+
 ```javascript
 async onWebhookReceived({ req, res }) {
     const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
@@ -131,6 +138,7 @@ async onWebhookReceived({ req, res }) {
 ```
 
 ### GitHub
+
 ```javascript
 async onWebhookReceived({ req, res }) {
     const crypto = require('crypto');
@@ -139,13 +147,12 @@ async onWebhookReceived({ req, res }) {
         .createHmac('sha256', process.env.GITHUB_WEBHOOK_SECRET)
         .update(JSON.stringify(req.body))
         .digest('hex');
-    
+
     if (`sha256=${hash}` !== signature) {
         return res.status(401).json({ error: 'Invalid signature' });
     }
-    
+
     await this.queueWebhook({ integrationId: req.params.integrationId, body: req.body });
     res.status(200).json({ received: true });
 }
 ```
-

@@ -209,7 +209,9 @@ describe('Encryption Schema Registry', () => {
                 const result = validateCustomSchema(customSchema);
 
                 expect(result.valid).toBe(false);
-                expect(result.errors[0]).toContain('must have a "fields" array');
+                expect(result.errors[0]).toContain(
+                    'must have a "fields" array'
+                );
             });
 
             it('should reject invalid field paths', () => {

@@ -11,11 +11,21 @@ jest.mock('../modules/repositories/module-repository-factory');
 
 const { createIntegrationRouter } = require('./integration-router');
 const { loadAppDefinition } = require('../handlers/app-definition-loader');
-const { createUserRepository } = require('../user/repositories/user-repository-factory');
-const { createAuthorizationSessionRepository } = require('../modules/repositories/authorization-session-repository-factory');
-const { createModuleRepository } = require('../modules/repositories/module-repository-factory');
-const { createCredentialRepository } = require('../credential/repositories/credential-repository-factory');
-const { createIntegrationRepository } = require('./repositories/integration-repository-factory');
+const {
+    createUserRepository,
+} = require('../user/repositories/user-repository-factory');
+const {
+    createAuthorizationSessionRepository,
+} = require('../modules/repositories/authorization-session-repository-factory');
+const {
+    createModuleRepository,
+} = require('../modules/repositories/module-repository-factory');
+const {
+    createCredentialRepository,
+} = require('../credential/repositories/credential-repository-factory');
+const {
+    createIntegrationRepository,
+} = require('./repositories/integration-repository-factory');
 
 describe('Debug Test', () => {
     let app;
@@ -24,7 +34,7 @@ describe('Debug Test', () => {
         // Mock user
         const mockUser = {
             getId: jest.fn().mockReturnValue('user-123'),
-            id: 'user-123'
+            id: 'user-123',
         };
 
         // Mock user repository with all required methods
@@ -34,7 +44,7 @@ describe('Debug Test', () => {
             getSessionToken: jest.fn().mockResolvedValue(mockUser),
             findIndividualUserById: jest.fn().mockResolvedValue(mockUser),
             findByIndividualUserId: jest.fn().mockResolvedValue(mockUser),
-            findOrganizationUserById: jest.fn().mockResolvedValue(mockUser)
+            findOrganizationUserById: jest.fn().mockResolvedValue(mockUser),
         };
 
         // Mock module definitions
@@ -48,8 +58,8 @@ describe('Debug Test', () => {
                     getAuthStepCount: () => 1,
                     getCapabilities: () => ['contacts', 'companies'],
                 },
-                apiClass: jest.fn()
-            }
+                apiClass: jest.fn(),
+            },
         ];
 
         // Mock loadAppDefinition
@@ -57,32 +67,32 @@ describe('Debug Test', () => {
             integrations: mockModuleDefinitions,
             userConfig: {
                 usePassword: true,
-                primary: 'individual'
-            }
+                primary: 'individual',
+            },
         });
 
         createUserRepository.mockReturnValue(mockUserRepository);
         createAuthorizationSessionRepository.mockReturnValue({
             findBySessionId: jest.fn(),
             create: jest.fn(),
-            update: jest.fn()
+            update: jest.fn(),
         });
         createModuleRepository.mockReturnValue({
             findById: jest.fn(),
             findByUserId: jest.fn(),
             findByUserIdAndType: jest.fn(),
             save: jest.fn(),
-            update: jest.fn()
+            update: jest.fn(),
         });
         createCredentialRepository.mockReturnValue({
             findById: jest.fn(),
             save: jest.fn(),
-            update: jest.fn()
+            update: jest.fn(),
         });
         createIntegrationRepository.mockReturnValue({
             findById: jest.fn(),
             findByUserId: jest.fn(),
-            save: jest.fn()
+            save: jest.fn(),
         });
 
         // Create app
@@ -104,11 +114,14 @@ describe('Debug Test', () => {
 
         if (response.status !== 200) {
             // Try to get the route list
-            console.log('Router stack:', app._router?.stack?.map(layer => ({
-                name: layer.name,
-                path: layer.regexp?.toString(),
-                route: layer.route?.path
-            })));
+            console.log(
+                'Router stack:',
+                app._router?.stack?.map((layer) => ({
+                    name: layer.name,
+                    path: layer.regexp?.toString(),
+                    route: layer.route?.path,
+                }))
+            );
         }
 
         expect(response.status).toBe(200);

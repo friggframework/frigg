@@ -18,7 +18,9 @@ class IntegrationRepositoryInterface {
      * @abstract
      */
     async findIntegrationsByUserId(userId) {
-        throw new Error('Method findIntegrationsByUserId must be implemented by subclass');
+        throw new Error(
+            'Method findIntegrationsByUserId must be implemented by subclass'
+        );
     }
 
     /**
@@ -29,7 +31,9 @@ class IntegrationRepositoryInterface {
      * @abstract
      */
     async deleteIntegrationById(integrationId) {
-        throw new Error('Method deleteIntegrationById must be implemented by subclass');
+        throw new Error(
+            'Method deleteIntegrationById must be implemented by subclass'
+        );
     }
 
     /**
@@ -40,7 +44,9 @@ class IntegrationRepositoryInterface {
      * @abstract
      */
     async findIntegrationByName(name) {
-        throw new Error('Method findIntegrationByName must be implemented by subclass');
+        throw new Error(
+            'Method findIntegrationByName must be implemented by subclass'
+        );
     }
 
     /**
@@ -51,7 +57,9 @@ class IntegrationRepositoryInterface {
      * @abstract
      */
     async findIntegrationById(id) {
-        throw new Error('Method findIntegrationById must be implemented by subclass');
+        throw new Error(
+            'Method findIntegrationById must be implemented by subclass'
+        );
     }
 
     /**
@@ -63,7 +71,9 @@ class IntegrationRepositoryInterface {
      * @abstract
      */
     async updateIntegrationStatus(integrationId, status) {
-        throw new Error('Method updateIntegrationStatus must be implemented by subclass');
+        throw new Error(
+            'Method updateIntegrationStatus must be implemented by subclass'
+        );
     }
 
     /**
@@ -84,7 +94,9 @@ class IntegrationRepositoryInterface {
         messageBody,
         messageTimestamp
     ) {
-        throw new Error('Method updateIntegrationMessages must be implemented by subclass');
+        throw new Error(
+            'Method updateIntegrationMessages must be implemented by subclass'
+        );
     }
 
     /**
@@ -97,7 +109,9 @@ class IntegrationRepositoryInterface {
      * @abstract
      */
     async createIntegration(entities, userId, config) {
-        throw new Error('Method createIntegration must be implemented by subclass');
+        throw new Error(
+            'Method createIntegration must be implemented by subclass'
+        );
     }
 
     /**
@@ -108,7 +122,9 @@ class IntegrationRepositoryInterface {
      * @abstract
      */
     async findIntegrationByUserId(userId) {
-        throw new Error('Method findIntegrationByUserId must be implemented by subclass');
+        throw new Error(
+            'Method findIntegrationByUserId must be implemented by subclass'
+        );
     }
 
     /**
@@ -120,7 +136,9 @@ class IntegrationRepositoryInterface {
      * @abstract
      */
     async updateIntegrationConfig(integrationId, config) {
-        throw new Error('Method updateIntegrationConfig must be implemented by subclass');
+        throw new Error(
+            'Method updateIntegrationConfig must be implemented by subclass'
+        );
     }
 }
 

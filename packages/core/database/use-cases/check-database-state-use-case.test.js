@@ -44,7 +44,9 @@ describe('CheckDatabaseStateUseCase', () => {
                 dbType: 'postgresql',
                 stage: 'prod',
             });
-            expect(mockPrismaRunner.checkDatabaseState).toHaveBeenCalledWith('postgresql');
+            expect(mockPrismaRunner.checkDatabaseState).toHaveBeenCalledWith(
+                'postgresql'
+            );
         });
 
         it('should return pending migrations count when migrations needed', async () => {
@@ -60,7 +62,8 @@ describe('CheckDatabaseStateUseCase', () => {
                 pendingMigrations: 3,
                 dbType: 'postgresql',
                 stage: 'prod',
-                recommendation: 'Run POST /db-migrate to apply 3 pending migration(s)',
+                recommendation:
+                    'Run POST /db-migrate to apply 3 pending migration(s)',
             });
         });
 
@@ -108,19 +111,19 @@ describe('CheckDatabaseStateUseCase', () => {
         });
 
         it('should throw ValidationError for invalid dbType', async () => {
-            await expect(
-                useCase.execute('invalid-db', 'prod')
-            ).rejects.toThrow(ValidationError);
+            await expect(useCase.execute('invalid-db', 'prod')).rejects.toThrow(
+                ValidationError
+            );
 
-            await expect(
-                useCase.execute('invalid-db', 'prod')
-            ).rejects.toThrow('dbType must be postgresql or mongodb');
+            await expect(useCase.execute('invalid-db', 'prod')).rejects.toThrow(
+                'dbType must be postgresql or mongodb'
+            );
         });
 
         it('should throw ValidationError for missing dbType', async () => {
-            await expect(
-                useCase.execute(null, 'prod')
-            ).rejects.toThrow(ValidationError);
+            await expect(useCase.execute(null, 'prod')).rejects.toThrow(
+                ValidationError
+            );
         });
 
         it('should handle prismaRunner errors gracefully', async () => {
@@ -128,10 +131,9 @@ describe('CheckDatabaseStateUseCase', () => {
                 new Error('Prisma CLI not available')
             );
 
-            await expect(
-                useCase.execute('postgresql', 'prod')
-            ).rejects.toThrow('Prisma CLI not available');
+            await expect(useCase.execute('postgresql', 'prod')).rejects.toThrow(
+                'Prisma CLI not available'
+            );
         });
     });
 });
-
