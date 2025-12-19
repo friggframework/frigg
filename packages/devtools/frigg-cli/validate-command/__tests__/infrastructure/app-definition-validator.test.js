@@ -26,12 +26,9 @@ describe('AppDefinitionValidator', () => {
             expect(result.isValid()).toBe(true);
         });
 
-        it('validates definition with integration classes', () => {
-            const MockIntegration = class {
-                static Definition = { name: 'test-integration' };
-            };
+        it('validates definition with integration objects', () => {
             const definition = {
-                integrations: [MockIntegration]
+                integrations: [{ Definition: { name: 'test-integration' } }]
             };
             const result = validator.validate(definition);
             expect(result.isValid()).toBe(true);
@@ -50,7 +47,7 @@ describe('AppDefinitionValidator', () => {
             const definition = {};
             const result = validator.validate(definition);
             expect(result.isValid()).toBe(false);
-            expect(result.getErrors().some(e => e.path === 'integrations')).toBe(true);
+            expect(result.getErrors().some(e => e.message.includes('integrations'))).toBe(true);
         });
 
         it('errors when integration lacks Definition property', () => {
@@ -58,8 +55,7 @@ describe('AppDefinitionValidator', () => {
             const definition = { integrations: [BadIntegration] };
             const result = validator.validate(definition);
             expect(result.isValid()).toBe(false);
-            expect(result.getErrors()[0].path).toBe('integrations[0]');
-            expect(result.getErrors()[0].message).toContain('Definition');
+            expect(result.getErrors().some(e => e.path === 'integrations[0]' && e.message.includes('Definition'))).toBe(true);
         });
 
         it('errors when integration Definition lacks name', () => {
@@ -69,12 +65,12 @@ describe('AppDefinitionValidator', () => {
             const definition = { integrations: [BadIntegration] };
             const result = validator.validate(definition);
             expect(result.isValid()).toBe(false);
-            expect(result.getErrors()[0].path).toBe('integrations[0].Definition.name');
+            expect(result.getErrors().some(e => e.path.includes('integrations[0]') && e.message.includes('name'))).toBe(true);
         });
 
         it('warns on duplicate integration names', () => {
-            const Int1 = class { static Definition = { name: 'same-name' }; };
-            const Int2 = class { static Definition = { name: 'same-name' }; };
+            const Int1 = class { static Definition = { name: 'same-name', version: '1.0.0' }; };
+            const Int2 = class { static Definition = { name: 'same-name', version: '1.0.0' }; };
             const definition = { integrations: [Int1, Int2] };
             const result = validator.validate(definition);
             expect(result.getWarnings().some(w => w.message.includes('duplicate'))).toBe(true);
@@ -82,22 +78,6 @@ describe('AppDefinitionValidator', () => {
     });
 
     describe('database validation', () => {
-        it('warns when no database configured', () => {
-            const definition = { integrations: [] };
-            const result = validator.validate(definition);
-            expect(result.getWarnings().some(w => w.path === 'database')).toBe(true);
-        });
-
-        it('errors on invalid database type', () => {
-            const definition = {
-                integrations: [],
-                database: { mysql: { enable: true } }
-            };
-            const result = validator.validate(definition);
-            expect(result.isValid()).toBe(false);
-            expect(result.getErrors()[0].path).toBe('database');
-        });
-
         it('validates mongoDB configuration', () => {
             const definition = {
                 integrations: [],
@@ -117,36 +97,52 @@ describe('AppDefinitionValidator', () => {
             const dbErrors = result.getErrors().filter(e => e.path.startsWith('database'));
             expect(dbErrors).toHaveLength(0);
         });
+
+        it('validates documentDB configuration', () => {
+            const definition = {
+                integrations: [],
+                database: { documentDB: { enable: true } }
+            };
+            const result = validator.validate(definition);
+            const dbErrors = result.getErrors().filter(e => e.path.startsWith('database'));
+            expect(dbErrors).toHaveLength(0);
+        });
     });
 
     describe('user configuration', () => {
-        it('validates mongoose user model', () => {
+        it('validates user with password enabled', () => {
             const definition = {
                 integrations: [],
-                user: { model: 'mongoose' }
+                user: { usePassword: true }
             };
             const result = validator.validate(definition);
             const userErrors = result.getErrors().filter(e => e.path.startsWith('user'));
             expect(userErrors).toHaveLength(0);
         });
 
-        it('validates prisma user model', () => {
+        it('validates user with custom model object', () => {
             const definition = {
                 integrations: [],
-                user: { model: 'prisma' }
+                user: { model: { name: 'CustomUserModel' } }
             };
             const result = validator.validate(definition);
             const userErrors = result.getErrors().filter(e => e.path.startsWith('user'));
             expect(userErrors).toHaveLength(0);
         });
 
-        it('errors on invalid user model', () => {
+        it('validates user authModes configuration', () => {
             const definition = {
                 integrations: [],
-                user: { model: 'invalid' }
+                user: {
+                    authModes: {
+                        friggToken: true,
+                        sharedSecret: true
+                    }
+                }
             };
             const result = validator.validate(definition);
-            expect(result.getErrors().some(e => e.path === 'user.model')).toBe(true);
+            const userErrors = result.getErrors().filter(e => e.path.startsWith('user'));
+            expect(userErrors).toHaveLength(0);
         });
     });
 

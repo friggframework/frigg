@@ -59,7 +59,8 @@ describe('IntegrationClassValidator', () => {
             }
             const result = validator.validate(MissingName, 0);
             expect(result.isValid()).toBe(false);
-            expect(result.getErrors()[0].path).toBe('integrations[0].Definition.name');
+            expect(result.getErrors()[0].path).toBe('integrations[0].Definition');
+            expect(result.getErrors()[0].message).toContain('name');
         });
 
         it('errors when Definition.name is not a string', () => {
@@ -77,6 +78,7 @@ describe('IntegrationClassValidator', () => {
             class BadModule {
                 static Definition = {
                     name: 'test',
+                    version: '1.0.0',
                     modules: {
                         hubspot: { options: {} }
                     }
@@ -84,13 +86,14 @@ describe('IntegrationClassValidator', () => {
             }
             const result = validator.validate(BadModule, 0);
             expect(result.isValid()).toBe(false);
-            expect(result.getErrors()[0].path).toBe('integrations[0].Definition.modules.hubspot.definition');
+            expect(result.getErrors().some(e => e.path.includes('modules.hubspot') && e.message.includes('definition'))).toBe(true);
         });
 
         it('warns when module definition lacks name', () => {
             class ModuleNoName {
                 static Definition = {
                     name: 'test',
+                    version: '1.0.0',
                     modules: {
                         hubspot: {
                             definition: {},
@@ -107,7 +110,7 @@ describe('IntegrationClassValidator', () => {
     describe('lifecycle methods', () => {
         it('warns when onCreate is not implemented', () => {
             class NoOnCreate {
-                static Definition = { name: 'test', version: '1.0.0' };
+                static Definition = { name: 'test-integration', version: '1.0.0' };
             }
             const result = validator.validate(NoOnCreate, 0);
             expect(result.getWarnings().some(w => w.message.includes('onCreate'))).toBe(true);
@@ -115,7 +118,7 @@ describe('IntegrationClassValidator', () => {
 
         it('passes when onCreate is implemented', () => {
             class WithOnCreate {
-                static Definition = { name: 'test', version: '1.0.0' };
+                static Definition = { name: 'test-integration', version: '1.0.0' };
                 async onCreate() {}
             }
             const result = validator.validate(WithOnCreate, 0);
@@ -124,7 +127,7 @@ describe('IntegrationClassValidator', () => {
 
         it('warns when getConfigOptions is not implemented', () => {
             class NoConfigOptions {
-                static Definition = { name: 'test', version: '1.0.0' };
+                static Definition = { name: 'test-integration', version: '1.0.0' };
             }
             const result = validator.validate(NoConfigOptions, 0);
             expect(result.getWarnings().some(w => w.message.includes('getConfigOptions'))).toBe(true);

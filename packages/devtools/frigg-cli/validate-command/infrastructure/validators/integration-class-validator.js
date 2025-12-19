@@ -1,3 +1,4 @@
+const { validateIntegrationDefinition } = require('@friggframework/schemas');
 const { ValidationResult } = require('../../domain/entities/validation-result');
 const { ValidationError } = require('../../domain/value-objects/validation-error');
 const { FixSuggestion } = require('../../domain/value-objects/fix-suggestion');
@@ -34,55 +35,55 @@ class IntegrationClassValidator {
             return result;
         }
 
-        this._validateDefinition(integrationClass.Definition, prefix, result);
-        this._validateModules(integrationClass.Definition, prefix, result);
+        this._validateDefinitionWithSchema(integrationClass.Definition, prefix, result);
+        this._validateModuleNames(integrationClass.Definition, prefix, result);
         this._validateLifecycleMethods(integrationClass, prefix, result);
 
         return result;
     }
 
-    _validateDefinition(definition, prefix, result) {
-        if (!definition.name) {
-            result.addError(ValidationError.create({
-                path: `${prefix}.Definition.name`,
-                message: 'Definition must have a name property',
-                severity: 'error',
-                code: 'REQUIRED_FIELD'
-            }));
-            return;
-        }
+    _validateDefinitionWithSchema(definition, prefix, result) {
+        const schemaResult = validateIntegrationDefinition(definition);
 
-        if (typeof definition.name !== 'string') {
-            result.addError(ValidationError.create({
-                path: `${prefix}.Definition.name`,
-                message: 'Definition.name must be a string',
-                severity: 'error',
-                code: 'INVALID_TYPE'
-            }));
+        if (!schemaResult.valid && schemaResult.errors) {
+            schemaResult.errors.forEach(error => {
+                const path = error.instancePath
+                    ? `${prefix}.Definition${error.instancePath.replace(/\//g, '.')}`
+                    : `${prefix}.Definition`;
+
+                result.addError(ValidationError.create({
+                    path,
+                    message: this._formatSchemaErrorMessage(error),
+                    severity: 'error',
+                    code: error.keyword?.toUpperCase() || 'SCHEMA_ERROR'
+                }));
+            });
         }
     }
 
-    _validateModules(definition, prefix, result) {
+    _formatSchemaErrorMessage(error) {
+        let message = error.message;
+        if (error.params?.allowedValues) {
+            message += ` (allowed: ${error.params.allowedValues.join(', ')})`;
+        }
+        if (error.params?.additionalProperty) {
+            message += `: ${error.params.additionalProperty}`;
+        }
+        if (error.params?.missingProperty) {
+            message = `must have required property '${error.params.missingProperty}'`;
+        }
+        return message;
+    }
+
+    _validateModuleNames(definition, prefix, result) {
         if (!definition.modules) {
             return;
         }
 
         Object.entries(definition.modules).forEach(([moduleName, moduleConfig]) => {
-            const modulePath = `${prefix}.Definition.modules.${moduleName}`;
-
-            if (!moduleConfig.definition) {
+            if (moduleConfig.definition && !moduleConfig.definition.name) {
                 result.addError(ValidationError.create({
-                    path: `${modulePath}.definition`,
-                    message: `Module ${moduleName} must have a definition property`,
-                    severity: 'error',
-                    code: 'REQUIRED_FIELD'
-                }));
-                return;
-            }
-
-            if (!moduleConfig.definition.name) {
-                result.addError(ValidationError.create({
-                    path: `${modulePath}.definition.name`,
+                    path: `${prefix}.Definition.modules.${moduleName}.definition.name`,
                     message: `Module ${moduleName} definition should have a name`,
                     severity: 'warning',
                     code: 'MISSING_NAME'
