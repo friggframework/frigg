@@ -108,23 +108,22 @@ describe('Template Validation', () => {
             expect(typeof ExampleIntegration).toBe('function');
         });
 
-        it('has static Config property', () => {
-            // Note: Template uses Config, not Definition
-            expect(ExampleIntegration.Config).toBeDefined();
+        it('has static Definition property', () => {
+            expect(ExampleIntegration.Definition).toBeDefined();
         });
 
-        it('Config has required properties', () => {
-            const config = ExampleIntegration.Config;
-            expect(config.name).toBeDefined();
-            expect(config.version).toBeDefined();
+        it('Definition has required properties', () => {
+            const definition = ExampleIntegration.Definition;
+            expect(definition.name).toBeDefined();
+            expect(definition.version).toBeDefined();
         });
 
-        // This test documents that the template uses Config instead of Definition
-        it('documents that template uses Config (not Definition)', () => {
-            // This is a known pattern - some integrations use Config,
-            // the validator checks for Definition
-            expect(ExampleIntegration.Definition).toBeUndefined();
-            expect(ExampleIntegration.Config).toBeDefined();
+        it('Definition matches pattern used in core integrations', () => {
+            // ExampleIntegration uses static Definition (not Config)
+            // to match the pattern expected by IntegrationClassValidator
+            expect(ExampleIntegration.Definition).toBeDefined();
+            expect(typeof ExampleIntegration.Definition.name).toBe('string');
+            expect(typeof ExampleIntegration.Definition.version).toBe('string');
         });
     });
 

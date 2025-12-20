@@ -15,7 +15,7 @@ const { Integration } = require('@friggframework/core');
 // const { Api, Entity } = require('@friggframework/api-module-example');
 
 class ExampleIntegration extends Integration {
-    static Config = {
+    static Definition = {
         name: 'example',
         version: '1.0.0',
         supportedVersions: ['1.0.0'],
