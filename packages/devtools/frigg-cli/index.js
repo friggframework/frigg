@@ -85,6 +85,7 @@ const { uiCommand } = require('./ui-command');
 const { dbSetupCommand } = require('./db-setup-command');
 const { doctorCommand } = require('./doctor-command');
 const { repairCommand } = require('./repair-command');
+const cleanupCommand = require('./cleanup-command');
 
 const program = new Command();
 
@@ -168,6 +169,19 @@ program
     .option('-v, --verbose', 'enable verbose output')
     .action(repairCommand);
 
+program
+    .command('cleanup [stackName]')
+    .description('Clean up duplicate orphaned resources not in current stack template')
+    .option('-r, --region <region>', 'AWS region (defaults to AWS_REGION env var or us-east-1)')
+    .option('--execute', 'execute deletion (default is dry-run)')
+    .option('--resource-type <type>', 'filter by resource type (e.g., AWS::EC2::VPC)')
+    .option('--logical-id <pattern>', 'filter by logical ID pattern (supports * wildcard)')
+    .option('-y, --yes', 'skip confirmation prompts')
+    .option('-f, --format <format>', 'output format (console or json)', 'console')
+    .option('--output-file <path>', 'save report to file')
+    .option('-v, --verbose', 'enable verbose output')
+    .action(cleanupCommand);
+
 program.parse(process.argv);
 
-module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, generateIamCommand, uiCommand, dbSetupCommand, doctorCommand, repairCommand };
+module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, generateIamCommand, uiCommand, dbSetupCommand, doctorCommand, repairCommand, cleanupCommand };
