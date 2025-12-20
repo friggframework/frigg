@@ -171,6 +171,37 @@ class MyIntegration extends IntegrationBase {
 }
 ```
 
+### Integration Patterns (Sync, Queues, Webhooks)
+
+For complex integrations requiring sync orchestration, queue management, and webhook handling, see the **[Integration Patterns Guide](/docs/guides/INTEGRATION-PATTERNS.md)**.
+
+Key patterns covered:
+
+- **Process Model**: Track long-running operations with state management (`INITIALIZING` → `PROCESSING` → `COMPLETED`)
+- **friggCommands**: Standardized interface for persisting integration config (`createFriggCommands()`)
+- **QueueManager**: AWS SQS wrapper for async job processing with rate limiting and fan-out
+- **Integration Events**: Define `USER_ACTION`, `CRON`, `QUEUE`, and `WEBHOOK` event handlers
+- **SyncOrchestrator**: Coordinate sync operations across entity types
+
+Quick example:
+
+```javascript
+const { createFriggCommands } = require('@friggframework/core');
+
+class MyIntegration extends IntegrationBase {
+    constructor(params) {
+        super(params);
+        this.commands = createFriggCommands({ integrationClass: MyIntegration });
+
+        this.events = {
+            INITIAL_SYNC: { type: 'USER_ACTION', handler: this.startSync.bind(this) },
+            ONGOING_SYNC: { type: 'CRON', handler: this.deltaSync.bind(this) },
+            PROCESS_BATCH: { handler: this.processBatch.bind(this) }
+        };
+    }
+}
+```
+
 ### Encryption & Security
 
 - **Field-Level Encryption**: Transparent database-agnostic encryption via Prisma Client Extensions
