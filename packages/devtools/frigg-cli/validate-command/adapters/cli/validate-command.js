@@ -3,6 +3,7 @@ const fs = require('fs');
 const { ValidateAppUseCase } = require('../../application/use-cases/validate-app-use-case');
 const { AppDefinitionValidator } = require('../../infrastructure/validators/app-definition-validator');
 const { IntegrationClassValidator } = require('../../infrastructure/validators/integration-class-validator');
+const { ApiModuleValidator } = require('../../infrastructure/validators/api-module-validator');
 
 function createValidateCommand(program) {
     program
@@ -110,9 +111,11 @@ async function validateCommand(appPath, options, { output }) {
 
         const appDefinitionValidator = new AppDefinitionValidator();
         const integrationClassValidator = new IntegrationClassValidator();
+        const apiModuleValidator = new ApiModuleValidator();
         const useCase = new ValidateAppUseCase({
             appDefinitionValidator,
-            integrationClassValidator
+            integrationClassValidator,
+            apiModuleValidator
         });
 
         const result = await useCase.execute({ definition, appPath: backendPath });
