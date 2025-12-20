@@ -73,6 +73,7 @@ const {
     checkRequiredParams,
     getModulesDefinitionFromIntegrationClasses,
     LoadIntegrationContextUseCase,
+    createProcessRepository,
 } = require('./integrations/index');
 const { TimeoutCatcher } = require('./lambda/index');
 const { debug, initDebugLog, flushDebugLog } = require('./logs/index');
@@ -152,6 +153,7 @@ module.exports = {
     UpdateProcessState,
     UpdateProcessMetrics,
     GetProcess,
+    createProcessRepository,
 
     // application - Command factories for integration developers
     application,
