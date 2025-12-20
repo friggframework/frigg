@@ -81,12 +81,14 @@ class IntegrationClassValidator {
         }
 
         Object.entries(definition.modules).forEach(([moduleName, moduleConfig]) => {
-            if (moduleConfig.definition && !moduleConfig.definition.name) {
+            // Check for moduleName (the correct property per API module schema and core Module class)
+            // Note: getName() method returns definition.moduleName, not definition.name
+            if (moduleConfig.definition && !moduleConfig.definition.moduleName) {
                 result.addError(ValidationError.create({
-                    path: `${prefix}.Definition.modules.${moduleName}.definition.name`,
-                    message: `Module ${moduleName} definition should have a name`,
+                    path: `${prefix}.Definition.modules.${moduleName}.definition.moduleName`,
+                    message: `Module ${moduleName} definition should have a moduleName property`,
                     severity: 'warning',
-                    code: 'MISSING_NAME'
+                    code: 'MISSING_MODULE_NAME'
                 }));
             }
         });

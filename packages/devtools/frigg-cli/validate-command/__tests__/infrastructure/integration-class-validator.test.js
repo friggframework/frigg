@@ -27,7 +27,7 @@ describe('IntegrationClassValidator', () => {
                     version: '1.0.0',
                     modules: {
                         hubspot: {
-                            definition: { name: 'hubspot' },
+                            definition: { moduleName: 'hubspot' },
                             options: {}
                         }
                     }
@@ -89,8 +89,8 @@ describe('IntegrationClassValidator', () => {
             expect(result.getErrors().some(e => e.path.includes('modules.hubspot') && e.message.includes('definition'))).toBe(true);
         });
 
-        it('warns when module definition lacks name', () => {
-            class ModuleNoName {
+        it('warns when module definition lacks moduleName', () => {
+            class ModuleNoModuleName {
                 static Definition = {
                     name: 'test',
                     version: '1.0.0',
@@ -102,8 +102,10 @@ describe('IntegrationClassValidator', () => {
                     }
                 };
             }
-            const result = validator.validate(ModuleNoName, 0);
-            expect(result.getWarnings().length).toBeGreaterThan(0);
+            const result = validator.validate(ModuleNoModuleName, 0);
+            expect(result.getWarnings().some(w =>
+                w.code === 'MISSING_MODULE_NAME' && w.message.includes('moduleName')
+            )).toBe(true);
         });
     });
 
