@@ -46,6 +46,42 @@ describe('ApiModuleValidator', () => {
             expect(result.isValid()).toBe(true);
         });
 
+        it('validates module with actual functions (not descriptors)', () => {
+            // Real-world API modules have actual functions, not {type: "function"} descriptors
+            // The validator should sanitize these before JSON Schema validation
+            const definition = {
+                name: 'test-integration',
+                version: '1.0.0',
+                modules: {
+                    xero: {
+                        definition: {
+                            moduleName: 'xero',
+                            getName: function() { return 'Xero'; },
+                            API: class XeroApi {},
+                            requiredAuthMethods: {
+                                getToken: async function() { return {}; },
+                                getCredentialDetails: async function() { return {}; },
+                                getEntityDetails: async function() { return {}; },
+                                apiPropertiesToPersist: {
+                                    credential: ['access_token', 'refresh_token'],
+                                    entity: ['tenant_id', 'name']
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            const result = validator.validate(definition, 0);
+            // Should not have errors about "must be object" for functions
+            const typeErrors = result.getErrors().filter(e =>
+                e.message.includes('must be object') ||
+                e.message.includes('must be Object')
+            );
+            expect(typeErrors).toHaveLength(0);
+        });
+
+
         it('validates multiple modules', () => {
             const definition = {
                 name: 'test-integration',

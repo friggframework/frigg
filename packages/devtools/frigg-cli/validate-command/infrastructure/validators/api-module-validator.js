@@ -41,7 +41,10 @@ class ApiModuleValidator {
     }
 
     _validateModuleDefinitionWithSchema(definition, modulePath, moduleName, result) {
-        const schemaResult = validateApiModuleDefinition(definition);
+        // Sanitize the definition before JSON Schema validation
+        // API module definitions contain functions and classes that JSON Schema can't validate
+        const sanitizedDefinition = this._sanitizeForSchemaValidation(definition);
+        const schemaResult = validateApiModuleDefinition(sanitizedDefinition);
 
         if (!schemaResult.valid && schemaResult.errors) {
             schemaResult.errors.forEach(error => {
@@ -57,6 +60,64 @@ class ApiModuleValidator {
                 }));
             });
         }
+    }
+
+    /**
+     * Create a copy of the module definition safe for JSON Schema validation.
+     * Converts functions to descriptors but preserves all properties so that
+     * unknown properties can be properly rejected by the schema.
+     */
+    _sanitizeForSchemaValidation(definition) {
+        if (!definition) return definition;
+
+        const sanitized = {};
+
+        // Copy ALL properties, converting functions/classes to descriptors
+        // This allows JSON Schema to properly reject unknown properties
+        for (const key of Object.keys(definition)) {
+            sanitized[key] = this._sanitizeValue(definition[key]);
+        }
+
+        return sanitized;
+    }
+
+    /**
+     * Recursively sanitize a value for JSON Schema validation.
+     * Functions become {type: "function"} descriptors.
+     * Classes become {type: "object"} descriptors.
+     */
+    _sanitizeValue(value) {
+        if (value === null || value === undefined) {
+            return value;
+        }
+
+        // Convert functions to descriptors
+        if (typeof value === 'function') {
+            return { type: 'function', name: value.name || 'anonymous' };
+        }
+
+        // Handle arrays
+        if (Array.isArray(value)) {
+            return value.map(item => this._sanitizeValue(item));
+        }
+
+        // Handle objects (but not class instances with constructors other than Object)
+        if (typeof value === 'object') {
+            // Check if it's a class instance (not a plain object)
+            if (value.constructor && value.constructor.name !== 'Object') {
+                return { type: 'object', className: value.constructor.name };
+            }
+
+            // Recursively sanitize plain objects
+            const sanitizedObj = {};
+            for (const [key, val] of Object.entries(value)) {
+                sanitizedObj[key] = this._sanitizeValue(val);
+            }
+            return sanitizedObj;
+        }
+
+        // Primitives pass through unchanged
+        return value;
     }
 
     _formatSchemaErrorMessage(error) {

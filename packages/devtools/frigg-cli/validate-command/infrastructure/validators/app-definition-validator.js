@@ -6,7 +6,11 @@ class AppDefinitionValidator {
     validate(definition) {
         const result = ValidationResult.create();
 
-        const schemaResult = validateAppDefinition(definition);
+        // Create a sanitized copy for JSON Schema validation
+        // Integrations contain classes/functions which JSON Schema can't validate
+        // IntegrationClassValidator handles those separately
+        const sanitizedDefinition = this._sanitizeForSchemaValidation(definition);
+        const schemaResult = validateAppDefinition(sanitizedDefinition);
 
         if (!schemaResult.valid && schemaResult.errors) {
             schemaResult.errors.forEach(error => {
@@ -23,6 +27,31 @@ class AppDefinitionValidator {
         this._validateIntegrationDefinitions(definition, result);
 
         return result;
+    }
+
+    /**
+     * Create a copy of the definition safe for JSON Schema validation.
+     * Replaces integration classes with stub objects since JSON Schema
+     * cannot validate JavaScript classes/functions.
+     */
+    _sanitizeForSchemaValidation(definition) {
+        if (!definition) return definition;
+
+        const sanitized = { ...definition };
+
+        // Replace integration classes with stub objects
+        // The actual class validation is handled by IntegrationClassValidator
+        if (Array.isArray(definition.integrations)) {
+            sanitized.integrations = definition.integrations.map(integration => {
+                if (typeof integration === 'function') {
+                    // Return a stub object representing the class
+                    return { _isClass: true, name: integration.name };
+                }
+                return integration;
+            });
+        }
+
+        return sanitized;
     }
 
     _convertPath(jsonPointerPath) {

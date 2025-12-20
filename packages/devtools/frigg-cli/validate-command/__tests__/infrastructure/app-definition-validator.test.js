@@ -33,6 +33,41 @@ describe('AppDefinitionValidator', () => {
             const result = validator.validate(definition);
             expect(result.isValid()).toBe(true);
         });
+
+        it('validates definition with integration classes (functions)', () => {
+            // This tests that integration classes are properly sanitized
+            // before JSON Schema validation (classes become stub objects)
+            class MyIntegration {
+                static Definition = {
+                    name: 'my-integration',
+                    version: '1.0.0'
+                };
+            }
+            const definition = {
+                integrations: [MyIntegration]
+            };
+            const result = validator.validate(definition);
+            // Should not have schema errors about "must be object"
+            const schemaErrors = result.getErrors().filter(e =>
+                e.message.includes('must be object') ||
+                e.message.includes('must be Object')
+            );
+            expect(schemaErrors).toHaveLength(0);
+        });
+
+        it('validates definition with multiple integration classes', () => {
+            class IntegrationA {
+                static Definition = { name: 'integration-a', version: '1.0.0' };
+            }
+            class IntegrationB {
+                static Definition = { name: 'integration-b', version: '1.0.0' };
+            }
+            const definition = {
+                integrations: [IntegrationA, IntegrationB]
+            };
+            const result = validator.validate(definition);
+            expect(result.isValid()).toBe(true);
+        });
     });
 
     describe('integrations validation', () => {
