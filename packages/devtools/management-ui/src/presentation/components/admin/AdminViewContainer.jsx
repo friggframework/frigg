@@ -135,7 +135,7 @@ const AdminViewContainer = ({ friggBaseUrl, repositoryPath, onUserSelect }) => {
                 Global Entities are app owner-level accounts shared across integrations.
               </span>
             </div>
-            <GlobalEntityManagement />
+            <GlobalEntityManagement repositoryPath={repositoryPath} />
           </div>
         )}
       </div>

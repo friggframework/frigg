@@ -51,6 +51,8 @@ import { AutoConnectUseCase } from './application/use-cases/frigg-app/AutoConnec
 import { GetUserManagementModeUseCase } from './application/use-cases/frigg-app/GetUserManagementModeUseCase.js'
 import { ManageGlobalEntitiesUseCase } from './application/use-cases/frigg-app/ManageGlobalEntitiesUseCase.js'
 import { SharedSecretProxyUseCase } from './application/use-cases/frigg-app/SharedSecretProxyUseCase.js'
+import { CheckOAuthCredentialsUseCase } from './application/use-cases/frigg-app/CheckOAuthCredentialsUseCase.js'
+import { WriteOAuthCredentialsUseCase } from './application/use-cases/frigg-app/WriteOAuthCredentialsUseCase.js'
 
 // Application - Services
 import { ProjectService } from './application/services/ProjectService.js'
@@ -72,6 +74,7 @@ import axios from 'axios'
 import { FriggAppHttpAdapter } from './infrastructure/adapters/FriggAppHttpAdapter.js'
 import { FriggAdminApiAdapter } from './infrastructure/adapters/FriggAdminApiAdapter.js'
 import { EnvFileReader } from './infrastructure/adapters/EnvFileReader.js'
+import { EnvFileAdapter } from './infrastructure/adapters/EnvFileAdapter.js'
 
 // Infrastructure - Repositories
 import { InMemoryProposalRepository } from './infrastructure/repositories/InMemoryProposalRepository.js'
@@ -407,6 +410,10 @@ export class Container {
     return this.singleton('envFileReader', () => new EnvFileReader())
   }
 
+  getEnvFileAdapter() {
+    return this.singleton('envFileAdapter', () => new EnvFileAdapter())
+  }
+
   getConnectToFriggAppUseCase() {
     return this.singleton('connectToFriggAppUseCase', () =>
       new ConnectToFriggAppUseCase({
@@ -451,6 +458,22 @@ export class Container {
     )
   }
 
+  getCheckOAuthCredentialsUseCase() {
+    return this.singleton('checkOAuthCredentialsUseCase', () =>
+      new CheckOAuthCredentialsUseCase({
+        envFileAdapter: this.getEnvFileAdapter()
+      })
+    )
+  }
+
+  getWriteOAuthCredentialsUseCase() {
+    return this.singleton('writeOAuthCredentialsUseCase', () =>
+      new WriteOAuthCredentialsUseCase({
+        envFileAdapter: this.getEnvFileAdapter()
+      })
+    )
+  }
+
   getFriggAppController() {
     return this.singleton('friggAppController', () =>
       new FriggAppController({
@@ -459,7 +482,9 @@ export class Container {
         getUserManagementModeUseCase: this.getGetUserManagementModeUseCase(),
         manageGlobalEntitiesUseCase: this.getManageGlobalEntitiesUseCase(),
         adminApiAdapter: this.getFriggAdminApiAdapter(),
-        sharedSecretProxyUseCase: this.getSharedSecretProxyUseCase()
+        sharedSecretProxyUseCase: this.getSharedSecretProxyUseCase(),
+        checkOAuthCredentialsUseCase: this.getCheckOAuthCredentialsUseCase(),
+        writeOAuthCredentialsUseCase: this.getWriteOAuthCredentialsUseCase()
       })
     )
   }

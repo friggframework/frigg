@@ -5,7 +5,9 @@ export class FriggAppController {
     getUserManagementModeUseCase,
     manageGlobalEntitiesUseCase,
     adminApiAdapter,
-    sharedSecretProxyUseCase
+    sharedSecretProxyUseCase,
+    checkOAuthCredentialsUseCase,
+    writeOAuthCredentialsUseCase
   }) {
     this._connectUseCase = connectToFriggAppUseCase
     this._autoConnectUseCase = autoConnectUseCase
@@ -13,6 +15,8 @@ export class FriggAppController {
     this._globalEntitiesUseCase = manageGlobalEntitiesUseCase
     this._adminApiAdapter = adminApiAdapter
     this._sharedSecretProxyUseCase = sharedSecretProxyUseCase
+    this._checkOAuthCredentialsUseCase = checkOAuthCredentialsUseCase
+    this._writeOAuthCredentialsUseCase = writeOAuthCredentialsUseCase
   }
 
   async connect(req, res) {
@@ -241,5 +245,75 @@ export class FriggAppController {
       success: true,
       data: result.data
     })
+  }
+
+  /**
+   * Check if OAuth credentials are configured for a module
+   * GET /api/frigg-app/oauth-credentials/check
+   * Query: { repositoryPath: string, moduleName: string }
+   */
+  async checkOAuthCredentials(req, res) {
+    try {
+      const { repositoryPath, moduleName } = req.query
+
+      if (!repositoryPath || !moduleName) {
+        return res.status(400).json({
+          success: false,
+          error: 'repositoryPath and moduleName are required'
+        })
+      }
+
+      const result = await this._checkOAuthCredentialsUseCase.execute({
+        repositoryPath,
+        moduleName
+      })
+
+      return res.json({
+        success: true,
+        ...result
+      })
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Write OAuth credentials to .env file
+   * POST /api/frigg-app/oauth-credentials
+   * Body: { repositoryPath: string, moduleName: string, credentials: { clientId, clientSecret, scope? } }
+   */
+  async writeOAuthCredentials(req, res) {
+    try {
+      const { repositoryPath, moduleName, credentials } = req.body
+
+      if (!repositoryPath || !moduleName || !credentials) {
+        return res.status(400).json({
+          success: false,
+          error: 'repositoryPath, moduleName, and credentials are required'
+        })
+      }
+
+      const result = await this._writeOAuthCredentialsUseCase.execute({
+        repositoryPath,
+        moduleName,
+        credentials
+      })
+
+      return res.json(result)
+    } catch (error) {
+      // Handle validation errors with 400, other errors with 500
+      const isValidationError = error.message.includes('required') ||
+        error.message.includes('invalid') ||
+        error.message.includes('must be')
+      const status = isValidationError ? 400 : 500
+
+      return res.status(status).json({
+        success: false,
+        error: error.message
+      })
+    }
   }
 }

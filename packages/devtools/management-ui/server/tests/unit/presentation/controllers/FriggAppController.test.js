@@ -11,6 +11,8 @@ describe('FriggAppController', () => {
   let mockUserModeUseCase
   let mockGlobalEntitiesUseCase
   let mockAdminApiAdapter
+  let mockCheckOAuthCredentialsUseCase
+  let mockWriteOAuthCredentialsUseCase
   let controller
   let mockReq
   let mockRes
@@ -44,11 +46,21 @@ describe('FriggAppController', () => {
       impersonateUser: vi.fn()
     }
 
+    mockCheckOAuthCredentialsUseCase = {
+      execute: vi.fn()
+    }
+
+    mockWriteOAuthCredentialsUseCase = {
+      execute: vi.fn()
+    }
+
     controller = new FriggAppController({
       connectToFriggAppUseCase: mockConnectUseCase,
       getUserManagementModeUseCase: mockUserModeUseCase,
       manageGlobalEntitiesUseCase: mockGlobalEntitiesUseCase,
-      adminApiAdapter: mockAdminApiAdapter
+      adminApiAdapter: mockAdminApiAdapter,
+      checkOAuthCredentialsUseCase: mockCheckOAuthCredentialsUseCase,
+      writeOAuthCredentialsUseCase: mockWriteOAuthCredentialsUseCase
     })
 
     mockReq = {
@@ -221,6 +233,207 @@ describe('FriggAppController', () => {
         status: 'connected',
         responseTime: 150,
         error: undefined
+      })
+    })
+  })
+
+  describe('checkOAuthCredentials', () => {
+    it('should return 400 when repositoryPath is missing', async () => {
+      mockReq.query = { moduleName: 'hubspot' }
+
+      await controller.checkOAuthCredentials(mockReq, mockRes)
+
+      expect(mockRes.status).toHaveBeenCalledWith(400)
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: false,
+        error: 'repositoryPath and moduleName are required'
+      })
+    })
+
+    it('should return 400 when moduleName is missing', async () => {
+      mockReq.query = { repositoryPath: '/repo' }
+
+      await controller.checkOAuthCredentials(mockReq, mockRes)
+
+      expect(mockRes.status).toHaveBeenCalledWith(400)
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: false,
+        error: 'repositoryPath and moduleName are required'
+      })
+    })
+
+    it('should return credentials status when complete', async () => {
+      mockReq.query = { repositoryPath: '/repo', moduleName: 'hubspot' }
+
+      mockCheckOAuthCredentialsUseCase.execute.mockResolvedValue({
+        complete: true,
+        missing: [],
+        hasClientId: true,
+        hasClientSecret: true,
+        envVarNames: {
+          clientId: 'HUBSPOT_CLIENT_ID',
+          clientSecret: 'HUBSPOT_CLIENT_SECRET',
+          scope: 'HUBSPOT_SCOPE'
+        }
+      })
+
+      await controller.checkOAuthCredentials(mockReq, mockRes)
+
+      expect(mockCheckOAuthCredentialsUseCase.execute).toHaveBeenCalledWith({
+        repositoryPath: '/repo',
+        moduleName: 'hubspot'
+      })
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: true,
+        complete: true,
+        missing: [],
+        hasClientId: true,
+        hasClientSecret: true,
+        envVarNames: {
+          clientId: 'HUBSPOT_CLIENT_ID',
+          clientSecret: 'HUBSPOT_CLIENT_SECRET',
+          scope: 'HUBSPOT_SCOPE'
+        }
+      })
+    })
+
+    it('should return 500 on use case error', async () => {
+      mockReq.query = { repositoryPath: '/repo', moduleName: 'hubspot' }
+
+      mockCheckOAuthCredentialsUseCase.execute.mockRejectedValue(
+        new Error('File system error')
+      )
+
+      await controller.checkOAuthCredentials(mockReq, mockRes)
+
+      expect(mockRes.status).toHaveBeenCalledWith(500)
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: false,
+        error: 'File system error'
+      })
+    })
+  })
+
+  describe('writeOAuthCredentials', () => {
+    it('should return 400 when repositoryPath is missing', async () => {
+      mockReq.body = {
+        moduleName: 'hubspot',
+        credentials: { clientId: 'id', clientSecret: 'secret' }
+      }
+
+      await controller.writeOAuthCredentials(mockReq, mockRes)
+
+      expect(mockRes.status).toHaveBeenCalledWith(400)
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: false,
+        error: 'repositoryPath, moduleName, and credentials are required'
+      })
+    })
+
+    it('should return 400 when moduleName is missing', async () => {
+      mockReq.body = {
+        repositoryPath: '/repo',
+        credentials: { clientId: 'id', clientSecret: 'secret' }
+      }
+
+      await controller.writeOAuthCredentials(mockReq, mockRes)
+
+      expect(mockRes.status).toHaveBeenCalledWith(400)
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: false,
+        error: 'repositoryPath, moduleName, and credentials are required'
+      })
+    })
+
+    it('should return 400 when credentials are missing', async () => {
+      mockReq.body = {
+        repositoryPath: '/repo',
+        moduleName: 'hubspot'
+      }
+
+      await controller.writeOAuthCredentials(mockReq, mockRes)
+
+      expect(mockRes.status).toHaveBeenCalledWith(400)
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: false,
+        error: 'repositoryPath, moduleName, and credentials are required'
+      })
+    })
+
+    it('should return success result from use case', async () => {
+      mockReq.body = {
+        repositoryPath: '/repo',
+        moduleName: 'hubspot',
+        credentials: { clientId: 'id', clientSecret: 'secret' }
+      }
+
+      mockWriteOAuthCredentialsUseCase.execute.mockResolvedValue({
+        success: true,
+        path: '/repo/backend/.env',
+        written: {
+          HUBSPOT_CLIENT_ID: true,
+          HUBSPOT_CLIENT_SECRET: true,
+          HUBSPOT_SCOPE: false
+        },
+        requiresReload: true
+      })
+
+      await controller.writeOAuthCredentials(mockReq, mockRes)
+
+      expect(mockWriteOAuthCredentialsUseCase.execute).toHaveBeenCalledWith({
+        repositoryPath: '/repo',
+        moduleName: 'hubspot',
+        credentials: { clientId: 'id', clientSecret: 'secret' }
+      })
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: true,
+        path: '/repo/backend/.env',
+        written: {
+          HUBSPOT_CLIENT_ID: true,
+          HUBSPOT_CLIENT_SECRET: true,
+          HUBSPOT_SCOPE: false
+        },
+        requiresReload: true
+      })
+    })
+
+    it('should return 400 for validation errors', async () => {
+      mockReq.body = {
+        repositoryPath: '/repo',
+        moduleName: 'hubspot',
+        credentials: { clientId: 'id', clientSecret: 'secret' }
+      }
+
+      mockWriteOAuthCredentialsUseCase.execute.mockRejectedValue(
+        new Error('Client ID is required and must be a string')
+      )
+
+      await controller.writeOAuthCredentials(mockReq, mockRes)
+
+      expect(mockRes.status).toHaveBeenCalledWith(400)
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: false,
+        error: 'Client ID is required and must be a string'
+      })
+    })
+
+    it('should return 500 for non-validation errors', async () => {
+      mockReq.body = {
+        repositoryPath: '/repo',
+        moduleName: 'hubspot',
+        credentials: { clientId: 'id', clientSecret: 'secret' }
+      }
+
+      mockWriteOAuthCredentialsUseCase.execute.mockRejectedValue(
+        new Error('Permission denied')
+      )
+
+      await controller.writeOAuthCredentials(mockReq, mockRes)
+
+      expect(mockRes.status).toHaveBeenCalledWith(500)
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: false,
+        error: 'Permission denied'
       })
     })
   })

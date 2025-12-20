@@ -30,7 +30,9 @@ export function createFriggAppRoutes(friggAppController) {
     testGlobalEntity: friggAppController.testGlobalEntity.bind(friggAppController),
     getAvailableModules: friggAppController.getAvailableModules.bind(friggAppController),
     getAuthRequirements: friggAppController.getAuthRequirements.bind(friggAppController),
-    proxySharedSecret: friggAppController.proxySharedSecret.bind(friggAppController)
+    proxySharedSecret: friggAppController.proxySharedSecret.bind(friggAppController),
+    checkOAuthCredentials: friggAppController.checkOAuthCredentials.bind(friggAppController),
+    writeOAuthCredentials: friggAppController.writeOAuthCredentials.bind(friggAppController)
   }
 
   // ============================================
@@ -303,6 +305,56 @@ export function createFriggAppRoutes(friggAppController) {
   router.post('/proxy/shared-secret', async (req, res, next) => {
     try {
       await controller.proxySharedSecret(req, res)
+    } catch (error) {
+      next(error)
+    }
+  })
+
+  // ============================================
+  // OAuth Credentials Management
+  // ============================================
+
+  /**
+   * GET /api/frigg-app/oauth-credentials/check
+   * Check if OAuth credentials are configured for a module
+   * Query: { repositoryPath: string, moduleName: string }
+   *
+   * Returns:
+   * - complete: boolean - Whether all required credentials are present
+   * - missing: string[] - List of missing credential fields ('clientId', 'clientSecret')
+   * - envVarNames: { clientId, clientSecret, scope } - Actual env var names
+   * - hasClientId, hasClientSecret, hasScope: boolean - Individual field status
+   */
+  router.get('/oauth-credentials/check', async (req, res, next) => {
+    try {
+      await controller.checkOAuthCredentials(req, res)
+    } catch (error) {
+      next(error)
+    }
+  })
+
+  /**
+   * POST /api/frigg-app/oauth-credentials
+   * Write OAuth credentials to the Frigg app's .env file
+   * Body: {
+   *   repositoryPath: string - Path to the Frigg app repository
+   *   moduleName: string - Module name (e.g., 'hubspot', 'salesforce')
+   *   credentials: {
+   *     clientId: string - OAuth client ID
+   *     clientSecret: string - OAuth client secret
+   *     scope?: string - OAuth scope (optional)
+   *   }
+   * }
+   *
+   * Returns:
+   * - success: boolean
+   * - path: string - Path to the updated .env file
+   * - written: { [varName]: boolean } - Which vars were written
+   * - requiresReload: boolean - Whether backend needs restart
+   */
+  router.post('/oauth-credentials', async (req, res, next) => {
+    try {
+      await controller.writeOAuthCredentials(req, res)
     } catch (error) {
       next(error)
     }

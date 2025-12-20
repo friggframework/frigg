@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import api from '../../../infrastructure/http/api-client.js'
+import OAuthCredentialsPrompt from './OAuthCredentialsPrompt'
 
 /**
  * GlobalEntityManagement
@@ -23,10 +24,14 @@ import api from '../../../infrastructure/http/api-client.js'
  * - Create new global entities via OAuth or form flow
  * - Test entity connections
  * - Delete entities
+ * - Prompt for OAuth credentials if not configured
  *
  * Note: Requires connection to a Frigg app via the Admin Connection panel
+ *
+ * @param {object} props
+ * @param {string} [props.repositoryPath] - Path to the Frigg app repository (for checking OAuth credentials)
  */
-const GlobalEntityManagement = () => {
+const GlobalEntityManagement = ({ repositoryPath }) => {
   const [entities, setEntities] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -321,11 +326,31 @@ const GlobalEntityManagement = () => {
             ) : authRequirements?.type === 'oauth' ? (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  This module requires OAuth authentication. Click the button below to start the authorization flow.
+                  This module requires OAuth authentication.
+                  {repositoryPath && !authRequirements.url && (
+                    <> First, configure your OAuth credentials.</>
+                  )}
                 </p>
-                <Button onClick={handleOAuthRedirect} disabled={!authRequirements.url}>
-                  Connect via OAuth
-                </Button>
+
+                {/* Show credentials prompt if we have a repository path */}
+                {repositoryPath ? (
+                  <OAuthCredentialsPrompt
+                    moduleName={selectedModule?.name}
+                    repositoryPath={repositoryPath}
+                    authRequirements={authRequirements}
+                    onCredentialsSaved={() => {
+                      // OAuthCredentialsPrompt handles the success message and restart notification
+                      setError(null)
+                    }}
+                    onCancel={handleCancelCreate}
+                    onProceedToOAuth={handleOAuthRedirect}
+                  />
+                ) : (
+                  // Fallback: no repository path, show simple OAuth button
+                  <Button onClick={handleOAuthRedirect} disabled={!authRequirements.url}>
+                    Connect via OAuth
+                  </Button>
+                )}
               </div>
             ) : authRequirements?.type === 'form' ? (
               <form onSubmit={handleFormSubmit} className="space-y-4">
