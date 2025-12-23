@@ -311,6 +311,36 @@ frigg deploy                  # Infrastructure deployment
 frigg search <term>           # Search available API modules
 ```
 
+### Frigg Authenticator
+
+CLI tool for testing API module authentication flows without deploying infrastructure:
+
+```bash
+# Test OAuth2 authentication (opens browser, captures tokens)
+frigg auth test .                    # Current directory module
+frigg auth test attio                # By module name
+frigg auth test . --port 8080        # Custom callback port
+frigg auth test . --no-browser       # Print URL instead of opening browser
+
+# Test API-Key authentication
+frigg auth test . --api-key sk_xxx
+
+# Manage saved credentials
+frigg auth list                      # List all saved credentials
+frigg auth get attio --json          # Get as JSON for scripts
+frigg auth get attio --export        # Export as environment variables
+frigg auth delete attio              # Delete credentials
+```
+
+Credentials are saved to `.frigg-credentials.json` and auto-added to `.gitignore`.
+
+The authenticator tests all `requiredAuthMethods`:
+- `testAuthRequest` - Verify authentication works
+- `getEntityDetails` - Validate entity consistency
+- `getCredentialDetails` - Verify credential structure
+- Token refresh (if module supports it)
+- `apiPropertiesToPersist` verification
+
 ### Development Tools
 
 - **Mock API**: `nock`-based HTTP request mocking for tests
