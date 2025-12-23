@@ -5,8 +5,9 @@ const crypto = require('crypto');
 
 async function runOAuthFlow(definition, ApiClass, options) {
     const port = options.port || 3333;
-    const redirectUri = `http://localhost:${port}`;
-    const moduleName = definition.moduleName || definition.getName?.() || 'unknown';
+    const redirectUri = process.env.REDIRECT_URI || `http://localhost:${port}`;
+    const moduleName =
+        definition.moduleName || definition.getName?.() || 'unknown';
 
     // 1. Generate state for CSRF protection
     const state = crypto.randomBytes(16).toString('hex');
@@ -30,7 +31,7 @@ async function runOAuthFlow(definition, ApiClass, options) {
     if (!authUrl) {
         throw new Error(
             `Module ${moduleName} did not provide an authorization URL.\n` +
-            `Expected api.getAuthorizationUri() or api.authorizationUri property.`
+                `Expected api.getAuthorizationUri() or api.authorizationUri property.`
         );
     }
 
@@ -54,13 +55,19 @@ async function runOAuthFlow(definition, ApiClass, options) {
         try {
             await openBrowser(authUrl);
         } catch (err) {
-            console.log(chalk.yellow(`Could not open browser automatically: ${err.message}`));
+            console.log(
+                chalk.yellow(
+                    `Could not open browser automatically: ${err.message}`
+                )
+            );
             console.log(chalk.yellow('Please open the URL manually:'));
             console.log(chalk.cyan(`\n  ${authUrl}\n`));
         }
 
         console.log(chalk.gray('Waiting for OAuth callback...'));
-        console.log(chalk.gray(`(Timeout: ${options.timeout || 300} seconds)\n`));
+        console.log(
+            chalk.gray(`(Timeout: ${options.timeout || 300} seconds)\n`)
+        );
 
         // 6. Wait for callback
         const { code, state: returnedState } = await server.waitForCode();
@@ -69,8 +76,8 @@ async function runOAuthFlow(definition, ApiClass, options) {
         if (returnedState && returnedState !== state) {
             throw new Error(
                 'OAuth state mismatch - possible CSRF attack.\n' +
-                `Expected: ${state}\n` +
-                `Received: ${returnedState}`
+                    `Expected: ${state}\n` +
+                    `Received: ${returnedState}`
             );
         }
 
@@ -81,7 +88,9 @@ async function runOAuthFlow(definition, ApiClass, options) {
 
         let tokenResponse;
         if (definition.requiredAuthMethods?.getToken) {
-            tokenResponse = await definition.requiredAuthMethods.getToken(api, { code });
+            tokenResponse = await definition.requiredAuthMethods.getToken(api, {
+                code,
+            });
         } else {
             // Fallback to direct API call
             tokenResponse = await api.getTokenFromCode(code);
@@ -94,17 +103,18 @@ async function runOAuthFlow(definition, ApiClass, options) {
 
         let entityDetails;
         if (definition.requiredAuthMethods?.getEntityDetails) {
-            entityDetails = await definition.requiredAuthMethods.getEntityDetails(
-                api,
-                { code, state: returnedState },
-                tokenResponse,
-                'cli-test-user'
-            );
+            entityDetails =
+                await definition.requiredAuthMethods.getEntityDetails(
+                    api,
+                    { code, state: returnedState },
+                    tokenResponse,
+                    'cli-test-user'
+                );
         } else {
             // Minimal entity details if method not provided
             entityDetails = {
                 identifiers: { externalId: 'unknown', user: 'cli-test-user' },
-                details: { name: 'Unknown' }
+                details: { name: 'Unknown' },
             };
         }
 
@@ -114,19 +124,28 @@ async function runOAuthFlow(definition, ApiClass, options) {
             console.log(chalk.gray(`  Entity: ${entityDetails.details.name}`));
         }
         if (entityDetails?.identifiers?.externalId) {
-            console.log(chalk.gray(`  External ID: ${entityDetails.identifiers.externalId}`));
+            console.log(
+                chalk.gray(
+                    `  External ID: ${entityDetails.identifiers.externalId}`
+                )
+            );
         }
 
         // 10. Collect credential details
         let credentialDetails = {};
         if (definition.requiredAuthMethods?.getCredentialDetails) {
             try {
-                credentialDetails = await definition.requiredAuthMethods.getCredentialDetails(
-                    api,
-                    'cli-test-user'
-                );
+                credentialDetails =
+                    await definition.requiredAuthMethods.getCredentialDetails(
+                        api,
+                        'cli-test-user'
+                    );
             } catch (err) {
-                console.log(chalk.yellow(`  Warning: Could not get credential details: ${err.message}`));
+                console.log(
+                    chalk.yellow(
+                        `  Warning: Could not get credential details: ${err.message}`
+                    )
+                );
             }
         }
 
@@ -144,7 +163,6 @@ async function runOAuthFlow(definition, ApiClass, options) {
             tokenResponse: sanitizeTokenResponse(tokenResponse),
             obtainedAt: new Date().toISOString(),
         };
-
     } finally {
         await server.stop();
     }
