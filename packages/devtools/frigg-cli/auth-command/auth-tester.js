@@ -9,7 +9,6 @@ async function runAuthTests(definition, ApiClass, credentials, options) {
         getEntityDetails: { status: 'pending' },
         getCredentialDetails: { status: 'pending' },
         tokenRefresh: { status: 'pending' },
-        sampleApiCall: { status: 'pending' },
         credentialProps: { set: 0, total: 0 },
         entityProps: { set: 0, total: 0 },
     };
@@ -115,17 +114,8 @@ async function runAuthTests(definition, ApiClass, credentials, options) {
         results.tokenRefresh = { status: 'passed', tokenChanged: refreshResult.tokenChanged };
     }
 
-    // 6. Run a sample API call if available
-    console.log(chalk.gray('\n5. Running sample API call...'));
-    const sampleResult = await runSampleApiCall(api, ApiClass, options);
-    if (sampleResult.success) {
-        results.sampleApiCall = { status: 'passed', method: sampleResult.method };
-    } else {
-        results.sampleApiCall = { status: 'skipped', reason: 'no methods available' };
-    }
-
-    // 7. Verify credential persistence properties
-    console.log(chalk.gray('\n6. Verifying credential properties (apiPropertiesToPersist.credential)...'));
+    // 6. Verify credential persistence properties
+    console.log(chalk.gray('\n5. Verifying credential properties (apiPropertiesToPersist.credential)...'));
     const credProps = definition.requiredAuthMethods?.apiPropertiesToPersist?.credential || [];
     results.credentialProps.total = credProps.length;
 
@@ -143,8 +133,8 @@ async function runAuthTests(definition, ApiClass, credentials, options) {
         }
     }
 
-    // 8. Verify entity persistence properties
-    console.log(chalk.gray('\n7. Verifying entity properties (apiPropertiesToPersist.entity)...'));
+    // 7. Verify entity persistence properties
+    console.log(chalk.gray('\n6. Verifying entity properties (apiPropertiesToPersist.entity)...'));
     const entityProps = definition.requiredAuthMethods?.apiPropertiesToPersist?.entity || [];
     results.entityProps.total = entityProps.length;
 
@@ -162,7 +152,7 @@ async function runAuthTests(definition, ApiClass, credentials, options) {
         }
     }
 
-    // 9. Summary
+    // 8. Summary
     console.log(chalk.blue('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
     console.log(chalk.blue('Summary'));
     console.log(chalk.blue('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'));
@@ -171,7 +161,6 @@ async function runAuthTests(definition, ApiClass, credentials, options) {
     printSummaryLine('getEntityDetails', results.getEntityDetails);
     printSummaryLine('getCredentialDetails', results.getCredentialDetails);
     printSummaryLine('tokenRefresh', results.tokenRefresh);
-    printSummaryLine('sampleApiCall', results.sampleApiCall);
 
     const credPropsStatus = results.credentialProps.total === 0
         ? chalk.gray('n/a')
@@ -202,8 +191,6 @@ async function runAuthTests(definition, ApiClass, credentials, options) {
         getEntityDetailsPassed: results.getEntityDetails.status === 'passed',
         getCredentialDetailsPassed: results.getCredentialDetails.status === 'passed',
         tokenRefreshPassed: results.tokenRefresh.status === 'passed',
-        sampleApiCallPassed: results.sampleApiCall.status === 'passed',
-        sampleMethod: results.sampleApiCall.method,
         credentialPropertiesValid: results.credentialProps.set === results.credentialProps.total,
         entityPropertiesValid: results.entityProps.set === results.entityProps.total,
     };
@@ -322,44 +309,6 @@ async function tryCommonTestMethods(api) {
     }
 
     throw new Error('No testAuthRequest method defined and no common test methods available');
-}
-
-async function runSampleApiCall(api, ApiClass, options) {
-    const sampleMethods = [
-        { name: 'getUserDetails', description: 'Get user details' },
-        { name: 'getUser', description: 'Get user' },
-        { name: 'getCurrentUser', description: 'Get current user' },
-        { name: 'listObjects', description: 'List objects' },
-        { name: 'listContacts', description: 'List contacts' },
-        { name: 'listDeals', description: 'List deals' },
-        { name: 'listUsers', description: 'List users' },
-        { name: 'getWorkspace', description: 'Get workspace' },
-        { name: 'getOrganization', description: 'Get organization' },
-    ];
-
-    for (const { name, description } of sampleMethods) {
-        if (typeof api[name] === 'function') {
-            console.log(chalk.gray(`   Trying ${name}()...`));
-            try {
-                const result = await api[name]();
-                console.log(chalk.green(`   ✓ Sample API call (${name}) succeeded`));
-
-                if (options.verbose && result) {
-                    console.log(chalk.gray('   Response preview:'));
-                    const preview = JSON.stringify(result, null, 2);
-                    const truncated = preview.length > 300 ? preview.slice(0, 300) + '\n   ...' : preview;
-                    console.log(chalk.gray('   ' + truncated.split('\n').join('\n   ')));
-                }
-
-                return { success: true, method: name };
-            } catch (error) {
-                console.log(chalk.yellow(`   ⚠ ${name}() failed: ${error.message}`));
-            }
-        }
-    }
-
-    console.log(chalk.gray('   No additional sample API calls available for this module'));
-    return { success: false, method: null };
 }
 
 function maskSensitive(prop, value) {

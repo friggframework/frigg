@@ -49,18 +49,13 @@ async function runOAuthFlow(definition, ApiClass, options) {
     await server.start();
 
     try {
-        // 5. Open browser or display URL
-        if (options.browser !== false) {
-            console.log(chalk.gray('\nOpening browser for authorization...'));
-            try {
-                await openBrowser(authUrl);
-            } catch (err) {
-                console.log(chalk.yellow(`Could not open browser automatically: ${err.message}`));
-                console.log(chalk.yellow('Please open the URL manually:'));
-                console.log(chalk.cyan(`\n  ${authUrl}\n`));
-            }
-        } else {
-            console.log(chalk.yellow('\nOpen this URL in your browser to authorize:'));
+        // 5. Open browser for authorization
+        console.log(chalk.gray('\nOpening browser for authorization...'));
+        try {
+            await openBrowser(authUrl);
+        } catch (err) {
+            console.log(chalk.yellow(`Could not open browser automatically: ${err.message}`));
+            console.log(chalk.yellow('Please open the URL manually:'));
             console.log(chalk.cyan(`\n  ${authUrl}\n`));
         }
 

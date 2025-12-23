@@ -30,7 +30,6 @@ async function test(moduleName, options) {
             credentials = await runOAuthFlow(definition, Api, {
                 port: parseInt(options.port, 10) || 3333,
                 timeout: parseInt(options.timeout, 10) || 300,
-                browser: options.browser,
                 verbose: options.verbose,
             });
         }
@@ -40,13 +39,14 @@ async function test(moduleName, options) {
             verbose: options.verbose,
         });
 
-        // 5. Save credentials
+        // 5. Save credentials using actual module name from definition
+        const actualModuleName = definition.moduleName || definition.getName?.() || moduleName;
         const storage = new CredentialStorage();
-        const savedPath = await storage.save(moduleName, credentials, authType);
+        const savedPath = await storage.save(actualModuleName, credentials, authType);
 
-        console.log(chalk.green(`\n✓ Authentication successful for ${moduleName}!`));
+        console.log(chalk.green(`\n✓ Authentication successful for ${actualModuleName}!`));
         console.log(chalk.gray(`  Credentials saved to: ${savedPath}`));
-        console.log(chalk.gray(`\n  Use 'frigg auth get ${moduleName} --json' to retrieve credentials.\n`));
+        console.log(chalk.gray(`\n  Use 'frigg auth get ${actualModuleName} --json' to retrieve credentials.\n`));
 
     } catch (error) {
         console.log(chalk.red(`\n✗ Authentication failed: ${error.message}`));

@@ -179,7 +179,6 @@ authProgram
     .description('Test authentication for an API module')
     .option('--api-key <key>', 'API key for API-Key authentication')
     .option('--port <port>', 'Callback server port', '3333')
-    .option('--no-browser', 'Do not auto-open browser (print URL instead)')
     .option('--timeout <seconds>', 'OAuth callback timeout', '300')
     .option('-v, --verbose', 'Enable verbose output')
     .action(authCommand.test);
