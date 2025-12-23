@@ -349,9 +349,9 @@ npm test                     # Run framework tests
 frigg ui                     # Start Frigg Management UI (localhost:3002)
 
 # API Module Authentication Testing
-frigg auth test .            # Test OAuth2 auth for current directory module
+frigg auth test .            # Test OAuth2 or API-Key auth (interactive form)
 frigg auth test attio        # Test by module name
-frigg auth test . --api-key sk_xxx  # Test API-Key authentication
+frigg auth test . --api-key sk_xxx  # Test API-Key (explicit, skips form)
 frigg auth list              # List saved credentials
 frigg auth get attio --json  # Get credentials as JSON
 frigg auth delete attio      # Delete saved credentials
@@ -368,11 +368,34 @@ CLI tool for testing API module authentication flows without deploying infrastru
 - `frigg auth delete [module]` - Remove credentials (supports `--all`)
 
 **Options for `frigg auth test`:**
-- `--api-key <key>` - Use API-Key authentication instead of OAuth2
+- `--api-key <key>` - Use explicit API key (skips interactive form)
 - `--port <port>` - Callback server port (default: 3333)
 - `--no-browser` - Print authorization URL instead of opening browser
 - `--timeout <seconds>` - OAuth callback timeout (default: 300)
 - `-v, --verbose` - Enable verbose output
+
+**API-Key Modules with Interactive Forms:**
+
+API-Key modules with `getAuthorizationRequirements` render interactive CLI forms:
+
+```bash
+$ frigg auth test .
+
+📝 Quo API Authorization
+
+  (Your Quo API key)
+  API Key: ********************************
+
+🔑 API-Key Authentication Flow
+Module: quo
+✓ API key configured
+```
+
+Features:
+- Password masking for `ui:widget: 'password'` fields
+- Help text from `ui:help` displayed before prompts
+- Validation for required fields
+- Multi-field support (e.g., company ID, public key, private key)
 
 **What it tests:**
 - `testAuthRequest` - Verify authentication works

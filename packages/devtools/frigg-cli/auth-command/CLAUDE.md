@@ -16,6 +16,7 @@ auth-command/
 ├── oauth-callback-server.js # Local HTTP server for OAuth callbacks
 ├── oauth-flow.js            # OAuth2 flow orchestration
 ├── api-key-flow.js          # API-Key authentication flow
+├── json-schema-form.js      # Interactive JSON Schema form renderer (CLI prompts)
 ├── auth-tester.js           # Run testAuthRequest & sample API calls
 ├── utils/
 │   └── browser.js           # Cross-platform browser opening
@@ -96,14 +97,37 @@ Orchestrates the complete OAuth2 flow:
 
 ### `api-key-flow.js` - API-Key Flow
 Handles API-Key authentication:
-1. Create API instance
-2. Set API key via `setApiKey()` or similar
-3. Fetch entity details
-4. Return credentials object
+1. Check for `getAuthorizationRequirements` in module definition
+2. If no API key provided and `getAuthorizationRequirements` exists, render JSON Schema form
+3. Create API instance
+4. Set API key via `setApiKey()` or similar
+5. Fetch entity details
+6. Return credentials object
 
 **Key function:** `runApiKeyFlow(definition, ApiClass, apiKey, options)`
 
-**When to modify:** Supporting different API key mechanisms.
+**When to modify:** Supporting different API key mechanisms or form rendering.
+
+### `json-schema-form.js` - Interactive Form Renderer
+Renders JSON Schema as interactive CLI prompts using `@inquirer/prompts`:
+1. Display form title from `jsonSchema.title`
+2. Iterate through `jsonSchema.properties`
+3. Show help text from `uiSchema[field]['ui:help']`
+4. Use password prompt for `ui:widget: 'password'` fields
+5. Validate required fields
+6. Return collected form data
+
+**Key function:** `renderJsonSchemaForm(jsonSchema, uiSchema)`
+
+**When to modify:** Adding new field types or UI schema options.
+
+**Example output:**
+```
+📝 Quo API Authorization
+
+  (Your Quo API key)
+  API Key: ********************************
+```
 
 ### `auth-tester.js` - Verification
 Runs verification tests after authentication:
@@ -217,6 +241,7 @@ if (errors.length > 0) {
 External packages used:
 - `chalk` - Terminal colors
 - `commander` - CLI framework (via parent)
+- `@inquirer/prompts` - Interactive CLI prompts (input, password)
 
 Node.js built-ins:
 - `http` - Callback server

@@ -1,7 +1,48 @@
 const chalk = require('chalk');
+const { renderJsonSchemaForm } = require('./json-schema-form');
 
-async function runApiKeyFlow(definition, ApiClass, apiKey, options) {
+async function runApiKeyFlow(definition, ApiClass, providedApiKey, options) {
     const moduleName = definition.moduleName || definition.getName?.() || 'unknown';
+
+    let apiKey = providedApiKey;
+    let formData = null;
+
+    // If no API key provided, check for getAuthorizationRequirements to render form
+    if (!apiKey) {
+        if (definition.requiredAuthMethods?.getAuthorizationRequirements) {
+            // Create temporary API instance to call getAuthorizationRequirements
+            const tempApi = new ApiClass({ ...definition.env });
+            const authReqs = definition.requiredAuthMethods.getAuthorizationRequirements(tempApi);
+
+            if (authReqs?.data?.jsonSchema) {
+                // Render the JSON schema form
+                formData = await renderJsonSchemaForm(
+                    authReqs.data.jsonSchema,
+                    authReqs.data.uiSchema
+                );
+
+                // Extract API key from form data - try common field names
+                apiKey = formData.apiKey || formData.api_key ||
+                         formData.access_token || formData.token;
+
+                // If still no API key found, use the first value from the form
+                if (!apiKey && Object.keys(formData).length > 0) {
+                    apiKey = Object.values(formData)[0];
+                }
+
+                if (!apiKey) {
+                    throw new Error('No API key provided in form');
+                }
+            }
+        }
+
+        if (!apiKey) {
+            throw new Error(
+                `--api-key is required for API-Key modules without getAuthorizationRequirements.\n` +
+                `Usage: frigg auth test ${moduleName} --api-key YOUR_API_KEY`
+            );
+        }
+    }
 
     console.log(chalk.blue('\n🔑 API-Key Authentication Flow\n'));
     console.log(chalk.gray(`Module: ${moduleName}`));

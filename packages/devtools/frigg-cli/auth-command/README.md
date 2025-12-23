@@ -48,6 +48,39 @@ This will:
 
 ### Testing API-Key Modules
 
+API-Key modules with `getAuthorizationRequirements` will render an interactive JSON Schema form:
+
+```bash
+# Navigate to API module directory
+cd packages/api-module-quo
+
+# Run auth test - renders interactive form
+frigg auth test .
+```
+
+**Interactive Form Example:**
+```
+📝 Quo API Authorization
+
+  (Your Quo API key)
+  API Key: ********************************
+
+🔑 API-Key Authentication Flow
+
+Module: quo
+✓ API key configured
+Fetching entity details...
+✓ Entity details retrieved
+  Entity: Quo Workspace (API Key Hash)
+```
+
+The form:
+- Displays title from `jsonSchema.title`
+- Shows help text from `ui:help` before each field
+- Masks password fields (`ui:widget: 'password'`) with `*`
+- Validates required fields
+
+**Using `--api-key` flag (bypasses interactive form):**
 ```bash
 frigg auth test ./my-api-key-module --api-key YOUR_API_KEY
 ```
@@ -69,7 +102,7 @@ Test authentication for an API module.
 **Options:**
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--api-key <key>` | - | API key for API-Key authentication |
+| `--api-key <key>` | - | API key (bypasses interactive form) |
 | `--port <port>` | `3333` | Callback server port |
 | `--no-browser` | `false` | Don't auto-open browser (print URL instead) |
 | `--timeout <seconds>` | `300` | OAuth callback timeout |
@@ -281,8 +314,71 @@ MY_MODULE_CLIENT_SECRET=your_client_secret
 MY_MODULE_SCOPE=read write
 REDIRECT_URI=http://localhost:3333
 
-# API-Key modules (pass via --api-key flag)
+# API-Key modules - use interactive form or --api-key flag
 ```
+
+### JSON Schema Form for API-Key Modules
+
+API-Key modules can define `getAuthorizationRequirements` to enable interactive CLI forms:
+
+```javascript
+// definition.js
+const Definition = {
+    // ...
+    requiredAuthMethods: {
+        getAuthorizationRequirements: (api) => ({
+            type: 'apiKey',
+            data: {
+                jsonSchema: {
+                    title: 'My API Authorization',
+                    type: 'object',
+                    required: ['apiKey'],
+                    properties: {
+                        apiKey: { type: 'string', title: 'API Key' }
+                    }
+                },
+                uiSchema: {
+                    apiKey: {
+                        'ui:widget': 'password',  // Masks input with *
+                        'ui:help': 'Your API key from the dashboard'
+                    }
+                }
+            }
+        }),
+        // ... other methods
+    }
+};
+```
+
+**Multi-Field Example (e.g., ConnectWise):**
+```javascript
+getAuthorizationRequirements: (api) => ({
+    type: 'apiKey',
+    data: {
+        jsonSchema: {
+            title: 'ConnectWise Authentication',
+            type: 'object',
+            required: ['companyId', 'publicKey', 'privateKey'],
+            properties: {
+                companyId: { type: 'string', title: 'Company ID' },
+                publicKey: { type: 'string', title: 'Public Key' },
+                privateKey: { type: 'string', title: 'Private Key' },
+                siteUrl: { type: 'string', title: 'Site URL' }
+            }
+        },
+        uiSchema: {
+            companyId: { 'ui:help': 'The Company ID you use to login' },
+            publicKey: { 'ui:help': 'From My Account > API Keys' },
+            privateKey: { 'ui:widget': 'password', 'ui:help': 'Your private key' },
+            siteUrl: { 'ui:help': 'e.g., https://na.myconnectwise.net' }
+        }
+    }
+})
+```
+
+**Supported UI Schema Options:**
+- `ui:widget: 'password'` - Masks input with `*` characters
+- `ui:help` - Displays help text before the field prompt
 
 ## Troubleshooting
 
@@ -336,6 +432,7 @@ auth-command/
 ├── oauth-callback-server.js # Local HTTP server for OAuth callbacks
 ├── oauth-flow.js            # OAuth2 flow orchestration
 ├── api-key-flow.js          # API-Key authentication flow
+├── json-schema-form.js      # Interactive JSON Schema form renderer
 ├── auth-tester.js           # Run testAuthRequest & sample API calls
 └── utils/
     └── browser.js           # Cross-platform browser opening

@@ -22,11 +22,8 @@ async function test(moduleName, options) {
 
         // 3. Run appropriate auth flow
         if (authType === 'apiKey' || authType === 'api_key') {
-            if (!options.apiKey) {
-                console.log(chalk.red('\n✗ Error: --api-key is required for API-Key modules'));
-                console.log(chalk.gray(`\nUsage: frigg auth test ${moduleName} --api-key YOUR_API_KEY\n`));
-                process.exit(1);
-            }
+            // API key flow handles missing --api-key by checking for getAuthorizationRequirements
+            // and rendering an interactive form if available
             credentials = await runApiKeyFlow(definition, Api, options.apiKey, options);
         } else {
             // OAuth2 flow
