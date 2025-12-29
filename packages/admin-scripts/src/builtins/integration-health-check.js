@@ -54,7 +54,7 @@ class IntegrationHealthCheckScript extends AdminScriptBase {
         config: {
             timeout: 900000, // 15 minutes
             maxRetries: 0,
-            requiresIntegrationFactory: true,
+            requireIntegrationInstance: true,
         },
 
         schedule: {

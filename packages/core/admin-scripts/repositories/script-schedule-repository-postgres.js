@@ -71,20 +71,20 @@ class ScriptScheduleRepositoryPostgres extends ScriptScheduleRepositoryInterface
      * @param {boolean} params.enabled - Whether schedule is enabled
      * @param {string} params.cronExpression - Cron expression
      * @param {string} [params.timezone] - Timezone (default 'UTC')
-     * @param {string} [params.awsScheduleArn] - AWS EventBridge Scheduler ARN
-     * @param {string} [params.awsScheduleName] - AWS EventBridge Scheduler name
+     * @param {string} [params.externalScheduleId] - External scheduler ID (e.g., AWS ARN)
+     * @param {string} [params.externalScheduleName] - External scheduler name
      * @returns {Promise<Object>} Created or updated schedule record with string ID
      */
-    async upsertSchedule({ scriptName, enabled, cronExpression, timezone, awsScheduleArn, awsScheduleName }) {
+    async upsertSchedule({ scriptName, enabled, cronExpression, timezone, externalScheduleId, externalScheduleName }) {
         const data = {
             enabled,
             cronExpression,
             timezone: timezone || 'UTC',
         };
 
-        // Only set AWS fields if provided
-        if (awsScheduleArn !== undefined) data.awsScheduleArn = awsScheduleArn;
-        if (awsScheduleName !== undefined) data.awsScheduleName = awsScheduleName;
+        // Only set external scheduler fields if provided
+        if (externalScheduleId !== undefined) data.externalScheduleId = externalScheduleId;
+        if (externalScheduleName !== undefined) data.externalScheduleName = externalScheduleName;
 
         const schedule = await this.prisma.scriptSchedule.upsert({
             where: { scriptName },
@@ -128,18 +128,18 @@ class ScriptScheduleRepositoryPostgres extends ScriptScheduleRepositoryInterface
     }
 
     /**
-     * Update AWS EventBridge Scheduler information
+     * Update external scheduler information
      *
      * @param {string} scriptName - The script name
-     * @param {Object} awsInfo - AWS schedule information
-     * @param {string} [awsInfo.awsScheduleArn] - AWS EventBridge Scheduler ARN
-     * @param {string} [awsInfo.awsScheduleName] - AWS EventBridge Scheduler name
+     * @param {Object} externalInfo - External schedule information
+     * @param {string} [externalInfo.externalScheduleId] - External scheduler ID (e.g., AWS ARN)
+     * @param {string} [externalInfo.externalScheduleName] - External scheduler name
      * @returns {Promise<Object>} Updated schedule record with string ID
      */
-    async updateScheduleAwsInfo(scriptName, { awsScheduleArn, awsScheduleName }) {
+    async updateScheduleExternalInfo(scriptName, { externalScheduleId, externalScheduleName }) {
         const data = {};
-        if (awsScheduleArn !== undefined) data.awsScheduleArn = awsScheduleArn;
-        if (awsScheduleName !== undefined) data.awsScheduleName = awsScheduleName;
+        if (externalScheduleId !== undefined) data.externalScheduleId = externalScheduleId;
+        if (externalScheduleName !== undefined) data.externalScheduleName = externalScheduleName;
 
         const schedule = await this.prisma.scriptSchedule.update({
             where: { scriptName },

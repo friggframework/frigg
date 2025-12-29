@@ -419,9 +419,9 @@ model ScriptSchedule {
   lastTriggeredAt DateTime?
   nextTriggerAt   DateTime?
 
-  // AWS EventBridge Schedule (if provisioned)
-  awsScheduleArn  String?
-  awsScheduleName String?
+  // External Scheduler (e.g., AWS EventBridge Scheduler)
+  externalScheduleId   String?
+  externalScheduleName String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

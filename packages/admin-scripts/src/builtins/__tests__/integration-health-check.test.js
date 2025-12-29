@@ -6,7 +6,7 @@ describe('IntegrationHealthCheckScript', () => {
             expect(IntegrationHealthCheckScript.Definition.name).toBe('integration-health-check');
             expect(IntegrationHealthCheckScript.Definition.version).toBe('1.0.0');
             expect(IntegrationHealthCheckScript.Definition.source).toBe('BUILTIN');
-            expect(IntegrationHealthCheckScript.Definition.config.requiresIntegrationFactory).toBe(true);
+            expect(IntegrationHealthCheckScript.Definition.config.requireIntegrationInstance).toBe(true);
         });
 
         it('should have valid input schema', () => {

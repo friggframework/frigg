@@ -6,7 +6,7 @@ describe('OAuthTokenRefreshScript', () => {
             expect(OAuthTokenRefreshScript.Definition.name).toBe('oauth-token-refresh');
             expect(OAuthTokenRefreshScript.Definition.version).toBe('1.0.0');
             expect(OAuthTokenRefreshScript.Definition.source).toBe('BUILTIN');
-            expect(OAuthTokenRefreshScript.Definition.config.requiresIntegrationFactory).toBe(true);
+            expect(OAuthTokenRefreshScript.Definition.config.requireIntegrationInstance).toBe(true);
         });
 
         it('should have valid input schema', () => {

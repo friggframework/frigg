@@ -341,7 +341,7 @@ describe('AdminFriggCommands', () => {
 
             await expect(commands.instantiate('int_123')).rejects.toThrow(
                 'instantiate() requires integrationFactory. ' +
-                'Set Definition.config.requiresIntegrationFactory = true'
+                'Set Definition.config.requireIntegrationInstance = true'
             );
         });
 

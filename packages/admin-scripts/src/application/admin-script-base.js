@@ -50,7 +50,7 @@ class AdminScriptBase {
         config: {
             timeout: 300000, // Default 5 min (ms)
             maxRetries: 0,
-            requiresIntegrationFactory: false, // Hint: does script need to instantiate integrations?
+            requireIntegrationInstance: false, // Hint: does script need to instantiate integrations?
         },
 
         display: {

@@ -28,7 +28,7 @@ describe('AdminScriptBase', () => {
                     config: {
                         timeout: 600000,
                         maxRetries: 3,
-                        requiresIntegrationFactory: true,
+                        requireIntegrationInstance: true,
                     },
                     display: {
                         label: 'Test Script',
@@ -236,7 +236,7 @@ describe('AdminScriptBase', () => {
                     version: '1.0.0',
                     description: 'My test script',
                     config: {
-                        requiresIntegrationFactory: true,
+                        requireIntegrationInstance: true,
                     },
                 };
 

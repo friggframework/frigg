@@ -6,7 +6,11 @@ const { createScriptRunner } = require('../application/script-runner');
 const { createAdminScriptCommands } = require('@friggframework/core/application/commands/admin-script-commands');
 const { QueuerUtil } = require('@friggframework/core/queues');
 const { createSchedulerAdapter } = require('../adapters/scheduler-adapter-factory');
-const { ScheduleManagementUseCase } = require('../application/schedule-management-use-case');
+const {
+    GetEffectiveScheduleUseCase,
+    UpsertScheduleUseCase,
+    DeleteScheduleUseCase,
+} = require('../application/use-cases');
 
 const router = express.Router();
 
@@ -14,15 +18,19 @@ const router = express.Router();
 router.use(validateAdminApiKey);
 
 /**
- * Create ScheduleManagementUseCase instance
+ * Create schedule use case instances
  * @private
  */
-function createScheduleManagementUseCase() {
-    return new ScheduleManagementUseCase({
-        commands: createAdminScriptCommands(),
-        schedulerAdapter: createSchedulerAdapter(),
-        scriptFactory: getScriptFactory(),
-    });
+function createScheduleUseCases() {
+    const commands = createAdminScriptCommands();
+    const schedulerAdapter = createSchedulerAdapter();
+    const scriptFactory = getScriptFactory();
+
+    return {
+        getEffectiveSchedule: new GetEffectiveScheduleUseCase({ commands, scriptFactory }),
+        upsertSchedule: new UpsertScheduleUseCase({ commands, schedulerAdapter, scriptFactory }),
+        deleteSchedule: new DeleteScheduleUseCase({ commands, schedulerAdapter, scriptFactory }),
+    };
 }
 
 /**
@@ -40,8 +48,8 @@ router.get('/scripts', async (req, res) => {
                 version: s.definition.version,
                 description: s.definition.description,
                 category: s.definition.display?.category || 'custom',
-                requiresIntegrationFactory:
-                    s.definition.config?.requiresIntegrationFactory || false,
+                requireIntegrationInstance:
+                    s.definition.config?.requireIntegrationInstance || false,
                 schedule: s.definition.schedule || null,
             })),
         });
@@ -211,9 +219,9 @@ router.get('/scripts/:scriptName/executions', async (req, res) => {
 router.get('/scripts/:scriptName/schedule', async (req, res) => {
     try {
         const { scriptName } = req.params;
-        const useCase = createScheduleManagementUseCase();
+        const { getEffectiveSchedule } = createScheduleUseCases();
 
-        const result = await useCase.getEffectiveSchedule(scriptName);
+        const result = await getEffectiveSchedule.execute(scriptName);
 
         res.json({
             source: result.source,
@@ -240,9 +248,9 @@ router.put('/scripts/:scriptName/schedule', async (req, res) => {
     try {
         const { scriptName } = req.params;
         const { enabled, cronExpression, timezone } = req.body;
-        const useCase = createScheduleManagementUseCase();
+        const { upsertSchedule } = createScheduleUseCases();
 
-        const result = await useCase.upsertSchedule(scriptName, {
+        const result = await upsertSchedule.execute(scriptName, {
             enabled,
             cronExpression,
             timezone,
@@ -281,9 +289,9 @@ router.put('/scripts/:scriptName/schedule', async (req, res) => {
 router.delete('/scripts/:scriptName/schedule', async (req, res) => {
     try {
         const { scriptName } = req.params;
-        const useCase = createScheduleManagementUseCase();
+        const { deleteSchedule } = createScheduleUseCases();
 
-        const result = await useCase.deleteSchedule(scriptName);
+        const result = await deleteSchedule.execute(scriptName);
 
         res.json(result);
     } catch (error) {

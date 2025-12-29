@@ -27,7 +27,9 @@ class ScriptRunner {
      * @param {string} options.trigger - 'MANUAL' | 'SCHEDULED' | 'QUEUE'
      * @param {string} options.mode - 'sync' | 'async'
      * @param {Object} options.audit - Audit info { apiKeyName, apiKeyLast4, ipAddress }
-     * @param {string} options.executionId - Reuse existing execution ID
+     * @param {string} options.executionId - Reuse existing AdminProcess record ID (NOT the Lambda execution ID).
+     *   This is the database ID from the AdminProcess collection/table that tracks script executions.
+     *   Pass this when resuming a queued execution to continue using the same execution record.
      * @param {boolean} options.dryRun - Dry-run mode: validate and preview without executing
      */
     async execute(scriptName, params = {}, options = {}) {
@@ -38,7 +40,7 @@ class ScriptRunner {
         const definition = scriptClass.Definition;
 
         // Validate integrationFactory requirement
-        if (definition.config?.requiresIntegrationFactory && !this.integrationFactory) {
+        if (definition.config?.requireIntegrationInstance && !this.integrationFactory) {
             throw new Error(
                 `Script "${scriptName}" requires integrationFactory but none was provided`
             );
@@ -157,7 +159,7 @@ class ScriptRunner {
                     name: definition.name,
                     version: definition.version,
                     description: definition.description,
-                    requiresIntegrationFactory: definition.config?.requiresIntegrationFactory || false,
+                    requireIntegrationInstance: definition.config?.requireIntegrationInstance || false,
                 },
                 input: params,
                 inputSchema: definition.inputSchema || null,

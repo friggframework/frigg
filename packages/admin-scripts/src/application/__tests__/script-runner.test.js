@@ -23,7 +23,7 @@ describe('ScriptRunner', () => {
             config: {
                 timeout: 300000,
                 maxRetries: 0,
-                requiresIntegrationFactory: false,
+                requireIntegrationInstance: false,
             },
         };
 
@@ -146,7 +146,7 @@ describe('ScriptRunner', () => {
                     version: '1.0.0',
                     description: 'Integration script',
                     config: {
-                        requiresIntegrationFactory: true,
+                        requireIntegrationInstance: true,
                     },
                 };
 

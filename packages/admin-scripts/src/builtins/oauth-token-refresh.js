@@ -47,7 +47,7 @@ class OAuthTokenRefreshScript extends AdminScriptBase {
         config: {
             timeout: 600000, // 10 minutes
             maxRetries: 1,
-            requiresIntegrationFactory: true, // Needs to call external APIs
+            requireIntegrationInstance: true, // Needs to call external APIs
         },
 
         display: {

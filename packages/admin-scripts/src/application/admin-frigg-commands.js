@@ -142,7 +142,7 @@ class AdminFriggCommands {
         if (!this.integrationFactory) {
             throw new Error(
                 'instantiate() requires integrationFactory. ' +
-                'Set Definition.config.requiresIntegrationFactory = true'
+                'Set Definition.config.requireIntegrationInstance = true'
             );
         }
         return this.integrationFactory.getInstanceFromIntegrationId({
