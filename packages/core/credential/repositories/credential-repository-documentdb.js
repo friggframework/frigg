@@ -1,0 +1,374 @@
+const { prisma } = require('../../database/prisma');
+const {
+    toObjectId,
+    fromObjectId,
+    findOne,
+    findMany,
+    insertOne,
+    updateOne,
+    deleteOne,
+} = require('../../database/documentdb-utils');
+const {
+    CredentialRepositoryInterface,
+} = require('./credential-repository-interface');
+const {
+    DocumentDBEncryptionService,
+} = require('../../database/documentdb-encryption-service');
+
+/**
+ * Credential repository for DocumentDB.
+ * Uses DocumentDBEncryptionService for field-level encryption.
+ *
+ * Encrypted fields:
+ * - Credential.data.access_token
+ * - Credential.data.refresh_token
+ * - Credential.data.id_token
+ *
+ * SECURITY CRITICAL: All OAuth credentials must be encrypted at rest.
+ *
+ * @see DocumentDBEncryptionService
+ * @see encryption-schema-registry.js
+ */
+class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
+    constructor() {
+        super();
+        this.prisma = prisma;
+        this.encryptionService = new DocumentDBEncryptionService();
+    }
+
+    async findCredentialById(id) {
+        const objectId = toObjectId(id);
+        if (!objectId) return null;
+        const doc = await findOne(this.prisma, 'Credential', { _id: objectId });
+        if (!doc) return null;
+
+        const decryptedCredential = await this.encryptionService.decryptFields(
+            'Credential',
+            doc
+        );
+        return this._mapCredentialById(decryptedCredential);
+    }
+
+    async updateAuthenticationStatus(credentialId, authIsValid) {
+        const objectId = toObjectId(credentialId);
+        if (!objectId) return { acknowledged: false, modifiedCount: 0 };
+        const result = await updateOne(
+            this.prisma,
+            'Credential',
+            { _id: objectId },
+            {
+                $set: { authIsValid, updatedAt: new Date() },
+            }
+        );
+        const modified = result?.nModified ?? result?.n ?? 0;
+        return { acknowledged: true, modifiedCount: modified };
+    }
+
+    async deleteCredentialById(credentialId) {
+        const objectId = toObjectId(credentialId);
+        if (!objectId) return { acknowledged: true, deletedCount: 0 };
+        const result = await deleteOne(this.prisma, 'Credential', {
+            _id: objectId,
+        });
+        const deleted = result?.n ?? 0;
+        return { acknowledged: true, deletedCount: deleted };
+    }
+
+    async upsertCredential(credentialDetails) {
+        const { identifiers, details } = credentialDetails;
+        if (!identifiers)
+            throw new Error('identifiers required to upsert credential');
+        if (!identifiers.userId) {
+            throw new Error('userId required in identifiers');
+        }
+        if (!identifiers.externalId) {
+            throw new Error(
+                'externalId required in identifiers to prevent credential collision. When multiple credentials exist for the same user, both userId and externalId are needed to uniquely identify which credential to update.'
+            );
+        }
+
+        const filter = this._buildIdentifierFilter(identifiers);
+        const existing = await findOne(this.prisma, 'Credential', filter);
+        const now = new Date();
+
+        const { authIsValid, ...oauthData } = details || {};
+
+        if (existing) {
+            const decryptedExisting =
+                await this.encryptionService.decryptFields(
+                    'Credential',
+                    existing
+                );
+            const mergedData = {
+                ...(decryptedExisting.data || {}),
+                ...oauthData,
+            };
+
+            const updateDocument = {
+                userId: existing.userId,
+                externalId: existing.externalId,
+                authIsValid:
+                    authIsValid !== undefined
+                        ? authIsValid
+                        : existing.authIsValid,
+                data: mergedData,
+                updatedAt: now,
+            };
+
+            const encryptedUpdate = await this.encryptionService.encryptFields(
+                'Credential',
+                { data: updateDocument.data }
+            );
+
+            await updateOne(
+                this.prisma,
+                'Credential',
+                { _id: existing._id },
+                {
+                    $set: {
+                        userId: updateDocument.userId,
+                        externalId: updateDocument.externalId,
+                        authIsValid: updateDocument.authIsValid,
+                        data: encryptedUpdate.data,
+                        updatedAt: updateDocument.updatedAt,
+                    },
+                }
+            );
+
+            const updated = await findOne(this.prisma, 'Credential', {
+                _id: existing._id,
+            });
+            const decryptedCredential =
+                await this.encryptionService.decryptFields(
+                    'Credential',
+                    updated
+                );
+            return this._mapCredential(decryptedCredential);
+        }
+
+        const plainDocument = {
+            userId: toObjectId(identifiers.userId),
+            externalId: identifiers.externalId,
+            authIsValid: details.authIsValid,
+            data: { ...oauthData },
+            createdAt: now,
+            updatedAt: now,
+        };
+
+        const encryptedDocument = await this.encryptionService.encryptFields(
+            'Credential',
+            plainDocument
+        );
+
+        const insertedId = await insertOne(
+            this.prisma,
+            'Credential',
+            encryptedDocument
+        );
+
+        const created = await findOne(this.prisma, 'Credential', {
+            _id: insertedId,
+        });
+        const decryptedCredential = await this.encryptionService.decryptFields(
+            'Credential',
+            created
+        );
+        return this._mapCredential(decryptedCredential);
+    }
+
+    /**
+     * Find credential(s) by filter criteria
+     *
+     * When filter includes only userId, returns an array of all credentials for that user
+     * When filter includes credentialId or externalId, returns a single credential or null
+     *
+     * @param {Object} filter
+     * @param {string} [filter.userId] - User ID
+     * @param {string} [filter.externalId] - External ID
+     * @param {string} [filter.credentialId] - Credential ID
+     * @returns {Promise<Array|Object|null>} Credential array, single credential, or null
+     */
+    async findCredential(filter) {
+        const query = this._buildFilter(filter);
+
+        // If filtering by userId only, return all credentials for that user
+        const hasOnlyUserId =
+            filter.userId &&
+            !filter.credentialId &&
+            !filter.externalId &&
+            !filter.id;
+
+        if (hasOnlyUserId) {
+            const credentials = await findMany(
+                this.prisma,
+                'Credential',
+                query
+            );
+
+            const decryptedCredentials = await Promise.all(
+                credentials.map(async (credential) => {
+                    const decrypted =
+                        await this.encryptionService.decryptFields(
+                            'Credential',
+                            credential
+                        );
+                    return this._mapCredentialWithMetadata(decrypted);
+                })
+            );
+
+            return decryptedCredentials;
+        }
+
+        // Otherwise, find single credential
+        const credential = await findOne(this.prisma, 'Credential', query);
+        if (!credential) return null;
+
+        const decryptedCredential = await this.encryptionService.decryptFields(
+            'Credential',
+            credential
+        );
+        return this._mapCredential(decryptedCredential);
+    }
+
+    async updateCredential(credentialId, updates) {
+        const objectId = toObjectId(credentialId);
+        if (!objectId) return null;
+        const existing = await findOne(this.prisma, 'Credential', {
+            _id: objectId,
+        });
+        if (!existing) return null;
+
+        const { authIsValid, ...oauthData } = updates || {};
+
+        const decryptedExisting = await this.encryptionService.decryptFields(
+            'Credential',
+            existing
+        );
+        const mergedData = { ...(decryptedExisting.data || {}), ...oauthData };
+
+        const updateDocument = {
+            userId: existing.userId,
+            externalId: existing.externalId,
+            authIsValid: authIsValid,
+            data: mergedData,
+            updatedAt: new Date(),
+        };
+
+        const encryptedUpdate = await this.encryptionService.encryptFields(
+            'Credential',
+            { data: updateDocument.data }
+        );
+
+        await updateOne(
+            this.prisma,
+            'Credential',
+            { _id: objectId },
+            {
+                $set: {
+                    userId: updateDocument.userId,
+                    externalId: updateDocument.externalId,
+                    authIsValid: updateDocument.authIsValid,
+                    data: encryptedUpdate.data,
+                    updatedAt: updateDocument.updatedAt,
+                },
+            }
+        );
+
+        const updated = await findOne(this.prisma, 'Credential', {
+            _id: objectId,
+        });
+        const decryptedCredential = await this.encryptionService.decryptFields(
+            'Credential',
+            updated
+        );
+        return this._mapCredential(decryptedCredential);
+    }
+
+    _buildIdentifierFilter(identifiers) {
+        const filter = {};
+        if (identifiers._id || identifiers.id) {
+            const idObj = toObjectId(identifiers._id || identifiers.id);
+            if (idObj) filter._id = idObj;
+        }
+        if (identifiers.userId) {
+            filter.userId = toObjectId(identifiers.userId);
+        }
+        if (identifiers.externalId !== undefined) {
+            filter.externalId = identifiers.externalId;
+        }
+        return filter;
+    }
+
+    _buildFilter(filter) {
+        const query = {};
+        if (!filter) return query;
+        if (filter.credentialId || filter.id) {
+            const idObj = toObjectId(filter.credentialId || filter.id);
+            if (idObj) query._id = idObj;
+        }
+        if (filter.userId !== undefined) {
+            query.userId = filter.userId;
+        }
+        if (filter.externalId !== undefined) {
+            query.externalId = filter.externalId;
+        }
+        return query;
+    }
+
+    /**
+     * Map credential document to application format
+     * Matches MongoDB repository format
+     * @private
+     */
+    _mapCredential(doc) {
+        const data = doc?.data || {};
+        const id = fromObjectId(doc?._id);
+        const userId = doc?.userId;
+        return {
+            id,
+            userId,
+            externalId: doc?.externalId ?? null,
+            authIsValid: doc?.authIsValid ?? null,
+            ...data,
+        };
+    }
+
+    _mapCredentialById(doc) {
+        const data = doc?.data || {};
+        const id = fromObjectId(doc?._id);
+        const userId = doc?.userId;
+        return {
+            id,
+            userId,
+            externalId: doc?.externalId ?? null,
+            authIsValid: doc?.authIsValid ?? null,
+            ...data,
+        };
+    }
+
+    /**
+     * Map credential document with metadata (for list views)
+     * Includes timestamps and additional fields needed by API
+     * @private
+     */
+    _mapCredentialWithMetadata(doc) {
+        const data = doc?.data || {};
+        const id = fromObjectId(doc?._id);
+        const userId = doc?.userId;
+        return {
+            id,
+            type: doc?.type,
+            userId,
+            externalId: doc?.externalId ?? null,
+            authIsValid: doc?.authIsValid ?? null,
+            entityCount: doc?.entityCount,
+            createdAt: doc?.createdAt,
+            updatedAt: doc?.updatedAt,
+            access_token: data.access_token,
+            refresh_token: data.refresh_token,
+            ...data,
+        };
+    }
+}
+
+module.exports = { CredentialRepositoryDocumentDB };

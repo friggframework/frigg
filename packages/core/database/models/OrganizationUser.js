@@ -21,9 +21,11 @@ schema.static({
         if (getByUser.length === 1) {
             return getByUser[0];
         }
-    }
-})
+    },
+});
 
-const OrganizationUser = Parent.discriminators?.OrganizationUser || Parent.discriminator(collectionName, schema);
+const OrganizationUser =
+    Parent.discriminators?.OrganizationUser ||
+    Parent.discriminator(collectionName, schema);
 
-module.exports = {OrganizationUser};
+module.exports = { OrganizationUser };

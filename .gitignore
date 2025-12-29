@@ -2,17 +2,19 @@
 **/node_modules
 
 # testing
-/coverage
+**/coverage
 
 # production
 /build
 
 # misc
 .DS_Store
+
+# environment files - catch all variations
+.env
+.env.*
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*.local
 
 npm-debug.log*
 yarn-debug.log*
@@ -21,12 +23,24 @@ yarn-error.log*
 # webstorm local config
 .idea/
 
-.env
+# claude-flow sparc files
+.claude-flow/
+.sparc/
+sparc-memory/
+.sparc-cache/
+sparc-sessions/
+claude-flow.log
+
+.roomodes
+
+# frigg infrastructure cache files
+.frigg-infrastructure-cache.json
+.frigg-infrastructure-lock
+
 .npmrc
 .autorc
 /.nx/
 /packages/devtools/management-ui/dist
 /packages/devtools/management-ui/.claude-flow
-CLAUDE.md
-/.claude
 /.claude-flow
+analysis-reports/

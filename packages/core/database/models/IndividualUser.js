@@ -17,9 +17,9 @@ schema.pre('save', async function () {
         this.hashword = await bcrypt.hashSync(
             this.hashword,
             parseInt(this.schema.statics.decimals)
-        )
+        );
     }
-})
+});
 
 schema.static({
     decimals: 10,
@@ -31,18 +31,17 @@ schema.static({
             );
             delete options.password;
         }
-        return this.findOneAndUpdate(
-            {_id: id},
-            options,
-            {new: true, useFindAndModify: true}
-        );
+        return this.findOneAndUpdate({ _id: id }, options, {
+            new: true,
+            useFindAndModify: true,
+        });
     },
     getUserByUsername: async function (username) {
         let getByUser;
-        try{
-            getByUser = await this.find({username});
+        try {
+            getByUser = await this.find({ username });
         } catch (e) {
-            console.log('oops')
+            console.log('oops');
         }
 
         if (getByUser.length > 1) {
@@ -64,13 +63,14 @@ schema.static({
             );
         }
 
-
         if (getByUser.length === 1) {
             return getByUser[0];
         }
-    }
-})
+    },
+});
 
-const IndividualUser = Parent.discriminators?.IndividualUser || Parent.discriminator(collectionName, schema);
+const IndividualUser =
+    Parent.discriminators?.IndividualUser ||
+    Parent.discriminator(collectionName, schema);
 
-module.exports = {IndividualUser};
+module.exports = { IndividualUser };

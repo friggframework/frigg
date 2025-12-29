@@ -1,54 +1,60 @@
-declare module "@friggframework/core" {
-  import { SQS } from "aws-sdk";
+declare module '@friggframework/core' {
+    import type { SendMessageCommandInput } from '@aws-sdk/client-sqs';
 
-  export class Delegate implements IFriggDelegate {
-    delegate: any;
-    delegateTypes: any[];
+    export class Delegate implements IFriggDelegate {
+        delegate: any;
+        delegateTypes: any[];
 
-    constructor(params: Record<string, unknown> & { delegate?: unknown });
-    notify(delegateString: string, object?: any): Promise<any>;
-    receiveNotification(
-      notifier: any,
-      delegateString: string,
-      object?: any
-    ): Promise<any>;
-  }
+        constructor(params: Record<string, unknown> & { delegate?: unknown });
+        notify(delegateString: string, object?: any): Promise<any>;
+        receiveNotification(
+            notifier: any,
+            delegateString: string,
+            object?: any
+        ): Promise<any>;
+    }
 
-  interface IFriggDelegate {
-    delegate: any;
-    delegateTypes: any[];
+    interface IFriggDelegate {
+        delegate: any;
+        delegateTypes: any[];
 
-    notify(delegateString: string, object?: any): Promise<any>;
-    receiveNotification(
-      notifier: any,
-      delegateString: string,
-      object?: any
-    ): Promise<any>;
-  }
+        notify(delegateString: string, object?: any): Promise<any>;
+        receiveNotification(
+            notifier: any,
+            delegateString: string,
+            object?: any
+        ): Promise<any>;
+    }
 
-  export class Worker implements IWorker {
-    getQueueURL(params: GetQueueURLParams): Promise<string | undefined>;
+    export class Worker implements IWorker {
+        getQueueURL(params: GetQueueURLParams): Promise<string | undefined>;
 
-    run(params: { Records: any }): Promise<void>;
+        run(params: { Records: any }): Promise<void>;
 
-    send(params: object & { QueueUrl: any }, delay?: number): Promise<string>;
+        send(
+            params: object & { QueueUrl: any },
+            delay?: number
+        ): Promise<string>;
 
-    sendAsyncSQSMessage(params: SendSQSMessageParams): Promise<string>;
-  }
+        sendAsyncSQSMessage(params: SendSQSMessageParams): Promise<string>;
+    }
 
-  interface IWorker {
-    getQueueURL(params: GetQueueURLParams): Promise<string | undefined>;
-    run(params: { Records: any }): Promise<void>;
-    send(params: object & { QueueUrl: any }, delay?: number): Promise<string>;
-    sendAsyncSQSMessage(params: SendSQSMessageParams): Promise<string>;
-  }
+    interface IWorker {
+        getQueueURL(params: GetQueueURLParams): Promise<string | undefined>;
+        run(params: { Records: any }): Promise<void>;
+        send(
+            params: object & { QueueUrl: any },
+            delay?: number
+        ): Promise<string>;
+        sendAsyncSQSMessage(params: SendSQSMessageParams): Promise<string>;
+    }
 
-  export function loadInstalledModules(): any[];
+    export function loadInstalledModules(): any[];
 
-  type GetQueueURLParams = {
-    QueueName: string;
-    QueueOwnerAWSAccountId?: string;
-  };
+    type GetQueueURLParams = {
+        QueueName: string;
+        QueueOwnerAWSAccountId?: string;
+    };
 
-  type SendSQSMessageParams = SQS.SendMessageRequest;
+    type SendSQSMessageParams = SendMessageCommandInput;
 }

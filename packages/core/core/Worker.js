@@ -1,10 +1,13 @@
-const AWS = require('aws-sdk');
+const {
+    SQSClient,
+    GetQueueUrlCommand,
+    SendMessageCommand,
+} = require('@aws-sdk/client-sqs');
 const _ = require('lodash');
 const { RequiredPropertyError } = require('../errors');
 const { get } = require('../assertions');
 
-AWS.config.update({ region: process.env.AWS_REGION });
-const sqs = new AWS.SQS({ apiVersion: '2012-11-05' });
+const sqs = new SQSClient({ region: process.env.AWS_REGION });
 
 class Worker {
     async getQueueURL(params) {
@@ -12,15 +15,9 @@ class Worker {
         // let params = {
         //     QueueName:  process.env.QueueName
         // };
-        return new Promise((resolve, reject) => {
-            sqs.getQueueUrl(params, (err, data) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(data.QueueUrl);
-                }
-            });
-        });
+        const command = new GetQueueUrlCommand(params);
+        const data = await sqs.send(command);
+        return data.QueueUrl;
     }
 
     async run(params, context = {}) {
@@ -54,15 +51,9 @@ class Worker {
     }
 
     async sendAsyncSQSMessage(params) {
-        return new Promise((resolve, reject) => {
-            sqs.sendMessage(params, (err, data) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(data.MessageId);
-                }
-            });
-        });
+        const command = new SendMessageCommand(params);
+        const data = await sqs.send(command);
+        return data.MessageId;
     }
 
     // Throw an exception if the params do not validate

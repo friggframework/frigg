@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Build output
+.serverless/
+.esbuild/
+dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Testing
+coverage/
+
+# Frigg cache
+.frigg-infrastructure-cache.json
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal

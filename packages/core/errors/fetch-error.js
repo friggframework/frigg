@@ -19,7 +19,7 @@ class FetchError extends BaseError {
                       return JSON.stringify({ init }, null, 2);
                   })()
                 : JSON.stringify({ init }, null, 2)
-            : '';        
+            : '';
 
         let responseBodyText = '<response body is unavailable>';
         if (typeof responseBody === 'string') {
@@ -61,8 +61,9 @@ class FetchError extends BaseError {
         ];
 
         super(messageParts.filter(Boolean).join('\n'));
-        
+
         this.response = response;
+        this.statusCode = response?.status;
     }
 
     static async create(options = {}) {

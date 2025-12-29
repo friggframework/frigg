@@ -7,7 +7,12 @@ const {
     getArrayParamAndVerifyParamType,
     getAndVerifyType,
 } = require('./assertions/index');
-const  { Delegate, Worker, loadInstalledModules, createHandler } = require('./core/index');
+const {
+    Delegate,
+    Worker,
+    loadInstalledModules,
+    createHandler,
+} = require('./core/index');
 const {
     mongoose,
     connectToDatabase,
@@ -17,48 +22,77 @@ const {
     OrganizationUser,
     State,
     Token,
-    UserModel
+    UserModel,
+    WebsocketConnection,
+    prisma,
+    TokenRepository,
+    WebsocketConnectionRepository,
 } = require('./database/index');
-const { Encrypt, Cryptor } = require('./encrypt/encrypt');
+const {
+    createUserRepository,
+    UserRepositoryMongo,
+    UserRepositoryPostgres,
+} = require('./user/repositories/user-repository-factory');
+const {
+    GetUserFromXFriggHeaders,
+} = require('./user/use-cases/get-user-from-x-frigg-headers');
+const {
+    GetUserFromAdopterJwt,
+} = require('./user/use-cases/get-user-from-adopter-jwt');
+const { AuthenticateUser } = require('./user/use-cases/authenticate-user');
+
+const {
+    CredentialRepository,
+} = require('./credential/repositories/credential-repository');
+const {
+    ModuleRepository,
+} = require('./modules/repositories/module-repository');
+const {
+    IntegrationMappingRepository,
+} = require('./integrations/repositories/integration-mapping-repository');
+const { CreateProcess } = require('./integrations/use-cases/create-process');
+const {
+    UpdateProcessState,
+} = require('./integrations/use-cases/update-process-state');
+const {
+    UpdateProcessMetrics,
+} = require('./integrations/use-cases/update-process-metrics');
+const { GetProcess } = require('./integrations/use-cases/get-process');
+const { Cryptor } = require('./encrypt');
 const {
     BaseError,
     FetchError,
     HaltError,
     RequiredPropertyError,
     ParameterTypeError,
-} =  require('./errors/index');
+} = require('./errors/index');
 const {
     IntegrationBase,
-    IntegrationModel,
     Options,
-    IntegrationMapping,
-    IntegrationFactory,
-    IntegrationHelper,
     createIntegrationRouter,
     checkRequiredParams,
-    createFriggBackend
+    getModulesDefinitionFromIntegrationClasses,
+    LoadIntegrationContextUseCase,
+    createProcessRepository,
 } = require('./integrations/index');
 const { TimeoutCatcher } = require('./lambda/index');
-const {
-    debug,
-    initDebugLog,
-    flushDebugLog
-} = require('./logs/index');
+const { debug, initDebugLog, flushDebugLog } = require('./logs/index');
 const {
     Credential,
-    EntityManager,
     Entity,
-    ModuleManager,
     ApiKeyRequester,
     BasicAuthRequester,
     OAuth2Requester,
     Requester,
     ModuleConstants,
     ModuleFactory,
-    Auther
-} = require('./module-plugin/index');
+} = require('./modules/index');
+const application = require('./application');
+const utils = require('./utils');
 
 // const {Sync } = require('./syncs/model');
+
+const { QueuerUtil } = require('./queues');
 
 module.exports = {
     // assertions
@@ -69,11 +103,13 @@ module.exports = {
     getParamAndVerifyParamType,
     getArrayParamAndVerifyParamType,
     getAndVerifyType,
+
     // core
     Delegate,
     Worker,
     loadInstalledModules,
     createHandler,
+
     // database
     mongoose,
     connectToDatabase,
@@ -84,41 +120,72 @@ module.exports = {
     State,
     Token,
     UserModel,
-    // encrypt
-    Encrypt,
+    WebsocketConnection,
+    prisma,
+    TokenRepository,
+    WebsocketConnectionRepository,
+    createUserRepository,
+    UserRepositoryMongo,
+    UserRepositoryPostgres,
+    GetUserFromXFriggHeaders,
+    GetUserFromAdopterJwt,
+    AuthenticateUser,
+    CredentialRepository,
+    ModuleRepository,
+    IntegrationMappingRepository,
     Cryptor,
+
     // errors
     BaseError,
     FetchError,
     HaltError,
     RequiredPropertyError,
     ParameterTypeError,
+
     // integrations
     IntegrationBase,
-    IntegrationModel,
     Options,
-    IntegrationMapping,
-    IntegrationFactory,
-    IntegrationHelper,
     checkRequiredParams,
     createIntegrationRouter,
-    createFriggBackend,
+    getModulesDefinitionFromIntegrationClasses,
+    LoadIntegrationContextUseCase,
+    CreateProcess,
+    UpdateProcessState,
+    UpdateProcessMetrics,
+    GetProcess,
+    createProcessRepository,
+
+    // application - Command factories for integration developers
+    application,
+    createFriggCommands: application.createFriggCommands,
+    createIntegrationCommands: application.createIntegrationCommands,
+    createUserCommands: application.createUserCommands,
+    createEntityCommands: application.createEntityCommands,
+    createCredentialCommands: application.createCredentialCommands,
+    findIntegrationContextByExternalEntityId:
+        application.findIntegrationContextByExternalEntityId,
+    integrationCommands: application.integrationCommands,
+
     // lambda
     TimeoutCatcher,
+
     // logs
     debug,
     initDebugLog,
     flushDebugLog,
+
     // module plugin
     Credential,
-    EntityManager,
     Entity,
-    ModuleManager,
     ApiKeyRequester,
     BasicAuthRequester,
     OAuth2Requester,
     Requester,
     ModuleConstants,
     ModuleFactory,
-    Auther
-}
+    // queues
+    QueuerUtil,
+
+    // utils
+    ...utils,
+};

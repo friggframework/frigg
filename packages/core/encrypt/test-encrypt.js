@@ -1,7 +1,5 @@
-const AWS = require('aws-sdk');
 const { mongoose } = require('../database/mongoose');
 const crypto = require('crypto');
-const { Encrypt } = require('./encrypt');
 
 const hexPattern = /^[a-f0-9]+$/i; // match hex strings of length >= 1
 

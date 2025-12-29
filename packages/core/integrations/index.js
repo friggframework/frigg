@@ -1,19 +1,25 @@
 const { IntegrationBase } = require('./integration-base');
-const { IntegrationModel } = require('./integration-model');
 const { Options } = require('./options');
-const { IntegrationMapping } = require('./integration-mapping');
-const { IntegrationFactory, IntegrationHelper } = require('./integration-factory');
-const { createIntegrationRouter, checkRequiredParams } = require('./integration-router');
-const { createFriggBackend } = require('./create-frigg-backend');
+const {
+    createIntegrationRouter,
+    checkRequiredParams,
+} = require('./integration-router');
+const {
+    getModulesDefinitionFromIntegrationClasses,
+} = require('./utils/map-integration-dto');
+const {
+    LoadIntegrationContextUseCase,
+} = require('./use-cases/load-integration-context');
+const {
+    createProcessRepository,
+} = require('./repositories/process-repository-factory');
 
 module.exports = {
     IntegrationBase,
-    IntegrationModel,
     Options,
-    IntegrationMapping,
-    IntegrationFactory,
-    IntegrationHelper,
     createIntegrationRouter,
     checkRequiredParams,
-    createFriggBackend
+    getModulesDefinitionFromIntegrationClasses,
+    LoadIntegrationContextUseCase,
+    createProcessRepository,
 };

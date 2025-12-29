@@ -1,36 +1,47 @@
+/**
+ * Cryptor - Encryption Service Adapter
+ *
+ * Infrastructure Layer adapter for AWS KMS and local AES encryption.
+ * Provides envelope encryption pattern for field-level encryption.
+ *
+ * Envelope Encryption Pattern:
+ * 1. Generate Data Encryption Key (DEK) via KMS or locally
+ * 2. Encrypt field value with DEK using AES-256-CTR
+ * 3. Encrypt DEK with Master Key (KMS CMK or AES_KEY)
+ * 4. Return format: "keyId:encryptedText:encryptedKey"
+ *
+ * Benefits:
+ * - Reduces KMS API calls (unique DEK per operation)
+ * - Master key never leaves KMS
+ * - Enables key rotation without re-encrypting data
+ */
+
 const crypto = require('crypto');
-const AWS = require('aws-sdk');
-const { get, set } = require('lodash');
+const {
+    KMSClient,
+    GenerateDataKeyCommand,
+    DecryptCommand,
+} = require('@aws-sdk/client-kms');
 const aes = require('./aes');
 
-const hasValue = (a) => a !== undefined && a !== null && a !== '';
-
 class Cryptor {
-    constructor({ fields, shouldUseAws }) {
+    constructor({ shouldUseAws }) {
         this.shouldUseAws = shouldUseAws;
-        this.fields = fields;
-
-        this.permutationsByField = {};
-
-        for (const field of fields) {
-            this.permutationsByField[field] = this.calculatePermutations(
-                field.split('.')
-            );
-        }
     }
 
     async generateDataKey() {
         if (this.shouldUseAws) {
-            const kmsClient = new AWS.KMS();
-            const dataKey = await kmsClient
-                .generateDataKey({
-                    KeyId: process.env.KMS_KEY_ARN,
-                    KeySpec: 'AES_256',
-                })
-                .promise();
+            const kmsClient = new KMSClient({});
+            const command = new GenerateDataKeyCommand({
+                KeyId: process.env.KMS_KEY_ARN,
+                KeySpec: 'AES_256',
+            });
+            const dataKey = await kmsClient.send(command);
 
             const keyId = Buffer.from(dataKey.KeyId).toString('base64');
-            const encryptedKey = dataKey.CiphertextBlob.toString('base64');
+            const encryptedKey = Buffer.from(dataKey.CiphertextBlob).toString(
+                'base64'
+            );
             const plaintext = dataKey.Plaintext;
             return { keyId, encryptedKey, plaintext };
         }
@@ -56,7 +67,7 @@ class Cryptor {
         const key = availableKeys[keyId];
 
         if (!key) {
-            throw new Error(`No encryption key found with ID "${keyId}"`);
+            throw new Error('Encryption key not found');
         }
 
         return key;
@@ -64,13 +75,12 @@ class Cryptor {
 
     async decryptDataKey(keyId, encryptedKey) {
         if (this.shouldUseAws) {
-            const kmsClient = new AWS.KMS();
-            const dataKey = await kmsClient
-                .decrypt({
-                    KeyId: keyId,
-                    CiphertextBlob: encryptedKey,
-                })
-                .promise();
+            const kmsClient = new KMSClient({});
+            const command = new DecryptCommand({
+                KeyId: keyId,
+                CiphertextBlob: encryptedKey,
+            });
+            const dataKey = await kmsClient.send(command);
 
             return dataKey.Plaintext;
         }
@@ -79,146 +89,9 @@ class Cryptor {
         return aes.decrypt(encryptedKey, key);
     }
 
-    // If the field has a value in the document, apply async function f to that field.
-    async setInDocument(doc, f) {
-        // Use the Mongoose document get/set when available (not for insertMany)
-        if (doc.get) {
-            for (const field of this.fields) {
-                const value = doc.get(field);
-                if (hasValue(value)) {
-                    doc.set(field, await f(value));
-                }
-            }
-            return;
-        }
-
-        // Otherwise use permutations.
-        for (const field of this.fields) {
-            const updatedDoc = await this.applyAll(doc, field, f);
-            Object.assign(doc, updatedDoc);
-        }
-    }
-
-    // Calculate all possible permutations for a nested field.  For example a
-    // field "deeply.nested.field" might be referred to in a Mongo query as
-    // { deeply: { 'nested.field': {} } } or { 'deeply.nested.field': {} }
-    // etc.  For a given path, this gives all path parts to check in a format
-    // that lodash understands when using get and set with an array of path
-    // parts e.g. get(o, ['deeply', 'nested.parts'])
-    calculatePermutations = (parts) => {
-        if (!parts.length) return [];
-        if (parts.length === 1) return [parts];
-
-        const combos = [];
-
-        for (let i = 0; i < parts.length; i += 1) {
-            const frontPath = parts.slice(0, i + 1).join('.');
-            const rest = parts.slice(i + 1);
-
-            if (rest.length) {
-                combos.push(
-                    ...this.calculatePermutations(rest).map((child) => [
-                        frontPath,
-                        ...child,
-                    ])
-                );
-            } else {
-                combos.push([frontPath]);
-            }
-        }
-
-        return combos;
-    };
-
-    // Encrypt all possible permutations of a field (possibly nested), if there
-    // is a value at that path permutation.
-    async applyAll(o, field, f) {
-        const clone = { ...o };
-        const permutations = this.permutationsByField[field];
-
-        for (const path of permutations) {
-            const value = get(o, path);
-            if (hasValue(value)) {
-                set(clone, path, await f(value));
-            }
-        }
-
-        return clone;
-    }
-
-    async processFieldsInDocuments(docs, f) {
-        const promises = docs
-            .filter(Boolean)
-            .flatMap((doc) => this.setInDocument(doc, f));
-
-        return Promise.all(promises);
-    }
-
-    async encryptFieldsInDocuments(docs) {
-        await this.processFieldsInDocuments(docs, this.encrypt.bind(this));
-    }
-
-    async decryptFieldsInDocuments(docs) {
-        await this.processFieldsInDocuments(docs, this.decrypt.bind(this));
-    }
-
-    async encryptFieldsInQuery(query) {
-        for (const field of this.fields) {
-            const originalUpdate = query.getUpdate();
-            const updatedUpdate = await this.applyAll(
-                originalUpdate,
-                field,
-                this.encrypt.bind(this)
-            );
-
-            if (originalUpdate.$set) {
-                const updatedSetUpdate = await this.applyAll(
-                    originalUpdate.$set,
-                    field,
-                    this.encrypt.bind(this)
-                );
-                updatedUpdate.$set = { ...updatedSetUpdate };
-            }
-
-            if (originalUpdate.$setOnInsert) {
-                const updatedSetOnInsertUpdate = await this.applyAll(
-                    originalUpdate.$setOnInsert,
-                    field,
-                    this.encrypt.bind(this)
-                );
-                updatedUpdate.$setOnInsert = { ...updatedSetOnInsertUpdate };
-            }
-
-            query.setUpdate(updatedUpdate);
-        }
-    }
-
-    expectNotToUpdateManyEncrypted(update) {
-        for (const field of this.fields) {
-            if (update.$set && hasValue(update.$set[field])) {
-                throw new Error(
-                    'Attempted to update encrypted field of multiple documents'
-                );
-            }
-
-            if (update.$setOnInsert && hasValue(update.$setOnInsert[field])) {
-                throw new Error(
-                    'Attempted to update encrypted field of multiple documents'
-                );
-            }
-
-            if (hasValue(update[field])) {
-                throw new Error(
-                    'Attempted to update encrypted field of multiple documents'
-                );
-            }
-        }
-    }
-
     async encrypt(text) {
         const { keyId, encryptedKey, plaintext } = await this.generateDataKey();
         const encryptedText = aes.encrypt(text, plaintext);
-
         return `${keyId}:${encryptedText}:${encryptedKey}`;
     }
 
@@ -228,7 +101,6 @@ class Cryptor {
         const encryptedText = `${split[1]}:${split[2]}`;
         const encryptedKey = Buffer.from(split[3], 'base64');
         const plaintext = await this.decryptDataKey(keyId, encryptedKey);
-
         return aes.decrypt(encryptedText, plaintext);
     }
 }
