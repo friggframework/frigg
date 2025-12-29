@@ -5,19 +5,25 @@ const crypto = require('crypto');
 
 async function runOAuthFlow(definition, ApiClass, options) {
     const port = options.port || 3333;
-    const redirectUri = process.env.REDIRECT_URI || `http://localhost:${port}`;
+    const defaultRedirectUri = `http://localhost:${port}`;
+    const redirectUri =
+        definition.env?.redirect_uri ||
+        process.env.REDIRECT_URI ||
+        defaultRedirectUri;
     const moduleName =
         definition.moduleName || definition.getName?.() || 'unknown';
 
     // 1. Generate state for CSRF protection
     const state = crypto.randomBytes(16).toString('hex');
 
-    // 2. Create API instance with auth params
+    // 2. Create API instance with auth params (redirect_uri from definition.env is preserved)
     const apiParams = {
         ...definition.env,
-        redirect_uri: redirectUri,
         state,
     };
+    if (!definition.env?.redirect_uri) {
+        apiParams.redirect_uri = redirectUri;
+    }
     const api = new ApiClass(apiParams);
 
     // 3. Get authorization URL
@@ -35,7 +41,6 @@ async function runOAuthFlow(definition, ApiClass, options) {
         );
     }
 
-    // Add state to URL if not already present
     if (!authUrl.includes('state=')) {
         const separator = authUrl.includes('?') ? '&' : '?';
         authUrl = `${authUrl}${separator}state=${state}`;
