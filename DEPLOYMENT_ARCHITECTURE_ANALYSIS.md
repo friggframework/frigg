@@ -453,6 +453,272 @@ This is valuable even for single-audience customer deployments.
 
 ---
 
+## How to Load Capability Context
+
+The host application controls user identity and permissions. Frigg needs a way to receive capability context. Three approaches, used in priority order:
+
+### Option 1: JWT Claims (Recommended for Adopter JWT)
+
+Host app embeds capabilities in JWT:
+
+```javascript
+// Host app mints JWT
+const token = jwt.sign({
+    sub: 'customer:u_12345',
+    org_id: 'customer:org_abc',
+
+    // Capability claims (standard names)
+    roles: ['user', 'premium'],
+    scopes: ['integrations:read', 'integrations:create'],
+
+    // Custom attributes (namespaced under 'attributes' or flat)
+    audience: 'customer',
+    plan: 'premium',
+    organization_size: 50
+}, secret);
+```
+
+Frigg extracts in `GetUserFromAdopterJwt`:
+
+```javascript
+async execute(jwtToken) {
+    const decoded = jwt.verify(jwtToken, this.jwtConfig.secret);
+    const user = await this.findOrCreateUser(decoded);
+
+    user.capabilityContext = new CapabilityContext({
+        userId: user.getId(),
+        roles: decoded.roles || [],
+        scopes: decoded.scopes || [],
+        attributes: {
+            audience: decoded.audience,
+            plan: decoded.plan,
+            ...decoded.attributes
+        }
+    });
+
+    return user;
+}
+```
+
+### Option 2: Callback Function (Most Flexible)
+
+For custom logic or when capabilities come from external systems:
+
+```javascript
+// frigg.config.js
+module.exports = {
+    integrations: [...],
+    userConfig: { ... },
+
+    // Optional: Custom capability loader
+    async getCapabilityContext(req, user) {
+        // Query your auth service, database, or session
+        const perms = await authService.getPermissions(user.getId());
+
+        return {
+            roles: perms.roles,
+            scopes: perms.scopes,
+            attributes: {
+                audience: user.getId().startsWith('customer:') ? 'customer' : 'employee',
+                plan: perms.plan
+            }
+        };
+    }
+};
+```
+
+### Option 3: x-frigg Headers (Backend-to-Backend)
+
+For shared secret auth mode:
+
+```javascript
+fetch('/api/v2/integrations', {
+    headers: {
+        'x-frigg-api-key': API_KEY,
+        'x-frigg-appuserid': 'customer:u_12345',
+        // Capability headers
+        'x-frigg-roles': 'user,premium',
+        'x-frigg-scopes': 'integrations:read,integrations:create',
+        'x-frigg-audience': 'customer'
+    }
+});
+```
+
+### Resolution Order
+
+```javascript
+async function resolveCapabilityContext(req, user, config) {
+    // 1. Callback (if provided)
+    if (config.getCapabilityContext) {
+        const ctx = await config.getCapabilityContext(req, user);
+        return new CapabilityContext({ userId: user.getId(), ...ctx });
+    }
+
+    // 2. Already on user (from JWT parsing)
+    if (user.capabilityContext) {
+        return user.capabilityContext;
+    }
+
+    // 3. x-frigg headers
+    if (req.headers['x-frigg-roles'] || req.headers['x-frigg-scopes']) {
+        return CapabilityContext.fromHeaders(req.headers, user.getId());
+    }
+
+    // 4. Default: empty (no restrictions)
+    return new CapabilityContext({ userId: user.getId() });
+}
+```
+
+---
+
+## Concrete Implementation Plan
+
+### Files to Create
+
+| File | Purpose |
+|------|---------|
+| `packages/core/integrations/capability-context.js` | CapabilityContext class |
+| `packages/core/integrations/capability-context.test.js` | Unit tests |
+
+### Files to Modify
+
+| File | Change |
+|------|--------|
+| `packages/core/user/use-cases/get-user-from-adopter-jwt.js` | Implement JWT parsing, extract capability claims |
+| `packages/core/user/use-cases/authenticate-user.js` | Pass through capability context from user |
+| `packages/core/integrations/integration-router.js` | Add `resolveCapabilityContext` middleware |
+| `packages/core/integrations/use-cases/get-possible-integrations.js` | Filter by `requires` |
+| `packages/core/handlers/app-definition-loader.js` | Support `getCapabilityContext` callback |
+| `packages/core/index.js` | Export CapabilityContext |
+
+### Minimal MVP (Phase 1)
+
+```javascript
+// capability-context.js - MINIMAL VERSION
+class CapabilityContext {
+    constructor({ userId, roles = [], scopes = [], attributes = {} }) {
+        this.userId = userId;
+        this.roles = roles;
+        this.scopes = scopes;
+        this.attributes = attributes;
+    }
+
+    hasAudience(audiences) {
+        if (!audiences?.length) return true;
+        return audiences.includes(this.attributes.audience);
+    }
+
+    hasAttributes(required) {
+        if (!required) return true;
+        return Object.entries(required).every(([key, vals]) =>
+            Array.isArray(vals)
+                ? vals.includes(this.attributes[key])
+                : this.attributes[key] === vals
+        );
+    }
+
+    async meetsRequirements(requires) {
+        if (!requires) return true;
+        if (requires.audience && !this.hasAudience(requires.audience)) return false;
+        if (requires.attributes && !this.hasAttributes(requires.attributes)) return false;
+        return true;
+    }
+
+    static fromHeaders(headers, userId) {
+        return new CapabilityContext({
+            userId,
+            roles: headers['x-frigg-roles']?.split(',') || [],
+            scopes: headers['x-frigg-scopes']?.split(',') || [],
+            attributes: {
+                audience: headers['x-frigg-audience'],
+                plan: headers['x-frigg-plan']
+            }
+        });
+    }
+}
+```
+
+### What We're NOT Doing (Avoid Over-Engineering)
+
+- ❌ No database storage for capabilities (host app owns this)
+- ❌ No built-in RBAC enforcement (just visibility filtering)
+- ❌ No feature flag SDK bundled (pluggable interface only)
+- ❌ No capability caching in Frigg (stateless per-request)
+- ❌ No admin UI for capability management (host app's job)
+
+---
+
+## Related Problem: Org/Individual Entity Ownership
+
+### Current State
+
+Entities are owned by either:
+- `userId` (IndividualUser) - personal OAuth tokens
+- `userId` (OrganizationUser) - org-level OAuth tokens
+- `userId: null, isGlobal: true` - admin-managed global entities
+
+### The Gap
+
+What about integrations where:
+- **Org owns** the Salesforce connection (shared CRM)
+- **Individual owns** their Slack account (personal notifications)
+
+```javascript
+static Definition = {
+    name: 'salesforce-to-slack',
+    entities: {
+        salesforce: {
+            type: 'salesforce-api',
+            ownership: 'organization',  // Org-level entity
+            global: false,
+            required: true
+        },
+        slack: {
+            type: 'slack-api',
+            ownership: 'individual',    // Per-user entity
+            global: false,
+            required: true
+        }
+    }
+};
+```
+
+### Questions to Resolve
+
+1. Can an IndividualUser create an integration using an OrganizationUser's entity?
+2. Who "owns" the integration - the individual or the org?
+3. What happens when individual leaves org - does integration survive?
+4. Can multiple individuals share the org's Salesforce entity with their own Slack?
+
+### Possible Approaches
+
+**A. Integration owned by Individual, references Org entity**
+```
+Integration: userId = individual_123
+  └── entities: [org_salesforce_entity, individual_slack_entity]
+```
+
+**B. Integration owned by Org, individual provides their entity**
+```
+Integration: userId = org_abc
+  └── entities: [org_salesforce_entity]
+  └── individualEntities: { user_123: slack_entity }
+```
+
+**C. Two-level integration (Org template + Individual instance)**
+```
+OrgIntegrationTemplate: userId = org_abc
+  └── entities: [org_salesforce_entity]
+  └── config: { ... }
+
+IndividualIntegration: userId = individual_123, templateId = template_1
+  └── entities: [individual_slack_entity]
+```
+
+This is a separate but related concern to Capability Context. Should be addressed in a follow-up.
+
+---
+
 ## References
 
 - Branch: `feature/integration-router-v2-drop-modules-router`
