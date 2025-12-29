@@ -4,324 +4,452 @@
 
 **Question**: Should you deploy 3 separate Frigg instances for different integration scenarios, or can a unified deployment with global entities and integration types work?
 
-**Answer**: You need **2 deployments minimum** for your scenario.
+**Answer**: It depends on your user architecture.
 
-| App | Users | Frigg Deployment |
-|-----|-------|------------------|
-| **app.lefthook.com** (Customer Portal) | Customers (external) | **Deployment A** |
-| Platform integrations (Twilio, SendGrid) | N/A - global entities | **Deployment A** (same) |
-| **admin.lefthook.com** (Employee Intranet) | LH Employees (internal) | **Deployment B** |
+| Scenario | Deployments | Approach |
+|----------|-------------|----------|
+| Separate user tables (current) | 2 | Customer portal + Employee intranet |
+| Namespaced user IDs | 1 | Unified with Capability Context |
 
-**Why?** Frigg is a single-database-per-deployment framework. When your apps have **different user tables**, you need separate Frigg deployments. The customer portal and employee intranet cannot share a single Frigg instance because users in each system are fundamentally different entities.
-
----
-
-## The Key Architecture Constraint
-
-### Frigg = One Database = One User Table
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Single Frigg Deployment                       │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   Database                                                       │
-│   ├── User table (ONE)                                          │
-│   │   └── All users in this deployment                          │
-│   ├── Credential table                                          │
-│   │   └── Foreign key to User                                   │
-│   ├── Entity table                                              │
-│   │   └── Foreign key to User (or null for global)              │
-│   └── Integration table                                         │
-│       └── Foreign key to User                                   │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**Implication**: If your customer portal and employee intranet have separate user databases, they **cannot** share a Frigg deployment.
+**Recommendation**: Add **Capability Context** to Frigg core. This enables:
+- Single deployment with namespaced user IDs (if desired)
+- Integration visibility control (beta releases, premium tiers)
+- Feature flag integration out of the box
+- RBAC-ready architecture
 
 ---
 
-## Your Actual Architecture
+## Option A: Two Deployments (Separate User Tables)
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    LEFT HOOK INFRASTRUCTURE                      │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   app.lefthook.com (Customer Portal)                            │
-│   ├── User Table: Customers                                     │
-│   ├── Use Case: Native integrations for customers               │
-│   └── Example: Customer connects HubSpot, Salesforce            │
-│                                                                  │
-│   Platform Services (Twilio, SendGrid, etc.)                    │
-│   ├── No user context - service accounts                        │
-│   └── Used BY customer portal as features                       │
-│                                                                  │
-│   admin.lefthook.com (Employee Intranet)                        │
-│   ├── User Table: LH Employees (DIFFERENT from customers)       │
-│   ├── Use Case: Internal team integrations                      │
-│   └── Example: Employee sets up Zendesk + Slack automation      │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Recommended: Two-Deployment Architecture
+If `app.lefthook.com` and `admin.lefthook.com` maintain completely separate user databases:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │               FRIGG DEPLOYMENT A: Customer Portal                │
-│                    (app.lefthook.com)                            │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   Database A                                                     │
-│   ├── User table: Customers                                     │
-│   ├── Credentials: Customer OAuth tokens                        │
-│   ├── Entities: Customer accounts + Global entities             │
-│   └── Integrations: Customer integrations                       │
-│                                                                  │
-│   APIs:                                                          │
-│   ├── /api/v2/*          Customer-facing integration API        │
-│   └── /api/admin/*       Your team manages global entities      │
-│                                                                  │
-│   Global Entities (isGlobal: true):                             │
-│   ├── Twilio (Company's SMS account)                            │
-│   ├── SendGrid (Company's email)                                │
-│   └── OpenAI (Company's API key for features)                   │
-│                                                                  │
-│   UI: Customer Integration Manager                               │
-│   └── Uses /api/v2/* with customer JWT                          │
-│                                                                  │
+│   Database A: Customers                                          │
+│   Global Entities: Twilio, SendGrid (platform services)         │
+│   APIs: /api/v2/* (customers), /api/admin/* (your team)         │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
 │              FRIGG DEPLOYMENT B: Employee Intranet               │
-│                   (admin.lefthook.com)                           │
+├─────────────────────────────────────────────────────────────────┤
+│   Database B: LH Employees (SEPARATE)                            │
+│   Global Entities: Company Zendesk, Slack, internal APIs        │
+│   APIs: /api/v2/* (employees), /api/admin/* (IT team)           │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Why 2 not 3?** Platform integrations (Twilio, SendGrid) are global entities in Deployment A, not a separate deployment.
+
+---
+
+## Option B: Unified Deployment (Namespaced User IDs)
+
+If you namespace user IDs to avoid collisions, a single deployment works:
+
+```javascript
+// Customer portal issues tokens with:
+{ appUserId: "customer:u_12345", appOrgId: "customer:org_abc" }
+
+// Employee intranet issues tokens with:
+{ appUserId: "employee:e_67890", appOrgId: "employee:team_xyz" }
+```
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    UNIFIED FRIGG DEPLOYMENT                      │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│   Database B (SEPARATE)                                          │
-│   ├── User table: LH Employees                                  │
-│   ├── Credentials: Employee OAuth tokens                        │
-│   ├── Entities: Employee-owned accounts                         │
-│   └── Integrations: Internal team integrations                  │
+│   Single Database                                                │
+│   ├── Users: customer:*, employee:*, partner:*, ...             │
+│   ├── Global Entities: Shared across all audiences              │
+│   └── Integrations: Filtered by Capability Context              │
 │                                                                  │
-│   APIs:                                                          │
-│   ├── /api/v2/*          Employee integration API               │
-│   └── /api/admin/*       IT/Admin manages global entities       │
-│                                                                  │
-│   Global Entities (optional):                                    │
-│   ├── Company Zendesk (shared support platform)                 │
-│   ├── Company Slack (shared workspace)                          │
-│   └── Internal APIs (shared service accounts)                   │
-│                                                                  │
-│   UI: Employee Integration Manager                               │
-│   └── Uses /api/v2/* with employee JWT                          │
+│   Both apps hit same Frigg backend                               │
+│   └── Capability Context controls what each user sees           │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+**This requires**: Capability Context in Frigg core (proposed below).
+
 ---
 
-## Why Not 3 Deployments?
+## Proposed Frigg Enhancement: Capability Context
 
-The original question asked about 3 scenarios:
+### Why This Matters Beyond Multi-Audience
 
-1. External integrations for product's end users
-2. Internal product integrations (Twilio/SendGrid)
-3. Company internal automations
+Even for a single customer-facing deployment, Capability Context enables:
 
-**Scenarios 1 and 2 collapse into one deployment** because:
+| Use Case | Example |
+|----------|---------|
+| **Beta releases** | New HubSpot integration visible only to beta users |
+| **Premium tiers** | Salesforce integration requires `plan: premium` |
+| **Feature flags** | Roll out Slack integration to 10% of users |
+| **Gradual rollout** | Enable integration for specific organizations first |
+| **Partner access** | Partners see different integrations than customers |
 
-- Platform integrations (Twilio, SendGrid) are **global entities** in the customer deployment
-- They have no user context - they're service accounts managed by admins
-- They're consumed by integrations in the customer portal
+### The Pattern
+
+A unified context object that serves three purposes:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     CAPABILITY CONTEXT                           │
+│  { userId, roles, scopes, attributes }                          │
+├─────────────────────────────────────────────────────────────────┤
+│                          │                                       │
+│         ┌────────────────┼────────────────┐                     │
+│         ▼                ▼                ▼                     │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
+│  │    RBAC     │  │  Visibility │  │Feature Flags│             │
+│  │             │  │   Filter    │  │             │             │
+│  │ roles →     │  │ requires →  │  │ attributes →│             │
+│  │ permissions │  │ show/hide   │  │ flag eval   │             │
+│  └─────────────┘  └─────────────┘  └─────────────┘             │
+│                                                                  │
+│  Same context works for all three concerns                       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Integration Definition with `requires`
 
 ```javascript
-// In Deployment A: Customer portal integration using global entity
-static Definition = {
-    name: 'customer-sms-notifications',
-    entities: {
-        customerAccount: {
-            type: 'your-platform',
-            global: false,        // Customer connects their own
-            required: true
+class HubSpotIntegration extends IntegrationBase {
+    static Definition = {
+        name: 'hubspot-sync',
+
+        // NEW: Visibility requirements
+        requires: {
+            // Audience-based (for multi-app scenarios)
+            audience: ['customer', 'partner'],
+
+            // Scope-based (for RBAC)
+            scopes: ['integrations:hubspot'],
+
+            // Feature flag (for gradual rollout)
+            featureFlag: 'hubspot-integration-enabled',
+
+            // Attribute-based (for premium tiers)
+            attributes: { plan: ['premium', 'enterprise'] },
+
+            // Custom predicate (for complex logic)
+            predicate: (ctx) => ctx.attributes.organization_size > 100
         },
-        smsService: {
-            type: 'twilio-api',
-            global: true,         // YOUR Twilio (auto-included)
-            required: true
+
+        entities: {
+            hubspot: { type: 'hubspot-api', global: false, required: true }
+        }
+    };
+}
+```
+
+### Core Implementation
+
+```javascript
+// packages/core/integrations/capability-context.js
+
+class CapabilityContext {
+    constructor({ userId, roles = [], scopes = [], attributes = {} }) {
+        this.userId = userId;
+        this.roles = roles;
+        this.scopes = scopes;
+        this.attributes = attributes;
+    }
+
+    // Scope checking with wildcard support
+    hasScope(scope) {
+        return this.scopes.some(s =>
+            s === scope ||
+            (s.endsWith(':*') && scope.startsWith(s.slice(0, -1)))
+        );
+    }
+
+    hasRole(role) {
+        return this.roles.includes(role);
+    }
+
+    hasAudience(audiences) {
+        if (!audiences || audiences.length === 0) return true;
+        return audiences.includes(this.attributes.audience);
+    }
+
+    hasAttributes(required) {
+        if (!required) return true;
+        return Object.entries(required).every(([key, values]) => {
+            const userValue = this.attributes[key];
+            return Array.isArray(values)
+                ? values.includes(userValue)
+                : userValue === values;
+        });
+    }
+
+    // For feature flag SDKs - matches LaunchDarkly/Unleash/Flagsmith context shape
+    toFlagContext() {
+        return {
+            kind: 'user',
+            key: this.userId,
+            custom: {
+                roles: this.roles,
+                scopes: this.scopes,
+                ...this.attributes
+            }
+        };
+    }
+
+    // Evaluate requires block from Integration Definition
+    async meetsRequirements(requires, flagClient = null) {
+        if (!requires) return true;
+
+        // Audience check
+        if (requires.audience && !this.hasAudience(requires.audience)) {
+            return false;
+        }
+
+        // Scope check
+        if (requires.scopes) {
+            const hasAll = requires.scopes.every(s => this.hasScope(s));
+            if (!hasAll) return false;
+        }
+
+        // Attribute check
+        if (requires.attributes && !this.hasAttributes(requires.attributes)) {
+            return false;
+        }
+
+        // Feature flag check (integrates with any flag SDK)
+        if (requires.featureFlag && flagClient) {
+            const enabled = await flagClient.isEnabled(
+                requires.featureFlag,
+                this.toFlagContext()
+            );
+            if (!enabled) return false;
+        }
+
+        // Custom predicate
+        if (requires.predicate && !requires.predicate(this)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    // Factory method from JWT claims
+    static fromToken(token) {
+        const claims = decodeToken(token);
+        return new CapabilityContext({
+            userId: claims.appUserId,
+            roles: claims.roles || [],
+            scopes: claims.scopes || [],
+            attributes: claims.attributes || {}
+        });
+    }
+}
+
+module.exports = { CapabilityContext };
+```
+
+### Router Integration
+
+```javascript
+// In createIntegrationRouter or middleware
+
+async function enrichCapabilityContext(req, res, next) {
+    try {
+        req.capabilityContext = CapabilityContext.fromToken(req.token);
+        next();
+    } catch (e) {
+        next(e);
+    }
+}
+
+// Filter integration options by visibility
+async function getVisibleIntegrations(ctx, integrationClasses, flagClient) {
+    const visible = [];
+
+    for (const IntegrationClass of integrationClasses) {
+        const { requires } = IntegrationClass.Definition || {};
+
+        if (await ctx.meetsRequirements(requires, flagClient)) {
+            visible.push(IntegrationClass.Options.get());
         }
     }
+
+    return visible;
+}
+```
+
+### Feature Flag SDK Integration
+
+```javascript
+// Works with any feature flag provider
+
+// LaunchDarkly
+const ldClient = LaunchDarkly.init(process.env.LD_SDK_KEY);
+const flagClient = {
+    async isEnabled(flag, ctx) {
+        return ldClient.variation(flag, ctx, false);
+    }
+};
+
+// Unleash
+const unleash = new Unleash({ url, appName, customHeaders });
+const flagClient = {
+    async isEnabled(flag, ctx) {
+        return unleash.isEnabled(flag, { userId: ctx.key, properties: ctx.custom });
+    }
+};
+
+// Flagsmith
+const flagsmith = new Flagsmith({ environmentKey });
+const flagClient = {
+    async isEnabled(flag, ctx) {
+        const flags = await flagsmith.getIdentityFlags(ctx.key, ctx.custom);
+        return flags.isFeatureEnabled(flag);
+    }
+};
+
+// Pass to router
+createIntegrationRouter({ ..., flagClient });
+```
+
+---
+
+## Real-World Examples
+
+### Example 1: Beta Integration Rollout
+
+```javascript
+static Definition = {
+    name: 'notion-sync',
+    requires: {
+        featureFlag: 'notion-integration-beta'  // LaunchDarkly controls rollout
+    },
+    entities: { ... }
+};
+
+// In LaunchDarkly: enable for 5% of users, then 25%, then 100%
+```
+
+### Example 2: Premium Tier Integration
+
+```javascript
+static Definition = {
+    name: 'salesforce-enterprise',
+    requires: {
+        attributes: { plan: ['enterprise'] },
+        scopes: ['integrations:salesforce']
+    },
+    entities: { ... }
 };
 ```
 
-**Scenario 3 requires separate deployment** because:
-
-- Employees are a completely different user population
-- Different user table, different identity provider
-- Employees need their own credential/entity ownership
-
----
-
-## Code Sharing: One Codebase, Two Deployments
-
-Although you need 2 deployments, you can share code:
-
-```
-frigg-monorepo/
-├── packages/
-│   ├── api-modules/                    # SHARED: API modules
-│   │   ├── twilio/
-│   │   ├── hubspot/
-│   │   ├── salesforce/
-│   │   └── zendesk/
-│   │
-│   ├── integrations-customer/           # Deployment A specific
-│   │   ├── hubspot-sync/
-│   │   └── sms-notifications/           # Uses global Twilio
-│   │
-│   ├── integrations-internal/           # Deployment B specific
-│   │   ├── zendesk-slack/
-│   │   └── customer-success-workflow/
-│   │
-│   ├── app-customer/                    # Deployment A entry point
-│   │   └── frigg.config.js
-│   │
-│   └── app-internal/                    # Deployment B entry point
-│       └── frigg.config.js
-```
-
-**Key Point**: API modules (HubSpot, Twilio, etc.) are npm packages that can be installed in both deployments. You don't duplicate module code.
-
----
-
-## v2 Router Branch Capabilities (Both Deployments)
-
-The `feature/integration-router-v2-drop-modules-router` branch provides everything needed for both deployments:
-
-| Feature | Status | Purpose |
-|---------|--------|---------|
-| v2 API routes (`/api/v2/*`) | ✅ | User-facing integration API |
-| Admin router (`/api/admin/*`) | ✅ | Global entity & user management |
-| Global entities (`isGlobal` flag) | ✅ | Shared service accounts |
-| User impersonation | ✅ | Support/debugging |
-| Multi-step authorization | ✅ | Complex OAuth flows |
-| Proxy endpoints for MCP | ✅ | AI tool calling |
-
----
-
-## Deployment A: Customer Portal Details
-
-### Global Entities for Platform Features
-
-```bash
-# Admin creates global Twilio entity via API
-curl -X POST https://frigg-customer.lefthook.com/api/admin/entities \
-  -H "Authorization: Bearer $ADMIN_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "type": "twilio-api",
-    "name": "LH Platform SMS",
-    "credentials": {
-      "account_sid": "AC...",
-      "auth_token": "..."
-    }
-  }'
-```
-
-### Customer Integrations Auto-Include Global Entities
-
-When a customer creates an integration that needs SMS:
-
-1. Integration Definition has `global: true` for SMS entity
-2. Frigg automatically includes the global Twilio entity
-3. Customer never sees Twilio credentials
-4. SMS appears as a "feature" not an "integration"
-
-### UI Context
-
-```jsx
-// Customer portal UI - uses user JWT, sees only their integrations
-const api = new FriggAPI(baseUrl, customerJWT);
-const integrations = await api.listIntegrations();
-// Returns only this customer's integrations
-```
-
----
-
-## Deployment B: Employee Intranet Details
-
-### Independent User Management
+### Example 3: Multi-Audience with Namespaced Users
 
 ```javascript
-// Deployment B has its own users table
-// Employees authenticate via your SSO/identity provider
-// JWTs issued by your auth system, validated by Frigg
-```
-
-### Employee-Owned Entities
-
-Unlike Deployment A where customers connect external accounts, Deployment B might have more global entities (shared company accounts) with employees creating integrations between them:
-
-```javascript
-// Employee creates automation connecting company Zendesk to Slack
+// Customer-only integration
 static Definition = {
-    name: 'ticket-to-slack',
-    entities: {
-        zendesk: {
-            type: 'zendesk-api',
-            global: true,         // Company's Zendesk (shared)
-            required: true
-        },
-        slack: {
-            type: 'slack-api',
-            global: false,        // Employee's own Slack (or global)
-            required: true
-        }
-    }
+    name: 'hubspot-crm',
+    requires: {
+        audience: ['customer']
+    },
+    entities: { ... }
+};
+
+// Employee-only integration
+static Definition = {
+    name: 'zendesk-internal',
+    requires: {
+        audience: ['employee']
+    },
+    entities: { ... }
+};
+
+// Both can use
+static Definition = {
+    name: 'slack-notifications',
+    requires: {
+        audience: ['customer', 'employee']
+    },
+    entities: { ... }
+};
+```
+
+### Example 4: Organization-Specific Early Access
+
+```javascript
+static Definition = {
+    name: 'new-feature-integration',
+    requires: {
+        predicate: (ctx) =>
+            ctx.attributes.organization_id === 'org_beta_partner' ||
+            ctx.hasRole('beta_tester')
+    },
+    entities: { ... }
 };
 ```
 
 ---
 
-## What About Multi-Tenancy in the Future?
+## Implementation Phases
 
-If you wanted a single Frigg deployment serving multiple user populations, you'd need to add:
+### Phase 1: Core Capability Context
+- Add `CapabilityContext` class to `packages/core`
+- Add `requires` field to Integration Definition schema
+- Add filtering to `getIntegrationOptions` endpoint
 
-1. **Tenant/Realm field** on all models (User, Credential, Entity, Integration)
-2. **Tenant-aware queries** in all repositories
-3. **Tenant isolation middleware** to scope all requests
-4. **Cross-tenant global entities** concept
+### Phase 2: Middleware Integration
+- Add context enrichment middleware
+- Support JWT claims for roles/scopes/attributes
+- Document token structure requirements
 
-This is a significant architectural change and may not be worth the complexity for 2 deployments.
+### Phase 3: Feature Flag Support
+- Add pluggable `flagClient` interface
+- Provide examples for LaunchDarkly, Unleash, Flagsmith
+- Add async evaluation in visibility filter
+
+### Phase 4: Documentation & Examples
+- Update Integration authoring guide
+- Add visibility patterns cookbook
+- Provide migration guide for existing integrations
 
 ---
 
-## Summary: Final Recommendations
+## Decision Matrix: 1 vs 2 Deployments
 
-### Immediate Actions
+| Factor | 2 Deployments | 1 Deployment + Capability Context |
+|--------|---------------|-----------------------------------|
+| **Separate user tables** | Required | Need to namespace IDs |
+| **Separate auth systems** | Works naturally | Need unified token validation |
+| **Isolation requirements** | Strong isolation | Logical isolation via context |
+| **Infrastructure cost** | 2x databases, 2x deployments | Single deployment |
+| **Shared global entities** | Separate per deployment | Truly shared |
+| **Admin visibility** | Per-deployment admin | Unified admin view |
+| **Integration code sharing** | Via npm packages | Same deployment |
 
-1. **Deploy Frigg twice** - once for customer portal, once for employee intranet
-2. **Share API modules** via npm packages between deployments
-3. **Use global entities** in customer deployment for platform services
-4. **Use v2 router branch** for both deployments
+---
 
-### Architecture Clarity
+## Summary
 
-| Concern | Resolution |
-|---------|------------|
-| Different user tables | Separate deployments |
-| Platform services (Twilio) | Global entities in Deployment A |
-| Shared API module code | npm packages, single source |
-| Admin management UI | `/api/admin/*` in each deployment |
+### For Your Immediate Needs (2+ Audiences)
 
-### Not Needed
+**If keeping separate user tables**: Deploy twice, share API modules via npm.
 
-- Multi-tenancy in Frigg core (unnecessary complexity for 2 deployments)
-- `ownershipType` field on entities (v2's `isGlobal` boolean is sufficient)
-- Scope/visibility field on integrations (UI can filter client-side if needed)
+**If willing to namespace user IDs**: Single deployment with Capability Context.
+
+### For Frigg Core (Recommended Enhancement)
+
+Add Capability Context regardless of deployment count. It enables:
+
+1. **Beta releases** - Feature flag new integrations
+2. **Premium tiers** - Gate integrations by plan
+3. **Gradual rollout** - % rollout via feature flags
+4. **Multi-audience** - Customer vs employee vs partner
+5. **RBAC ready** - Scopes integrate with existing auth
+
+This is valuable even for single-audience customer deployments.
 
 ---
 
@@ -329,7 +457,9 @@ This is a significant architectural change and may not be worth the complexity f
 
 - Branch: `feature/integration-router-v2-drop-modules-router`
 - Admin Router: `packages/core/handlers/routers/admin.js`
-- Integration Router (v2): `packages/core/integrations/integration-router.js`
+- Integration Router: `packages/core/integrations/integration-router.js`
 - Global Entities Guide: `docs/guides/GLOBAL-ENTITIES-GUIDE.md`
-- Create Integration Use Case: `packages/core/integrations/use-cases/create-integration.js`
-- UI API Client (v2): `packages/ui/lib/api/api.js`
+- Feature Flag Context Patterns:
+  - LaunchDarkly: https://launchdarkly.com/docs/home/flags/context-attributes
+  - Unleash: https://docs.getunleash.io/
+  - Flagsmith: https://docs.flagsmith.com/
