@@ -648,20 +648,131 @@ class CapabilityContext {
 
 ---
 
-## Related Problem: Org/Individual Entity Ownership
+## Adversarial Review: Simpler Alternative
 
-### Current State
+After critical review, the full CapabilityContext proposal may be over-engineered. A simpler approach:
 
-Entities are owned by either:
-- `userId` (IndividualUser) - personal OAuth tokens
-- `userId` (OrganizationUser) - org-level OAuth tokens
-- `userId: null, isGlobal: true` - admin-managed global entities
+### Option: Simple Visibility Callback (30 lines)
+
+```javascript
+// Integration Definition - add optional visibility function
+static Definition = {
+    name: 'hubspot-sync',
+
+    // Optional: defaults to () => true (visible to all)
+    visible: (context) => {
+        // Host app passes whatever context they want
+        // No forced structure, no coupling
+        return context.user.plan === 'premium';
+    },
+
+    entities: { ... }
+};
+
+// Router change - ONE function modification
+async function getVisibleIntegrations(integrationClasses, context) {
+    return integrationClasses.filter(IntClass => {
+        const visibleFn = IntClass.Definition.visible || (() => true);
+        return visibleFn(context);
+    });
+}
+```
+
+### Why This Is Better
+
+| Aspect | Full CapabilityContext | Simple Callback |
+|--------|----------------------|-----------------|
+| **Lines of code** | 500+ | ~30 |
+| **New concepts** | 12+ | 1 |
+| **Breaking changes** | Yes (JWT structure, headers) | No |
+| **Host app coupling** | Forces JWT/header structure | None - host controls context |
+| **Testability** | Complex (mock JWT, flags, etc) | Simple (mock context object) |
+| **Maintenance** | Feature flag SDK examples | Zero |
+
+### When to Use Which
+
+**Use simple callback if:**
+- You just need to hide integrations from some users
+- Beta releases, premium tiers, gradual rollout
+- Host app already has auth/permissions system
+
+**Consider CapabilityContext if:**
+- Multiple adopters request structured capability system
+- Need standardized context shape across Frigg ecosystem
+- Building multi-tenant SaaS with Frigg (not just embedding)
+
+### Recommendation
+
+**Start with simple visibility callback.** Add structured CapabilityContext later if:
+1. 3+ adopters request it
+2. Clear patterns emerge across adopters
+3. Simple callback proves insufficient
+
+---
+
+## Org/Individual Entity Ownership (Deep Dive)
+
+### What Already Exists
+
+**Good news**: The `User` class already supports linked org/individual access:
+
+```javascript
+// packages/core/user/user.js
+class User {
+    ownsUserId(userId) {
+        // When primary is 'organization', also check linked individual user
+        if (this.config.primary === 'organization' && userIdStr === individualId) {
+            return true;
+        }
+        // When primary is 'individual', also check linked organization user
+        if (this.config.primary === 'individual' &&
+            this.config.organizationUserRequired &&
+            userIdStr === organizationId) {
+            return true;
+        }
+    }
+}
+```
+
+**Used in**: `GetModule`, `TestModuleAuth`, `GetEntityOptionsById`, `RefreshEntityOptions`
 
 ### The Gap
 
-What about integrations where:
-- **Org owns** the Salesforce connection (shared CRM)
-- **Individual owns** their Slack account (personal notifications)
+Repository queries don't leverage `ownsUserId()`:
+
+```javascript
+// packages/core/modules/repositories/module-repository-postgres.js
+async findEntitiesByUserId(userId) {
+    return this.prisma.entity.findMany({
+        where: { userId: intUserId },  // ❌ Simple exact match only
+    });
+}
+```
+
+**Result**: IndividualUser cannot see OrganizationUser's entities, even when linked.
+
+### The Use Case
+
+```
+Org: Acme Corp (userId: org_123)
+  └── Entity: Salesforce (owned by org, shared CRM)
+
+Individual: Alice (userId: user_456, organizationId: org_123)
+  └── Entity: Slack (her personal account)
+
+Integration: salesforce-to-slack-notifications
+  └── Needs: Org's Salesforce + Alice's Slack
+  └── Owner: Alice (user_456)
+  └── Entities: [salesforce_entity_org_123, slack_entity_user_456]
+```
+
+**Currently impossible** because:
+1. Alice can't see org's Salesforce entity in `GetEntitiesForUser`
+2. Even if she could, no way to declare "this entity should come from org"
+
+### Proposed Solution
+
+#### Step 1: Entity Definition with Ownership Scope
 
 ```javascript
 static Definition = {
@@ -669,53 +780,161 @@ static Definition = {
     entities: {
         salesforce: {
             type: 'salesforce-api',
-            ownership: 'organization',  // Org-level entity
-            global: false,
+            scope: 'organization',  // Look in org's entities
             required: true
         },
         slack: {
             type: 'slack-api',
-            ownership: 'individual',    // Per-user entity
-            global: false,
+            scope: 'individual',    // Look in user's entities
+            required: true
+        },
+        twilio: {
+            type: 'twilio-api',
+            scope: 'global',        // Look in global entities (existing)
             required: true
         }
     }
 };
 ```
 
-### Questions to Resolve
+#### Step 2: Update Entity Queries
 
-1. Can an IndividualUser create an integration using an OrganizationUser's entity?
-2. Who "owns" the integration - the individual or the org?
-3. What happens when individual leaves org - does integration survive?
-4. Can multiple individuals share the org's Salesforce entity with their own Slack?
+```javascript
+// GetEntitiesForUser - accept User object, use ownsUserId
+async execute(user, scope = 'all') {
+    const queries = [];
 
-### Possible Approaches
+    if (scope === 'all' || scope === 'individual') {
+        queries.push({ userId: user.individualUser?.id });
+    }
+    if (scope === 'all' || scope === 'organization') {
+        queries.push({ userId: user.organizationUser?.id });
+    }
+    if (scope === 'all' || scope === 'global') {
+        queries.push({ isGlobal: true });
+    }
 
-**A. Integration owned by Individual, references Org entity**
-```
-Integration: userId = individual_123
-  └── entities: [org_salesforce_entity, individual_slack_entity]
-```
-
-**B. Integration owned by Org, individual provides their entity**
-```
-Integration: userId = org_abc
-  └── entities: [org_salesforce_entity]
-  └── individualEntities: { user_123: slack_entity }
-```
-
-**C. Two-level integration (Org template + Individual instance)**
-```
-OrgIntegrationTemplate: userId = org_abc
-  └── entities: [org_salesforce_entity]
-  └── config: { ... }
-
-IndividualIntegration: userId = individual_123, templateId = template_1
-  └── entities: [individual_slack_entity]
+    return this.prisma.entity.findMany({
+        where: { OR: queries }
+    });
+}
 ```
 
-This is a separate but related concern to Capability Context. Should be addressed in a follow-up.
+#### Step 3: CreateIntegration Resolves by Scope
+
+```javascript
+class CreateIntegration {
+    async execute(entitySelections, user, config) {
+        const resolvedEntities = [];
+
+        for (const [key, entityDef] of Object.entries(Definition.entities)) {
+            const scope = entityDef.scope || 'individual';  // Default: individual
+
+            if (scope === 'global') {
+                // Auto-include global entity (existing behavior)
+                const entity = await findGlobalEntity(entityDef.type);
+                resolvedEntities.push(entity);
+            } else if (scope === 'organization') {
+                // Find from org's entities
+                const entity = await findEntityByUserAndType(
+                    user.organizationUser.id,
+                    entityDef.type
+                );
+                resolvedEntities.push(entity);
+            } else {
+                // Find from individual's entities (or explicit selection)
+                const entity = entitySelections[key] ||
+                    await findEntityByUserAndType(user.individualUser.id, entityDef.type);
+                resolvedEntities.push(entity);
+            }
+        }
+
+        // Integration owned by individual, references mixed entities
+        return this.integrationRepository.createIntegration(
+            resolvedEntities,
+            user.individualUser.id,  // Individual owns integration
+            config
+        );
+    }
+}
+```
+
+### Integration Ownership Rules
+
+| Scenario | Integration Owner | Entity Sources |
+|----------|------------------|----------------|
+| All individual entities | Individual | Individual only |
+| All org entities | Organization | Organization only |
+| Mixed (org + individual) | **Individual** | Org + Individual |
+| Mixed with global | Individual | Global + Individual |
+
+**Rationale for individual ownership of mixed integrations:**
+- Individual has the "personal" connection (Slack, email)
+- When individual leaves org, integration should be cleaned up
+- Org's entity continues to exist for other users
+
+### What Happens When Individual Leaves Org?
+
+```javascript
+// On user removal from org (organizationId set to null)
+async onUserRemovedFromOrg(userId) {
+    // Find integrations owned by this user that use org entities
+    const integrations = await findIntegrationsWithOrgEntities(userId);
+
+    for (const integration of integrations) {
+        // Option A: Delete integration (cleanest)
+        await deleteIntegration(integration.id);
+
+        // Option B: Disable integration (preserves audit trail)
+        await updateIntegration(integration.id, { status: 'ORPHANED' });
+    }
+}
+```
+
+### Files to Modify
+
+| File | Change |
+|------|--------|
+| `Integration Definition schema` | Add `scope: 'individual' \| 'organization' \| 'global'` |
+| `GetEntitiesForUser` | Accept User object, query by scope |
+| `CreateIntegration` | Resolve entities by scope |
+| `module-repository-postgres.js` | Add `findEntitiesByUserAndScope` |
+| `GetIntegrationsForUser` | Show integrations where user owns OR is linked |
+
+### Minimal Implementation
+
+```javascript
+// Entity Definition extension
+entities: {
+    salesforce: {
+        type: 'salesforce-api',
+        scope: 'organization',  // NEW: 'individual' | 'organization' | 'global'
+        required: true
+    }
+}
+
+// Query helper
+async function getEntitiesForUserByScope(user, scope) {
+    switch (scope) {
+        case 'global':
+            return findEntities({ isGlobal: true });
+        case 'organization':
+            return findEntities({ userId: user.organizationUser?.id });
+        case 'individual':
+        default:
+            return findEntities({ userId: user.individualUser?.id });
+    }
+}
+```
+
+### Relationship to Visibility
+
+These are **orthogonal concerns**:
+
+- **Visibility** (simple callback): "Can this user SEE this integration option?"
+- **Entity scope**: "WHERE do the entities for this integration come from?"
+
+Both can be implemented independently. Visibility is simpler and should come first.
 
 ---
 
