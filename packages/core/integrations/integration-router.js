@@ -346,10 +346,13 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
             const user = await authenticateUser.execute(req);
             const userId = user.getId();
 
+            // Build visibility context for filtering integrations
+            const visibilityContext = { user };
+
             // v1 returns everything in one call
             const [integrations, options, authorized] = await Promise.all([
                 getIntegrationsForUser.execute(userId),
-                getPossibleIntegrations.execute(),
+                getPossibleIntegrations.execute(visibilityContext),
                 getEntitiesForUser.execute(userId),
             ]);
 
@@ -364,9 +367,19 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
     );
 
     // GET /api/integrations/options - Get available integration options (v1 compatible)
+    // Attempts authentication for visibility filtering; if unauthenticated, shows all public integrations
     router.route('/api/integrations/options').get(
         catchAsyncError(async (req, res) => {
-            const options = await getPossibleIntegrations.execute();
+            let visibilityContext = null;
+            try {
+                const user = await authenticateUser.execute(req);
+                visibilityContext = { user };
+            } catch {
+                // Unauthenticated - will show only integrations without visibility restrictions
+            }
+            const options = await getPossibleIntegrations.execute(
+                visibilityContext
+            );
             res.json({ integrations: options });
         })
     );
@@ -398,9 +411,19 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
     );
 
     // GET /api/v2/integrations/options - Get available integration options
+    // Attempts authentication for visibility filtering; if unauthenticated, shows all public integrations
     router.route('/api/v2/integrations/options').get(
         catchAsyncError(async (req, res) => {
-            const options = await getPossibleIntegrations.execute();
+            let visibilityContext = null;
+            try {
+                const user = await authenticateUser.execute(req);
+                visibilityContext = { user };
+            } catch {
+                // Unauthenticated - will show only integrations without visibility restrictions
+            }
+            const options = await getPossibleIntegrations.execute(
+                visibilityContext
+            );
             res.json({ integrations: options });
         })
     );

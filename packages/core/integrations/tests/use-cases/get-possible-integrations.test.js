@@ -289,4 +289,276 @@ describe('GetPossibleIntegrations Use-Case', () => {
             expect(result[2].name).toBe('third');
         });
     });
+
+    describe('visibility filtering', () => {
+        it('shows all integrations when no visible function defined', async () => {
+            const useCase = new GetPossibleIntegrations({
+                integrationClasses: [DummyIntegration],
+            });
+            const result = await useCase.execute({ user: { plan: 'free' } });
+
+            expect(result.length).toBe(1);
+        });
+
+        it('filters integrations based on visible function returning true', async () => {
+            class VisibleIntegration {
+                static Definition = {
+                    name: 'visible',
+                    version: '1.0.0',
+                    modules: { dummy: {} },
+                    display: { label: 'Visible' },
+                    visible: () => true,
+                };
+                static getOptionDetails() {
+                    return {
+                        name: this.Definition.name,
+                        version: this.Definition.version,
+                        display: this.Definition.display,
+                    };
+                }
+            }
+
+            const useCase = new GetPossibleIntegrations({
+                integrationClasses: [VisibleIntegration],
+            });
+            const result = await useCase.execute({ user: { plan: 'free' } });
+
+            expect(result.length).toBe(1);
+            expect(result[0].name).toBe('visible');
+        });
+
+        it('filters out integrations when visible function returns false', async () => {
+            class HiddenIntegration {
+                static Definition = {
+                    name: 'hidden',
+                    version: '1.0.0',
+                    modules: { dummy: {} },
+                    display: { label: 'Hidden' },
+                    visible: () => false,
+                };
+                static getOptionDetails() {
+                    return {
+                        name: this.Definition.name,
+                        version: this.Definition.version,
+                        display: this.Definition.display,
+                    };
+                }
+            }
+
+            const useCase = new GetPossibleIntegrations({
+                integrationClasses: [HiddenIntegration],
+            });
+            const result = await useCase.execute({ user: { plan: 'premium' } });
+
+            expect(result.length).toBe(0);
+        });
+
+        it('passes context to visible function', async () => {
+            class PremiumIntegration {
+                static Definition = {
+                    name: 'premium',
+                    version: '1.0.0',
+                    modules: { dummy: {} },
+                    display: { label: 'Premium' },
+                    visible: (ctx) => ctx?.user?.plan === 'premium',
+                };
+                static getOptionDetails() {
+                    return {
+                        name: this.Definition.name,
+                        version: this.Definition.version,
+                        display: this.Definition.display,
+                    };
+                }
+            }
+
+            const useCase = new GetPossibleIntegrations({
+                integrationClasses: [PremiumIntegration],
+            });
+
+            // Free user should not see premium integration
+            const freeResult = await useCase.execute({ user: { plan: 'free' } });
+            expect(freeResult.length).toBe(0);
+
+            // Premium user should see it
+            const premiumResult = await useCase.execute({ user: { plan: 'premium' } });
+            expect(premiumResult.length).toBe(1);
+            expect(premiumResult[0].name).toBe('premium');
+        });
+
+        it('supports async visible functions', async () => {
+            class AsyncVisibleIntegration {
+                static Definition = {
+                    name: 'async-visible',
+                    version: '1.0.0',
+                    modules: { dummy: {} },
+                    display: { label: 'Async Visible' },
+                    visible: async (ctx) => {
+                        // Simulate async check
+                        await new Promise((resolve) => setTimeout(resolve, 10));
+                        return ctx?.user?.hasAccess === true;
+                    },
+                };
+                static getOptionDetails() {
+                    return {
+                        name: this.Definition.name,
+                        version: this.Definition.version,
+                        display: this.Definition.display,
+                    };
+                }
+            }
+
+            const useCase = new GetPossibleIntegrations({
+                integrationClasses: [AsyncVisibleIntegration],
+            });
+
+            const noAccessResult = await useCase.execute({ user: { hasAccess: false } });
+            expect(noAccessResult.length).toBe(0);
+
+            const hasAccessResult = await useCase.execute({ user: { hasAccess: true } });
+            expect(hasAccessResult.length).toBe(1);
+        });
+
+        it('hides integration when visible function throws error', async () => {
+            class ErrorIntegration {
+                static Definition = {
+                    name: 'error',
+                    version: '1.0.0',
+                    modules: { dummy: {} },
+                    display: { label: 'Error' },
+                    visible: () => {
+                        throw new Error('Visibility check failed');
+                    },
+                };
+                static getOptionDetails() {
+                    return {
+                        name: this.Definition.name,
+                        version: this.Definition.version,
+                        display: this.Definition.display,
+                    };
+                }
+            }
+
+            const useCase = new GetPossibleIntegrations({
+                integrationClasses: [ErrorIntegration],
+            });
+
+            // Should not throw, should just hide the integration
+            const result = await useCase.execute({ user: {} });
+            expect(result.length).toBe(0);
+        });
+
+        it('filters correctly with mixed visible and non-visible integrations', async () => {
+            class PublicIntegration {
+                static Definition = {
+                    name: 'public',
+                    version: '1.0.0',
+                    modules: { dummy: {} },
+                    display: { label: 'Public' },
+                    // No visible function = always visible
+                };
+                static getOptionDetails() {
+                    return {
+                        name: this.Definition.name,
+                        version: this.Definition.version,
+                        display: this.Definition.display,
+                    };
+                }
+            }
+
+            class PremiumOnlyIntegration {
+                static Definition = {
+                    name: 'premium-only',
+                    version: '1.0.0',
+                    modules: { dummy: {} },
+                    display: { label: 'Premium Only' },
+                    visible: (ctx) => ctx?.user?.plan === 'premium',
+                };
+                static getOptionDetails() {
+                    return {
+                        name: this.Definition.name,
+                        version: this.Definition.version,
+                        display: this.Definition.display,
+                    };
+                }
+            }
+
+            class BetaIntegration {
+                static Definition = {
+                    name: 'beta',
+                    version: '1.0.0',
+                    modules: { dummy: {} },
+                    display: { label: 'Beta' },
+                    visible: (ctx) => ctx?.user?.isBetaTester === true,
+                };
+                static getOptionDetails() {
+                    return {
+                        name: this.Definition.name,
+                        version: this.Definition.version,
+                        display: this.Definition.display,
+                    };
+                }
+            }
+
+            const useCase = new GetPossibleIntegrations({
+                integrationClasses: [
+                    PublicIntegration,
+                    PremiumOnlyIntegration,
+                    BetaIntegration,
+                ],
+            });
+
+            // Free user sees only public
+            const freeResult = await useCase.execute({ user: { plan: 'free' } });
+            expect(freeResult.length).toBe(1);
+            expect(freeResult[0].name).toBe('public');
+
+            // Premium user sees public + premium
+            const premiumResult = await useCase.execute({ user: { plan: 'premium' } });
+            expect(premiumResult.length).toBe(2);
+            expect(premiumResult.map((r) => r.name)).toContain('public');
+            expect(premiumResult.map((r) => r.name)).toContain('premium-only');
+
+            // Beta tester sees public + beta
+            const betaResult = await useCase.execute({
+                user: { plan: 'free', isBetaTester: true },
+            });
+            expect(betaResult.length).toBe(2);
+            expect(betaResult.map((r) => r.name)).toContain('public');
+            expect(betaResult.map((r) => r.name)).toContain('beta');
+
+            // Premium beta tester sees all
+            const allAccessResult = await useCase.execute({
+                user: { plan: 'premium', isBetaTester: true },
+            });
+            expect(allAccessResult.length).toBe(3);
+        });
+
+        it('shows all integrations when context is null', async () => {
+            class ConditionalIntegration {
+                static Definition = {
+                    name: 'conditional',
+                    version: '1.0.0',
+                    modules: { dummy: {} },
+                    display: { label: 'Conditional' },
+                    visible: (ctx) => ctx?.user?.plan === 'premium',
+                };
+                static getOptionDetails() {
+                    return {
+                        name: this.Definition.name,
+                        version: this.Definition.version,
+                        display: this.Definition.display,
+                    };
+                }
+            }
+
+            const useCase = new GetPossibleIntegrations({
+                integrationClasses: [DummyIntegration, ConditionalIntegration],
+            });
+
+            // With null context, conditional visibility returns false
+            const result = await useCase.execute(null);
+            expect(result.length).toBe(1);
+            expect(result[0].name).toBe('dummy');
+        });
+    });
 });
