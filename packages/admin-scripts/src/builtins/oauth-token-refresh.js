@@ -50,14 +50,13 @@ class OAuthTokenRefreshScript extends AdminScriptBase {
             requireIntegrationInstance: true, // Needs to call external APIs
         },
 
+        // UI-specific overrides
         display: {
-            label: 'OAuth Token Refresh',
-            description: 'Refresh OAuth tokens before they expire',
             category: 'maintenance',
         },
     };
 
-    async execute(frigg, params = {}) {
+    async execute(params = {}) {
         const {
             integrationIds = null,
             expiryThresholdHours = 24,
@@ -71,7 +70,7 @@ class OAuthTokenRefreshScript extends AdminScriptBase {
             details: []
         };
 
-        frigg.log('info', 'Starting OAuth token refresh', {
+        this.context.log('info', 'Starting OAuth token refresh', {
             expiryThresholdHours,
             dryRun,
             specificIds: integrationIds?.length || 'all'
@@ -81,19 +80,19 @@ class OAuthTokenRefreshScript extends AdminScriptBase {
         let integrations;
         if (integrationIds && integrationIds.length > 0) {
             integrations = await Promise.all(
-                integrationIds.map(id => frigg.findIntegrationById(id).catch(() => null))
+                integrationIds.map(id => this.context.findIntegrationById(id).catch(() => null))
             );
             integrations = integrations.filter(Boolean);
         } else {
             // Get all integrations (this would need to be paginated for large deployments)
-            integrations = await this.getAllIntegrations(frigg);
+            integrations = await this.getAllIntegrations();
         }
 
-        frigg.log('info', `Found ${integrations.length} integrations to check`);
+        this.context.log('info', `Found ${integrations.length} integrations to check`);
 
         for (const integration of integrations) {
             try {
-                const detail = await this.processIntegration(frigg, integration, {
+                const detail = await this.processIntegration(integration, {
                     expiryThresholdHours,
                     dryRun
                 });
@@ -108,7 +107,7 @@ class OAuthTokenRefreshScript extends AdminScriptBase {
                     results.failed++;
                 }
             } catch (error) {
-                frigg.log('error', `Error processing integration ${integration.id}`, {
+                this.context.log('error', `Error processing integration ${integration.id}`, {
                     error: error.message
                 });
                 results.failed++;
@@ -120,7 +119,7 @@ class OAuthTokenRefreshScript extends AdminScriptBase {
             }
         }
 
-        frigg.log('info', 'OAuth token refresh completed', {
+        this.context.log('info', 'OAuth token refresh completed', {
             refreshed: results.refreshed,
             failed: results.failed,
             skipped: results.skipped
@@ -129,13 +128,13 @@ class OAuthTokenRefreshScript extends AdminScriptBase {
         return results;
     }
 
-    async getAllIntegrations(frigg) {
+    async getAllIntegrations() {
         // This is a simplified implementation
         // In production, would need pagination for large datasets
-        return frigg.listIntegrations({});
+        return this.context.listIntegrations({});
     }
 
-    async processIntegration(frigg, integration, options) {
+    async processIntegration(integration, options) {
         const { expiryThresholdHours, dryRun } = options;
 
         // Check prerequisites
@@ -146,12 +145,12 @@ class OAuthTokenRefreshScript extends AdminScriptBase {
 
         // Handle dry run
         if (dryRun) {
-            frigg.log('info', `[DRY RUN] Would refresh token for ${integration.id}`);
+            this.context.log('info', `[DRY RUN] Would refresh token for ${integration.id}`);
             return this._createResult(integration.id, 'skipped', 'Dry run - would have refreshed');
         }
 
         // Perform refresh
-        return this._performTokenRefresh(frigg, integration);
+        return this._performTokenRefresh(integration);
     }
 
     /**
@@ -183,18 +182,18 @@ class OAuthTokenRefreshScript extends AdminScriptBase {
      * Perform the actual token refresh
      * @private
      */
-    async _performTokenRefresh(frigg, integration) {
+    async _performTokenRefresh(integration) {
         const expiresAt = integration.config?.credentials?.expires_at;
 
         try {
-            const instance = await frigg.instantiate(integration.id);
+            const instance = await this.context.instantiate(integration.id);
 
             if (!instance.primary?.api?.refreshAccessToken) {
                 return this._createResult(integration.id, 'skipped', 'API does not support token refresh');
             }
 
             await instance.primary.api.refreshAccessToken();
-            frigg.log('info', `Refreshed token for integration ${integration.id}`);
+            this.context.log('info', `Refreshed token for integration ${integration.id}`);
 
             return {
                 integrationId: integration.id,
@@ -202,7 +201,7 @@ class OAuthTokenRefreshScript extends AdminScriptBase {
                 previousExpiry: expiresAt
             };
         } catch (error) {
-            frigg.log('error', `Failed to refresh token for ${integration.id}`, {
+            this.context.log('error', `Failed to refresh token for ${integration.id}`, {
                 error: error.message
             });
             return this._createResult(integration.id, 'failed', error.message);

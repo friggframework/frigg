@@ -29,32 +29,40 @@ describe('OAuthTokenRefreshScript', () => {
         it('should have appropriate timeout configuration', () => {
             expect(OAuthTokenRefreshScript.Definition.config.timeout).toBe(600000); // 10 minutes
         });
+
+        it('should have clean display object without redundant fields', () => {
+            expect(OAuthTokenRefreshScript.Definition.display).toBeDefined();
+            expect(OAuthTokenRefreshScript.Definition.display.category).toBe('maintenance');
+            // Should NOT have redundant label/description
+            expect(OAuthTokenRefreshScript.Definition.display.label).toBeUndefined();
+            expect(OAuthTokenRefreshScript.Definition.display.description).toBeUndefined();
+        });
     });
 
     describe('execute()', () => {
         let script;
-        let mockFrigg;
+        let mockContext;
 
         beforeEach(() => {
-            script = new OAuthTokenRefreshScript();
-            mockFrigg = {
+            mockContext = {
                 log: jest.fn(),
                 listIntegrations: jest.fn(),
                 findIntegrationById: jest.fn(),
                 instantiate: jest.fn(),
             };
+            script = new OAuthTokenRefreshScript({ context: mockContext });
         });
 
         it('should return empty results when no integrations found', async () => {
-            mockFrigg.listIntegrations.mockResolvedValue([]);
+            mockContext.listIntegrations.mockResolvedValue([]);
 
-            const result = await script.execute(mockFrigg, {});
+            const result = await script.execute({});
 
             expect(result.refreshed).toBe(0);
             expect(result.failed).toBe(0);
             expect(result.skipped).toBe(0);
             expect(result.details).toEqual([]);
-            expect(mockFrigg.log).toHaveBeenCalledWith('info', expect.any(String), expect.any(Object));
+            expect(mockContext.log).toHaveBeenCalledWith('info', expect.any(String), expect.any(Object));
         });
 
         it('should skip integrations without OAuth credentials', async () => {
@@ -62,9 +70,9 @@ describe('OAuthTokenRefreshScript', () => {
                 id: 'int-1',
                 config: {} // No credentials
             };
-            mockFrigg.listIntegrations.mockResolvedValue([integration]);
+            mockContext.listIntegrations.mockResolvedValue([integration]);
 
-            const result = await script.execute(mockFrigg, {});
+            const result = await script.execute({});
 
             expect(result.skipped).toBe(1);
             expect(result.refreshed).toBe(0);
@@ -85,9 +93,9 @@ describe('OAuthTokenRefreshScript', () => {
                     }
                 }
             };
-            mockFrigg.listIntegrations.mockResolvedValue([integration]);
+            mockContext.listIntegrations.mockResolvedValue([integration]);
 
-            const result = await script.execute(mockFrigg, {});
+            const result = await script.execute({});
 
             expect(result.skipped).toBe(1);
             expect(result.details[0]).toMatchObject({
@@ -108,9 +116,9 @@ describe('OAuthTokenRefreshScript', () => {
                     }
                 }
             };
-            mockFrigg.listIntegrations.mockResolvedValue([integration]);
+            mockContext.listIntegrations.mockResolvedValue([integration]);
 
-            const result = await script.execute(mockFrigg, {
+            const result = await script.execute({
                 expiryThresholdHours: 24
             });
 
@@ -142,10 +150,10 @@ describe('OAuthTokenRefreshScript', () => {
                 }
             };
 
-            mockFrigg.listIntegrations.mockResolvedValue([integration]);
-            mockFrigg.instantiate.mockResolvedValue(mockInstance);
+            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.instantiate.mockResolvedValue(mockInstance);
 
-            const result = await script.execute(mockFrigg, {
+            const result = await script.execute({
                 expiryThresholdHours: 24
             });
 
@@ -170,16 +178,16 @@ describe('OAuthTokenRefreshScript', () => {
                 }
             };
 
-            mockFrigg.listIntegrations.mockResolvedValue([integration]);
+            mockContext.listIntegrations.mockResolvedValue([integration]);
 
-            const result = await script.execute(mockFrigg, {
+            const result = await script.execute({
                 expiryThresholdHours: 24,
                 dryRun: true
             });
 
             expect(result.refreshed).toBe(0);
             expect(result.skipped).toBe(1);
-            expect(mockFrigg.instantiate).not.toHaveBeenCalled();
+            expect(mockContext.instantiate).not.toHaveBeenCalled();
             expect(result.details[0]).toMatchObject({
                 integrationId: 'int-1',
                 action: 'skipped',
@@ -207,10 +215,10 @@ describe('OAuthTokenRefreshScript', () => {
                 }
             };
 
-            mockFrigg.listIntegrations.mockResolvedValue([integration]);
-            mockFrigg.instantiate.mockResolvedValue(mockInstance);
+            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.instantiate.mockResolvedValue(mockInstance);
 
-            const result = await script.execute(mockFrigg, {
+            const result = await script.execute({
                 expiryThresholdHours: 24
             });
 
@@ -243,10 +251,10 @@ describe('OAuthTokenRefreshScript', () => {
                 }
             };
 
-            mockFrigg.listIntegrations.mockResolvedValue([integration]);
-            mockFrigg.instantiate.mockResolvedValue(mockInstance);
+            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.instantiate.mockResolvedValue(mockInstance);
 
-            const result = await script.execute(mockFrigg, {
+            const result = await script.execute({
                 expiryThresholdHours: 24
             });
 
@@ -268,19 +276,19 @@ describe('OAuthTokenRefreshScript', () => {
                 config: { credentials: { access_token: 'token2' } }
             };
 
-            mockFrigg.findIntegrationById.mockImplementation((id) => {
+            mockContext.findIntegrationById.mockImplementation((id) => {
                 if (id === 'int-1') return Promise.resolve(integration1);
                 if (id === 'int-2') return Promise.resolve(integration2);
                 return Promise.reject(new Error('Not found'));
             });
 
-            const result = await script.execute(mockFrigg, {
+            const result = await script.execute({
                 integrationIds: ['int-1', 'int-2']
             });
 
-            expect(mockFrigg.findIntegrationById).toHaveBeenCalledWith('int-1');
-            expect(mockFrigg.findIntegrationById).toHaveBeenCalledWith('int-2');
-            expect(mockFrigg.listIntegrations).not.toHaveBeenCalled();
+            expect(mockContext.findIntegrationById).toHaveBeenCalledWith('int-1');
+            expect(mockContext.findIntegrationById).toHaveBeenCalledWith('int-2');
+            expect(mockContext.listIntegrations).not.toHaveBeenCalled();
             expect(result.details).toHaveLength(2);
         });
 
@@ -295,10 +303,10 @@ describe('OAuthTokenRefreshScript', () => {
                 }
             };
 
-            mockFrigg.listIntegrations.mockResolvedValue([integration]);
-            mockFrigg.instantiate.mockRejectedValue(new Error('Instantiation failed'));
+            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.instantiate.mockRejectedValue(new Error('Instantiation failed'));
 
-            const result = await script.execute(mockFrigg, {
+            const result = await script.execute({
                 expiryThresholdHours: 24
             });
 
@@ -313,14 +321,14 @@ describe('OAuthTokenRefreshScript', () => {
 
     describe('processIntegration()', () => {
         let script;
-        let mockFrigg;
+        let mockContext;
 
         beforeEach(() => {
-            script = new OAuthTokenRefreshScript();
-            mockFrigg = {
+            mockContext = {
                 log: jest.fn(),
                 instantiate: jest.fn(),
             };
+            script = new OAuthTokenRefreshScript({ context: mockContext });
         });
 
         it('should return correct detail object for each scenario', async () => {
@@ -331,7 +339,7 @@ describe('OAuthTokenRefreshScript', () => {
                 config: {}
             };
 
-            const result = await script.processIntegration(mockFrigg, integration, {
+            const result = await script.processIntegration(integration, {
                 expiryThresholdHours: 24,
                 dryRun: false
             });

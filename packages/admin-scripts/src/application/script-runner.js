@@ -1,5 +1,5 @@
 const { getScriptFactory } = require('./script-factory');
-const { createAdminFriggCommands } = require('./admin-frigg-commands');
+const { createAdminScriptContext } = require('./admin-frigg-commands');
 const { createAdminScriptCommands } = require('@friggframework/core/application/commands/admin-script-commands');
 
 /**
@@ -7,8 +7,7 @@ const { createAdminScriptCommands } = require('@friggframework/core/application/
  *
  * Orchestrates script execution with:
  * - Execution record creation
- * - Script instantiation
- * - AdminFriggCommands injection
+ * - Script instantiation with context injection
  * - Error handling
  * - Status updates
  */
@@ -71,20 +70,21 @@ class ScriptRunner {
         try {
             await this.commands.updateAdminProcessState(executionId, 'RUNNING');
 
-            // Create frigg commands for the script
-            const frigg = createAdminFriggCommands({
+            // Create context for the script (facade over repositories, queue, logging)
+            const context = createAdminScriptContext({
                 executionId,
                 integrationFactory: this.integrationFactory,
             });
 
-            // Create script instance
+            // Create script instance with context injected via constructor
             const script = this.scriptFactory.createInstance(scriptName, {
+                context,
                 executionId,
                 integrationFactory: this.integrationFactory,
             });
 
             // Execute the script
-            const output = await script.execute(frigg, params);
+            const output = await script.execute(params);
 
             // Calculate metrics
             const endTime = new Date();

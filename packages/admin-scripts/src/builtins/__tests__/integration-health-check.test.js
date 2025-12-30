@@ -37,27 +37,33 @@ describe('IntegrationHealthCheckScript', () => {
         it('should have appropriate timeout configuration', () => {
             expect(IntegrationHealthCheckScript.Definition.config.timeout).toBe(900000); // 15 minutes
         });
+
+        it('should have clean display object', () => {
+            // Display should only have UI-specific fields
+            expect(IntegrationHealthCheckScript.Definition.display.category).toBe('maintenance');
+            // Should NOT have redundant label/description - they're derived from top-level
+        });
     });
 
     describe('execute()', () => {
         let script;
-        let mockFrigg;
+        let mockContext;
 
         beforeEach(() => {
-            script = new IntegrationHealthCheckScript();
-            mockFrigg = {
+            mockContext = {
                 log: jest.fn(),
                 listIntegrations: jest.fn(),
                 findIntegrationById: jest.fn(),
                 instantiate: jest.fn(),
                 updateIntegrationStatus: jest.fn(),
             };
+            script = new IntegrationHealthCheckScript({ context: mockContext });
         });
 
         it('should return empty results when no integrations found', async () => {
-            mockFrigg.listIntegrations.mockResolvedValue([]);
+            mockContext.listIntegrations.mockResolvedValue([]);
 
-            const result = await script.execute(mockFrigg, {});
+            const result = await script.execute({});
 
             expect(result.healthy).toBe(0);
             expect(result.unhealthy).toBe(0);
@@ -85,10 +91,10 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockFrigg.listIntegrations.mockResolvedValue([integration]);
-            mockFrigg.instantiate.mockResolvedValue(mockInstance);
+            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.instantiate.mockResolvedValue(mockInstance);
 
-            const result = await script.execute(mockFrigg, {
+            const result = await script.execute({
                 checkCredentials: true,
                 checkConnectivity: true
             });
@@ -112,9 +118,9 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockFrigg.listIntegrations.mockResolvedValue([integration]);
+            mockContext.listIntegrations.mockResolvedValue([integration]);
 
-            const result = await script.execute(mockFrigg, {
+            const result = await script.execute({
                 checkCredentials: true,
                 checkConnectivity: false
             });
@@ -141,9 +147,9 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockFrigg.listIntegrations.mockResolvedValue([integration]);
+            mockContext.listIntegrations.mockResolvedValue([integration]);
 
-            const result = await script.execute(mockFrigg, {
+            const result = await script.execute({
                 checkCredentials: true,
                 checkConnectivity: false
             });
@@ -176,10 +182,10 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockFrigg.listIntegrations.mockResolvedValue([integration]);
-            mockFrigg.instantiate.mockResolvedValue(mockInstance);
+            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.instantiate.mockResolvedValue(mockInstance);
 
-            const result = await script.execute(mockFrigg, {
+            const result = await script.execute({
                 checkCredentials: true,
                 checkConnectivity: true
             });
@@ -209,18 +215,18 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockFrigg.listIntegrations.mockResolvedValue([integration]);
-            mockFrigg.instantiate.mockResolvedValue(mockInstance);
-            mockFrigg.updateIntegrationStatus.mockResolvedValue(undefined);
+            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.instantiate.mockResolvedValue(mockInstance);
+            mockContext.updateIntegrationStatus.mockResolvedValue(undefined);
 
-            const result = await script.execute(mockFrigg, {
+            const result = await script.execute({
                 checkCredentials: true,
                 checkConnectivity: true,
                 updateStatus: true
             });
 
             expect(result.healthy).toBe(1);
-            expect(mockFrigg.updateIntegrationStatus).toHaveBeenCalledWith('int-1', 'ACTIVE');
+            expect(mockContext.updateIntegrationStatus).toHaveBeenCalledWith('int-1', 'ACTIVE');
         });
 
         it('should update integration status to ERROR for unhealthy integrations', async () => {
@@ -232,17 +238,17 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockFrigg.listIntegrations.mockResolvedValue([integration]);
-            mockFrigg.updateIntegrationStatus.mockResolvedValue(undefined);
+            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.updateIntegrationStatus.mockResolvedValue(undefined);
 
-            const result = await script.execute(mockFrigg, {
+            const result = await script.execute({
                 checkCredentials: true,
                 checkConnectivity: false,
                 updateStatus: true
             });
 
             expect(result.unhealthy).toBe(1);
-            expect(mockFrigg.updateIntegrationStatus).toHaveBeenCalledWith('int-1', 'ERROR');
+            expect(mockContext.updateIntegrationStatus).toHaveBeenCalledWith('int-1', 'ERROR');
         });
 
         it('should not update status when updateStatus is false', async () => {
@@ -265,16 +271,16 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockFrigg.listIntegrations.mockResolvedValue([integration]);
-            mockFrigg.instantiate.mockResolvedValue(mockInstance);
+            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.instantiate.mockResolvedValue(mockInstance);
 
-            await script.execute(mockFrigg, {
+            await script.execute({
                 checkCredentials: true,
                 checkConnectivity: true,
                 updateStatus: false
             });
 
-            expect(mockFrigg.updateIntegrationStatus).not.toHaveBeenCalled();
+            expect(mockContext.updateIntegrationStatus).not.toHaveBeenCalled();
         });
 
         it('should handle status update failures gracefully', async () => {
@@ -297,18 +303,18 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockFrigg.listIntegrations.mockResolvedValue([integration]);
-            mockFrigg.instantiate.mockResolvedValue(mockInstance);
-            mockFrigg.updateIntegrationStatus.mockRejectedValue(new Error('Update failed'));
+            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.instantiate.mockResolvedValue(mockInstance);
+            mockContext.updateIntegrationStatus.mockRejectedValue(new Error('Update failed'));
 
-            const result = await script.execute(mockFrigg, {
+            const result = await script.execute({
                 checkCredentials: true,
                 checkConnectivity: true,
                 updateStatus: true
             });
 
             expect(result.healthy).toBe(1); // Should still report healthy
-            expect(mockFrigg.log).toHaveBeenCalledWith(
+            expect(mockContext.log).toHaveBeenCalledWith(
                 'warn',
                 expect.stringContaining('Failed to update status'),
                 expect.any(Object)
@@ -325,21 +331,21 @@ describe('IntegrationHealthCheckScript', () => {
                 config: { type: 'salesforce', credentials: { access_token: 'token2' } }
             };
 
-            mockFrigg.findIntegrationById.mockImplementation((id) => {
+            mockContext.findIntegrationById.mockImplementation((id) => {
                 if (id === 'int-1') return Promise.resolve(integration1);
                 if (id === 'int-2') return Promise.resolve(integration2);
                 return Promise.reject(new Error('Not found'));
             });
 
-            const result = await script.execute(mockFrigg, {
+            const result = await script.execute({
                 integrationIds: ['int-1', 'int-2'],
                 checkCredentials: true,
                 checkConnectivity: false
             });
 
-            expect(mockFrigg.findIntegrationById).toHaveBeenCalledWith('int-1');
-            expect(mockFrigg.findIntegrationById).toHaveBeenCalledWith('int-2');
-            expect(mockFrigg.listIntegrations).not.toHaveBeenCalled();
+            expect(mockContext.findIntegrationById).toHaveBeenCalledWith('int-1');
+            expect(mockContext.findIntegrationById).toHaveBeenCalledWith('int-2');
+            expect(mockContext.listIntegrations).not.toHaveBeenCalled();
             expect(result.results).toHaveLength(2);
         });
 
@@ -355,10 +361,10 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockFrigg.listIntegrations.mockResolvedValue([integration]);
-            mockFrigg.instantiate.mockRejectedValue(new Error('Instantiation failed'));
+            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.instantiate.mockRejectedValue(new Error('Instantiation failed'));
 
-            const result = await script.execute(mockFrigg, {
+            const result = await script.execute({
                 checkCredentials: true,
                 checkConnectivity: true
             });
@@ -385,10 +391,10 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockFrigg.listIntegrations.mockResolvedValue([integration]);
-            mockFrigg.instantiate.mockResolvedValue(mockInstance);
+            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.instantiate.mockResolvedValue(mockInstance);
 
-            const result = await script.execute(mockFrigg, {
+            const result = await script.execute({
                 checkCredentials: false,
                 checkConnectivity: true
             });
@@ -409,16 +415,16 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockFrigg.listIntegrations.mockResolvedValue([integration]);
+            mockContext.listIntegrations.mockResolvedValue([integration]);
 
-            const result = await script.execute(mockFrigg, {
+            const result = await script.execute({
                 checkCredentials: true,
                 checkConnectivity: false
             });
 
             expect(result.results[0].checks.credentials).toBeDefined();
             expect(result.results[0].checks.connectivity).toBeUndefined();
-            expect(mockFrigg.instantiate).not.toHaveBeenCalled();
+            expect(mockContext.instantiate).not.toHaveBeenCalled();
         });
     });
 
@@ -426,7 +432,7 @@ describe('IntegrationHealthCheckScript', () => {
         let script;
 
         beforeEach(() => {
-            script = new IntegrationHealthCheckScript();
+            script = new IntegrationHealthCheckScript({ context: { log: jest.fn() } });
         });
 
         it('should return valid for integrations with valid credentials', () => {
@@ -497,13 +503,14 @@ describe('IntegrationHealthCheckScript', () => {
 
     describe('checkApiConnectivity()', () => {
         let script;
-        let mockFrigg;
+        let mockContext;
 
         beforeEach(() => {
-            script = new IntegrationHealthCheckScript();
-            mockFrigg = {
+            mockContext = {
+                log: jest.fn(),
                 instantiate: jest.fn(),
             };
+            script = new IntegrationHealthCheckScript({ context: mockContext });
         });
 
         it('should return valid for successful API calls', async () => {
@@ -520,9 +527,9 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockFrigg.instantiate.mockResolvedValue(mockInstance);
+            mockContext.instantiate.mockResolvedValue(mockInstance);
 
-            const result = await script.checkApiConnectivity(mockFrigg, integration);
+            const result = await script.checkApiConnectivity(integration);
 
             expect(result.valid).toBe(true);
             expect(result.issue).toBeNull();
@@ -543,9 +550,9 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockFrigg.instantiate.mockResolvedValue(mockInstance);
+            mockContext.instantiate.mockResolvedValue(mockInstance);
 
-            const result = await script.checkApiConnectivity(mockFrigg, integration);
+            const result = await script.checkApiConnectivity(integration);
 
             expect(result.valid).toBe(true);
             expect(mockInstance.primary.api.getCurrentUser).toHaveBeenCalled();
@@ -563,9 +570,9 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockFrigg.instantiate.mockResolvedValue(mockInstance);
+            mockContext.instantiate.mockResolvedValue(mockInstance);
 
-            const result = await script.checkApiConnectivity(mockFrigg, integration);
+            const result = await script.checkApiConnectivity(integration);
 
             expect(result.valid).toBe(true);
             expect(result.issue).toBeNull();
@@ -586,9 +593,9 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockFrigg.instantiate.mockResolvedValue(mockInstance);
+            mockContext.instantiate.mockResolvedValue(mockInstance);
 
-            const result = await script.checkApiConnectivity(mockFrigg, integration);
+            const result = await script.checkApiConnectivity(integration);
 
             expect(result.valid).toBe(false);
             expect(result.issue).toContain('API connectivity failed');

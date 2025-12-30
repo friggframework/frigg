@@ -1,18 +1,6 @@
 const { QueuerUtil } = require('@friggframework/core/queues');
 
-/**
- * AdminFriggCommands
- *
- * Helper API for admin scripts. Provides:
- * - Database access via repositories
- * - Integration instantiation (optional)
- * - Logging utilities
- * - Queue operations for self-queuing pattern
- *
- * Follows lazy-loading pattern for repositories to avoid circular dependencies
- * and unnecessary initialization.
- */
-class AdminFriggCommands {
+class AdminScriptContext {
     constructor(params = {}) {
         this.executionId = params.executionId || null;
         this.logs = [];
@@ -151,12 +139,8 @@ class AdminFriggCommands {
         });
     }
 
-    // ==================== QUEUE OPERATIONS (Self-Queuing Pattern) ====================
+    // ==================== QUEUE OPERATIONS ====================
 
-    /**
-     * Queue a script for execution
-     * Used for self-queuing pattern with long-running scripts
-     */
     async queueScript(scriptName, params = {}) {
         const queueUrl = process.env.ADMIN_SCRIPT_QUEUE_URL;
         if (!queueUrl) {
@@ -176,9 +160,6 @@ class AdminFriggCommands {
         this.log('info', `Queued continuation for ${scriptName}`, { params });
     }
 
-    /**
-     * Queue multiple scripts in a batch
-     */
     async queueScriptBatch(entries) {
         const queueUrl = process.env.ADMIN_SCRIPT_QUEUE_URL;
         if (!queueUrl) {
@@ -230,13 +211,20 @@ class AdminFriggCommands {
 }
 
 /**
- * Create AdminFriggCommands instance
+ * Create AdminScriptContext instance
  */
-function createAdminFriggCommands(params = {}) {
-    return new AdminFriggCommands(params);
+function createAdminScriptContext(params = {}) {
+    return new AdminScriptContext(params);
 }
 
+// Legacy aliases for backwards compatibility
+const AdminFriggCommands = AdminScriptContext;
+const createAdminFriggCommands = createAdminScriptContext;
+
 module.exports = {
+    AdminScriptContext,
+    createAdminScriptContext,
+    // Legacy exports (deprecated)
     AdminFriggCommands,
     createAdminFriggCommands,
 };

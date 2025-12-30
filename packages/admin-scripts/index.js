@@ -8,7 +8,13 @@
 // Application Services
 const { ScriptFactory, getScriptFactory, createScriptFactory } = require('./src/application/script-factory');
 const { AdminScriptBase } = require('./src/application/admin-script-base');
-const { AdminFriggCommands, createAdminFriggCommands } = require('./src/application/admin-frigg-commands');
+const {
+    AdminScriptContext,
+    createAdminScriptContext,
+    // Legacy aliases (deprecated)
+    AdminFriggCommands,
+    createAdminFriggCommands,
+} = require('./src/application/admin-frigg-commands');
 const { ScriptRunner, createScriptRunner } = require('./src/application/script-runner');
 
 // Infrastructure
@@ -39,6 +45,9 @@ module.exports = {
     ScriptFactory,
     getScriptFactory,
     createScriptFactory,
+    AdminScriptContext,
+    createAdminScriptContext,
+    // Legacy aliases (deprecated)
     AdminFriggCommands,
     createAdminFriggCommands,
     ScriptRunner,
