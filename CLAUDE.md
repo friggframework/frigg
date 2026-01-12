@@ -311,6 +311,60 @@ frigg deploy                  # Infrastructure deployment
 frigg search <term>           # Search available API modules
 ```
 
+### Frigg Authenticator
+
+CLI tool for testing API module authentication flows without deploying infrastructure:
+
+```bash
+# Test OAuth2 authentication (opens browser, captures tokens)
+frigg auth test .                    # Current directory module
+frigg auth test attio                # By module name
+frigg auth test . --port 8080        # Custom callback port
+frigg auth test . --no-browser       # Print URL instead of opening browser
+
+# Test API-Key authentication (interactive form if getAuthorizationRequirements exists)
+frigg auth test .                    # Renders JSON Schema form
+frigg auth test . --api-key sk_xxx   # Explicit key (skips form)
+
+# Manage saved credentials
+frigg auth list                      # List all saved credentials
+frigg auth get attio --json          # Get as JSON for scripts
+frigg auth get attio --export        # Export as environment variables
+frigg auth delete attio              # Delete credentials
+```
+
+Credentials are saved to `.frigg-credentials.json` and auto-added to `.gitignore`.
+
+**API-Key Modules with Interactive Forms:**
+
+Modules with `getAuthorizationRequirements` render interactive CLI forms using JSON Schema:
+
+```bash
+$ frigg auth test .
+
+📝 Quo API Authorization
+
+  (Your Quo API key)
+  API Key: ********************************
+
+🔑 API-Key Authentication Flow
+Module: quo
+✓ API key configured
+```
+
+Form features:
+- Password masking for `ui:widget: 'password'` fields
+- Help text from `ui:help`
+- Multi-field support (e.g., company ID, public key, private key)
+- Validation for required fields
+
+The authenticator tests all `requiredAuthMethods`:
+- `testAuthRequest` - Verify authentication works
+- `getEntityDetails` - Validate entity consistency
+- `getCredentialDetails` - Verify credential structure
+- Token refresh (if module supports it)
+- `apiPropertiesToPersist` verification
+
 ### Development Tools
 
 - **Mock API**: `nock`-based HTTP request mocking for tests

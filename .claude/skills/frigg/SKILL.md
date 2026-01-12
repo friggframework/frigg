@@ -347,6 +347,80 @@ npm test                     # Run framework tests
 
 # Management UI
 frigg ui                     # Start Frigg Management UI (localhost:3002)
+
+# API Module Authentication Testing
+frigg auth test .            # Test OAuth2 or API-Key auth (interactive form)
+frigg auth test attio        # Test by module name
+frigg auth test . --api-key sk_xxx  # Test API-Key (explicit, skips form)
+frigg auth list              # List saved credentials
+frigg auth get attio --json  # Get credentials as JSON
+frigg auth delete attio      # Delete saved credentials
+```
+
+### Frigg Authenticator
+
+CLI tool for testing API module authentication flows without deploying infrastructure.
+
+**Commands:**
+- `frigg auth test <module>` - Test OAuth2 or API-Key authentication
+- `frigg auth list` - List all saved credentials
+- `frigg auth get <module>` - Retrieve credentials (supports `--json`, `--export`)
+- `frigg auth delete [module]` - Remove credentials (supports `--all`)
+
+**Options for `frigg auth test`:**
+- `--api-key <key>` - Use explicit API key (skips interactive form)
+- `--port <port>` - Callback server port (default: 3333)
+- `--no-browser` - Print authorization URL instead of opening browser
+- `--timeout <seconds>` - OAuth callback timeout (default: 300)
+- `-v, --verbose` - Enable verbose output
+
+**API-Key Modules with Interactive Forms:**
+
+API-Key modules with `getAuthorizationRequirements` render interactive CLI forms:
+
+```bash
+$ frigg auth test .
+
+📝 Quo API Authorization
+
+  (Your Quo API key)
+  API Key: ********************************
+
+🔑 API-Key Authentication Flow
+Module: quo
+✓ API key configured
+```
+
+Features:
+- Password masking for `ui:widget: 'password'` fields
+- Help text from `ui:help` displayed before prompts
+- Validation for required fields
+- Multi-field support (e.g., company ID, public key, private key)
+
+**What it tests:**
+- `testAuthRequest` - Verify authentication works
+- `getEntityDetails` - Validate entity consistency post-auth
+- `getCredentialDetails` - Verify credential structure post-auth
+- Token refresh - Test refresh mechanism if supported
+- `apiPropertiesToPersist` - Verify credential and entity properties
+
+**Example workflow:**
+```bash
+# Navigate to API module directory
+cd packages/api-module-attio
+
+# Set up environment variables
+cat .env
+# ATTIO_CLIENT_ID=xxx
+# ATTIO_CLIENT_SECRET=xxx
+# ATTIO_SCOPE=read:objects
+# REDIRECT_URI=http://localhost:3333
+
+# Run authentication test
+frigg auth test . --verbose
+
+# Use saved credentials in tests
+frigg auth get . --json
 ```
 
 ### Infrastructure Commands

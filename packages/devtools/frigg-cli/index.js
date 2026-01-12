@@ -85,6 +85,7 @@ const { uiCommand } = require('./ui-command');
 const { dbSetupCommand } = require('./db-setup-command');
 const { doctorCommand } = require('./doctor-command');
 const { repairCommand } = require('./repair-command');
+const { authCommand } = require('./auth-command');
 
 const program = new Command();
 
@@ -168,6 +169,40 @@ program
     .option('-v, --verbose', 'enable verbose output')
     .action(repairCommand);
 
+// Auth command group for testing API module authentication
+const authProgram = program
+    .command('auth')
+    .description('Test API module authentication');
+
+authProgram
+    .command('test <module>')
+    .description('Test authentication for an API module')
+    .option('--api-key <key>', 'API key for API-Key authentication')
+    .option('--port <port>', 'Callback server port', '3333')
+    .option('--timeout <seconds>', 'OAuth callback timeout', '300')
+    .option('-v, --verbose', 'Enable verbose output')
+    .action(authCommand.test);
+
+authProgram
+    .command('list')
+    .description('List saved credentials')
+    .option('--json', 'Output as JSON')
+    .action(authCommand.list);
+
+authProgram
+    .command('get <module>')
+    .description('Get credentials for a module')
+    .option('--json', 'Output as JSON')
+    .option('--export', 'Export as environment variables')
+    .action(authCommand.get);
+
+authProgram
+    .command('delete [module]')
+    .description('Delete saved credentials')
+    .option('--all', 'Delete all credentials')
+    .option('-y, --yes', 'Skip confirmation')
+    .action(authCommand.delete);
+
 program.parse(process.argv);
 
-module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, generateIamCommand, uiCommand, dbSetupCommand, doctorCommand, repairCommand };
+module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, generateIamCommand, uiCommand, dbSetupCommand, doctorCommand, repairCommand, authCommand };
