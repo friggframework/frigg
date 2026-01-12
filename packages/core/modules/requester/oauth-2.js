@@ -150,7 +150,7 @@ class OAuth2Requester extends Requester {
 
     async refreshAuth() {
         try {
-            if (this.grantType !== 'client_credentials') {
+            if (this.grant_type !== 'client_credentials') {
                 await this.refreshAccessToken({
                     refresh_token: this.refresh_token,
                 });
