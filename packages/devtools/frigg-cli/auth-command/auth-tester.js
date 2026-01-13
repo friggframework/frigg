@@ -280,7 +280,7 @@ async function testTokenRefresh(api, savedCredentials, options) {
 
     try {
         const oldToken = api.access_token;
-        await api.refreshAccessToken();
+        await api.refreshAccessToken({ refresh_token: api.refresh_token });
         const newToken = api.access_token;
 
         return {
