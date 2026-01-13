@@ -28,8 +28,9 @@ describe('OAuth2Requester', () => {
                 access_token: 'new-token',
             });
 
-            await requester.refreshAuth();
+            const result = await requester.refreshAuth();
 
+            expect(result).toBe(true);
             expect(requester.refreshAccessToken).toHaveBeenCalledWith({
                 refresh_token: 'test-refresh-token',
             });
@@ -44,8 +45,9 @@ describe('OAuth2Requester', () => {
                 access_token: 'new-token',
             });
 
-            await requester.refreshAuth();
+            const result = await requester.refreshAuth();
 
+            expect(result).toBe(true);
             expect(requester.refreshAccessToken).toHaveBeenCalledWith({
                 refresh_token: 'test-refresh-token',
             });
@@ -60,13 +62,14 @@ describe('OAuth2Requester', () => {
             });
             requester.refreshAccessToken = jest.fn();
 
-            await requester.refreshAuth();
+            const result = await requester.refreshAuth();
 
+            expect(result).toBe(true);
             expect(requester.getTokenFromClientCredentials).toHaveBeenCalled();
             expect(requester.refreshAccessToken).not.toHaveBeenCalled();
         });
 
-        it('should notify DLGT_INVALID_AUTH on error during refresh', async () => {
+        it('should return false and notify DLGT_INVALID_AUTH on error during refresh', async () => {
             const requester = new OAuth2Requester({
                 grant_type: 'authorization_code',
                 refresh_token: 'test-refresh-token',
@@ -74,20 +77,22 @@ describe('OAuth2Requester', () => {
             requester.refreshAccessToken = jest.fn().mockRejectedValue(new Error('Token expired'));
             requester.notify = jest.fn();
 
-            await requester.refreshAuth();
+            const result = await requester.refreshAuth();
 
+            expect(result).toBe(false);
             expect(requester.notify).toHaveBeenCalledWith(requester.DLGT_INVALID_AUTH);
         });
 
-        it('should notify DLGT_INVALID_AUTH on error during client_credentials refresh', async () => {
+        it('should return false and notify DLGT_INVALID_AUTH on error during client_credentials refresh', async () => {
             const requester = new OAuth2Requester({
                 grant_type: 'client_credentials',
             });
             requester.getTokenFromClientCredentials = jest.fn().mockRejectedValue(new Error('Invalid credentials'));
             requester.notify = jest.fn();
 
-            await requester.refreshAuth();
+            const result = await requester.refreshAuth();
 
+            expect(result).toBe(false);
             expect(requester.notify).toHaveBeenCalledWith(requester.DLGT_INVALID_AUTH);
         });
     });
@@ -128,6 +133,26 @@ describe('OAuth2Requester', () => {
             await requester.addAuthHeaders(headers);
 
             expect(headers.Authorization).toBeUndefined();
+        });
+
+        it('should clear existing Authorization header when access_token is not set', async () => {
+            const requester = new OAuth2Requester({});
+            const headers = { Authorization: 'Bearer old-stale-token' };
+
+            await requester.addAuthHeaders(headers);
+
+            expect(headers.Authorization).toBeUndefined();
+        });
+
+        it('should replace existing Authorization header with new token', async () => {
+            const requester = new OAuth2Requester({
+                access_token: 'new-token',
+            });
+            const headers = { Authorization: 'Bearer old-stale-token' };
+
+            await requester.addAuthHeaders(headers);
+
+            expect(headers.Authorization).toBe('Bearer new-token');
         });
     });
 
@@ -212,6 +237,191 @@ describe('OAuth2Requester', () => {
             const requester = new OAuth2Requester({});
 
             expect(requester.tokenUri).toBeNull();
+        });
+    });
+
+    describe('401 retry flow integration', () => {
+        it('should retry with NEW token after successful refresh (not cached old token)', async () => {
+            const capturedHeaders = [];
+            const mockFetch = jest.fn()
+                .mockImplementationOnce(async (url, options) => {
+                    capturedHeaders.push({ ...options.headers });
+                    return {
+                        status: 401,
+                        headers: { get: () => 'application/json' },
+                        json: async () => ({ error: 'Unauthorized' }),
+                    };
+                })
+                .mockImplementationOnce(async (url, options) => {
+                    capturedHeaders.push({ ...options.headers });
+                    return {
+                        status: 200,
+                        headers: { get: () => 'application/json' },
+                        json: async () => ({ success: true }),
+                    };
+                });
+
+            const requester = new OAuth2Requester({
+                access_token: 'old-expired-token',
+                refresh_token: 'valid-refresh-token',
+                grant_type: 'authorization_code',
+                fetch: mockFetch,
+            });
+
+            requester.refreshAccessToken = jest.fn().mockImplementation(async () => {
+                requester.access_token = 'brand-new-token';
+                return { access_token: 'brand-new-token' };
+            });
+
+            const result = await requester._get({ url: 'https://api.example.com/data' });
+
+            expect(result).toEqual({ success: true });
+            expect(mockFetch).toHaveBeenCalledTimes(2);
+            expect(capturedHeaders[0].Authorization).toBe('Bearer old-expired-token');
+            expect(capturedHeaders[1].Authorization).toBe('Bearer brand-new-token');
+        });
+
+        it('should NOT retry when refresh fails', async () => {
+            const mockFetch = jest.fn().mockResolvedValue({
+                status: 401,
+                headers: { get: () => 'application/json' },
+                json: async () => ({ error: 'Unauthorized' }),
+            });
+
+            const requester = new OAuth2Requester({
+                access_token: 'old-expired-token',
+                refresh_token: 'invalid-refresh-token',
+                grant_type: 'authorization_code',
+                fetch: mockFetch,
+            });
+
+            requester.refreshAccessToken = jest.fn().mockRejectedValue(new Error('Refresh token expired'));
+            requester.notify = jest.fn();
+
+            await expect(requester._get({ url: 'https://api.example.com/data' }))
+                .rejects.toThrow();
+
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            expect(requester.notify).toHaveBeenCalledWith(requester.DLGT_INVALID_AUTH);
+        });
+
+        it('should not retry when refresh throws and access_token becomes undefined', async () => {
+            const capturedHeaders = [];
+            const mockFetch = jest.fn().mockImplementation(async (url, options) => {
+                capturedHeaders.push({ ...options.headers });
+                return {
+                    status: 401,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ error: 'Unauthorized' }),
+                };
+            });
+
+            const requester = new OAuth2Requester({
+                access_token: 'old-expired-token',
+                refresh_token: 'invalid-refresh-token',
+                grant_type: 'authorization_code',
+                fetch: mockFetch,
+            });
+
+            requester.refreshAccessToken = jest.fn().mockImplementation(async () => {
+                requester.access_token = undefined;
+                throw new Error('Refresh failed');
+            });
+            requester.notify = jest.fn();
+
+            await expect(requester._get({ url: 'https://api.example.com/data' }))
+                .rejects.toThrow();
+
+            expect(capturedHeaders[0].Authorization).toBe('Bearer old-expired-token');
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+        });
+
+        it('should not include Authorization header when access_token is undefined', async () => {
+            const mockFetch = jest.fn().mockResolvedValue({
+                status: 200,
+                headers: { get: () => 'application/json' },
+                json: async () => ({ success: true }),
+            });
+
+            const requester = new OAuth2Requester({
+                access_token: undefined,
+                fetch: mockFetch,
+            });
+
+            await requester._get({ url: 'https://api.example.com/data' });
+
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            expect(mockFetch.mock.calls[0][1].headers.Authorization).toBeUndefined();
+        });
+
+        it('should not retry more than once for consecutive 401s', async () => {
+            const mockFetch = jest.fn().mockResolvedValue({
+                status: 401,
+                headers: { get: () => 'application/json' },
+                json: async () => ({ error: 'Unauthorized' }),
+            });
+
+            const requester = new OAuth2Requester({
+                access_token: 'token',
+                refresh_token: 'refresh',
+                grant_type: 'authorization_code',
+                fetch: mockFetch,
+            });
+
+            requester.refreshAccessToken = jest.fn().mockImplementation(async () => {
+                requester.access_token = 'new-but-still-invalid-token';
+                return { access_token: 'new-but-still-invalid-token' };
+            });
+            requester.notify = jest.fn();
+
+            await expect(requester._get({ url: 'https://api.example.com/data' }))
+                .rejects.toThrow();
+
+            // Should call fetch twice: initial + 1 retry after refresh
+            expect(mockFetch).toHaveBeenCalledTimes(2);
+            // Should notify DLGT_INVALID_AUTH after second 401
+            expect(requester.notify).toHaveBeenCalledWith(requester.DLGT_INVALID_AUTH);
+        });
+
+        it('should use getTokenFromClientCredentials for client_credentials grant type on 401', async () => {
+            const capturedHeaders = [];
+            const mockFetch = jest.fn()
+                .mockImplementationOnce(async (url, options) => {
+                    capturedHeaders.push({ ...options.headers });
+                    return {
+                        status: 401,
+                        headers: { get: () => 'application/json' },
+                        json: async () => ({ error: 'Unauthorized' }),
+                    };
+                })
+                .mockImplementationOnce(async (url, options) => {
+                    capturedHeaders.push({ ...options.headers });
+                    return {
+                        status: 200,
+                        headers: { get: () => 'application/json' },
+                        json: async () => ({ data: 'success' }),
+                    };
+                });
+
+            const requester = new OAuth2Requester({
+                access_token: 'old-cc-token',
+                grant_type: 'client_credentials',
+                fetch: mockFetch,
+            });
+
+            requester.getTokenFromClientCredentials = jest.fn().mockImplementation(async () => {
+                requester.access_token = 'new-cc-token';
+                return { access_token: 'new-cc-token' };
+            });
+            requester.refreshAccessToken = jest.fn();
+
+            const result = await requester._get({ url: 'https://api.example.com/data' });
+
+            expect(result).toEqual({ data: 'success' });
+            expect(requester.getTokenFromClientCredentials).toHaveBeenCalled();
+            expect(requester.refreshAccessToken).not.toHaveBeenCalled();
+            expect(capturedHeaders[0].Authorization).toBe('Bearer old-cc-token');
+            expect(capturedHeaders[1].Authorization).toBe('Bearer new-cc-token');
         });
     });
 });

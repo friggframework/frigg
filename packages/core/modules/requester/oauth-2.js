@@ -239,11 +239,14 @@ class OAuth2Requester extends Requester {
 
     /**
      * Adds OAuth Bearer token to request headers.
+     * Clears any existing Authorization header first to prevent stale tokens
+     * from being reused after failed refresh attempts.
      *
      * @param {Object} headers - Headers object to modify
      * @returns {Promise<Object>} Headers with Authorization added
      */
     async addAuthHeaders(headers) {
+        delete headers.Authorization;
         if (this.access_token) {
             headers.Authorization = `Bearer ${this.access_token}`;
         }
@@ -272,7 +275,7 @@ class OAuth2Requester extends Requester {
      *
      * On failure, notifies delegates via DLGT_INVALID_AUTH.
      *
-     * @returns {Promise<void>}
+     * @returns {Promise<boolean>} True if refresh succeeded, false if failed
      */
     async refreshAuth() {
         try {
@@ -283,8 +286,10 @@ class OAuth2Requester extends Requester {
             } else {
                 await this.getTokenFromClientCredentials();
             }
+            return true;
         } catch {
             await this.notify(this.DLGT_INVALID_AUTH);
+            return false;
         }
     }
 
