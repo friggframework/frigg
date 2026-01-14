@@ -101,47 +101,74 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
     }
 
     async createEntity(entityData) {
+        const {
+            user,
+            userId,
+            credential,
+            credentialId,
+            name,
+            moduleName,
+            externalId,
+            ...dynamicData
+        } = entityData;
+
         const document = {
-            userId: toObjectId(entityData.user || entityData.userId),
-            credentialId: toObjectId(entityData.credential || entityData.credentialId) || null,
-            name: entityData.name ?? null,
-            moduleName: entityData.moduleName ?? null,
-            externalId: entityData.externalId ?? null,
-            accountId: entityData.accountId ?? null,
+            userId: toObjectId(userId || user),
+            credentialId: toObjectId(credentialId || credential) || null,
+            name: name ?? null,
+            moduleName: moduleName ?? null,
+            externalId: externalId ?? null,
+            data: dynamicData,
         };
         const insertedId = await insertOne(this.prisma, 'Entity', document);
         const created = await findOne(this.prisma, 'Entity', { _id: insertedId });
-        const credential = await this._fetchCredential(created?.credentialId);
-        return this._mapEntity(created, credential);
+        const credentialObj = await this._fetchCredential(created?.credentialId);
+        return this._mapEntity(created, credentialObj);
     }
 
     async updateEntity(entityId, updates) {
         const objectId = toObjectId(entityId);
         if (!objectId) return null;
+
+        const existing = await findOne(this.prisma, 'Entity', { _id: objectId });
+        if (!existing) return null;
+
+        const {
+            user,
+            userId,
+            credential,
+            credentialId,
+            name,
+            moduleName,
+            externalId,
+            ...dynamicData
+        } = updates;
+
         const updatePayload = {};
-        if (updates.user !== undefined || updates.userId !== undefined) {
-            const userVal = updates.user !== undefined ? updates.user : updates.userId;
-            updatePayload.userId = toObjectId(userVal) || null;
+        if (user !== undefined || userId !== undefined) {
+            updatePayload.userId = toObjectId(userId || user) || null;
         }
-        if (updates.credential !== undefined || updates.credentialId !== undefined) {
-            const credVal = updates.credential !== undefined ? updates.credential : updates.credentialId;
-            updatePayload.credentialId = toObjectId(credVal) || null;
+        if (credential !== undefined || credentialId !== undefined) {
+            updatePayload.credentialId = toObjectId(credentialId || credential) || null;
         }
-        if (updates.name !== undefined) updatePayload.name = updates.name;
-        if (updates.moduleName !== undefined) updatePayload.moduleName = updates.moduleName;
-        if (updates.externalId !== undefined) updatePayload.externalId = updates.externalId;
-        if (updates.accountId !== undefined) updatePayload.accountId = updates.accountId;
-        const result = await updateOne(
+        if (name !== undefined) updatePayload.name = name;
+        if (moduleName !== undefined) updatePayload.moduleName = moduleName;
+        if (externalId !== undefined) updatePayload.externalId = externalId;
+
+        if (Object.keys(dynamicData).length > 0) {
+            updatePayload.data = { ...(existing.data || {}), ...dynamicData };
+        }
+
+        await updateOne(
             this.prisma,
             'Entity',
             { _id: objectId },
             { $set: updatePayload }
         );
-        const modified = result?.nModified ?? result?.n ?? 0;
-        if (modified === 0) return null;
         const updated = await findOne(this.prisma, 'Entity', { _id: objectId });
-        const credential = await this._fetchCredential(updated?.credentialId);
-        return this._mapEntity(updated, credential);
+        if (!updated) return null;
+        const credentialObj = await this._fetchCredential(updated?.credentialId);
+        return this._mapEntity(updated, credentialObj);
     }
 
     async deleteEntity(entityId) {
@@ -291,14 +318,15 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
     }
 
     _mapEntity(doc, credential) {
+        const dynamicData = doc?.data || {};
         return {
             id: fromObjectId(doc?._id),
-            accountId: doc?.accountId ?? null,
             credential,
             userId: fromObjectId(doc?.userId),
             name: doc?.name ?? null,
             externalId: doc?.externalId ?? null,
             moduleName: doc?.moduleName ?? null,
+            ...dynamicData,
         };
     }
 }
