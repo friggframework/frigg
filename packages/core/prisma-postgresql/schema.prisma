@@ -116,6 +116,8 @@ model Entity {
   moduleName   String?
   externalId   String?
 
+  data Json @default("{}")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
