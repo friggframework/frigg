@@ -46,7 +46,6 @@ class CredentialRepository extends CredentialRepositoryInterface {
         return {
             _id: credential.id,
             id: credential.id,
-            user: credential.userId,
             userId: credential.userId,
             externalId: credential.externalId,
             authIsValid: credential.authIsValid,
@@ -105,18 +104,24 @@ class CredentialRepository extends CredentialRepositoryInterface {
         if (!identifiers)
             throw new Error('identifiers required to upsert credential');
 
+        if (!identifiers.userId) {
+            throw new Error('userId required in identifiers');
+        }
+        if (!identifiers.externalId) {
+            throw new Error(
+                'externalId required in identifiers to prevent credential collision. ' +
+                    'When multiple credentials exist for the same user, both userId and externalId ' +
+                    'are needed to uniquely identify which credential to update.'
+            );
+        }
+
         // Build where clause from identifiers
         const where = this._convertIdentifiersToWhere(identifiers);
 
+        const { externalId } = identifiers;
+
         // Separate schema fields from dynamic OAuth data
-        const {
-            user,
-            userId,
-            externalId,
-            authIsValid,
-            
-            ...oauthData
-        } = details;
+        const { authIsValid, ...oauthData } = details;
 
         // Find existing credential
         const existing = await this.prisma.credential.findFirst({ where });
@@ -128,11 +133,8 @@ class CredentialRepository extends CredentialRepositoryInterface {
             const updated = await this.prisma.credential.update({
                 where: { id: existing.id },
                 data: {
-                    userId: userId || user || existing.userId,
-                    externalId:
-                        externalId !== undefined
-                            ? externalId
-                            : existing.externalId,
+                    userId: existing.userId,
+                    externalId: existing.externalId,
                     authIsValid:
                         authIsValid !== undefined
                             ? authIsValid
@@ -153,10 +155,9 @@ class CredentialRepository extends CredentialRepositoryInterface {
         // Create new credential
         const created = await this.prisma.credential.create({
             data: {
-                userId: userId || user,
+                userId: where.userId,
                 externalId,
                 authIsValid: authIsValid,
-                
                 data: oauthData,
             },
         });
@@ -225,11 +226,10 @@ class CredentialRepository extends CredentialRepositoryInterface {
 
         // Separate schema fields from OAuth data
         const {
-            user,
             userId,
             externalId,
             authIsValid,
-            
+
             ...oauthData
         } = updates;
 
@@ -239,7 +239,7 @@ class CredentialRepository extends CredentialRepositoryInterface {
         const updated = await this.prisma.credential.update({
             where: { id: credentialId },
             data: {
-                userId: userId || user || existing.userId,
+                userId: userId || existing.userId,
                 externalId:
                     externalId !== undefined ? externalId : existing.externalId,
                 authIsValid:
@@ -273,7 +273,6 @@ class CredentialRepository extends CredentialRepositoryInterface {
 
         if (identifiers._id) where.id = identifiers._id;
         if (identifiers.id) where.id = identifiers.id;
-        if (identifiers.user) where.userId = identifiers.user;
         if (identifiers.userId) where.userId = identifiers.userId;
         if (identifiers.externalId) where.externalId = identifiers.externalId;
 
@@ -291,7 +290,6 @@ class CredentialRepository extends CredentialRepositoryInterface {
 
         if (filter.credentialId) where.id = filter.credentialId;
         if (filter.id) where.id = filter.id;
-        if (filter.user) where.userId = filter.user;
         if (filter.userId) where.userId = filter.userId;
         if (filter.externalId) where.externalId = filter.externalId;
 

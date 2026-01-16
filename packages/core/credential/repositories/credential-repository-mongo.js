@@ -96,10 +96,7 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
         if (!identifiers)
             throw new Error('identifiers required to upsert credential');
 
-        // Support both 'userId' (new) and 'user' (legacy) field names.
-        // All 49 API modules in api-module-library use 'user' in identifiers.
-        // The database column is 'userId', so we map 'user' → 'userId' here.
-        if (!identifiers.userId && !identifiers.user) {
+        if (!identifiers.userId) {
             throw new Error('userId required in identifiers');
         }
         if (!identifiers.externalId) {
@@ -140,8 +137,7 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
 
         const created = await this.prisma.credential.create({
             data: {
-                // Map legacy 'user' field to 'userId' column
-                userId: identifiers.userId || identifiers.user,
+                userId: identifiers.userId,
                 externalId: identifiers.externalId,
                 authIsValid: authIsValid,
                 data: oauthData,
@@ -246,9 +242,7 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
 
         if (identifiers._id) where.id = identifiers._id;
         if (identifiers.id) where.id = identifiers.id;
-        // Support both 'userId' (new) and 'user' (legacy) field names
         if (identifiers.userId) where.userId = identifiers.userId;
-        else if (identifiers.user) where.userId = identifiers.user;
         if (identifiers.externalId) where.externalId = identifiers.externalId;
 
         return where;

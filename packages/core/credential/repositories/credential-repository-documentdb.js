@@ -77,10 +77,7 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
         const { identifiers, details } = credentialDetails;
         if (!identifiers)
             throw new Error('identifiers required to upsert credential');
-        // Support both 'userId' (new) and 'user' (legacy) field names.
-        // All 49 API modules in api-module-library use 'user' in identifiers.
-        // The database column is 'userId', so we map 'user' → 'userId' here.
-        if (!identifiers.userId && !identifiers.user) {
+        if (!identifiers.userId) {
             throw new Error('userId required in identifiers');
         }
         if (!identifiers.externalId) {
@@ -146,8 +143,7 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
         }
 
         const plainDocument = {
-            // Map legacy 'user' field to 'userId' column
-            userId: toObjectId(identifiers.userId || identifiers.user),
+            userId: toObjectId(identifiers.userId),
             externalId: identifiers.externalId,
             authIsValid: details.authIsValid,
             data: { ...oauthData },
@@ -248,11 +244,8 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
             const idObj = toObjectId(identifiers._id || identifiers.id);
             if (idObj) filter._id = idObj;
         }
-        // Support both 'userId' (new) and 'user' (legacy) field names
         if (identifiers.userId) {
             filter.userId = toObjectId(identifiers.userId);
-        } else if (identifiers.user) {
-            filter.userId = toObjectId(identifiers.user);
         }
         if (identifiers.externalId !== undefined) {
             filter.externalId = identifiers.externalId;
