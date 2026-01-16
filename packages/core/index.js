@@ -64,6 +64,25 @@ const {
 const {
     GetProcess,
 } = require('./integrations/use-cases/get-process');
+const {
+    HandleProcessUpdate,
+} = require('./integrations/use-cases/handle-process-update');
+const {
+    ProcessQueueService,
+} = require('./integrations/services/process-queue-service');
+const {
+    ProcessUpdateMessage,
+    ProcessUpdateOperation,
+} = require('./integrations/domain/process-update-message');
+const {
+    ProcessState,
+    isValidTransition,
+    validateTransition,
+    getValidNextStates,
+} = require('./integrations/domain/process-state-machine');
+const {
+    queueProcessUpdate,
+} = require('./integrations/utils/queue-process-update');
 const { Cryptor } = require('./encrypt');
 const {
     BaseError,
@@ -158,6 +177,19 @@ module.exports = {
     UpdateProcessState,
     UpdateProcessMetrics,
     GetProcess,
+    HandleProcessUpdate,
+
+    // process management queue
+    ProcessQueueService,
+    ProcessUpdateMessage,
+    ProcessUpdateOperation,
+    queueProcessUpdate,
+
+    // process state machine
+    ProcessState,
+    isValidTransition,
+    validateTransition,
+    getValidNextStates,
 
     // application - Command factories for integration developers
     application,
@@ -166,6 +198,7 @@ module.exports = {
     createUserCommands: application.createUserCommands,
     createEntityCommands: application.createEntityCommands,
     createCredentialCommands: application.createCredentialCommands,
+    createProcessCommands: application.createProcessCommands,
     findIntegrationContextByExternalEntityId:
         application.findIntegrationContextByExternalEntityId,
     integrationCommands: application.integrationCommands,
