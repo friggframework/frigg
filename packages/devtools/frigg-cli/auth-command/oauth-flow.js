@@ -118,7 +118,7 @@ async function runOAuthFlow(definition, ApiClass, options) {
         } else {
             // Minimal entity details if method not provided
             entityDetails = {
-                identifiers: { externalId: 'unknown', user: 'cli-test-user' },
+                identifiers: { externalId: 'unknown', userId: 'cli-test-user' },
                 details: { name: 'Unknown' },
             };
         }
