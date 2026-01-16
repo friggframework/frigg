@@ -279,6 +279,15 @@ class OAuth2Requester extends Requester {
      */
     async refreshAuth() {
         try {
+            console.log('[OAuth2Requester.refreshAuth] Starting token refresh', {
+                grant_type: this.grant_type,
+                has_refresh_token: !!this.refresh_token,
+                has_client_id: !!this.client_id,
+                has_client_secret: !!this.client_secret,
+                has_token_uri: !!this.tokenUri,
+                tokenUri: this.tokenUri,
+            });
+
             if (this.grant_type !== 'client_credentials') {
                 await this.refreshAccessToken({
                     refresh_token: this.refresh_token,
@@ -286,8 +295,15 @@ class OAuth2Requester extends Requester {
             } else {
                 await this.getTokenFromClientCredentials();
             }
+            console.log('[OAuth2Requester.refreshAuth] Token refresh succeeded');
             return true;
-        } catch {
+        } catch (error) {
+            console.error('[OAuth2Requester.refreshAuth] Token refresh failed', {
+                error_message: error?.message,
+                error_name: error?.name,
+                response_status: error?.response?.status,
+                response_data: error?.response?.data,
+            });
             await this.notify(this.DLGT_INVALID_AUTH);
             return false;
         }

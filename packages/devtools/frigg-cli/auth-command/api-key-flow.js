@@ -103,13 +103,13 @@ async function runApiKeyFlow(definition, ApiClass, providedApiKey, options) {
         } catch (err) {
             console.log(chalk.yellow(`  Warning: getEntityDetails failed: ${err.message}`));
             entityDetails = {
-                identifiers: { externalId: 'unknown', user: 'cli-test-user' },
+                identifiers: { externalId: 'unknown', userId: 'cli-test-user' },
                 details: { name: 'API Key Authentication' }
             };
         }
     } else {
         entityDetails = {
-            identifiers: { externalId: 'unknown', user: 'cli-test-user' },
+            identifiers: { externalId: 'unknown', userId: 'cli-test-user' },
             details: { name: 'API Key Authentication' }
         };
     }
