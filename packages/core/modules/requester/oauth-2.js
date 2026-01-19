@@ -30,7 +30,6 @@ const { ModuleConstants } = require('../ModuleConstants');
  * await api.getTokenFromClientCredentials();
  */
 class OAuth2Requester extends Requester {
-
     static requesterType = ModuleConstants.authType.oauth2;
 
     /**
@@ -114,6 +113,16 @@ class OAuth2Requester extends Requester {
      * @returns {Promise<void>}
      */
     async setTokens(params) {
+        console.log('[OAuth2Requester.setTokens] Setting tokens', {
+            has_access_token: !!get(params, 'access_token'),
+            has_refresh_token: !!get(params, 'refresh_token'),
+            expires_in: get(params, 'expires_in', null),
+            x_refresh_token_expires_in: get(
+                params,
+                'x_refresh_token_expires_in',
+                null
+            ),
+        });
         this.access_token = get(params, 'access_token');
         this.refresh_token = get(params, 'refresh_token', null);
         const accessExpiresIn = get(params, 'expires_in', null);
@@ -124,7 +133,9 @@ class OAuth2Requester extends Requester {
         );
 
         this.accessTokenExpire = new Date(Date.now() + accessExpiresIn * 1000);
-        this.refreshTokenExpire = new Date(Date.now() + refreshExpiresIn * 1000);
+        this.refreshTokenExpire = new Date(
+            Date.now() + refreshExpiresIn * 1000
+        );
 
         await this.notify(this.DLGT_TOKEN_UPDATE);
     }
@@ -158,14 +169,17 @@ class OAuth2Requester extends Requester {
      * @returns {Promise<Object>} Token response containing access_token, refresh_token, etc.
      */
     async getTokenFromCode(code) {
-        console.log('[OAuth2Requester.getTokenFromCode] Exchanging code for token', {
-            tokenUri: this.tokenUri,
-            has_client_id: !!this.client_id,
-            has_client_secret: !!this.client_secret,
-            has_redirect_uri: !!this.redirect_uri,
-            has_scope: !!this.scope,
-            code_length: code ? String(code).length : 0,
-        });
+        console.log(
+            '[OAuth2Requester.getTokenFromCode] Exchanging code for token',
+            {
+                tokenUri: this.tokenUri,
+                has_client_id: !!this.client_id,
+                has_client_secret: !!this.client_secret,
+                has_redirect_uri: !!this.redirect_uri,
+                has_scope: !!this.scope,
+                code_length: code ? String(code).length : 0,
+            }
+        );
         const params = new URLSearchParams();
         params.append('grant_type', 'authorization_code');
         params.append('client_id', this.client_id);
@@ -182,15 +196,18 @@ class OAuth2Requester extends Requester {
         };
         const response = await this._post(options, false);
         if (!response?.access_token) {
-            console.error('[OAuth2Requester.getTokenFromCode] Missing access_token in response', {
-                tokenUri: this.tokenUri,
-                response_keys:
-                    response && typeof response === 'object'
-                        ? Object.keys(response)
-                        : typeof response,
-                error: response?.error,
-                error_description: response?.error_description,
-            });
+            console.error(
+                '[OAuth2Requester.getTokenFromCode] Missing access_token in response',
+                {
+                    tokenUri: this.tokenUri,
+                    response_keys:
+                        response && typeof response === 'object'
+                            ? Object.keys(response)
+                            : typeof response,
+                    error: response?.error,
+                    error_description: response?.error_description,
+                }
+            );
         }
         await this.setTokens(response);
         return response;
@@ -205,13 +222,16 @@ class OAuth2Requester extends Requester {
      * @returns {Promise<Object>} Token response containing access_token, refresh_token, etc.
      */
     async getTokenFromCodeBasicAuthHeader(code) {
-        console.log('[OAuth2Requester.getTokenFromCodeBasicAuthHeader] Exchanging code for token', {
-            tokenUri: this.tokenUri,
-            has_client_id: !!this.client_id,
-            has_client_secret: !!this.client_secret,
-            has_redirect_uri: !!this.redirect_uri,
-            code_length: code ? String(code).length : 0,
-        });
+        console.log(
+            '[OAuth2Requester.getTokenFromCodeBasicAuthHeader] Exchanging code for token',
+            {
+                tokenUri: this.tokenUri,
+                has_client_id: !!this.client_id,
+                has_client_secret: !!this.client_secret,
+                has_redirect_uri: !!this.redirect_uri,
+                code_length: code ? String(code).length : 0,
+            }
+        );
         const params = new URLSearchParams();
         params.append('grant_type', 'authorization_code');
         params.append('client_id', this.client_id);
@@ -231,15 +251,18 @@ class OAuth2Requester extends Requester {
 
         const response = await this._post(options, false);
         if (!response?.access_token) {
-            console.error('[OAuth2Requester.getTokenFromCodeBasicAuthHeader] Missing access_token in response', {
-                tokenUri: this.tokenUri,
-                response_keys:
-                    response && typeof response === 'object'
-                        ? Object.keys(response)
-                        : typeof response,
-                error: response?.error,
-                error_description: response?.error_description,
-            });
+            console.error(
+                '[OAuth2Requester.getTokenFromCodeBasicAuthHeader] Missing access_token in response',
+                {
+                    tokenUri: this.tokenUri,
+                    response_keys:
+                        response && typeof response === 'object'
+                            ? Object.keys(response)
+                            : typeof response,
+                    error: response?.error,
+                    error_description: response?.error_description,
+                }
+            );
         }
         await this.setTokens(response);
         return response;
@@ -316,14 +339,17 @@ class OAuth2Requester extends Requester {
      */
     async refreshAuth() {
         try {
-            console.log('[OAuth2Requester.refreshAuth] Starting token refresh', {
-                grant_type: this.grant_type,
-                has_refresh_token: !!this.refresh_token,
-                has_client_id: !!this.client_id,
-                has_client_secret: !!this.client_secret,
-                has_token_uri: !!this.tokenUri,
-                tokenUri: this.tokenUri,
-            });
+            console.log(
+                '[OAuth2Requester.refreshAuth] Starting token refresh',
+                {
+                    grant_type: this.grant_type,
+                    has_refresh_token: !!this.refresh_token,
+                    has_client_id: !!this.client_id,
+                    has_client_secret: !!this.client_secret,
+                    has_token_uri: !!this.tokenUri,
+                    tokenUri: this.tokenUri,
+                }
+            );
 
             if (this.grant_type !== 'client_credentials') {
                 await this.refreshAccessToken({
@@ -332,15 +358,20 @@ class OAuth2Requester extends Requester {
             } else {
                 await this.getTokenFromClientCredentials();
             }
-            console.log('[OAuth2Requester.refreshAuth] Token refresh succeeded');
+            console.log(
+                '[OAuth2Requester.refreshAuth] Token refresh succeeded'
+            );
             return true;
         } catch (error) {
-            console.error('[OAuth2Requester.refreshAuth] Token refresh failed', {
-                error_message: error?.message,
-                error_name: error?.name,
-                response_status: error?.response?.status,
-                response_data: error?.response?.data,
-            });
+            console.error(
+                '[OAuth2Requester.refreshAuth] Token refresh failed',
+                {
+                    error_message: error?.message,
+                    error_name: error?.name,
+                    response_status: error?.response?.status,
+                    response_data: error?.response?.data,
+                }
+            );
             await this.notify(this.DLGT_INVALID_AUTH);
             return false;
         }
