@@ -882,6 +882,46 @@ When working on the Frigg Framework, always prioritize finding the **best soluti
 4. Test OAuth flows with real credentials in development
 5. Validate infrastructure templates before deployment
 
+### Scheduler Commands
+
+The Frigg framework provides scheduler commands for scheduling one-time jobs using AWS EventBridge Scheduler:
+
+```javascript
+const { createSchedulerCommands } = require('@friggframework/core');
+
+const schedulerCommands = createSchedulerCommands({
+    integrationName: 'zoho'  // For logging
+});
+
+// Schedule a one-time job
+await schedulerCommands.scheduleJob({
+    jobId: 'zoho-notif-renewal-abc123',
+    scheduledAt: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000), // 6 days
+    event: 'REFRESH_WEBHOOK',
+    payload: { integrationId: 'abc123' },
+    queueUrl: process.env.ZOHO_QUEUE_URL,  // Uses QUEUE_URL, derives ARN internally
+});
+
+// Delete a scheduled job
+await schedulerCommands.deleteJob('zoho-notif-renewal-abc123');
+
+// Check job status
+const status = await schedulerCommands.getJobStatus('zoho-notif-renewal-abc123');
+```
+
+**Key Features**:
+- Uses AWS EventBridge Scheduler for reliable one-time job execution
+- Targets SQS queues (accepts `queueUrl`, derives ARN internally)
+- Mock scheduler available for local development (`SCHEDULER_PROVIDER=mock`)
+- Auto-cleanup with dead letter queue support
+- Graceful degradation when scheduler not configured
+
+**Environment Variables**:
+- `SCHEDULER_ROLE_ARN` - IAM role for EventBridge to send messages to SQS
+- `SCHEDULER_DLQ_ARN` - Dead letter queue for failed scheduler invocations
+- `SCHEDULER_PROVIDER` - Set to 'mock' for local development (default: 'eventbridge')
+- `{INTEGRATION}_QUEUE_URL` - Queue URL provided automatically by Frigg infrastructure
+
 ### Performance Optimization
 
 - Use provisioned concurrency for critical Lambda functions
