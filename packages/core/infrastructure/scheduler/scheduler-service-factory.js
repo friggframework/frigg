@@ -1,8 +1,8 @@
 /**
- * Scheduler Factory
+ * Scheduler Service Factory
  *
- * Creates scheduler adapter instances based on configuration.
- * Supports EventBridge Scheduler for production and Mock Scheduler for local development.
+ * Creates scheduler service instances based on configuration.
+ * Returns implementations of SchedulerServiceInterface.
  *
  * Environment Detection:
  * - SCHEDULER_PROVIDER=eventbridge -> Use AWS EventBridge Scheduler
@@ -27,13 +27,11 @@ const LOCAL_STAGES = ['dev', 'test', 'local'];
  * @returns {string} Provider name
  */
 function determineProvider() {
-    // Explicit provider takes precedence
     const explicitProvider = process.env.SCHEDULER_PROVIDER;
     if (explicitProvider) {
         return explicitProvider;
     }
 
-    // Default based on stage
     const stage = process.env.STAGE || 'dev';
     if (LOCAL_STAGES.includes(stage)) {
         return SCHEDULER_PROVIDERS.MOCK;
@@ -43,15 +41,15 @@ function determineProvider() {
 }
 
 /**
- * Create a scheduler adapter based on the provider configuration
+ * Create a scheduler service instance
  *
  * @param {Object} options
  * @param {string} options.provider - Scheduler provider ('eventbridge' or 'mock')
  * @param {string} options.region - AWS region (for EventBridge)
  * @param {boolean} options.verbose - Verbose logging (for Mock)
- * @returns {EventBridgeSchedulerAdapter|MockSchedulerAdapter}
+ * @returns {SchedulerServiceInterface} Implementation of scheduler interface
  */
-function createSchedulerAdapter(options = {}) {
+function createSchedulerService(options = {}) {
     const provider = options.provider || determineProvider();
 
     switch (provider) {
@@ -69,7 +67,9 @@ function createSchedulerAdapter(options = {}) {
 }
 
 module.exports = {
-    createSchedulerAdapter,
+    createSchedulerService,
     SCHEDULER_PROVIDERS,
     determineProvider,
+    // Backwards compatibility alias (deprecated)
+    createSchedulerAdapter: createSchedulerService,
 };

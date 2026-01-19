@@ -3,8 +3,10 @@
  *
  * Application Layer - Command pattern for scheduling operations.
  *
- * Provides a clean interface for integrations to schedule one-time jobs
- * without directly interacting with the infrastructure layer.
+ * Follows hexagonal architecture:
+ * - Receives SchedulerServiceInterface via dependency injection
+ * - Contains business logic (validation, logging, error mapping)
+ * - Protocol-agnostic (doesn't know about HTTP/Lambda)
  *
  * @example
  * const schedulerCommands = createSchedulerCommands({ integrationName: 'zoho' });
@@ -17,7 +19,7 @@
  * });
  */
 
-const { createSchedulerAdapter } = require('../../infrastructure/scheduler');
+const { createSchedulerService } = require('../../infrastructure/scheduler');
 
 /**
  * Derive SQS ARN from SQS URL
@@ -61,29 +63,30 @@ function mapErrorToResponse(error) {
  *
  * @param {Object} params
  * @param {string} params.integrationName - Name of the integration (used for logging)
+ * @param {SchedulerServiceInterface} [params.schedulerService] - Optional injected scheduler service
  * @returns {Object} Scheduler commands object
  */
-function createSchedulerCommands({ integrationName }) {
+function createSchedulerCommands({ integrationName, schedulerService }) {
     if (!integrationName) {
         throw new Error('integrationName is required');
     }
 
-    // Lazily create the scheduler adapter to avoid initialization errors
-    // when the environment is not configured (e.g., in tests)
-    let schedulerAdapter = null;
+    // Support both dependency injection and lazy creation
+    // DI is preferred for testability, lazy creation for convenience
+    let _schedulerService = schedulerService || null;
 
-    function getSchedulerAdapter() {
-        if (!schedulerAdapter) {
+    function getSchedulerService() {
+        if (!_schedulerService) {
             try {
-                schedulerAdapter = createSchedulerAdapter();
+                _schedulerService = createSchedulerService();
             } catch (error) {
                 console.warn(
-                    `[${integrationName}] Scheduler adapter not available: ${error.message}`
+                    `[${integrationName}] Scheduler service not available: ${error.message}`
                 );
                 return null;
             }
         }
-        return schedulerAdapter;
+        return _schedulerService;
     }
 
     return {
@@ -124,21 +127,24 @@ function createSchedulerCommands({ integrationName }) {
                     throw error;
                 }
 
-                // Derive ARN from URL
+                // Derive ARN from URL (business logic - transformation)
                 const queueArn = deriveArnFromQueueUrl(queueUrl);
 
-                const adapter = getSchedulerAdapter();
-                if (!adapter) {
+                // Get scheduler service (via DI or factory)
+                const service = getSchedulerService();
+                if (!service) {
                     console.warn(
                         `[${integrationName}] Scheduler not configured, skipping job schedule`
                     );
                     return {
-                        warning: 'Scheduler not configured',
                         jobId,
+                        jobArn: null,
+                        scheduledAt: null,
+                        warning: 'Scheduler not configured',
                     };
                 }
 
-                // Build the SQS message payload
+                // Build the SQS message payload (business logic - assembly)
                 const sqsPayload = {
                     eventType: event,
                     integrationName,
@@ -147,7 +153,8 @@ function createSchedulerCommands({ integrationName }) {
                     createdAt: new Date().toISOString(),
                 };
 
-                const result = await adapter.scheduleOneTime({
+                // Delegate to service (Port interface)
+                const result = await service.scheduleOneTime({
                     scheduleName: jobId,
                     scheduleAt: scheduledAt,
                     targetArn: queueArn,
@@ -186,8 +193,8 @@ function createSchedulerCommands({ integrationName }) {
                     throw error;
                 }
 
-                const adapter = getSchedulerAdapter();
-                if (!adapter) {
+                const service = getSchedulerService();
+                if (!service) {
                     console.warn(
                         `[${integrationName}] Scheduler not configured, skipping job deletion`
                     );
@@ -198,7 +205,7 @@ function createSchedulerCommands({ integrationName }) {
                     };
                 }
 
-                await adapter.deleteSchedule(jobId);
+                await service.deleteSchedule(jobId);
 
                 console.log(`[${integrationName}] Deleted scheduled job ${jobId}`);
 
@@ -229,15 +236,15 @@ function createSchedulerCommands({ integrationName }) {
                     throw error;
                 }
 
-                const adapter = getSchedulerAdapter();
-                if (!adapter) {
+                const service = getSchedulerService();
+                if (!service) {
                     return {
                         exists: false,
                         warning: 'Scheduler not configured',
                     };
                 }
 
-                const status = await adapter.getScheduleStatus(jobId);
+                const status = await service.getScheduleStatus(jobId);
 
                 return status;
             } catch (error) {

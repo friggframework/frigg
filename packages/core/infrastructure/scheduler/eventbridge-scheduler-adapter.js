@@ -8,7 +8,7 @@
  * - Deleting schedules when no longer needed
  * - Checking schedule status
  *
- * This adapter implements the scheduler interface for AWS EventBridge Scheduler.
+ * This adapter implements SchedulerServiceInterface for AWS EventBridge Scheduler.
  */
 
 const {
@@ -19,10 +19,13 @@ const {
     ResourceNotFoundException,
 } = require('@aws-sdk/client-scheduler');
 
+const { SchedulerServiceInterface } = require('./scheduler-service-interface');
+
 const SCHEDULE_GROUP_NAME = 'frigg-integration-schedules';
 
-class EventBridgeSchedulerAdapter {
+class EventBridgeSchedulerAdapter extends SchedulerServiceInterface {
     constructor({ region } = {}) {
+        super();
         this.client = new SchedulerClient({
             region: region || process.env.AWS_REGION || 'us-east-1',
         });

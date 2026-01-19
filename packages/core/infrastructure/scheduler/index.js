@@ -1,23 +1,38 @@
 /**
  * Scheduler Infrastructure
  *
- * Provides scheduling capabilities for one-time and recurring jobs.
- * Uses AWS EventBridge Scheduler for production and Mock Scheduler for local development.
+ * Provides scheduling capabilities for one-time jobs.
+ * Follows hexagonal architecture with interface + adapters pattern.
  *
  * Providers:
  * - eventbridge: AWS EventBridge Scheduler (production)
  * - mock: In-memory mock scheduler (local development)
  */
 
+const { SchedulerServiceInterface } = require('./scheduler-service-interface');
 const { EventBridgeSchedulerAdapter, SCHEDULE_GROUP_NAME } = require('./eventbridge-scheduler-adapter');
 const { MockSchedulerAdapter } = require('./mock-scheduler-adapter');
-const { createSchedulerAdapter, SCHEDULER_PROVIDERS, determineProvider } = require('./scheduler-factory');
-
-module.exports = {
-    EventBridgeSchedulerAdapter,
-    MockSchedulerAdapter,
-    SCHEDULE_GROUP_NAME,
+const {
+    createSchedulerService,
     createSchedulerAdapter,
     SCHEDULER_PROVIDERS,
     determineProvider,
+} = require('./scheduler-service-factory');
+
+module.exports = {
+    // Interface (Port)
+    SchedulerServiceInterface,
+
+    // Adapters
+    EventBridgeSchedulerAdapter,
+    MockSchedulerAdapter,
+    SCHEDULE_GROUP_NAME,
+
+    // Factory
+    createSchedulerService,
+    SCHEDULER_PROVIDERS,
+    determineProvider,
+
+    // Backwards compatibility alias (deprecated)
+    createSchedulerAdapter,
 };

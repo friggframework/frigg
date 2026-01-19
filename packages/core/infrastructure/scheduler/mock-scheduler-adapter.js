@@ -3,79 +3,93 @@
  *
  * Stores schedules in memory and logs instead of creating real EventBridge schedules.
  * Used when SCHEDULER_PROVIDER=mock or in local/dev/test environments.
+ *
+ * This adapter implements SchedulerServiceInterface for local development and testing.
  */
 
-const schedules = new Map();
+const { SchedulerServiceInterface } = require('./scheduler-service-interface');
 
-class MockSchedulerAdapter {
+class MockSchedulerAdapter extends SchedulerServiceInterface {
     constructor(options = {}) {
+        super();
         this.verbose = options.verbose || false;
+        this.schedules = new Map();
     }
 
     /**
-     * Create a one-time schedule (stored in memory)
+     * Schedule a one-time job to be executed at a specific time
      *
      * @param {Object} params
-     * @param {string} params.jobId - Unique identifier for the schedule
-     * @param {Date} params.scheduledAt - When to trigger the schedule
+     * @param {string} params.scheduleName - Unique name for the schedule
+     * @param {Date} params.scheduleAt - When to trigger the schedule
      * @param {string} params.targetArn - Target resource ARN (SQS queue)
-     * @param {string} params.roleArn - IAM role ARN (ignored in mock)
      * @param {Object} params.payload - JSON payload to send
-     * @returns {Promise<{success: boolean, scheduleName: string, scheduledTime: string}>}
+     * @returns {Promise<{scheduleArn: string, scheduledAt: string}>}
      */
-    async createSchedule({ jobId, scheduledAt, targetArn, roleArn, payload }) {
-        const scheduleName = jobId;
+    async scheduleOneTime({ scheduleName, scheduleAt, targetArn, payload }) {
+        if (!scheduleName) {
+            throw new Error('scheduleName is required');
+        }
+        if (!scheduleAt || !(scheduleAt instanceof Date)) {
+            throw new Error('scheduleAt must be a valid Date object');
+        }
+        if (!targetArn) {
+            throw new Error('targetArn is required');
+        }
+
         const scheduleData = {
             scheduleName,
-            scheduledAt: scheduledAt.toISOString(),
+            scheduledAt: scheduleAt.toISOString(),
             targetArn,
             payload,
             createdAt: new Date().toISOString(),
             state: 'ENABLED',
         };
 
-        schedules.set(scheduleName, scheduleData);
+        this.schedules.set(scheduleName, scheduleData);
 
         console.log(`[MockScheduler] Created schedule: ${scheduleName}`);
-        console.log(`[MockScheduler]   Scheduled for: ${scheduledAt.toISOString()}`);
+        console.log(`[MockScheduler]   Scheduled for: ${scheduleAt.toISOString()}`);
         console.log(`[MockScheduler]   Target: ${targetArn}`);
         if (this.verbose) {
             console.log(`[MockScheduler]   Payload:`, JSON.stringify(payload, null, 2));
         }
 
         return {
-            success: true,
-            scheduleName,
-            scheduledTime: scheduledAt.toISOString(),
+            scheduleArn: `arn:aws:scheduler:mock-region:123456789:schedule/frigg-integration-schedules/${scheduleName}`,
+            scheduledAt: scheduleAt.toISOString(),
         };
     }
 
     /**
-     * Delete a schedule from memory
+     * Delete a scheduled job
      *
      * @param {string} scheduleName - Name of the schedule to delete
-     * @returns {Promise<{success: boolean, deleted: boolean}>}
+     * @returns {Promise<void>}
      */
     async deleteSchedule(scheduleName) {
-        const existed = schedules.has(scheduleName);
-        schedules.delete(scheduleName);
+        if (!scheduleName) {
+            throw new Error('scheduleName is required');
+        }
+
+        const existed = this.schedules.has(scheduleName);
+        this.schedules.delete(scheduleName);
 
         console.log(`[MockScheduler] Deleted schedule: ${scheduleName} (existed: ${existed})`);
-
-        return {
-            success: true,
-            deleted: existed,
-        };
     }
 
     /**
-     * Get schedule status
+     * Get the status of a scheduled job
      *
      * @param {string} scheduleName - Name of the schedule
-     * @returns {Promise<{exists: boolean, state?: string, scheduledTime?: string}>}
+     * @returns {Promise<{exists: boolean, scheduledAt?: string, state?: string}>}
      */
     async getScheduleStatus(scheduleName) {
-        const schedule = schedules.get(scheduleName);
+        if (!scheduleName) {
+            throw new Error('scheduleName is required');
+        }
+
+        const schedule = this.schedules.get(scheduleName);
 
         if (!schedule) {
             return { exists: false };
@@ -83,9 +97,8 @@ class MockSchedulerAdapter {
 
         return {
             exists: true,
+            scheduledAt: schedule.scheduledAt,
             state: schedule.state,
-            scheduledTime: schedule.scheduledAt,
-            createdAt: schedule.createdAt,
         };
     }
 
@@ -95,15 +108,15 @@ class MockSchedulerAdapter {
      * @returns {Object} Map of all schedules as plain object
      */
     _getSchedules() {
-        return Object.fromEntries(schedules);
+        return Object.fromEntries(this.schedules);
     }
 
     /**
      * Clear all schedules (helper for testing)
      */
     _clearSchedules() {
-        const count = schedules.size;
-        schedules.clear();
+        const count = this.schedules.size;
+        this.schedules.clear();
         console.log(`[MockScheduler] Cleared ${count} schedules`);
     }
 
@@ -114,7 +127,7 @@ class MockSchedulerAdapter {
      * @returns {Object|null} The payload that would be sent, or null if not found
      */
     _simulateTrigger(scheduleName) {
-        const schedule = schedules.get(scheduleName);
+        const schedule = this.schedules.get(scheduleName);
         if (!schedule) {
             console.log(`[MockScheduler] Cannot trigger - schedule not found: ${scheduleName}`);
             return null;
