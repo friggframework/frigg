@@ -13,11 +13,33 @@
  *     scheduledAt: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000), // 6 days
  *     event: 'REFRESH_WEBHOOK',
  *     payload: { integrationId: 'abc123' },
- *     queueArn: process.env.ZOHO_QUEUE_ARN,
+ *     queueUrl: process.env.ZOHO_QUEUE_URL,
  * });
  */
 
 const { createSchedulerAdapter } = require('../../infrastructure/scheduler');
+
+/**
+ * Derive SQS ARN from SQS URL
+ *
+ * SQS URL format: https://sqs.{region}.amazonaws.com/{account-id}/{queue-name}
+ * SQS ARN format: arn:aws:sqs:{region}:{account-id}:{queue-name}
+ *
+ * @param {string} queueUrl - SQS queue URL
+ * @returns {string} SQS queue ARN
+ */
+function deriveArnFromQueueUrl(queueUrl) {
+    try {
+        const url = new URL(queueUrl);
+        const region = url.hostname.split('.')[1];
+        const pathParts = url.pathname.split('/').filter(Boolean);
+        const accountId = pathParts[0];
+        const queueName = pathParts[1];
+        return `arn:aws:sqs:${region}:${accountId}:${queueName}`;
+    } catch (error) {
+        throw new Error(`Invalid SQS queue URL: ${queueUrl}`);
+    }
+}
 
 const ERROR_CODE_MAP = {
     SCHEDULER_NOT_CONFIGURED: 503,
@@ -73,10 +95,10 @@ function createSchedulerCommands({ integrationName }) {
          * @param {Date} params.scheduledAt - When to execute the job
          * @param {string} params.event - Event name to trigger
          * @param {Object} params.payload - Additional payload data
-         * @param {string} params.queueArn - Target SQS queue ARN
+         * @param {string} params.queueUrl - Target SQS queue URL (ARN is derived internally)
          * @returns {Promise<{jobArn: string, scheduledAt: string} | {error: number, reason: string}>}
          */
-        async scheduleJob({ jobId, scheduledAt, event, payload, queueArn }) {
+        async scheduleJob({ jobId, scheduledAt, event, payload, queueUrl }) {
             try {
                 if (!jobId) {
                     const error = new Error('jobId is required');
@@ -96,11 +118,14 @@ function createSchedulerCommands({ integrationName }) {
                     throw error;
                 }
 
-                if (!queueArn) {
-                    const error = new Error('queueArn is required');
+                if (!queueUrl) {
+                    const error = new Error('queueUrl is required');
                     error.code = 'INVALID_JOB_DATA';
                     throw error;
                 }
+
+                // Derive ARN from URL
+                const queueArn = deriveArnFromQueueUrl(queueUrl);
 
                 const adapter = getSchedulerAdapter();
                 if (!adapter) {
