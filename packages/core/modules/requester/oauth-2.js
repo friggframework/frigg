@@ -158,6 +158,14 @@ class OAuth2Requester extends Requester {
      * @returns {Promise<Object>} Token response containing access_token, refresh_token, etc.
      */
     async getTokenFromCode(code) {
+        console.log('[OAuth2Requester.getTokenFromCode] Exchanging code for token', {
+            tokenUri: this.tokenUri,
+            has_client_id: !!this.client_id,
+            has_client_secret: !!this.client_secret,
+            has_redirect_uri: !!this.redirect_uri,
+            has_scope: !!this.scope,
+            code_length: code ? String(code).length : 0,
+        });
         const params = new URLSearchParams();
         params.append('grant_type', 'authorization_code');
         params.append('client_id', this.client_id);
@@ -173,6 +181,17 @@ class OAuth2Requester extends Requester {
             url: this.tokenUri,
         };
         const response = await this._post(options, false);
+        if (!response?.access_token) {
+            console.error('[OAuth2Requester.getTokenFromCode] Missing access_token in response', {
+                tokenUri: this.tokenUri,
+                response_keys:
+                    response && typeof response === 'object'
+                        ? Object.keys(response)
+                        : typeof response,
+                error: response?.error,
+                error_description: response?.error_description,
+            });
+        }
         await this.setTokens(response);
         return response;
     }
@@ -186,6 +205,13 @@ class OAuth2Requester extends Requester {
      * @returns {Promise<Object>} Token response containing access_token, refresh_token, etc.
      */
     async getTokenFromCodeBasicAuthHeader(code) {
+        console.log('[OAuth2Requester.getTokenFromCodeBasicAuthHeader] Exchanging code for token', {
+            tokenUri: this.tokenUri,
+            has_client_id: !!this.client_id,
+            has_client_secret: !!this.client_secret,
+            has_redirect_uri: !!this.redirect_uri,
+            code_length: code ? String(code).length : 0,
+        });
         const params = new URLSearchParams();
         params.append('grant_type', 'authorization_code');
         params.append('client_id', this.client_id);
@@ -204,6 +230,17 @@ class OAuth2Requester extends Requester {
         };
 
         const response = await this._post(options, false);
+        if (!response?.access_token) {
+            console.error('[OAuth2Requester.getTokenFromCodeBasicAuthHeader] Missing access_token in response', {
+                tokenUri: this.tokenUri,
+                response_keys:
+                    response && typeof response === 'object'
+                        ? Object.keys(response)
+                        : typeof response,
+                error: response?.error,
+                error_description: response?.error_description,
+            });
+        }
         await this.setTokens(response);
         return response;
     }

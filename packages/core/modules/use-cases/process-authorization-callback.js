@@ -25,6 +25,13 @@ class ProcessAuthorizationCallback {
             );
         }
 
+        console.log('[Auth] ProcessAuthorizationCallback', {
+            entityType,
+            moduleName: moduleDefinition.moduleName,
+            paramsKeys: params ? Object.keys(params) : [],
+            userId,
+        });
+
         // todo: check if we need to pass entity to Module, right now it's null
         let entity = null;
 
@@ -36,17 +43,30 @@ class ProcessAuthorizationCallback {
 
         let tokenResponse;
         if (module.apiClass.requesterType === ModuleConstants.authType.oauth2) {
+            console.log('[Auth] OAuth2 flow detected', {
+                moduleName: moduleDefinition.moduleName,
+            });
             tokenResponse = await moduleDefinition.requiredAuthMethods.getToken(
                 module.api,
                 params
             );
         } else {
+            console.log('[Auth] Non-OAuth flow detected', {
+                moduleName: moduleDefinition.moduleName,
+            });
             tokenResponse =
                 await moduleDefinition.requiredAuthMethods.setAuthParams(
                     module.api,
                     params
                 );
             await this.onTokenUpdate(module, moduleDefinition, userId);
+        }
+
+        if (tokenResponse && typeof tokenResponse === 'object') {
+            console.log('[Auth] Token response keys', {
+                moduleName: moduleDefinition.moduleName,
+                keys: Object.keys(tokenResponse),
+            });
         }
 
         const authRes = await module.testAuth();

@@ -529,6 +529,18 @@ function setEntityRoutes(router, authenticateUser, useCases) {
                 'data',
             ]);
 
+            console.log('[Auth] /api/authorize POST', {
+                entityType: params.entityType,
+                dataKeys: params.data ? Object.keys(params.data) : [],
+                userId,
+                hasHeaders: !!req.headers,
+                requestId:
+                    req.headers?.['x-amzn-trace-id'] ||
+                    req.headers?.['x-request-id'] ||
+                    req.headers?.['x-amz-cf-id'] ||
+                    null,
+            });
+
             const entityDetails = await processAuthorizationCallback.execute(
                 userId,
                 params.entityType,
