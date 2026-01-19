@@ -377,6 +377,11 @@ class IntegrationBuilder extends InfrastructureBuilder {
             Ref: queueReference,
         };
 
+        // Add queue ARN to environment (needed for EventBridge Scheduler targeting)
+        result.environment[`${integrationName.toUpperCase()}_QUEUE_ARN`] = {
+            'Fn::GetAtt': [queueReference, 'Arn'],
+        };
+
         // Add queue name to custom section
         result.custom[queueReference] = queueName;
 
@@ -390,7 +395,39 @@ class IntegrationBuilder extends InfrastructureBuilder {
         // Add queue URL to environment for Lambda functions
         result.environment[`${integrationName.toUpperCase()}_QUEUE_URL`] = decision.physicalId;
 
+        // Derive ARN from URL (needed for EventBridge Scheduler targeting)
+        // URL format: https://sqs.{region}.amazonaws.com/{account-id}/{queue-name}
+        // ARN format: arn:aws:sqs:{region}:{account-id}:{queue-name}
+        const queueArn = this.deriveArnFromQueueUrl(decision.physicalId);
+        if (queueArn) {
+            result.environment[`${integrationName.toUpperCase()}_QUEUE_ARN`] = queueArn;
+        }
+
         console.log(`  ✓ Using external queue: ${decision.physicalId}`);
+    }
+
+    /**
+     * Derive SQS ARN from queue URL
+     * @param {string} queueUrl - SQS queue URL
+     * @returns {string|null} - SQS ARN or null if URL format is unrecognized
+     */
+    deriveArnFromQueueUrl(queueUrl) {
+        try {
+            // URL format: https://sqs.{region}.amazonaws.com/{account-id}/{queue-name}
+            const url = new URL(queueUrl);
+            const hostParts = url.hostname.split('.');
+            const region = hostParts[1]; // e.g., 'us-east-1'
+            const pathParts = url.pathname.split('/').filter(Boolean);
+            const accountId = pathParts[0];
+            const queueName = pathParts[1];
+
+            if (region && accountId && queueName) {
+                return `arn:aws:sqs:${region}:${accountId}:${queueName}`;
+            }
+        } catch (error) {
+            console.warn(`  ⚠ Could not derive ARN from queue URL: ${queueUrl}`);
+        }
+        return null;
     }
 
     /**
