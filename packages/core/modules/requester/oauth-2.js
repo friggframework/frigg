@@ -223,7 +223,7 @@ class OAuth2Requester extends Requester {
      */
     async getTokenFromCodeBasicAuthHeader(code) {
         console.log(
-            '[OAuth2Requester.getTokenFromCodeBasicAuthHeader] Exchanging code for token',
+            '[OAuth2Requester.getTokenFromCodeBasicAuthHeader] Exchanging code for token: ',
             {
                 tokenUri: this.tokenUri,
                 has_client_id: !!this.client_id,
