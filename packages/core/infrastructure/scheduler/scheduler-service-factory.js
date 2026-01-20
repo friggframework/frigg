@@ -70,6 +70,4 @@ module.exports = {
     createSchedulerService,
     SCHEDULER_PROVIDERS,
     determineProvider,
-    // Backwards compatibility alias (deprecated)
-    createSchedulerAdapter: createSchedulerService,
 };

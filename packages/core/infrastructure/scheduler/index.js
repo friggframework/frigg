@@ -14,7 +14,6 @@ const { EventBridgeSchedulerAdapter, SCHEDULE_GROUP_NAME } = require('./eventbri
 const { MockSchedulerAdapter } = require('./mock-scheduler-adapter');
 const {
     createSchedulerService,
-    createSchedulerAdapter,
     SCHEDULER_PROVIDERS,
     determineProvider,
 } = require('./scheduler-service-factory');
@@ -32,7 +31,4 @@ module.exports = {
     createSchedulerService,
     SCHEDULER_PROVIDERS,
     determineProvider,
-
-    // Backwards compatibility alias (deprecated)
-    createSchedulerAdapter,
 };
