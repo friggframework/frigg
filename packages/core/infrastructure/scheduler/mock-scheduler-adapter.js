@@ -22,25 +22,25 @@ class MockSchedulerAdapter extends SchedulerServiceInterface {
      * @param {Object} params
      * @param {string} params.scheduleName - Unique name for the schedule
      * @param {Date} params.scheduleAt - When to trigger the schedule
-     * @param {string} params.targetArn - Target resource ARN (SQS queue)
+     * @param {string} params.queueResourceId - Queue resource identifier to send message to
      * @param {Object} params.payload - JSON payload to send
-     * @returns {Promise<{scheduleArn: string, scheduledAt: string}>}
+     * @returns {Promise<{scheduledJobId: string, scheduledAt: string}>}
      */
-    async scheduleOneTime({ scheduleName, scheduleAt, targetArn, payload }) {
+    async scheduleOneTime({ scheduleName, scheduleAt, queueResourceId, payload }) {
         if (!scheduleName) {
             throw new Error('scheduleName is required');
         }
         if (!scheduleAt || !(scheduleAt instanceof Date)) {
             throw new Error('scheduleAt must be a valid Date object');
         }
-        if (!targetArn) {
-            throw new Error('targetArn is required');
+        if (!queueResourceId) {
+            throw new Error('queueResourceId is required');
         }
 
         const scheduleData = {
             scheduleName,
             scheduledAt: scheduleAt.toISOString(),
-            targetArn,
+            queueResourceId,
             payload,
             createdAt: new Date().toISOString(),
             state: 'ENABLED',
@@ -50,13 +50,13 @@ class MockSchedulerAdapter extends SchedulerServiceInterface {
 
         console.log(`[MockScheduler] Created schedule: ${scheduleName}`);
         console.log(`[MockScheduler]   Scheduled for: ${scheduleAt.toISOString()}`);
-        console.log(`[MockScheduler]   Target: ${targetArn}`);
+        console.log(`[MockScheduler]   Target: ${queueResourceId}`);
         if (this.verbose) {
             console.log(`[MockScheduler]   Payload:`, JSON.stringify(payload, null, 2));
         }
 
         return {
-            scheduleArn: `arn:aws:scheduler:mock-region:123456789:schedule/frigg-integration-schedules/${scheduleName}`,
+            scheduledJobId: `mock-job-${scheduleName}`,
             scheduledAt: scheduleAt.toISOString(),
         };
     }

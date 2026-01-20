@@ -196,7 +196,6 @@ class SchedulerBuilder extends InfrastructureBuilder {
         result.environment.SCHEDULER_ROLE_ARN = {
             'Fn::GetAtt': ['SchedulerExecutionRole', 'Arn'],
         };
-        result.environment.SCHEDULER_PROVIDER = 'eventbridge';
 
         console.log('  ✓ Added scheduler environment variables');
     }

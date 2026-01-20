@@ -15,11 +15,11 @@ class SchedulerServiceInterface {
      * @param {Object} params
      * @param {string} params.scheduleName - Unique name for the schedule
      * @param {Date} params.scheduleAt - When to trigger the schedule
-     * @param {string} params.targetArn - Target resource ARN (SQS queue)
+     * @param {string} params.queueResourceId - Queue resource identifier to send message to
      * @param {Object} params.payload - JSON payload to send
-     * @returns {Promise<{scheduleArn: string, scheduledAt: string}>}
+     * @returns {Promise<{scheduledJobId: string, scheduledAt: string}>}
      */
-    async scheduleOneTime({ scheduleName, scheduleAt, targetArn, payload }) {
+    async scheduleOneTime({ scheduleName, scheduleAt, queueResourceId, payload }) {
         throw new Error('Method scheduleOneTime must be implemented by subclass');
     }
 

@@ -39,19 +39,19 @@ class EventBridgeSchedulerAdapter extends SchedulerServiceInterface {
      * @param {Object} params
      * @param {string} params.scheduleName - Unique name for the schedule
      * @param {Date} params.scheduleAt - When to trigger the schedule
-     * @param {string} params.targetArn - SQS queue ARN to send message to
+     * @param {string} params.queueResourceId - Queue resource identifier (ARN) to send message to
      * @param {Object} params.payload - Message payload
-     * @returns {Promise<{scheduleArn: string, scheduledAt: string}>}
+     * @returns {Promise<{scheduledJobId: string, scheduledAt: string}>}
      */
-    async scheduleOneTime({ scheduleName, scheduleAt, targetArn, payload }) {
+    async scheduleOneTime({ scheduleName, scheduleAt, queueResourceId, payload }) {
         if (!scheduleName) {
             throw new Error('scheduleName is required');
         }
         if (!scheduleAt || !(scheduleAt instanceof Date)) {
             throw new Error('scheduleAt must be a valid Date object');
         }
-        if (!targetArn) {
-            throw new Error('targetArn is required');
+        if (!queueResourceId) {
+            throw new Error('queueResourceId is required');
         }
         if (!this.roleArn) {
             throw new Error(
@@ -71,7 +71,7 @@ class EventBridgeSchedulerAdapter extends SchedulerServiceInterface {
                 Mode: 'OFF',
             },
             Target: {
-                Arn: targetArn,
+                Arn: queueResourceId,
                 RoleArn: this.roleArn,
                 Input: JSON.stringify(payload),
             },
@@ -85,7 +85,7 @@ class EventBridgeSchedulerAdapter extends SchedulerServiceInterface {
             );
 
             return {
-                scheduleArn: response.ScheduleArn,
+                scheduledJobId: response.ScheduleArn,
                 scheduledAt: scheduleAt.toISOString(),
             };
         } catch (error) {

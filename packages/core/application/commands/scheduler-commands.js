@@ -157,7 +157,7 @@ function createSchedulerCommands({ integrationName, schedulerService }) {
                 const result = await service.scheduleOneTime({
                     scheduleName: jobId,
                     scheduleAt: scheduledAt,
-                    targetArn: queueArn,
+                    queueResourceId: queueArn,
                     payload: sqsPayload,
                 });
 
@@ -167,7 +167,7 @@ function createSchedulerCommands({ integrationName, schedulerService }) {
 
                 return {
                     jobId,
-                    jobArn: result.scheduleArn,
+                    jobArn: result.scheduledJobId,
                     scheduledAt: result.scheduledAt,
                 };
             } catch (error) {
