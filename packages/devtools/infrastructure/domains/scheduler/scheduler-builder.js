@@ -14,8 +14,6 @@
 
 const { InfrastructureBuilder, ValidationResult } = require('../shared/base-builder');
 
-const SCHEDULE_GROUP_NAME = 'frigg-integration-schedules';
-
 class SchedulerBuilder extends InfrastructureBuilder {
     constructor() {
         super();
@@ -80,16 +78,19 @@ class SchedulerBuilder extends InfrastructureBuilder {
 
     /**
      * Create EventBridge Scheduler ScheduleGroup
+     * Uses stage-specific naming to allow multiple deployments in same AWS account
      */
     createScheduleGroup(result) {
+        const scheduleGroupName = '${self:service}-${self:provider.stage}-schedules';
+
         result.resources.FriggScheduleGroup = {
             Type: 'AWS::Scheduler::ScheduleGroup',
             Properties: {
-                Name: SCHEDULE_GROUP_NAME,
+                Name: scheduleGroupName,
             },
         };
 
-        console.log(`  ✓ Created ScheduleGroup: ${SCHEDULE_GROUP_NAME}`);
+        console.log(`  ✓ Created ScheduleGroup: ${scheduleGroupName}`);
     }
 
     /**
@@ -171,7 +172,10 @@ class SchedulerBuilder extends InfrastructureBuilder {
                     'scheduler:GetSchedule',
                 ],
                 Resource: {
-                    'Fn::Sub': `arn:aws:scheduler:\${AWS::Region}:\${AWS::AccountId}:schedule/${SCHEDULE_GROUP_NAME}/*`,
+                    'Fn::Sub': [
+                        'arn:aws:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/${GroupName}/*',
+                        { GroupName: { Ref: 'FriggScheduleGroup' } },
+                    ],
                 },
             },
             {
@@ -196,9 +200,12 @@ class SchedulerBuilder extends InfrastructureBuilder {
         result.environment.SCHEDULER_ROLE_ARN = {
             'Fn::GetAtt': ['SchedulerExecutionRole', 'Arn'],
         };
+        result.environment.SCHEDULE_GROUP_NAME = {
+            Ref: 'FriggScheduleGroup',
+        };
 
         console.log('  ✓ Added scheduler environment variables');
     }
 }
 
-module.exports = { SchedulerBuilder, SCHEDULE_GROUP_NAME };
+module.exports = { SchedulerBuilder };

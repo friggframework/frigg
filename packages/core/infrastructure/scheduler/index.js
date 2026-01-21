@@ -10,7 +10,7 @@
  */
 
 const { SchedulerServiceInterface } = require('./scheduler-service-interface');
-const { EventBridgeSchedulerAdapter, SCHEDULE_GROUP_NAME } = require('./eventbridge-scheduler-adapter');
+const { EventBridgeSchedulerAdapter } = require('./eventbridge-scheduler-adapter');
 const { MockSchedulerAdapter } = require('./mock-scheduler-adapter');
 const {
     createSchedulerService,
@@ -25,7 +25,6 @@ module.exports = {
     // Adapters
     EventBridgeSchedulerAdapter,
     MockSchedulerAdapter,
-    SCHEDULE_GROUP_NAME,
 
     // Factory
     createSchedulerService,

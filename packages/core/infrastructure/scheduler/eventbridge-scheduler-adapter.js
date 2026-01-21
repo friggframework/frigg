@@ -21,15 +21,14 @@ const {
 
 const { SchedulerServiceInterface } = require('./scheduler-service-interface');
 
-const SCHEDULE_GROUP_NAME = 'frigg-integration-schedules';
-
 class EventBridgeSchedulerAdapter extends SchedulerServiceInterface {
     constructor({ region } = {}) {
         super();
         this.client = new SchedulerClient({
             region: region || process.env.AWS_REGION || 'us-east-1',
         });
-        this.scheduleGroupName = SCHEDULE_GROUP_NAME;
+        this.scheduleGroupName =
+            process.env.SCHEDULE_GROUP_NAME || 'frigg-integration-schedules';
         this.roleArn = process.env.SCHEDULER_ROLE_ARN;
     }
 
@@ -182,4 +181,4 @@ class EventBridgeSchedulerAdapter extends SchedulerServiceInterface {
     }
 }
 
-module.exports = { EventBridgeSchedulerAdapter, SCHEDULE_GROUP_NAME };
+module.exports = { EventBridgeSchedulerAdapter };
