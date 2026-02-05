@@ -524,6 +524,11 @@ function setEntityRoutes(router, authenticateUser, useCases) {
         catchAsyncError(async (req, res) => {
             const user = await authenticateUser.execute(req);
             const userId = user.getId();
+            console.log('[authorize]: /api/authorize POST request details:');
+            console.log('[authorize]: Headers:', JSON.stringify(req.headers, null, 2));
+            console.log('[authorize]: Query params:', JSON.stringify(req.query, null, 2));
+            console.log('[authorize]: Body:', JSON.stringify(req.body, null, 2));
+            console.log('[authorize]: User ID:', userId);
             const params = checkRequiredParams(req.body, [
                 'entityType',
                 'data',
