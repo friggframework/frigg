@@ -115,7 +115,10 @@ class OAuth2Requester extends Requester {
      */
     async setTokens(params) {
         this.access_token = get(params, 'access_token');
-        this.refresh_token = get(params, 'refresh_token', null);
+        const newRefreshToken = get(params, 'refresh_token', null);
+        if (newRefreshToken !== null) {
+            this.refresh_token = newRefreshToken;
+        }
         const accessExpiresIn = get(params, 'expires_in', null);
         const refreshExpiresIn = get(
             params,
@@ -124,7 +127,9 @@ class OAuth2Requester extends Requester {
         );
 
         this.accessTokenExpire = new Date(Date.now() + accessExpiresIn * 1000);
-        this.refreshTokenExpire = new Date(Date.now() + refreshExpiresIn * 1000);
+        if (refreshExpiresIn !== null) {
+            this.refreshTokenExpire = new Date(Date.now() + refreshExpiresIn * 1000);
+        }
 
         await this.notify(this.DLGT_TOKEN_UPDATE);
     }

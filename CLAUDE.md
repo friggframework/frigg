@@ -376,6 +376,8 @@ The authenticator tests all `requiredAuthMethods`:
 
 ### OAuth2 Implementation
 
+**Token Refresh Behavior**: When `OAuth2Requester.setTokens()` is called during a token refresh, if the response does not include a `refresh_token`, the existing `refresh_token` is preserved. Many OAuth2 providers (Zoho, Google, etc.) only return a `refresh_token` on the initial authorization code exchange, not on subsequent refreshes. The same applies to `refreshTokenExpire` — it is only updated when `x_refresh_token_expires_in` is present in the response.
+
 ```javascript
 // Standardized OAuth configuration
 {
