@@ -146,7 +146,7 @@ function createSchedulerCommands({ integrationName, schedulerService }) {
 
                 // Build the SQS message payload (business logic - assembly)
                 const sqsPayload = {
-                    eventType: event,
+                    event,
                     integrationName,
                     data: payload || {},
                     scheduledAt: scheduledAt.toISOString(),
