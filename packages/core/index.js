@@ -166,6 +166,7 @@ module.exports = {
     createUserCommands: application.createUserCommands,
     createEntityCommands: application.createEntityCommands,
     createCredentialCommands: application.createCredentialCommands,
+    createSchedulerCommands: application.createSchedulerCommands,
     findIntegrationContextByExternalEntityId:
         application.findIntegrationContextByExternalEntityId,
     integrationCommands: application.integrationCommands,

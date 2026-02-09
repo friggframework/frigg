@@ -1151,7 +1151,55 @@ const credential = await commands.createCredential({
 });
 ```
 
-### 6. Event Handling with Delegate Pattern
+### 6. Scheduler Commands for Scheduled Jobs
+
+Use scheduler commands for one-time scheduled jobs (e.g., notification renewals, delayed tasks):
+
+```javascript
+const { createSchedulerCommands } = require("@friggframework/core");
+
+const schedulerCommands = createSchedulerCommands({
+  integrationName: "zoho",
+});
+
+// Schedule a one-time job
+await schedulerCommands.scheduleJob({
+  jobId: `renewal-${integrationId}-${Date.now()}`,
+  scheduledAt: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000), // 6 days
+  event: "REFRESH_WEBHOOK",
+  payload: { integrationId, executionId },
+  queueUrl: process.env.ZOHO_QUEUE_URL, // Uses standard Frigg env var
+});
+
+// Delete a scheduled job
+await schedulerCommands.deleteJob(jobId);
+
+// Check job status
+const status = await schedulerCommands.getJobStatus(jobId);
+// Returns: { exists: boolean, scheduledAt?: string, state?: string }
+```
+
+**Key Features**:
+
+- **AWS EventBridge Scheduler**: Production environment uses EventBridge for reliable scheduling
+- **Mock Scheduler**: Local development uses in-memory mock (set `SCHEDULER_PROVIDER=mock`)
+- **Auto-cleanup**: Schedules auto-delete after execution (`ActionAfterCompletion: DELETE`)
+- **Queue URL to ARN**: Internally derives SQS ARN from queue URL (standard Frigg pattern)
+- **Graceful Degradation**: If scheduler not configured, logs warning but doesn't fail
+
+**Environment Variables**:
+
+```bash
+# Production (auto-detected)
+SCHEDULER_ROLE_ARN=arn:aws:iam::...:role/...  # IAM role for EventBridge
+ZOHO_QUEUE_URL=https://sqs...                  # Integration queue URL (Frigg sets this)
+
+# Local Development
+SCHEDULER_PROVIDER=mock                         # Use mock scheduler
+STAGE=local                                    # Auto-selects mock
+```
+
+### 7. Event Handling with Delegate Pattern
 
 **Current Implementation**: Frigg uses a **Delegate pattern** for event propagation (not EventBus).
 

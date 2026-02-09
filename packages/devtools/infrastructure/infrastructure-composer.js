@@ -16,6 +16,7 @@ const { MigrationBuilder } = require('./domains/database/migration-builder');
 const { SsmBuilder } = require('./domains/parameters/ssm-builder');
 const { WebsocketBuilder } = require('./domains/integration/websocket-builder');
 const { IntegrationBuilder } = require('./domains/integration/integration-builder');
+const { SchedulerBuilder } = require('./domains/scheduler/scheduler-builder');
 
 // Utilities
 const { modifyHandlerPaths } = require('./domains/shared/utilities/handler-path-resolver');
@@ -51,6 +52,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
         new SsmBuilder(),
         new WebsocketBuilder(),
         new IntegrationBuilder(),
+        new SchedulerBuilder(), // Add scheduler after IntegrationBuilder (depends on it)
     ]);
 
     // Build all infrastructure (orchestrator handles validation, dependencies, parallel execution)
