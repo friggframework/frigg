@@ -118,6 +118,8 @@ class OAuth2Requester extends Requester {
         const newRefreshToken = get(params, 'refresh_token', null);
         if (newRefreshToken !== null) {
             this.refresh_token = newRefreshToken;
+        } else {
+            console.log('[OAuth2Requester.setTokens] No refresh_token in response, preserving existing');
         }
         const accessExpiresIn = get(params, 'expires_in', null);
         const refreshExpiresIn = get(

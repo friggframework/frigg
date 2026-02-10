@@ -100,10 +100,14 @@ class Module extends Delegate {
             this.api,
             this.userId
         );
-        Object.assign(
-            credentialDetails.details,
-            this.apiParamsFromCredential(this.api)
-        );
+        const apiParams = this.apiParamsFromCredential(this.api);
+
+        if (!apiParams.refresh_token && this.api.isRefreshable) {
+            console.warn(`[Module.onTokenUpdate] refresh_token missing from apiParams for module ${this.name}. ` +
+                `Existing DB value will be preserved via merge.`);
+        }
+
+        Object.assign(credentialDetails.details, apiParams);
         credentialDetails.details.authIsValid = true;
 
         const persisted = await this.credentialRepository.upsertCredential(
