@@ -86,6 +86,7 @@ const { dbSetupCommand } = require('./db-setup-command');
 const { doctorCommand } = require('./doctor-command');
 const { repairCommand } = require('./repair-command');
 const { authCommand } = require('./auth-command');
+const { createValidateCommand } = require('./validate-command/adapters/cli/validate-command');
 
 const program = new Command();
 
@@ -178,6 +179,8 @@ program
     .option('-v, --verbose', 'enable verbose output')
     .action(repairCommand);
 
+createValidateCommand(program);
+
 // Auth command group for testing API module authentication
 const authProgram = program
     .command('auth')
@@ -217,4 +220,4 @@ if (require.main === module) {
     program.parse(process.argv);
 }
 
-module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, generateIamCommand, uiCommand, dbSetupCommand, doctorCommand, repairCommand, authCommand, program };
+module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, generateIamCommand, uiCommand, dbSetupCommand, doctorCommand, repairCommand, authCommand, createValidateCommand, program };
