@@ -75,8 +75,10 @@ class Requester extends Delegate {
                 await this.notify(this.DLGT_INVALID_AUTH);
             } else {
                 this.refreshCount++;
-                await this.refreshAuth();
-                return this._request(url, options, i + 1); // Retries
+                const refreshSucceeded = await this.refreshAuth();
+                if (refreshSucceeded) {
+                    return this._request(url, options, i + 1);
+                }
             }
         }
 
@@ -108,7 +110,6 @@ class Requester extends Delegate {
     }
 
     async _post(options, stringify = true) {
-        console.log('options', options);
         const fetchOptions = {
             method: 'POST',
             credentials: 'include',

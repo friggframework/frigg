@@ -5,6 +5,9 @@ const {
 const { createUserCommands } = require('./commands/user-commands');
 const { createEntityCommands } = require('./commands/entity-commands');
 const { createCredentialCommands } = require('./commands/credential-commands');
+const {
+    createSchedulerCommands,
+} = require('./commands/scheduler-commands');
 
 /**
  * Create a unified command factory with all CRUD operations
@@ -55,6 +58,7 @@ module.exports = {
     createUserCommands,
     createEntityCommands,
     createCredentialCommands,
+    createSchedulerCommands,
 
     // Legacy standalone function
     findIntegrationContextByExternalEntityId,

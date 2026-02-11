@@ -140,6 +140,8 @@ model Entity {
   externalId   String?
   isGlobal     Boolean     @default(false)
 
+  data Json @default("{}")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
