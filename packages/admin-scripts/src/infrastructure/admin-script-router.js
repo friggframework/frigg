@@ -3,6 +3,7 @@ const serverless = require('serverless-http');
 const { validateAdminApiKey } = require('./admin-auth-middleware');
 const { getScriptFactory } = require('../application/script-factory');
 const { createScriptRunner } = require('../application/script-runner');
+const { validateScriptInput } = require('../application/validate-script-input');
 const { createAdminScriptCommands } = require('@friggframework/core/application/commands/admin-script-commands');
 const { QueuerUtil } = require('@friggframework/core/queues');
 const { createSchedulerAdapter } = require('../adapters/scheduler-adapter-factory');
@@ -95,13 +96,13 @@ router.get('/scripts/:scriptName', async (req, res) => {
 });
 
 /**
- * POST /admin/scripts/:scriptName
- * Execute a script (sync, async, or dry-run)
+ * POST /admin/scripts/:scriptName/validate
+ * Validate script inputs without executing (dry-run)
  */
-router.post('/scripts/:scriptName', async (req, res) => {
+router.post('/scripts/:scriptName/validate', async (req, res) => {
     try {
         const { scriptName } = req.params;
-        const { params = {}, mode = 'async', dryRun = false } = req.body;
+        const { params = {} } = req.body;
         const factory = getScriptFactory();
 
         if (!factory.has(scriptName)) {
@@ -111,19 +112,32 @@ router.post('/scripts/:scriptName', async (req, res) => {
             });
         }
 
-        // Dry-run always executes synchronously
-        if (dryRun) {
-            const runner = createScriptRunner();
-            const result = await runner.execute(scriptName, params, {
-                trigger: 'MANUAL',
-                mode: 'sync',
-                dryRun: true,
+        const result = validateScriptInput(factory, scriptName, params);
+        res.json(result);
+    } catch (error) {
+        console.error('Error validating script:', error);
+        res.status(500).json({ error: 'Failed to validate script' });
+    }
+});
+
+/**
+ * POST /admin/scripts/:scriptName
+ * Execute a script (sync or async)
+ */
+router.post('/scripts/:scriptName', async (req, res) => {
+    try {
+        const { scriptName } = req.params;
+        const { params = {}, mode = 'async' } = req.body;
+        const factory = getScriptFactory();
+
+        if (!factory.has(scriptName)) {
+            return res.status(404).json({
+                error: `Script "${scriptName}" not found`,
+                code: 'SCRIPT_NOT_FOUND',
             });
-            return res.json(result);
         }
 
         if (mode === 'sync') {
-            // Synchronous execution - wait for result
             const runner = createScriptRunner();
             const result = await runner.execute(scriptName, params, {
                 trigger: 'MANUAL',
@@ -155,7 +169,7 @@ router.post('/scripts/:scriptName', async (req, res) => {
 
         res.status(202).json({
             executionId: execution.id,
-            status: 'PENDING',
+            status: 'QUEUED',
             scriptName,
             message: 'Script queued for execution',
         });

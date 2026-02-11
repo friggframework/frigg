@@ -181,7 +181,7 @@ describe('Admin Script Router', () => {
                 });
 
             expect(response.status).toBe(202);
-            expect(response.body.status).toBe('PENDING');
+            expect(response.body.status).toBe('QUEUED');
             expect(response.body.executionId).toBe('exec-456');
             expect(QueuerUtil.send).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -204,7 +204,7 @@ describe('Admin Script Router', () => {
                 });
 
             expect(response.status).toBe(202);
-            expect(response.body.status).toBe('PENDING');
+            expect(response.body.status).toBe('QUEUED');
         });
 
         it('should return 404 for non-existent script', async () => {

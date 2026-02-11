@@ -29,10 +29,9 @@ class ScriptRunner {
      * @param {string} options.executionId - Reuse existing AdminProcess record ID (NOT the Lambda execution ID).
      *   This is the database ID from the AdminProcess collection/table that tracks script executions.
      *   Pass this when resuming a queued execution to continue using the same execution record.
-     * @param {boolean} options.dryRun - Dry-run mode: validate and preview without executing
      */
     async execute(scriptName, params = {}, options = {}) {
-        const { trigger, audit = {}, executionId: existingExecutionId, dryRun = false } = options;
+        const { trigger, audit = {}, executionId: existingExecutionId } = options;
 
         if (!trigger) {
             throw new Error('options.trigger is required (MANUAL | SCHEDULED | QUEUE)');
@@ -47,11 +46,6 @@ class ScriptRunner {
             throw new Error(
                 `Script "${scriptName}" requires integrationFactory but none was provided`
             );
-        }
-
-        // Dry-run mode: validate and return preview without executing
-        if (dryRun) {
-            return this.createDryRunPreview(scriptName, definition, params);
         }
 
         let executionId = existingExecutionId;
@@ -140,110 +134,6 @@ class ScriptRunner {
                 metrics: { durationMs },
             };
         }
-    }
-
-    /**
-     * Create dry-run preview without executing the script
-     * Validates inputs and shows what would be executed
-     *
-     * @param {string} scriptName - Script name
-     * @param {Object} definition - Script definition
-     * @param {Object} params - Input parameters
-     * @returns {Object} Dry-run preview
-     */
-    createDryRunPreview(scriptName, definition, params) {
-        const validation = this.validateParams(definition, params);
-
-        return {
-            dryRun: true,
-            status: validation.valid ? 'DRY_RUN_VALID' : 'DRY_RUN_INVALID',
-            scriptName,
-            preview: {
-                script: {
-                    name: definition.name,
-                    version: definition.version,
-                    description: definition.description,
-                    requireIntegrationInstance: definition.config?.requireIntegrationInstance || false,
-                },
-                input: params,
-                inputSchema: definition.inputSchema || null,
-                validation,
-            },
-            message: validation.valid
-                ? 'Dry-run validation passed. Script is ready to execute with provided parameters.'
-                : `Dry-run validation failed: ${validation.errors.join(', ')}`,
-        };
-    }
-
-    /**
-     * Validate parameters against script's input schema
-     *
-     * @param {Object} definition - Script definition
-     * @param {Object} params - Input parameters
-     * @returns {Object} Validation result { valid, errors }
-     */
-    validateParams(definition, params) {
-        const errors = [];
-        const schema = definition.inputSchema;
-
-        if (!schema) {
-            return { valid: true, errors: [] };
-        }
-
-        // Check required fields
-        if (schema.required && Array.isArray(schema.required)) {
-            for (const field of schema.required) {
-                if (params[field] === undefined || params[field] === null) {
-                    errors.push(`Missing required parameter: ${field}`);
-                }
-            }
-        }
-
-        // Basic type validation for properties
-        if (schema.properties) {
-            for (const [key, prop] of Object.entries(schema.properties)) {
-                const value = params[key];
-                if (value !== undefined && value !== null) {
-                    const typeError = this.validateType(key, value, prop);
-                    if (typeError) {
-                        errors.push(typeError);
-                    }
-                }
-            }
-        }
-
-        return { valid: errors.length === 0, errors };
-    }
-
-    /**
-     * Validate a single parameter type
-     */
-    validateType(key, value, schema) {
-        const expectedType = schema.type;
-        if (!expectedType) return null;
-
-        const actualType = Array.isArray(value) ? 'array' : typeof value;
-
-        if (expectedType === 'integer' && (typeof value !== 'number' || !Number.isInteger(value))) {
-            return `Parameter "${key}" must be an integer`;
-        }
-        if (expectedType === 'number' && typeof value !== 'number') {
-            return `Parameter "${key}" must be a number`;
-        }
-        if (expectedType === 'string' && typeof value !== 'string') {
-            return `Parameter "${key}" must be a string`;
-        }
-        if (expectedType === 'boolean' && typeof value !== 'boolean') {
-            return `Parameter "${key}" must be a boolean`;
-        }
-        if (expectedType === 'array' && !Array.isArray(value)) {
-            return `Parameter "${key}" must be an array`;
-        }
-        if (expectedType === 'object' && (typeof value !== 'object' || Array.isArray(value))) {
-            return `Parameter "${key}" must be an object`;
-        }
-
-        return null;
     }
 }
 
