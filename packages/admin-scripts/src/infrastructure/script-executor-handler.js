@@ -46,7 +46,7 @@ async function handler(event) {
                 const commands = createAdminScriptCommands();
                 await commands
                     .completeAdminProcess(executionId, {
-                        status: 'FAILED',
+                        state: 'FAILED',
                         error: {
                             name: error.name,
                             message: error.message,

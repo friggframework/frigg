@@ -1,7 +1,4 @@
-const {
-    createSchedulerAdapter,
-    detectSchedulerAdapterType,
-} = require('../scheduler-adapter-factory');
+const { createSchedulerAdapter } = require('../scheduler-adapter-factory');
 const { AWSSchedulerAdapter } = require('../aws-scheduler-adapter');
 const { LocalSchedulerAdapter } = require('../local-scheduler-adapter');
 
@@ -17,71 +14,56 @@ jest.mock('@aws-sdk/client-scheduler', () => ({
     ListSchedulesCommand: jest.fn(),
 }));
 
-describe('Scheduler Adapter Factory', () => {
-    let originalEnv;
+const awsAdapterParams = {
+    targetLambdaArn: 'arn:aws:lambda:us-east-1:123456789012:function:test',
+    scheduleGroupName: 'test-group',
+    roleArn: 'arn:aws:iam::123456789012:role/test-role',
+};
 
-    beforeAll(() => {
-        originalEnv = { ...process.env };
-    });
+describe('Scheduler Adapter Factory', () => {
+    const originalEnv = process.env;
 
     beforeEach(() => {
-        // Reset environment variables
-        delete process.env.SCHEDULER_ADAPTER;
-        delete process.env.STAGE;
-        delete process.env.NODE_ENV;
+        process.env = { ...originalEnv, AWS_REGION: 'us-east-1' };
     });
 
-    afterAll(() => {
+    afterEach(() => {
         process.env = originalEnv;
     });
 
     describe('createSchedulerAdapter()', () => {
-        it('should create local adapter by default', () => {
-            const adapter = createSchedulerAdapter();
+        it('should throw if type is not provided', () => {
+            expect(() => createSchedulerAdapter()).toThrow();
+        });
+
+        it('should throw if type is not provided in options object', () => {
+            expect(() => createSchedulerAdapter({})).toThrow();
+        });
+
+        it('should create local adapter when type is "local"', () => {
+            const adapter = createSchedulerAdapter({ type: 'local' });
 
             expect(adapter).toBeInstanceOf(LocalSchedulerAdapter);
             expect(adapter.getName()).toBe('local-cron');
         });
 
-        it('should create local adapter when explicitly specified', () => {
-            const adapter = createSchedulerAdapter({ type: 'local' });
-
-            expect(adapter).toBeInstanceOf(LocalSchedulerAdapter);
-        });
-
         it('should create AWS adapter when type is "aws"', () => {
-            const adapter = createSchedulerAdapter({ type: 'aws' });
+            const adapter = createSchedulerAdapter({ type: 'aws', ...awsAdapterParams });
 
             expect(adapter).toBeInstanceOf(AWSSchedulerAdapter);
             expect(adapter.getName()).toBe('aws-eventbridge-scheduler');
         });
 
         it('should create AWS adapter when type is "eventbridge"', () => {
-            const adapter = createSchedulerAdapter({ type: 'eventbridge' });
+            const adapter = createSchedulerAdapter({ type: 'eventbridge', ...awsAdapterParams });
 
             expect(adapter).toBeInstanceOf(AWSSchedulerAdapter);
-        });
-
-        it('should use SCHEDULER_ADAPTER env variable', () => {
-            process.env.SCHEDULER_ADAPTER = 'aws';
-
-            const adapter = createSchedulerAdapter();
-
-            expect(adapter).toBeInstanceOf(AWSSchedulerAdapter);
-        });
-
-        it('should allow explicit type to override env variable', () => {
-            process.env.SCHEDULER_ADAPTER = 'aws';
-
-            const adapter = createSchedulerAdapter({ type: 'local' });
-
-            expect(adapter).toBeInstanceOf(LocalSchedulerAdapter);
         });
 
         it('should handle case-insensitive type values', () => {
-            const adapter1 = createSchedulerAdapter({ type: 'AWS' });
+            const adapter1 = createSchedulerAdapter({ type: 'AWS', ...awsAdapterParams });
             const adapter2 = createSchedulerAdapter({ type: 'LOCAL' });
-            const adapter3 = createSchedulerAdapter({ type: 'EventBridge' });
+            const adapter3 = createSchedulerAdapter({ type: 'EventBridge', ...awsAdapterParams });
 
             expect(adapter1).toBeInstanceOf(AWSSchedulerAdapter);
             expect(adapter2).toBeInstanceOf(LocalSchedulerAdapter);
@@ -91,17 +73,29 @@ describe('Scheduler Adapter Factory', () => {
         it('should pass AWS configuration to AWS adapter', () => {
             const config = {
                 type: 'aws',
-                region: 'eu-west-1',
                 targetLambdaArn: 'arn:aws:lambda:eu-west-1:123456789012:function:test',
                 scheduleGroupName: 'custom-group',
+                roleArn: 'arn:aws:iam::123456789012:role/custom-role',
             };
 
             const adapter = createSchedulerAdapter(config);
 
             expect(adapter).toBeInstanceOf(AWSSchedulerAdapter);
-            expect(adapter.region).toBe('eu-west-1');
+            expect(adapter.region).toBe('us-east-1'); // From process.env.AWS_REGION
             expect(adapter.targetLambdaArn).toBe('arn:aws:lambda:eu-west-1:123456789012:function:test');
             expect(adapter.scheduleGroupName).toBe('custom-group');
+            expect(adapter.roleArn).toBe('arn:aws:iam::123456789012:role/custom-role');
+        });
+
+        it('should pass roleArn through to AWS adapter', () => {
+            const adapter = createSchedulerAdapter({
+                type: 'aws',
+                ...awsAdapterParams,
+                roleArn: 'arn:aws:iam::999999999999:role/scheduler-role',
+            });
+
+            expect(adapter).toBeInstanceOf(AWSSchedulerAdapter);
+            expect(adapter.roleArn).toBe('arn:aws:iam::999999999999:role/scheduler-role');
         });
 
         it('should ignore AWS config for local adapter', () => {
@@ -116,142 +110,8 @@ describe('Scheduler Adapter Factory', () => {
             expect(adapter.region).toBeUndefined();
         });
 
-        it('should handle unknown adapter type by creating local adapter', () => {
-            const adapter = createSchedulerAdapter({ type: 'unknown-type' });
-
-            expect(adapter).toBeInstanceOf(LocalSchedulerAdapter);
-        });
-    });
-
-    describe('detectSchedulerAdapterType()', () => {
-        it('should return "local" by default', () => {
-            const type = detectSchedulerAdapterType();
-
-            expect(type).toBe('local');
-        });
-
-        it('should return env SCHEDULER_ADAPTER when set', () => {
-            process.env.SCHEDULER_ADAPTER = 'aws';
-
-            const type = detectSchedulerAdapterType();
-
-            expect(type).toBe('aws');
-        });
-
-        it('should return "aws" for production stage', () => {
-            process.env.STAGE = 'production';
-
-            const type = detectSchedulerAdapterType();
-
-            expect(type).toBe('aws');
-        });
-
-        it('should return "aws" for prod stage', () => {
-            process.env.STAGE = 'prod';
-
-            const type = detectSchedulerAdapterType();
-
-            expect(type).toBe('aws');
-        });
-
-        it('should return "aws" for staging stage', () => {
-            process.env.STAGE = 'staging';
-
-            const type = detectSchedulerAdapterType();
-
-            expect(type).toBe('aws');
-        });
-
-        it('should return "aws" for stage stage', () => {
-            process.env.STAGE = 'stage';
-
-            const type = detectSchedulerAdapterType();
-
-            expect(type).toBe('aws');
-        });
-
-        it('should handle case-insensitive stage values', () => {
-            process.env.STAGE = 'PRODUCTION';
-
-            const type = detectSchedulerAdapterType();
-
-            expect(type).toBe('aws');
-        });
-
-        it('should return "local" for dev stage', () => {
-            process.env.STAGE = 'dev';
-
-            const type = detectSchedulerAdapterType();
-
-            expect(type).toBe('local');
-        });
-
-        it('should return "local" for development stage', () => {
-            process.env.STAGE = 'development';
-
-            const type = detectSchedulerAdapterType();
-
-            expect(type).toBe('local');
-        });
-
-        it('should return "local" for test stage', () => {
-            process.env.STAGE = 'test';
-
-            const type = detectSchedulerAdapterType();
-
-            expect(type).toBe('local');
-        });
-
-        it('should return "local" for local stage', () => {
-            process.env.STAGE = 'local';
-
-            const type = detectSchedulerAdapterType();
-
-            expect(type).toBe('local');
-        });
-
-        it('should use NODE_ENV as fallback for STAGE', () => {
-            delete process.env.STAGE;
-            process.env.NODE_ENV = 'production';
-
-            const type = detectSchedulerAdapterType();
-
-            expect(type).toBe('aws');
-        });
-
-        it('should prioritize explicit SCHEDULER_ADAPTER over auto-detection', () => {
-            process.env.SCHEDULER_ADAPTER = 'local';
-            process.env.STAGE = 'production';
-
-            const type = detectSchedulerAdapterType();
-
-            expect(type).toBe('local');
-        });
-    });
-
-    describe('Integration with createSchedulerAdapter', () => {
-        it('should auto-detect and create AWS adapter in production', () => {
-            process.env.STAGE = 'production';
-
-            const adapter = createSchedulerAdapter();
-
-            expect(adapter).toBeInstanceOf(AWSSchedulerAdapter);
-        });
-
-        it('should auto-detect and create local adapter in development', () => {
-            process.env.STAGE = 'development';
-
-            const adapter = createSchedulerAdapter();
-
-            expect(adapter).toBeInstanceOf(LocalSchedulerAdapter);
-        });
-
-        it('should allow explicit override of auto-detection', () => {
-            process.env.STAGE = 'production';
-
-            const adapter = createSchedulerAdapter({ type: 'local' });
-
-            expect(adapter).toBeInstanceOf(LocalSchedulerAdapter);
+        it('should throw for unknown adapter type', () => {
+            expect(() => createSchedulerAdapter({ type: 'unknown-type' })).toThrow();
         });
     });
 });

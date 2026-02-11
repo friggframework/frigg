@@ -32,7 +32,11 @@ class ScriptRunner {
      * @param {boolean} options.dryRun - Dry-run mode: validate and preview without executing
      */
     async execute(scriptName, params = {}, options = {}) {
-        const { trigger = 'MANUAL', audit = {}, executionId: existingExecutionId, dryRun = false } = options;
+        const { trigger, audit = {}, executionId: existingExecutionId, dryRun = false } = options;
+
+        if (!trigger) {
+            throw new Error('options.trigger is required (MANUAL | SCHEDULED | QUEUE)');
+        }
 
         // Get script class
         const scriptClass = this.scriptFactory.get(scriptName);

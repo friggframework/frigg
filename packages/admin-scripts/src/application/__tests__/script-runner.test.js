@@ -27,7 +27,7 @@ describe('ScriptRunner', () => {
             },
         };
 
-        async execute(frigg, params) {
+        async execute(params) {
             return { success: true, params };
         }
     }
@@ -100,6 +100,22 @@ describe('ScriptRunner', () => {
                     }),
                 })
             );
+        });
+
+        it('should throw error if trigger is not provided', async () => {
+            const runner = new ScriptRunner({ scriptFactory, commands: mockCommands });
+
+            await expect(
+                runner.execute('test-script', { foo: 'bar' }, {})
+            ).rejects.toThrow('options.trigger is required');
+        });
+
+        it('should throw error if options are omitted entirely', async () => {
+            const runner = new ScriptRunner({ scriptFactory, commands: mockCommands });
+
+            await expect(
+                runner.execute('test-script', { foo: 'bar' })
+            ).rejects.toThrow('options.trigger is required');
         });
 
         it('should handle script execution failure', async () => {
@@ -235,6 +251,7 @@ describe('ScriptRunner', () => {
 
             // Missing required parameter
             const result = await runner.execute('schema-script', {}, {
+                trigger: 'MANUAL',
                 dryRun: true,
             });
 
@@ -272,6 +289,7 @@ describe('ScriptRunner', () => {
                 name: 123,
                 enabled: 'true',
             }, {
+                trigger: 'MANUAL',
                 dryRun: true,
             });
 
@@ -307,6 +325,7 @@ describe('ScriptRunner', () => {
                 name: 'test',
                 count: 42,
             }, {
+                trigger: 'MANUAL',
                 dryRun: true,
             });
 

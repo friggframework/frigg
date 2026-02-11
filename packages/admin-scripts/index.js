@@ -36,7 +36,6 @@ const { AWSSchedulerAdapter } = require('./src/adapters/aws-scheduler-adapter');
 const { LocalSchedulerAdapter } = require('./src/adapters/local-scheduler-adapter');
 const {
     createSchedulerAdapter,
-    detectSchedulerAdapterType,
 } = require('./src/adapters/scheduler-adapter-factory');
 
 module.exports = {
@@ -71,5 +70,4 @@ module.exports = {
     AWSSchedulerAdapter,
     LocalSchedulerAdapter,
     createSchedulerAdapter,
-    detectSchedulerAdapterType,
 };
