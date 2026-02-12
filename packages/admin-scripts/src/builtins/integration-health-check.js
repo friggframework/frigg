@@ -94,7 +94,7 @@ class IntegrationHealthCheckScript extends AdminScriptBase {
         let integrations;
         if (integrationIds && integrationIds.length > 0) {
             integrations = await Promise.all(
-                integrationIds.map(id => this.context.findIntegrationById(id).catch(() => null))
+                integrationIds.map(id => this.context.integrationRepository.findIntegrationById(id).catch(() => null))
             );
             integrations = integrations.filter(Boolean);
         } else {
@@ -123,7 +123,7 @@ class IntegrationHealthCheckScript extends AdminScriptBase {
             if (updateStatus && result.status !== 'unknown') {
                 try {
                     const newStatus = result.status === 'healthy' ? 'ACTIVE' : 'ERROR';
-                    await this.context.updateIntegrationStatus(integration.id, newStatus);
+                    await this.context.integrationRepository.updateIntegrationStatus(integration.id, newStatus);
                     this.context.log('info', `Updated status for ${integration.id} to ${newStatus}`);
                 } catch (error) {
                     this.context.log('warn', `Failed to update status for ${integration.id}`, {
@@ -143,7 +143,7 @@ class IntegrationHealthCheckScript extends AdminScriptBase {
     }
 
     async getAllIntegrations() {
-        return this.context.listIntegrations({});
+        return this.context.integrationRepository.findIntegrations({});
     }
 
     async checkIntegration(integration, options) {

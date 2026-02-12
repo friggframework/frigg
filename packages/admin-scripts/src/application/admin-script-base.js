@@ -25,26 +25,6 @@ class AdminScriptBase {
         },
     };
 
-    static getName() {
-        return this.Definition.name;
-    }
-
-    static getCurrentVersion() {
-        return this.Definition.version;
-    }
-
-    static getDefinition() {
-        return this.Definition;
-    }
-
-    static getDisplayLabel() {
-        return this.Definition.display?.label || this.Definition.name;
-    }
-
-    static getDisplayDescription() {
-        return this.Definition.display?.description || this.Definition.description;
-    }
-
     constructor(params = {}) {
         this.context = params.context || null;
         this.executionId = params.executionId || null;

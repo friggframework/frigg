@@ -80,7 +80,7 @@ class OAuthTokenRefreshScript extends AdminScriptBase {
         let integrations;
         if (integrationIds && integrationIds.length > 0) {
             integrations = await Promise.all(
-                integrationIds.map(id => this.context.findIntegrationById(id).catch(() => null))
+                integrationIds.map(id => this.context.integrationRepository.findIntegrationById(id).catch(() => null))
             );
             integrations = integrations.filter(Boolean);
         } else {
@@ -131,7 +131,7 @@ class OAuthTokenRefreshScript extends AdminScriptBase {
     async getAllIntegrations() {
         // This is a simplified implementation
         // In production, would need pagination for large datasets
-        return this.context.listIntegrations({});
+        return this.context.integrationRepository.findIntegrations({});
     }
 
     async processIntegration(integration, options) {

@@ -46,15 +46,17 @@ describe('OAuthTokenRefreshScript', () => {
         beforeEach(() => {
             mockContext = {
                 log: jest.fn(),
-                listIntegrations: jest.fn(),
-                findIntegrationById: jest.fn(),
+                integrationRepository: {
+                    findIntegrations: jest.fn(),
+                    findIntegrationById: jest.fn(),
+                },
                 instantiate: jest.fn(),
             };
             script = new OAuthTokenRefreshScript({ context: mockContext });
         });
 
         it('should return empty results when no integrations found', async () => {
-            mockContext.listIntegrations.mockResolvedValue([]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue([]);
 
             const result = await script.execute({});
 
@@ -70,7 +72,7 @@ describe('OAuthTokenRefreshScript', () => {
                 id: 'int-1',
                 config: {} // No credentials
             };
-            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
 
             const result = await script.execute({});
 
@@ -93,7 +95,7 @@ describe('OAuthTokenRefreshScript', () => {
                     }
                 }
             };
-            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
 
             const result = await script.execute({});
 
@@ -116,7 +118,7 @@ describe('OAuthTokenRefreshScript', () => {
                     }
                 }
             };
-            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
 
             const result = await script.execute({
                 expiryThresholdHours: 24
@@ -150,7 +152,7 @@ describe('OAuthTokenRefreshScript', () => {
                 }
             };
 
-            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
             mockContext.instantiate.mockResolvedValue(mockInstance);
 
             const result = await script.execute({
@@ -178,7 +180,7 @@ describe('OAuthTokenRefreshScript', () => {
                 }
             };
 
-            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
 
             const result = await script.execute({
                 expiryThresholdHours: 24,
@@ -215,7 +217,7 @@ describe('OAuthTokenRefreshScript', () => {
                 }
             };
 
-            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
             mockContext.instantiate.mockResolvedValue(mockInstance);
 
             const result = await script.execute({
@@ -251,7 +253,7 @@ describe('OAuthTokenRefreshScript', () => {
                 }
             };
 
-            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
             mockContext.instantiate.mockResolvedValue(mockInstance);
 
             const result = await script.execute({
@@ -276,7 +278,7 @@ describe('OAuthTokenRefreshScript', () => {
                 config: { credentials: { access_token: 'token2' } }
             };
 
-            mockContext.findIntegrationById.mockImplementation((id) => {
+            mockContext.integrationRepository.findIntegrationById.mockImplementation((id) => {
                 if (id === 'int-1') return Promise.resolve(integration1);
                 if (id === 'int-2') return Promise.resolve(integration2);
                 return Promise.reject(new Error('Not found'));
@@ -286,9 +288,9 @@ describe('OAuthTokenRefreshScript', () => {
                 integrationIds: ['int-1', 'int-2']
             });
 
-            expect(mockContext.findIntegrationById).toHaveBeenCalledWith('int-1');
-            expect(mockContext.findIntegrationById).toHaveBeenCalledWith('int-2');
-            expect(mockContext.listIntegrations).not.toHaveBeenCalled();
+            expect(mockContext.integrationRepository.findIntegrationById).toHaveBeenCalledWith('int-1');
+            expect(mockContext.integrationRepository.findIntegrationById).toHaveBeenCalledWith('int-2');
+            expect(mockContext.integrationRepository.findIntegrations).not.toHaveBeenCalled();
             expect(result.details).toHaveLength(2);
         });
 
@@ -303,7 +305,7 @@ describe('OAuthTokenRefreshScript', () => {
                 }
             };
 
-            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
             mockContext.instantiate.mockRejectedValue(new Error('Instantiation failed'));
 
             const result = await script.execute({

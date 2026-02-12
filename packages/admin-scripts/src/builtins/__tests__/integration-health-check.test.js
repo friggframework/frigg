@@ -52,16 +52,18 @@ describe('IntegrationHealthCheckScript', () => {
         beforeEach(() => {
             mockContext = {
                 log: jest.fn(),
-                listIntegrations: jest.fn(),
-                findIntegrationById: jest.fn(),
+                integrationRepository: {
+                    findIntegrations: jest.fn(),
+                    findIntegrationById: jest.fn(),
+                    updateIntegrationStatus: jest.fn(),
+                },
                 instantiate: jest.fn(),
-                updateIntegrationStatus: jest.fn(),
             };
             script = new IntegrationHealthCheckScript({ context: mockContext });
         });
 
         it('should return empty results when no integrations found', async () => {
-            mockContext.listIntegrations.mockResolvedValue([]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue([]);
 
             const result = await script.execute({});
 
@@ -91,7 +93,7 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
             mockContext.instantiate.mockResolvedValue(mockInstance);
 
             const result = await script.execute({
@@ -118,7 +120,7 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
 
             const result = await script.execute({
                 checkCredentials: true,
@@ -147,7 +149,7 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
 
             const result = await script.execute({
                 checkCredentials: true,
@@ -182,7 +184,7 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
             mockContext.instantiate.mockResolvedValue(mockInstance);
 
             const result = await script.execute({
@@ -215,9 +217,9 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
             mockContext.instantiate.mockResolvedValue(mockInstance);
-            mockContext.updateIntegrationStatus.mockResolvedValue(undefined);
+            mockContext.integrationRepository.updateIntegrationStatus.mockResolvedValue(undefined);
 
             const result = await script.execute({
                 checkCredentials: true,
@@ -226,7 +228,7 @@ describe('IntegrationHealthCheckScript', () => {
             });
 
             expect(result.healthy).toBe(1);
-            expect(mockContext.updateIntegrationStatus).toHaveBeenCalledWith('int-1', 'ACTIVE');
+            expect(mockContext.integrationRepository.updateIntegrationStatus).toHaveBeenCalledWith('int-1', 'ACTIVE');
         });
 
         it('should update integration status to ERROR for unhealthy integrations', async () => {
@@ -238,8 +240,8 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockContext.listIntegrations.mockResolvedValue([integration]);
-            mockContext.updateIntegrationStatus.mockResolvedValue(undefined);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.updateIntegrationStatus.mockResolvedValue(undefined);
 
             const result = await script.execute({
                 checkCredentials: true,
@@ -248,7 +250,7 @@ describe('IntegrationHealthCheckScript', () => {
             });
 
             expect(result.unhealthy).toBe(1);
-            expect(mockContext.updateIntegrationStatus).toHaveBeenCalledWith('int-1', 'ERROR');
+            expect(mockContext.integrationRepository.updateIntegrationStatus).toHaveBeenCalledWith('int-1', 'ERROR');
         });
 
         it('should not update status when updateStatus is false', async () => {
@@ -271,7 +273,7 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
             mockContext.instantiate.mockResolvedValue(mockInstance);
 
             await script.execute({
@@ -280,7 +282,7 @@ describe('IntegrationHealthCheckScript', () => {
                 updateStatus: false
             });
 
-            expect(mockContext.updateIntegrationStatus).not.toHaveBeenCalled();
+            expect(mockContext.integrationRepository.updateIntegrationStatus).not.toHaveBeenCalled();
         });
 
         it('should handle status update failures gracefully', async () => {
@@ -303,9 +305,9 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
             mockContext.instantiate.mockResolvedValue(mockInstance);
-            mockContext.updateIntegrationStatus.mockRejectedValue(new Error('Update failed'));
+            mockContext.integrationRepository.updateIntegrationStatus.mockRejectedValue(new Error('Update failed'));
 
             const result = await script.execute({
                 checkCredentials: true,
@@ -331,7 +333,7 @@ describe('IntegrationHealthCheckScript', () => {
                 config: { type: 'salesforce', credentials: { access_token: 'token2' } }
             };
 
-            mockContext.findIntegrationById.mockImplementation((id) => {
+            mockContext.integrationRepository.findIntegrationById.mockImplementation((id) => {
                 if (id === 'int-1') return Promise.resolve(integration1);
                 if (id === 'int-2') return Promise.resolve(integration2);
                 return Promise.reject(new Error('Not found'));
@@ -343,9 +345,9 @@ describe('IntegrationHealthCheckScript', () => {
                 checkConnectivity: false
             });
 
-            expect(mockContext.findIntegrationById).toHaveBeenCalledWith('int-1');
-            expect(mockContext.findIntegrationById).toHaveBeenCalledWith('int-2');
-            expect(mockContext.listIntegrations).not.toHaveBeenCalled();
+            expect(mockContext.integrationRepository.findIntegrationById).toHaveBeenCalledWith('int-1');
+            expect(mockContext.integrationRepository.findIntegrationById).toHaveBeenCalledWith('int-2');
+            expect(mockContext.integrationRepository.findIntegrations).not.toHaveBeenCalled();
             expect(result.results).toHaveLength(2);
         });
 
@@ -361,7 +363,7 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
             mockContext.instantiate.mockRejectedValue(new Error('Instantiation failed'));
 
             const result = await script.execute({
@@ -391,7 +393,7 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
             mockContext.instantiate.mockResolvedValue(mockInstance);
 
             const result = await script.execute({
@@ -415,7 +417,7 @@ describe('IntegrationHealthCheckScript', () => {
                 }
             };
 
-            mockContext.listIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
 
             const result = await script.execute({
                 checkCredentials: true,

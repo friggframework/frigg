@@ -1,5 +1,20 @@
 const { QueuerUtil } = require('@friggframework/core/queues');
 
+/**
+ * AdminScriptContext - Execution environment for admin scripts
+ *
+ * Provides a controlled surface area for scripts to interact with
+ * the Frigg platform. Unique capabilities vs direct repo access:
+ *
+ * - **Admin bypass**: `instantiate()` passes `_isAdminContext: true` to
+ *   skip user-ownership checks when loading integration instances
+ * - **Script chaining**: `queueScript()` / `queueScriptBatch()` let scripts
+ *   enqueue follow-up work with parent execution tracking
+ * - **Execution-scoped logging**: `log()` collects structured entries tied
+ *   to the current execution for post-run inspection
+ * - **Lazy-loaded repositories**: Repos are exposed directly as getters
+ *   so scripts can query any data they need without wrapper indirection
+ */
 class AdminScriptContext {
     constructor(params = {}) {
         this.executionId = params.executionId || null;
@@ -13,7 +28,6 @@ class AdminScriptContext {
         this._userRepository = null;
         this._moduleRepository = null;
         this._credentialRepository = null;
-        this._adminProcessRepository = null;
     }
 
     // ==================== LAZY-LOADED REPOSITORIES ====================
@@ -48,76 +62,6 @@ class AdminScriptContext {
             this._credentialRepository = createCredentialRepository();
         }
         return this._credentialRepository;
-    }
-
-    get adminProcessRepository() {
-        if (!this._adminProcessRepository) {
-            const { createAdminProcessRepository } = require('@friggframework/core/admin-scripts/repositories/admin-process-repository-factory');
-            this._adminProcessRepository = createAdminProcessRepository();
-        }
-        return this._adminProcessRepository;
-    }
-
-    // ==================== INTEGRATION QUERIES ====================
-
-    async listIntegrations(filter = {}) {
-        if (filter.userId) {
-            return this.integrationRepository.findIntegrationsByUserId(filter.userId);
-        }
-        return this.integrationRepository.findIntegrations(filter);
-    }
-
-    async findIntegrationById(id) {
-        return this.integrationRepository.findIntegrationById(id);
-    }
-
-    async findIntegrationsByUserId(userId) {
-        return this.integrationRepository.findIntegrationsByUserId(userId);
-    }
-
-    async updateIntegrationConfig(integrationId, config) {
-        return this.integrationRepository.updateIntegrationConfig(integrationId, config);
-    }
-
-    async updateIntegrationStatus(integrationId, status) {
-        return this.integrationRepository.updateIntegrationStatus(integrationId, status);
-    }
-
-    // ==================== USER QUERIES ====================
-
-    async findUserById(userId) {
-        return this.userRepository.findIndividualUserById(userId);
-    }
-
-    async findUserByAppUserId(appUserId) {
-        return this.userRepository.findIndividualUserByAppUserId(appUserId);
-    }
-
-    async findUserByUsername(username) {
-        return this.userRepository.findIndividualUserByUsername(username);
-    }
-
-    // ==================== ENTITY QUERIES ====================
-
-    async listEntities(filter = {}) {
-        if (filter.userId) {
-            return this.moduleRepository.findEntitiesByUserId(filter.userId);
-        }
-        return this.moduleRepository.findEntity(filter);
-    }
-
-    async findEntityById(entityId) {
-        return this.moduleRepository.findEntityById(entityId);
-    }
-
-    // ==================== CREDENTIAL QUERIES ====================
-
-    async findCredential(filter) {
-        return this.credentialRepository.findCredential(filter);
-    }
-
-    async updateCredential(credentialId, updates) {
-        return this.credentialRepository.updateCredential(credentialId, updates);
     }
 
     // ==================== INTEGRATION INSTANTIATION ====================
@@ -187,13 +131,6 @@ class AdminScriptContext {
             timestamp: new Date().toISOString(),
         };
         this.logs.push(entry);
-
-        // Persist to execution record if we have an executionId
-        if (this.executionId) {
-            this.adminProcessRepository.appendProcessLog(this.executionId, entry)
-                .catch(err => console.error('Failed to persist log:', err));
-        }
-
         return entry;
     }
 

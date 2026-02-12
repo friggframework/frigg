@@ -46,101 +46,10 @@ describe('AdminScriptBase', () => {
         });
 
         it('should have clean display object without redundant fields', () => {
-            // Default display should only have UI-specific fields
             expect(AdminScriptBase.Definition.display).toBeDefined();
             expect(AdminScriptBase.Definition.display.category).toBe('maintenance');
-            // Should NOT have redundant label/description
             expect(AdminScriptBase.Definition.display.label).toBeUndefined();
             expect(AdminScriptBase.Definition.display.description).toBeUndefined();
-        });
-    });
-
-    describe('Static methods', () => {
-        it('getName() should return the script name', () => {
-            class TestScript extends AdminScriptBase {
-                static Definition = {
-                    name: 'my-script',
-                    version: '1.0.0',
-                    description: 'test',
-                };
-            }
-
-            expect(TestScript.getName()).toBe('my-script');
-        });
-
-        it('getCurrentVersion() should return the version', () => {
-            class TestScript extends AdminScriptBase {
-                static Definition = {
-                    name: 'my-script',
-                    version: '2.3.1',
-                    description: 'test',
-                };
-            }
-
-            expect(TestScript.getCurrentVersion()).toBe('2.3.1');
-        });
-
-        it('getDefinition() should return the full Definition', () => {
-            class TestScript extends AdminScriptBase {
-                static Definition = {
-                    name: 'my-script',
-                    version: '1.0.0',
-                    description: 'test',
-                    source: 'USER_DEFINED',
-                };
-            }
-
-            const definition = TestScript.getDefinition();
-            expect(definition).toEqual({
-                name: 'my-script',
-                version: '1.0.0',
-                description: 'test',
-                source: 'USER_DEFINED',
-            });
-        });
-
-        it('getDisplayLabel() should return display.label or fall back to name', () => {
-            class ScriptWithLabel extends AdminScriptBase {
-                static Definition = {
-                    name: 'my-script',
-                    version: '1.0.0',
-                    description: 'test',
-                    display: { label: 'My Custom Label' },
-                };
-            }
-
-            class ScriptWithoutLabel extends AdminScriptBase {
-                static Definition = {
-                    name: 'another-script',
-                    version: '1.0.0',
-                    description: 'test',
-                };
-            }
-
-            expect(ScriptWithLabel.getDisplayLabel()).toBe('My Custom Label');
-            expect(ScriptWithoutLabel.getDisplayLabel()).toBe('another-script');
-        });
-
-        it('getDisplayDescription() should return display.description or fall back to description', () => {
-            class ScriptWithDisplayDesc extends AdminScriptBase {
-                static Definition = {
-                    name: 'my-script',
-                    version: '1.0.0',
-                    description: 'Technical description',
-                    display: { description: 'User-friendly description' },
-                };
-            }
-
-            class ScriptWithoutDisplayDesc extends AdminScriptBase {
-                static Definition = {
-                    name: 'another-script',
-                    version: '1.0.0',
-                    description: 'Technical description',
-                };
-            }
-
-            expect(ScriptWithDisplayDesc.getDisplayDescription()).toBe('User-friendly description');
-            expect(ScriptWithoutDisplayDesc.getDisplayDescription()).toBe('Technical description');
         });
     });
 

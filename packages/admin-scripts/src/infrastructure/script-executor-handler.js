@@ -18,6 +18,10 @@ async function handler(event) {
             ({ scriptName } = message);
             const { executionId, trigger, params } = message;
 
+            if (!scriptName || !executionId) {
+                throw new Error(`Invalid SQS message: missing scriptName or executionId`);
+            }
+
             console.log(`Processing script: ${scriptName}, executionId: ${executionId}`);
 
             const runner = createScriptRunner();
