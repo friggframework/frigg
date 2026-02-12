@@ -42,7 +42,9 @@ class Module extends Delegate {
         const apiParams = {
             ...this.definition.env,
             delegate: this,
-            ...(this.credential?.data ? this.apiParamsFromCredential(this.credential.data) : {}), // Handle case when credential is undefined
+            ...(this.credential?.data
+                ? this.apiParamsFromCredential(this.credential.data)
+                : {}), // Handle case when credential is undefined
             ...this.apiParamsFromEntity(this.entity),
         };
         this.api = new this.apiClass(apiParams);
@@ -103,8 +105,9 @@ class Module extends Delegate {
         const apiParams = this.apiParamsFromCredential(this.api);
 
         if (!apiParams.refresh_token && this.api.isRefreshable) {
-            console.warn(`[Module.onTokenUpdate] refresh_token missing from apiParams for module ${this.name}. ` +
-                `Existing DB value will be preserved via merge.`);
+            console.warn(
+                `[Frigg] No refresh_token in apiParams for module ${this.name}.`
+            );
         }
 
         Object.assign(credentialDetails.details, apiParams);
