@@ -6,7 +6,6 @@ const { installPackage } = require('./install-command/install-package');
 const { createIntegrationFile } = require('./install-command/integration-file');
 const { updateBackendJsFile } = require('./install-command/backend-js');
 const { commitChanges } = require('./install-command/commit-changes');
-const { logInfo, logError } = require('./install-command/logger');
 
 /**
  * @group unit

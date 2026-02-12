@@ -26,7 +26,7 @@ jest.mock('../../../install-command/validate-package', () => ({
   validatePackageExists: jest.fn(), // External: npm registry
   searchAndSelectPackage: jest.fn() // External: interactive selection
 }));
-jest.mock('@friggframework/core', () => ({
+jest.mock('@friggframework/core/utils', () => ({
   findNearestBackendPackageJson: jest.fn(),
   validateBackendPath: jest.fn()
 }));
@@ -43,7 +43,7 @@ const { installPackage } = require('../../../install-command/install-package');
 const { commitChanges } = require('../../../install-command/commit-changes');
 const { handleEnvVariables } = require('../../../install-command/environment-variables');
 const { validatePackageExists, searchAndSelectPackage } = require('../../../install-command/validate-package');
-const { findNearestBackendPackageJson, validateBackendPath } = require('@friggframework/core');
+const { findNearestBackendPackageJson, validateBackendPath } = require('@friggframework/core/utils');
 const { installCommand } = require('../../../install-command');
 const output = require('../../../utils/output');
 

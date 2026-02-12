@@ -133,12 +133,12 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
 
         return {
             id: entity.id.toString(),
-            accountId: entity.accountId,
             credential,
             userId: entity.userId?.toString(),
             name: entity.name,
             externalId: entity.externalId,
             moduleName: entity.moduleName,
+            ...(entity.data || {}),
         };
     }
 
@@ -163,12 +163,12 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
 
         return entities.map((e) => ({
             id: e.id.toString(),
-            accountId: e.accountId,
             credential: credentialMap.get(e.credentialId) || null,
             userId: e.userId?.toString(),
             name: e.name,
             externalId: e.externalId,
             moduleName: e.moduleName,
+            ...(e.data || {}),
         }));
     }
 
@@ -193,12 +193,12 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
 
         return entities.map((e) => ({
             id: e.id.toString(),
-            accountId: e.accountId,
             credential: credentialMap.get(e.credentialId) || null,
             userId: e.userId?.toString(),
             name: e.name,
             externalId: e.externalId,
             moduleName: e.moduleName,
+            ...(e.data || {}),
         }));
     }
 
@@ -227,12 +227,12 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
 
         return entities.map((e) => ({
             id: e.id.toString(),
-            accountId: e.accountId,
             credential: credentialMap.get(e.credentialId) || null,
             userId: e.userId?.toString(),
             name: e.name,
             externalId: e.externalId,
             moduleName: e.moduleName,
+            ...(e.data || {}),
         }));
     }
 
@@ -274,13 +274,12 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
 
         return {
             id: entity.id.toString(),
-            accountId: entity.accountId,
             credential,
             userId: entity.userId?.toString(),
             name: entity.name,
             externalId: entity.externalId,
             moduleName: entity.moduleName,
-            isGlobal: entity.isGlobal,
+            ...(entity.data || {}),
         };
     }
 
@@ -319,35 +318,40 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
      * @returns {Promise<Object>} Created entity object with string IDs
      */
     async createEntity(entityData) {
-        const isGlobal = entityData.isGlobal || false;
+        const {
+            user,
+            userId,
+            credential,
+            credentialId,
+            name,
+            moduleName,
+            externalId,
+            ...dynamicData
+        } = entityData;
 
         const data = {
-            userId: isGlobal ? null : this._convertId(entityData.user || entityData.userId),
-            credentialId: this._convertId(
-                entityData.credential || entityData.credentialId
-            ),
-            name: entityData.name,
-            moduleName: entityData.moduleName,
-            externalId: entityData.externalId,
-            accountId: entityData.accountId,
-            isGlobal,
+            userId: this._convertId(userId || user),
+            credentialId: this._convertId(credentialId || credential),
+            name,
+            moduleName,
+            externalId,
+            data: dynamicData,
         };
 
         const entity = await this.prisma.entity.create({
             data,
         });
 
-        const credential = await this._fetchCredential(entity.credentialId);
+        const credentialObj = await this._fetchCredential(entity.credentialId);
 
         return {
             id: entity.id.toString(),
-            accountId: entity.accountId,
-            credential,
+            credential: credentialObj,
             userId: entity.userId?.toString(),
             name: entity.name,
             externalId: entity.externalId,
             moduleName: entity.moduleName,
-            isGlobal: entity.isGlobal,
+            ...(entity.data || {}),
         };
     }
 
@@ -360,40 +364,58 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
      * @returns {Promise<Object|null>} Updated entity object with string IDs or null if not found
      */
     async updateEntity(entityId, updates) {
-        const data = {};
-        if (updates.user !== undefined)
-            data.userId = this._convertId(updates.user);
-        if (updates.userId !== undefined)
-            data.userId = this._convertId(updates.userId);
-        if (updates.credential !== undefined)
-            data.credentialId = this._convertId(updates.credential);
-        if (updates.credentialId !== undefined)
-            data.credentialId = this._convertId(updates.credentialId);
-        if (updates.name !== undefined) data.name = updates.name;
-        if (updates.moduleName !== undefined)
-            data.moduleName = updates.moduleName;
-        if (updates.externalId !== undefined)
-            data.externalId = updates.externalId;
-        if (updates.accountId !== undefined) data.accountId = updates.accountId;
+        const intId = this._convertId(entityId);
+
+        const existing = await this.prisma.entity.findUnique({
+            where: { id: intId },
+        });
+
+        if (!existing) {
+            return null;
+        }
+
+        const {
+            user,
+            userId,
+            credential,
+            credentialId,
+            name,
+            moduleName,
+            externalId,
+            ...dynamicData
+        } = updates;
+
+        const schemaUpdates = {};
+        if (user !== undefined || userId !== undefined) {
+            schemaUpdates.userId = this._convertId(userId || user);
+        }
+        if (credential !== undefined || credentialId !== undefined) {
+            schemaUpdates.credentialId = this._convertId(credentialId || credential);
+        }
+        if (name !== undefined) schemaUpdates.name = name;
+        if (moduleName !== undefined) schemaUpdates.moduleName = moduleName;
+        if (externalId !== undefined) schemaUpdates.externalId = externalId;
+
+        if (Object.keys(dynamicData).length > 0) {
+            schemaUpdates.data = { ...(existing.data || {}), ...dynamicData };
+        }
 
         try {
-            const intId = this._convertId(entityId);
-
             const entity = await this.prisma.entity.update({
                 where: { id: intId },
-                data,
+                data: schemaUpdates,
             });
 
-            const credential = await this._fetchCredential(entity.credentialId);
+            const credentialObj = await this._fetchCredential(entity.credentialId);
 
             return {
                 id: entity.id.toString(),
-                accountId: entity.accountId,
-                credential,
+                credential: credentialObj,
                 userId: entity.userId?.toString(),
                 name: entity.name,
                 externalId: entity.externalId,
                 moduleName: entity.moduleName,
+                ...(entity.data || {}),
             };
         } catch (error) {
             if (error.code === 'P2025') {

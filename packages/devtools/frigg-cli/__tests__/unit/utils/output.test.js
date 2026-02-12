@@ -90,7 +90,7 @@ describe('Output Utility', () => {
 
     it('should handle empty data', () => {
       output.table([]);
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('No data'));
+      expect(console.log).toHaveBeenCalledWith(expect.anything(), expect.stringContaining('No data to display'));
     });
 
     it('should handle specific columns', () => {
