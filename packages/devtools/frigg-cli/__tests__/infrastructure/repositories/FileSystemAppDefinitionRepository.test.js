@@ -8,7 +8,7 @@ describe('FileSystemAppDefinitionRepository', () => {
     let projectRoot;
 
     beforeEach(() => {
-        projectRoot = '/test/project';
+        projectRoot = '/test/project/backend';
 
         mockFileSystemAdapter = {
             exists: jest.fn(),

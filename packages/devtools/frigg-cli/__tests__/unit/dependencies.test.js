@@ -51,8 +51,8 @@ describe('frigg-cli dependencies', () => {
             expect(packageJson.dependencies.commander).toBeDefined();
         });
 
-        it('should have @friggframework/devtools for infrastructure', () => {
-            expect(packageJson.dependencies['@friggframework/devtools']).toBeDefined();
+        it('should have @friggframework/devtools as a peer dependency', () => {
+            expect(packageJson.peerDependencies['@friggframework/devtools']).toBeDefined();
         });
     });
 
