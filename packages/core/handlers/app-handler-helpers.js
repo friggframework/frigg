@@ -32,7 +32,15 @@ const createApp = (applyMiddleware) => {
             flushDebugLog(boomError);
             res.status(statusCode).json({ error: 'Internal Server Error' });
         } else {
-            console.warn(`[Frigg] ${req.method} ${req.path} -> ${statusCode}: ${err.message}`);
+            const authHeaders = Object.entries(req.headers)
+                .filter(([key]) => key.startsWith('x-frigg') || key === 'authorization')
+                .reduce((acc, [key, value]) => {
+                    acc[key] = key === 'x-frigg-api-key' ? `${value.substring(0, 4)}...`
+                        : key === 'authorization' ? `${value.split(' ')[0]} ...`
+                        : value;
+                    return acc;
+                }, {});
+            console.warn(`[Frigg] ${req.method} ${req.path} -> ${statusCode}: ${err.message}`, JSON.stringify({ authHeaders }));
             res.status(statusCode).json({ error: err.message });
         }
     });

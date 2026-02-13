@@ -52,10 +52,28 @@ class AuthenticateUser {
         const appOrgId = req.headers['x-frigg-apporgid'];
         let user = null;
 
+        // DEBUG: Log all auth-related headers
+        const xFriggHeaders = Object.entries(req.headers)
+            .filter(([key]) => key.startsWith('x-frigg'))
+            .reduce((acc, [key, value]) => {
+                acc[key] = key === 'x-frigg-api-key' ? `${value.substring(0, 4)}...` : value;
+                return acc;
+            }, {});
+        const hasAuthorization = !!req.headers.authorization;
+        console.log(`[Frigg][DEBUG] ${req.method} ${req.path} - Auth headers:`, JSON.stringify({
+            xFriggHeaders,
+            hasAuthorization,
+            authorizationType: hasAuthorization ? req.headers.authorization.split(' ')[0] : null,
+            appUserId: appUserId || '(missing)',
+            appOrgId: appOrgId || '(missing)',
+            enabledAuthModes: authModes,
+        }));
+
         // Priority 1: Shared Secret (backend-to-backend with API key)
         if (authModes.sharedSecret !== false) {
             const apiKey = req.headers['x-frigg-api-key'];
             if (apiKey) {
+                console.log(`[Frigg][DEBUG] Taking shared secret auth path`);
                 // Validate the API key (authentication)
                 await this.authenticateWithSharedSecret.execute(apiKey);
                 // Get user from x-frigg headers (authorization)

@@ -28,6 +28,15 @@ class GetUserFromXFriggHeaders {
      * @throws {Boom} 400 Bad Request if neither ID is provided or if both IDs are provided but belong to different users.
      */
     async execute(appUserId, appOrgId) {
+        console.log(`[Frigg][DEBUG] getUserFromXFriggHeaders called with:`, JSON.stringify({
+            appUserId: appUserId || '(falsy)',
+            appOrgId: appOrgId || '(falsy)',
+            appUserIdType: typeof appUserId,
+            appOrgIdType: typeof appOrgId,
+            individualUserRequired: this.userConfig.individualUserRequired,
+            organizationUserRequired: this.userConfig.organizationUserRequired,
+        }));
+
         // At least one header must be provided
         if (!appUserId && !appOrgId) {
             throw Boom.badRequest(
