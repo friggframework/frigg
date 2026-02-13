@@ -32,15 +32,19 @@ const createApp = (applyMiddleware) => {
             flushDebugLog(boomError);
             res.status(statusCode).json({ error: 'Internal Server Error' });
         } else {
-            const authHeaders = Object.entries(req.headers)
-                .filter(([key]) => key.startsWith('x-frigg') || key === 'authorization')
-                .reduce((acc, [key, value]) => {
-                    acc[key] = key === 'x-frigg-api-key' ? `${value.substring(0, 4)}...`
-                        : key === 'authorization' ? `${value.split(' ')[0]} ...`
-                        : value;
+            try {
+                const allHeaders = Object.entries(req.headers).reduce((acc, [key, value]) => {
+                    if (key === 'x-frigg-api-key' || key === 'authorization') {
+                        acc[key] = `${String(value).substring(0, 6)}...(redacted)`;
+                    } else {
+                        acc[key] = value;
+                    }
                     return acc;
                 }, {});
-            console.warn(`[Frigg] ${req.method} ${req.path} -> ${statusCode}: ${err.message}`, JSON.stringify({ authHeaders }));
+                console.warn(`[Frigg] ${req.method} ${req.path} -> ${statusCode}: ${err.message}`, JSON.stringify({ headers: allHeaders }));
+            } catch (logErr) {
+                console.warn(`[Frigg] ${req.method} ${req.path} -> ${statusCode}: ${err.message} (header logging failed: ${logErr.message})`);
+            }
             res.status(statusCode).json({ error: err.message });
         }
     });
