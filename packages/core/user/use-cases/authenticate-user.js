@@ -52,20 +52,19 @@ class AuthenticateUser {
         const appOrgId = req.headers['x-frigg-apporgid'];
         let user = null;
 
-        // DEBUG: Log all auth-related headers
-        const xFriggHeaders = Object.entries(req.headers)
-            .filter(([key]) => key.startsWith('x-frigg'))
-            .reduce((acc, [key, value]) => {
-                acc[key] = key === 'x-frigg-api-key' ? `${value.substring(0, 4)}...` : value;
-                return acc;
-            }, {});
-        const hasAuthorization = !!req.headers.authorization;
-        console.log(`[Frigg][DEBUG] ${req.method} ${req.path} - Auth headers:`, JSON.stringify({
-            xFriggHeaders,
-            hasAuthorization,
-            authorizationType: hasAuthorization ? req.headers.authorization.split(' ')[0] : null,
-            appUserId: appUserId || '(missing)',
-            appOrgId: appOrgId || '(missing)',
+        // DEBUG: Log ALL request headers to catch misspellings
+        const allHeaders = Object.entries(req.headers).reduce((acc, [key, value]) => {
+            if (key === 'x-frigg-api-key' || key === 'authorization') {
+                acc[key] = `${String(value).substring(0, 6)}...(redacted)`;
+            } else {
+                acc[key] = value;
+            }
+            return acc;
+        }, {});
+        console.log(`[Frigg][DEBUG] ${req.method} ${req.path} - ALL headers:`, JSON.stringify(allHeaders));
+        console.log(`[Frigg][DEBUG] Parsed auth values:`, JSON.stringify({
+            appUserId: appUserId ?? '(undefined)',
+            appOrgId: appOrgId ?? '(undefined)',
             enabledAuthModes: authModes,
         }));
 
