@@ -169,6 +169,7 @@ describe('Admin Script Router', () => {
         });
 
         it('should queue script for async execution', async () => {
+            process.env.ADMIN_SCRIPT_QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/123/test-queue';
             mockCommands.createAdminProcess.mockResolvedValue({
                 id: 'exec-456',
             });
@@ -188,11 +189,13 @@ describe('Admin Script Router', () => {
                     scriptName: 'test-script',
                     executionId: 'exec-456',
                 }),
-                process.env.ADMIN_SCRIPT_QUEUE_URL
+                'https://sqs.us-east-1.amazonaws.com/123/test-queue'
             );
+            delete process.env.ADMIN_SCRIPT_QUEUE_URL;
         });
 
         it('should default to async mode', async () => {
+            process.env.ADMIN_SCRIPT_QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/123/test-queue';
             mockCommands.createAdminProcess.mockResolvedValue({
                 id: 'exec-789',
             });
@@ -205,6 +208,21 @@ describe('Admin Script Router', () => {
 
             expect(response.status).toBe(202);
             expect(response.body.status).toBe('QUEUED');
+            delete process.env.ADMIN_SCRIPT_QUEUE_URL;
+        });
+
+        it('should return 503 when ADMIN_SCRIPT_QUEUE_URL is not set', async () => {
+            delete process.env.ADMIN_SCRIPT_QUEUE_URL;
+
+            const response = await request(app)
+                .post('/admin/scripts/test-script')
+                .send({
+                    params: { foo: 'bar' },
+                    mode: 'async',
+                });
+
+            expect(response.status).toBe(503);
+            expect(response.body.code).toBe('QUEUE_NOT_CONFIGURED');
         });
 
         it('should return 404 for non-existent script', async () => {

@@ -24,7 +24,12 @@ router.use(validateAdminApiKey);
  */
 function createScheduleUseCases() {
     const commands = createAdminScriptCommands();
-    const schedulerAdapter = createSchedulerAdapter();
+    const schedulerAdapter = createSchedulerAdapter({
+        type: process.env.SCHEDULER_PROVIDER || 'local',
+        targetLambdaArn: process.env.ADMIN_SCRIPT_EXECUTOR_LAMBDA_ARN,
+        scheduleGroupName: process.env.ADMIN_SCRIPT_SCHEDULE_GROUP,
+        roleArn: process.env.SCHEDULER_ROLE_ARN,
+    });
     const scriptFactory = getScriptFactory();
 
     return {
@@ -147,6 +152,14 @@ router.post('/scripts/:scriptName', async (req, res) => {
         }
 
         // Async execution - queue and return immediately
+        const queueUrl = process.env.ADMIN_SCRIPT_QUEUE_URL;
+        if (!queueUrl) {
+            return res.status(503).json({
+                error: 'Async execution is not configured (ADMIN_SCRIPT_QUEUE_URL not set)',
+                code: 'QUEUE_NOT_CONFIGURED',
+            });
+        }
+
         const commands = createAdminScriptCommands();
         const execution = await commands.createAdminProcess({
             scriptName,
@@ -164,7 +177,7 @@ router.post('/scripts/:scriptName', async (req, res) => {
                 trigger: 'MANUAL',
                 params,
             },
-            process.env.ADMIN_SCRIPT_QUEUE_URL
+            queueUrl
         );
 
         res.status(202).json({
