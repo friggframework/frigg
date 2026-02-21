@@ -57,7 +57,12 @@ class LocalSchedulerAdapter extends SchedulerAdapter {
     }
 
     async listSchedules() {
-        return Array.from(this.schedules.values());
+        return Array.from(this.schedules.values()).map((schedule) => ({
+            Name: `frigg-script-${schedule.scriptName}`,
+            State: schedule.enabled ? 'ENABLED' : 'DISABLED',
+            ScheduleExpression: schedule.cronExpression,
+            ScheduleExpressionTimezone: schedule.timezone,
+        }));
     }
 
     async getSchedule(scriptName) {
