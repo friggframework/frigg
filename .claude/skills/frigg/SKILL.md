@@ -1004,7 +1004,7 @@ Response (200): {
 **Trigger Database Migration**
 
 ```bash
-POST /db-migrate
+POST /admin/db-migrate
 x-frigg-admin-api-key: ${ADMIN_API_KEY}
 Content-Type: application/json
 
@@ -1018,7 +1018,7 @@ Response (202): {
   "success": true,
   "processId": "mig-1642512000-abc123",
   "state": "INITIALIZING",
-  "statusUrl": "/db-migrate/mig-1642512000-abc123",
+  "statusUrl": "/admin/db-migrate/mig-1642512000-abc123",
   "message": "Migration job queued successfully"
 }
 ```
@@ -1026,7 +1026,7 @@ Response (202): {
 **Check Migration Status**
 
 ```bash
-GET /db-migrate/status?stage=production
+GET /admin/db-migrate/status?stage=production
 x-frigg-admin-api-key: ${ADMIN_API_KEY}
 
 Response (200): {
@@ -1042,14 +1042,14 @@ Response (200): {
   "pendingMigrations": 3,
   "dbType": "postgresql",
   "stage": "production",
-  "recommendation": "Run POST /db-migrate to apply pending migrations"
+  "recommendation": "Run POST /admin/db-migrate to apply pending migrations"
 }
 ```
 
 **Get Migration Details**
 
 ```bash
-GET /db-migrate/${MIGRATION_ID}?stage=production
+GET /admin/db-migrate/${MIGRATION_ID}?stage=production
 x-frigg-admin-api-key: ${ADMIN_API_KEY}
 
 Response (200): {

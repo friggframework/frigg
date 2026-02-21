@@ -210,12 +210,12 @@ describe('LocalSchedulerAdapter', () => {
             const schedules = await adapter.listSchedules();
 
             expect(schedules).toHaveLength(3);
-            expect(schedules.map((s) => s.scriptName)).toContain('script-1');
-            expect(schedules.map((s) => s.scriptName)).toContain('script-2');
-            expect(schedules.map((s) => s.scriptName)).toContain('script-3');
+            expect(schedules.map((s) => s.Name)).toContain('frigg-script-script-1');
+            expect(schedules.map((s) => s.Name)).toContain('frigg-script-script-2');
+            expect(schedules.map((s) => s.Name)).toContain('frigg-script-script-3');
         });
 
-        it('should include all schedule properties', async () => {
+        it('should include all schedule properties in normalized format', async () => {
             await adapter.createSchedule({
                 scriptName: 'test-script',
                 cronExpression: '0 0 * * *',
@@ -226,14 +226,11 @@ describe('LocalSchedulerAdapter', () => {
             const schedules = await adapter.listSchedules();
 
             expect(schedules[0]).toMatchObject({
-                scriptName: 'test-script',
-                cronExpression: '0 0 * * *',
-                timezone: 'America/New_York',
-                input: { key: 'value' },
-                enabled: true,
+                Name: 'frigg-script-test-script',
+                State: 'ENABLED',
+                ScheduleExpression: '0 0 * * *',
+                ScheduleExpressionTimezone: 'America/New_York',
             });
-            expect(schedules[0]).toHaveProperty('createdAt');
-            expect(schedules[0]).toHaveProperty('updatedAt');
         });
     });
 

@@ -64,13 +64,12 @@ class CheckDatabaseStateUseCase {
         // Add error if present
         if (state.error) {
             response.error = state.error;
-            response.recommendation =
-                'Run POST /db-migrate to initialize database';
+            response.recommendation = 'Run POST /admin/db-migrate to initialize database';
         }
 
         // Add recommendation if migrations pending
         if (!state.upToDate && state.pendingMigrations > 0) {
-            response.recommendation = `Run POST /db-migrate to apply ${state.pendingMigrations} pending migration(s)`;
+            response.recommendation = `Run POST /admin/db-migrate to apply ${state.pendingMigrations} pending migration(s)`;
         }
 
         return response;

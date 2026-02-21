@@ -1,18 +1,21 @@
 const { QueuerUtil } = require('@friggframework/core/queues');
 
 /**
- * AdminFriggCommands
+ * AdminScriptContext - Execution environment for admin scripts
  *
- * Helper API for admin scripts. Provides:
- * - Database access via repositories
- * - Integration instantiation (optional)
- * - Logging utilities
- * - Queue operations for self-queuing pattern
+ * Provides a controlled surface area for scripts to interact with
+ * the Frigg platform. Unique capabilities vs direct repo access:
  *
- * Follows lazy-loading pattern for repositories to avoid circular dependencies
- * and unnecessary initialization.
+ * - **Admin bypass**: `instantiate()` passes `_isAdminContext: true` to
+ *   skip user-ownership checks when loading integration instances
+ * - **Script chaining**: `queueScript()` / `queueScriptBatch()` let scripts
+ *   enqueue follow-up work with parent execution tracking
+ * - **Execution-scoped logging**: `log()` collects structured entries tied
+ *   to the current execution for post-run inspection
+ * - **Lazy-loaded repositories**: Repos are exposed directly as getters
+ *   so scripts can query any data they need without wrapper indirection
  */
-class AdminFriggCommands {
+class AdminScriptContext {
     constructor(params = {}) {
         this.executionId = params.executionId || null;
         this.logs = [];
@@ -25,7 +28,6 @@ class AdminFriggCommands {
         this._userRepository = null;
         this._moduleRepository = null;
         this._credentialRepository = null;
-        this._scriptExecutionRepository = null;
     }
 
     // ==================== LAZY-LOADED REPOSITORIES ====================
@@ -62,76 +64,6 @@ class AdminFriggCommands {
         return this._credentialRepository;
     }
 
-    get scriptExecutionRepository() {
-        if (!this._scriptExecutionRepository) {
-            const { createScriptExecutionRepository } = require('@friggframework/core/admin-scripts/repositories/script-execution-repository-factory');
-            this._scriptExecutionRepository = createScriptExecutionRepository();
-        }
-        return this._scriptExecutionRepository;
-    }
-
-    // ==================== INTEGRATION QUERIES ====================
-
-    async listIntegrations(filter = {}) {
-        if (filter.userId) {
-            return this.integrationRepository.findIntegrationsByUserId(filter.userId);
-        }
-        return this.integrationRepository.findIntegrations(filter);
-    }
-
-    async findIntegrationById(id) {
-        return this.integrationRepository.findIntegrationById(id);
-    }
-
-    async findIntegrationsByUserId(userId) {
-        return this.integrationRepository.findIntegrationsByUserId(userId);
-    }
-
-    async updateIntegrationConfig(integrationId, config) {
-        return this.integrationRepository.updateIntegrationConfig(integrationId, config);
-    }
-
-    async updateIntegrationStatus(integrationId, status) {
-        return this.integrationRepository.updateIntegrationStatus(integrationId, status);
-    }
-
-    // ==================== USER QUERIES ====================
-
-    async findUserById(userId) {
-        return this.userRepository.findIndividualUserById(userId);
-    }
-
-    async findUserByAppUserId(appUserId) {
-        return this.userRepository.findIndividualUserByAppUserId(appUserId);
-    }
-
-    async findUserByUsername(username) {
-        return this.userRepository.findIndividualUserByUsername(username);
-    }
-
-    // ==================== ENTITY QUERIES ====================
-
-    async listEntities(filter = {}) {
-        if (filter.userId) {
-            return this.moduleRepository.findEntitiesByUserId(filter.userId);
-        }
-        return this.moduleRepository.findEntity(filter);
-    }
-
-    async findEntityById(entityId) {
-        return this.moduleRepository.findEntityById(entityId);
-    }
-
-    // ==================== CREDENTIAL QUERIES ====================
-
-    async findCredential(filter) {
-        return this.credentialRepository.findCredential(filter);
-    }
-
-    async updateCredential(credentialId, updates) {
-        return this.credentialRepository.updateCredential(credentialId, updates);
-    }
-
     // ==================== INTEGRATION INSTANTIATION ====================
 
     /**
@@ -142,7 +74,7 @@ class AdminFriggCommands {
         if (!this.integrationFactory) {
             throw new Error(
                 'instantiate() requires integrationFactory. ' +
-                'Set Definition.config.requiresIntegrationFactory = true'
+                'Set Definition.config.requireIntegrationInstance = true'
             );
         }
         return this.integrationFactory.getInstanceFromIntegrationId({
@@ -151,12 +83,8 @@ class AdminFriggCommands {
         });
     }
 
-    // ==================== QUEUE OPERATIONS (Self-Queuing Pattern) ====================
+    // ==================== QUEUE OPERATIONS ====================
 
-    /**
-     * Queue a script for execution
-     * Used for self-queuing pattern with long-running scripts
-     */
     async queueScript(scriptName, params = {}) {
         const queueUrl = process.env.ADMIN_SCRIPT_QUEUE_URL;
         if (!queueUrl) {
@@ -176,9 +104,6 @@ class AdminFriggCommands {
         this.log('info', `Queued continuation for ${scriptName}`, { params });
     }
 
-    /**
-     * Queue multiple scripts in a batch
-     */
     async queueScriptBatch(entries) {
         const queueUrl = process.env.ADMIN_SCRIPT_QUEUE_URL;
         if (!queueUrl) {
@@ -206,13 +131,6 @@ class AdminFriggCommands {
             timestamp: new Date().toISOString(),
         };
         this.logs.push(entry);
-
-        // Persist to execution record if we have an executionId
-        if (this.executionId) {
-            this.scriptExecutionRepository.appendExecutionLog(this.executionId, entry)
-                .catch(err => console.error('Failed to persist log:', err));
-        }
-
         return entry;
     }
 
@@ -230,13 +148,20 @@ class AdminFriggCommands {
 }
 
 /**
- * Create AdminFriggCommands instance
+ * Create AdminScriptContext instance
  */
-function createAdminFriggCommands(params = {}) {
-    return new AdminFriggCommands(params);
+function createAdminScriptContext(params = {}) {
+    return new AdminScriptContext(params);
 }
 
+// Legacy aliases for backwards compatibility
+const AdminFriggCommands = AdminScriptContext;
+const createAdminFriggCommands = createAdminScriptContext;
+
 module.exports = {
+    AdminScriptContext,
+    createAdminScriptContext,
+    // Legacy exports (deprecated)
     AdminFriggCommands,
     createAdminFriggCommands,
 };

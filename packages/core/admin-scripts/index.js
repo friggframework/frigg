@@ -9,32 +9,23 @@
  * - Enable dependency injection
  * - Allow testing with mocks
  * - Support multiple database implementations
+ *
+ * Authentication:
+ * - Uses ENV-based ADMIN_API_KEY (see handlers/middleware/admin-auth.js)
+ * - No database-backed API keys (simplified from original design)
  */
 
 // Repository Interfaces
-const {
-    AdminApiKeyRepositoryInterface,
-} = require('./repositories/admin-api-key-repository-interface');
-const {
-    ScriptExecutionRepositoryInterface,
-} = require('./repositories/script-execution-repository-interface');
-const {
-    ScriptScheduleRepositoryInterface,
-} = require('./repositories/script-schedule-repository-interface');
+const { AdminProcessRepositoryInterface } = require('./repositories/admin-process-repository-interface');
+const { ScriptScheduleRepositoryInterface } = require('./repositories/script-schedule-repository-interface');
 
 // Repository Factories
 const {
-    createAdminApiKeyRepository,
-    AdminApiKeyRepositoryMongo,
-    AdminApiKeyRepositoryPostgres,
-    AdminApiKeyRepositoryDocumentDB,
-} = require('./repositories/admin-api-key-repository-factory');
-const {
-    createScriptExecutionRepository,
-    ScriptExecutionRepositoryMongo,
-    ScriptExecutionRepositoryPostgres,
-    ScriptExecutionRepositoryDocumentDB,
-} = require('./repositories/script-execution-repository-factory');
+    createAdminProcessRepository,
+    AdminProcessRepositoryMongo,
+    AdminProcessRepositoryPostgres,
+    AdminProcessRepositoryDocumentDB,
+} = require('./repositories/admin-process-repository-factory');
 const {
     createScriptScheduleRepository,
     ScriptScheduleRepositoryMongo,
@@ -44,22 +35,17 @@ const {
 
 module.exports = {
     // Repository Interfaces
-    AdminApiKeyRepositoryInterface,
-    ScriptExecutionRepositoryInterface,
+    AdminProcessRepositoryInterface,
     ScriptScheduleRepositoryInterface,
 
     // Repository Factories (primary exports for use cases)
-    createAdminApiKeyRepository,
-    createScriptExecutionRepository,
+    createAdminProcessRepository,
     createScriptScheduleRepository,
 
     // Concrete Implementations (for testing)
-    AdminApiKeyRepositoryMongo,
-    AdminApiKeyRepositoryPostgres,
-    AdminApiKeyRepositoryDocumentDB,
-    ScriptExecutionRepositoryMongo,
-    ScriptExecutionRepositoryPostgres,
-    ScriptExecutionRepositoryDocumentDB,
+    AdminProcessRepositoryMongo,
+    AdminProcessRepositoryPostgres,
+    AdminProcessRepositoryDocumentDB,
     ScriptScheduleRepositoryMongo,
     ScriptScheduleRepositoryPostgres,
     ScriptScheduleRepositoryDocumentDB,

@@ -50,7 +50,7 @@ describe('Database Migration Router - Adapter Layer', () => {
         // Test will pass if handler doesn't crash when dbType is omitted from request
     });
 
-    describe('GET /db-migrate/status endpoint', () => {
+    describe('GET /admin/db-migrate/status endpoint', () => {
         it('should have status endpoint registered', () => {
             const router = require('./db-migration').router;
             const routes = router.stack
@@ -61,7 +61,7 @@ describe('Database Migration Router - Adapter Layer', () => {
                 }));
 
             const statusRoute = routes.find(
-                (r) => r.path === '/db-migrate/status'
+                (r) => r.path === '/admin/db-migrate/status'
             );
             expect(statusRoute).toBeDefined();
             expect(statusRoute.methods).toContain('get');

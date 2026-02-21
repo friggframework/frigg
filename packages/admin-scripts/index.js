@@ -8,11 +8,17 @@
 // Application Services
 const { ScriptFactory, getScriptFactory, createScriptFactory } = require('./src/application/script-factory');
 const { AdminScriptBase } = require('./src/application/admin-script-base');
-const { AdminFriggCommands, createAdminFriggCommands } = require('./src/application/admin-frigg-commands');
+const {
+    AdminScriptContext,
+    createAdminScriptContext,
+    // Legacy aliases (deprecated)
+    AdminFriggCommands,
+    createAdminFriggCommands,
+} = require('./src/application/admin-frigg-commands');
 const { ScriptRunner, createScriptRunner } = require('./src/application/script-runner');
 
 // Infrastructure
-const { adminAuthMiddleware } = require('./src/infrastructure/admin-auth-middleware');
+const { validateAdminApiKey } = require('./src/infrastructure/admin-auth-middleware');
 const { router, app, handler: routerHandler } = require('./src/infrastructure/admin-script-router');
 const { handler: executorHandler } = require('./src/infrastructure/script-executor-handler');
 
@@ -30,7 +36,6 @@ const { AWSSchedulerAdapter } = require('./src/adapters/aws-scheduler-adapter');
 const { LocalSchedulerAdapter } = require('./src/adapters/local-scheduler-adapter');
 const {
     createSchedulerAdapter,
-    detectSchedulerAdapterType,
 } = require('./src/adapters/scheduler-adapter-factory');
 
 module.exports = {
@@ -39,13 +44,16 @@ module.exports = {
     ScriptFactory,
     getScriptFactory,
     createScriptFactory,
+    AdminScriptContext,
+    createAdminScriptContext,
+    // Legacy aliases (deprecated)
     AdminFriggCommands,
     createAdminFriggCommands,
     ScriptRunner,
     createScriptRunner,
 
     // Infrastructure layer
-    adminAuthMiddleware,
+    validateAdminApiKey,
     router,
     app,
     routerHandler,
@@ -62,5 +70,4 @@ module.exports = {
     AWSSchedulerAdapter,
     LocalSchedulerAdapter,
     createSchedulerAdapter,
-    detectSchedulerAdapterType,
 };

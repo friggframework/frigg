@@ -54,7 +54,7 @@ class IntegrationHealthCheckScript extends AdminScriptBase {
         config: {
             timeout: 900000, // 15 minutes
             maxRetries: 0,
-            requiresIntegrationFactory: true,
+            requireIntegrationInstance: true,
         },
 
         schedule: {
@@ -62,14 +62,13 @@ class IntegrationHealthCheckScript extends AdminScriptBase {
             cronExpression: 'cron(0 6 * * ? *)', // Daily at 6 AM UTC
         },
 
+        // UI-specific overrides
         display: {
-            label: 'Integration Health Check',
-            description: 'Check health and connectivity of integrations',
             category: 'maintenance',
         },
     };
 
-    async execute(frigg, params = {}) {
+    async execute(params = {}) {
         const {
             integrationIds = null,
             checkCredentials = true,
@@ -84,7 +83,7 @@ class IntegrationHealthCheckScript extends AdminScriptBase {
             results: []
         };
 
-        frigg.log('info', 'Starting integration health check', {
+        this.context.log('info', 'Starting integration health check', {
             checkCredentials,
             checkConnectivity,
             updateStatus,
@@ -95,17 +94,17 @@ class IntegrationHealthCheckScript extends AdminScriptBase {
         let integrations;
         if (integrationIds && integrationIds.length > 0) {
             integrations = await Promise.all(
-                integrationIds.map(id => frigg.findIntegrationById(id).catch(() => null))
+                integrationIds.map(id => this.context.integrationRepository.findIntegrationById(id).catch(() => null))
             );
             integrations = integrations.filter(Boolean);
         } else {
-            integrations = await this.getAllIntegrations(frigg);
+            integrations = await this.getAllIntegrations();
         }
 
-        frigg.log('info', `Checking ${integrations.length} integrations`);
+        this.context.log('info', `Checking ${integrations.length} integrations`);
 
         for (const integration of integrations) {
-            const result = await this.checkIntegration(frigg, integration, {
+            const result = await this.checkIntegration(integration, {
                 checkCredentials,
                 checkConnectivity
             });
@@ -124,17 +123,17 @@ class IntegrationHealthCheckScript extends AdminScriptBase {
             if (updateStatus && result.status !== 'unknown') {
                 try {
                     const newStatus = result.status === 'healthy' ? 'ACTIVE' : 'ERROR';
-                    await frigg.updateIntegrationStatus(integration.id, newStatus);
-                    frigg.log('info', `Updated status for ${integration.id} to ${newStatus}`);
+                    await this.context.integrationRepository.updateIntegrationStatus(integration.id, newStatus);
+                    this.context.log('info', `Updated status for ${integration.id} to ${newStatus}`);
                 } catch (error) {
-                    frigg.log('warn', `Failed to update status for ${integration.id}`, {
+                    this.context.log('warn', `Failed to update status for ${integration.id}`, {
                         error: error.message
                     });
                 }
             }
         }
 
-        frigg.log('info', 'Health check completed', {
+        this.context.log('info', 'Health check completed', {
             healthy: summary.healthy,
             unhealthy: summary.unhealthy,
             unknown: summary.unknown
@@ -143,19 +142,19 @@ class IntegrationHealthCheckScript extends AdminScriptBase {
         return summary;
     }
 
-    async getAllIntegrations(frigg) {
-        return frigg.listIntegrations({});
+    async getAllIntegrations() {
+        return this.context.integrationRepository.findIntegrations({});
     }
 
-    async checkIntegration(frigg, integration, options) {
+    async checkIntegration(integration, options) {
         const { checkCredentials, checkConnectivity } = options;
         const result = this._createCheckResult(integration);
 
         try {
-            await this._runChecks(frigg, integration, result, { checkCredentials, checkConnectivity });
+            await this._runChecks(integration, result, { checkCredentials, checkConnectivity });
             this._determineOverallStatus(result);
         } catch (error) {
-            this._handleCheckError(frigg, integration, result, error);
+            this._handleCheckError(integration, result, error);
         }
 
         return result;
@@ -179,7 +178,7 @@ class IntegrationHealthCheckScript extends AdminScriptBase {
      * Run all requested checks
      * @private
      */
-    async _runChecks(frigg, integration, result, options) {
+    async _runChecks(integration, result, options) {
         const { checkCredentials, checkConnectivity } = options;
 
         if (checkCredentials) {
@@ -187,7 +186,7 @@ class IntegrationHealthCheckScript extends AdminScriptBase {
         }
 
         if (checkConnectivity) {
-            this._addCheckResult(result, 'connectivity', await this.checkApiConnectivity(frigg, integration));
+            this._addCheckResult(result, 'connectivity', await this.checkApiConnectivity(integration));
         }
     }
 
@@ -214,8 +213,8 @@ class IntegrationHealthCheckScript extends AdminScriptBase {
      * Handle check error and update result
      * @private
      */
-    _handleCheckError(frigg, integration, result, error) {
-        frigg.log('error', `Error checking integration ${integration.id}`, {
+    _handleCheckError(integration, result, error) {
+        this.context.log('error', `Error checking integration ${integration.id}`, {
             error: error.message
         });
         result.status = 'unknown';
@@ -246,12 +245,12 @@ class IntegrationHealthCheckScript extends AdminScriptBase {
         return result;
     }
 
-    async checkApiConnectivity(frigg, integration) {
+    async checkApiConnectivity(integration) {
         const result = { valid: true, issue: null, responseTime: null };
 
         try {
             const startTime = Date.now();
-            const instance = await frigg.instantiate(integration.id);
+            const instance = await this.context.instantiate(integration.id);
 
             // Try to make a simple API call
             if (instance.primary?.api?.getAuthenticationInfo) {

@@ -23,11 +23,11 @@ describe('ScriptRunner', () => {
             config: {
                 timeout: 300000,
                 maxRetries: 0,
-                requiresIntegrationFactory: false,
+                requireIntegrationInstance: false,
             },
         };
 
-        async execute(frigg, params) {
+        async execute(params) {
             return { success: true, params };
         }
     }
@@ -36,9 +36,9 @@ describe('ScriptRunner', () => {
         scriptFactory = new ScriptFactory([TestScript]);
 
         mockCommands = {
-            createScriptExecution: jest.fn(),
-            updateScriptExecutionStatus: jest.fn(),
-            completeScriptExecution: jest.fn(),
+            createAdminProcess: jest.fn(),
+            updateAdminProcessState: jest.fn(),
+            completeAdminProcess: jest.fn(),
         };
 
         mockFrigg = {
@@ -49,11 +49,11 @@ describe('ScriptRunner', () => {
         createAdminScriptCommands.mockReturnValue(mockCommands);
         createAdminFriggCommands.mockReturnValue(mockFrigg);
 
-        mockCommands.createScriptExecution.mockResolvedValue({
+        mockCommands.createAdminProcess.mockResolvedValue({
             id: 'exec-123',
         });
-        mockCommands.updateScriptExecutionStatus.mockResolvedValue({});
-        mockCommands.completeScriptExecution.mockResolvedValue({ success: true });
+        mockCommands.updateAdminProcessState.mockResolvedValue({});
+        mockCommands.completeAdminProcess.mockResolvedValue({ success: true });
     });
 
     afterEach(() => {
@@ -76,7 +76,7 @@ describe('ScriptRunner', () => {
             expect(result.executionId).toBe('exec-123');
             expect(result.metrics.durationMs).toBeGreaterThanOrEqual(0);
 
-            expect(mockCommands.createScriptExecution).toHaveBeenCalledWith({
+            expect(mockCommands.createAdminProcess).toHaveBeenCalledWith({
                 scriptName: 'test-script',
                 scriptVersion: '1.0.0',
                 trigger: 'MANUAL',
@@ -85,21 +85,37 @@ describe('ScriptRunner', () => {
                 audit: { apiKeyName: 'test-key' },
             });
 
-            expect(mockCommands.updateScriptExecutionStatus).toHaveBeenCalledWith(
+            expect(mockCommands.updateAdminProcessState).toHaveBeenCalledWith(
                 'exec-123',
                 'RUNNING'
             );
 
-            expect(mockCommands.completeScriptExecution).toHaveBeenCalledWith(
+            expect(mockCommands.completeAdminProcess).toHaveBeenCalledWith(
                 'exec-123',
                 expect.objectContaining({
-                    status: 'COMPLETED',
+                    state: 'COMPLETED',
                     output: { success: true, params: { foo: 'bar' } },
                     metrics: expect.objectContaining({
                         durationMs: expect.any(Number),
                     }),
                 })
             );
+        });
+
+        it('should throw error if trigger is not provided', async () => {
+            const runner = new ScriptRunner({ scriptFactory, commands: mockCommands });
+
+            await expect(
+                runner.execute('test-script', { foo: 'bar' }, {})
+            ).rejects.toThrow('options.trigger is required');
+        });
+
+        it('should throw error if options are omitted entirely', async () => {
+            const runner = new ScriptRunner({ scriptFactory, commands: mockCommands });
+
+            await expect(
+                runner.execute('test-script', { foo: 'bar' })
+            ).rejects.toThrow('options.trigger is required');
         });
 
         it('should handle script execution failure', async () => {
@@ -128,10 +144,10 @@ describe('ScriptRunner', () => {
             expect(result.scriptName).toBe('failing-script');
             expect(result.error.message).toBe('Script failed');
 
-            expect(mockCommands.completeScriptExecution).toHaveBeenCalledWith(
+            expect(mockCommands.completeAdminProcess).toHaveBeenCalledWith(
                 'exec-123',
                 expect.objectContaining({
-                    status: 'FAILED',
+                    state: 'FAILED',
                     error: expect.objectContaining({
                         message: 'Script failed',
                     }),
@@ -146,7 +162,7 @@ describe('ScriptRunner', () => {
                     version: '1.0.0',
                     description: 'Integration script',
                     config: {
-                        requiresIntegrationFactory: true,
+                        requireIntegrationInstance: true,
                     },
                 };
 
@@ -178,8 +194,8 @@ describe('ScriptRunner', () => {
             });
 
             expect(result.executionId).toBe('existing-exec-456');
-            expect(mockCommands.createScriptExecution).not.toHaveBeenCalled();
-            expect(mockCommands.updateScriptExecutionStatus).toHaveBeenCalledWith(
+            expect(mockCommands.createAdminProcess).not.toHaveBeenCalled();
+            expect(mockCommands.updateAdminProcessState).toHaveBeenCalledWith(
                 'existing-exec-456',
                 'RUNNING'
             );

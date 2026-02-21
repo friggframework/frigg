@@ -59,8 +59,19 @@ class MyScript extends AdminScriptBase {
         schedule: { enabled: true, cronExpression: 'cron(0 12 * * ? *)' },
     };
 
+    /**
+     * @param {AdminFriggCommands} frigg - Helper object providing:
+     *   - Repository access: listIntegrations(), findUserById(), findCredential(), etc.
+     *   - Logging: log(level, message, data) - persists to execution record
+     *   - Queue operations: queueScript(), queueScriptBatch() - for self-queuing pattern
+     *   - Integration instantiation: instantiate(integrationId) - requires config.requireIntegrationInstance
+     * @param {Object} params - Script parameters (validated against inputSchema if provided)
+     * @returns {Promise<Object>} - Script results (validated against outputSchema if provided)
+     */
     async execute(frigg, params) {
-        // frigg provides: log(), getIntegrations(), getCredentials(), etc.
+        // Example usage:
+        // const integrations = await frigg.listIntegrations({ userId: params.userId });
+        // frigg.log('info', 'Processing integrations', { count: integrations.length });
         return { success: true };
     }
 }
