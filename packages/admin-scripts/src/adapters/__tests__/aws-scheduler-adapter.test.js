@@ -206,6 +206,43 @@ describe('AWSSchedulerAdapter', () => {
             const command = mockSend.mock.calls[0][0];
             expect(command.params.FlexibleTimeWindow).toEqual({ Mode: 'OFF' });
         });
+
+        it('should fall back to UpdateScheduleCommand on ConflictException', async () => {
+            const conflictError = new Error('Schedule already exists');
+            conflictError.name = 'ConflictException';
+
+            mockSend
+                .mockRejectedValueOnce(conflictError)
+                .mockResolvedValueOnce({
+                    ScheduleArn: 'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
+                });
+
+            const result = await adapter.createSchedule({
+                scriptName: 'test-script',
+                cronExpression: 'cron(0 0 * * ? *)',
+            });
+
+            expect(result).toEqual({
+                scheduleArn: 'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
+                scheduleName: 'frigg-script-test-script',
+            });
+
+            expect(mockSend).toHaveBeenCalledTimes(2);
+            expect(mockSend.mock.calls[0][0]._type).toBe('CreateScheduleCommand');
+            expect(mockSend.mock.calls[1][0]._type).toBe('UpdateScheduleCommand');
+        });
+
+        it('should rethrow non-conflict errors', async () => {
+            const otherError = new Error('Access denied');
+            otherError.name = 'AccessDeniedException';
+
+            mockSend.mockRejectedValue(otherError);
+
+            await expect(adapter.createSchedule({
+                scriptName: 'test-script',
+                cronExpression: 'cron(0 0 * * ? *)',
+            })).rejects.toThrow('Access denied');
+        });
     });
 
     describe('deleteSchedule()', () => {

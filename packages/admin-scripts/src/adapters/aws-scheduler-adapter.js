@@ -60,7 +60,7 @@ class AWSSchedulerAdapter extends SchedulerAdapter {
         const client = this.getSchedulerClient();
         const scheduleName = `frigg-script-${scriptName}`;
 
-        const command = new CreateScheduleCommand({
+        const scheduleParams = {
             Name: scheduleName,
             GroupName: this.scheduleGroupName,
             ScheduleExpression: cronExpression,
@@ -76,13 +76,24 @@ class AWSSchedulerAdapter extends SchedulerAdapter {
                 }),
             },
             State: 'ENABLED',
-        });
-
-        const response = await client.send(command);
-        return {
-            scheduleArn: response.ScheduleArn,
-            scheduleName: scheduleName,
         };
+
+        try {
+            const response = await client.send(new CreateScheduleCommand(scheduleParams));
+            return {
+                scheduleArn: response.ScheduleArn,
+                scheduleName: scheduleName,
+            };
+        } catch (error) {
+            if (error.name === 'ConflictException') {
+                const response = await client.send(new UpdateScheduleCommand(scheduleParams));
+                return {
+                    scheduleArn: response.ScheduleArn,
+                    scheduleName: scheduleName,
+                };
+            }
+            throw error;
+        }
     }
 
     async deleteSchedule(scriptName) {
