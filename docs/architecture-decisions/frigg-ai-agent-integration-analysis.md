@@ -110,10 +110,13 @@ All major AI coding agents now support MCP as the standard protocol for tool dis
 └─────────────────────────────────┘
 ```
 
-MCP servers expose three primitives:
+MCP servers expose four primitives:
 1. **Tools** -- Functions the agent can call (e.g., `hubspot_create_contact`)
 2. **Resources** -- Data the agent can read (e.g., `frigg://integrations/active`)
 3. **Prompts** -- Templates for common operations (e.g., "set up a CRM sync")
+4. **Tasks** (Nov 2025 spec) -- Long-running async operations with progress updates and completion handles. This maps directly to Frigg's two-stage webhook processing and SQS job queue patterns.
+
+The November 2025 MCP spec also added OAuth 2.1 authorization with Protected Resource Metadata discovery -- aligning well with Frigg's existing OAuth2 standardization across modules.
 
 ---
 
@@ -299,14 +302,25 @@ Records tool calls with context:
 
 **Recommended: [Vectra](https://github.com/Stevenic/vectra)** -- A local vector database for Node.js
 
-Why Vectra over alternatives:
-- Pure Node.js, no external dependencies
-- File-system based (persists to disk)
-- Supports cosine similarity search
-- Lightweight enough for local use
-- No Docker or external service required
+**Recommended options by context:**
 
-> Note: "ruvector" does not appear to be an established product. The closest matches are **RediSearch** (vector search in Redis) or **Qdrant** (Rust-based vector DB). For Frigg's local-first requirement, Vectra is the best fit. For production cloud deployment, Qdrant or Pinecone would be alternatives.
+**[RuVector](https://github.com/ruvnet/ruvector)** -- A Rust-based distributed vector database with self-learning capabilities:
+- Available via `npm install ruvector`
+- Self-learning GNN (Graph Neural Network) index that improves search quality over time
+- Runs natively, as WASM (browser/edge), or as a PostgreSQL extension (drop-in pgvector replacement)
+- 61 microsecond p50 latency for k=10 search on 384-dimension vectors
+- Tiered quantization for 2-32x memory compression
+- Built-in AI agent memory with semantic recall (HNSW indexed)
+- Best for: production deployments, especially when upgrading to cloud
+
+**[Vectra](https://github.com/Stevenic/vectra)** -- A lightweight local vector database for Node.js:
+- Pure Node.js, no external dependencies
+- File-system based (persists to disk, loaded into memory at query time)
+- Supports cosine similarity search + optional BM25 keyword retrieval
+- Portable on-disk format
+- Best for: local-first prototyping, zero-config development
+
+**Recommended approach:** Use Vectra for local development (zero-config), RuVector for production (self-learning, scales with pgvector compatibility). Both have npm packages and require no Docker.
 
 ```javascript
 const { LocalIndex } = require('vectra');
@@ -586,6 +600,17 @@ The `packages/schemas/` package has `api-module-definition.schema.json` which de
 
 ### Proposed: Multi-Layer Documentation
 
+Four complementary formats exist for making APIs consumable by AI agents:
+
+| Format | Purpose | Best For |
+|---|---|---|
+| **OpenAPI 3.1** | Full API specification with JSON Schema validation | Structured endpoint discovery and invocation |
+| **llms.txt** | Token-efficient markdown (90%+ reduction vs HTML) | AI documentation discovery |
+| **agents.json** | Multi-step workflow definitions built on OpenAPI | Agentic workflow orchestration |
+| **MCP Tool Defs** | Runtime tool discovery via JSON-RPC | Dynamic tool use by AI agents |
+
+Frigg should implement all four layers, each building on the previous:
+
 #### Layer 1: `llms.txt` (Framework Level)
 
 Place at repository root and published docs site:
@@ -693,7 +718,39 @@ function generateOpenApiSpec(moduleManifest) {
 }
 ```
 
-#### Layer 4: MCP Tool Definitions (Auto-Generated)
+#### Layer 4: `agents.json` (Multi-Step Workflow Definitions)
+
+The [agents.json specification](https://github.com/wild-card-ai/agents-json) extends OpenAPI to enable multi-step workflow execution. While OpenAPI describes individual endpoints, agents.json lets AI agents execute accurate series of API calls as workflows:
+
+```json
+{
+    "flows": {
+        "sync_crm_contacts_to_slack": {
+            "description": "Fetch CRM contacts and post summary to Slack channel",
+            "steps": [
+                {
+                    "id": "get_contacts",
+                    "operationId": "hubspot_contacts_list",
+                    "parameters": { "limit": 100, "properties": ["email", "company"] }
+                },
+                {
+                    "id": "post_summary",
+                    "operationId": "slack_chat_postMessage",
+                    "parameters": {
+                        "channel": "$input.slack_channel",
+                        "text": "Found ${get_contacts.results.length} contacts"
+                    },
+                    "dependsOn": ["get_contacts"]
+                }
+            ]
+        }
+    }
+}
+```
+
+This is particularly relevant for Frigg's recommendation engine -- detected patterns can be exported as agents.json workflows, which then become the basis for hardened integrations.
+
+#### Layer 5: MCP Tool Definitions (Auto-Generated)
 
 The MCP server reads module manifests and generates MCP tool definitions at startup:
 
@@ -862,8 +919,9 @@ The [LeftHook blog post](https://lefthook.com/blog/mcp-servers-every-product-com
    - Configurable (let users choose) -- recommended approach
 
 2. **Vector store for production?** Vectra works locally but may not scale for cloud deployment. Consider:
-   - Vectra for local, Qdrant/Pinecone for cloud
-   - Or use PostgreSQL `pgvector` extension (already have Postgres)
+   - Vectra for local development (zero-config, file-based)
+   - RuVector for production (self-learning GNN, available as pgvector-compatible PostgreSQL extension)
+   - pgvector directly if keeping dependencies minimal (already have Postgres)
 
 3. **Module manifest authoring?** Who writes `frigg-module.json` files for the 40+ existing modules?
    - Option A: AI-assisted generation from existing source code
@@ -915,18 +973,23 @@ The [LeftHook blog post](https://lefthook.com/blog/mcp-servers-every-product-com
 |---|---|---|
 | MCP SDK | `@modelcontextprotocol/sdk` | Official SDK, TypeScript, well-maintained |
 | Vector store (local) | Vectra | Pure Node.js, file-system based, no deps |
-| Vector store (cloud) | pgvector (PostgreSQL) | Already using Postgres, no new service |
+| Vector store (production) | RuVector | Self-learning GNN, npm package, pgvector-compatible |
+| Vector store (cloud alt) | pgvector (PostgreSQL) | Already using Postgres, no new service |
 | Local queue | BullMQ (Redis) or in-process EventEmitter | BullMQ for Docker mode, EventEmitter for standalone |
 | Local scheduler | node-cron | Lightweight, no external deps |
 | Webhook tunnel | cloudflared | Free, reliable, no account required for quick tunnels |
 | Embedding model | `@xenova/transformers` (local) or Claude API | Local for privacy, Claude for quality |
 | Module doc format | JSON (`frigg-module.json`) | Machine-readable, easy to validate, MCP-compatible |
+| Workflow format | agents.json | Multi-step workflows on top of OpenAPI, agentic-native |
 
 ## Appendix C: Related Resources
 
-- [MCP Specification](https://spec.modelcontextprotocol.io/) -- Protocol documentation
-- [OpenClaw GitHub](https://github.com/anthropics/openclaw) -- AI agent with MCP support
+- [MCP Specification (Nov 2025)](https://modelcontextprotocol.io/specification/2025-11-25) -- Protocol documentation
+- [OpenClaw](https://openclaw.ai/) -- Open-source AI agent with MCP support
 - [LeftHook: 6 MCP Servers](https://lefthook.com/blog/mcp-servers-every-product-company-needs) -- Product company MCP strategy
+- [RuVector](https://github.com/ruvnet/ruvector) -- Self-learning distributed vector database (npm + Rust)
 - [Vectra](https://github.com/Stevenic/vectra) -- Local vector database for Node.js
+- [agents.json](https://github.com/wild-card-ai/agents-json) -- Multi-step workflow spec for AI agents
+- [llms.txt specification](https://buildwithfern.com/post/optimizing-api-docs-ai-agents-llms-txt-guide) -- AI-optimized documentation format
 - [Frigg Framework Docs](https://docs.friggframework.org) -- Official documentation
 - [Frigg API Module Library](https://github.com/friggframework/api-module-library) -- Pre-built modules
