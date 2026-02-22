@@ -340,6 +340,76 @@ Key design principle: **every cloud service has a local equivalent**.
 | KMS encryption | AES encryption (local key) | Same Cryptor interface |
 | Postgres (RDS) | SQLite or local Postgres | Same Prisma schema |
 
+#### Frigg Is Already 99% Standalone
+
+A codebase audit of Frigg's handler layer reveals that **almost everything is already pure Express/Node.js**. The Lambda coupling is limited to a single adapter function. Here's the current architecture:
+
+```
+                    Current Frigg Stack
+                    ==================
+
+createApp()                    ← Pure Express app factory
+  ├── body-parser, cors        ← Standard Express middleware
+  ├── health router            ← Pure Express router
+  ├── auth router              ← Pure Express router
+  ├── integration routers      ← Pure Express routers
+  ├── webhook routers          ← Pure Express routers
+  └── error handler            ← Pure Express middleware
+        │
+        ▼
+createAppHandler()             ← Wraps Express app for Lambda
+  └── serverless-http(app)     ← ⚡ ONLY Lambda coupling point
+        │
+        ▼
+createHandler()                ← Lambda handler factory
+  ├── secretsToEnv()           ← AWS Secrets Manager (optional)
+  └── context.callbackWaitsForEmptyEventLoop  ← Lambda-specific
+```
+
+**The key insight**: Frigg's `createApp()` function (`packages/core/handlers/app-handler-helpers.js`) returns a standard Express application. The `serverless-http` wrapper at line 49 is the **only** point where Lambda enters the picture. Everything above it -- routers, middleware, business logic, database access -- is runtime-agnostic.
+
+**What's already fully decoupled from AWS:**
+
+| Layer | File | Status |
+|---|---|---|
+| Express app factory | `app-handler-helpers.js:createApp()` | Pure Express |
+| All HTTP routers | `routers/health.js`, `auth.js`, etc. | Pure Express |
+| Integration lifecycle | `IntegrationBase`, `IntegrationEventDispatcher` | No AWS dependency |
+| Database layer | Prisma client (`database/prisma.js`) | Database-agnostic |
+| Encryption | `Cryptor` with AES fallback | Works without KMS |
+| Module loading | `load-installed-modules.js` | Pure Node.js `require()` |
+| Middleware | body-parser, cors, Boom error handling | Pure Express |
+
+**What needs local substitutes (minimal):**
+
+| AWS Service | Local Substitute | Effort | Already Exists? |
+|---|---|---|---|
+| `serverless-http` wrapper | `app.listen(port)` | ~15 min | No (trivial) |
+| SQS queues | In-process EventEmitter | Low | No |
+| EventBridge Scheduler | node-cron | Low | Yes (`SCHEDULER_PROVIDER=mock`) |
+| KMS encryption | AES encryption | None | Yes (`AES_KEY` env var) |
+| Secrets Manager | Environment variables | None | Yes (already fallback) |
+
+**The standalone runtime is essentially:**
+
+```javascript
+// This is all that's needed to run Frigg without Lambda
+const { createApp } = require('@friggframework/core');
+const { healthRouter, authRouter, integrationRouters } = require('./routers');
+
+const app = createApp((app) => {
+    app.use(healthRouter);
+    app.use(authRouter);
+    app.use(integrationRouters);
+});
+
+app.listen(3000, () => {
+    console.log('OpenTentacles runtime on http://localhost:3000');
+});
+```
+
+This means **Phase 2 effort is dramatically reduced** -- we're not building a local runtime from scratch, we're writing a thin wrapper around Frigg's existing Express application.
+
 ### 4.3 The Recommendation Engine: Agent's Memory
 
 Tracks what agents do and learns from it:
@@ -566,7 +636,108 @@ These live in `packages/agent-adapters/` and are opt-in, never required.
 
 ---
 
-## 8. MVP Scope
+## 8. Interop with Workflow Engines (Lobster, Temporal, Step Functions)
+
+OpenTentacles provides **integration infrastructure** -- authenticated API calls, credential management, webhook ingestion, job queues, encryption. It does not provide **workflow orchestration** -- step sequencing, approval gates, retry policies, saga patterns. These are complementary concerns, and OpenTentacles is designed to work with external workflow engines rather than replacing them.
+
+### 8.1 OpenClaw Lobster: The Personal Workflow Layer
+
+[Lobster](https://github.com/openclaw/lobster) is OpenClaw's native workflow engine -- a typed, local-first pipeline shell written in TypeScript. It is **not** built on Temporal or any other existing orchestration platform. Key characteristics:
+
+| Dimension | Lobster | OpenTentacles |
+|---|---|---|
+| **Core purpose** | Pipeline orchestration with approval gates | Authenticated API integration infrastructure |
+| **Execution model** | Sequential pipeline steps with JSON piping | Express HTTP server with event dispatch |
+| **State persistence** | File-based resume tokens in `~/.openclaw/` | Database-backed (Prisma) credential + integration state |
+| **Determinism** | Constrained YAML grammar (pipelines are data) | Code-based (IntegrationBase classes) |
+| **Human-in-the-loop** | First-class `approve` primitive (hard stop) | Not built-in (delegated to workflow layer) |
+| **Retry logic** | None -- timeouts and output caps only | Frigg's event dispatcher handles retries |
+| **Networking** | Local subprocess only | Full HTTP server with webhook tunnel |
+
+Lobster's VISION.md self-describes as *"Temporal: But 80/20 version for personal workflows"* and *"Zapier for OpenClaw, but with approval checkpoints."* It achieves determinism through constrained pipeline definitions rather than Temporal-style event-sourced replay.
+
+**Neither can do what the other does.** Lobster can't manage OAuth tokens or receive webhooks. OpenTentacles can't pause a multi-step workflow for human approval. Together they cover the full stack.
+
+### 8.2 Complementary Architecture
+
+An OpenClaw agent using both Lobster and OpenTentacles gets a layered system:
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ OpenClaw Agent                                            │
+│                                                           │
+│  ┌────────────────────────────────────────────────────┐  │
+│  │ Lobster (Workflow Layer)                             │  │
+│  │ - Pipeline sequencing and data flow                 │  │
+│  │ - Approval gates (hard stop, resume with token)     │  │
+│  │ - Cursor tracking (don't reprocess seen items)      │  │
+│  │ - Timeout enforcement                               │  │
+│  └───────────────────────┬────────────────────────────┘  │
+│                          │ calls                          │
+│  ┌───────────────────────▼────────────────────────────┐  │
+│  │ OpenTentacles (Integration Layer)                   │  │
+│  │ - OAuth2/API-key authentication                     │  │
+│  │ - API module method invocation                      │  │
+│  │ - Webhook reception and event routing               │  │
+│  │ - Credential encryption and storage                 │  │
+│  │ - Job queues and scheduled tasks                    │  │
+│  └───────────────────────┬────────────────────────────┘  │
+│                          │ powered by                     │
+│  ┌───────────────────────▼────────────────────────────┐  │
+│  │ Frigg Framework (Engine)                            │  │
+│  │ - IntegrationBase, Module system, Prisma ORM        │  │
+│  └────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────┘
+```
+
+**Example: HubSpot deal alerts with human approval**
+
+```yaml
+# deal-alerts.lobster
+name: hubspot-deal-alerts
+steps:
+  - name: fetch
+    exec: ot_invoke hubspot deals.list --filter "amount>10000"
+  - name: format
+    stdin: $fetch.json
+    exec: jq '.deals[] | {name: .name, amount: .amount, rep: .owner}'
+  - name: approve
+    stdin: $format.stdout
+    approve: "Post these deals to #big-deals?"
+  - name: notify
+    condition: $approve.approved
+    stdin: $format.stdout
+    exec: ot_invoke slack chat.postMessage --channel big-deals
+```
+
+Lobster handles the flow: fetch → format → **approve** → notify. OpenTentacles handles the API calls: authenticated HubSpot query and Slack message post. The agent orchestrates neither -- both run deterministically from the pipeline definition.
+
+### 8.3 Enterprise Workflow Engines (Temporal, Step Functions)
+
+For production deployments that need distributed orchestration, OpenTentacles integrations can be called from enterprise workflow engines:
+
+| Engine | Integration Pattern | Use Case |
+|---|---|---|
+| **Temporal** | Activities call Frigg API modules | Durable, distributed multi-system syncs with automatic retry |
+| **AWS Step Functions** | Lambda steps use Frigg handlers | Serverless orchestration with visual workflow designer |
+| **Bull/BullMQ** | Queue workers use Frigg modules | Redis-backed job processing with retry and backoff |
+
+OpenTentacles doesn't compete with these engines. It provides the **integration primitives** they orchestrate. A Temporal activity that needs to call HubSpot's API can use a Frigg API module instead of hand-rolling HTTP + OAuth + token refresh.
+
+### 8.4 Design Principle: Infrastructure, Not Orchestration
+
+OpenTentacles deliberately avoids building workflow orchestration because:
+
+1. **Agents already orchestrate.** An LLM calling MCP tools is already a workflow engine. Adding another orchestration layer creates confusion about who controls the flow.
+2. **Lobster exists.** For OpenClaw users who want deterministic pipelines, Lobster is purpose-built and already integrated.
+3. **Temporal exists.** For enterprise users who need distributed durable execution, Temporal is battle-tested and a better investment than building a competing engine.
+4. **The integration layer is the gap.** No existing tool gives agents authenticated, encrypted, enterprise-grade API module access. That's the unique value.
+
+The right boundary: OpenTentacles makes API calls reliable and secure. Workflow engines make sequences of those calls reliable and recoverable. Different problems, different tools.
+
+---
+
+## 9. MVP Scope
 
 ### Phase 1: Foundation (MCP Server + Module Manifests)
 
@@ -590,18 +761,30 @@ These live in `packages/agent-adapters/` and are opt-in, never required.
 
 **Goal:** An agent can create and run integrations locally.
 
-| Deliverable | Package | Effort |
-|---|---|---|
-| Local Express runtime | `@opententacles/local-runtime` | Core |
-| In-process queue (SQS-compatible) | local-runtime | Core |
-| Local scheduler (node-cron, EventBridge-compat) | local-runtime | Medium |
-| Tool: `ot_scaffold` (generate integration files) | mcp-server | Core |
-| Tool: `ot_start`, `ot_stop`, `ot_status` | mcp-server | Core |
-| Tool: `ot_logs` | mcp-server | Low |
-| Webhook tunnel (cloudflared) | local-runtime | Medium |
-| Tool: `ot_webhook_test` | mcp-server | Medium |
-| `create-opententacles-app` scaffolder | create-opententacles-app | Medium |
-| CLI: `opententacles init`, `opententacles start` | `@opententacles/cli` | Medium |
+> **Effort revised downward.** Codebase audit shows Frigg is already 99% standalone (see Section 4.2). The local runtime is a thin wrapper around Frigg's existing Express app, not a from-scratch build. The `serverless-http` adapter is the only Lambda coupling point. Scheduler already has a mock provider. Encryption already has AES fallback.
+
+| Deliverable | Package | Effort | Notes |
+|---|---|---|---|
+| Standalone Express wrapper | `@opententacles/local-runtime` | **Low** | Replace `serverless-http` with `app.listen()` -- Frigg's `createApp()` already returns a standard Express app |
+| In-process queue (SQS-compatible) | local-runtime | Medium | EventEmitter-based, same `send(message, queueUrl)` API |
+| Local scheduler (node-cron, EventBridge-compat) | local-runtime | **Low** | Frigg's scheduler already supports `SCHEDULER_PROVIDER=mock` |
+| Tool: `ot_scaffold` (generate integration files) | mcp-server | Core | |
+| Tool: `ot_start`, `ot_stop`, `ot_status` | mcp-server | Core | |
+| Tool: `ot_logs` | mcp-server | Low | |
+| Webhook tunnel (cloudflared) | local-runtime | Medium | |
+| Tool: `ot_webhook_test` | mcp-server | Medium | |
+| `create-opententacles-app` scaffolder | create-opententacles-app | Medium | |
+| CLI: `opententacles init`, `opententacles start` | `@opententacles/cli` | Medium | |
+
+**What we DON'T need to build** (already exists in Frigg):
+- Express app with body-parser, CORS, error handling (`createApp()`)
+- Health check routers with DB connectivity checks
+- Auth routers with OAuth2 flow management
+- Integration-defined route registration
+- Webhook route registration
+- Database layer with multi-DB support (Prisma)
+- AES encryption for credentials (Cryptor with `AES_KEY`)
+- Module loading via npm package discovery
 
 **Success criteria:** An agent can scaffold a HubSpot→Slack integration, run it locally, receive a simulated webhook, and see Slack messages posted.
 
@@ -624,44 +807,44 @@ These live in `packages/agent-adapters/` and are opt-in, never required.
 
 ---
 
-## 9. Technical Decisions
+## 10. Technical Decisions
 
-### 9.1 Language: Node.js (JavaScript)
+### 10.1 Language: Node.js (JavaScript)
 
 Matches Frigg's stack. The MCP server, local runtime, and all packages are JavaScript/Node.js. This ensures:
 - Direct `require()` of Frigg packages (no language bridge)
 - Same developer tooling (npm, Jest, ESLint)
 - Compatibility with Frigg's Prisma + Express patterns
 
-### 9.2 MCP SDK: `@modelcontextprotocol/sdk`
+### 10.2MCP SDK: `@modelcontextprotocol/sdk`
 
 The official MCP TypeScript/JavaScript SDK. Supports all transports (stdio, SSE, Streamable HTTP) and all primitives (Tools, Resources, Prompts, Tasks).
 
-### 9.3 Vector Store: Vectra (Local) → RuVector/pgvector (Cloud)
+### 10.3Vector Store: Vectra (Local) → RuVector/pgvector (Cloud)
 
 - **Local development**: Vectra (pure Node.js, file-based, zero-config)
 - **Production**: RuVector (npm package, pgvector-compatible) or pgvector directly (already using Postgres)
 - Adapter pattern lets the recommendation engine work with either
 
-### 9.4 Local Database: SQLite (Default) → Postgres (Optional)
+### 10.4Local Database: SQLite (Default) → Postgres (Optional)
 
 - SQLite via Prisma for zero-config local development
 - Same Prisma schema as Frigg (Postgres), so migrations carry over
 - Agents get a working database without installing anything
 
-### 9.5 Webhook Tunnel: cloudflared (Default)
+### 10.5Webhook Tunnel: cloudflared (Default)
 
 - Free, no account required for quick tunnels
 - `npx cloudflared tunnel --url http://localhost:3000` -- single command
 - Falls back to ngrok if cloudflared unavailable
 
-### 9.6 Monorepo: npm Workspaces
+### 10.6Monorepo: npm Workspaces
 
 Same pattern as Frigg. All packages in `packages/`, managed by npm workspaces, published independently to npm under `@opententacles/` scope.
 
 ---
 
-## 10. Naming and Branding
+## 11. Naming and Branding
 
 ### Package Names (npm)
 
@@ -707,7 +890,7 @@ ot_deploy
 
 ---
 
-## 11. Open Questions
+## 12. Open Questions
 
 | # | Question | Options | Recommendation |
 |---|---|---|---|
@@ -721,7 +904,7 @@ ot_deploy
 
 ---
 
-## 12. What Happens Next
+## 13. What Happens Next
 
 1. **Validate the concept** with the OpenClaw and broader agent community
 2. **Set up the repository** with monorepo structure and CI/CD
@@ -734,7 +917,7 @@ The first milestone is simple: **an agent calls `ot_list_modules()` and gets bac
 
 ---
 
-## Appendix: Comparison with Alternatives
+## Appendix A: Comparison with Alternatives
 
 | Feature | OpenTentacles | Raw MCP Servers | Composio | Zapier MCP |
 |---|---|---|---|---|
@@ -750,3 +933,32 @@ The first milestone is simple: **an agent calls `ot_list_modules()` and gets bac
 | Agent writes real code | Yes (IntegrationBase) | N/A | No | No |
 
 The key differentiator: OpenTentacles is the only option where **agents write real, deployable integration code** rather than configuring a managed service. The integrations are yours -- in your repo, your infrastructure, your control.
+
+## Appendix B: OpenTentacles vs OpenClaw Lobster
+
+These are **complementary tools operating at different layers**, not competitors.
+
+| Dimension | OpenTentacles | Lobster |
+|---|---|---|
+| **Layer** | Integration infrastructure | Workflow orchestration |
+| **Core problem** | "How do I call HubSpot's API with valid OAuth tokens?" | "How do I sequence 5 steps with a human approval in the middle?" |
+| **Written in** | JavaScript/Node.js (matches Frigg) | TypeScript |
+| **Runtime** | Long-running Express HTTP server | Short-lived CLI subprocess |
+| **State storage** | Prisma database (Postgres/SQLite/MongoDB) | Filesystem (~/.openclaw/ state dir) |
+| **Auth management** | Full OAuth2 lifecycle, token refresh, credential encryption | None -- delegates to tool layer |
+| **Webhook support** | Full HTTP server with tunnel for external delivery | None -- not an HTTP server |
+| **Retry/error handling** | Frigg event dispatcher, queue-based retry | Timeouts and output caps only |
+| **Human-in-the-loop** | Not built-in (delegates to workflow layer) | First-class `approve` primitive |
+| **Determinism model** | Code-based (IntegrationBase classes) | Data-based (YAML pipelines) |
+| **Scalability target** | Local → serverless cloud graduation | Local single-host only |
+| **Self-description** | "Integration infrastructure for autonomous agents" | "Temporal: 80/20 version for personal workflows" |
+
+**Together they form a complete stack:**
+
+```
+Lobster    → "fetch deals, filter big ones, get human approval, post to Slack"
+OpenTentacles → "here's an authenticated HubSpot client and a Slack client with valid tokens"
+Frigg      → "here's how IntegrationBase, Module, and Requester classes work"
+```
+
+An agent using only Lobster must hand-roll every API call. An agent using only OpenTentacles must rely on the LLM to sequence multi-step flows. An agent using both gets **deterministic pipelines with enterprise-grade API infrastructure** -- the best of both worlds.
