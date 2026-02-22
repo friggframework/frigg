@@ -22,9 +22,10 @@ The vision has four pillars:
 - [5. Proposed Architecture: Recommendation Engine](#5-proposed-architecture-recommendation-engine)
 - [6. Proposed Architecture: Local Runtime](#6-proposed-architecture-local-runtime)
 - [7. Machine-Readable Documentation](#7-machine-readable-documentation)
-- [8. Mapping to LeftHook's Six MCP Servers](#8-mapping-to-lefthooks-six-mcp-servers)
-- [9. Implementation Roadmap](#9-implementation-roadmap)
-- [10. Open Questions & Risks](#10-open-questions--risks)
+- [8. Agent Developer Workflow: Building Integrations Locally](#8-agent-developer-workflow-building-integrations-locally)
+- [9. Mapping to LeftHook's Six MCP Servers](#9-mapping-to-lefthooks-six-mcp-servers)
+- [10. Implementation Roadmap](#10-implementation-roadmap)
+- [11. Open Questions & Risks](#11-open-questions--risks)
 
 ---
 
@@ -777,7 +778,333 @@ class ModuleToolsGenerator {
 
 ---
 
-## 8. Mapping to LeftHook's Six MCP Servers
+## 8. Agent Developer Workflow: Building Integrations Locally
+
+This section describes the concrete experience of an AI agent (OpenClaw, Claude Code, etc.) building a Frigg integration inside a user's local Frigg application.
+
+### The End-to-End Agent Journey
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ Phase 1: DISCOVER                                            │
+│ Agent asks: "What can Frigg connect to?"                     │
+│                                                              │
+│ MCP tools:                                                   │
+│   frigg_list_modules → catalog of 40+ API modules            │
+│   frigg_module_info("hubspot") → auth type, methods, schema  │
+│   frigg_search_modules("crm") → matching modules             │
+└──────────────────────┬───────────────────────────────────────┘
+                       │
+┌──────────────────────▼───────────────────────────────────────┐
+│ Phase 2: SCAFFOLD                                            │
+│ Agent says: "I need HubSpot + Slack integration"             │
+│                                                              │
+│ MCP tools:                                                   │
+│   frigg_create_integration({                                 │
+│     name: "hubspot-slack-sync",                              │
+│     modules: ["hubspot", "slack"]                            │
+│   })                                                         │
+│     → generates IntegrationBase subclass                     │
+│     → wires modules into Definition                          │
+│     → updates app definition (backend/index.js)              │
+│     → runs frigg install for each module                     │
+└──────────────────────┬───────────────────────────────────────┘
+                       │
+┌──────────────────────▼───────────────────────────────────────┐
+│ Phase 3: AUTHENTICATE                                        │
+│ Agent says: "Let me connect to HubSpot"                      │
+│                                                              │
+│ MCP tools:                                                   │
+│   frigg_auth_requirements("hubspot")                         │
+│     → { type: "oauth2", url: "https://...", scopes: [...] } │
+│   frigg_auth_start("hubspot")                                │
+│     → opens browser for OAuth, captures tokens               │
+│   frigg_auth_status("hubspot")                               │
+│     → { connected: true, entity: "Acme Corp" }              │
+│                                                              │
+│ For API-key modules:                                         │
+│   frigg_auth_apikey("slack", { token: "xoxb-..." })          │
+│     → validates and stores credential                        │
+└──────────────────────┬───────────────────────────────────────┘
+                       │
+┌──────────────────────▼───────────────────────────────────────┐
+│ Phase 4: BUILD LOGIC                                         │
+│ Agent writes the integration code                            │
+│                                                              │
+│ The agent writes code directly into the integration file:    │
+│   - Implement onWebhook() for real-time events               │
+│   - Implement sync logic in user actions                     │
+│   - Configure webhook subscriptions                          │
+│   - Set up config forms for end users                        │
+│                                                              │
+│ MCP tools (for testing during development):                  │
+│   frigg_invoke_method("hubspot", "contacts", "list",         │
+│     { limit: 5 })                                            │
+│     → returns actual data from connected HubSpot             │
+│   frigg_invoke_method("slack", "chat", "postMessage",        │
+│     { channel: "#general", text: "test" })                   │
+│     → posts to actual Slack                                  │
+└──────────────────────┬───────────────────────────────────────┘
+                       │
+┌──────────────────────▼───────────────────────────────────────┐
+│ Phase 5: RUN & TEST LOCALLY                                  │
+│ Agent says: "Start the integration"                          │
+│                                                              │
+│ MCP tools:                                                   │
+│   frigg_local_start()                                        │
+│     → starts local runtime (Express + queues + scheduler)    │
+│   frigg_local_tunnel()                                       │
+│     → starts webhook tunnel, returns public URL              │
+│   frigg_local_status()                                       │
+│     → { running: true, port: 3000, tunnel: "https://..." }  │
+│   frigg_webhook_test("hubspot", { event: "contact.create" }) │
+│     → simulates incoming webhook                             │
+│   frigg_local_logs({ tail: 50 })                             │
+│     → recent log output                                      │
+└──────────────────────┬───────────────────────────────────────┘
+                       │
+┌──────────────────────▼───────────────────────────────────────┐
+│ Phase 6: DEPLOY TO CLOUD                                     │
+│ User says: "Ship it"                                         │
+│                                                              │
+│ MCP tools:                                                   │
+│   frigg_deploy({ stage: "prod" })                            │
+│     → generates infrastructure (CloudFormation)              │
+│     → deploys to AWS Lambda                                  │
+│     → sets up SQS queues, webhooks, encryption               │
+│   frigg_deploy_status()                                      │
+│     → { stage: "prod", url: "https://...", status: "ok" }   │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### What the Agent Generates: File Structure
+
+When an agent scaffolds a new integration, the Frigg MCP server creates these files in the user's project:
+
+```
+my-frigg-app/
+├── backend/
+│   ├── index.js                              # App definition (auto-updated)
+│   ├── integrations/
+│   │   └── hubspot-slack-sync/
+│   │       ├── index.js                      # IntegrationBase subclass
+│   │       ├── hubspot-slack-sync.test.js    # Test scaffold
+│   │       └── README.md                     # Integration docs
+│   ├── infrastructure.js                     # Serverless config (auto-generated)
+│   ├── .env                                  # Environment variables
+│   └── package.json
+└── frontend/                                 # Optional management UI
+```
+
+### Generated Integration Code
+
+The MCP `frigg_create_integration` tool generates this starting point:
+
+```javascript
+// backend/integrations/hubspot-slack-sync/index.js
+const { IntegrationBase } = require('@friggframework/core');
+const HubSpotDefinition = require('@friggframework/api-module-hubspot').Definition;
+const SlackDefinition = require('@friggframework/api-module-slack').Definition;
+
+class HubSpotSlackSync extends IntegrationBase {
+    static Definition = {
+        name: 'hubspot-slack-sync',
+        version: '1.0.0',
+        modules: {
+            hubspot: { definition: HubSpotDefinition },
+            slack: { definition: SlackDefinition },
+        },
+        webhooks: true,
+        display: {
+            name: 'HubSpot → Slack Sync',
+            description: 'Sync HubSpot CRM events to Slack channels',
+        },
+    };
+
+    // Called when integration is first created
+    async onCreate({ integrationId }) {
+        await this.updateIntegrationStatus.execute(integrationId, 'ENABLED');
+        // TODO: Register HubSpot webhooks for desired events
+    }
+
+    // Called when a webhook arrives (Stage 2: full DB + module access)
+    async onWebhook({ data }) {
+        const { body } = data;
+        // TODO: Implement webhook handling logic
+        // Example: Post HubSpot contact creation to Slack
+        //
+        // if (body.subscriptionType === 'contact.creation') {
+        //     const contact = await this.hubspot.api.getContact(body.objectId);
+        //     await this.slack.api.postMessage({
+        //         channel: this.config.slackChannel,
+        //         text: `New contact: ${contact.properties.email}`,
+        //     });
+        // }
+    }
+
+    // Configuration form for end users
+    async getConfigOptions() {
+        return {
+            jsonSchema: {
+                type: 'object',
+                properties: {
+                    slackChannel: {
+                        type: 'string',
+                        title: 'Slack Channel',
+                        description: 'Channel to post HubSpot events to',
+                    },
+                },
+                required: ['slackChannel'],
+            },
+            uiSchema: {},
+        };
+    }
+}
+
+module.exports = { Integration: HubSpotSlackSync };
+```
+
+### Generated App Definition
+
+The app's `backend/index.js` is updated to include the new integration:
+
+```javascript
+// backend/index.js
+const { HubSpotSlackSync } = require('./integrations/hubspot-slack-sync');
+
+const Definition = {
+    name: 'my-frigg-app',
+    integrations: [HubSpotSlackSync],
+    database: { postgres: { enable: true } },
+    vpc: { enable: true },
+    encryption: { useDefaultKMSForFieldLevelEncryption: true },
+};
+
+module.exports = { Definition };
+```
+
+### How Agents Interact During Development
+
+The key insight is that the MCP server provides **two modes of API access**:
+
+**1. Direct method invocation (exploratory / ad-hoc)**
+
+The agent calls API methods directly through MCP tools to explore data, test ideas, and verify behavior before writing integration code:
+
+```
+Agent → frigg_invoke_method("hubspot", "contacts", "list", { limit: 3 })
+MCP Server → loads hubspot module with saved credentials
+           → calls hubspot.api.getContacts({ limit: 3 })
+           → returns results to agent
+```
+
+This is the "agent doing integration work on behalf of the user" pattern -- the agent uses Frigg's authenticated API modules as tools.
+
+**2. Integration code execution (deterministic / deployed)**
+
+Once the agent writes integration logic into the IntegrationBase subclass, the local runtime executes it deterministically:
+
+```
+External Event → webhook arrives at local tunnel
+              → local runtime receives POST
+              → queues to local queue
+              → worker hydrates integration with DB + modules
+              → calls onWebhook() with full context
+              → integration logic executes
+```
+
+This is the "hardened workflow" pattern -- the same logic runs identically locally and in production.
+
+### The Recommendation Bridge
+
+The MCP server's recommendation engine connects these two modes:
+
+```
+Phase 1: Agent uses direct invocation repeatedly
+  Session 1: hubspot.contacts.list → slack.chat.postMessage
+  Session 2: hubspot.contacts.list → slack.chat.postMessage
+  Session 3: hubspot.contacts.list → slack.chat.postMessage
+
+Phase 2: Recommendation engine detects pattern
+  "You've synced HubSpot contacts to Slack 3 times.
+   Should I create a 'hubspot-slack-sync' integration
+   that runs this automatically on a schedule or webhook?"
+
+Phase 3: Agent scaffolds integration from pattern
+  frigg_create_integration_from_pattern({
+    patternId: "pattern_abc123",
+    name: "hubspot-slack-sync",
+    trigger: "webhook"  // or "schedule" or "manual"
+  })
+  → generates full IntegrationBase subclass with logic pre-filled
+  → the TODO comments are replaced with actual code from the pattern
+```
+
+### Local Runtime Requirements for Agents
+
+For agents to build and test integrations effectively, the local runtime must support:
+
+| Capability | Why Agents Need It | Implementation |
+|---|---|---|
+| **Start/stop via MCP** | Agent controls runtime lifecycle | `frigg_local_start()` / `frigg_local_stop()` |
+| **Hot reload** | Agent edits code, sees changes immediately | File watcher + Express restart |
+| **Local queues** | Webhook→queue→worker pipeline works locally | In-process EventEmitter queue |
+| **Webhook tunnel** | External services can send webhooks to local machine | cloudflared/ngrok managed by runtime |
+| **Log streaming** | Agent reads logs to debug issues | `frigg_local_logs({ follow: true })` |
+| **Credential persistence** | Auth survives runtime restarts | Local DB (SQLite or Postgres) |
+| **Event simulation** | Test webhooks without waiting for real events | `frigg_webhook_test()` |
+| **Health check** | Agent verifies everything is working | `frigg_local_status()` |
+
+### OpenClaw-Specific Configuration
+
+For OpenClaw users, the Frigg MCP server integrates through the standard `openclaw.json`:
+
+```json
+{
+    "mcpServers": {
+        "frigg": {
+            "command": "npx",
+            "args": ["@friggframework/mcp-server", "--project", "./my-frigg-app"],
+            "env": {
+                "DATABASE_URL": "postgresql://localhost:5432/frigg_dev",
+                "STAGE": "local"
+            }
+        }
+    }
+}
+```
+
+OpenClaw's messaging platform integration means users could:
+1. Message the agent in Telegram: "Connect my HubSpot to Slack #sales"
+2. Agent discovers modules, authenticates (opens browser for OAuth)
+3. Agent scaffolds integration, writes logic, tests locally
+4. User reviews via OpenClaw's Dashboard Control UI (MCP App widget)
+5. User says "Deploy it" and the integration goes to production
+
+### Claude Code Configuration
+
+For Claude Code users, MCP configuration lives in the project's `.mcp.json`:
+
+```json
+{
+    "mcpServers": {
+        "frigg": {
+            "command": "npx",
+            "args": ["@friggframework/mcp-server", "--project", "."],
+            "env": {
+                "DATABASE_URL": "postgresql://localhost:5432/frigg_dev",
+                "STAGE": "local"
+            }
+        }
+    }
+}
+```
+
+Claude Code can then use Frigg tools alongside its file editing, git, and testing capabilities -- the agent reads Frigg module docs via MCP, writes integration code via its editor, tests via MCP method invocation, and runs the full pipeline locally.
+
+---
+
+## 9. Mapping to LeftHook's Six MCP Servers
 
 The [LeftHook blog post](https://lefthook.com/blog/mcp-servers-every-product-company-needs) identifies six MCP servers every product company needs. Here's how a Frigg-powered application maps to each:
 
@@ -851,7 +1178,7 @@ The [LeftHook blog post](https://lefthook.com/blog/mcp-servers-every-product-com
 
 ---
 
-## 9. Implementation Roadmap
+## 10. Implementation Roadmap
 
 ### Phase 1: Foundation (Machine-Readable Docs + MCP Server MVP)
 
@@ -907,7 +1234,7 @@ The [LeftHook blog post](https://lefthook.com/blog/mcp-servers-every-product-com
 
 ---
 
-## 10. Open Questions & Risks
+## 11. Open Questions & Risks
 
 ### Open Questions
 
