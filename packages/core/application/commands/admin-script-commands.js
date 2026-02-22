@@ -69,13 +69,16 @@ function createAdminScriptCommands() {
             audit,
         }) {
             try {
-                const process = await adminProcessRepository.createAdminProcess({
-                    scriptName,
-                    scriptVersion,
-                    trigger,
-                    mode: mode || 'async',
-                    input,
-                    audit,
+                const process = await adminProcessRepository.createProcess({
+                    name: scriptName,
+                    type: 'ADMIN_SCRIPT',
+                    context: {
+                        scriptVersion,
+                        trigger,
+                        mode: mode || 'async',
+                        input,
+                        audit,
+                    },
                 });
                 return process;
             } catch (error) {
@@ -91,7 +94,7 @@ function createAdminScriptCommands() {
          */
         async findAdminProcessById(processId) {
             try {
-                const process = await adminProcessRepository.findAdminProcessById(processId);
+                const process = await adminProcessRepository.findProcessById(processId);
                 if (!process) {
                     const error = new Error(`Execution ${processId} not found`);
                     error.code = 'EXECUTION_NOT_FOUND';
@@ -112,7 +115,7 @@ function createAdminScriptCommands() {
          */
         async findAdminProcessesByName(scriptName, options = {}) {
             try {
-                const processes = await adminProcessRepository.findAdminProcessesByName(
+                const processes = await adminProcessRepository.findProcessesByName(
                     scriptName,
                     options
                 );
@@ -132,7 +135,7 @@ function createAdminScriptCommands() {
          */
         async updateAdminProcessState(processId, state) {
             try {
-                const updated = await adminProcessRepository.updateAdminProcessState(
+                const updated = await adminProcessRepository.updateProcessState(
                     processId,
                     state
                 );
@@ -151,7 +154,7 @@ function createAdminScriptCommands() {
          */
         async appendAdminProcessLog(processId, logEntry) {
             try {
-                const updated = await adminProcessRepository.appendAdminProcessLog(
+                const updated = await adminProcessRepository.appendProcessLog(
                     processId,
                     logEntry
                 );
@@ -175,18 +178,19 @@ function createAdminScriptCommands() {
          */
         async completeAdminProcess(processId, { state, output, error, metrics }) {
             try {
-                // Update each field independently (partial updates allowed)
+                // Update state if provided
                 if (state) {
-                    await adminProcessRepository.updateAdminProcessState(processId, state);
+                    await adminProcessRepository.updateProcessState(processId, state);
                 }
-                if (output !== undefined) {
-                    await adminProcessRepository.updateAdminProcessOutput(processId, output);
-                }
-                if (error) {
-                    await adminProcessRepository.updateAdminProcessError(processId, error);
-                }
-                if (metrics) {
-                    await adminProcessRepository.updateAdminProcessMetrics(processId, metrics);
+
+                // Build results object from provided fields and merge in one call
+                const resultsUpdate = {};
+                if (output !== undefined) resultsUpdate.output = output;
+                if (error) resultsUpdate.error = error;
+                if (metrics) resultsUpdate.metrics = metrics;
+
+                if (Object.keys(resultsUpdate).length > 0) {
+                    await adminProcessRepository.updateProcessResults(processId, resultsUpdate);
                 }
 
                 return { success: true };
@@ -210,7 +214,7 @@ function createAdminScriptCommands() {
 
                 // If state filter provided, use state query
                 if (state) {
-                    return await adminProcessRepository.findAdminProcessesByState(state, {
+                    return await adminProcessRepository.findProcessesByState(state, {
                         limit,
                         sortBy: 'createdAt',
                         sortOrder: 'desc',

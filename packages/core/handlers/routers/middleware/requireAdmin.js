@@ -1,7 +1,9 @@
 /**
  * Middleware to require admin API key authentication.
- * Checks for X-API-Key header matching ADMIN_API_KEY environment variable.
+ * Checks for x-frigg-admin-api-key header matching ADMIN_API_KEY environment variable.
  * In non-production environments, allows all requests through for easier development.
+ *
+ * Uses the same header convention as validateAdminApiKey (handlers/middleware/admin-auth.js).
  *
  * @param {import('express').Request} req - Express request object
  * @param {import('express').Response} res - Express response object
@@ -14,10 +16,10 @@ const requireAdmin = (req, res, next) => {
         return next();
     }
 
-    const apiKey = req.headers['x-api-key'];
+    const apiKey = req.headers['x-frigg-admin-api-key'];
 
     if (!apiKey) {
-        console.error('[requireAdmin] Missing X-API-Key header');
+        console.error('[requireAdmin] Missing x-frigg-admin-api-key header');
         return res.status(401).json({
             status: 'error',
             message: 'Unauthorized - Admin API key required',
