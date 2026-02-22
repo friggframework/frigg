@@ -35,6 +35,7 @@ const createApp = (applyMiddleware) => {
             flushDebugLog(boomError);
             res.status(statusCode).json({ error: 'Internal Server Error' });
         } else {
+            console.warn(`[Frigg] ${req.method} ${req.path} -> ${statusCode}: ${err.message}`);
             res.status(statusCode).json({ error: err.message });
         }
     });

@@ -102,10 +102,15 @@ class Module extends Delegate {
             this.api,
             this.userId
         );
-        Object.assign(
-            credentialDetails.details,
-            this.apiParamsFromCredential(this.api)
-        );
+        const apiParams = this.apiParamsFromCredential(this.api);
+
+        if (!apiParams.refresh_token && this.api.isRefreshable) {
+            console.warn(
+                `[Frigg] No refresh_token in apiParams for module ${this.name}.`
+            );
+        }
+
+        Object.assign(credentialDetails.details, apiParams);
         credentialDetails.details.authIsValid = true;
 
         const persisted = await this.credentialRepository.upsertCredential(
