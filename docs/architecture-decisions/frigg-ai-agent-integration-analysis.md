@@ -300,8 +300,6 @@ Records tool calls with context:
 
 #### 5.2 Vector Store for Pattern Matching
 
-**Recommended: [Vectra](https://github.com/Stevenic/vectra)** -- A local vector database for Node.js
-
 **Recommended options by context:**
 
 **[RuVector](https://github.com/ruvnet/ruvector)** -- A Rust-based distributed vector database with self-learning capabilities:
