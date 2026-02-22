@@ -1,9 +1,5 @@
-const {
-    ScriptScheduleRepositoryMongo,
-} = require('./script-schedule-repository-mongo');
-const {
-    ScriptScheduleRepositoryPostgres,
-} = require('./script-schedule-repository-postgres');
+const { ScriptScheduleRepositoryMongo } = require('./script-schedule-repository-mongo');
+const { ScriptScheduleRepositoryPostgres } = require('./script-schedule-repository-postgres');
 const {
     ScriptScheduleRepositoryDocumentDB,
 } = require('./script-schedule-repository-documentdb');

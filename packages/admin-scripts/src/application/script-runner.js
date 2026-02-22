@@ -1,16 +1,13 @@
 const { getScriptFactory } = require('./script-factory');
-const { createAdminFriggCommands } = require('./admin-frigg-commands');
+const { createAdminScriptContext } = require('./admin-frigg-commands');
 const { createAdminScriptCommands } = require('@friggframework/core/application/commands/admin-script-commands');
-const { wrapAdminFriggCommandsForDryRun } = require('./dry-run-repository-wrapper');
-const { createDryRunHttpClient, injectDryRunHttpClient } = require('./dry-run-http-interceptor');
 
 /**
  * Script Runner
  *
  * Orchestrates script execution with:
  * - Execution record creation
- * - Script instantiation
- * - AdminFriggCommands injection
+ * - Script instantiation with context injection
  * - Error handling
  * - Status updates
  */
@@ -29,18 +26,23 @@ class ScriptRunner {
      * @param {string} options.trigger - 'MANUAL' | 'SCHEDULED' | 'QUEUE'
      * @param {string} options.mode - 'sync' | 'async'
      * @param {Object} options.audit - Audit info { apiKeyName, apiKeyLast4, ipAddress }
-     * @param {string} options.executionId - Reuse existing execution ID
-     * @param {boolean} options.dryRun - Execute in dry-run mode (no writes, log operations)
+     * @param {string} options.executionId - Reuse existing AdminProcess record ID (NOT the Lambda execution ID).
+     *   This is the database ID from the AdminProcess collection/table that tracks script executions.
+     *   Pass this when resuming a queued execution to continue using the same execution record.
      */
     async execute(scriptName, params = {}, options = {}) {
-        const { trigger = 'MANUAL', audit = {}, executionId: existingExecutionId, dryRun = false } = options;
+        const { trigger, audit = {}, executionId: existingExecutionId } = options;
+
+        if (!trigger) {
+            throw new Error('options.trigger is required (MANUAL | SCHEDULED | QUEUE)');
+        }
 
         // Get script class
         const scriptClass = this.scriptFactory.get(scriptName);
         const definition = scriptClass.Definition;
 
         // Validate integrationFactory requirement
-        if (definition.config?.requiresIntegrationFactory && !this.integrationFactory) {
+        if (definition.config?.requireIntegrationInstance && !this.integrationFactory) {
             throw new Error(
                 `Script "${scriptName}" requires integrationFactory but none was provided`
             );
@@ -50,7 +52,7 @@ class ScriptRunner {
 
         // Create execution record if not provided
         if (!executionId) {
-            const execution = await this.commands.createScriptExecution({
+            const execution = await this.commands.createAdminProcess({
                 scriptName,
                 scriptVersion: definition.version,
                 trigger,
@@ -64,67 +66,37 @@ class ScriptRunner {
         const startTime = new Date();
 
         try {
-            // Update status to RUNNING (skip in dry-run)
-            if (!dryRun) {
-                await this.commands.updateScriptExecutionStatus(executionId, 'RUNNING');
-            }
+            await this.commands.updateAdminProcessState(executionId, 'RUNNING');
 
-            // Create frigg commands for the script
-            let frigg;
-            let operationLog = [];
+            // Create context for the script (facade over repositories, queue, logging)
+            const context = createAdminScriptContext({
+                executionId,
+                integrationFactory: this.integrationFactory,
+            });
 
-            if (dryRun) {
-                // Dry-run mode: wrap commands to intercept writes
-                frigg = this.createDryRunFriggCommands(operationLog);
-            } else {
-                // Normal mode: create real commands
-                frigg = createAdminFriggCommands({
-                    executionId,
-                    integrationFactory: this.integrationFactory,
-                });
-            }
-
-            // Create script instance
+            // Create script instance with context injected via constructor
             const script = this.scriptFactory.createInstance(scriptName, {
+                context,
                 executionId,
                 integrationFactory: this.integrationFactory,
             });
 
             // Execute the script
-            const output = await script.execute(frigg, params);
+            const output = await script.execute(params);
 
             // Calculate metrics
             const endTime = new Date();
             const durationMs = endTime - startTime;
 
-            // Complete execution (skip in dry-run)
-            if (!dryRun) {
-                await this.commands.completeScriptExecution(executionId, {
-                    status: 'COMPLETED',
-                    output,
-                    metrics: {
-                        startTime: startTime.toISOString(),
-                        endTime: endTime.toISOString(),
-                        durationMs,
-                    },
-                });
-            }
-
-            // Return dry-run preview if in dry-run mode
-            if (dryRun) {
-                return {
-                    executionId,
-                    dryRun: true,
-                    status: 'DRY_RUN_COMPLETED',
-                    scriptName,
-                    preview: {
-                        operations: operationLog,
-                        summary: this.summarizeOperations(operationLog),
-                        scriptOutput: output,
-                    },
-                    metrics: { durationMs },
-                };
-            }
+            await this.commands.completeAdminProcess(executionId, {
+                state: 'COMPLETED',
+                output,
+                metrics: {
+                    startTime: startTime.toISOString(),
+                    endTime: endTime.toISOString(),
+                    durationMs,
+                },
+            });
 
             return {
                 executionId,
@@ -134,31 +106,26 @@ class ScriptRunner {
                 metrics: { durationMs },
             };
         } catch (error) {
-            // Calculate metrics even on failure
             const endTime = new Date();
             const durationMs = endTime - startTime;
 
-            // Record failure (skip in dry-run)
-            if (!dryRun) {
-                await this.commands.completeScriptExecution(executionId, {
-                    status: 'FAILED',
-                    error: {
-                        name: error.name,
-                        message: error.message,
-                        stack: error.stack,
-                    },
-                    metrics: {
-                        startTime: startTime.toISOString(),
-                        endTime: endTime.toISOString(),
-                        durationMs,
-                    },
-                });
-            }
+            await this.commands.completeAdminProcess(executionId, {
+                state: 'FAILED',
+                error: {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack,
+                },
+                metrics: {
+                    startTime: startTime.toISOString(),
+                    endTime: endTime.toISOString(),
+                    durationMs,
+                },
+            });
 
             return {
                 executionId,
-                dryRun,
-                status: dryRun ? 'DRY_RUN_FAILED' : 'FAILED',
+                status: 'FAILED',
                 scriptName,
                 error: {
                     name: error.name,
@@ -167,83 +134,6 @@ class ScriptRunner {
                 metrics: { durationMs },
             };
         }
-    }
-
-    /**
-     * Create dry-run version of AdminFriggCommands
-     * Intercepts all write operations and logs them
-     *
-     * @param {Array} operationLog - Array to collect logged operations
-     * @returns {Object} Wrapped AdminFriggCommands
-     */
-    createDryRunFriggCommands(operationLog) {
-        // Create real commands (for read operations)
-        const realCommands = createAdminFriggCommands({
-            executionId: null, // Don't persist logs in dry-run
-            integrationFactory: this.integrationFactory,
-        });
-
-        // Wrap commands to intercept writes
-        const wrappedCommands = wrapAdminFriggCommandsForDryRun(realCommands, operationLog);
-
-        // Create dry-run HTTP client
-        const dryRunHttpClient = createDryRunHttpClient(operationLog);
-
-        // Override instantiate to inject dry-run HTTP client
-        const originalInstantiate = wrappedCommands.instantiate.bind(wrappedCommands);
-        wrappedCommands.instantiate = async (integrationId) => {
-            const instance = await originalInstantiate(integrationId);
-
-            // Inject dry-run HTTP client into the integration instance
-            injectDryRunHttpClient(instance, dryRunHttpClient);
-
-            return instance;
-        };
-
-        return wrappedCommands;
-    }
-
-    /**
-     * Summarize operations from dry-run log
-     *
-     * @param {Array} log - Operation log
-     * @returns {Object} Summary statistics
-     */
-    summarizeOperations(log) {
-        const summary = {
-            totalOperations: log.length,
-            databaseWrites: 0,
-            httpRequests: 0,
-            byOperation: {},
-            byModel: {},
-            byService: {},
-        };
-
-        for (const op of log) {
-            // Count by operation type
-            const operation = op.operation || op.method || 'UNKNOWN';
-            summary.byOperation[operation] = (summary.byOperation[operation] || 0) + 1;
-
-            // Database operations
-            if (op.model) {
-                summary.databaseWrites++;
-                summary.byModel[op.model] = summary.byModel[op.model] || [];
-                summary.byModel[op.model].push({
-                    operation: op.operation,
-                    method: op.method,
-                    timestamp: op.timestamp,
-                });
-            }
-
-            // HTTP requests
-            if (op.operation === 'HTTP_REQUEST') {
-                summary.httpRequests++;
-                const service = op.service || 'unknown';
-                summary.byService[service] = (summary.byService[service] || 0) + 1;
-            }
-        }
-
-        return summary;
     }
 }
 

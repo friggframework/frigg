@@ -23,9 +23,7 @@ class ScriptScheduleRepositoryInterface {
      * @abstract
      */
     async findScheduleByScriptName(scriptName) {
-        throw new Error(
-            'Method findScheduleByScriptName must be implemented by subclass'
-        );
+        throw new Error('Method findScheduleByScriptName must be implemented by subclass');
     }
 
     /**
@@ -36,22 +34,13 @@ class ScriptScheduleRepositoryInterface {
      * @param {boolean} params.enabled - Whether schedule is enabled
      * @param {string} params.cronExpression - Cron expression
      * @param {string} [params.timezone] - Timezone (default 'UTC')
-     * @param {string} [params.awsScheduleArn] - AWS EventBridge Scheduler ARN
-     * @param {string} [params.awsScheduleName] - AWS EventBridge Scheduler name
+     * @param {string} [params.externalScheduleId] - External scheduler ID (e.g., AWS ARN)
+     * @param {string} [params.externalScheduleName] - External scheduler name
      * @returns {Promise<Object>} Created or updated schedule record
      * @abstract
      */
-    async upsertSchedule({
-        scriptName,
-        enabled,
-        cronExpression,
-        timezone,
-        awsScheduleArn,
-        awsScheduleName,
-    }) {
-        throw new Error(
-            'Method upsertSchedule must be implemented by subclass'
-        );
+    async upsertSchedule({ scriptName, enabled, cronExpression, timezone, externalScheduleId, externalScheduleName }) {
+        throw new Error('Method upsertSchedule must be implemented by subclass');
     }
 
     /**
@@ -62,28 +51,21 @@ class ScriptScheduleRepositoryInterface {
      * @abstract
      */
     async deleteSchedule(scriptName) {
-        throw new Error(
-            'Method deleteSchedule must be implemented by subclass'
-        );
+        throw new Error('Method deleteSchedule must be implemented by subclass');
     }
 
     /**
-     * Update AWS EventBridge Scheduler information
+     * Update external scheduler information
      *
      * @param {string} scriptName - The script name
-     * @param {Object} awsInfo - AWS schedule information
-     * @param {string} [awsInfo.awsScheduleArn] - AWS EventBridge Scheduler ARN
-     * @param {string} [awsInfo.awsScheduleName] - AWS EventBridge Scheduler name
+     * @param {Object} externalInfo - External schedule information
+     * @param {string} [externalInfo.externalScheduleId] - External scheduler ID (e.g., AWS ARN)
+     * @param {string} [externalInfo.externalScheduleName] - External scheduler name
      * @returns {Promise<Object>} Updated schedule record
      * @abstract
      */
-    async updateScheduleAwsInfo(
-        scriptName,
-        { awsScheduleArn, awsScheduleName }
-    ) {
-        throw new Error(
-            'Method updateScheduleAwsInfo must be implemented by subclass'
-        );
+    async updateScheduleExternalInfo(scriptName, { externalScheduleId, externalScheduleName }) {
+        throw new Error('Method updateScheduleExternalInfo must be implemented by subclass');
     }
 
     /**
@@ -95,9 +77,7 @@ class ScriptScheduleRepositoryInterface {
      * @abstract
      */
     async updateScheduleLastTriggered(scriptName, timestamp) {
-        throw new Error(
-            'Method updateScheduleLastTriggered must be implemented by subclass'
-        );
+        throw new Error('Method updateScheduleLastTriggered must be implemented by subclass');
     }
 
     /**
@@ -109,9 +89,7 @@ class ScriptScheduleRepositoryInterface {
      * @abstract
      */
     async updateScheduleNextTrigger(scriptName, timestamp) {
-        throw new Error(
-            'Method updateScheduleNextTrigger must be implemented by subclass'
-        );
+        throw new Error('Method updateScheduleNextTrigger must be implemented by subclass');
     }
 
     /**

@@ -6,64 +6,44 @@ const { LocalSchedulerAdapter } = require('./local-scheduler-adapter');
  *
  * Application Layer - Hexagonal Architecture
  *
- * Creates the appropriate scheduler adapter based on configuration.
- * Supports environment-based auto-detection and explicit configuration.
+ * Creates the appropriate scheduler adapter based on explicit configuration
+ * from appDefinition. Does not auto-detect or read environment variables.
  */
 
 /**
  * Create a scheduler adapter instance
  *
- * @param {Object} options - Configuration options
- * @param {string} [options.type] - Adapter type ('aws', 'eventbridge', 'local')
- * @param {string} [options.region] - AWS region (for AWS adapter)
+ * @param {Object} options - Configuration options (from appDefinition.adminScripts.scheduler)
+ * @param {string} options.type - Adapter type ('aws', 'eventbridge', 'local') - required
  * @param {Object} [options.credentials] - AWS credentials (for AWS adapter)
- * @param {string} [options.targetLambdaArn] - Lambda ARN to invoke (for AWS adapter)
- * @param {string} [options.scheduleGroupName] - EventBridge schedule group name (for AWS adapter)
+ * @param {string} [options.targetLambdaArn] - Lambda ARN to invoke (required for AWS adapter)
+ * @param {string} [options.scheduleGroupName] - EventBridge schedule group name (required for AWS adapter)
+ * @param {string} [options.roleArn] - IAM role ARN for scheduler (required for AWS adapter)
  * @returns {SchedulerAdapter} Configured scheduler adapter
  */
 function createSchedulerAdapter(options = {}) {
-    const adapterType = options.type || detectSchedulerAdapterType();
+    if (!options.type) {
+        throw new Error('Scheduler adapter type is required. Configure in appDefinition.adminScripts.scheduler.type');
+    }
 
-    switch (adapterType.toLowerCase()) {
+    switch (options.type.toLowerCase()) {
         case 'aws':
         case 'eventbridge':
             return new AWSSchedulerAdapter({
-                region: options.region,
                 credentials: options.credentials,
                 targetLambdaArn: options.targetLambdaArn,
                 scheduleGroupName: options.scheduleGroupName,
+                roleArn: options.roleArn,
             });
 
         case 'local':
-        default:
             return new LocalSchedulerAdapter();
+
+        default:
+            throw new Error(`Unknown scheduler adapter type: ${options.type}`);
     }
-}
-
-/**
- * Determine the appropriate scheduler adapter type based on environment
- *
- * @returns {string} Adapter type ('aws' or 'local')
- */
-function detectSchedulerAdapterType() {
-    // If explicitly set, use that
-    if (process.env.SCHEDULER_ADAPTER) {
-        return process.env.SCHEDULER_ADAPTER;
-    }
-
-    // Auto-detect based on environment
-    const stage = process.env.STAGE || process.env.NODE_ENV || 'local';
-
-    // Use AWS adapter in production/staging environments
-    if (['production', 'prod', 'staging', 'stage'].includes(stage.toLowerCase())) {
-        return 'aws';
-    }
-
-    // Use local adapter for dev/test/local
-    return 'local';
 }
 
 module.exports = {
     createSchedulerAdapter,
-    detectSchedulerAdapterType,
 };

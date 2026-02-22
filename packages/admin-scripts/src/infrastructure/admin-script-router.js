@@ -1,28 +1,42 @@
 const express = require('express');
 const serverless = require('serverless-http');
-const { adminAuthMiddleware } = require('./admin-auth-middleware');
+const { validateAdminApiKey } = require('./admin-auth-middleware');
 const { getScriptFactory } = require('../application/script-factory');
 const { createScriptRunner } = require('../application/script-runner');
+const { validateScriptInput } = require('../application/validate-script-input');
 const { createAdminScriptCommands } = require('@friggframework/core/application/commands/admin-script-commands');
 const { QueuerUtil } = require('@friggframework/core/queues');
 const { createSchedulerAdapter } = require('../adapters/scheduler-adapter-factory');
-const { ScheduleManagementUseCase } = require('../application/schedule-management-use-case');
+const {
+    GetEffectiveScheduleUseCase,
+    UpsertScheduleUseCase,
+    DeleteScheduleUseCase,
+} = require('../application/use-cases');
 
 const router = express.Router();
 
 // Apply auth middleware to all admin routes
-router.use(adminAuthMiddleware);
+router.use(validateAdminApiKey);
 
 /**
- * Create ScheduleManagementUseCase instance
+ * Create schedule use case instances
  * @private
  */
-function createScheduleManagementUseCase() {
-    return new ScheduleManagementUseCase({
-        commands: createAdminScriptCommands(),
-        schedulerAdapter: createSchedulerAdapter(),
-        scriptFactory: getScriptFactory(),
+function createScheduleUseCases() {
+    const commands = createAdminScriptCommands();
+    const schedulerAdapter = createSchedulerAdapter({
+        type: process.env.SCHEDULER_PROVIDER || 'local',
+        targetLambdaArn: process.env.ADMIN_SCRIPT_EXECUTOR_LAMBDA_ARN,
+        scheduleGroupName: process.env.ADMIN_SCRIPT_SCHEDULE_GROUP,
+        roleArn: process.env.SCHEDULER_ROLE_ARN,
     });
+    const scriptFactory = getScriptFactory();
+
+    return {
+        getEffectiveSchedule: new GetEffectiveScheduleUseCase({ commands, scriptFactory }),
+        upsertSchedule: new UpsertScheduleUseCase({ commands, schedulerAdapter, scriptFactory }),
+        deleteSchedule: new DeleteScheduleUseCase({ commands, schedulerAdapter, scriptFactory }),
+    };
 }
 
 /**
@@ -40,8 +54,8 @@ router.get('/scripts', async (req, res) => {
                 version: s.definition.version,
                 description: s.definition.description,
                 category: s.definition.display?.category || 'custom',
-                requiresIntegrationFactory:
-                    s.definition.config?.requiresIntegrationFactory || false,
+                requireIntegrationInstance:
+                    s.definition.config?.requireIntegrationInstance || false,
                 schedule: s.definition.schedule || null,
             })),
         });
@@ -87,13 +101,13 @@ router.get('/scripts/:scriptName', async (req, res) => {
 });
 
 /**
- * POST /admin/scripts/:scriptName/execute
- * Execute a script (sync, async, or dry-run)
+ * POST /admin/scripts/:scriptName/validate
+ * Validate script inputs without executing (dry-run)
  */
-router.post('/scripts/:scriptName/execute', async (req, res) => {
+router.post('/scripts/:scriptName/validate', async (req, res) => {
     try {
         const { scriptName } = req.params;
-        const { params = {}, mode = 'async', dryRun = false } = req.body;
+        const { params = {} } = req.body;
         const factory = getScriptFactory();
 
         if (!factory.has(scriptName)) {
@@ -103,38 +117,56 @@ router.post('/scripts/:scriptName/execute', async (req, res) => {
             });
         }
 
-        // Dry-run always executes synchronously
-        if (dryRun) {
-            const runner = createScriptRunner();
-            const result = await runner.execute(scriptName, params, {
-                trigger: 'MANUAL',
-                mode: 'sync',
-                dryRun: true,
-                audit: req.adminAudit,
+        const result = validateScriptInput(factory, scriptName, params);
+        res.json(result);
+    } catch (error) {
+        console.error('Error validating script:', error);
+        res.status(500).json({ error: 'Failed to validate script' });
+    }
+});
+
+/**
+ * POST /admin/scripts/:scriptName
+ * Execute a script (sync or async)
+ */
+router.post('/scripts/:scriptName', async (req, res) => {
+    try {
+        const { scriptName } = req.params;
+        const { params = {}, mode = 'async' } = req.body;
+        const factory = getScriptFactory();
+
+        if (!factory.has(scriptName)) {
+            return res.status(404).json({
+                error: `Script "${scriptName}" not found`,
+                code: 'SCRIPT_NOT_FOUND',
             });
-            return res.json(result);
         }
 
         if (mode === 'sync') {
-            // Synchronous execution - wait for result
             const runner = createScriptRunner();
             const result = await runner.execute(scriptName, params, {
                 trigger: 'MANUAL',
                 mode: 'sync',
-                audit: req.adminAudit,
             });
             return res.json(result);
         }
 
         // Async execution - queue and return immediately
+        const queueUrl = process.env.ADMIN_SCRIPT_QUEUE_URL;
+        if (!queueUrl) {
+            return res.status(503).json({
+                error: 'Async execution is not configured (ADMIN_SCRIPT_QUEUE_URL not set)',
+                code: 'QUEUE_NOT_CONFIGURED',
+            });
+        }
+
         const commands = createAdminScriptCommands();
-        const execution = await commands.createScriptExecution({
+        const execution = await commands.createAdminProcess({
             scriptName,
             scriptVersion: factory.get(scriptName).Definition.version,
             trigger: 'MANUAL',
             mode: 'async',
             input: params,
-            audit: req.adminAudit,
         });
 
         // Queue the execution
@@ -145,12 +177,12 @@ router.post('/scripts/:scriptName/execute', async (req, res) => {
                 trigger: 'MANUAL',
                 params,
             },
-            process.env.ADMIN_SCRIPT_QUEUE_URL
+            queueUrl
         );
 
         res.status(202).json({
             executionId: execution.id,
-            status: 'PENDING',
+            status: 'QUEUED',
             scriptName,
             message: 'Script queued for execution',
         });
@@ -161,14 +193,14 @@ router.post('/scripts/:scriptName/execute', async (req, res) => {
 });
 
 /**
- * GET /admin/executions/:executionId
- * Get execution status
+ * GET /admin/scripts/:scriptName/executions/:executionId
+ * Get execution status for specific script
  */
-router.get('/executions/:executionId', async (req, res) => {
+router.get('/scripts/:scriptName/executions/:executionId', async (req, res) => {
     try {
         const { executionId } = req.params;
         const commands = createAdminScriptCommands();
-        const execution = await commands.findScriptExecutionById(executionId);
+        const execution = await commands.findAdminProcessById(executionId);
 
         if (execution.error) {
             return res.status(execution.error).json({
@@ -185,12 +217,13 @@ router.get('/executions/:executionId', async (req, res) => {
 });
 
 /**
- * GET /admin/executions
- * List recent executions
+ * GET /admin/scripts/:scriptName/executions
+ * List recent executions for specific script
  */
-router.get('/executions', async (req, res) => {
+router.get('/scripts/:scriptName/executions', async (req, res) => {
     try {
-        const { scriptName, status, limit = 50 } = req.query;
+        const { scriptName } = req.params;
+        const { status, limit = 50 } = req.query;
         const commands = createAdminScriptCommands();
 
         const executions = await commands.findRecentExecutions({
@@ -213,9 +246,9 @@ router.get('/executions', async (req, res) => {
 router.get('/scripts/:scriptName/schedule', async (req, res) => {
     try {
         const { scriptName } = req.params;
-        const useCase = createScheduleManagementUseCase();
+        const { getEffectiveSchedule } = createScheduleUseCases();
 
-        const result = await useCase.getEffectiveSchedule(scriptName);
+        const result = await getEffectiveSchedule.execute(scriptName);
 
         res.json({
             source: result.source,
@@ -242,9 +275,9 @@ router.put('/scripts/:scriptName/schedule', async (req, res) => {
     try {
         const { scriptName } = req.params;
         const { enabled, cronExpression, timezone } = req.body;
-        const useCase = createScheduleManagementUseCase();
+        const { upsertSchedule } = createScheduleUseCases();
 
-        const result = await useCase.upsertSchedule(scriptName, {
+        const result = await upsertSchedule.execute(scriptName, {
             enabled,
             cronExpression,
             timezone,
@@ -283,9 +316,9 @@ router.put('/scripts/:scriptName/schedule', async (req, res) => {
 router.delete('/scripts/:scriptName/schedule', async (req, res) => {
     try {
         const { scriptName } = req.params;
-        const useCase = createScheduleManagementUseCase();
+        const { deleteSchedule } = createScheduleUseCases();
 
-        const result = await useCase.deleteSchedule(scriptName);
+        const result = await deleteSchedule.execute(scriptName);
 
         res.json(result);
     } catch (error) {

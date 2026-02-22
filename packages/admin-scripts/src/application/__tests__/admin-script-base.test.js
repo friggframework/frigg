@@ -28,12 +28,11 @@ describe('AdminScriptBase', () => {
                     config: {
                         timeout: 600000,
                         maxRetries: 3,
-                        requiresIntegrationFactory: true,
+                        requireIntegrationInstance: true,
                     },
                     display: {
-                        label: 'Test Script',
-                        description: 'For testing',
                         category: 'testing',
+                        icon: 'test-icon',
                     },
                 };
             }
@@ -45,50 +44,12 @@ describe('AdminScriptBase', () => {
             expect(TestScript.Definition.schedule.enabled).toBe(true);
             expect(TestScript.Definition.config.timeout).toBe(600000);
         });
-    });
 
-    describe('Static methods', () => {
-        it('getName() should return the script name', () => {
-            class TestScript extends AdminScriptBase {
-                static Definition = {
-                    name: 'my-script',
-                    version: '1.0.0',
-                    description: 'test',
-                };
-            }
-
-            expect(TestScript.getName()).toBe('my-script');
-        });
-
-        it('getCurrentVersion() should return the version', () => {
-            class TestScript extends AdminScriptBase {
-                static Definition = {
-                    name: 'my-script',
-                    version: '2.3.1',
-                    description: 'test',
-                };
-            }
-
-            expect(TestScript.getCurrentVersion()).toBe('2.3.1');
-        });
-
-        it('getDefinition() should return the full Definition', () => {
-            class TestScript extends AdminScriptBase {
-                static Definition = {
-                    name: 'my-script',
-                    version: '1.0.0',
-                    description: 'test',
-                    source: 'USER_DEFINED',
-                };
-            }
-
-            const definition = TestScript.getDefinition();
-            expect(definition).toEqual({
-                name: 'my-script',
-                version: '1.0.0',
-                description: 'test',
-                source: 'USER_DEFINED',
-            });
+        it('should have clean display object without redundant fields', () => {
+            expect(AdminScriptBase.Definition.display).toBeDefined();
+            expect(AdminScriptBase.Definition.display.category).toBe('maintenance');
+            expect(AdminScriptBase.Definition.display.label).toBeUndefined();
+            expect(AdminScriptBase.Definition.display.description).toBeUndefined();
         });
     });
 
@@ -96,10 +57,16 @@ describe('AdminScriptBase', () => {
         it('should initialize with default values', () => {
             const script = new AdminScriptBase();
 
+            expect(script.context).toBeNull();
             expect(script.executionId).toBeNull();
-            expect(script.logs).toEqual([]);
-            expect(script._startTime).toBeNull();
             expect(script.integrationFactory).toBeNull();
+        });
+
+        it('should accept context parameter', () => {
+            const mockContext = { log: jest.fn() };
+            const script = new AdminScriptBase({ context: mockContext });
+
+            expect(script.context).toBe(mockContext);
         });
 
         it('should accept executionId parameter', () => {
@@ -117,13 +84,16 @@ describe('AdminScriptBase', () => {
             expect(script.integrationFactory).toBe(mockFactory);
         });
 
-        it('should accept both executionId and integrationFactory', () => {
+        it('should accept all parameters together', () => {
+            const mockContext = { log: jest.fn() };
             const mockFactory = { mock: true };
             const script = new AdminScriptBase({
+                context: mockContext,
                 executionId: 'exec_456',
                 integrationFactory: mockFactory,
             });
 
+            expect(script.context).toBe(mockContext);
             expect(script.executionId).toBe('exec_456');
             expect(script.integrationFactory).toBe(mockFactory);
         });
@@ -133,12 +103,12 @@ describe('AdminScriptBase', () => {
         it('should throw error when not implemented by subclass', async () => {
             const script = new AdminScriptBase();
 
-            await expect(script.execute({}, {})).rejects.toThrow(
+            await expect(script.execute({})).rejects.toThrow(
                 'AdminScriptBase.execute() must be implemented by subclass'
             );
         });
 
-        it('should allow child classes to implement execute()', async () => {
+        it('should allow child classes to implement execute() with params only', async () => {
             class TestScript extends AdminScriptBase {
                 static Definition = {
                     name: 'test',
@@ -146,128 +116,83 @@ describe('AdminScriptBase', () => {
                     description: 'test',
                 };
 
-                async execute(frigg, params) {
+                async execute(params) {
                     return { result: 'success', params };
                 }
             }
 
             const script = new TestScript();
-            const frigg = {};
             const params = { foo: 'bar' };
 
-            const result = await script.execute(frigg, params);
+            const result = await script.execute(params);
 
             expect(result.result).toBe('success');
             expect(result.params).toEqual({ foo: 'bar' });
         });
-    });
 
-    describe('Logging methods', () => {
-        it('log() should create log entry with timestamp', () => {
-            const script = new AdminScriptBase();
-            const beforeTime = new Date().toISOString();
+        it('should access context via this.context', async () => {
+            class TestScript extends AdminScriptBase {
+                static Definition = {
+                    name: 'test',
+                    version: '1.0.0',
+                    description: 'test',
+                };
 
-            const entry = script.log('info', 'Test message', { key: 'value' });
+                async execute(params) {
+                    this.context.log('info', 'Starting');
+                    return { success: true };
+                }
+            }
 
-            const afterTime = new Date().toISOString();
+            const mockContext = { log: jest.fn() };
+            const script = new TestScript({ context: mockContext });
 
-            expect(entry.level).toBe('info');
-            expect(entry.message).toBe('Test message');
-            expect(entry.data).toEqual({ key: 'value' });
-            expect(entry.timestamp).toBeDefined();
-            expect(entry.timestamp >= beforeTime).toBe(true);
-            expect(entry.timestamp <= afterTime).toBe(true);
-        });
+            await script.execute({});
 
-        it('log() should add entry to logs array', () => {
-            const script = new AdminScriptBase();
-
-            script.log('info', 'First');
-            script.log('error', 'Second');
-            script.log('warn', 'Third');
-
-            const logs = script.getLogs();
-
-            expect(logs).toHaveLength(3);
-            expect(logs[0].message).toBe('First');
-            expect(logs[1].message).toBe('Second');
-            expect(logs[2].message).toBe('Third');
-        });
-
-        it('log() should default data to empty object', () => {
-            const script = new AdminScriptBase();
-
-            const entry = script.log('info', 'No data');
-
-            expect(entry.data).toEqual({});
-        });
-
-        it('getLogs() should return logs array', () => {
-            const script = new AdminScriptBase();
-
-            script.log('info', 'Message 1');
-            script.log('error', 'Message 2');
-
-            const logs = script.getLogs();
-
-            expect(logs).toHaveLength(2);
-            expect(logs[0].level).toBe('info');
-            expect(logs[1].level).toBe('error');
-        });
-
-        it('clearLogs() should empty logs array', () => {
-            const script = new AdminScriptBase();
-
-            script.log('info', 'Message 1');
-            script.log('info', 'Message 2');
-            expect(script.getLogs()).toHaveLength(2);
-
-            script.clearLogs();
-
-            expect(script.getLogs()).toHaveLength(0);
+            expect(mockContext.log).toHaveBeenCalledWith('info', 'Starting');
         });
     });
 
     describe('Integration with child classes', () => {
-        it('should support full lifecycle', async () => {
+        it('should support full lifecycle with context injection', async () => {
             class MyScript extends AdminScriptBase {
                 static Definition = {
                     name: 'my-script',
                     version: '1.0.0',
                     description: 'My test script',
                     config: {
-                        requiresIntegrationFactory: true,
+                        requireIntegrationInstance: true,
                     },
                 };
 
-                async execute(frigg, params) {
-                    this.log('info', 'Starting execution');
-                    this.log('debug', 'Processing', params);
+                async execute(params) {
+                    this.context.log('info', 'Starting execution');
+                    this.context.log('debug', 'Processing', params);
 
                     if (this.integrationFactory) {
-                        this.log('info', 'Integration factory available');
+                        this.context.log('info', 'Integration factory available');
                     }
 
                     return { processed: true };
                 }
             }
 
+            const mockContext = { log: jest.fn() };
             const mockFactory = { getInstanceById: jest.fn() };
             const script = new MyScript({
+                context: mockContext,
                 executionId: 'exec_789',
                 integrationFactory: mockFactory,
             });
 
-            const frigg = {};
-            const result = await script.execute(frigg, { test: 'data' });
+            const result = await script.execute({ test: 'data' });
 
             expect(result).toEqual({ processed: true });
 
-            const logs = script.getLogs();
-            expect(logs).toHaveLength(3);
-            expect(logs[0].message).toBe('Starting execution');
-            expect(logs[1].message).toBe('Processing');
-            expect(logs[2].message).toBe('Integration factory available');
+            expect(mockContext.log).toHaveBeenCalledTimes(3);
+            expect(mockContext.log).toHaveBeenCalledWith('info', 'Starting execution');
+            expect(mockContext.log).toHaveBeenCalledWith('debug', 'Processing', { test: 'data' });
+            expect(mockContext.log).toHaveBeenCalledWith('info', 'Integration factory available');
         });
     });
 });

@@ -106,7 +106,7 @@ describe('TriggerDatabaseMigrationUseCase', () => {
                 success: true,
                 migrationId: 'migration-123',
                 state: 'INITIALIZING',
-                statusUrl: '/db-migrate/migration-123',
+                statusUrl: '/admin/db-migrate/migration-123',
                 s3Key: expect.stringContaining('migrations/'),
                 message: 'Database migration queued successfully',
             });

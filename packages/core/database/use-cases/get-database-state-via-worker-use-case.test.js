@@ -65,8 +65,7 @@ describe('GetDatabaseStateViaWorkerUseCase', () => {
                 pendingMigrations: 3,
                 stage: 'prod',
                 dbType: 'postgresql',
-                recommendation:
-                    'Run POST /db-migrate to apply 3 pending migration(s).',
+                recommendation: 'Run POST /admin/db-migrate to apply 3 pending migration(s).',
             });
 
             const result = await useCase.execute('prod');
@@ -76,8 +75,7 @@ describe('GetDatabaseStateViaWorkerUseCase', () => {
                 pendingMigrations: 3,
                 stage: 'prod',
                 dbType: 'postgresql',
-                recommendation:
-                    'Run POST /db-migrate to apply 3 pending migration(s).',
+                recommendation: 'Run POST /admin/db-migrate to apply 3 pending migration(s).',
             });
         });
 

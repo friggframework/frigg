@@ -80,26 +80,6 @@ model Token {
   @@map("Token")
 }
 
-/// Multi-step authorization session tracking
-/// Supports OTP flows and multi-stage authentication (e.g., Nagaris)
-model AuthorizationSession {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  sessionId   String   @unique
-  userId      String
-  entityType  String
-  currentStep Int      @default(1)
-  maxSteps    Int
-  stepData    Json     @default("{}")
-  expiresAt   DateTime
-  completed   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([userId, entityType])
-  @@index([expiresAt])
-  @@map("AuthorizationSession")
-}
-
 // ============================================================================
 // CREDENTIAL & ENTITY MODELS
 // ============================================================================
@@ -138,7 +118,6 @@ model Entity {
   name         String?
   moduleName   String?
   externalId   String?
-  isGlobal     Boolean     @default(false)
 
   data Json @default("{}")
 
@@ -159,8 +138,6 @@ model Entity {
   @@index([externalId])
   @@index([moduleName])
   @@index([credentialId])
-  @@index([isGlobal])
-  @@index([isGlobal, moduleName])
   @@map("Entity")
 }
 
@@ -385,70 +362,51 @@ model WebsocketConnection {
 }
 
 // ============================================================================
-// ADMIN SCRIPT RUNNER MODELS
+// ADMIN PROCESS MODELS
 // ============================================================================
 
-enum ScriptExecutionStatus {
+/// Admin process state machine
+enum AdminProcessState {
   PENDING
   RUNNING
   COMPLETED
   FAILED
-  TIMEOUT
-  CANCELLED
 }
 
-enum ScriptTrigger {
+/// Admin trigger types
+enum AdminTrigger {
   MANUAL
   SCHEDULED
   QUEUE
   WEBHOOK
 }
 
-/// Admin API keys for script execution authentication
-/// Key hashes stored with bcrypt
-model AdminApiKey {
-  id         String    @id @default(auto()) @map("_id") @db.ObjectId
-  keyHash    String    @unique // bcrypt hashed
-  keyLast4   String // Last 4 chars for display
-  name       String // Human-readable name
-  scopes     String[] // ['scripts:execute', 'scripts:read']
-  expiresAt  DateTime?
-  createdBy  String? // User/admin who created
-  lastUsedAt DateTime?
-  isActive   Boolean   @default(true)
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+/// Admin process tracking (like Process but without user/integration FK)
+/// Used for: admin scripts, db migrations, system maintenance tasks
+model AdminProcess {
+  id   String @id @default(auto()) @map("_id") @db.ObjectId
+  name String // e.g., "oauth-token-refresh", "db-migration-xyz"
+  type String // e.g., "ADMIN_SCRIPT", "DB_MIGRATION"
 
-  @@index([isActive])
-  @@map("AdminApiKey")
-}
+  // State machine
+  state AdminProcessState @default(PENDING)
 
-/// Script execution tracking and audit log
-model ScriptExecution {
-  id                String                @id @default(auto()) @map("_id") @db.ObjectId
-  scriptName        String
-  scriptVersion     String?
-  status            ScriptExecutionStatus @default(PENDING)
-  trigger           ScriptTrigger
-  mode              String                @default("async") // "sync" | "async"
-  input             Json?
-  output            Json?
-  logs              Json[] // [{level, message, data, timestamp}]
-  metricsStartTime  DateTime?
-  metricsEndTime    DateTime?
-  metricsDurationMs Int?
-  errorName         String?
-  errorMessage      String?
-  errorStack        String?
-  auditApiKeyName   String?
-  auditApiKeyLast4  String?
-  auditIpAddress    String?
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
+  // Flexible storage (mirrors Process model pattern)
+  context Json @default("{}") // input, trigger, audit info, script version
+  results Json @default("{}") // output, logs, metrics, errors
 
-  @@index([scriptName, createdAt(sort: Desc)])
-  @@index([status])
-  @@map("ScriptExecution")
+  // Hierarchy support
+  childProcesses  String[] @db.ObjectId
+  parentProcessId String?  @db.ObjectId
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name, createdAt(sort: Desc)])
+  @@index([state])
+  @@index([type])
+  @@map("AdminProcess")
 }
 
 /// Script scheduling configuration for hybrid scheduling (SQS + EventBridge)
@@ -461,9 +419,9 @@ model ScriptSchedule {
   lastTriggeredAt DateTime?
   nextTriggerAt   DateTime?
 
-  // AWS EventBridge Schedule (if provisioned)
-  awsScheduleArn  String?
-  awsScheduleName String?
+  // External Scheduler (e.g., AWS EventBridge Scheduler)
+  externalScheduleId   String?
+  externalScheduleName String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
