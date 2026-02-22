@@ -636,61 +636,132 @@ These live in `packages/agent-adapters/` and are opt-in, never required.
 
 ---
 
-## 8. Interop with Workflow Engines (Lobster, Temporal, Step Functions)
+## 8. Workflow Engine: Built-In + Interop
 
-OpenTentacles provides **integration infrastructure** -- authenticated API calls, credential management, webhook ingestion, job queues, encryption. It does not provide **workflow orchestration** -- step sequencing, approval gates, retry policies, saga patterns. These are complementary concerns, and OpenTentacles is designed to work with external workflow engines rather than replacing them.
+OpenTentacles is **both** an integration platform **and** a workflow engine. Frigg's existing primitives -- event dispatcher, job queues, scheduled tasks, two-phase webhook processing, bidirectional sync manager -- already form a complete event-driven workflow system. OpenTentacles exposes this to agents as a first-class capability, while remaining interoperable with external orchestration engines for cases that need more.
 
-### 8.1 OpenClaw Lobster: The Personal Workflow Layer
+### 8.1 Frigg's Built-In Workflow Primitives
 
-[Lobster](https://github.com/openclaw/lobster) is OpenClaw's native workflow engine -- a typed, local-first pipeline shell written in TypeScript. It is **not** built on Temporal or any other existing orchestration platform. Key characteristics:
+A codebase audit reveals Frigg already has six workflow primitives that compose into complex multi-step flows:
 
-| Dimension | Lobster | OpenTentacles |
+```
+┌────────────────────────────────────────────────────────────────┐
+│ OpenTentacles Workflow Engine (built on Frigg primitives)        │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ 1. Event Dispatcher (integration-event-dispatcher.js)     │  │
+│  │    Routes events to handlers on integration instances     │  │
+│  │    - HTTP dispatch (req/res context)                      │  │
+│  │    - Job dispatch (async SQS context)                     │  │
+│  │    - Default + custom event handlers                      │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ 2. Queue System (queuer-util.js)                          │  │
+│  │    Async job dispatch with batch support                  │  │
+│  │    - send(message, queueUrl) for single jobs              │  │
+│  │    - batchSend(entries, queueUrl) for bulk (10 at a time) │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ 3. Worker System (Worker.js)                              │  │
+│  │    Processes SQS records sequentially                     │  │
+│  │    - Validates params, runs job logic                     │  │
+│  │    - Auto-hydrates integration instances from event data  │  │
+│  │    - Dispatches to event handlers via IntegrationEvent    │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ 4. Scheduler (scheduler-commands.js)                      │  │
+│  │    One-time scheduled job execution                       │  │
+│  │    - scheduleJob({ jobId, scheduledAt, event, payload })  │  │
+│  │    - Targets SQS queues (derives ARN internally)          │  │
+│  │    - Mock provider for local dev                          │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ 5. Sync Manager (syncs/manager.js)                        │  │
+│  │    Bidirectional multi-step data synchronization          │  │
+│  │    - Initial sync: fetch both sides, deduplicate, merge   │  │
+│  │    - Incremental sync: hash comparison, batch operations  │  │
+│  │    - Confirmation tracking with sync IDs                  │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ 6. Delegate Pattern (Delegate.js)                         │  │
+│  │    Decoupled component communication                      │  │
+│  │    - notify(eventName, payload) → receiveNotification()   │  │
+│  │    - Typed delegate types per component                   │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────┘
+```
+
+These primitives compose into real multi-step workflows without any external engine:
+
+**Example: Webhook → Queue → Process → Schedule → Refresh**
+
+```
+1. External webhook arrives          → HTTP handler (Express router)
+2. onWebhookReceived()               → Immediate 200 response to caller
+3. queueWebhook(data)                → QueuerUtil.send() to SQS
+4. Worker picks up message           → Dispatches ON_WEBHOOK event
+5. onWebhook() processes data        → Custom business logic executes
+6. schedulerCommands.scheduleJob()   → Schedules follow-up in 6 days
+7. EventBridge fires at scheduled time → SQS message with REFRESH event
+8. Worker picks up refresh message   → Dispatches REFRESH_WEBHOOK event
+9. onRefreshWebhook() executes       → Re-registers webhook subscription
+```
+
+**Example: Bidirectional sync with conflict resolution**
+
+```
+1. initialSync() triggered           → By schedule or agent command
+2. Fetch from primary module         → getAllSyncObjects() via API module
+3. Fetch from secondary module       → getAllSyncObjects() via API module
+4. Deduplicate and find intersections → Hash-based comparison
+5. Determine creates vs updates      → Business logic in SyncManager
+6. Batch update primary              → API module bulk operations
+7. Batch create primary              → API module bulk operations
+8. Batch update secondary            → API module bulk operations
+9. Batch create secondary            → API module bulk operations
+10. Confirm all operations           → Sync ID tracking for idempotency
+```
+
+This isn't "just infrastructure." It's an **event-driven workflow engine specialized for integration patterns** -- webhook processing, data synchronization, scheduled maintenance, and API orchestration.
+
+### 8.2 What the Built-In Engine Handles
+
+| Workflow Pattern | Frigg Primitive | How It Works |
 |---|---|---|
-| **Core purpose** | Pipeline orchestration with approval gates | Authenticated API integration infrastructure |
-| **Execution model** | Sequential pipeline steps with JSON piping | Express HTTP server with event dispatch |
-| **State persistence** | File-based resume tokens in `~/.openclaw/` | Database-backed (Prisma) credential + integration state |
-| **Determinism** | Constrained YAML grammar (pipelines are data) | Code-based (IntegrationBase classes) |
-| **Human-in-the-loop** | First-class `approve` primitive (hard stop) | Not built-in (delegated to workflow layer) |
-| **Retry logic** | None -- timeouts and output caps only | Frigg's event dispatcher handles retries |
-| **Networking** | Local subprocess only | Full HTTP server with webhook tunnel |
+| **Webhook → async processing** | Event dispatcher + Queue + Worker | Two-phase: immediate HTTP response, then async job |
+| **Scheduled jobs** | Scheduler commands | One-time EventBridge → SQS → Worker chain |
+| **Multi-system sync** | SyncManager | Bidirectional fetch/compare/merge with batch ops |
+| **Event chaining** | Queue + Event dispatcher | Job dispatches new events, creating step sequences |
+| **Retry on failure** | SQS dead letter queues | Failed messages retry automatically (configurable) |
+| **Batch processing** | QueuerUtil.batchSend | Process up to 10 messages per batch, sequential within worker |
+| **Component communication** | Delegate pattern | Typed notifications between integration components |
+| **Dynamic forms** | IntegrationBase lifecycle | Multi-step: loadForm → onFormSubmit → refreshConfigOptions |
 
-Lobster's VISION.md self-describes as *"Temporal: But 80/20 version for personal workflows"* and *"Zapier for OpenClaw, but with approval checkpoints."* It achieves determinism through constrained pipeline definitions rather than Temporal-style event-sourced replay.
+### 8.3 What the Built-In Engine Doesn't Handle
 
-**Neither can do what the other does.** Lobster can't manage OAuth tokens or receive webhooks. OpenTentacles can't pause a multi-step workflow for human approval. Together they cover the full stack.
+These are the cases where external engines add value:
 
-### 8.2 Complementary Architecture
+| Gap | Why It's a Gap | External Solution |
+|---|---|---|
+| **Human-in-the-loop** | No approval/pause primitive | Lobster (`approve` step), or agent asks user directly |
+| **Distributed sagas** | No compensation/rollback pattern | Temporal (event-sourced replay with automatic rollback) |
+| **Visual workflow design** | No drag-and-drop UI | AWS Step Functions (visual workflow designer) |
+| **Complex branching** | No if/else in event definitions | Temporal or Step Functions (state machine) |
+| **Workflow history** | No audit trail beyond logs | Temporal (full event-sourced history) |
+| **Cross-service transactions** | No two-phase commit | Temporal (saga pattern with compensation) |
 
-An OpenClaw agent using both Lobster and OpenTentacles gets a layered system:
+**The design principle**: OpenTentacles handles 80% of integration workflows natively. For the 20% that need distributed sagas, human approval gates, or visual workflow design, it interoperates with specialized engines.
 
-```
-┌──────────────────────────────────────────────────────────┐
-│ OpenClaw Agent                                            │
-│                                                           │
-│  ┌────────────────────────────────────────────────────┐  │
-│  │ Lobster (Workflow Layer)                             │  │
-│  │ - Pipeline sequencing and data flow                 │  │
-│  │ - Approval gates (hard stop, resume with token)     │  │
-│  │ - Cursor tracking (don't reprocess seen items)      │  │
-│  │ - Timeout enforcement                               │  │
-│  └───────────────────────┬────────────────────────────┘  │
-│                          │ calls                          │
-│  ┌───────────────────────▼────────────────────────────┐  │
-│  │ OpenTentacles (Integration Layer)                   │  │
-│  │ - OAuth2/API-key authentication                     │  │
-│  │ - API module method invocation                      │  │
-│  │ - Webhook reception and event routing               │  │
-│  │ - Credential encryption and storage                 │  │
-│  │ - Job queues and scheduled tasks                    │  │
-│  └───────────────────────┬────────────────────────────┘  │
-│                          │ powered by                     │
-│  ┌───────────────────────▼────────────────────────────┐  │
-│  │ Frigg Framework (Engine)                            │  │
-│  │ - IntegrationBase, Module system, Prisma ORM        │  │
-│  └────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────┘
-```
+### 8.4 Interop with External Workflow Engines
 
-**Example: HubSpot deal alerts with human approval**
+#### OpenClaw Lobster
+
+[Lobster](https://github.com/openclaw/lobster) is OpenClaw's native workflow engine -- a typed, local-first pipeline shell. It adds the **human-in-the-loop** primitive that OpenTentacles doesn't have:
 
 ```yaml
 # deal-alerts.lobster
@@ -698,42 +769,56 @@ name: hubspot-deal-alerts
 steps:
   - name: fetch
     exec: ot_invoke hubspot deals.list --filter "amount>10000"
-  - name: format
+  - name: approve                           # ← Lobster adds this
     stdin: $fetch.json
-    exec: jq '.deals[] | {name: .name, amount: .amount, rep: .owner}'
-  - name: approve
-    stdin: $format.stdout
     approve: "Post these deals to #big-deals?"
   - name: notify
     condition: $approve.approved
-    stdin: $format.stdout
     exec: ot_invoke slack chat.postMessage --channel big-deals
 ```
 
-Lobster handles the flow: fetch → format → **approve** → notify. OpenTentacles handles the API calls: authenticated HubSpot query and Slack message post. The agent orchestrates neither -- both run deterministically from the pipeline definition.
+Without the `approve` step, this workflow runs entirely within OpenTentacles (webhook → queue → process → post). Lobster is only needed when a human must intervene mid-flow.
 
-### 8.3 Enterprise Workflow Engines (Temporal, Step Functions)
-
-For production deployments that need distributed orchestration, OpenTentacles integrations can be called from enterprise workflow engines:
-
-| Engine | Integration Pattern | Use Case |
+| Dimension | OpenTentacles (Built-In) | Lobster (When Needed) |
 |---|---|---|
-| **Temporal** | Activities call Frigg API modules | Durable, distributed multi-system syncs with automatic retry |
-| **AWS Step Functions** | Lambda steps use Frigg handlers | Serverless orchestration with visual workflow designer |
-| **Bull/BullMQ** | Queue workers use Frigg modules | Redis-backed job processing with retry and backoff |
+| **Webhook → process → respond** | Native (event dispatcher + queue) | Not needed |
+| **Scheduled sync every hour** | Native (scheduler + worker) | Not needed |
+| **Multi-step with human approval** | Cannot pause for human input | `approve` primitive |
+| **YAML-defined pipelines** | Code-based (IntegrationBase) | Data-based (constrained YAML) |
+| **Auth management** | Full OAuth2 + credential encryption | Delegates to OpenTentacles |
+| **Networking** | HTTP server with webhook tunnel | Local subprocess only |
 
-OpenTentacles doesn't compete with these engines. It provides the **integration primitives** they orchestrate. A Temporal activity that needs to call HubSpot's API can use a Frigg API module instead of hand-rolling HTTP + OAuth + token refresh.
+#### Enterprise Engines (Temporal, Step Functions)
 
-### 8.4 Design Principle: Infrastructure, Not Orchestration
+For production deployments needing distributed orchestration:
 
-OpenTentacles deliberately avoids building workflow orchestration because:
+| Engine | Integration Pattern | When to Use |
+|---|---|---|
+| **Temporal** | Activities call Frigg API modules | Multi-system sagas with automatic rollback |
+| **AWS Step Functions** | Lambda steps use Frigg handlers | Visual workflow design with AWS-native tooling |
+| **Bull/BullMQ** | Queue workers use Frigg modules | Redis-backed job processing with complex retry policies |
 
-1. **Agents already orchestrate.** An LLM calling MCP tools is already a workflow engine. Adding another orchestration layer creates confusion about who controls the flow.
-2. **Lobster exists.** For OpenClaw users who want deterministic pipelines, Lobster is purpose-built and already integrated.
-3. **Temporal exists.** For enterprise users who need distributed durable execution, Temporal is battle-tested and a better investment than building a competing engine.
-4. **The integration layer is the gap.** No existing tool gives agents authenticated, encrypted, enterprise-grade API module access. That's the unique value.
+These engines call **into** OpenTentacles for the integration work. A Temporal activity that needs to call HubSpot's API uses a Frigg API module instead of hand-rolling HTTP + OAuth + token refresh. OpenTentacles provides the integration primitives; the engine provides the orchestration guarantees.
 
-The right boundary: OpenTentacles makes API calls reliable and secure. Workflow engines make sequences of those calls reliable and recoverable. Different problems, different tools.
+### 8.5 Design Principle: Complete by Default, Composable When Needed
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ "Do I need an external workflow engine?"                         │
+│                                                                  │
+│ Webhook → process → respond?               → Use OpenTentacles  │
+│ Scheduled sync between two systems?         → Use OpenTentacles  │
+│ Event chain: A happens, trigger B and C?    → Use OpenTentacles  │
+│ Batch process 1000 records from API?        → Use OpenTentacles  │
+│                                                                  │
+│ Need human approval mid-workflow?           → Add Lobster        │
+│ Need distributed saga with rollback?        → Add Temporal       │
+│ Need visual workflow designer?              → Add Step Functions  │
+│ Need complex retry with exponential backoff? → Add Bull/BullMQ   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+Most agent-driven integration workflows -- "sync my HubSpot contacts to Postgres every hour," "post to Slack when a deal closes," "refresh webhook subscriptions before they expire" -- run entirely within OpenTentacles. External engines are an escape hatch, not a prerequisite.
 
 ---
 
@@ -816,29 +901,29 @@ Matches Frigg's stack. The MCP server, local runtime, and all packages are JavaS
 - Same developer tooling (npm, Jest, ESLint)
 - Compatibility with Frigg's Prisma + Express patterns
 
-### 10.2MCP SDK: `@modelcontextprotocol/sdk`
+### 10.2 MCP SDK: `@modelcontextprotocol/sdk`
 
 The official MCP TypeScript/JavaScript SDK. Supports all transports (stdio, SSE, Streamable HTTP) and all primitives (Tools, Resources, Prompts, Tasks).
 
-### 10.3Vector Store: Vectra (Local) → RuVector/pgvector (Cloud)
+### 10.3 Vector Store: Vectra (Local) → RuVector/pgvector (Cloud)
 
 - **Local development**: Vectra (pure Node.js, file-based, zero-config)
 - **Production**: RuVector (npm package, pgvector-compatible) or pgvector directly (already using Postgres)
 - Adapter pattern lets the recommendation engine work with either
 
-### 10.4Local Database: SQLite (Default) → Postgres (Optional)
+### 10.4 Local Database: SQLite (Default) → Postgres (Optional)
 
 - SQLite via Prisma for zero-config local development
 - Same Prisma schema as Frigg (Postgres), so migrations carry over
 - Agents get a working database without installing anything
 
-### 10.5Webhook Tunnel: cloudflared (Default)
+### 10.5 Webhook Tunnel: cloudflared (Default)
 
 - Free, no account required for quick tunnels
 - `npx cloudflared tunnel --url http://localhost:3000` -- single command
 - Falls back to ngrok if cloudflared unavailable
 
-### 10.6Monorepo: npm Workspaces
+### 10.6 Monorepo: npm Workspaces
 
 Same pattern as Frigg. All packages in `packages/`, managed by npm workspaces, published independently to npm under `@opententacles/` scope.
 
@@ -922,6 +1007,7 @@ The first milestone is simple: **an agent calls `ot_list_modules()` and gets bac
 | Feature | OpenTentacles | Raw MCP Servers | Composio | Zapier MCP |
 |---|---|---|---|---|
 | Pre-built API modules | 40+ (via Frigg) | Build each from scratch | 150+ tools | 7000+ apps |
+| Built-in workflow engine | Yes (event-driven: queues, scheduler, sync, workers) | No | No | Triggers only |
 | Local-first runtime | Yes (standalone) | No standard | Cloud-only | Cloud-only |
 | Code generation | Agent writes Frigg code | N/A | No code gen | No-code only |
 | Cloud deployment | AWS Lambda (Frigg infra) | Manual | Managed cloud | Managed cloud |
@@ -934,31 +1020,52 @@ The first milestone is simple: **an agent calls `ot_list_modules()` and gets bac
 
 The key differentiator: OpenTentacles is the only option where **agents write real, deployable integration code** rather than configuring a managed service. The integrations are yours -- in your repo, your infrastructure, your control.
 
-## Appendix B: OpenTentacles vs OpenClaw Lobster
+## Appendix B: OpenTentacles as Workflow Engine vs Alternatives
 
-These are **complementary tools operating at different layers**, not competitors.
+OpenTentacles has its own workflow engine (built on Frigg's event-driven primitives). External engines add value for specific patterns OpenTentacles doesn't handle natively.
 
-| Dimension | OpenTentacles | Lobster |
+### When You Need Only OpenTentacles
+
+| Workflow | OpenTentacles Primitive | External Engine Needed? |
 |---|---|---|
-| **Layer** | Integration infrastructure | Workflow orchestration |
-| **Core problem** | "How do I call HubSpot's API with valid OAuth tokens?" | "How do I sequence 5 steps with a human approval in the middle?" |
-| **Written in** | JavaScript/Node.js (matches Frigg) | TypeScript |
-| **Runtime** | Long-running Express HTTP server | Short-lived CLI subprocess |
-| **State storage** | Prisma database (Postgres/SQLite/MongoDB) | Filesystem (~/.openclaw/ state dir) |
-| **Auth management** | Full OAuth2 lifecycle, token refresh, credential encryption | None -- delegates to tool layer |
-| **Webhook support** | Full HTTP server with tunnel for external delivery | None -- not an HTTP server |
-| **Retry/error handling** | Frigg event dispatcher, queue-based retry | Timeouts and output caps only |
-| **Human-in-the-loop** | Not built-in (delegates to workflow layer) | First-class `approve` primitive |
-| **Determinism model** | Code-based (IntegrationBase classes) | Data-based (YAML pipelines) |
-| **Scalability target** | Local → serverless cloud graduation | Local single-host only |
-| **Self-description** | "Integration infrastructure for autonomous agents" | "Temporal: 80/20 version for personal workflows" |
+| Webhook → queue → async process | Event dispatcher + QueuerUtil + Worker | No |
+| Hourly API sync between systems | Scheduler + SyncManager | No |
+| Webhook subscription renewal | Scheduler → Queue → Worker chain | No |
+| Batch process API records | QueuerUtil.batchSend + Worker | No |
+| Dynamic config forms | IntegrationBase lifecycle methods | No |
+| Event-to-event chaining | Queue dispatch from within handlers | No |
+| Failed job retry | SQS dead letter queue (automatic) | No |
 
-**Together they form a complete stack:**
+### When You Need OpenTentacles + Lobster
 
-```
-Lobster    → "fetch deals, filter big ones, get human approval, post to Slack"
-OpenTentacles → "here's an authenticated HubSpot client and a Slack client with valid tokens"
-Frigg      → "here's how IntegrationBase, Module, and Requester classes work"
-```
+| Workflow | What Lobster Adds |
+|---|---|
+| Fetch data → **human reviews** → post to Slack | `approve` primitive (hard pause/resume) |
+| Sync contacts → **human confirms** merge conflicts | Approval gate before destructive writes |
+| Generate report → **human edits** → send email | YAML pipeline with cursor tracking |
 
-An agent using only Lobster must hand-roll every API call. An agent using only OpenTentacles must rely on the LLM to sequence multi-step flows. An agent using both gets **deterministic pipelines with enterprise-grade API infrastructure** -- the best of both worlds.
+### When You Need OpenTentacles + Temporal/Step Functions
+
+| Workflow | What the Enterprise Engine Adds |
+|---|---|
+| Multi-system saga with rollback on failure | Compensation/rollback, event-sourced replay |
+| Complex branching (if payment fails → retry, if inventory low → backorder) | State machine with conditional transitions |
+| Cross-region distributed processing | Distributed task queues with strong consistency |
+| Audit trail required by compliance | Full workflow execution history |
+
+### Comparison Matrix
+
+| Dimension | OpenTentacles (Built-In) | Lobster | Temporal |
+|---|---|---|---|
+| **Workflow type** | Event-driven, queue-based | Sequential pipeline | Event-sourced state machine |
+| **Definition** | Code (IntegrationBase) | Data (YAML) | Code (activities + workflows) |
+| **Auth/credentials** | Full OAuth2 + encryption | None | None |
+| **Webhook ingestion** | Native HTTP server | None | None |
+| **Human approval** | No | First-class `approve` | Via signals (complex) |
+| **Retry policy** | SQS DLQ (basic) | None | Configurable per activity |
+| **Rollback/compensation** | No | No | Native saga pattern |
+| **Scalability** | Local → serverless cloud | Local only | Distributed cluster |
+| **State persistence** | Prisma DB | Filesystem | Event-sourced DB |
+| **Setup complexity** | Zero (included in OpenTentacles) | `npm install lobster` | Temporal server + workers |
+
+The key insight: **most agent-driven workflows never leave the first column.** OpenTentacles handles webhook processing, scheduled syncs, event chains, and batch operations natively. Lobster and Temporal are escape hatches for the specific patterns (human approval, distributed sagas) that need them.
