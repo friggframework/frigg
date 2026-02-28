@@ -13,10 +13,12 @@
 
 const { EventBridgeSchedulerAdapter } = require('./eventbridge-scheduler-adapter');
 const { MockSchedulerAdapter } = require('./mock-scheduler-adapter');
+const { NetlifySchedulerAdapter } = require('./netlify-scheduler-adapter');
 
 const SCHEDULER_PROVIDERS = {
     EVENTBRIDGE: 'eventbridge',
     MOCK: 'mock',
+    NETLIFY: 'netlify',
 };
 
 const LOCAL_STAGES = ['dev', 'test', 'local'];
@@ -44,9 +46,11 @@ function determineProvider() {
  * Create a scheduler service instance
  *
  * @param {Object} options
- * @param {string} options.provider - Scheduler provider ('eventbridge' or 'mock')
+ * @param {string} options.provider - Scheduler provider ('eventbridge', 'mock', or 'netlify')
  * @param {string} options.region - AWS region (for EventBridge)
  * @param {boolean} options.verbose - Verbose logging (for Mock)
+ * @param {Object} options.repository - Schedule repository (for Netlify - persists schedules)
+ * @param {Object} options.queueProvider - Queue provider (for Netlify - dispatches due jobs)
  * @returns {SchedulerServiceInterface} Implementation of scheduler interface
  */
 function createSchedulerService(options = {}) {
@@ -60,6 +64,11 @@ function createSchedulerService(options = {}) {
         case SCHEDULER_PROVIDERS.MOCK:
             return new MockSchedulerAdapter({
                 verbose: options.verbose,
+            });
+        case SCHEDULER_PROVIDERS.NETLIFY:
+            return new NetlifySchedulerAdapter({
+                repository: options.repository,
+                queueProvider: options.queueProvider,
             });
         default:
             throw new Error(`Unknown scheduler provider: ${provider}`);

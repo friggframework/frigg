@@ -5,13 +5,15 @@
  * Follows hexagonal architecture with interface + adapters pattern.
  *
  * Providers:
- * - eventbridge: AWS EventBridge Scheduler (production)
+ * - eventbridge: AWS EventBridge Scheduler (production on AWS)
+ * - netlify: Netlify poll-and-dispatch scheduler (production on Netlify)
  * - mock: In-memory mock scheduler (local development)
  */
 
 const { SchedulerServiceInterface } = require('./scheduler-service-interface');
 const { EventBridgeSchedulerAdapter } = require('./eventbridge-scheduler-adapter');
 const { MockSchedulerAdapter } = require('./mock-scheduler-adapter');
+const { NetlifySchedulerAdapter } = require('./netlify-scheduler-adapter');
 const {
     createSchedulerService,
     SCHEDULER_PROVIDERS,
@@ -25,6 +27,7 @@ module.exports = {
     // Adapters
     EventBridgeSchedulerAdapter,
     MockSchedulerAdapter,
+    NetlifySchedulerAdapter,
 
     // Factory
     createSchedulerService,
