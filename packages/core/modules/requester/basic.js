@@ -3,7 +3,6 @@ const { get } = require('../../assertions');
 const { ModuleConstants } = require('../ModuleConstants');
 
 class BasicAuthRequester extends Requester {
-
     static requesterType = ModuleConstants.authType.basic;
 
     constructor(params) {

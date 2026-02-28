@@ -1,122 +1,182 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useState } from "react";
 import IntegrationSkeleton from "./IntegrationSkeleton";
-import { getActiveAndPossibleIntegrationsCombined } from "../utils/IntegrationUtils";
-import API from "../api/api";
+import { useIntegrationData } from "./context/IntegrationDataContext";
 import { IntegrationHorizontal, IntegrationVertical } from "../integration";
 
 /**
- *
- * @param props.integrationType - Type of integration to filter by
- * @param props.friggBaseUrl - Base URL for Frigg backend
+ * IntegrationList with Search and Filter
+ * @param props.integrationType - Type of integration to filter by (legacy)
  * @param props.componentLayout - Layout for displaying integrations - either 'default-horizontal' or 'default-vertical'
- * @param props.authToken - JWT token for authenticated user in Frigg
+ * @param props.showSearch - Show search input (default: true)
+ * @param props.showCategoryFilter - Show category filter (default: true)
  * @param {Function} props.navigateToSampleDataFn - A function to navigate to sample data route, receives integration ID as a parameter
  * @returns {JSX.Element} The rendered component
  * @constructor
  */
 const IntegrationList = (props) => {
-  const [installedIntegrations, setInstalledIntegrations] = useState([]);
-  const [integrations, setIntegrations] = useState([]);
-  const [isloading, setIsLoading] = useState(true);
+  const {
+    showSearch = true,
+    showCategoryFilter = true,
+    componentLayout = "default-vertical"
+  } = props;
 
-  const loadIntegrations = useCallback(async () => {
-    const api = new API(props.friggBaseUrl, props.authToken);
-    const integrationsData = await api.listIntegrations();
-
-    if (integrationsData.error) {
-      console.log(
-        "Something went wrong while fetching integrations, please try again later."
-      );
-    }
-
-    if (integrationsData.integrations) {
-      const activeAndPossibleIntegrations =
-        getActiveAndPossibleIntegrationsCombined(integrationsData);
-      setIntegrations(activeAndPossibleIntegrations);
-    }
-  }, [props.authToken, props.friggBaseUrl]);
+  const {
+    filteredIntegrationOptions,
+    installedIntegrations,
+    loading,
+    loadData,
+    searchQuery,
+    setSearchQuery,
+    selectedCategory,
+    setSelectedCategory,
+    categories,
+    baseUrl,
+    authToken
+  } = useIntegrationData();
 
   useEffect(() => {
-    if (!props.authToken) {
-      console.log("Authentication token is required to fetch integrations.");
-      return;
+    loadData();
+  }, [loadData]);
+
+  // Combine installed and available integrations for display
+  const displayIntegrations = useMemo(() => {
+    // For installed filter, show only installed
+    if (props.integrationType === "Installed") {
+      return installedIntegrations;
     }
 
-    loadIntegrations().then(() => setIsLoading(false));
-  }, [loadIntegrations, props.authToken]);
+    // Use filtered options from context
+    const combined = [];
 
-  const setInstalled = (data) => {
-    const items = [data, ...installedIntegrations];
-    setInstalledIntegrations(items);
-  };
+    // Add all filtered integration options
+    filteredIntegrationOptions.forEach(option => {
+      const installed = installedIntegrations.find(i => i.type === option.type);
+      combined.push(installed || option);
+    });
+
+    // Legacy filter by type if specified
+    if (props.integrationType && props.integrationType !== "Recently added") {
+      return combined.filter(
+        integration => integration.display?.category === props.integrationType
+      );
+    }
+
+    return combined;
+  }, [installedIntegrations, filteredIntegrationOptions, props.integrationType]);
 
   const integrationComponent = (integration) => {
-    if (props.componentLayout === "default-horizontal") {
-      return (
-        <IntegrationHorizontal
-          data={integration}
-          key={`combined-integration-${integration.type}`}
-          handleInstall={setInstalled}
-          refreshIntegrations={loadIntegrations}
-          friggBaseUrl={props.friggBaseUrl}
-          authToken={props.authToken}
-          navigateToSampleDataFn={props.navigateToSampleDataFn}
-        />
-      );
-    }
-    if (props.componentLayout === "default-vertical") {
-      return (
-        <IntegrationVertical
-          data={integration}
-          key={`combined-integration-${integration.type}`}
-          handleInstall={setInstalled}
-          refreshIntegrations={loadIntegrations}
-          friggBaseUrl={props.friggBaseUrl}
-        />
-      );
-    }
-  };
+    const Component = componentLayout === "default-horizontal"
+      ? IntegrationHorizontal
+      : IntegrationVertical;
 
-  const renderCombinedIntegrations = (combinedIntegrations) => {
-    if (props.integrationType === "Recently added") {
-      return combinedIntegrations.map((integration) =>
-        integrationComponent(integration)
-      );
-    }
-    if (props.integrationType === "Installed") {
-      return installedIntegrations.map((integration) =>
-        integrationComponent(integration)
-      );
-    }
-    return combinedIntegrations
-      .filter(
-        (integration) =>
-          integration.display.description === props.integrationType
-      )
-      .map((integration) => integrationComponent(integration));
+    const isInstalled = !!integration.id; // Has ID means it's installed
+
+    return (
+      <Component
+        data={integration}
+        key={`integration-${integration.type || integration.id}`}
+        friggBaseUrl={baseUrl}
+        authToken={authToken}
+        navigateToSampleDataFn={props.navigateToSampleDataFn}
+        onInstallClick={isInstalled ? undefined : props.onInstallClick}
+      />
+    );
   };
 
   return (
-    <>
-      {isloading && (
-        <div className="grid gap-6 lg:col-span-1 lg:grid-cols-1 xl:col-span-2 xl:grid-cols-2 2xl:col-span-3 2xl:grid-cols-3 grid-auto-rows-[128px]">
-          <IntegrationSkeleton layout={props.componentLayout} />
-          <IntegrationSkeleton layout={props.componentLayout} />
-          <IntegrationSkeleton layout={props.componentLayout} />
-          <IntegrationSkeleton layout={props.componentLayout} />
-          <IntegrationSkeleton layout={props.componentLayout} />
-          <IntegrationSkeleton layout={props.componentLayout} />
-          <IntegrationSkeleton layout={props.componentLayout} />
-          <IntegrationSkeleton layout={props.componentLayout} />
-          <IntegrationSkeleton layout={props.componentLayout} />
+    <div className="integration-list-container">
+      {/* Search and Filter Controls */}
+      {(showSearch || showCategoryFilter) && (
+        <div className="mb-6 flex flex-col sm:flex-row gap-4">
+          {/* Search Input */}
+          {showSearch && (
+            <div className="flex-1">
+              <input
+                type="text"
+                placeholder="Search integrations by name, type, or description..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          )}
+
+          {/* Category Filter */}
+          {showCategoryFilter && categories.length > 0 && (
+            <div className="sm:w-64">
+              <select
+                value={selectedCategory || ''}
+                onChange={(e) => setSelectedCategory(e.target.value || null)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">All Categories</option>
+                {categories.map(category => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Clear Filters */}
+          {(searchQuery || selectedCategory) && (
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedCategory(null);
+              }}
+              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 whitespace-nowrap"
+            >
+              Clear Filters
+            </button>
+          )}
         </div>
       )}
-      {renderCombinedIntegrations(integrations).length === 0 ? (
-        <p>No {props.integrationType} integrations found.</p>
-      ) : (
-        renderCombinedIntegrations(integrations)
+
+      {/* Results Count */}
+      {!loading && displayIntegrations.length > 0 && (searchQuery || selectedCategory) && (
+        <div className="mb-4 text-sm text-gray-600">
+          Showing {displayIntegrations.length} integration{displayIntegrations.length !== 1 ? 's' : ''}
+          {searchQuery && ` matching "${searchQuery}"`}
+          {selectedCategory && ` in ${selectedCategory}`}
+        </div>
       )}
-    </>
+
+      {/* Integration Grid */}
+      {loading && (
+        <div className="grid gap-6 lg:col-span-1 lg:grid-cols-1 xl:col-span-2 xl:grid-cols-2 2xl:col-span-3 2xl:grid-cols-3 grid-auto-rows-[128px]">
+          {Array.from({ length: 9 }).map((_, i) => (
+            <IntegrationSkeleton key={i} layout={componentLayout} />
+          ))}
+        </div>
+      )}
+
+      {!loading && displayIntegrations.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-gray-500">
+            {searchQuery || selectedCategory
+              ? 'No integrations found matching your filters.'
+              : `No ${props.integrationType || ''} integrations found.`}
+          </p>
+          {(searchQuery || selectedCategory) && (
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedCategory(null);
+              }}
+              className="mt-4 text-blue-600 hover:text-blue-700 underline"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="grid gap-6 lg:col-span-1 lg:grid-cols-1 xl:col-span-2 xl:grid-cols-2 2xl:col-span-3 2xl:grid-cols-3 grid-auto-rows-[128px]">
+          {displayIntegrations.map(integrationComponent)}
+        </div>
+      )}
+    </div>
   );
 };
 

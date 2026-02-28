@@ -20,9 +20,10 @@ class GetEntityOptionsById {
      */
     async execute(entityId, userIdOrUser) {
         // Support both userId (backward compatible) and User object (new pattern)
-        const userId = typeof userIdOrUser === 'object' && userIdOrUser?.getId
-            ? userIdOrUser.getId()
-            : userIdOrUser;
+        const userId =
+            typeof userIdOrUser === 'object' && userIdOrUser?.getId
+                ? userIdOrUser.getId()
+                : userIdOrUser;
 
         const entity = await this.moduleRepository.findEntityById(
             entityId,
@@ -34,9 +35,10 @@ class GetEntityOptionsById {
         }
 
         // Validate entity ownership
-        const isOwned = typeof userIdOrUser === 'object' && userIdOrUser?.ownsUserId
-            ? userIdOrUser.ownsUserId(entity.userId)
-            : entity.userId?.toString() === userId?.toString();
+        const isOwned =
+            typeof userIdOrUser === 'object' && userIdOrUser?.ownsUserId
+                ? userIdOrUser.ownsUserId(entity.userId)
+                : entity.userId?.toString() === userId?.toString();
 
         if (!isOwned) {
             throw new Error(

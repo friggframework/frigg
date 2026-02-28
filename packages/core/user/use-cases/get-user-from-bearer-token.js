@@ -41,7 +41,10 @@ class GetUserFromBearerToken {
         }
 
         if (this.userConfig.primary === 'organization') {
-            const organizationUserData = await this.userRepository.findOrganizationUserById(sessionToken.user);
+            const organizationUserData =
+                await this.userRepository.findOrganizationUserById(
+                    sessionToken.user
+                );
 
             if (!organizationUserData) {
                 throw Boom.unauthorized('Organization User Not Found');
@@ -57,7 +60,8 @@ class GetUserFromBearerToken {
             );
         }
 
-        const individualUserData = await this.userRepository.findIndividualUserById(sessionToken.user);
+        const individualUserData =
+            await this.userRepository.findIndividualUserById(sessionToken.user);
 
         if (!individualUserData) {
             throw Boom.unauthorized('Individual User Not Found');
@@ -74,4 +78,4 @@ class GetUserFromBearerToken {
     }
 }
 
-module.exports = { GetUserFromBearerToken }; 
+module.exports = { GetUserFromBearerToken };

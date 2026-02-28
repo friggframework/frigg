@@ -174,7 +174,10 @@ describe('Module Hydration', () => {
                 moduleDefinitions: [mockModuleDefinition],
             });
 
-            const module = await factory.getModuleInstance('entity-1', 'user-1');
+            const module = await factory.getModuleInstance(
+                'entity-1',
+                'user-1'
+            );
 
             expect(module).toBeDefined();
             expect(module.api).toBeDefined();
@@ -199,7 +202,9 @@ describe('Module Hydration', () => {
 
             await expect(
                 factory.getModuleInstance('entity-1', 'user-1')
-            ).rejects.toThrow('Module definition not found for module: unknownmodule');
+            ).rejects.toThrow(
+                'Module definition not found for module: unknownmodule'
+            );
         });
     });
 });

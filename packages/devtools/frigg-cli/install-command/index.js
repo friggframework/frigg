@@ -2,7 +2,7 @@ const { installPackage } = require('./install-package');
 const { createIntegrationFile } = require('./integration-file');
 const { resolve } = require('node:path');
 const { updateBackendJsFile } = require('./backend-js');
-const { logInfo, logError } = require('./logger');
+const output = require('../utils/output');
 const { commitChanges } = require('./commit-changes');
 const { handleEnvVariables } = require('./environment-variables');
 const {
@@ -35,18 +35,23 @@ const installCommand = async (apiModuleName) => {
             const sanitizedLabel = label.replace(
                 /[<>:"/\\|?*\x00-\x1F\s]/g,
                 ''
-            ); // Remove invalid characters and spaces            console.log('Installing integration for:', sanitizedLabel);
-            createIntegrationFile(backendPath, sanitizedLabel, ApiClass);
-            updateBackendJsFile(backendPath, sanitizedLabel);
-            commitChanges(backendPath, sanitizedLabel);
-            logInfo(
-                `Successfully installed ${packageName} and updated the project.`
-            );
+            ); // Remove invalid characters and spaces
+
+            const spinner = output.spinner(`Installing integration for ${sanitizedLabel}...`);
+            try {
+                createIntegrationFile(backendPath, sanitizedLabel, ApiClass);
+                updateBackendJsFile(backendPath, sanitizedLabel);
+                commitChanges(backendPath, sanitizedLabel);
+                spinner.succeed(`Successfully installed ${packageName} and updated the project.`);
+            } catch (innerError) {
+                spinner.fail(`Failed to install ${packageName}`);
+                throw innerError;
+            }
 
             await handleEnvVariables(backendPath, modulePath);
         }
     } catch (error) {
-        logError('An error occurred:', error);
+        output.error('An error occurred:', error);
         process.exit(1);
     }
 };

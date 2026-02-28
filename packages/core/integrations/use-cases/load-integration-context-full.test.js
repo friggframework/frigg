@@ -7,10 +7,14 @@ jest.mock('../../database/config', () => ({
 
 const { LoadIntegrationContextUseCase } = require('./load-integration-context');
 const { IntegrationBase } = require('../integration-base');
-const { createIntegrationRepository } = require('../repositories/integration-repository-factory');
+const {
+    createIntegrationRepository,
+} = require('../repositories/integration-repository-factory');
 const { Module } = require('../../modules/module');
 const { ModuleFactory } = require('../../modules/module-factory');
-const { ModuleRepository } = require('../../modules/repositories/module-repository');
+const {
+    ModuleRepository,
+} = require('../../modules/repositories/module-repository');
 
 // Mock OAuth2 API class that extends requester pattern
 class MockAsanaApi {
@@ -31,14 +35,14 @@ class MockAsanaApi {
         }
         return {
             folders: ['Marketing', 'Development', 'Design'],
-            usedToken: this.access_token
+            usedToken: this.access_token,
         };
     }
 
     async listProjects() {
         return {
             projects: ['Q1 Launch', 'Website Redesign'],
-            clientId: this.client_id
+            clientId: this.client_id,
         };
     }
 
@@ -64,7 +68,7 @@ class MockFrontifyApi {
         return {
             brands: ['Main Brand', 'Sub Brand'],
             domain: this.domain,
-            token: this.access_token
+            token: this.access_token,
         };
     }
 
@@ -72,7 +76,7 @@ class MockFrontifyApi {
         return {
             query,
             assets: ['logo.svg', 'guidelines.pdf'],
-            clientSecret: this.client_secret ? 'hidden' : null
+            clientSecret: this.client_secret ? 'hidden' : null,
         };
     }
 
@@ -183,9 +187,11 @@ describe('LoadIntegrationContextUseCase - Full Rounded Test', () => {
         // Mock repositories
         const moduleRepository = {
             findEntitiesByIds: jest.fn().mockResolvedValue(entities),
-            findEntityById: jest.fn().mockImplementation((id) =>
-                Promise.resolve(entities.find(e => e.id === id))
-            ),
+            findEntityById: jest
+                .fn()
+                .mockImplementation((id) =>
+                    Promise.resolve(entities.find((e) => e.id === id))
+                ),
         };
 
         // Create module factory with definitions
@@ -226,22 +232,42 @@ describe('LoadIntegrationContextUseCase - Full Rounded Test', () => {
         expect(integration.modules.frontify).toBe(integration.frontify);
 
         // CRITICAL TEST: Verify API instances have env vars from definition
-        expect(integration.asana.api.client_id).toBe('ASANA_CLIENT_ID_FROM_ENV');
-        expect(integration.asana.api.client_secret).toBe('ASANA_SECRET_FROM_ENV');
-        expect(integration.asana.api.redirect_uri).toBe('https://app.example.com/auth/asana');
+        expect(integration.asana.api.client_id).toBe(
+            'ASANA_CLIENT_ID_FROM_ENV'
+        );
+        expect(integration.asana.api.client_secret).toBe(
+            'ASANA_SECRET_FROM_ENV'
+        );
+        expect(integration.asana.api.redirect_uri).toBe(
+            'https://app.example.com/auth/asana'
+        );
         expect(integration.asana.api.scope).toBe('default');
 
-        expect(integration.frontify.api.client_id).toBe('FRONTIFY_CLIENT_ID_FROM_ENV');
-        expect(integration.frontify.api.client_secret).toBe('FRONTIFY_SECRET_FROM_ENV');
-        expect(integration.frontify.api.redirect_uri).toBe('https://app.example.com/auth/frontify');
+        expect(integration.frontify.api.client_id).toBe(
+            'FRONTIFY_CLIENT_ID_FROM_ENV'
+        );
+        expect(integration.frontify.api.client_secret).toBe(
+            'FRONTIFY_SECRET_FROM_ENV'
+        );
+        expect(integration.frontify.api.redirect_uri).toBe(
+            'https://app.example.com/auth/frontify'
+        );
         expect(integration.frontify.api.scope).toBe('read write');
 
         // CRITICAL TEST: Verify API instances have credentials from entities
-        expect(integration.asana.api.access_token).toBe('asana_access_token_xyz');
-        expect(integration.asana.api.refresh_token).toBe('asana_refresh_token_abc');
+        expect(integration.asana.api.access_token).toBe(
+            'asana_access_token_xyz'
+        );
+        expect(integration.asana.api.refresh_token).toBe(
+            'asana_refresh_token_abc'
+        );
 
-        expect(integration.frontify.api.access_token).toBe('frontify_access_token_uvw');
-        expect(integration.frontify.api.refresh_token).toBe('frontify_refresh_token_def');
+        expect(integration.frontify.api.access_token).toBe(
+            'frontify_access_token_uvw'
+        );
+        expect(integration.frontify.api.refresh_token).toBe(
+            'frontify_refresh_token_def'
+        );
         expect(integration.frontify.api.domain).toBe('customer.frontify.com');
 
         // CRITICAL TEST: Can call API methods successfully
@@ -265,8 +291,15 @@ describe('LoadIntegrationContextUseCase - Full Rounded Test', () => {
 
         // CRITICAL TEST: Business logic methods can use hydrated APIs
         const businessResult = await integration.performBusinessLogic();
-        expect(businessResult.folders.folders).toEqual(['Marketing', 'Development', 'Design']);
-        expect(businessResult.brands.brands).toEqual(['Main Brand', 'Sub Brand']);
+        expect(businessResult.folders.folders).toEqual([
+            'Marketing',
+            'Development',
+            'Design',
+        ]);
+        expect(businessResult.brands.brands).toEqual([
+            'Main Brand',
+            'Sub Brand',
+        ]);
 
         // Verify the complete chain: env → Module → API → Integration
         console.log('\n✅ Full Integration Test Results:');
@@ -320,10 +353,14 @@ describe('LoadIntegrationContextUseCase - Full Rounded Test', () => {
 
         // Should have module with env vars but no credentials
         expect(integration.asana).toBeDefined();
-        expect(integration.asana.api.client_id).toBe('ASANA_CLIENT_ID_FROM_ENV');
+        expect(integration.asana.api.client_id).toBe(
+            'ASANA_CLIENT_ID_FROM_ENV'
+        );
         expect(integration.asana.api.access_token).toBeUndefined();
 
         // API method should fail without token
-        await expect(integration.asana.api.getFolders()).rejects.toThrow('No access token');
+        await expect(integration.asana.api.getFolders()).rejects.toThrow(
+            'No access token'
+        );
     });
 });

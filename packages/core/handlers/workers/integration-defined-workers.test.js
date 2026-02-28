@@ -7,7 +7,9 @@ jest.mock('../../database/config', () => ({
 
 const { createQueueWorker } = require('../backend-utils');
 const { IntegrationBase } = require('../../integrations/integration-base');
-const { IntegrationEventDispatcher } = require('../integration-event-dispatcher');
+const {
+    IntegrationEventDispatcher,
+} = require('../integration-event-dispatcher');
 
 class TestWebhookIntegration extends IntegrationBase {
     static Definition = {
@@ -122,11 +124,15 @@ describe('Webhook Queue Worker', () => {
                 Records: [{ body: JSON.stringify(params) }],
             };
 
-            await expect(failingWorker.run(sqsEvent, {})).rejects.toThrow('Processing failed');
+            await expect(failingWorker.run(sqsEvent, {})).rejects.toThrow(
+                'Processing failed'
+            );
         });
 
         it('should log errors with integration context', async () => {
-            const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+            const consoleSpy = jest
+                .spyOn(console, 'error')
+                .mockImplementation();
 
             const FailingIntegration = class extends TestWebhookIntegration {
                 async onWebhook({ data }) {
@@ -264,4 +270,3 @@ describe('Webhook Queue Worker', () => {
         });
     });
 });
-

@@ -15,11 +15,23 @@ const mockMongoose = {
 };
 
 const mockEnsureCollectionsExist = jest.fn().mockResolvedValue(undefined);
-const mockGetCollectionsFromSchemaSync = jest.fn().mockReturnValue([
-    'User', 'Token', 'Credential', 'Entity', 'Integration',
-    'IntegrationMapping', 'Process', 'Sync', 'DataIdentifier',
-    'Association', 'AssociationObject', 'State', 'WebsocketConnection'
-]);
+const mockGetCollectionsFromSchemaSync = jest
+    .fn()
+    .mockReturnValue([
+        'User',
+        'Token',
+        'Credential',
+        'Entity',
+        'Integration',
+        'IntegrationMapping',
+        'Process',
+        'Sync',
+        'DataIdentifier',
+        'Association',
+        'AssociationObject',
+        'State',
+        'WebsocketConnection',
+    ]);
 
 jest.mock('../mongoose', () => ({
     mongoose: mockMongoose,
@@ -50,9 +62,19 @@ describe('MongoDB Schema Initialization', () => {
 
         // Reset mock to default return value
         mockGetCollectionsFromSchemaSync.mockReturnValue([
-            'User', 'Token', 'Credential', 'Entity', 'Integration',
-            'IntegrationMapping', 'Process', 'Sync', 'DataIdentifier',
-            'Association', 'AssociationObject', 'State', 'WebsocketConnection'
+            'User',
+            'Token',
+            'Credential',
+            'Entity',
+            'Integration',
+            'IntegrationMapping',
+            'Process',
+            'Sync',
+            'DataIdentifier',
+            'Association',
+            'AssociationObject',
+            'State',
+            'WebsocketConnection',
         ]);
     });
 
@@ -62,12 +84,24 @@ describe('MongoDB Schema Initialization', () => {
 
             expect(mockGetCollectionsFromSchemaSync).toHaveBeenCalled();
             expect(mockEnsureCollectionsExist).toHaveBeenCalledWith([
-                'User', 'Token', 'Credential', 'Entity', 'Integration',
-                'IntegrationMapping', 'Process', 'Sync', 'DataIdentifier',
-                'Association', 'AssociationObject', 'State', 'WebsocketConnection'
+                'User',
+                'Token',
+                'Credential',
+                'Entity',
+                'Integration',
+                'IntegrationMapping',
+                'Process',
+                'Sync',
+                'DataIdentifier',
+                'Association',
+                'AssociationObject',
+                'State',
+                'WebsocketConnection',
             ]);
             expect(console.log).toHaveBeenCalledWith(
-                expect.stringContaining('MongoDB-compatible schema initialization complete')
+                expect.stringContaining(
+                    'MongoDB-compatible schema initialization complete'
+                )
             );
         });
 
@@ -96,7 +130,9 @@ describe('MongoDB Schema Initialization', () => {
             const error = new Error('Connection lost');
             mockEnsureCollectionsExist.mockRejectedValueOnce(error);
 
-            await expect(initializeMongoDBSchema()).rejects.toThrow('Connection lost');
+            await expect(initializeMongoDBSchema()).rejects.toThrow(
+                'Connection lost'
+            );
             expect(console.error).toHaveBeenCalledWith(
                 'Failed to initialize MongoDB schema:',
                 'Connection lost'

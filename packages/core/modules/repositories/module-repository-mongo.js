@@ -58,7 +58,9 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
             return new Map();
         }
 
-        const validIds = credentialIds.filter(id => id !== null && id !== undefined);
+        const validIds = credentialIds.filter(
+            (id) => id !== null && id !== undefined
+        );
 
         if (validIds.length === 0) {
             return new Map();
@@ -118,7 +120,9 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
             where: { userId },
         });
 
-        const credentialIds = entities.map(e => e.credentialId).filter(Boolean);
+        const credentialIds = entities
+            .map((e) => e.credentialId)
+            .filter(Boolean);
         const credentialMap = await this._fetchCredentialsBulk(credentialIds);
 
         return entities.map((e) => ({
@@ -144,7 +148,9 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
             where: { id: { in: entitiesIds } },
         });
 
-        const credentialIds = entities.map(e => e.credentialId).filter(Boolean);
+        const credentialIds = entities
+            .map((e) => e.credentialId)
+            .filter(Boolean);
         const credentialMap = await this._fetchCredentialsBulk(credentialIds);
 
         return entities.map((e) => ({
@@ -174,7 +180,9 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
             },
         });
 
-        const credentialIds = entities.map(e => e.credentialId).filter(Boolean);
+        const credentialIds = entities
+            .map((e) => e.credentialId)
+            .filter(Boolean);
         const credentialMap = await this._fetchCredentialsBulk(credentialIds);
 
         return entities.map((e) => ({
@@ -232,6 +240,31 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
             moduleName: entity.moduleName,
             ...(entity.data || {}),
         };
+    }
+
+    /**
+     * Find entities matching filter criteria
+     * @param {Object} filter - Filter criteria (e.g., { isGlobal: true, moduleName: 'api-name' })
+     * @returns {Promise<Array>} Array of entity objects with string IDs
+     */
+    async findEntitiesBy(filter) {
+        const where = this._convertFilterToWhere(filter);
+        const entities = await this.prisma.entity.findMany({
+            where,
+            include: { credential: true },
+        });
+
+        return entities.map((e) => ({
+            id: e.id,
+            accountId: e.accountId,
+            credential: e.credential,
+            userId: e.userId,
+            name: e.name,
+            externalId: e.externalId,
+            type: e.subType,
+            moduleName: e.moduleName,
+            isGlobal: e.isGlobal,
+        }));
     }
 
     /**
@@ -399,7 +432,9 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
         if (filter.credentialId) where.credentialId = filter.credentialId;
         if (filter.name) where.name = filter.name;
         if (filter.moduleName) where.moduleName = filter.moduleName;
-        if (filter.externalId) where.externalId = this._toString(filter.externalId);
+        if (filter.externalId)
+            where.externalId = this._toString(filter.externalId);
+        if (filter.isGlobal !== undefined) where.isGlobal = filter.isGlobal;
 
         return where;
     }

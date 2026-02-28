@@ -219,7 +219,7 @@ Real-time updates for long-running operations:
 - Credential format checking
 - SQL injection prevention
 
-## Migration from create-frigg-app
+## Migration from frigg init
 
 ### Automated Migration
 
@@ -245,7 +245,7 @@ const migration = await phase2Workflows.migrateProject('/path/to/project', {
    ```
 3. **Run migration command**:
    ```bash
-   frigg migrate --from-create-frigg-app
+   frigg migrate --from-frigg-init
    ```
 4. **Verify integration configurations**
 5. **Update environment variables**
@@ -315,6 +315,6 @@ After Phase 2 implementation:
 
 1. **Phase 3**: Advanced features including production monitoring
 2. **Phase 4**: Multi-framework UI support
-3. **Phase 5**: Complete migration and deprecation of create-frigg-app
+3. **Phase 5**: Complete migration and deprecation of frigg init
 
 For questions or issues, refer to the [Frigg documentation](https://docs.frigg.dev) or open an issue on GitHub.

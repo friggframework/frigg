@@ -1,14 +1,14 @@
 /**
  * GetProcess Use Case
- * 
+ *
  * Retrieves a process by ID with proper error handling.
  * Simple use case that delegates to repository.
- * 
+ *
  * Design Philosophy:
  * - Use cases provide consistent error handling
  * - Business logic layer between controllers and repositories
  * - Return null for not found vs throwing error (configurable)
- * 
+ *
  * @example
  * const getProcess = new GetProcess({ processRepository });
  * const process = await getProcess.execute(processId);
@@ -75,13 +75,12 @@ class GetProcess {
         }
 
         const processes = await Promise.all(
-            processIds.map(id => this.execute(id))
+            processIds.map((id) => this.execute(id))
         );
 
         // Filter out nulls (not found)
-        return processes.filter(p => p !== null);
+        return processes.filter((p) => p !== null);
     }
 }
 
 module.exports = { GetProcess };
-

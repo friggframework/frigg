@@ -68,7 +68,8 @@ async function initCommand(projectName, options) {
                 force,
                 verbose,
                 mode: options.mode,
-                frontend: options.frontend
+                frontend: options.frontend,
+                yes: options.yes
             });
             
             await handler.initialize();

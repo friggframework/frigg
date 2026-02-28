@@ -589,10 +589,8 @@ describe('CloudFormationDiscovery', () => {
 
     describe('External VPC with routing infrastructure pattern', () => {
         it('should discover routing resources when VPC is external', async () => {
-            // This tests the external VPC pattern: external VPC/subnets/KMS,
-            // but stack creates routing infrastructure (route table, NAT route, VPC endpoints)
             const mockStack = {
-                StackName: 'create-frigg-app-production',
+                StackName: 'frigg-app-production',
                 Outputs: [],
             };
 
@@ -638,7 +636,7 @@ describe('CloudFormationDiscovery', () => {
             mockProvider.describeStack.mockResolvedValue(mockStack);
             mockProvider.listStackResources.mockResolvedValue(mockResources);
 
-            const result = await cfDiscovery.discoverFromStack('create-frigg-app-production');
+            const result = await cfDiscovery.discoverFromStack('frigg-app-production');
 
             // Verify routing infrastructure was discovered
             expect(result.routeTableId).toBe('rtb-0b83aca77ccde20a6');
@@ -807,9 +805,8 @@ describe('CloudFormationDiscovery', () => {
 
     describe('existingLogicalIds tracking', () => {
         it('should track OLD VPC endpoint logical IDs (VPCEndpointS3 pattern) for backwards compatibility', async () => {
-            // CRITICAL: Frontify production uses OLD naming convention
             const mockStack = {
-                StackName: 'create-frigg-app-production',
+                StackName: 'frigg-app-production',
                 Outputs: []
             };
 
@@ -825,7 +822,7 @@ describe('CloudFormationDiscovery', () => {
             mockProvider.describeStack.mockResolvedValue(mockStack);
             mockProvider.listStackResources.mockResolvedValue(mockResources);
 
-            const result = await cfDiscovery.discoverFromStack('create-frigg-app-production');
+            const result = await cfDiscovery.discoverFromStack('frigg-app-production');
 
             // CRITICAL: existingLogicalIds MUST contain old VPC endpoint names
             expect(result.existingLogicalIds).toBeDefined();

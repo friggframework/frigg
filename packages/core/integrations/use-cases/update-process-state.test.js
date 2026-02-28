@@ -1,6 +1,6 @@
 /**
  * UpdateProcessState Use Case Tests
- * 
+ *
  * Tests state transitions and context updates.
  */
 
@@ -22,11 +22,15 @@ describe('UpdateProcessState', () => {
 
     describe('constructor', () => {
         it('should require processRepository', () => {
-            expect(() => new UpdateProcessState({})).toThrow('processRepository is required');
+            expect(() => new UpdateProcessState({})).toThrow(
+                'processRepository is required'
+            );
         });
 
         it('should initialize with processRepository', () => {
-            expect(updateProcessStateUseCase.processRepository).toBe(mockProcessRepository);
+            expect(updateProcessStateUseCase.processRepository).toBe(
+                mockProcessRepository
+            );
         });
     });
 
@@ -59,12 +63,20 @@ describe('UpdateProcessState', () => {
             mockProcessRepository.findById.mockResolvedValue(mockProcess);
             mockProcessRepository.update.mockResolvedValue(updatedProcess);
 
-            const result = await updateProcessStateUseCase.execute(processId, 'FETCHING_TOTAL');
+            const result = await updateProcessStateUseCase.execute(
+                processId,
+                'FETCHING_TOTAL'
+            );
 
-            expect(mockProcessRepository.findById).toHaveBeenCalledWith(processId);
-            expect(mockProcessRepository.update).toHaveBeenCalledWith(processId, {
-                state: 'FETCHING_TOTAL',
-            });
+            expect(mockProcessRepository.findById).toHaveBeenCalledWith(
+                processId
+            );
+            expect(mockProcessRepository.update).toHaveBeenCalledWith(
+                processId,
+                {
+                    state: 'FETCHING_TOTAL',
+                }
+            );
             expect(result).toEqual(updatedProcess);
         });
 
@@ -91,10 +103,13 @@ describe('UpdateProcessState', () => {
                 contextUpdates
             );
 
-            expect(mockProcessRepository.update).toHaveBeenCalledWith(processId, {
-                state: 'PROCESSING_BATCHES',
-                context: expectedContext,
-            });
+            expect(mockProcessRepository.update).toHaveBeenCalledWith(
+                processId,
+                {
+                    state: 'PROCESSING_BATCHES',
+                    context: expectedContext,
+                }
+            );
             expect(result).toEqual(updatedProcess);
         });
 
@@ -123,10 +138,13 @@ describe('UpdateProcessState', () => {
                 contextUpdates
             );
 
-            expect(mockProcessRepository.update).toHaveBeenCalledWith(processId, {
-                state: 'QUEUING_PAGES',
-                context: expectedContext,
-            });
+            expect(mockProcessRepository.update).toHaveBeenCalledWith(
+                processId,
+                {
+                    state: 'QUEUING_PAGES',
+                    context: expectedContext,
+                }
+            );
             expect(result).toEqual(updatedProcess);
         });
 
@@ -139,7 +157,9 @@ describe('UpdateProcessState', () => {
                 state: 'COMPLETED',
                 context: expectedContext,
             };
-            mockProcessRepository.findById.mockResolvedValue(processWithEmptyContext);
+            mockProcessRepository.findById.mockResolvedValue(
+                processWithEmptyContext
+            );
             mockProcessRepository.update.mockResolvedValue(updatedProcess);
 
             const result = await updateProcessStateUseCase.execute(
@@ -148,51 +168,67 @@ describe('UpdateProcessState', () => {
                 contextUpdates
             );
 
-            expect(mockProcessRepository.update).toHaveBeenCalledWith(processId, {
-                state: 'COMPLETED',
-                context: expectedContext,
-            });
+            expect(mockProcessRepository.update).toHaveBeenCalledWith(
+                processId,
+                {
+                    state: 'COMPLETED',
+                    context: expectedContext,
+                }
+            );
             expect(result).toEqual(updatedProcess);
         });
 
         it('should throw error if processId is missing', async () => {
-            await expect(updateProcessStateUseCase.execute('', 'NEW_STATE'))
-                .rejects.toThrow('processId must be a non-empty string');
+            await expect(
+                updateProcessStateUseCase.execute('', 'NEW_STATE')
+            ).rejects.toThrow('processId must be a non-empty string');
         });
 
         it('should throw error if processId is not a string', async () => {
-            await expect(updateProcessStateUseCase.execute(123, 'NEW_STATE'))
-                .rejects.toThrow('processId must be a non-empty string');
+            await expect(
+                updateProcessStateUseCase.execute(123, 'NEW_STATE')
+            ).rejects.toThrow('processId must be a non-empty string');
         });
 
         it('should throw error if newState is missing', async () => {
-            await expect(updateProcessStateUseCase.execute(processId, ''))
-                .rejects.toThrow('newState must be a non-empty string');
+            await expect(
+                updateProcessStateUseCase.execute(processId, '')
+            ).rejects.toThrow('newState must be a non-empty string');
         });
 
         it('should throw error if newState is not a string', async () => {
-            await expect(updateProcessStateUseCase.execute(processId, 123))
-                .rejects.toThrow('newState must be a non-empty string');
+            await expect(
+                updateProcessStateUseCase.execute(processId, 123)
+            ).rejects.toThrow('newState must be a non-empty string');
         });
 
         it('should throw error if contextUpdates is not an object', async () => {
-            await expect(updateProcessStateUseCase.execute(processId, 'NEW_STATE', 'invalid'))
-                .rejects.toThrow('contextUpdates must be an object');
+            await expect(
+                updateProcessStateUseCase.execute(
+                    processId,
+                    'NEW_STATE',
+                    'invalid'
+                )
+            ).rejects.toThrow('contextUpdates must be an object');
         });
 
         it('should throw error if process not found', async () => {
             mockProcessRepository.findById.mockResolvedValue(null);
 
-            await expect(updateProcessStateUseCase.execute(processId, 'NEW_STATE'))
-                .rejects.toThrow('Process not found: process-123');
+            await expect(
+                updateProcessStateUseCase.execute(processId, 'NEW_STATE')
+            ).rejects.toThrow('Process not found: process-123');
         });
 
         it('should handle repository errors during findById', async () => {
             const findError = new Error('Database connection failed');
             mockProcessRepository.findById.mockRejectedValue(findError);
 
-            await expect(updateProcessStateUseCase.execute(processId, 'NEW_STATE'))
-                .rejects.toThrow('Failed to update process state: Database connection failed');
+            await expect(
+                updateProcessStateUseCase.execute(processId, 'NEW_STATE')
+            ).rejects.toThrow(
+                'Failed to update process state: Database connection failed'
+            );
         });
 
         it('should handle repository errors during update', async () => {
@@ -200,8 +236,9 @@ describe('UpdateProcessState', () => {
             mockProcessRepository.findById.mockResolvedValue(mockProcess);
             mockProcessRepository.update.mockRejectedValue(updateError);
 
-            await expect(updateProcessStateUseCase.execute(processId, 'NEW_STATE'))
-                .rejects.toThrow('Failed to update process state: Update failed');
+            await expect(
+                updateProcessStateUseCase.execute(processId, 'NEW_STATE')
+            ).rejects.toThrow('Failed to update process state: Update failed');
         });
     });
 
@@ -210,12 +247,21 @@ describe('UpdateProcessState', () => {
             const processId = 'process-123';
             const newState = 'COMPLETED';
             const updatedProcess = { id: processId, state: newState };
-            
-            jest.spyOn(updateProcessStateUseCase, 'execute').mockResolvedValue(updatedProcess);
 
-            const result = await updateProcessStateUseCase.updateStateOnly(processId, newState);
+            jest.spyOn(updateProcessStateUseCase, 'execute').mockResolvedValue(
+                updatedProcess
+            );
 
-            expect(updateProcessStateUseCase.execute).toHaveBeenCalledWith(processId, newState, {});
+            const result = await updateProcessStateUseCase.updateStateOnly(
+                processId,
+                newState
+            );
+
+            expect(updateProcessStateUseCase.execute).toHaveBeenCalledWith(
+                processId,
+                newState,
+                {}
+            );
             expect(result).toEqual(updatedProcess);
         });
     });
@@ -230,7 +276,10 @@ describe('UpdateProcessState', () => {
 
         it('should update context without changing state', async () => {
             const contextUpdates = { newField: 'newValue' };
-            const expectedContext = { existingField: 'value', newField: 'newValue' };
+            const expectedContext = {
+                existingField: 'value',
+                newField: 'newValue',
+            };
             const updatedProcess = {
                 ...mockProcess,
                 context: expectedContext,
@@ -238,19 +287,26 @@ describe('UpdateProcessState', () => {
             mockProcessRepository.findById.mockResolvedValue(mockProcess);
             mockProcessRepository.update.mockResolvedValue(updatedProcess);
 
-            const result = await updateProcessStateUseCase.updateContextOnly(processId, contextUpdates);
+            const result = await updateProcessStateUseCase.updateContextOnly(
+                processId,
+                contextUpdates
+            );
 
-            expect(mockProcessRepository.update).toHaveBeenCalledWith(processId, {
-                context: expectedContext,
-            });
+            expect(mockProcessRepository.update).toHaveBeenCalledWith(
+                processId,
+                {
+                    context: expectedContext,
+                }
+            );
             expect(result).toEqual(updatedProcess);
         });
 
         it('should throw error if process not found', async () => {
             mockProcessRepository.findById.mockResolvedValue(null);
 
-            await expect(updateProcessStateUseCase.updateContextOnly(processId, {}))
-                .rejects.toThrow('Process not found: process-123');
+            await expect(
+                updateProcessStateUseCase.updateContextOnly(processId, {})
+            ).rejects.toThrow('Process not found: process-123');
         });
     });
 });

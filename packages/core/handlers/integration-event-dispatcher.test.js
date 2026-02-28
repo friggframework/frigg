@@ -5,7 +5,9 @@ jest.mock('../database/config', () => ({
     PRISMA_QUERY_LOGGING: false,
 }));
 
-const { IntegrationEventDispatcher } = require('./integration-event-dispatcher');
+const {
+    IntegrationEventDispatcher,
+} = require('./integration-event-dispatcher');
 const { IntegrationBase } = require('../integrations/integration-base');
 
 class TestIntegration extends IntegrationBase {
@@ -80,7 +82,9 @@ describe('IntegrationEventDispatcher', () => {
             });
 
             expect(result).toEqual({ success: true, hydrated: false });
-            expect(TestIntegration.latestInstance).toBeInstanceOf(TestIntegration);
+            expect(TestIntegration.latestInstance).toBeInstanceOf(
+                TestIntegration
+            );
             expect(TestIntegration.latestInstance.isHydrated).toBe(false);
         });
 
@@ -95,7 +99,9 @@ describe('IntegrationEventDispatcher', () => {
             });
 
             expect(result).toEqual({ dynamic: true });
-            expect(TestIntegration.latestInstance).toBeInstanceOf(TestIntegration);
+            expect(TestIntegration.latestInstance).toBeInstanceOf(
+                TestIntegration
+            );
         });
 
         it('throws when requesting an unknown event', async () => {
@@ -107,7 +113,9 @@ describe('IntegrationEventDispatcher', () => {
                     res: {},
                     next: jest.fn(),
                 })
-            ).rejects.toThrow('Event UNKNOWN not registered for test-integration');
+            ).rejects.toThrow(
+                'Event UNKNOWN not registered for test-integration'
+            );
         });
 
         it('does not hydrate automatically for handlers that require data', async () => {
@@ -134,7 +142,9 @@ describe('IntegrationEventDispatcher', () => {
             });
 
             expect(result).toEqual({ received: payload });
-            expect(TestIntegration.latestInstance).toBeInstanceOf(TestIntegration);
+            expect(TestIntegration.latestInstance).toBeInstanceOf(
+                TestIntegration
+            );
             expect(TestIntegration.latestInstance.isHydrated).toBe(false);
         });
     });
@@ -143,7 +153,7 @@ describe('IntegrationEventDispatcher', () => {
         it('should dispatch WEBHOOK_RECEIVED without hydration', async () => {
             const integration = new TestIntegration();
             integration.events.WEBHOOK_RECEIVED = {
-                handler: jest.fn().mockResolvedValue({ received: true })
+                handler: jest.fn().mockResolvedValue({ received: true }),
             };
 
             const dispatcher = new IntegrationEventDispatcher(integration);
@@ -154,20 +164,25 @@ describe('IntegrationEventDispatcher', () => {
                 event: 'WEBHOOK_RECEIVED',
                 req,
                 res,
-                next: jest.fn()
+                next: jest.fn(),
             });
 
-            expect(integration.events.WEBHOOK_RECEIVED.handler).toHaveBeenCalledWith({
+            expect(
+                integration.events.WEBHOOK_RECEIVED.handler
+            ).toHaveBeenCalledWith({
                 req,
                 res,
-                next: expect.any(Function)
+                next: expect.any(Function),
             });
         });
 
         it('should dispatch ON_WEBHOOK with job context', async () => {
-            const integration = new TestIntegration({ id: '123', userId: 'user1' });
+            const integration = new TestIntegration({
+                id: '123',
+                userId: 'user1',
+            });
             integration.events.ON_WEBHOOK = {
-                handler: jest.fn().mockResolvedValue({ processed: true })
+                handler: jest.fn().mockResolvedValue({ processed: true }),
             };
 
             const dispatcher = new IntegrationEventDispatcher(integration);
@@ -176,12 +191,12 @@ describe('IntegrationEventDispatcher', () => {
             await dispatcher.dispatchJob({
                 event: 'ON_WEBHOOK',
                 data,
-                context: {}
+                context: {},
             });
 
             expect(integration.events.ON_WEBHOOK.handler).toHaveBeenCalledWith({
                 data,
-                context: {}
+                context: {},
             });
             expect(integration.isHydrated).toBe(true);
         });
@@ -190,13 +205,23 @@ describe('IntegrationEventDispatcher', () => {
             const integration = new TestIntegration();
             const dispatcher = new IntegrationEventDispatcher(integration);
 
-            const req = { body: { test: 'data' }, params: {}, headers: {}, query: {} };
+            const req = {
+                body: { test: 'data' },
+                params: {},
+                headers: {},
+                query: {},
+            };
             const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
 
             // Mock queueWebhook
-            integration.queueWebhook = jest.fn().mockResolvedValue('message-id');
+            integration.queueWebhook = jest
+                .fn()
+                .mockResolvedValue('message-id');
 
-            const handler = dispatcher.findEventHandler(integration, 'WEBHOOK_RECEIVED');
+            const handler = dispatcher.findEventHandler(
+                integration,
+                'WEBHOOK_RECEIVED'
+            );
             expect(handler).toBeDefined();
 
             await handler.call(integration, { req, res });

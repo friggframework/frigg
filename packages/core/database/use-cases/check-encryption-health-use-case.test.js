@@ -1,10 +1,12 @@
 /**
  * Tests for CheckEncryptionHealthUseCase
- * 
+ *
  * Tests encryption configuration detection and health checking
  */
 
-const { CheckEncryptionHealthUseCase } = require('./check-encryption-health-use-case');
+const {
+    CheckEncryptionHealthUseCase,
+} = require('./check-encryption-health-use-case');
 
 describe('CheckEncryptionHealthUseCase', () => {
     let originalEnv;
@@ -48,7 +50,12 @@ describe('CheckEncryptionHealthUseCase', () => {
             delete process.env.KMS_KEY_ARN;
 
             const mockTestEncryption = {
-                execute: jest.fn().mockResolvedValue({ status: 'healthy', encryptionWorks: true }),
+                execute: jest
+                    .fn()
+                    .mockResolvedValue({
+                        status: 'healthy',
+                        encryptionWorks: true,
+                    }),
             };
 
             const useCase = new CheckEncryptionHealthUseCase({
@@ -69,7 +76,12 @@ describe('CheckEncryptionHealthUseCase', () => {
             delete process.env.AES_KEY;
 
             const mockTestEncryption = {
-                execute: jest.fn().mockResolvedValue({ status: 'healthy', encryptionWorks: true }),
+                execute: jest
+                    .fn()
+                    .mockResolvedValue({
+                        status: 'healthy',
+                        encryptionWorks: true,
+                    }),
             };
 
             const useCase = new CheckEncryptionHealthUseCase({
@@ -167,7 +179,9 @@ describe('CheckEncryptionHealthUseCase', () => {
             expect(result.status).toBe('disabled');
             expect(result.bypassed).toBe(true);
             expect(result.stage).toBe('dev');
-            expect(result.testResult).toBe('Encryption bypassed for this stage');
+            expect(result.testResult).toBe(
+                'Encryption bypassed for this stage'
+            );
             expect(result.encryptionWorks).toBe(false);
         });
 
@@ -189,4 +203,3 @@ describe('CheckEncryptionHealthUseCase', () => {
         });
     });
 });
-

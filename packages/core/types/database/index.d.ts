@@ -1,3 +1,3 @@
-declare module "@friggframework/database/mongo" {
-  export function connectToDatabase(): Promise<void>;
+declare module '@friggframework/database/mongo' {
+    export function connectToDatabase(): Promise<void>;
 }

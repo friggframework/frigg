@@ -1,5 +1,9 @@
-const { IntegrationRepositoryMongo } = require('./integration-repository-mongo');
-const { IntegrationRepositoryPostgres } = require('./integration-repository-postgres');
+const {
+    IntegrationRepositoryMongo,
+} = require('./integration-repository-mongo');
+const {
+    IntegrationRepositoryPostgres,
+} = require('./integration-repository-postgres');
 const {
     IntegrationRepositoryDocumentDB,
 } = require('./integration-repository-documentdb');

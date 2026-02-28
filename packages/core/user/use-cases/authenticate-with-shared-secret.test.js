@@ -1,4 +1,6 @@
-const { AuthenticateWithSharedSecret } = require('./authenticate-with-shared-secret');
+const {
+    AuthenticateWithSharedSecret,
+} = require('./authenticate-with-shared-secret');
 const Boom = require('@hapi/boom');
 
 describe('AuthenticateWithSharedSecret', () => {
@@ -22,7 +24,11 @@ describe('AuthenticateWithSharedSecret', () => {
 
             await expect(
                 authenticateWithSharedSecret.execute('any-secret')
-            ).rejects.toThrow(Boom.badImplementation('FRIGG_API_KEY environment variable is not configured. Set FRIGG_API_KEY to enable shared secret authentication.'));
+            ).rejects.toThrow(
+                Boom.badImplementation(
+                    'FRIGG_API_KEY environment variable is not configured. Set FRIGG_API_KEY to enable shared secret authentication.'
+                )
+            );
         });
 
         it('should throw 401 if provided secret is empty', async () => {
@@ -44,14 +50,20 @@ describe('AuthenticateWithSharedSecret', () => {
         });
 
         it('should return true when provided secret matches', async () => {
-            const result = await authenticateWithSharedSecret.execute('test-secret-key');
+            const result = await authenticateWithSharedSecret.execute(
+                'test-secret-key'
+            );
 
             expect(result).toBe(true);
         });
 
         it('should validate multiple times with same secret', async () => {
-            const result1 = await authenticateWithSharedSecret.execute('test-secret-key');
-            const result2 = await authenticateWithSharedSecret.execute('test-secret-key');
+            const result1 = await authenticateWithSharedSecret.execute(
+                'test-secret-key'
+            );
+            const result2 = await authenticateWithSharedSecret.execute(
+                'test-secret-key'
+            );
 
             expect(result1).toBe(true);
             expect(result2).toBe(true);
@@ -78,8 +90,12 @@ describe('AuthenticateWithSharedSecret', () => {
                 await authenticateWithSharedSecret.execute('any-secret');
                 fail('Should have thrown error');
             } catch (error) {
-                expect(error.message).toContain('FRIGG_API_KEY environment variable is not configured');
-                expect(error.message).toContain('Set FRIGG_API_KEY to enable shared secret authentication');
+                expect(error.message).toContain(
+                    'FRIGG_API_KEY environment variable is not configured'
+                );
+                expect(error.message).toContain(
+                    'Set FRIGG_API_KEY to enable shared secret authentication'
+                );
                 expect(error.output.statusCode).toBe(500);
             }
         });
@@ -103,7 +119,9 @@ describe('AuthenticateWithSharedSecret', () => {
                 await authenticateWithSharedSecret.execute('wrong-key');
                 fail('Should have thrown error');
             } catch (error) {
-                expect(error.message).not.toContain('super-secret-production-key');
+                expect(error.message).not.toContain(
+                    'super-secret-production-key'
+                );
                 expect(error.message).toBe('Invalid API key');
             }
         });
@@ -111,7 +129,9 @@ describe('AuthenticateWithSharedSecret', () => {
         it('should handle special characters in secret', async () => {
             process.env.FRIGG_API_KEY = 'test-key-with-$pecial-ch@rs!';
 
-            const result = await authenticateWithSharedSecret.execute('test-key-with-$pecial-ch@rs!');
+            const result = await authenticateWithSharedSecret.execute(
+                'test-key-with-$pecial-ch@rs!'
+            );
 
             expect(result).toBe(true);
         });
@@ -120,7 +140,9 @@ describe('AuthenticateWithSharedSecret', () => {
             const longSecret = 'a'.repeat(1000);
             process.env.FRIGG_API_KEY = longSecret;
 
-            const result = await authenticateWithSharedSecret.execute(longSecret);
+            const result = await authenticateWithSharedSecret.execute(
+                longSecret
+            );
 
             expect(result).toBe(true);
         });

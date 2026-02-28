@@ -14,7 +14,7 @@ class ProcessAuthorizationCallback {
         this.moduleDefinitions = moduleDefinitions;
     }
 
-    async execute(userId, entityType, params) {
+    async execute(userId, entityType, params, isGlobal = false) {
         const moduleDefinition = this.moduleDefinitions.find((def) => {
             return entityType === def.moduleName;
         });
@@ -70,7 +70,8 @@ class ProcessAuthorizationCallback {
         const persistedEntity = await this.findOrCreateEntity(
             entityDetails,
             entityType,
-            module.credential.id
+            module.credential.id,
+            isGlobal
         );
 
         return {
@@ -93,18 +94,22 @@ class ProcessAuthorizationCallback {
         );
         credentialDetails.details.authIsValid = true;
 
-        const persisted = await this.credentialRepository.upsertCredential(credentialDetails);
+        const persisted = await this.credentialRepository.upsertCredential(
+            credentialDetails
+        );
         module.credential = persisted;
     }
 
-    async findOrCreateEntity(entityDetails, moduleName, credentialId) {
+    async findOrCreateEntity(entityDetails, moduleName, credentialId, isGlobal = false) {
         const { identifiers, details } = entityDetails;
 
         // Support both 'user' and 'userId' field names from module definitions
         // Some modules use 'user' (legacy), others use 'userId' (newer pattern)
         const userId = identifiers.user || identifiers.userId;
 
-        if (!userId) {
+        // For global entities, userId is not required (it will be null)
+        // For user-specific entities, userId must be provided for security
+        if (!isGlobal && !userId) {
             throw new Error(
                 `Module definition for ${moduleName} must return 'user' or 'userId' in identifiers from getEntityDetails(). ` +
                     `Without userId, entity lookup would match across all users (security issue).`
@@ -113,7 +118,7 @@ class ProcessAuthorizationCallback {
 
         const existingEntity = await this.moduleRepository.findEntity({
             externalId: identifiers.externalId,
-            user: userId,
+            user: isGlobal ? null : userId,
             moduleName: moduleName,
         });
 
@@ -126,6 +131,7 @@ class ProcessAuthorizationCallback {
             ...details,
             moduleName: moduleName,
             credential: credentialId,
+            isGlobal,
         });
     }
 }

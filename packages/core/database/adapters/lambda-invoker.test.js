@@ -19,13 +19,17 @@ describe('LambdaInvoker', () => {
     describe('invoke()', () => {
         it('should invoke Lambda and return parsed result on success', async () => {
             mockLambdaClient.send.mockResolvedValue({
-                Payload: Buffer.from(JSON.stringify({
-                    statusCode: 200,
-                    body: { upToDate: true, pendingMigrations: 0 },
-                })),
+                Payload: Buffer.from(
+                    JSON.stringify({
+                        statusCode: 200,
+                        body: { upToDate: true, pendingMigrations: 0 },
+                    })
+                ),
             });
 
-            const result = await invoker.invoke('test-function', { action: 'checkStatus' });
+            const result = await invoker.invoke('test-function', {
+                action: 'checkStatus',
+            });
 
             expect(result).toEqual({ upToDate: true, pendingMigrations: 0 });
             expect(mockLambdaClient.send).toHaveBeenCalledWith(
@@ -41,23 +45,25 @@ describe('LambdaInvoker', () => {
 
         it('should throw LambdaInvocationError on Lambda error status', async () => {
             mockLambdaClient.send.mockResolvedValue({
-                Payload: Buffer.from(JSON.stringify({
-                    statusCode: 500,
-                    body: { error: 'Database connection failed' },
-                })),
+                Payload: Buffer.from(
+                    JSON.stringify({
+                        statusCode: 500,
+                        body: { error: 'Database connection failed' },
+                    })
+                ),
             });
 
-            await expect(invoker.invoke('test-function', {}))
-                .rejects
-                .toThrow(LambdaInvocationError);
+            await expect(invoker.invoke('test-function', {})).rejects.toThrow(
+                LambdaInvocationError
+            );
 
-            await expect(invoker.invoke('test-function', {}))
-                .rejects
-                .toThrow(/test-function/);
+            await expect(invoker.invoke('test-function', {})).rejects.toThrow(
+                /test-function/
+            );
 
-            await expect(invoker.invoke('test-function', {}))
-                .rejects
-                .toThrow(/Database connection failed/);
+            await expect(invoker.invoke('test-function', {})).rejects.toThrow(
+                /Database connection failed/
+            );
         });
 
         it('should throw LambdaInvocationError on malformed response', async () => {
@@ -65,29 +71,33 @@ describe('LambdaInvoker', () => {
                 Payload: Buffer.from('not json'),
             });
 
-            await expect(invoker.invoke('test-function', {}))
-                .rejects
-                .toThrow(LambdaInvocationError);
+            await expect(invoker.invoke('test-function', {})).rejects.toThrow(
+                LambdaInvocationError
+            );
 
-            await expect(invoker.invoke('test-function', {}))
-                .rejects
-                .toThrow(/Failed to parse/);
+            await expect(invoker.invoke('test-function', {})).rejects.toThrow(
+                /Failed to parse/
+            );
         });
 
         it('should handle AWS SDK errors', async () => {
-            mockLambdaClient.send.mockRejectedValue(new Error('AccessDenied: User not authorized'));
+            mockLambdaClient.send.mockRejectedValue(
+                new Error('AccessDenied: User not authorized')
+            );
 
-            await expect(invoker.invoke('test-function', {}))
-                .rejects
-                .toThrow('Failed to invoke Lambda test-function: AccessDenied: User not authorized');
+            await expect(invoker.invoke('test-function', {})).rejects.toThrow(
+                'Failed to invoke Lambda test-function: AccessDenied: User not authorized'
+            );
         });
 
         it('should include function name in LambdaInvocationError', async () => {
             mockLambdaClient.send.mockResolvedValue({
-                Payload: Buffer.from(JSON.stringify({
-                    statusCode: 500,
-                    body: { error: 'Test error' },
-                })),
+                Payload: Buffer.from(
+                    JSON.stringify({
+                        statusCode: 500,
+                        body: { error: 'Test error' },
+                    })
+                ),
             });
 
             try {
@@ -102,5 +112,3 @@ describe('LambdaInvoker', () => {
         });
     });
 });
-
-

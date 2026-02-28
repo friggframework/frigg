@@ -43,3 +43,4 @@ claude-flow.log
 /packages/devtools/management-ui/dist
 /packages/devtools/management-ui/.claude-flow
 /.claude-flow
+analysis-reports/

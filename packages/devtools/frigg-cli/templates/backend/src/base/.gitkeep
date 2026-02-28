@@ -1,0 +1,7 @@
+# This directory contains base classes and shared infrastructure
+#
+# Common patterns:
+# - Custom entity extensions
+# - Shared middleware
+# - Base integration classes
+# - Custom authentication handlers

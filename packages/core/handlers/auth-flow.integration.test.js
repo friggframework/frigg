@@ -5,7 +5,9 @@ jest.mock('../database/config', () => ({
     PRISMA_QUERY_LOGGING: false,
 }));
 
-const { IntegrationEventDispatcher } = require('./integration-event-dispatcher');
+const {
+    IntegrationEventDispatcher,
+} = require('./integration-event-dispatcher');
 const { IntegrationBase } = require('../integrations/integration-base');
 
 class SimulatedAsanaIntegration extends IntegrationBase {
@@ -15,7 +17,11 @@ class SimulatedAsanaIntegration extends IntegrationBase {
         modules: {},
         routes: [
             { path: '/auth', method: 'GET', event: 'AUTH_REQUEST' },
-            { path: '/auth/redirect/:provider', method: 'GET', event: 'AUTH_REDIRECT' },
+            {
+                path: '/auth/redirect/:provider',
+                method: 'GET',
+                event: 'AUTH_REDIRECT',
+            },
             { path: '/form', method: 'GET', event: 'LOAD_FORM' },
         ],
     };
@@ -84,7 +90,11 @@ describe('IntegrationEventDispatcher auth flow', () => {
             next: jest.fn(),
         });
 
-        expect(result).toEqual({ success: true, action: 'redirect', hydrated: false });
+        expect(result).toEqual({
+            success: true,
+            action: 'redirect',
+            hydrated: false,
+        });
     });
 
     it('handles auth redirect without hydration', async () => {

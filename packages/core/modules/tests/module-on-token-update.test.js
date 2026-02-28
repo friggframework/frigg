@@ -101,7 +101,9 @@ describe('Module.onTokenUpdate with organization userId', () => {
     it('should call getCredentialDetails with correct userId', async () => {
         await module.onTokenUpdate();
 
-        expect(mockDefinition.requiredAuthMethods.getCredentialDetails).toHaveBeenCalledWith(
+        expect(
+            mockDefinition.requiredAuthMethods.getCredentialDetails
+        ).toHaveBeenCalledWith(
             mockApi,
             '13' // Organization userId
         );

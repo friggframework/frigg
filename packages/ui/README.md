@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Frigg UI package provides a set of reusable and self-contained components for managing integrations in any React application. This package is designed to ensure flexibility and reusability across different projects, allowing seamless integration management with minimal effort.
+The Frigg UI package provides a set of reusable and self-contained components for managing integrations in any frontend application. This package is designed to ensure flexibility and reusability across different projects, allowing seamless integration management with minimal effort.
 
 ## Features
 

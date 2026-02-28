@@ -75,6 +75,16 @@ class TemplateHandler {
                 return !['node_modules', '.serverless', 'dist', 'build'].includes(basename);
             }
         });
+
+        // Rename .env.default to .env if it exists and .env doesn't already exist
+        const envDefaultPath = path.join(target, '.env.default');
+        const envPath = path.join(target, '.env');
+        if (fs.existsSync(envDefaultPath) && !fs.existsSync(envPath)) {
+            await fs.rename(envDefaultPath, envPath);
+        } else if (fs.existsSync(envDefaultPath)) {
+            // Remove the .env.default if .env already exists
+            await fs.remove(envDefaultPath);
+        }
     }
 
     /**
@@ -100,14 +110,14 @@ class TemplateHandler {
     async updateServerlessConfig() {
         const serverlessPath = path.join(this.targetPath, 'serverless.yml');
         let serverlessContent = await fs.readFile(serverlessPath, 'utf8');
-        
+
         // Update service name based on directory name
         const projectName = path.basename(this.targetPath);
         serverlessContent = serverlessContent.replace(
-            /^service: create-frigg-app$/m,
+            /^service: frigg-app$/m,
             `service: ${projectName}`
         );
-        
+
         await fs.writeFile(serverlessPath, serverlessContent);
     }
 

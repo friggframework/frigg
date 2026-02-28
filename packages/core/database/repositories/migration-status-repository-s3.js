@@ -1,13 +1,17 @@
 /**
  * Migration Status Repository - S3 Storage
- * 
+ *
  * Infrastructure Layer - Hexagonal Architecture
- * 
+ *
  * Stores migration status in S3 to avoid chicken-and-egg dependency on User/Process tables.
  * Initial database migrations can't use Process table (requires User FK which doesn't exist yet).
  */
 
-const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const {
+    S3Client,
+    PutObjectCommand,
+    GetObjectCommand,
+} = require('@aws-sdk/client-s3');
 const { randomUUID } = require('crypto');
 
 class MigrationStatusRepositoryS3 {
@@ -17,7 +21,9 @@ class MigrationStatusRepositoryS3 {
      */
     constructor(bucketName, s3Client = null) {
         this.bucketName = bucketName;
-        this.s3Client = s3Client || new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
+        this.s3Client =
+            s3Client ||
+            new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
     }
 
     /**
@@ -134,4 +140,3 @@ class MigrationStatusRepositoryS3 {
 }
 
 module.exports = { MigrationStatusRepositoryS3 };
-

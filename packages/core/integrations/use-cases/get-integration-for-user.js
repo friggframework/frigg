@@ -1,5 +1,7 @@
 // Removed Integration wrapper - using IntegrationBase directly
-const { mapIntegrationClassToIntegrationDTO } = require('../utils/map-integration-dto');
+const {
+    mapIntegrationClassToIntegrationDTO,
+} = require('../utils/map-integration-dto');
 const Boom = require('@hapi/boom');
 
 /**
@@ -15,8 +17,12 @@ class GetIntegrationForUser {
      * @param {import('../../modules/module-factory').ModuleFactory} params.moduleFactory - Service for module instantiation and management.
      * @param {import('../../modules/module-repository-interface').ModuleRepositoryInterface} params.moduleRepository - Repository for module and entity data operations.
      */
-    constructor({ integrationRepository, integrationClasses, moduleFactory, moduleRepository }) {
-
+    constructor({
+        integrationRepository,
+        integrationClasses,
+        moduleFactory,
+        moduleRepository,
+    }) {
         /**
          * @type {import('../integration-repository-interface').IntegrationRepositoryInterface}
          */
@@ -36,19 +42,28 @@ class GetIntegrationForUser {
      * @throws {Boom.forbidden} When user does not have access to the integration.
      */
     async execute(integrationId, userId) {
-        const integrationRecord = await this.integrationRepository.findIntegrationById(integrationId);
-        const entities = await this.moduleRepository.findEntitiesByIds(integrationRecord.entitiesIds);
+        const integrationRecord =
+            await this.integrationRepository.findIntegrationById(integrationId);
+        const entities = await this.moduleRepository.findEntitiesByIds(
+            integrationRecord.entitiesIds
+        );
 
         if (!integrationRecord) {
-            throw Boom.notFound(`Integration with id of ${integrationId} does not exist`);
+            throw Boom.notFound(
+                `Integration with id of ${integrationId} does not exist`
+            );
         }
 
         if (integrationRecord.userId.toString() !== userId.toString()) {
-            throw Boom.forbidden('User does not have access to this integration');
+            throw Boom.forbidden(
+                'User does not have access to this integration'
+            );
         }
 
         const integrationClass = this.integrationClasses.find(
-            (integrationClass) => integrationClass.Definition.name === integrationRecord.config.type
+            (integrationClass) =>
+                integrationClass.Definition.name ===
+                integrationRecord.config.type
         );
 
         const modules = [];
@@ -68,11 +83,11 @@ class GetIntegrationForUser {
             status: integrationRecord.status,
             version: integrationRecord.version,
             messages: integrationRecord.messages,
-            modules
+            modules,
         });
 
         return mapIntegrationClassToIntegrationDTO(integrationInstance);
     }
 }
 
-module.exports = { GetIntegrationForUser }; 
+module.exports = { GetIntegrationForUser };

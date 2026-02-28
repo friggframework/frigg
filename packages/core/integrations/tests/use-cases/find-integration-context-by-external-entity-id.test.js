@@ -1,6 +1,12 @@
-const { FindIntegrationContextByExternalEntityIdUseCase } = require('../../use-cases/find-integration-context-by-external-entity-id');
-const { TestModuleRepository } = require('../../../modules/tests/doubles/test-module-repository');
-const { TestIntegrationRepository } = require('../doubles/test-integration-repository');
+const {
+    FindIntegrationContextByExternalEntityIdUseCase,
+} = require('../../use-cases/find-integration-context-by-external-entity-id');
+const {
+    TestModuleRepository,
+} = require('../../../modules/tests/doubles/test-module-repository');
+const {
+    TestIntegrationRepository,
+} = require('../doubles/test-integration-repository');
 const { DummyIntegration } = require('../doubles/dummy-integration-class');
 
 describe('FindIntegrationContextByExternalEntityIdUseCase', () => {
@@ -25,13 +31,13 @@ describe('FindIntegrationContextByExternalEntityIdUseCase', () => {
     it('throws when externalEntityId is missing', async () => {
         await expect(useCase.execute({})).rejects.toHaveProperty(
             'code',
-            'EXTERNAL_ENTITY_ID_REQUIRED',
+            'EXTERNAL_ENTITY_ID_REQUIRED'
         );
     });
 
     it('throws when entity is not found', async () => {
         await expect(
-            useCase.execute({ externalEntityId: 'abc' }),
+            useCase.execute({ externalEntityId: 'abc' })
         ).rejects.toHaveProperty('code', 'ENTITY_NOT_FOUND');
     });
 
@@ -42,7 +48,7 @@ describe('FindIntegrationContextByExternalEntityIdUseCase', () => {
         });
 
         await expect(
-            useCase.execute({ externalEntityId: 'ext-1' }),
+            useCase.execute({ externalEntityId: 'ext-1' })
         ).rejects.toHaveProperty('code', 'ENTITY_USER_NOT_FOUND');
     });
 
@@ -54,7 +60,7 @@ describe('FindIntegrationContextByExternalEntityIdUseCase', () => {
         });
 
         await expect(
-            useCase.execute({ externalEntityId: 'ext-1' }),
+            useCase.execute({ externalEntityId: 'ext-1' })
         ).rejects.toHaveProperty('code', 'INTEGRATION_NOT_FOUND');
     });
 
@@ -69,7 +75,7 @@ describe('FindIntegrationContextByExternalEntityIdUseCase', () => {
         const integrationRecord = await integrationRepository.createIntegration(
             [entity.id],
             entity.userId,
-            { type: 'dummy' },
+            { type: 'dummy' }
         );
 
         const expectedContext = {
@@ -77,7 +83,7 @@ describe('FindIntegrationContextByExternalEntityIdUseCase', () => {
             modules: [{ id: 'module-1' }],
         };
         loadIntegrationContextUseCase.execute.mockResolvedValue(
-            expectedContext,
+            expectedContext
         );
 
         const result = await useCase.execute({ externalEntityId: 'ext-1' });

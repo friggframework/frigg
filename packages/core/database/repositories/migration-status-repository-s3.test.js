@@ -1,11 +1,13 @@
 /**
  * Tests for Migration Status Repository (S3)
- * 
+ *
  * Tests S3-based storage for migration status tracking
  * (avoids chicken-and-egg dependency on User/Process tables)
  */
 
-const { MigrationStatusRepositoryS3 } = require('./migration-status-repository-s3');
+const {
+    MigrationStatusRepositoryS3,
+} = require('./migration-status-repository-s3');
 
 describe('MigrationStatusRepositoryS3', () => {
     let repository;
@@ -15,7 +17,10 @@ describe('MigrationStatusRepositoryS3', () => {
         mockS3Client = {
             send: jest.fn(),
         };
-        repository = new MigrationStatusRepositoryS3('test-bucket', mockS3Client);
+        repository = new MigrationStatusRepositoryS3(
+            'test-bucket',
+            mockS3Client
+        );
     });
 
     describe('create()', () => {
@@ -63,7 +68,9 @@ describe('MigrationStatusRepositoryS3', () => {
 
             const putCommand = mockS3Client.send.mock.calls[0][0];
             expect(putCommand.input.Bucket).toBe('test-bucket');
-            expect(putCommand.input.Key).toBe('migrations/dev/migration-123.json');
+            expect(putCommand.input.Key).toBe(
+                'migrations/dev/migration-123.json'
+            );
         });
     });
 
@@ -71,11 +78,12 @@ describe('MigrationStatusRepositoryS3', () => {
         it('should update existing migration status', async () => {
             mockS3Client.send.mockResolvedValue({
                 Body: {
-                    transformToString: () => JSON.stringify({
-                        migrationId: 'migration-123',
-                        state: 'INITIALIZING',
-                        progress: 0,
-                    }),
+                    transformToString: () =>
+                        JSON.stringify({
+                            migrationId: 'migration-123',
+                            state: 'INITIALIZING',
+                            progress: 0,
+                        }),
                 },
             });
 
@@ -95,12 +103,13 @@ describe('MigrationStatusRepositoryS3', () => {
             mockS3Client.send
                 .mockResolvedValueOnce({
                     Body: {
-                        transformToString: () => JSON.stringify({
-                            migrationId: 'migration-123',
-                            state: 'INITIALIZING',
-                            progress: 0,
-                            triggeredAt: '2025-10-19T12:00:00Z',
-                        }),
+                        transformToString: () =>
+                            JSON.stringify({
+                                migrationId: 'migration-123',
+                                state: 'INITIALIZING',
+                                progress: 0,
+                                triggeredAt: '2025-10-19T12:00:00Z',
+                            }),
                     },
                 })
                 .mockResolvedValueOnce({});
@@ -155,4 +164,3 @@ describe('MigrationStatusRepositoryS3', () => {
         });
     });
 });
-

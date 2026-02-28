@@ -4,16 +4,16 @@ The `@friggframework/core` package is the foundational layer of the Frigg Framew
 
 ## Table of Contents
 
-- [Architecture Overview](#architecture-overview)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Core Components](#core-components)
-- [Hexagonal Architecture](#hexagonal-architecture)
-- [Usage Examples](#usage-examples)
-- [Testing](#testing)
-- [Development](#development)
-- [API Reference](#api-reference)
-- [Contributing](#contributing)
+-   [Architecture Overview](#architecture-overview)
+-   [Installation](#installation)
+-   [Quick Start](#quick-start)
+-   [Core Components](#core-components)
+-   [Hexagonal Architecture](#hexagonal-architecture)
+-   [Usage Examples](#usage-examples)
+-   [Testing](#testing)
+-   [Development](#development)
+-   [API Reference](#api-reference)
+-   [Contributing](#contributing)
 
 ## Architecture Overview
 
@@ -67,11 +67,13 @@ yarn add @friggframework/core
 `@friggframework/core` supports both MongoDB and PostgreSQL via Prisma ORM. **Prisma is an optional peer dependency** - you only need to install it if you're using database features that require migrations or schema generation.
 
 **When you need Prisma:**
-- Running database migrations (`prisma migrate`, `prisma db push`)
-- Generating Prisma clients for your application
-- Using the migration Lambda function (`dbMigrate`)
+
+-   Running database migrations (`prisma migrate`, `prisma db push`)
+-   Generating Prisma clients for your application
+-   Using the migration Lambda function (`dbMigrate`)
 
 **Installation:**
+
 ```bash
 # Install Prisma CLI and Client as dev dependencies
 npm install --save-dev prisma @prisma/client
@@ -81,6 +83,7 @@ yarn add -D prisma @prisma/client
 ```
 
 **Generate Prisma Clients:**
+
 ```bash
 # From @friggframework/core directory
 npm run prisma:generate:mongo      # MongoDB only
@@ -92,9 +95,9 @@ npm run prisma:generate            # Both databases
 
 ### Prerequisites
 
-- Node.js 16+ 
-- MongoDB 4.4+ (for data persistence)
-- AWS credentials (for SQS, KMS, Lambda deployment)
+-   Node.js 16+
+-   MongoDB 4.4+ (for data persistence)
+-   AWS credentials (for SQS, KMS, Lambda deployment)
 
 ### Environment Variables
 
@@ -120,11 +123,13 @@ LOG_LEVEL=info
 The heart of the framework - manages integration lifecycle and business logic.
 
 **Key Classes:**
-- `IntegrationBase` - Base class for all integrations
-- `Integration` - Domain aggregate using Proxy pattern
-- Use cases: `CreateIntegration`, `UpdateIntegration`, `DeleteIntegration`
+
+-   `IntegrationBase` - Base class for all integrations
+-   `Integration` - Domain aggregate using Proxy pattern
+-   Use cases: `CreateIntegration`, `UpdateIntegration`, `DeleteIntegration`
 
 **Usage:**
+
 ```javascript
 const { IntegrationBase } = require('@friggframework/core');
 
@@ -134,8 +139,8 @@ class SlackHubSpotSync extends IntegrationBase {
         version: '2.1.0',
         modules: {
             slack: 'slack',
-            hubspot: 'hubspot'
-        }
+            hubspot: 'hubspot',
+        },
     };
 
     async onCreate({ integrationId }) {
@@ -152,30 +157,32 @@ class SlackHubSpotSync extends IntegrationBase {
 MongoDB integration with Mongoose ODM.
 
 **Key Components:**
-- Connection management
-- Pre-built models (User, Integration, Credential, etc.)
-- Schema definitions
+
+-   Connection management
+-   Pre-built models (User, Integration, Credential, etc.)
+-   Schema definitions
 
 **Usage:**
+
 ```javascript
-const { 
-    connectToDatabase, 
-    IntegrationModel, 
-    UserModel 
+const {
+    connectToDatabase,
+    IntegrationModel,
+    UserModel,
 } = require('@friggframework/core');
 
 await connectToDatabase();
 
 // Query integrations
-const userIntegrations = await IntegrationModel.find({ 
+const userIntegrations = await IntegrationModel.find({
     userId: 'user-123',
-    status: 'ENABLED' 
+    status: 'ENABLED',
 });
 
 // Create user
 const user = new UserModel({
     email: 'user@example.com',
-    name: 'John Doe'
+    name: 'John Doe',
 });
 await user.save();
 ```
@@ -185,6 +192,7 @@ await user.save();
 AES-256-GCM encryption for sensitive data.
 
 **Usage:**
+
 ```javascript
 const { Encrypt, Cryptor } = require('@friggframework/core');
 
@@ -194,10 +202,12 @@ const decrypted = Encrypt.decrypt(encrypted);
 
 // Advanced encryption with custom key
 const cryptor = new Cryptor(process.env.CUSTOM_KEY);
-const secureData = cryptor.encrypt(JSON.stringify({
-    accessToken: 'oauth-token',
-    refreshToken: 'refresh-token'
-}));
+const secureData = cryptor.encrypt(
+    JSON.stringify({
+        accessToken: 'oauth-token',
+        refreshToken: 'refresh-token',
+    })
+);
 ```
 
 ### 5. Error Handling (`/errors`)
@@ -205,11 +215,12 @@ const secureData = cryptor.encrypt(JSON.stringify({
 Standardized error types with proper HTTP status codes.
 
 **Usage:**
+
 ```javascript
-const { 
-    BaseError, 
-    RequiredPropertyError, 
-    FetchError 
+const {
+    BaseError,
+    RequiredPropertyError,
+    FetchError,
 } = require('@friggframework/core');
 
 // Custom business logic error
@@ -218,13 +229,13 @@ throw new RequiredPropertyError('userId is required');
 // API communication error
 throw new FetchError('Failed to fetch data from external API', {
     statusCode: 404,
-    response: errorResponse
+    response: errorResponse,
 });
 
 // Base error with custom properties
 throw new BaseError('Integration failed', {
     integrationId: 'int-123',
-    errorCode: 'SYNC_FAILED'
+    errorCode: 'SYNC_FAILED',
 });
 ```
 
@@ -233,6 +244,7 @@ throw new BaseError('Integration failed', {
 Structured logging with debug capabilities.
 
 **Usage:**
+
 ```javascript
 const { debug, initDebugLog, flushDebugLog } = require('@friggframework/core');
 
@@ -240,9 +252,9 @@ const { debug, initDebugLog, flushDebugLog } = require('@friggframework/core');
 initDebugLog('integration:slack');
 
 // Log debug information
-debug('Processing webhook payload', { 
+debug('Processing webhook payload', {
     eventType: 'contact.created',
-    payload: webhookData 
+    payload: webhookData,
 });
 
 // Flush logs (useful in serverless environments)
@@ -254,27 +266,31 @@ await flushDebugLog();
 Comprehensive user authentication and authorization system supporting both individual and organizational users.
 
 **Key Classes:**
-- `User` - Domain aggregate for user entities
-- `UserRepository` - Data access for user operations
-- Use cases: `LoginUser`, `CreateIndividualUser`, `CreateOrganizationUser`, `GetUserFromBearerToken`
+
+-   `User` - Domain aggregate for user entities
+-   `UserRepository` - Data access for user operations
+-   Use cases: `LoginUser`, `CreateIndividualUser`, `CreateOrganizationUser`, `GetUserFromBearerToken`
 
 **User Types:**
-- **Individual Users**: Personal accounts with email/username authentication
-- **Organization Users**: Business accounts with organization-level access
-- **Hybrid Mode**: Support for both user types simultaneously
+
+-   **Individual Users**: Personal accounts with email/username authentication
+-   **Organization Users**: Business accounts with organization-level access
+-   **Hybrid Mode**: Support for both user types simultaneously
 
 **Authentication Methods:**
-- **Password-based**: Traditional username/password authentication
-- **Token-based**: Bearer token authentication with session management
-- **App-based**: External app user ID authentication (passwordless)
+
+-   **Password-based**: Traditional username/password authentication
+-   **Token-based**: Bearer token authentication with session management
+-   **App-based**: External app user ID authentication (passwordless)
 
 **Usage:**
+
 ```javascript
-const { 
-    LoginUser, 
-    CreateIndividualUser, 
+const {
+    LoginUser,
+    CreateIndividualUser,
     GetUserFromBearerToken,
-    UserRepository 
+    UserRepository,
 } = require('@friggframework/core');
 
 // Configure user behavior in app definition
@@ -282,7 +298,7 @@ const userConfig = {
     usePassword: true,
     primary: 'individual', // or 'organization'
     individualUserRequired: true,
-    organizationUserRequired: false
+    organizationUserRequired: false,
 };
 
 const userRepository = new UserRepository({ userConfig });
@@ -293,18 +309,21 @@ const user = await createUser.execute({
     email: 'user@example.com',
     username: 'john_doe',
     password: 'secure_password',
-    appUserId: 'external_user_123' // Optional external reference
+    appUserId: 'external_user_123', // Optional external reference
 });
 
 // Login user
 const loginUser = new LoginUser({ userRepository, userConfig });
 const authenticatedUser = await loginUser.execute({
     username: 'john_doe',
-    password: 'secure_password'
+    password: 'secure_password',
 });
 
 // Token-based authentication
-const getUserFromToken = new GetUserFromBearerToken({ userRepository, userConfig });
+const getUserFromToken = new GetUserFromBearerToken({
+    userRepository,
+    userConfig,
+});
 const user = await getUserFromToken.execute('Bearer eyJhbGciOiJIUzI1NiIs...');
 
 // Access user properties
@@ -319,12 +338,13 @@ console.log('Organization user:', user.getOrganizationUser());
 AWS Lambda-specific utilities and helpers.
 
 **Usage:**
+
 ```javascript
 const { TimeoutCatcher } = require('@friggframework/core');
 
 exports.handler = async (event, context) => {
     const timeoutCatcher = new TimeoutCatcher(context);
-    
+
     try {
         // Long-running integration process
         const result = await processIntegrationSync(event);
@@ -353,11 +373,11 @@ User behavior is configured in the app definition, allowing you to customize aut
 const appDefinition = {
     integrations: [HubSpotIntegration],
     user: {
-        usePassword: true,                    // Enable password authentication
-        primary: 'individual',               // Primary user type: 'individual' or 'organization'
-        organizationUserRequired: true,      // Require organization user
-        individualUserRequired: true,        // Require individual user
-    }
+        usePassword: true, // Enable password authentication
+        primary: 'individual', // Primary user type: 'individual' or 'organization'
+        organizationUserRequired: true, // Require organization user
+        individualUserRequired: true, // Require individual user
+    },
 };
 ```
 
@@ -372,20 +392,20 @@ const { User } = require('@friggframework/core');
 const user = new User(individualUser, organizationUser, usePassword, primary);
 
 // Access methods
-user.getId()                    // Get primary user ID
-user.getPrimaryUser()          // Get primary user based on config
-user.getIndividualUser()       // Get individual user
-user.getOrganizationUser()     // Get organization user
+user.getId(); // Get primary user ID
+user.getPrimaryUser(); // Get primary user based on config
+user.getIndividualUser(); // Get individual user
+user.getOrganizationUser(); // Get organization user
 
 // Validation methods
-user.isPasswordRequired()      // Check if password is required
-user.isPasswordValid(password) // Validate password
-user.isIndividualUserRequired() // Check individual user requirement
-user.isOrganizationUserRequired() // Check organization user requirement
+user.isPasswordRequired(); // Check if password is required
+user.isPasswordValid(password); // Validate password
+user.isIndividualUserRequired(); // Check individual user requirement
+user.isOrganizationUserRequired(); // Check organization user requirement
 
 // Configuration methods
-user.setIndividualUser(individualUser)
-user.setOrganizationUser(organizationUser)
+user.setIndividualUser(individualUser);
+user.setOrganizationUser(organizationUser);
 ```
 
 ### Database Models
@@ -421,11 +441,11 @@ The user system uses MongoDB with Mongoose for data persistence:
 
 ### Security Features
 
-- **Password Hashing**: Uses bcrypt with configurable salt rounds
-- **Token Management**: Secure session tokens with expiration
-- **Unique Constraints**: Enforced username and email uniqueness
-- **External References**: Support for external app user/org IDs
-- **Flexible Authentication**: Multiple authentication methods
+-   **Password Hashing**: Uses bcrypt with configurable salt rounds
+-   **Token Management**: Secure session tokens with expiration
+-   **Unique Constraints**: Enforced username and email uniqueness
+-   **External References**: Support for external app user/org IDs
+-   **Flexible Authentication**: Multiple authentication methods
 
 ## Hexagonal Architecture
 
@@ -446,7 +466,9 @@ class UpdateIntegrationStatus {
         }
 
         // Domain operation
-        const integration = await this.integrationRepository.findById(integrationId);
+        const integration = await this.integrationRepository.findById(
+            integrationId
+        );
         if (!integration) {
             throw new Error('Integration not found');
         }
@@ -454,7 +476,7 @@ class UpdateIntegrationStatus {
         // Update and persist
         integration.status = newStatus;
         integration.updatedAt = new Date();
-        
+
         return await this.integrationRepository.save(integration);
     }
 }
@@ -484,7 +506,7 @@ class IntegrationRepository {
             userId,
             config,
             status: 'NEW',
-            createdAt: new Date()
+            createdAt: new Date(),
         });
         return await integration.save();
     }
@@ -500,7 +522,7 @@ const Integration = new Proxy(class {}, {
     construct(target, args) {
         const [params] = args;
         const instance = new params.integrationClass(params);
-        
+
         // Attach domain properties
         Object.assign(instance, {
             id: params.id,
@@ -508,11 +530,11 @@ const Integration = new Proxy(class {}, {
             entities: params.entities,
             config: params.config,
             status: params.status,
-            modules: params.modules
+            modules: params.modules,
         });
 
         return instance;
-    }
+    },
 });
 ```
 
@@ -565,7 +587,7 @@ class HubSpotIntegration extends IntegrationBase {
 
     constructor() {
         super();
-        
+
         // Define event handlers for various integration actions
         this.events = {
             // Webhook handler with real-time WebSocket broadcasting
@@ -574,7 +596,8 @@ class HubSpotIntegration extends IntegrationBase {
                     console.log('Received HubSpot webhook:', data);
 
                     // Broadcast to all connected WebSocket clients
-                    const activeConnections = await WebsocketConnection.getActiveConnections();
+                    const activeConnections =
+                        await WebsocketConnection.getActiveConnections();
                     const message = JSON.stringify({
                         type: 'HUBSPOT_WEBHOOK',
                         data,
@@ -585,16 +608,17 @@ class HubSpotIntegration extends IntegrationBase {
                     });
                 },
             },
-            
+
             // User action: Get sample data with formatted table output
             [FriggConstants.defaultEvents.GET_SAMPLE_DATA]: {
                 type: FriggConstants.eventTypes.USER_ACTION,
                 handler: this.getSampleData,
                 title: 'Get Sample Data',
-                description: 'Get sample data from HubSpot and display in a formatted table',
+                description:
+                    'Get sample data from HubSpot and display in a formatted table',
                 userActionType: 'QUICK_ACTION',
             },
-            
+
             // User action: List available objects
             GET_OBJECT_LIST: {
                 type: FriggConstants.eventTypes.USER_ACTION,
@@ -603,7 +627,7 @@ class HubSpotIntegration extends IntegrationBase {
                 description: 'Get list of available HubSpot objects',
                 userActionType: 'DATA',
             },
-            
+
             // User action: Create records with dynamic forms
             CREATE_RECORD: {
                 type: FriggConstants.eventTypes.USER_ACTION,
@@ -613,7 +637,7 @@ class HubSpotIntegration extends IntegrationBase {
                 userActionType: 'DATA',
             },
         };
-        
+
         // Extension system for modular functionality
         this.extensions = {
             hubspotWebhooks: {
@@ -687,7 +711,7 @@ class HubSpotIntegration extends IntegrationBase {
         let res;
         const objectType = args.objectType;
         delete args.objectType;
-        
+
         switch (objectType.toLowerCase()) {
             case 'deal':
                 res = await this.hubspot.api.createDeal({ ...args });
@@ -718,7 +742,7 @@ class HubSpotIntegration extends IntegrationBase {
                     },
                     required: [],
                 };
-                
+
                 let uiSchema = {
                     type: 'HorizontalLayout',
                     elements: [
@@ -744,7 +768,7 @@ class HubSpotIntegration extends IntegrationBase {
                             { type: 'Control', scope: '#/properties/amount' }
                         );
                         break;
-                        
+
                     case 'company':
                         jsonSchema.properties = {
                             ...jsonSchema.properties,
@@ -757,7 +781,7 @@ class HubSpotIntegration extends IntegrationBase {
                             { type: 'Control', scope: '#/properties/website' }
                         );
                         break;
-                        
+
                     case 'contact':
                         jsonSchema.properties = {
                             ...jsonSchema.properties,
@@ -765,16 +789,25 @@ class HubSpotIntegration extends IntegrationBase {
                             lastname: { type: 'string', title: 'Last Name' },
                             email: { type: 'string', title: 'Email Address' },
                         };
-                        jsonSchema.required = ['firstname', 'lastname', 'email'];
+                        jsonSchema.required = [
+                            'firstname',
+                            'lastname',
+                            'email',
+                        ];
                         uiSchema.elements.push(
-                            { type: 'Control', scope: '#/properties/firstname' },
+                            {
+                                type: 'Control',
+                                scope: '#/properties/firstname',
+                            },
                             { type: 'Control', scope: '#/properties/lastname' },
                             { type: 'Control', scope: '#/properties/email' }
                         );
                         break;
-                        
+
                     default:
-                        throw new Error(`Unsupported object type: ${data.name}`);
+                        throw new Error(
+                            `Unsupported object type: ${data.name}`
+                        );
                 }
 
                 return {
@@ -796,27 +829,24 @@ module.exports = HubSpotIntegration;
 ```
 
 index.js
+
 ```js
 const HubSpotIntegration = require('./src/integrations/HubSpotIntegration');
 
 const appDefinition = {
-    integrations: [
-        HubSpotIntegration,
-    ],
+    integrations: [HubSpotIntegration],
     user: {
         usePassword: true,
         primary: 'individual',
         organizationUserRequired: true,
         individualUserRequired: true,
-    }
-}
+    },
+};
 
 module.exports = {
     Definition: appDefinition,
-}
-
+};
 ```
-
 
 ### Key Features Demonstrated
 
@@ -829,7 +859,6 @@ This real-world example showcases:
 **📝 Dynamic Forms**: JSON Schema-based form generation for different object types
 **🔗 Deep Linking**: Direct links to HubSpot records in formatted data
 **⚡ Real-time Updates**: WebSocket connections for live data streaming
-
 
 ## Testing
 
@@ -860,13 +889,15 @@ describe('CreateIntegration Use-Case', () => {
         useCase = new CreateIntegration({
             integrationRepository,
             integrationClasses: [TestIntegration],
-            moduleFactory
+            moduleFactory,
         });
     });
 
     describe('happy path', () => {
         it('creates an integration and returns DTO', async () => {
-            const result = await useCase.execute(['entity-1'], 'user-1', { type: 'test' });
+            const result = await useCase.execute(['entity-1'], 'user-1', {
+                type: 'test',
+            });
             expect(result.id).toBeDefined();
             expect(result.status).toBe('NEW');
         });
@@ -874,8 +905,9 @@ describe('CreateIntegration Use-Case', () => {
 
     describe('error cases', () => {
         it('throws error for unknown integration type', async () => {
-            await expect(useCase.execute(['entity-1'], 'user-1', { type: 'unknown' }))
-                .rejects.toThrow('No integration class found for type: unknown');
+            await expect(
+                useCase.execute(['entity-1'], 'user-1', { type: 'unknown' })
+            ).rejects.toThrow('No integration class found for type: unknown');
         });
     });
 });
@@ -886,7 +918,10 @@ describe('CreateIntegration Use-Case', () => {
 The framework provides test doubles for external dependencies:
 
 ```javascript
-const { TestIntegrationRepository, TestModuleFactory } = require('@friggframework/core/test');
+const {
+    TestIntegrationRepository,
+    TestModuleFactory,
+} = require('@friggframework/core/test');
 
 // Mock repository for testing
 const testRepo = new TestIntegrationRepository();
@@ -946,7 +981,7 @@ const {
     CreateIntegration,
     UpdateIntegration,
     DeleteIntegration,
-    
+
     // Modules
     OAuth2Requester,
     ApiKeyRequester,
@@ -956,25 +991,25 @@ const {
     connectToDatabase,
     mongoose,
     UserModel,
-    
+
     // Utilities
     Encrypt,
     Cryptor,
     BaseError,
     debug,
-    TimeoutCatcher
+    TimeoutCatcher,
 } = require('@friggframework/core');
 ```
 
 ### Environment Configuration
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `MONGO_URI` | Yes | MongoDB connection string |
-| `FRIGG_ENCRYPTION_KEY` | Yes | 256-bit encryption key |
-| `AWS_REGION` | No | AWS region for services |
-| `DEBUG` | No | Debug logging pattern |
-| `LOG_LEVEL` | No | Logging level (debug, info, warn, error) |
+| Variable               | Required | Description                              |
+| ---------------------- | -------- | ---------------------------------------- |
+| `MONGO_URI`            | Yes      | MongoDB connection string                |
+| `FRIGG_ENCRYPTION_KEY` | Yes      | 256-bit encryption key                   |
+| `AWS_REGION`           | No       | AWS region for services                  |
+| `DEBUG`                | No       | Debug logging pattern                    |
+| `LOG_LEVEL`            | No       | Logging level (debug, info, warn, error) |
 
 ## License
 
@@ -984,9 +1019,9 @@ This project is licensed under the MIT License - see the [LICENSE.md](../../LICE
 
 ## Support
 
-- 📖 [Documentation](https://docs.friggframework.org)
-- 💬 [Community Slack](https://friggframework.slack.com)  
-- 🐛 [Issue Tracker](https://github.com/friggframework/frigg/issues)
-- 📧 [Email Support](mailto:support@friggframework.org)
+-   📖 [Documentation](https://docs.friggframework.org)
+-   💬 [Community Slack](https://friggframework.slack.com)
+-   🐛 [Issue Tracker](https://github.com/friggframework/frigg/issues)
+-   📧 [Email Support](mailto:support@friggframework.org)
 
 Built with ❤️ by the Frigg Framework team.

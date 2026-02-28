@@ -28,7 +28,10 @@ class TestUserRepository {
     }
 
     async createIndividualUser(params) {
-        const individualUserData = { id: `individual-${Date.now()}`, ...params };
+        const individualUserData = {
+            id: `individual-${Date.now()}`,
+            ...params,
+        };
         this.individualUsers.set(individualUserData.id, individualUserData);
         return individualUserData;
     }
@@ -69,4 +72,4 @@ class TestUserRepository {
     }
 }
 
-module.exports = { TestUserRepository }; 
+module.exports = { TestUserRepository };

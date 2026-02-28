@@ -39,9 +39,7 @@ const {
 const {
     GetUserFromAdopterJwt,
 } = require('./user/use-cases/get-user-from-adopter-jwt');
-const {
-    AuthenticateUser,
-} = require('./user/use-cases/authenticate-user');
+const { AuthenticateUser } = require('./user/use-cases/authenticate-user');
 
 const {
     CredentialRepository,
@@ -52,18 +50,14 @@ const {
 const {
     IntegrationMappingRepository,
 } = require('./integrations/repositories/integration-mapping-repository');
-const {
-    CreateProcess,
-} = require('./integrations/use-cases/create-process');
+const { CreateProcess } = require('./integrations/use-cases/create-process');
 const {
     UpdateProcessState,
 } = require('./integrations/use-cases/update-process-state');
 const {
     UpdateProcessMetrics,
 } = require('./integrations/use-cases/update-process-metrics');
-const {
-    GetProcess,
-} = require('./integrations/use-cases/get-process');
+const { GetProcess } = require('./integrations/use-cases/get-process');
 const { Cryptor } = require('./encrypt');
 const {
     BaseError,
@@ -79,6 +73,7 @@ const {
     checkRequiredParams,
     getModulesDefinitionFromIntegrationClasses,
     LoadIntegrationContextUseCase,
+    createProcessRepository,
 } = require('./integrations/index');
 const { TimeoutCatcher } = require('./lambda/index');
 const { debug, initDebugLog, flushDebugLog } = require('./logs/index');
@@ -158,6 +153,7 @@ module.exports = {
     UpdateProcessState,
     UpdateProcessMetrics,
     GetProcess,
+    createProcessRepository,
 
     // application - Command factories for integration developers
     application,
@@ -167,6 +163,7 @@ module.exports = {
     createEntityCommands: application.createEntityCommands,
     createCredentialCommands: application.createCredentialCommands,
     createSchedulerCommands: application.createSchedulerCommands,
+    createAdminScriptCommands: application.createAdminScriptCommands,
     findIntegrationContextByExternalEntityId:
         application.findIntegrationContextByExternalEntityId,
     integrationCommands: application.integrationCommands,

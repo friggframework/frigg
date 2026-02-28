@@ -1,0 +1,12 @@
+{
+    "extends": ["@friggframework/eslint-config"],
+    "env": {
+        "node": true,
+        "jest": true,
+        "es2021": true
+    },
+    "parserOptions": {
+        "ecmaVersion": 2021
+    },
+    "rules": {}
+}

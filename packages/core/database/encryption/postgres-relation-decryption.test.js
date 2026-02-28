@@ -13,7 +13,9 @@
 
 // Set up test environment for PostgreSQL with encryption
 process.env.DB_TYPE = 'postgresql';
-process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/frigg?schema=public';
+process.env.DATABASE_URL =
+    process.env.DATABASE_URL ||
+    'postgresql://postgres:postgres@localhost:5432/frigg?schema=public';
 process.env.STAGE = 'integration-test';
 process.env.AES_KEY_ID = 'test-key-id';
 process.env.AES_KEY = 'test-aes-key-32-characters-long!';
@@ -41,14 +43,18 @@ describe('PostgreSQL Relation Decryption Bug', () => {
     afterAll(async () => {
         // Cleanup test data
         if (testEntityId) {
-            await prisma.entity.deleteMany({
-                where: { id: testEntityId }
-            }).catch(() => {});
+            await prisma.entity
+                .deleteMany({
+                    where: { id: testEntityId },
+                })
+                .catch(() => {});
         }
         if (testCredentialId) {
-            await prisma.credential.deleteMany({
-                where: { id: testCredentialId }
-            }).catch(() => {});
+            await prisma.credential
+                .deleteMany({
+                    where: { id: testCredentialId },
+                })
+                .catch(() => {});
         }
 
         await disconnectPrisma();
@@ -57,15 +63,19 @@ describe('PostgreSQL Relation Decryption Bug', () => {
     afterEach(async () => {
         // Clean up after each test
         if (testEntityId) {
-            await prisma.entity.deleteMany({
-                where: { id: testEntityId }
-            }).catch(() => {});
+            await prisma.entity
+                .deleteMany({
+                    where: { id: testEntityId },
+                })
+                .catch(() => {});
             testEntityId = null;
         }
         if (testCredentialId) {
-            await prisma.credential.deleteMany({
-                where: { id: testCredentialId }
-            }).catch(() => {});
+            await prisma.credential
+                .deleteMany({
+                    where: { id: testCredentialId },
+                })
+                .catch(() => {});
             testCredentialId = null;
         }
     });
@@ -135,8 +145,14 @@ describe('PostgreSQL Relation Decryption Bug', () => {
         expect(entityWithCredential).toBeDefined();
         expect(entityWithCredential.credential).toBeDefined();
 
-        console.log('\n🔍 DEBUG: Credential data from include:', entityWithCredential.credential.data);
-        console.log('🔍 DEBUG: access_token value:', entityWithCredential.credential.data.access_token);
+        console.log(
+            '\n🔍 DEBUG: Credential data from include:',
+            entityWithCredential.credential.data
+        );
+        console.log(
+            '🔍 DEBUG: access_token value:',
+            entityWithCredential.credential.data.access_token
+        );
 
         // The bug: Token should be decrypted but it's still in encrypted format
         const tokenValue = entityWithCredential.credential.data.access_token;
@@ -229,14 +245,30 @@ describe('PostgreSQL Relation Decryption Bug', () => {
         });
 
         console.log('\n📊 COMPARISON RESULTS:');
-        console.log('Direct fetch access_token:', directCredential.data.access_token);
-        console.log('Include fetch access_token:', entityWithCredential.credential.data.access_token);
+        console.log(
+            'Direct fetch access_token:',
+            directCredential.data.access_token
+        );
+        console.log(
+            'Include fetch access_token:',
+            entityWithCredential.credential.data.access_token
+        );
 
-        const directIsDecrypted = directCredential.data.access_token === TEST_TOKEN;
-        const includeIsDecrypted = entityWithCredential.credential.data.access_token === TEST_TOKEN;
+        const directIsDecrypted =
+            directCredential.data.access_token === TEST_TOKEN;
+        const includeIsDecrypted =
+            entityWithCredential.credential.data.access_token === TEST_TOKEN;
 
-        console.log(`\nDirect fetch decrypted: ${directIsDecrypted ? '✅ YES' : '❌ NO'}`);
-        console.log(`Include fetch decrypted: ${includeIsDecrypted ? '✅ YES' : '❌ NO'}`);
+        console.log(
+            `\nDirect fetch decrypted: ${
+                directIsDecrypted ? '✅ YES' : '❌ NO'
+            }`
+        );
+        console.log(
+            `Include fetch decrypted: ${
+                includeIsDecrypted ? '✅ YES' : '❌ NO'
+            }`
+        );
 
         // Prove they're different
         expect(directIsDecrypted).toBe(true);

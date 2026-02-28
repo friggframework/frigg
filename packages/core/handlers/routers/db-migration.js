@@ -4,12 +4,14 @@
  * HTTP API for triggering and monitoring database migrations.
  *
  * Endpoints:
- * - GET /db-migrate/status - Check if migrations are pending
- * - POST /db-migrate - Trigger async migration (queues job)
- * - GET /db-migrate/:processId - Check migration status
+ * - GET /admin/db-migrate/status - Check if migrations are pending
+ * - POST /admin/db-migrate - Trigger async migration (queues job)
+ * - GET /admin/db-migrate/:processId - Check migration status
+ * - POST /admin/db-migrate/resolve - Resolve failed migration
  *
  * Security:
- * - Requires ADMIN_API_KEY header for all requests
+ * - Requires x-frigg-admin-api-key header for all requests
+ * - Uses shared validateAdminApiKey middleware
  *
  * Architecture:
  * - Router (Adapter Layer) → Use Cases (Domain) → Repositories (Infrastructure)
@@ -18,7 +20,10 @@
 
 const { Router } = require('express');
 const catchAsyncError = require('express-async-handler');
-const { MigrationStatusRepositoryS3 } = require('../../database/repositories/migration-status-repository-s3');
+const { validateAdminApiKey } = require('../middleware/admin-auth');
+const {
+    MigrationStatusRepositoryS3,
+} = require('../../database/repositories/migration-status-repository-s3');
 const {
     TriggerDatabaseMigrationUseCase,
     ValidationError: TriggerValidationError,
@@ -37,48 +42,36 @@ const router = Router();
 
 // Dependency injection
 // Use S3 repository to avoid User table dependency (chicken-and-egg problem)
-const bucketName = process.env.S3_BUCKET_NAME || process.env.MIGRATION_STATUS_BUCKET;
+const bucketName =
+    process.env.S3_BUCKET_NAME || process.env.MIGRATION_STATUS_BUCKET;
 const migrationStatusRepository = new MigrationStatusRepositoryS3(bucketName);
 
 const triggerMigrationUseCase = new TriggerDatabaseMigrationUseCase({
     migrationStatusRepository,
     // Note: QueuerUtil is used directly in the use case (static utility)
 });
-const getStatusUseCase = new GetMigrationStatusUseCase({ migrationStatusRepository });
+const getStatusUseCase = new GetMigrationStatusUseCase({
+    migrationStatusRepository,
+});
 
 // Lambda invocation for database state check (keeps router lightweight)
 const lambdaInvoker = new LambdaInvoker();
-const workerFunctionName = process.env.WORKER_FUNCTION_NAME ||
-    `${process.env.SERVICE || 'unknown'}-${process.env.STAGE || 'production'}-dbMigrationWorker`;
+const workerFunctionName =
+    process.env.WORKER_FUNCTION_NAME ||
+    `${process.env.SERVICE || 'unknown'}-${
+        process.env.STAGE || 'production'
+    }-dbMigrationWorker`;
 
 const getDatabaseStateUseCase = new GetDatabaseStateViaWorkerUseCase({
     lambdaInvoker,
     workerFunctionName,
 });
 
-/**
- * Admin API key validation middleware
- * Matches pattern from health.js:72-88
- */
-const validateApiKey = (req, res, next) => {
-    const apiKey = req.headers['x-frigg-admin-api-key'];
-
-    if (!apiKey || apiKey !== process.env.ADMIN_API_KEY) {
-        console.error('Unauthorized access attempt to db-migrate endpoint');
-        return res.status(401).json({
-            status: 'error',
-            message: 'Unauthorized - x-frigg-admin-api-key header required',
-        });
-    }
-
-    next();
-};
-
-// Apply API key validation to all routes
-router.use(validateApiKey);
+// Apply admin API key validation to all routes (shared middleware)
+router.use(validateAdminApiKey);
 
 /**
- * POST /db-migrate
+ * POST /admin/db-migrate
  *
  * Trigger database migration (async via SQS queue)
  *
@@ -99,14 +92,18 @@ router.use(validateApiKey);
  * }
  */
 router.post(
-    '/db-migrate',
+    '/admin/db-migrate',
     catchAsyncError(async (req, res) => {
         const dbType = req.body.dbType || process.env.DB_TYPE || 'postgresql';
         const { stage } = req.body;
         // TODO: Extract userId from JWT token when auth is implemented
         const userId = req.body.userId || 'admin';
 
-        console.log(`Migration trigger request: dbType=${dbType}, stage=${stage || 'auto-detect'}, userId=${userId}`);
+        console.log(
+            `Migration trigger request: dbType=${dbType}, stage=${
+                stage || 'auto-detect'
+            }, userId=${userId}`
+        );
 
         try {
             const result = await triggerMigrationUseCase.execute({
@@ -133,10 +130,10 @@ router.post(
 );
 
 /**
- * GET /db-migrate/status
+ * GET /admin/db-migrate/status
  *
  * Check if database has pending migrations
- * 
+ *
  * Query params:
  * - stage: string (optional, defaults to STAGE env var or 'production')
  *
@@ -151,11 +148,13 @@ router.post(
  * }
  */
 router.get(
-    '/db-migrate/status',
+    '/admin/db-migrate/status',
     catchAsyncError(async (req, res) => {
         const stage = req.query.stage || process.env.STAGE || 'production';
 
-        console.log(`Checking database state: stage=${stage}, worker=${workerFunctionName}`);
+        console.log(
+            `Checking database state: stage=${stage}, worker=${workerFunctionName}`
+        );
 
         try {
             // Invoke worker Lambda to check database state
@@ -177,7 +176,7 @@ router.get(
 );
 
 /**
- * GET /db-migrate/:migrationId
+ * GET /admin/db-migrate/:migrationId
  *
  * Get migration status by migration ID
  *
@@ -201,12 +200,14 @@ router.get(
  * }
  */
 router.get(
-    '/db-migrate/:migrationId',
+    '/admin/db-migrate/:migrationId',
     catchAsyncError(async (req, res) => {
         const { migrationId } = req.params;
         const stage = req.query.stage || process.env.STAGE || 'production';
 
-        console.log(`Migration status request: migrationId=${migrationId}, stage=${stage}`);
+        console.log(
+            `Migration status request: migrationId=${migrationId}, stage=${stage}`
+        );
 
         try {
             const status = await getStatusUseCase.execute(migrationId, stage);
@@ -236,7 +237,7 @@ router.get(
 );
 
 /**
- * POST /db-migrate/resolve
+ * POST /admin/db-migrate/resolve
  *
  * Resolve a failed migration by marking it as applied or rolled back
  *
@@ -256,24 +257,26 @@ router.get(
  * }
  */
 router.post(
-    '/db-migrate/resolve',
+    '/admin/db-migrate/resolve',
     catchAsyncError(async (req, res) => {
         const { migrationName, action = 'applied' } = req.body;
 
-        console.log(`Migration resolve request: migration=${migrationName}, action=${action}`);
+        console.log(
+            `Migration resolve request: migration=${migrationName}, action=${action}`
+        );
 
         // Validation
         if (!migrationName) {
             return res.status(400).json({
                 success: false,
-                error: 'migrationName is required'
+                error: 'migrationName is required',
             });
         }
 
         if (!['applied', 'rolled-back'].includes(action)) {
             return res.status(400).json({
                 success: false,
-                error: 'action must be either "applied" or "rolled-back"'
+                error: 'action must be either "applied" or "rolled-back"',
             });
         }
 
@@ -281,12 +284,16 @@ router.post(
             // Import prismaRunner here to avoid circular dependencies
             const prismaRunner = require('../../database/utils/prisma-runner');
 
-            const result = await prismaRunner.runPrismaMigrateResolve(migrationName, action, true);
+            const result = await prismaRunner.runPrismaMigrateResolve(
+                migrationName,
+                action,
+                true
+            );
 
             if (!result.success) {
                 return res.status(500).json({
                     success: false,
-                    error: `Failed to resolve migration: ${result.error}`
+                    error: `Failed to resolve migration: ${result.error}`,
                 });
             }
 
@@ -294,13 +301,13 @@ router.post(
                 success: true,
                 message: `Migration ${migrationName} marked as ${action}`,
                 migrationName,
-                action
+                action,
             });
         } catch (error) {
             console.error('Migration resolve failed:', error);
             return res.status(500).json({
                 success: false,
-                error: error.message
+                error: error.message,
             });
         }
     })
@@ -323,4 +330,3 @@ app.use((err, _req, res, _next) => {
 const handler = serverlessHttp(app);
 
 module.exports = { handler, router };
-

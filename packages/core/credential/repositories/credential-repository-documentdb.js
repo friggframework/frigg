@@ -3,6 +3,7 @@ const {
     toObjectId,
     fromObjectId,
     findOne,
+    findMany,
     insertOne,
     updateOne,
     deleteOne,
@@ -106,7 +107,10 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
             const updateDocument = {
                 userId: existing.userId,
                 externalId: existing.externalId,
-                authIsValid: authIsValid !== undefined ? authIsValid : existing.authIsValid,
+                authIsValid:
+                    authIsValid !== undefined
+                        ? authIsValid
+                        : existing.authIsValid,
                 data: mergedData,
                 updatedAt: now,
             };
@@ -172,8 +176,50 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
         return this._mapCredential(decryptedCredential);
     }
 
+    /**
+     * Find credential(s) by filter criteria
+     *
+     * When filter includes only userId, returns an array of all credentials for that user
+     * When filter includes credentialId or externalId, returns a single credential or null
+     *
+     * @param {Object} filter
+     * @param {string} [filter.userId] - User ID
+     * @param {string} [filter.externalId] - External ID
+     * @param {string} [filter.credentialId] - Credential ID
+     * @returns {Promise<Array|Object|null>} Credential array, single credential, or null
+     */
     async findCredential(filter) {
         const query = this._buildFilter(filter);
+
+        // If filtering by userId only, return all credentials for that user
+        const hasOnlyUserId =
+            filter.userId &&
+            !filter.credentialId &&
+            !filter.externalId &&
+            !filter.id;
+
+        if (hasOnlyUserId) {
+            const credentials = await findMany(
+                this.prisma,
+                'Credential',
+                query
+            );
+
+            const decryptedCredentials = await Promise.all(
+                credentials.map(async (credential) => {
+                    const decrypted =
+                        await this.encryptionService.decryptFields(
+                            'Credential',
+                            credential
+                        );
+                    return this._mapCredentialWithMetadata(decrypted);
+                })
+            );
+
+            return decryptedCredentials;
+        }
+
+        // Otherwise, find single credential
         const credential = await findOne(this.prisma, 'Credential', query);
         if (!credential) return null;
 
@@ -296,6 +342,30 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
             userId,
             externalId: doc?.externalId ?? null,
             authIsValid: doc?.authIsValid ?? null,
+            ...data,
+        };
+    }
+
+    /**
+     * Map credential document with metadata (for list views)
+     * Includes timestamps and additional fields needed by API
+     * @private
+     */
+    _mapCredentialWithMetadata(doc) {
+        const data = doc?.data || {};
+        const id = fromObjectId(doc?._id);
+        const userId = doc?.userId;
+        return {
+            id,
+            type: doc?.type,
+            userId,
+            externalId: doc?.externalId ?? null,
+            authIsValid: doc?.authIsValid ?? null,
+            entityCount: doc?.entityCount,
+            createdAt: doc?.createdAt,
+            updatedAt: doc?.updatedAt,
+            access_token: data.access_token,
+            refresh_token: data.refresh_token,
             ...data,
         };
     }

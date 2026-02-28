@@ -1,16 +1,14 @@
 const { handleEnvVariables } = require('./environment-variables');
-const { logInfo } = require('./logger');
-const inquirer = require('inquirer');
+const output = require('../utils/output');
 const fs = require('fs');
 const dotenv = require('dotenv');
 const { resolve } = require('node:path');
 const { parse } = require('@babel/parser');
 const traverse = require('@babel/traverse');
 
-jest.mock('inquirer');
+jest.mock('../utils/output');
 jest.mock('fs');
 jest.mock('dotenv');
-jest.mock('./logger');
 jest.mock('@babel/parser');
 jest.mock('@babel/traverse');
 
@@ -99,22 +97,23 @@ describe('handleEnvVariables', () => {
             return '';
         });
 
-        inquirer.prompt
-            .mockResolvedValueOnce({ addEnvVars: true })
-            .mockResolvedValueOnce({ value: 'client_id_value' })
-            .mockResolvedValueOnce({ value: 'client_secret_value' })
-            .mockResolvedValueOnce({ value: 'redirect_uri_value' })
-            .mockResolvedValueOnce({ value: 'scope_value' });
+        output.confirm.mockResolvedValueOnce(true);
+        output.input
+            .mockResolvedValueOnce('client_id_value')
+            .mockResolvedValueOnce('client_secret_value')
+            .mockResolvedValueOnce('redirect_uri_value')
+            .mockResolvedValueOnce('scope_value');
 
         await handleEnvVariables(backendPath, modulePath);
 
-        expect(logInfo).toHaveBeenCalledWith(
+        expect(output.info).toHaveBeenCalledWith(
             'Searching for missing environment variables...'
         );
-        expect(logInfo).toHaveBeenCalledWith(
+        expect(output.warn).toHaveBeenCalledWith(
             'Missing environment variables: GOOGLE_CALENDAR_CLIENT_ID, GOOGLE_CALENDAR_CLIENT_SECRET, REDIRECT_URI, GOOGLE_CALENDAR_SCOPE'
         );
-        expect(inquirer.prompt).toHaveBeenCalledTimes(5);
+        expect(output.confirm).toHaveBeenCalledTimes(1);
+        expect(output.input).toHaveBeenCalledTimes(4);
         expect(fs.appendFileSync).toHaveBeenCalledWith(
             localEnvPath,
             '\nGOOGLE_CALENDAR_CLIENT_ID=client_id_value\nGOOGLE_CALENDAR_CLIENT_SECRET=client_secret_value\nREDIRECT_URI=redirect_uri_value\nGOOGLE_CALENDAR_SCOPE=scope_value'

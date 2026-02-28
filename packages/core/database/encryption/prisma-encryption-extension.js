@@ -12,9 +12,7 @@ function createEncryptionExtension({ cryptor, enabled = true }) {
     }
 
     if (!cryptor) {
-        throw new Error(
-            'Cryptor instance required for encryption extension'
-        );
+        throw new Error('Cryptor instance required for encryption extension');
     }
 
     const encryptionService = new FieldEncryptionService({
@@ -48,11 +46,10 @@ function createEncryptionExtension({ cryptor, enabled = true }) {
 
                 async createMany({ model, args, query }) {
                     if (args.data && Array.isArray(args.data)) {
-                        args.data =
-                            await encryptionService.encryptFieldsInBulk(
-                                model,
-                                args.data
-                            );
+                        args.data = await encryptionService.encryptFieldsInBulk(
+                            model,
+                            args.data
+                        );
                     } else if (args.data) {
                         args.data = await encryptionService.encryptFields(
                             model,

@@ -19,7 +19,7 @@ class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface {
     async getDatabaseConnectionState() {
         let isConnected = false;
         let stateName = 'unknown';
-        
+
         try {
             await this.prisma.$runCommandRaw({ ping: 1 });
             isConnected = true;
@@ -38,19 +38,22 @@ class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface {
 
     async pingDatabase(maxTimeMS = 2000) {
         const pingStart = Date.now();
-        
+
         // Create a timeout promise that rejects after maxTimeMS
-        const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Database ping timeout')), maxTimeMS)
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(
+                () => reject(new Error('Database ping timeout')),
+                maxTimeMS
+            )
         );
-        
+
         // Race between the database ping and the timeout
         await Promise.race([
             prisma.$queryRaw`SELECT 1`.catch(() => {
                 // For MongoDB, use runCommandRaw instead
                 return prisma.$runCommandRaw({ ping: 1 });
             }),
-            timeoutPromise
+            timeoutPromise,
         ]);
 
         return Date.now() - pingStart;

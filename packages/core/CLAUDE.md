@@ -4,12 +4,12 @@ This file provides guidance to Claude Code when working with the Frigg Framework
 
 ## Critical Context (Read First)
 
-- **Package Purpose**: Core framework functionality for building enterprise serverless integrations
-- **Main Architecture**: Hexagonal/DDD architecture with clear separation of adapters, use cases, and repositories
-- **Key Technologies**: Node.js, Express, AWS Lambda, MongoDB/PostgreSQL (Prisma), AWS KMS encryption
-- **Core Value**: Provides building blocks for integration developers - they extend IntegrationBase and use framework services
-- **Security Model**: Field-level encryption, OAuth2 flows, signature validation, VPC deployment
-- **DO NOT**: Bypass architectural layers, skip encryption for sensitive data, expose internal errors to users
+-   **Package Purpose**: Core framework functionality for building enterprise serverless integrations
+-   **Main Architecture**: Hexagonal/DDD architecture with clear separation of adapters, use cases, and repositories
+-   **Key Technologies**: Node.js, Express, AWS Lambda, MongoDB/PostgreSQL (Prisma), AWS KMS encryption
+-   **Core Value**: Provides building blocks for integration developers - they extend IntegrationBase and use framework services
+-   **Security Model**: Field-level encryption, OAuth2 flows, signature validation, VPC deployment
+-   **DO NOT**: Bypass architectural layers, skip encryption for sensitive data, expose internal errors to users
 
 ## Table of Contents
 
@@ -26,14 +26,14 @@ This file provides guidance to Claude Code when working with the Frigg Framework
 
 `@friggframework/core` is the foundational package of the Frigg Framework, providing:
 
-- **IntegrationBase**: Base class all integrations extend
-- **Database Layer**: Multi-database support (MongoDB, DocumentDB, PostgreSQL) with Prisma ORM
-- **Encryption**: Transparent field-level encryption with AWS KMS or AES
-- **User Management**: Individual and organizational user support
-- **Module System**: API module loading and credential management
-- **Lambda Runtime**: Handler factory, worker base class, timeout management
-- **Error Handling**: Standardized error types with proper HTTP status codes
-- **Event System**: Integration lifecycle events and user actions
+-   **IntegrationBase**: Base class all integrations extend
+-   **Database Layer**: Multi-database support (MongoDB, DocumentDB, PostgreSQL) with Prisma ORM
+-   **Encryption**: Transparent field-level encryption with AWS KMS or AES
+-   **User Management**: Individual and organizational user support
+-   **Module System**: API module loading and credential management
+-   **Lambda Runtime**: Handler factory, worker base class, timeout management
+-   **Error Handling**: Standardized error types with proper HTTP status codes
+-   **Event System**: Integration lifecycle events and user actions
 
 ## Architecture Principles
 
@@ -196,22 +196,25 @@ packages/core/
 **Purpose**: Foundation for building integrations between external systems.
 
 **Key Files**:
-- `integration-base.js` - Base class all integrations extend
-- `integration.js` - Integration domain aggregate using Proxy pattern
-- `options.js` - Integration configuration and options
+
+-   `integration-base.js` - Base class all integrations extend
+-   `integration.js` - Integration domain aggregate using Proxy pattern
+-   `options.js` - Integration configuration and options
 
 **Use Cases**:
-- `create-integration.js` - Create new integration instance
-- `update-integration.js` - Update integration configuration
-- `delete-integration-for-user.js` - Remove integration
-- `get-integration-instance.js` - Load integration with modules
-- `load-integration-context.js` - Full integration context loading
+
+-   `create-integration.js` - Create new integration instance
+-   `update-integration.js` - Update integration configuration
+-   `delete-integration-for-user.js` - Remove integration
+-   `get-integration-instance.js` - Load integration with modules
+-   `load-integration-context.js` - Full integration context loading
 
 **Repositories**:
-- `integration-repository-factory.js` - Creates database-specific repositories
-- `integration-repository-mongo.js` - MongoDB implementation
-- `integration-repository-postgres.js` - PostgreSQL implementation
-- `integration-mapping-repository-*.js` - Mapping data persistence
+
+-   `integration-repository-factory.js` - Creates database-specific repositories
+-   `integration-repository-mongo.js` - MongoDB implementation
+-   `integration-repository-postgres.js` - PostgreSQL implementation
+-   `integration-mapping-repository-*.js` - Mapping data persistence
 
 **Integration developers extend IntegrationBase**:
 
@@ -224,8 +227,8 @@ class MyIntegration extends IntegrationBase {
         version: '1.0.0',
         modules: {
             serviceA: 'service-a',
-            serviceB: 'service-b'
-        }
+            serviceB: 'service-b',
+        },
     };
 
     async onCreate({ integrationId }) {
@@ -240,52 +243,60 @@ class MyIntegration extends IntegrationBase {
 **Purpose**: Multi-database support with transparent encryption.
 
 **Key Components**:
-- `prisma.js` - Prisma client initialization with encryption extension
-- `mongo.js` - Mongoose connection management (legacy)
-- `models/` - Mongoose model definitions
+
+-   `prisma.js` - Prisma client initialization with encryption extension
+-   `mongo.js` - Mongoose connection management (legacy)
+-   `models/` - Mongoose model definitions
 
 **Encryption System** (`/database/encryption`):
-- **Transparent encryption**: Application code never sees encrypted data
-- **Database-agnostic**: Works with MongoDB and PostgreSQL
-- **AWS KMS or AES**: Production KMS, development AES
-- **Configurable**: Via environment variables and app definition
+
+-   **Transparent encryption**: Application code never sees encrypted data
+-   **Database-agnostic**: Works with MongoDB and PostgreSQL
+-   **AWS KMS or AES**: Production KMS, development AES
+-   **Configurable**: Via environment variables and app definition
 
 **See**: `database/encryption/README.md` for comprehensive documentation
 
 **Repositories**:
-- `health-check-repository.js` - Database health monitoring
-- `token-repository.js` - Authentication tokens
-- `websocket-connection-repository.js` - WebSocket connections
-- DocumentDB-enabled adapters mirror the MongoDB APIs but execute raw commands (`$runCommandRaw`, `$aggregateRaw`) for compatibility; encrypted models (e.g., credentials) still delegate reads to Prisma so the encryption extension can decrypt secrets transparently.
+
+-   `health-check-repository.js` - Database health monitoring
+-   `token-repository.js` - Authentication tokens
+-   `websocket-connection-repository.js` - WebSocket connections
+-   DocumentDB-enabled adapters mirror the MongoDB APIs but execute raw commands (`$runCommandRaw`, `$aggregateRaw`) for compatibility; encrypted models (e.g., credentials) still delegate reads to Prisma so the encryption extension can decrypt secrets transparently.
 
 **Use Cases**:
-- `check-database-health-use-case.js` - Database health checks
-- `test-encryption-use-case.js` - Encryption verification
+
+-   `check-database-health-use-case.js` - Database health checks
+-   `test-encryption-use-case.js` - Encryption verification
 
 ### 3. User Management (`/user`)
 
 **Purpose**: Individual and organizational user authentication.
 
 **User Types**:
-- **Individual Users**: Personal accounts with email/password
-- **Organization Users**: Business accounts with organization-level access
-- **Hybrid**: Support both simultaneously
+
+-   **Individual Users**: Personal accounts with email/password
+-   **Organization Users**: Business accounts with organization-level access
+-   **Hybrid**: Support both simultaneously
 
 **Authentication Methods**:
-- Password-based (bcrypt hashed)
-- Token-based (Bearer tokens)
-- App-based (external app user IDs)
+
+-   Password-based (bcrypt hashed)
+-   Token-based (Bearer tokens)
+-   App-based (external app user IDs)
 
 **Use Cases**:
-- `login-user.js` - User authentication
-- `create-individual-user.js` - Create personal account
-- `create-organization-user.js` - Create business account
-- `get-user-from-bearer-token.js` - Token authentication
+
+-   `login-user.js` - User authentication
+-   `create-individual-user.js` - Create personal account
+-   `create-organization-user.js` - Create business account
+-   `get-user-from-bearer-token.js` - Token authentication
 
 **Repositories**:
-- `user-repository-factory.js` - Creates database-specific repositories
-- `user-repository-mongo.js` - MongoDB implementation
-- `user-repository-postgres.js` - PostgreSQL implementation
+
+-   `user-repository-factory.js` - Creates database-specific repositories
+-   `user-repository-mongo.js` - MongoDB implementation
+-   `user-repository-postgres.js` - PostgreSQL implementation
 
 **Configuration** (in app definition):
 
@@ -305,21 +316,24 @@ class MyIntegration extends IntegrationBase {
 **Purpose**: API module loading, credential management, and HTTP clients.
 
 **Key Classes**:
-- `Credential` - API credentials domain entity
-- `Entity` - External service entity (account, workspace, etc.)
-- `Requester` - Base HTTP client class
-- `OAuth2Requester` - OAuth 2.0 flow implementation
-- `ApiKeyRequester` - API key authentication
-- `BasicAuthRequester` - Basic authentication
+
+-   `Credential` - API credentials domain entity
+-   `Entity` - External service entity (account, workspace, etc.)
+-   `Requester` - Base HTTP client class
+-   `OAuth2Requester` - OAuth 2.0 flow implementation
+-   `ApiKeyRequester` - API key authentication
+-   `BasicAuthRequester` - Basic authentication
 
 **Module Factory**:
-- `ModuleFactory` - Creates and configures API module instances
-- Handles credential injection
-- Manages module lifecycle
+
+-   `ModuleFactory` - Creates and configures API module instances
+-   Handles credential injection
+-   Manages module lifecycle
 
 **Repositories**:
-- `module-repository.js` - Module data access
-- `credential-repository.js` - Credential persistence (encrypted)
+
+-   `module-repository.js` - Module data access
+-   `credential-repository.js` - Credential persistence (encrypted)
 
 ### 5. Core Runtime System (`/core`)
 
@@ -328,10 +342,11 @@ class MyIntegration extends IntegrationBase {
 **See**: `core/CLAUDE.md` for comprehensive documentation
 
 **Key Components**:
-- `create-handler.js` - Lambda handler factory
-- `Worker.js` - SQS job processing base class
-- `Delegate.js` - Observer/delegation pattern
-- `load-installed-modules.js` - Dynamic module loading
+
+-   `create-handler.js` - Lambda handler factory
+-   `Worker.js` - SQS job processing base class
+-   `Delegate.js` - Observer/delegation pattern
+-   `load-installed-modules.js` - Dynamic module loading
 
 **Handler Pattern**:
 
@@ -340,12 +355,12 @@ const { createHandler } = require('@friggframework/core');
 
 const handler = createHandler({
     eventName: 'MyIntegration',
-    isUserFacingResponse: true,  // Sanitize errors
-    shouldUseDatabase: true,     // Connect to DB
+    isUserFacingResponse: true, // Sanitize errors
+    shouldUseDatabase: true, // Connect to DB
     method: async (event, context) => {
         // Your logic here
         return { statusCode: 200, body: 'Success' };
-    }
+    },
 });
 ```
 
@@ -370,10 +385,11 @@ class MyWorker extends Worker {
 **Purpose**: Cryptor adapter for AWS KMS and AES encryption.
 
 **Key Class**: `Cryptor.js`
-- Envelope encryption pattern
-- AWS KMS integration
-- AES-256-GCM fallback
-- Key rotation support
+
+-   Envelope encryption pattern
+-   AWS KMS integration
+-   AES-256-GCM fallback
+-   Key rotation support
 
 **Usage**:
 
@@ -381,7 +397,7 @@ class MyWorker extends Worker {
 const { Cryptor } = require('@friggframework/core');
 
 const cryptor = new Cryptor({
-    shouldUseAws: process.env.KMS_KEY_ARN ? true : false
+    shouldUseAws: process.env.KMS_KEY_ARN ? true : false,
 });
 
 const encrypted = await cryptor.encrypt('sensitive-data');
@@ -393,29 +409,33 @@ const decrypted = await cryptor.decrypt(encrypted);
 **Purpose**: HTTP/Lambda request handling and routing.
 
 **Key Routers**:
-- `integration-router.js` - Integration CRUD operations
-- `auth.js` - Authentication endpoints
-- `health.js` - Health check endpoints with encryption verification
+
+-   `integration-router.js` - Integration CRUD operations
+-   `auth.js` - Authentication endpoints
+-   `health.js` - Health check endpoints with encryption verification
 
 **Handler Types**:
-- **User-facing**: Sanitize errors, friendly responses
-- **Server-to-server**: Full error details for debugging
-- **Background workers**: SQS message processing
+
+-   **User-facing**: Sanitize errors, friendly responses
+-   **Server-to-server**: Full error details for debugging
+-   **Background workers**: SQS message processing
 
 **Event Dispatcher**:
-- `integration-event-dispatcher.js` - Routes events to integration handlers
-- Supports lifecycle events and user actions
+
+-   `integration-event-dispatcher.js` - Routes events to integration handlers
+-   Supports lifecycle events and user actions
 
 ### 8. Error Handling (`/errors`)
 
 **Purpose**: Standardized error types with proper HTTP semantics.
 
 **Error Types**:
-- `BaseError` - Base error class
-- `FetchError` - HTTP request failures
-- `HaltError` - Stop processing without retry
-- `RequiredPropertyError` - Missing required parameters
-- `ParameterTypeError` - Invalid parameter type
+
+-   `BaseError` - Base error class
+-   `FetchError` - HTTP request failures
+-   `HaltError` - Stop processing without retry
+-   `RequiredPropertyError` - Missing required parameters
+-   `ParameterTypeError` - Invalid parameter type
 
 **Usage**:
 
@@ -432,9 +452,10 @@ if (!userId) {
 **Purpose**: Structured logging with debug capabilities.
 
 **Functions**:
-- `debug(message, data)` - Debug logging
-- `initDebugLog(eventName, event)` - Initialize debug context
-- `flushDebugLog(error)` - Flush logs on error
+
+-   `debug(message, data)` - Debug logging
+-   `initDebugLog(eventName, event)` - Initialize debug context
+-   `flushDebugLog(error)` - Flush logs on error
 
 **Usage**:
 
@@ -452,8 +473,9 @@ flushDebugLog(); // On error
 **Purpose**: AWS Lambda-specific utilities.
 
 **Key Classes**:
-- `TimeoutCatcher` - Detect approaching Lambda timeout
-- Graceful shutdown handling
+
+-   `TimeoutCatcher` - Detect approaching Lambda timeout
+-   Graceful shutdown handling
 
 **Usage**:
 
@@ -511,10 +533,10 @@ const appDefinition = {
     encryption: {
         schema: {
             MyCustomModel: {
-                fields: ['secretData', 'data.apiKey']
-            }
-        }
-    }
+                fields: ['secretData', 'data.apiKey'],
+            },
+        },
+    },
 };
 ```
 
@@ -525,8 +547,8 @@ Edit `database/encryption/encryption-schema-registry.js`:
 ```javascript
 const ENCRYPTION_SCHEMA = {
     MyModel: {
-        fields: ['sensitiveField']
-    }
+        fields: ['sensitiveField'],
+    },
 };
 ```
 
@@ -571,7 +593,7 @@ describe('MyUseCase', () => {
     beforeEach(() => {
         mockRepository = {
             findById: jest.fn(),
-            save: jest.fn()
+            save: jest.fn(),
         };
         useCase = new MyUseCase({ repository: mockRepository });
     });
@@ -638,35 +660,35 @@ Use test doubles from `@friggframework/test` package for consistent mocking.
 
 ### Required
 
-- `AWS_REGION` - AWS region for services
-- `DATABASE_URL` - Database connection string (auto-set)
-- `DB_TYPE` - Database type: 'mongodb' or 'postgresql'
+-   `AWS_REGION` - AWS region for services
+-   `DATABASE_URL` - Database connection string (auto-set)
+-   `DB_TYPE` - Database type: 'mongodb' or 'postgresql'
 
 ### Encryption
 
-- `KMS_KEY_ARN` - AWS KMS key ARN (production)
-- `AES_KEY_ID` - AES key ID (development)
-- `AES_KEY` - AES encryption key (development)
-- `STAGE` - Environment stage (dev, test, local bypass encryption)
+-   `KMS_KEY_ARN` - AWS KMS key ARN (production)
+-   `AES_KEY_ID` - AES key ID (development)
+-   `AES_KEY` - AES encryption key (development)
+-   `STAGE` - Environment stage (dev, test, local bypass encryption)
 
 ### Optional
 
-- `SECRET_ARN` - AWS Secrets Manager ARN for auto-injection
-- `DEBUG` - Debug logging pattern
-- `LOG_LEVEL` - Logging level (debug, info, warn, error)
+-   `SECRET_ARN` - AWS Secrets Manager ARN for auto-injection
+-   `DEBUG` - Debug logging pattern
+-   `LOG_LEVEL` - Logging level (debug, info, warn, error)
 
 ## Version Information
 
-- **Current Version**: 2.0.0-next.0 (pre-release)
-- **Node.js**: >=18 required
-- **Dependencies**: See package.json for full list
+-   **Current Version**: 2.0.0-next.0 (pre-release)
+-   **Node.js**: >=18 required
+-   **Dependencies**: See package.json for full list
 
 ## Support and Documentation
 
-- **Main Framework CLAUDE.md**: See root Frigg CLAUDE.md for framework-wide guidance
-- **Core Runtime**: See `core/CLAUDE.md` for Lambda/Worker patterns
-- **Encryption**: See `database/encryption/README.md` for encryption details
-- **Package README**: See `README.md` for API reference
+-   **Main Framework CLAUDE.md**: See root Frigg CLAUDE.md for framework-wide guidance
+-   **Core Runtime**: See `core/CLAUDE.md` for Lambda/Worker patterns
+-   **Encryption**: See `database/encryption/README.md` for encryption details
+-   **Package README**: See `README.md` for API reference
 
 ## Recent Important Changes
 
@@ -677,13 +699,15 @@ Use test doubles from `@friggframework/test` package for consistent mocking.
 **Problem**: The `FieldEncryptionService` was converting objects to the string `"[object Object]"` before encrypting, corrupting JSON fields like `IntegrationMapping.mapping`.
 
 **Solution**: Added `_serializeForEncryption()` and `_deserializeAfterDecryption()` methods:
-- Objects are now JSON.stringify'd before encryption
-- Decrypted strings are JSON.parse'd back to objects
-- Plain strings work as before
+
+-   Objects are now JSON.stringify'd before encryption
+-   Decrypted strings are JSON.parse'd back to objects
+-   Plain strings work as before
 
 **Files Changed**:
-- `database/encryption/field-encryption-service.js`
-- `database/encryption/field-encryption-service.test.js`
+
+-   `database/encryption/field-encryption-service.js`
+-   `database/encryption/field-encryption-service.test.js`
 
 **Test Coverage**: All 40 tests pass, including new object encryption test.
 

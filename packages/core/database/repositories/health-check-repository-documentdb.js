@@ -8,7 +8,9 @@ const {
     insertOne,
     deleteOne,
 } = require('../documentdb-utils');
-const { DocumentDBEncryptionService } = require('../documentdb-encryption-service');
+const {
+    DocumentDBEncryptionService,
+} = require('../documentdb-encryption-service');
 
 class HealthCheckRepositoryDocumentDB extends HealthCheckRepositoryInterface {
     /**
@@ -51,7 +53,10 @@ class HealthCheckRepositoryDocumentDB extends HealthCheckRepositoryInterface {
         const pingStart = Date.now();
 
         const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Database ping timeout')), maxTimeMS)
+            setTimeout(
+                () => reject(new Error('Database ping timeout')),
+                maxTimeMS
+            )
         );
 
         await Promise.race([
@@ -75,8 +80,14 @@ class HealthCheckRepositoryDocumentDB extends HealthCheckRepositoryInterface {
             'Credential',
             document
         );
-        const insertedId = await insertOne(this.prisma, 'Credential', encryptedDocument);
-        const created = await findOne(this.prisma, 'Credential', { _id: insertedId });
+        const insertedId = await insertOne(
+            this.prisma,
+            'Credential',
+            encryptedDocument
+        );
+        const created = await findOne(this.prisma, 'Credential', {
+            _id: insertedId,
+        });
 
         // Decrypt after read
         const decrypted = await this.encryptionService.decryptFields(
@@ -98,7 +109,10 @@ class HealthCheckRepositoryDocumentDB extends HealthCheckRepositoryInterface {
         if (!doc) return null;
 
         // Decrypt sensitive fields
-        const decrypted = await this.encryptionService.decryptFields('Credential', doc);
+        const decrypted = await this.encryptionService.decryptFields(
+            'Credential',
+            doc
+        );
 
         return {
             id: fromObjectId(decrypted._id),
@@ -124,11 +138,12 @@ class HealthCheckRepositoryDocumentDB extends HealthCheckRepositoryInterface {
         const objectId = toObjectId(id);
         if (!objectId) return false;
 
-        const result = await deleteOne(this.prisma, 'Credential', { _id: objectId });
+        const result = await deleteOne(this.prisma, 'Credential', {
+            _id: objectId,
+        });
         const deleted = result?.n ?? 0;
         return deleted > 0;
     }
 }
 
 module.exports = { HealthCheckRepositoryDocumentDB };
-

@@ -60,7 +60,10 @@ describe('GetMigrationStatusUseCase', () => {
 
             const result = await useCase.execute('migration-123', 'production');
 
-            expect(mockMigrationStatusRepository.get).toHaveBeenCalledWith('migration-123', 'production');
+            expect(mockMigrationStatusRepository.get).toHaveBeenCalledWith(
+                'migration-123',
+                'production'
+            );
             expect(result).toEqual(mockProcess); // S3 repository returns full status object
         });
 
@@ -103,7 +106,10 @@ describe('GetMigrationStatusUseCase', () => {
 
             const result = await useCase.execute('migration-789', 'production');
 
-            expect(mockMigrationStatusRepository.get).toHaveBeenCalledWith('migration-789', 'production');
+            expect(mockMigrationStatusRepository.get).toHaveBeenCalledWith(
+                'migration-789',
+                'production'
+            );
             expect(result.state).toBe('FAILED');
             expect(result.error).toContain('Migration failed');
         });
@@ -111,7 +117,9 @@ describe('GetMigrationStatusUseCase', () => {
         // Removed - already covered by "should return minimal migration status"
 
         it('should throw NotFoundError if migration does not exist', async () => {
-            mockMigrationStatusRepository.get.mockRejectedValue(new Error('Migration not found: nonexistent-123'));
+            mockMigrationStatusRepository.get.mockRejectedValue(
+                new Error('Migration not found: nonexistent-123')
+            );
 
             await expect(
                 useCase.execute('nonexistent-123', 'dev')
@@ -125,23 +133,25 @@ describe('GetMigrationStatusUseCase', () => {
         // Removed: S3 repository only stores migrations, no type validation needed
 
         it('should throw ValidationError if migrationId is missing', async () => {
-            await expect(
-                useCase.execute(null)
-            ).rejects.toThrow(ValidationError);
+            await expect(useCase.execute(null)).rejects.toThrow(
+                ValidationError
+            );
 
-            await expect(
-                useCase.execute(undefined)
-            ).rejects.toThrow('migrationId is required');
+            await expect(useCase.execute(undefined)).rejects.toThrow(
+                'migrationId is required'
+            );
         });
 
         it('should throw ValidationError if migrationId is not a string', async () => {
-            await expect(
-                useCase.execute(123)
-            ).rejects.toThrow('migrationId must be a string');
+            await expect(useCase.execute(123)).rejects.toThrow(
+                'migrationId must be a string'
+            );
         });
 
         it('should handle repository errors', async () => {
-            mockMigrationStatusRepository.get.mockRejectedValue(new Error('S3 connection failed'));
+            mockMigrationStatusRepository.get.mockRejectedValue(
+                new Error('S3 connection failed')
+            );
 
             await expect(
                 useCase.execute('migration-123', 'dev')
@@ -168,4 +178,3 @@ describe('GetMigrationStatusUseCase', () => {
         });
     });
 });
-

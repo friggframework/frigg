@@ -59,10 +59,11 @@ class DeleteIntegrationForUser {
 
         for (const entityId of integrationRecord.entitiesIds) {
             try {
-                const moduleInstance = await this.moduleFactory.getModuleInstance(
-                    entityId,
-                    integrationRecord.userId
-                );
+                const moduleInstance =
+                    await this.moduleFactory.getModuleInstance(
+                        entityId,
+                        integrationRecord.userId
+                    );
                 modules.push(moduleInstance);
             } catch (error) {
                 console.error(

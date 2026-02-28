@@ -38,7 +38,7 @@ describe('User.ownsUserId - Organization Primary User Validation', () => {
                 false, // usePassword
                 'organization', // primary = 'organization'
                 true, // individualUserRequired
-                true  // organizationUserRequired
+                true // organizationUserRequired
             );
 
             // Verify user.getId() returns organization ID

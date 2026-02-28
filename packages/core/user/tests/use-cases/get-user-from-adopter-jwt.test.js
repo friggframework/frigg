@@ -1,5 +1,7 @@
 const Boom = require('@hapi/boom');
-const { GetUserFromAdopterJwt } = require('../../use-cases/get-user-from-adopter-jwt');
+const {
+    GetUserFromAdopterJwt,
+} = require('../../use-cases/get-user-from-adopter-jwt');
 
 describe('GetUserFromAdopterJwt', () => {
     let getUserFromAdopterJwt;
@@ -38,7 +40,8 @@ describe('GetUserFromAdopterJwt', () => {
 
     describe('Stub Behavior', () => {
         it('should throw 501 Not Implemented error', async () => {
-            const jwtToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyMTIzIiwib3JnX2lkIjoib3JnNDU2In0.signature';
+            const jwtToken =
+                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyMTIzIiwib3JnX2lkIjoib3JnNDU2In0.signature';
 
             await expect(
                 getUserFromAdopterJwt.execute(jwtToken)
@@ -110,4 +113,3 @@ describe('GetUserFromAdopterJwt', () => {
         });
     });
 });
-

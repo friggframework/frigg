@@ -1,3 +1,3 @@
 const { TimeoutCatcher } = require('./TimeoutCatcher');
 
-module.exports = { TimeoutCatcher }
+module.exports = { TimeoutCatcher };

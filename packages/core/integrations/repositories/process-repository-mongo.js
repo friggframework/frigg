@@ -1,5 +1,7 @@
 const { prisma } = require('../../database/prisma');
-const { ProcessRepositoryInterface } = require('./process-repository-interface');
+const {
+    ProcessRepositoryInterface,
+} = require('./process-repository-interface');
 
 /**
  * MongoDB Process Repository Adapter
@@ -118,7 +120,10 @@ class ProcessRepositoryMongo extends ProcessRepositoryInterface {
      * @param {string[]} [excludeStates=['COMPLETED', 'ERROR']] - States to exclude
      * @returns {Promise<Array>} Array of active process records
      */
-    async findActiveProcesses(integrationId, excludeStates = ['COMPLETED', 'ERROR']) {
+    async findActiveProcesses(
+        integrationId,
+        excludeStates = ['COMPLETED', 'ERROR']
+    ) {
         const processes = await this.prisma.process.findMany({
             where: {
                 integrationId,
@@ -187,4 +192,3 @@ class ProcessRepositoryMongo extends ProcessRepositoryInterface {
 }
 
 module.exports = { ProcessRepositoryMongo };
-

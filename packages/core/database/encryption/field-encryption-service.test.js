@@ -13,29 +13,27 @@ describe('FieldEncryptionService', () => {
                 .mockImplementation(
                     (value) => `encrypted:${value}:keydata:enckey`
                 ),
-            decrypt: jest
-                .fn()
-                .mockImplementation((value) => {
-                    // Handle multiple encrypted formats
-                    // Format 1: "encrypted:ORIGINAL:keydata:enckey"
-                    // Format 2: "keyId:ORIGINAL:iv:enckey"
+            decrypt: jest.fn().mockImplementation((value) => {
+                // Handle multiple encrypted formats
+                // Format 1: "encrypted:ORIGINAL:keydata:enckey"
+                // Format 2: "keyId:ORIGINAL:iv:enckey"
 
-                    // Try format 1 (from our new tests)
-                    const prefix1 = 'encrypted:';
-                    const suffix1 = ':keydata:enckey';
-                    if (value.startsWith(prefix1) && value.endsWith(suffix1)) {
-                        return value.slice(prefix1.length, -suffix1.length);
-                    }
+                // Try format 1 (from our new tests)
+                const prefix1 = 'encrypted:';
+                const suffix1 = ':keydata:enckey';
+                if (value.startsWith(prefix1) && value.endsWith(suffix1)) {
+                    return value.slice(prefix1.length, -suffix1.length);
+                }
 
-                    // Try format 2 (from existing tests)
-                    const prefix2 = 'keyId:';
-                    const suffix2 = ':iv:enckey';
-                    if (value.startsWith(prefix2) && value.endsWith(suffix2)) {
-                        return value.slice(prefix2.length, -suffix2.length);
-                    }
+                // Try format 2 (from existing tests)
+                const prefix2 = 'keyId:';
+                const suffix2 = ':iv:enckey';
+                if (value.startsWith(prefix2) && value.endsWith(suffix2)) {
+                    return value.slice(prefix2.length, -suffix2.length);
+                }
 
-                    return value; // Fallback for non-standard format
-                }),
+                return value; // Fallback for non-standard format
+            }),
         };
 
         // Mock Schema Registry
@@ -222,7 +220,10 @@ describe('FieldEncryptionService', () => {
                 mapping: mappingObject,
             };
 
-            const encrypted = await service.encryptFields('IntegrationMapping', document);
+            const encrypted = await service.encryptFields(
+                'IntegrationMapping',
+                document
+            );
 
             // The cryptor should receive JSON string, not "[object Object]"
             expect(mockCryptor.encrypt).toHaveBeenCalledWith(
@@ -235,12 +236,18 @@ describe('FieldEncryptionService', () => {
             );
 
             // Now decrypt and verify object is restored
-            const decrypted = await service.decryptFields('IntegrationMapping', encrypted);
+            const decrypted = await service.decryptFields(
+                'IntegrationMapping',
+                encrypted
+            );
 
             // After decryption, the object should be fully restored
             expect(decrypted.mapping).toEqual(mappingObject);
             expect(decrypted.mapping.action).toBe('upload');
-            expect(decrypted.mapping.formData.attachments).toEqual(['att-1', 'att-2']);
+            expect(decrypted.mapping.formData.attachments).toEqual([
+                'att-1',
+                'att-2',
+            ]);
         });
 
         it('should throw on encryption errors', async () => {
@@ -447,7 +454,9 @@ describe('FieldEncryptionService', () => {
 
         it('should return undefined for missing path', () => {
             const obj = { data: { token: 'abc' } };
-            expect(service._getNestedValue(obj, 'data.missing')).toBeUndefined();
+            expect(
+                service._getNestedValue(obj, 'data.missing')
+            ).toBeUndefined();
         });
 
         it('should handle null/undefined gracefully', () => {
