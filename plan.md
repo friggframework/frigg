@@ -122,6 +122,25 @@ module.exports = {
     // Local: docker-compose.yml generation
     infrastructureBuilders: [], // InfrastructureBuilder[] for builder orchestrator
 
+    // ── Deploy ───────────────────────────────────────────────────────
+
+    // Deploy the app to this provider
+    // Called by `frigg deploy`. Provider handles all platform-specific steps.
+    // Returns { url, functionUrls, logs } or throws with actionable error.
+    deploy,                     // async (appDefinition, options?) => DeployResult
+
+    // Pre-deploy checks (permissions, CLI tools, config validity)
+    preflightCheck,             // async () => { ready, missing[] }
+    //   AWS:        checks aws-cli, credentials, serverless installed
+    //   Netlify:    checks netlify-cli, NETLIFY_AUTH_TOKEN
+    //   Vercel:     checks vercel CLI, logged in
+    //   GCP:        checks gcloud CLI, project configured
+    //   fly.io:     checks flyctl, logged in
+    //   Local:      checks docker/docker-compose (if --compose), or just node
+
+    // Tear down / remove deployed resources
+    teardown,                   // async (appDefinition, options?) => void
+
     // Validate app definition for this provider
     validate,                   // (appDefinition) => { valid, errors[], warnings[] }
 
@@ -607,15 +626,62 @@ Split database runtime into `database-postgres` and `database-mongodb`.
 
 ### Phase 5: Create provider-local Package
 
-Docker Compose development experience. Express server, in-memory queues, node-cron, mock encryption.
+Docker Compose development experience. Express server, in-memory queues, node-cron, mock encryption. Critical for OpenClaw.
 
-### Phase 6: Stub Additional Providers
+### Phase 6: Create provider-vercel and provider-gcp
 
-Create package shells with detect() + validate() + generateConfig() for Vercel, GCP, Azure, fly.io, CloudFlare. Community can flesh these out.
+Vercel gets QStash (already exists) + vercel.json generator + cron scheduler.
+GCP gets Cloud Tasks queue + Cloud Scheduler + Cloud KMS cryptor + gcloud deploy.
 
-### Phase 7: CLI Updates
+### Phase 7: Stub Remaining Providers
 
-Update `frigg init` to ask which provider and database. Update `frigg deploy` to delegate to provider's deployment logic.
+Create package shells with `detect()` + `validate()` + `preflightCheck()` + `generateConfig()` for Azure, fly.io, CloudFlare. Community can flesh these out.
+
+### Phase 8: CLI Updates
+
+Update `frigg init` to ask which provider and database. Update `frigg deploy` to delegate to provider's `deploy()` + `preflightCheck()`.
+
+---
+
+## Deploy Story Per Provider
+
+Each provider's `deploy()` wraps a different underlying mechanism. `frigg deploy` becomes the universal command:
+
+```bash
+frigg deploy                    # Uses provider from app definition
+frigg deploy --stage production # Stage-specific deploy
+frigg deploy --dry-run          # Show what would happen
+```
+
+Under the hood:
+
+| Provider | `preflightCheck()` requires | `deploy()` runs | Config file |
+|---|---|---|---|
+| **AWS** | `aws` CLI, credentials, `serverless` npm | `serverless deploy --stage X` | `serverless.yml` (generated) |
+| **Netlify** | `netlify` CLI or `NETLIFY_AUTH_TOKEN` | `netlify deploy --prod` (or git-push trigger) | `netlify.toml` (generated) |
+| **Vercel** | `vercel` CLI or `VERCEL_TOKEN` | `vercel --prod` (or git-push trigger) | `vercel.json` (generated) |
+| **GCP** | `gcloud` CLI, project configured | `gcloud functions deploy` per function | `cloudfunctions.yaml` or Terraform |
+| **Azure** | `az` CLI, subscription | `az functionapp deployment` | ARM/Bicep template |
+| **fly.io** | `flyctl`, logged in | `flyctl deploy` | `fly.toml` + `Dockerfile` (generated) |
+| **CloudFlare** | `wrangler` CLI | `wrangler deploy` | `wrangler.toml` (generated) |
+| **Local** | `docker` (if `--compose`), or just `node` | `docker compose up -d` or `node server.js` | `docker-compose.yml` (generated) |
+
+**Git-push deploys**: Netlify, Vercel, and CloudFlare also support deploy-on-push — `frigg deploy` is for manual/CI deploys. The generated config files (`netlify.toml`, `vercel.json`, `wrangler.toml`) enable git-push deploys automatically.
+
+## Difficulty Assessment for Tier 3 Stubs
+
+| Provider | Difficulty | Estimate | Notes |
+|---|---|---|---|
+| **fly.io** | Easy | Days | Just Docker containers. Express runs natively. Fly Postgres is managed PG. `fly.toml` + Dockerfile generation is straightforward. Closest to provider-local. |
+| **Azure** | Medium | Weeks | Azure Functions are Express-like (easy handler). Service Bus ≈ SQS (familiar pattern). But Azure SDK is verbose, Key Vault API differs from KMS, and deployment is complex (ARM/Bicep templates). |
+| **CloudFlare** | Hard | Significant | **Different runtime** — V8 isolates, not Node.js. No `require()`, no `fs`, limited npm compat. Express doesn't work — need Hono or itty-router. D1 is SQLite, not PG/Mongo. Most architecturally different provider. |
+
+**CloudFlare caveat**: May push the question of whether the provider interface needs to accommodate non-Express runtimes. The current interface assumes Express routers (`createAppHandler` wraps Express). CloudFlare Workers can't use Express. Options:
+1. CloudFlare provider translates Express routes to Hono routes at build time
+2. Provider interface adds optional `routerAdapter` for non-Express platforms
+3. Accept CloudFlare as a "different beast" that only implements a subset of the interface
+
+Recommend deferring this decision until someone actually needs CloudFlare support. The interface should note it as a known edge case but not over-engineer for it now.
 
 ---
 
