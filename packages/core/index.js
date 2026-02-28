@@ -92,7 +92,12 @@ const utils = require('./utils');
 
 // const {Sync } = require('./syncs/model');
 
-const { QueuerUtil } = require('./queues');
+const {
+    QueuerUtil,
+    QueueProvider,
+    createQueueProvider,
+    QUEUE_PROVIDERS,
+} = require('./queues');
 
 module.exports = {
     // assertions
@@ -187,6 +192,9 @@ module.exports = {
     ModuleFactory,
     // queues
     QueuerUtil,
+    QueueProvider,
+    createQueueProvider,
+    QUEUE_PROVIDERS,
 
     // utils
     ...utils,

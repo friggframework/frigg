@@ -1,0 +1,32 @@
+{
+    "name": "@friggframework/netlify-adapter",
+    "version": "0.1.0",
+    "description": "Netlify deployment adapter for the Frigg Framework",
+    "main": "index.js",
+    "scripts": {
+        "test": "jest"
+    },
+    "keywords": [
+        "frigg",
+        "netlify",
+        "serverless",
+        "adapter"
+    ],
+    "license": "MIT",
+    "dependencies": {
+        "@friggframework/core": "*",
+        "serverless-http": "^3.2.0",
+        "express": "^4.18.2"
+    },
+    "devDependencies": {
+        "jest": "^29.7.0"
+    },
+    "peerDependencies": {
+        "@netlify/functions": ">=2.0.0"
+    },
+    "peerDependenciesMeta": {
+        "@netlify/functions": {
+            "optional": true
+        }
+    }
+}
