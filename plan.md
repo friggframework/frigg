@@ -23,15 +23,22 @@ The codebase already has multi-provider thinking in several places:
 
 ```
 @friggframework/core                    # Interfaces, ports, framework logic. Zero cloud imports.
+
+# Tier 1 — full implementations
 @friggframework/provider-aws            # Lambda, SQS, EventBridge, KMS, Secrets Manager, S3
 @friggframework/provider-netlify        # Netlify Functions, Background Functions, Scheduled Functions
+@friggframework/provider-local          # Express, Docker Compose, node-cron, in-memory queues
+
+# Tier 2 — key capabilities
 @friggframework/provider-vercel         # Vercel Functions, QStash, Cron
-@friggframework/provider-gcp            # Cloud Functions, Pub/Sub, Cloud Scheduler, Cloud KMS
-@friggframework/provider-azure          # Azure Functions, Service Bus, Logic Apps, Key Vault
+@friggframework/provider-gcp            # Cloud Functions v2, Cloud Tasks, Cloud Scheduler, Cloud KMS
+
+# Tier 3 — stubs for community
+@friggframework/provider-azure          # Azure Functions, Service Bus, Key Vault
 @friggframework/provider-flyio          # Fly Machines, fly-replay routing
 @friggframework/provider-cloudflare     # Workers, Queues, D1, Durable Objects
-@friggframework/provider-local          # Express server, Docker Compose, node-cron, in-memory queues
 
+# Database (orthogonal to provider)
 @friggframework/database-postgres       # PostgreSQL Prisma schema, client, repos, migrations
 @friggframework/database-mongodb        # MongoDB Prisma schema, client, repos, migrations
 ```
@@ -182,6 +189,109 @@ module.exports = {
 | `detect` | — | — | NEW: `() => !!process.env.AWS_LAMBDA_FUNCTION_NAME` |
 
 **Verdict**: AWS has all the code but it's scattered across core. The work is extraction + reorganization.
+
+### Vercel → provider-vercel Plugin
+
+| Plugin Interface Property | Implementation Plan | Status |
+|---|---|---|
+| `name` | `'vercel'` | NEW |
+| `createHandler` | Vercel serverless uses standard `(req, res)` — thin wrapper for logging/init | NEW (simple — Vercel functions are already Express-like) |
+| `createAppHandler` | `serverless-http(app)` same as Netlify, or native Vercel adapter | NEW (simple) |
+| `QueueProvider` | **QStash** — already exists in core as `QStashQueueProvider` | EXISTS — move from core |
+| `SchedulerAdapter` | Vercel Cron (`vercel.json` crons) → triggers function → enqueues via QStash | NEW |
+| `CryptorAdapter` | AES (reuse core default) — no native KMS | Reuse core AES |
+| `loadSecrets` | No-op — Vercel injects env vars natively | NEW (trivial) |
+| `invokeFunctionAdapter` | HTTP call to function URL (same pattern as Netlify) | NEW |
+| `WebSocketAdapter` | `null` — Vercel doesn't support persistent WebSockets | N/A |
+| `generateConfig` | Generate `vercel.json` (routes, crons, function config) | NEW |
+| `generateEnvTemplate` | Vercel env var template | NEW |
+| `infrastructureBuilders` | Minimal — Vercel manages infra. Optional: Neon/PlanetScale provisioning | NEW (minimal) |
+| `validate` | Validate app definition for Vercel constraints (10s/300s timeouts, no WebSocket) | NEW |
+| `getFunctionEntryPoints` | Generate `api/*.js` files per Vercel conventions | NEW |
+| `detect` | `() => !!process.env.VERCEL` | NEW |
+
+**Verdict**: QStash queue provider already exists. Vercel functions are Express-compatible so the handler wrapper is thin. Main new work: `vercel.json` generator and cron scheduler adapter.
+
+**Key Vercel constraints to validate**:
+- Serverless function timeout: 10s (Hobby) / 300s (Pro) — affects sync operations
+- No persistent WebSockets (Edge functions can do WebSocket upgrade but it's different)
+- No background functions — must use QStash for async work
+- Cron jobs limited to once/day (Hobby) / once/min (Pro)
+
+### GCP → provider-gcp Plugin
+
+| Plugin Interface Property | Implementation Plan | Status |
+|---|---|---|
+| `name` | `'gcp'` | NEW |
+| `createHandler` | Cloud Functions v2 use standard `(req, res)` — wrapper for secrets + init | NEW |
+| `createAppHandler` | Direct Express mount — Cloud Functions v2 IS Express under the hood | NEW (simple) |
+| `QueueProvider` | **Cloud Tasks** — HTTP-based task queue with scheduling, retries, rate limiting | NEW |
+| `SchedulerAdapter` | **Cloud Scheduler** — cron to HTTP endpoint or Pub/Sub topic | NEW |
+| `CryptorAdapter` | **Cloud KMS** — envelope encryption like AWS KMS but GCP SDK | NEW |
+| `loadSecrets` | **Secret Manager** — `@google-cloud/secret-manager` fetch at cold start | NEW |
+| `invokeFunctionAdapter` | HTTP call to Cloud Function URL (or `@google-cloud/functions` SDK) | NEW |
+| `WebSocketAdapter` | `null` for Cloud Functions. Could support via Firebase Realtime or Pub/Sub push. | N/A initially |
+| `generateConfig` | Option A: Generate Terraform. Option B: Generate `gcloud` deploy scripts. Option C: Firebase `firebase.json` | NEW |
+| `generateEnvTemplate` | GCP env var template | NEW |
+| `infrastructureBuilders` | Cloud SQL (PostgreSQL), Cloud Tasks queue, Cloud Scheduler jobs, VPC connector | NEW |
+| `validate` | Validate for GCP constraints (timeout limits, region availability) | NEW |
+| `getFunctionEntryPoints` | Generate `functions/*.js` per Cloud Functions conventions | NEW |
+| `detect` | `() => !!process.env.FUNCTION_TARGET \|\| !!process.env.K_SERVICE` | NEW |
+
+**Verdict**: All new code, but GCP's Cloud Functions v2 are Express-native so handler wrapping is trivial. Cloud Tasks is the natural queue equivalent to SQS. Cloud KMS follows same envelope encryption pattern as AWS KMS.
+
+**GCP advantages**:
+- Cloud Functions v2 ARE Express — `createAppHandler` is almost a no-op
+- Cloud Tasks has built-in rate limiting (like SQS)
+- Cloud KMS has same envelope encryption pattern as AWS KMS
+- Cloud Scheduler is more capable than EventBridge Scheduler (recurring + one-time)
+
+### Docker/Local → provider-local Plugin
+
+| Plugin Interface Property | Implementation Plan | Status |
+|---|---|---|
+| `name` | `'local'` | NEW |
+| `createHandler` | No wrapping — runs Express directly via `app.listen()` | NEW |
+| `createAppHandler` | Direct Express mount — no serverless adapter needed | NEW (simple) |
+| `QueueProvider` | **In-memory queue** with optional **BullMQ** (Redis-backed) for persistence | NEW |
+| `SchedulerAdapter` | **node-cron** for recurring jobs, setTimeout for one-time | NEW |
+| `CryptorAdapter` | AES (reuse core default) — or `'none'` for dev simplicity | Reuse core AES |
+| `loadSecrets` | **dotenv** — load `.env` file | NEW (trivial) |
+| `invokeFunctionAdapter` | Direct function call (same process) or HTTP to localhost | NEW |
+| `WebSocketAdapter` | **ws** (native WebSocket library) on same Express server | NEW |
+| `generateConfig` | Generate `docker-compose.yml` (app + DB + Redis if BullMQ) | NEW |
+| `generateEnvTemplate` | `.env.example` file | NEW |
+| `infrastructureBuilders` | Docker Compose services: PostgreSQL/MongoDB container, Redis, app | NEW |
+| `validate` | Check Docker/Node.js availability | NEW |
+| `getFunctionEntryPoints` | Single `server.js` entry point that mounts all routers | NEW |
+| `detect` | `() => process.env.FRIGG_PROVIDER === 'local' \|\| (!isCloudEnv())` | NEW |
+
+**Verdict**: Most important provider for DX. No cloud dependencies. Everything runs in one process (or Docker Compose for DB). Critical for OpenClaw and anyone doing local development.
+
+**Docker Compose output** (`generateConfig` produces):
+```yaml
+services:
+  app:
+    build: .
+    ports: ["3000:3000"]
+    env_file: .env
+    depends_on: [db]
+  db:
+    image: postgres:16    # or mongo:7
+    volumes: [db-data:/var/lib/postgresql/data]
+    environment:
+      POSTGRES_DB: frigg
+      POSTGRES_PASSWORD: localdev
+  # Optional: Redis for BullMQ queue persistence
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+```
+
+**Local dev modes**:
+- `frigg start` — single process, in-memory queue, node-cron, no Docker needed
+- `frigg start --compose` — Docker Compose with real DB + Redis
+- `frigg start --compose --watch` — above + file watching/hot reload
 
 ### What Core Keeps (Ports/Interfaces)
 
@@ -561,15 +671,25 @@ Some capabilities are platform-agnostic and work across providers:
 
 **Design implication**: The `queue.provider` override in app definition lets users pick QStash on *any* provider. Provider plugins supply their default queue implementation, but it's not locked. Same for encryption — AES is always available; KMS is an AWS provider bonus.
 
-## Other Providers Worth Listing
+## Provider Tiers
 
-Beyond the initial 8, these are plausible future providers:
+### Tier 1 — Built and maintained (packages exist with full implementations)
+- **AWS** — Lambda, SQS, EventBridge, KMS, Secrets Manager (extract from core)
+- **Netlify** — Functions, Background Functions, Scheduled Functions (~80% done)
+- **Docker/Local** — Express, in-memory queues, node-cron, dotenv (essential for DX + OpenClaw)
 
+### Tier 2 — Built with community help (packages exist, key capabilities implemented)
+- **Vercel** — Serverless Functions, QStash (already exists!), Cron
+- **GCP** — Cloud Functions v2, Cloud Tasks, Cloud Scheduler, Cloud KMS
+
+### Tier 3 — Stub packages (detect + validate + generateConfig, community fleshes out)
+- **Azure** — Azure Functions, Service Bus, Logic Apps, Key Vault
+- **CloudFlare** — Workers, Queues, D1, Durable Objects
+- **fly.io** — Fly Machines, fly-replay routing, Fly Postgres
+
+### Tier 4 — Future (no packages yet, but interface accommodates them)
 - **Railway** — Container-based, managed Postgres, cron jobs
 - **Render** — Similar to Railway, background workers, cron
 - **DigitalOcean App Platform** — Functions + managed DB
 - **Supabase** — Edge Functions + Postgres (they ARE the database)
 - **Deno Deploy** — Deno-native serverless
-- **Fastly Compute** — WASM-based edge compute
-
-These don't need packages now but the interface should accommodate them.
