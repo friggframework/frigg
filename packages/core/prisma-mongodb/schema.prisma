@@ -429,3 +429,21 @@ model ScriptSchedule {
   @@index([enabled])
   @@map("ScriptSchedule")
 }
+
+/// One-time scheduled jobs for poll-and-dispatch scheduling pattern.
+/// Used by providers without native one-time scheduling APIs (e.g., Netlify).
+/// A cron function queries for due jobs and dispatches them to a queue.
+model ScheduledJob {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  scheduleName    String   @unique
+  scheduledAt     DateTime
+  queueResourceId String
+  payload         Json?
+  state           String   @default("PENDING")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([state, scheduledAt])
+  @@map("ScheduledJob")
+}

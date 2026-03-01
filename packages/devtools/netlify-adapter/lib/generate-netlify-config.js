@@ -26,6 +26,7 @@ function generateNetlifyToml(appDefinition, options = {}) {
         functionsDir = 'netlify/functions',
         buildCommand = 'npm run build',
         nodeVersion = '18',
+        cronSchedule = '*/5 * * * *',
     } = options;
 
     const integrations = appDefinition.integrations || [];
@@ -156,6 +157,14 @@ function generateNetlifyToml(appDefinition, options = {}) {
     lines.push('  from = "/api/queue"');
     lines.push('  to = "/.netlify/functions/worker-background"');
     lines.push('  status = 200');
+    lines.push('');
+
+    // =========================================================================
+    // Scheduled function (cron dispatcher)
+    // =========================================================================
+    lines.push('# Scheduled function — processes due one-time jobs and triggers ongoing syncs');
+    lines.push('[functions."scheduled-sync"]');
+    lines.push(`  schedule = "${cronSchedule}"`);
     lines.push('');
 
     return lines.join('\n');
