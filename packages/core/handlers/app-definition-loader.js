@@ -3,16 +3,25 @@ const path = require('node:path');
 const fs = require('fs-extra');
 
 /**
- * Loads the App definition from the nearest backend package
+ * Loads the App definition from the nearest backend package.
+ *
+ * Returns the full appDefinition object plus convenience destructured fields
+ * for backward compatibility (integrations, userConfig).
+ *
  * @function loadAppDefinition
- * @description Searches for the nearest backend package.json, loads the corresponding index.js file,
- * and extracts the application definition containing integrations and user configuration.
- * @returns {{integrations: Array<object>, userConfig: object | null}} An object containing the application definition.
- * @throws {Error} Throws error if backend package.json cannot be found.
- * @throws {Error} Throws error if index.js file cannot be found in the backend directory.
+ * @returns {{
+ *   integrations: Array<object>,
+ *   userConfig: object | null,
+ *   appDefinition: object
+ * }}
+ * @throws {Error} If backend package.json or index.js cannot be found.
  * @example
- * const { integrations, userConfig } = loadAppDefinition();
- * console.log(`Found ${integrations.length} integrations`);
+ *   // Existing callers still work:
+ *   const { integrations, userConfig } = loadAppDefinition();
+ *
+ *   // New callers can access the full definition:
+ *   const { appDefinition } = loadAppDefinition();
+ *   console.log(appDefinition.provider); // 'aws' | 'netlify'
  */
 function loadAppDefinition() {
     const backendPath = findNearestBackendPackageJson();
@@ -30,7 +39,7 @@ function loadAppDefinition() {
     const appDefinition = backendJsFile.Definition;
 
     const { integrations = [], user: userConfig = null } = appDefinition;
-    return { integrations, userConfig };
+    return { integrations, userConfig, appDefinition };
 }
 
 module.exports = {

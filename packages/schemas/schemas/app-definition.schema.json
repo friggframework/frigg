@@ -16,8 +16,8 @@
     },
     "provider": {
       "type": "string",
-      "description": "Cloud provider for deployment",
-      "enum": ["aws"],
+      "description": "Deployment provider. Determines which @friggframework/provider-{name} package is loaded for runtime adapters, config generation, and deploy lifecycle. Built-in providers: 'aws' (default, serverless/Lambda), 'netlify' (Netlify Functions).",
+      "enum": ["aws", "netlify"],
       "default": "aws"
     },
     "label": {

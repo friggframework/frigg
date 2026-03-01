@@ -99,6 +99,13 @@ const {
     QUEUE_PROVIDERS,
 } = require('./queues');
 
+const {
+    resolveProvider,
+    determineProviderName,
+    providerPackageName,
+    KNOWN_PROVIDERS,
+} = require('./providers');
+
 module.exports = {
     // assertions
     expectShallowEqualDbObject,
@@ -195,6 +202,12 @@ module.exports = {
     QueueProvider,
     createQueueProvider,
     QUEUE_PROVIDERS,
+
+    // providers
+    resolveProvider,
+    determineProviderName,
+    providerPackageName,
+    KNOWN_PROVIDERS,
 
     // utils
     ...utils,
