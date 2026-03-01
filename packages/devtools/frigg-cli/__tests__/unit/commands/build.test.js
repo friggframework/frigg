@@ -207,7 +207,7 @@ describe('CLI Command: build', () => {
       await buildCommand({ stage: 'dev' });
 
       expect(consoleLogSpy).toHaveBeenCalledWith('Building the serverless application...');
-      expect(consoleLogSpy).toHaveBeenCalledWith('📦 Packaging serverless application...');
+      expect(consoleLogSpy).toHaveBeenCalledWith('Packaging serverless application...');
     });
 
     it('should construct complete valid serverless command', async () => {
