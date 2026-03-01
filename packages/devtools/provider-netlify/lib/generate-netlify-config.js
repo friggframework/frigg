@@ -6,7 +6,7 @@
  * including v2 API routes.
  *
  * Usage:
- *   const { generateNetlifyToml } = require('@friggframework/netlify-adapter');
+ *   const { generateNetlifyToml } = require('@friggframework/provider-netlify');
  *   const toml = generateNetlifyToml(appDefinition);
  *   fs.writeFileSync('netlify.toml', toml);
  */

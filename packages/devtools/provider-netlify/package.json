@@ -1,7 +1,7 @@
 {
-    "name": "@friggframework/netlify-adapter",
+    "name": "@friggframework/provider-netlify",
     "version": "0.1.0",
-    "description": "Netlify deployment adapter for the Frigg Framework",
+    "description": "Netlify provider plugin for the Frigg Framework",
     "main": "index.js",
     "scripts": {
         "test": "jest"

@@ -7,10 +7,10 @@ The codebase already has multi-provider thinking in several places:
 - **Queue system**: `queue-provider-factory.js` switches between `SqsQueueProvider`, `NetlifyBackgroundProvider`, `QStashQueueProvider` based on `QUEUE_PROVIDER` env var or `appDefinition.queue.provider`
 - **Scheduler system**: `scheduler-service-factory.js` switches between `EventBridgeSchedulerAdapter`, `NetlifySchedulerAdapter`, `MockSchedulerAdapter`
 - **Infrastructure**: `CloudProviderFactory` creates `AWSProviderAdapter` (GCP/Azure are stubs)
-- **Netlify adapter**: `@friggframework/netlify-adapter` already works as a separate package with handler wrappers, config generation, and function entry points
+- **Netlify provider**: `@friggframework/provider-netlify` — full provider plugin with handler wrappers, config generation, function entry points, deploy/preflight/teardown, validation, and scheduler repository
 - **v2 API routes**: Already mapped in netlify config (`/api/v2/*` → auth function). The integration router has all `/api/v2/*` routes alongside v1.
 
-**The problem**: These pieces don't follow a *consistent plugin shape*. The netlify-adapter exports handler utilities, the queue providers live in core, the scheduler providers live in core, and infrastructure is its own thing. A provider plugin should bundle all of these into one installable package with a predictable interface.
+**The problem**: These pieces don't follow a *consistent plugin shape*. The provider-netlify exports the full plugin interface, but the queue providers and scheduler adapters still live in core. The AWS code is entirely in core. A proper plugin architecture means each provider bundles all of its adapters into one installable package.
 
 ## Design Decisions (Confirmed)
 
@@ -170,18 +170,18 @@ module.exports = {
 | Plugin Interface Property | Existing Code | Location Today | Status |
 |---|---|---|---|
 | `name` | — | — | NEW (trivial) |
-| `createHandler` | `createNetlifyHandler()` | `netlify-adapter/lib/create-netlify-handler.js` | EXISTS |
-| `createAppHandler` | `createNetlifyAppHandler()` | `netlify-adapter/lib/create-netlify-app-handler.js` | EXISTS |
+| `createHandler` | `createNetlifyHandler()` | `provider-netlify/lib/create-netlify-handler.js` | EXISTS |
+| `createAppHandler` | `createNetlifyAppHandler()` | `provider-netlify/lib/create-netlify-app-handler.js` | EXISTS |
 | `QueueProvider` | `NetlifyBackgroundProvider` | `core/queues/providers/netlify-background-provider.js` | EXISTS in core — move here |
 | `SchedulerAdapter` | `NetlifySchedulerAdapter` | `core/infrastructure/scheduler/netlify-scheduler-adapter.js` | EXISTS in core — move here |
 | `CryptorAdapter` | AES (default) | `core/encrypt/Cryptor.js` (AES branch) | Reuse core AES, no custom cryptor needed |
 | `loadSecrets` | No-op | — | NEW (trivial — Netlify has env vars natively) |
 | `invokeFunctionAdapter` | — | — | NEW (HTTP call to function URL) |
 | `WebSocketAdapter` | `null` | — | Not supported on Netlify |
-| `generateConfig` | `generateNetlifyToml()` | `netlify-adapter/lib/generate-netlify-config.js` | EXISTS |
-| `generateEnvTemplate` | `generateNetlifyEnvTemplate()` | `netlify-adapter/lib/generate-netlify-config.js` | EXISTS |
-| `validate` | `validateNetlifyDbConfig()` | `netlify-adapter/lib/netlify-db.js` | EXISTS (partial) |
-| `getFunctionEntryPoints` | Function files in `functions/` dir | `netlify-adapter/functions/*.js` | EXISTS as files, needs to become generator |
+| `generateConfig` | `generateNetlifyToml()` | `provider-netlify/lib/generate-netlify-config.js` | EXISTS |
+| `generateEnvTemplate` | `generateNetlifyEnvTemplate()` | `provider-netlify/lib/generate-netlify-config.js` | EXISTS |
+| `validate` | `validateNetlifyDbConfig()` | `provider-netlify/lib/netlify-db.js` | EXISTS (partial) |
+| `getFunctionEntryPoints` | Function files in `functions/` dir | `provider-netlify/functions/*.js` | EXISTS as files, needs to become generator |
 | `detect` | — | — | NEW: `() => !!process.env.NETLIFY` |
 
 **Verdict**: Netlify is ~80% done. Mainly needs: gather scattered pieces into one plugin shape, move queue/scheduler adapters from core.
@@ -528,11 +528,11 @@ const Definition = {
 
 | Current Location | What It Does |
 |---|---|
-| `devtools/netlify-adapter/lib/create-netlify-handler.js` | Netlify handler wrapper |
-| `devtools/netlify-adapter/lib/create-netlify-app-handler.js` | Express→Netlify bridge |
-| `devtools/netlify-adapter/lib/generate-netlify-config.js` | netlify.toml generator |
-| `devtools/netlify-adapter/lib/netlify-db.js` | Config validation |
-| `devtools/netlify-adapter/functions/` | Function entry points |
+| `devtools/provider-netlify/lib/create-netlify-handler.js` | Netlify handler wrapper |
+| `devtools/provider-netlify/lib/create-netlify-app-handler.js` | Express→Netlify bridge |
+| `devtools/provider-netlify/lib/generate-netlify-config.js` | netlify.toml generator |
+| `devtools/provider-netlify/lib/netlify-db.js` | Config validation |
+| `devtools/provider-netlify/functions/` | Function entry points |
 | `core/queues/providers/netlify-background-provider.js` | Netlify Background queue |
 | `core/infrastructure/scheduler/netlify-scheduler-adapter.js` | Netlify scheduler |
 
@@ -610,7 +610,7 @@ Move AWS-specific files to `@friggframework/provider-aws`. Core imports from the
 
 ### Phase 3: Create provider-netlify Package (Extract Existing Work)
 
-Move the netlify-adapter and Netlify-specific queue/scheduler code.
+Move Netlify-specific queue/scheduler code from core into provider-netlify.
 
 - Move all files listed in "Files That Move to provider-netlify" table
 - Implement full provider interface shape

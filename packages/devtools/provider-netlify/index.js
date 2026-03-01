@@ -1,5 +1,5 @@
 /**
- * @friggframework/netlify-adapter
+ * @friggframework/provider-netlify
  *
  * Netlify provider plugin for the Frigg Framework.
  *
@@ -7,12 +7,12 @@
  * provider plugin architecture (see plan.md). Can be loaded by
  * the provider registry via:
  *
- *   const provider = require('@friggframework/netlify-adapter');
+ *   const provider = require('@friggframework/provider-netlify');
  *   // provider.name === 'netlify'
  *
  * Also re-exports individual utilities for direct use:
  *
- *   const { generateNetlifyToml } = require('@friggframework/netlify-adapter');
+ *   const { generateNetlifyToml } = require('@friggframework/provider-netlify');
  */
 
 // ── Runtime Adapters ──────────────────────────────────────────────
