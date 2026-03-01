@@ -39,7 +39,7 @@ const handler = createNetlifyHandler({
         const prismaClient = await connectPrisma();
 
         const repository = new ScheduledJobRepository({ prismaClient });
-        const queueProvider = createQueueProvider();
+        const queueProvider = createQueueProvider({ provider: 'netlify-background' });
 
         // 1. Process due one-time schedules
         const scheduler = createSchedulerService({

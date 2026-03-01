@@ -19,7 +19,8 @@ const { validateNetlifyConfig } = require('./validate');
  */
 function isCommandAvailable(command) {
     try {
-        execSync(`which ${command}`, { stdio: 'ignore' });
+        const cmd = process.platform === 'win32' ? 'where' : 'which';
+        execSync(`${cmd} ${command}`, { stdio: 'ignore' });
         return true;
     } catch {
         return false;
