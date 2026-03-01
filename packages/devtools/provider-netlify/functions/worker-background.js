@@ -31,7 +31,7 @@ for (const IntegrationClass of integrationClasses) {
     workerMap[name] = createQueueWorker(IntegrationClass);
 }
 
-const queueProvider = createQueueProvider();
+const queueProvider = createQueueProvider({ provider: 'netlify-background' });
 
 const handler = createNetlifyHandler({
     eventName: 'Queue Worker (Netlify Background)',
