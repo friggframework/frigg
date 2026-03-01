@@ -268,9 +268,17 @@ async function runPostDeploymentHealthCheck(stackName, options) {
 }
 
 async function deployCommand(options) {
+    const appDefinition = loadAppDefinition();
+
+    // Check if the app uses a non-AWS provider
+    const providerResult = loadProviderIfConfigured(appDefinition);
+    if (providerResult) {
+        return deployWithProvider(providerResult, options);
+    }
+
+    // Default: AWS deployment via serverless framework
     console.log('Deploying the serverless application...');
 
-    const appDefinition = loadAppDefinition();
     const environment = validateAndBuildEnvironment(appDefinition, options);
 
     // Execute deployment
@@ -299,6 +307,80 @@ async function deployCommand(options) {
     } else {
         const reason = options.skipDoctor ? '--skip-doctor flag' : 'deployment.skipPostDeploymentHealthCheck: true';
         console.log(`\n⏭️  Skipping post-deployment health check (${reason})`);
+    }
+}
+
+/**
+ * Check if the appDefinition specifies a non-AWS provider and resolve it.
+ * Returns null for AWS (default) so the caller falls through to existing behavior.
+ *
+ * @param {Object|null} appDefinition
+ * @returns {{ provider: Object, appDefinition: Object, providerName: string } | null}
+ */
+function loadProviderIfConfigured(appDefinition) {
+    const providerName = appDefinition?.provider;
+    if (!providerName || providerName === 'aws') {
+        return null;
+    }
+
+    try {
+        const { resolveProvider } = require('@friggframework/core/providers/resolve-provider');
+        const provider = resolveProvider(appDefinition);
+        return { provider, appDefinition, providerName };
+    } catch (error) {
+        console.error(`Failed to load provider '${providerName}': ${error.message}`);
+        process.exit(1);
+    }
+}
+
+/**
+ * Deploy using a provider plugin (Netlify, etc.).
+ * Delegates entirely to the provider's deploy lifecycle:
+ *   1. validate() — check appDefinition for provider-specific issues
+ *   2. preflightCheck() — verify prerequisites (CLI tools, credentials)
+ *   3. deploy() — execute the deployment
+ */
+async function deployWithProvider({ provider, appDefinition, providerName }, options) {
+    console.log(`Deploying with ${providerName} provider...`);
+
+    // 1. Validate appDefinition for this provider
+    if (typeof provider.validate === 'function') {
+        const validation = provider.validate(appDefinition);
+        if (validation.errors?.length > 0) {
+            console.error(`\nValidation errors for ${providerName}:`);
+            for (const error of validation.errors) {
+                console.error(`  - ${error}`);
+            }
+            process.exit(1);
+        }
+        if (validation.warnings?.length > 0) {
+            for (const warning of validation.warnings) {
+                console.warn(`  Warning: ${warning}`);
+            }
+        }
+    }
+
+    // 2. Deploy via provider
+    try {
+        const result = await provider.deploy(appDefinition, {
+            stage: options.stage,
+            prod: options.stage === 'production' || options.stage === 'prod',
+            dryRun: options.dryRun || false,
+        });
+
+        console.log(`\n✓ Deployment completed successfully!`);
+        if (result.url) {
+            console.log(`  URL: ${result.url}`);
+        }
+    } catch (error) {
+        console.error(`\n✗ Deployment failed: ${error.message}`);
+        if (error.missing) {
+            console.error('  Missing prerequisites:');
+            for (const item of error.missing) {
+                console.error(`    - ${item}`);
+            }
+        }
+        process.exit(1);
     }
 }
 

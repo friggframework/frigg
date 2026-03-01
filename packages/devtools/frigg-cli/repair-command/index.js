@@ -426,6 +426,13 @@ async function handleReconcileRepair(stackIdentifier, report, options) {
  */
 async function repairCommand(stackName, options = {}) {
     try {
+        // Guard: repair only works with AWS (CloudFormation stacks)
+        if (isNonAwsProvider()) {
+            output.error('The repair command is only available for AWS deployments.');
+            output.log('Your appDefinition uses a non-AWS provider.');
+            process.exit(1);
+        }
+
         // Validate required parameter
         if (!stackName) {
             output.error('Error: Stack name is required');
@@ -531,6 +538,19 @@ async function repairCommand(stackName, options = {}) {
         }
 
         process.exit(1);
+    }
+}
+
+/**
+ * Check if the current appDefinition uses a non-AWS provider.
+ */
+function isNonAwsProvider() {
+    try {
+        const { loadProviderForCli } = require('../utils/provider-helper');
+        const result = loadProviderForCli();
+        return result && result.providerName !== 'aws';
+    } catch {
+        return false;
     }
 }
 

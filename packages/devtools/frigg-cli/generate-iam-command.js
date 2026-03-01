@@ -9,7 +9,14 @@ const { generateIAMCloudFormation, getFeatureSummary } = require('../infrastruct
  */
 async function generateIamCommand(options = {}) {
     try {
-        console.log('🔍 Finding Frigg application...');
+        // Guard: generate-iam only works with AWS (IAM / CloudFormation)
+        if (isNonAwsProvider()) {
+            console.error('The generate-iam command is only available for AWS deployments.');
+            console.log('Your appDefinition uses a non-AWS provider.');
+            process.exit(1);
+        }
+
+        console.log('Finding Frigg application...');
 
         // Find the backend package.json
         const backendPath = findNearestBackendPackageJson();
@@ -112,6 +119,19 @@ async function generateIamCommand(options = {}) {
             console.error('Stack trace:', error.stack);
         }
         process.exit(1);
+    }
+}
+
+/**
+ * Check if the current appDefinition uses a non-AWS provider.
+ */
+function isNonAwsProvider() {
+    try {
+        const { loadProviderForCli } = require('./utils/provider-helper');
+        const result = loadProviderForCli();
+        return result && result.providerName !== 'aws';
+    } catch {
+        return false;
     }
 }
 

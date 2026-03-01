@@ -63,6 +63,13 @@ async function startCommand(options) {
     console.log(chalk.green('✓ Pre-flight checks passed\n'));
     console.log('Starting backend and optional frontend...');
 
+    // Check if the app uses a non-AWS provider
+    const providerResult = loadProviderIfConfigured();
+    if (providerResult) {
+        return startWithProvider(providerResult, options);
+    }
+
+    // Default: AWS local development via serverless-offline
     // Suppress AWS SDK warning message about maintenance mode
     process.env.AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE = '1';
     // Skip AWS discovery for local development
@@ -108,6 +115,76 @@ async function startCommand(options) {
         }
     });
 }
+
+/**
+ * Check if the appDefinition specifies a non-AWS provider and resolve it.
+ * Returns null for AWS (default) so the caller falls through to existing behavior.
+ */
+function loadProviderIfConfigured() {
+    try {
+        const { loadProviderForCli } = require('../utils/provider-helper');
+        const result = loadProviderForCli();
+        if (result && result.provider) {
+            return result;
+        }
+    } catch {
+        // Provider helper not available or appDefinition not found — fall through
+    }
+    return null;
+}
+
+/**
+ * Start local dev server using the provider's recommended approach.
+ * Each provider has a different local dev story:
+ *   - Netlify: `netlify dev` (reads netlify.toml, serves functions locally)
+ *   - AWS: `osls offline` (serverless-offline, handled by default path above)
+ */
+function startWithProvider({ provider, providerName }, options) {
+    const backendPath = path.resolve(process.cwd());
+
+    // Provider-specific dev server commands
+    const DEV_COMMANDS = {
+        netlify: { command: 'netlify', args: ['dev'] },
+    };
+
+    const devCmd = DEV_COMMANDS[providerName];
+    if (!devCmd) {
+        console.error(chalk.red(
+            `Provider '${providerName}' does not have a local dev server configured.\n` +
+            `  Supported providers for local dev: ${Object.keys(DEV_COMMANDS).join(', ')}, aws`
+        ));
+        process.exit(1);
+    }
+
+    console.log(chalk.blue(`Starting local dev server (${providerName})...`));
+
+    const args = [...devCmd.args];
+    if (options.verbose) {
+        console.log(`Executing command: ${devCmd.command} ${args.join(' ')}`);
+        console.log(`Working directory: ${backendPath}`);
+    }
+
+    const childProcess = spawn(devCmd.command, args, {
+        cwd: backendPath,
+        stdio: 'inherit',
+        env: { ...process.env },
+    });
+
+    childProcess.on('error', (error) => {
+        if (error.code === 'ENOENT') {
+            console.error(chalk.red(
+                `'${devCmd.command}' not found. Install it with: npm install -g ${devCmd.command}-cli`
+            ));
+        } else {
+            console.error(`Error executing command: ${error.message}`);
+        }
+    });
+
+    childProcess.on('close', (code) => {
+        if (code !== 0) {
+            console.log(`Child process exited with code ${code}`);
+        }
+    });
 
 /**
  * Run interactive pre-flight checks with resolution prompts
