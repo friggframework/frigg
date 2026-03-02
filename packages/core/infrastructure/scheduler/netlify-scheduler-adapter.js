@@ -140,6 +140,13 @@ class NetlifySchedulerAdapter extends SchedulerServiceInterface {
 
         for (const schedule of dueSchedules) {
             try {
+                // Mark as PROCESSING before dispatch so the next cron tick
+                // won't re-pick this schedule (findDue only returns PENDING).
+                await this.repository.save({
+                    ...schedule,
+                    state: 'PROCESSING',
+                });
+
                 if (this.queueProvider) {
                     await this.queueProvider.send(
                         schedule.payload,
@@ -159,6 +166,11 @@ class NetlifySchedulerAdapter extends SchedulerServiceInterface {
                     `[NetlifyScheduler] Error processing schedule ${schedule.scheduleName}:`,
                     error
                 );
+                // Mark as FAILED so it won't be re-dispatched automatically.
+                // Operators can inspect FAILED schedules and retry manually.
+                await this.repository
+                    .save({ ...schedule, state: 'FAILED' })
+                    .catch(() => {});
                 errors++;
             }
         }
