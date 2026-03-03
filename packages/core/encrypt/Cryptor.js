@@ -15,7 +15,7 @@
  * BREAKING CHANGE (v3): A keyProvider must be explicitly provided,
  * or pass { shouldUseAws: false } to auto-create AesEncryptionKeyProvider.
  * For AWS KMS, pass `new KmsEncryptionKeyProvider()` from @friggframework/provider-aws.
- * See docs/adr/001-decouple-aws-from-core.md for migration guide.
+ * See docs/architecture-decisions/010-decouple-aws-from-core.md for migration guide.
  */
 
 const aes = require('./aes');
@@ -34,7 +34,7 @@ class Cryptor {
                 'Cryptor with shouldUseAws=true requires an explicit keyProvider. Pass one via constructor options, e.g.:\n' +
                 '  const { KmsEncryptionKeyProvider } = require("@friggframework/provider-aws");\n' +
                 '  new Cryptor({ shouldUseAws: true, keyProvider: new KmsEncryptionKeyProvider() })\n' +
-                'See docs/adr/001-decouple-aws-from-core.md for migration guide.'
+                'See docs/architecture-decisions/010-decouple-aws-from-core.md for migration guide.'
             );
         } else {
             // AES mode — no AWS dependency needed

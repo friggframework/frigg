@@ -6,7 +6,7 @@ const { v4: uuid } = require('uuid');
  * BREAKING CHANGE (v3): A queue client must be set via setQueueClient()
  * before calling send() or batchSend().
  * For AWS/SQS, pass `new SqsQueueClient()` from @friggframework/provider-aws.
- * See docs/adr/001-decouple-aws-from-core.md for migration guide.
+ * See docs/architecture-decisions/010-decouple-aws-from-core.md for migration guide.
  */
 let _queueClient = null;
 
@@ -16,7 +16,7 @@ function getQueueClient() {
             'QueuerUtil requires a queue client. Call QueuerUtil.setQueueClient() first, e.g.:\n' +
             '  const { SqsQueueClient } = require("@friggframework/provider-aws");\n' +
             '  QueuerUtil.setQueueClient(new SqsQueueClient());\n' +
-            'See docs/adr/001-decouple-aws-from-core.md for migration guide.'
+            'See docs/architecture-decisions/010-decouple-aws-from-core.md for migration guide.'
         );
     }
     return _queueClient;

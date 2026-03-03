@@ -185,6 +185,7 @@ function startWithProvider({ provider, providerName }, options) {
             console.log(`Child process exited with code ${code}`);
         }
     });
+}
 
 /**
  * Run interactive pre-flight checks with resolution prompts

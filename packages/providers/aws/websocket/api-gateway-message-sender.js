@@ -10,6 +10,22 @@ const {
     StaleConnectionError,
 } = require('@friggframework/core/websocket/websocket-message-sender-interface');
 
+// Cache clients per endpoint to avoid recreating on every send()
+const _clientCache = new Map();
+
+function getApiGatewayClient(endpoint) {
+    if (!_clientCache.has(endpoint)) {
+        const {
+            ApiGatewayManagementApiClient,
+        } = require('@aws-sdk/client-apigatewaymanagementapi');
+        _clientCache.set(
+            endpoint,
+            new ApiGatewayManagementApiClient({ endpoint })
+        );
+    }
+    return _clientCache.get(endpoint);
+}
+
 class ApiGatewayMessageSender extends WebSocketMessageSenderInterface {
     /**
      * Send data to a WebSocket connection via API Gateway Management API
@@ -22,11 +38,10 @@ class ApiGatewayMessageSender extends WebSocketMessageSenderInterface {
      */
     async send(connectionId, data, endpoint) {
         const {
-            ApiGatewayManagementApiClient,
             PostToConnectionCommand,
         } = require('@aws-sdk/client-apigatewaymanagementapi');
 
-        const client = new ApiGatewayManagementApiClient({ endpoint });
+        const client = getApiGatewayClient(endpoint);
 
         try {
             const command = new PostToConnectionCommand({

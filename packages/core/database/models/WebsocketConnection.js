@@ -4,7 +4,7 @@
  * BREAKING CHANGE (v3): Call WebsocketConnection.setMessageSender() before
  * using getActiveConnections(). For AWS API Gateway, pass
  * `new ApiGatewayMessageSender()` from @friggframework/provider-aws.
- * See docs/adr/001-decouple-aws-from-core.md for migration guide.
+ * See docs/architecture-decisions/010-decouple-aws-from-core.md for migration guide.
  */
 const { mongoose } = require('../mongoose');
 const {
@@ -39,7 +39,7 @@ schema.statics.getActiveConnections = async function () {
                 'WebsocketConnection requires a message sender. Call WebsocketConnection.setMessageSender() first, e.g.:\n' +
                 '  const { ApiGatewayMessageSender } = require("@friggframework/provider-aws");\n' +
                 '  WebsocketConnection.setMessageSender(new ApiGatewayMessageSender());\n' +
-                'See docs/adr/001-decouple-aws-from-core.md for migration guide.'
+                'See docs/architecture-decisions/010-decouple-aws-from-core.md for migration guide.'
             );
         }
 

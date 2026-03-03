@@ -176,7 +176,7 @@ router.get(
         const stage = req.query.stage || process.env.STAGE || 'production';
 
         console.log(
-            `Checking database state: stage=${stage}, worker=${workerFunctionName}`
+            `Checking database state: stage=${stage}`
         );
 
         try {

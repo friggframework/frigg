@@ -11,7 +11,7 @@ Customers and community members want to deploy Frigg integrations to platforms b
 
 ### Requirements
 
-1. Existing AWS deployments must work unchanged (zero breaking changes).
+1. Existing AWS deployments must work with minimal migration (see ADR-010 for breaking changes and migration guide).
 2. A single `provider` field in the app definition switches the entire toolchain.
 3. Provider-specific code lives in separate, installable packages.
 4. Core framework code must not import provider-specific modules directly.
@@ -166,13 +166,14 @@ packages/
 │       ├── queue-provider.js            # Base class
 │       └── providers/
 │           └── netlify-background-provider.js
-├── devtools/
-│   ├── frigg-cli/
-│   │   ├── utils/provider-helper.js     # CLI provider loading
-│   │   ├── deploy-command/              # Provider dispatch
-│   │   ├── build-command/               # Provider dispatch
-│   │   └── start-command/               # Provider dispatch
-│   └── provider-netlify/                # @friggframework/provider-netlify
+├── providers/
+│   ├── aws/                             # @friggframework/provider-aws
+│   │   ├── queues/sqs-queue-client.js
+│   │   ├── encryption/kms-encryption-key-provider.js
+│   │   ├── websocket/api-gateway-message-sender.js
+│   │   ├── lambda/lambda-invoker.js
+│   │   └── storage/migration-status-repository-s3.js
+│   └── netlify/                         # @friggframework/provider-netlify
 │       ├── index.js                     # Plugin interface export
 │       └── lib/
 │           ├── generate-netlify-config.js
@@ -180,11 +181,17 @@ packages/
 │           ├── netlify-background-provider.js
 │           ├── scheduled-job-repository.js
 │           └── ...
+├── devtools/
+│   └── frigg-cli/
+│       ├── utils/provider-helper.js     # CLI provider loading
+│       ├── deploy-command/              # Provider dispatch
+│       ├── build-command/               # Provider dispatch
+│       └── start-command/               # Provider dispatch
 ```
 
 ## How to Add a New Provider
 
-1. Create `packages/devtools/provider-{name}/` implementing the plugin interface.
+1. Create `packages/providers/{name}/` implementing the plugin interface.
 2. Add the name to `KNOWN_PROVIDERS` in `resolve-provider.js`.
 3. Run the existing provider dispatch tests — they should pass without changes.
 4. Add provider-specific tests in the new package.
@@ -241,15 +248,15 @@ Instead of rejecting `doctor`/`repair`/`generate-iam` for non-AWS providers, imp
 | CLI provider helper | `frigg-cli/utils/__tests__/provider-helper.test.js` | 4 |
 | Provider dispatch (CLI commands) | `frigg-cli/__tests__/unit/commands/provider-dispatch.test.js` | 9 |
 | Netlify scheduler adapter | `core/infrastructure/scheduler/netlify-scheduler-adapter.test.js` | 23 |
-| Scheduled job repository | `provider-netlify/__tests__/scheduled-job-repository.test.js` | 9 |
-| Netlify plugin interface | `provider-netlify/__tests__/provider-plugin-interface.test.js` | — |
-| Netlify config generation | `provider-netlify/__tests__/generate-netlify-config.test.js` | — |
-| Netlify deploy | `provider-netlify/__tests__/deploy.test.js` | — |
-| Netlify validate | `provider-netlify/__tests__/validate.test.js` | — |
+| Scheduled job repository | `packages/providers/netlify/__tests__/scheduled-job-repository.test.js` | 9 |
+| Netlify plugin interface | `packages/providers/netlify/__tests__/provider-plugin-interface.test.js` | — |
+| Netlify config generation | `packages/providers/netlify/__tests__/generate-netlify-config.test.js` | — |
+| Netlify deploy | `packages/providers/netlify/__tests__/deploy.test.js` | — |
+| Netlify validate | `packages/providers/netlify/__tests__/validate.test.js` | — |
 
 ## References
 
-- Plugin interface: `packages/devtools/provider-netlify/index.js`
+- Plugin interface: `packages/providers/netlify/index.js`
 - Resolution chain: `packages/core/providers/resolve-provider.js`
 - Scheduler interface: `packages/core/infrastructure/scheduler/scheduler-service-interface.js`
 - Queue provider base: `packages/core/queues/queue-provider.js`

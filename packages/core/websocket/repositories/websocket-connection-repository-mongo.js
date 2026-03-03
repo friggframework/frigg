@@ -17,7 +17,7 @@ const {
  * BREAKING CHANGE (v3): A messageSender must be explicitly provided for
  * WebSocket send functionality. For AWS API Gateway, pass
  * `new ApiGatewayMessageSender()` from @friggframework/provider-aws.
- * See docs/adr/001-decouple-aws-from-core.md for migration guide.
+ * See docs/architecture-decisions/010-decouple-aws-from-core.md for migration guide.
  */
 class WebsocketConnectionRepositoryMongo extends WebsocketConnectionRepositoryInterface {
     constructor(messageSender = null) {
@@ -84,7 +84,7 @@ class WebsocketConnectionRepositoryMongo extends WebsocketConnectionRepositoryIn
                     'Pass one via constructor, e.g.:\n' +
                     '  const { ApiGatewayMessageSender } = require("@friggframework/provider-aws");\n' +
                     '  new WebsocketConnectionRepositoryMongo(new ApiGatewayMessageSender())\n' +
-                    'See docs/adr/001-decouple-aws-from-core.md for migration guide.'
+                    'See docs/architecture-decisions/010-decouple-aws-from-core.md for migration guide.'
                 );
             }
             const sender = this._messageSender;

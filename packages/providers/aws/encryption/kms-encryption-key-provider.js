@@ -13,6 +13,16 @@ const {
     EncryptionKeyProviderInterface,
 } = require('@friggframework/core/encrypt/encryption-key-provider-interface');
 
+let _kmsClient = null;
+
+function getKmsClient() {
+    if (!_kmsClient) {
+        const { KMSClient } = require('@aws-sdk/client-kms');
+        _kmsClient = new KMSClient({});
+    }
+    return _kmsClient;
+}
+
 class KmsEncryptionKeyProvider extends EncryptionKeyProviderInterface {
     /**
      * Generate a data encryption key via KMS GenerateDataKeyCommand
@@ -23,14 +33,12 @@ class KmsEncryptionKeyProvider extends EncryptionKeyProviderInterface {
      * @returns {Promise<{keyId: string, encryptedKey: string, plaintext: Buffer}>}
      */
     async generateDataKey() {
-        const { KMSClient, GenerateDataKeyCommand } =
-            require('@aws-sdk/client-kms');
-        const kmsClient = new KMSClient({});
+        const { GenerateDataKeyCommand } = require('@aws-sdk/client-kms');
         const command = new GenerateDataKeyCommand({
             KeyId: process.env.KMS_KEY_ARN,
             KeySpec: 'AES_256',
         });
-        const dataKey = await kmsClient.send(command);
+        const dataKey = await getKmsClient().send(command);
 
         const keyId = Buffer.from(dataKey.KeyId).toString('base64');
         const encryptedKey = Buffer.from(dataKey.CiphertextBlob).toString(
@@ -48,13 +56,12 @@ class KmsEncryptionKeyProvider extends EncryptionKeyProviderInterface {
      * @returns {Promise<Buffer>} Decrypted plaintext DEK
      */
     async decryptDataKey(keyId, encryptedKey) {
-        const { KMSClient, DecryptCommand } = require('@aws-sdk/client-kms');
-        const kmsClient = new KMSClient({});
+        const { DecryptCommand } = require('@aws-sdk/client-kms');
         const command = new DecryptCommand({
             KeyId: keyId,
             CiphertextBlob: encryptedKey,
         });
-        const dataKey = await kmsClient.send(command);
+        const dataKey = await getKmsClient().send(command);
 
         return dataKey.Plaintext;
     }

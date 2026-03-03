@@ -11,7 +11,7 @@ const { get } = require('../assertions');
  *
  * BREAKING CHANGE (v3): A queueClient must be explicitly provided.
  * For AWS/SQS, pass `new SqsQueueClient()` from @friggframework/provider-aws.
- * See docs/adr/001-decouple-aws-from-core.md for migration guide.
+ * See docs/architecture-decisions/010-decouple-aws-from-core.md for migration guide.
  */
 class Worker {
     constructor(options = {}) {
@@ -28,7 +28,7 @@ class Worker {
                 'Worker requires a queueClient. Pass one via constructor options, e.g.:\n' +
                 '  const { SqsQueueClient } = require("@friggframework/provider-aws");\n' +
                 '  new MyWorker({ queueClient: new SqsQueueClient() })\n' +
-                'See docs/adr/001-decouple-aws-from-core.md for migration guide.'
+                'See docs/architecture-decisions/010-decouple-aws-from-core.md for migration guide.'
             );
         }
         return this._queueClient;
