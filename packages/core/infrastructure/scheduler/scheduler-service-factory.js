@@ -4,48 +4,45 @@
  * Creates scheduler service instances based on configuration.
  * Returns implementations of SchedulerServiceInterface.
  *
+ * Uses the provider plugin system (resolveProvider) to load the correct
+ * scheduler adapter for the active platform (AWS, Netlify, etc.).
+ *
  * Environment Detection:
- * - SCHEDULER_PROVIDER=eventbridge -> Use AWS EventBridge Scheduler
  * - SCHEDULER_PROVIDER=mock -> Use in-memory mock scheduler
  * - Default in dev/test/local stages -> Mock scheduler
- * - Default in other stages -> EventBridge scheduler
+ * - Otherwise -> Resolved provider's SchedulerAdapter
  */
 
-// Adapters are lazily required to avoid pulling in heavy SDK deps
-// (e.g. @aws-sdk/client-scheduler) when they won't be used.
+const { resolveProvider } = require('../../providers/resolve-provider');
 
 const SCHEDULER_PROVIDERS = {
-    EVENTBRIDGE: 'eventbridge',
     MOCK: 'mock',
-    NETLIFY: 'netlify',
 };
 
 const LOCAL_STAGES = ['dev', 'test', 'local'];
 
 /**
- * Determine the scheduler provider based on environment
+ * Determine if mock scheduler should be used
  *
- * @returns {string} Provider name
+ * @param {string} [explicit] - Explicit provider override
+ * @returns {boolean}
  */
-function determineProvider() {
-    const explicitProvider = process.env.SCHEDULER_PROVIDER;
-    if (explicitProvider) {
-        return explicitProvider;
+function shouldUseMock(explicit) {
+    if (explicit === SCHEDULER_PROVIDERS.MOCK) {
+        return true;
     }
-
-    const stage = process.env.STAGE || 'dev';
-    if (LOCAL_STAGES.includes(stage)) {
-        return SCHEDULER_PROVIDERS.MOCK;
+    if (!explicit) {
+        const stage = process.env.STAGE || 'dev';
+        return LOCAL_STAGES.includes(stage);
     }
-
-    return SCHEDULER_PROVIDERS.EVENTBRIDGE;
+    return false;
 }
 
 /**
  * Create a scheduler service instance
  *
  * @param {Object} options
- * @param {string} options.provider - Scheduler provider ('eventbridge', 'mock', or 'netlify')
+ * @param {string} options.provider - Scheduler provider ('mock', or omit for auto-detect)
  * @param {string} options.region - AWS region (for EventBridge)
  * @param {boolean} options.verbose - Verbose logging (for Mock)
  * @param {Object} options.repository - Schedule repository (for Netlify - persists schedules)
@@ -53,35 +50,31 @@ function determineProvider() {
  * @returns {SchedulerServiceInterface} Implementation of scheduler interface
  */
 function createSchedulerService(options = {}) {
-    const provider = options.provider || determineProvider();
+    const explicit = options.provider || process.env.SCHEDULER_PROVIDER;
 
-    switch (provider) {
-        case SCHEDULER_PROVIDERS.EVENTBRIDGE: {
-            const { EventBridgeSchedulerAdapter } = require('@friggframework/provider-aws');
-            return new EventBridgeSchedulerAdapter({
-                region: options.region,
-            });
-        }
-        case SCHEDULER_PROVIDERS.MOCK: {
-            const { MockSchedulerAdapter } = require('./mock-scheduler-adapter');
-            return new MockSchedulerAdapter({
-                verbose: options.verbose,
-            });
-        }
-        case SCHEDULER_PROVIDERS.NETLIFY: {
-            const { NetlifySchedulerAdapter } = require('./netlify-scheduler-adapter');
-            return new NetlifySchedulerAdapter({
-                repository: options.repository,
-                queueProvider: options.queueProvider,
-            });
-        }
-        default:
-            throw new Error(`Unknown scheduler provider: ${provider}`);
+    if (shouldUseMock(explicit)) {
+        const { MockSchedulerAdapter } = require('./mock-scheduler-adapter');
+        return new MockSchedulerAdapter({ verbose: options.verbose });
     }
+
+    // Use the resolved provider's scheduler adapter.
+    // Legacy SCHEDULER_PROVIDER values (eventbridge, netlify) are mapped
+    // to provider names for backward compatibility.
+    const LEGACY_MAP = { eventbridge: 'aws', netlify: 'netlify' };
+    const providerName = LEGACY_MAP[explicit] || explicit;
+    const providerOverride = providerName ? { provider: providerName } : {};
+    const provider = resolveProvider(null, providerOverride);
+
+    const Adapter = provider.SchedulerAdapter;
+    if (!Adapter) {
+        throw new Error(
+            `Provider '${provider.name}' does not export a SchedulerAdapter`
+        );
+    }
+    return new Adapter(options);
 }
 
 module.exports = {
     createSchedulerService,
     SCHEDULER_PROVIDERS,
-    determineProvider,
 };

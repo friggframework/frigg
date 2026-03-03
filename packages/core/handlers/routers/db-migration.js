@@ -21,10 +21,7 @@
 const { Router } = require('express');
 const catchAsyncError = require('express-async-handler');
 const { validateAdminApiKey } = require('../middleware/admin-auth');
-// Lazy-loaded from provider-aws to avoid pulling in @aws-sdk/client-s3 on non-AWS platforms
-function getMigrationStatusRepositoryS3() {
-    return require('@friggframework/provider-aws').MigrationStatusRepositoryS3;
-}
+const { resolveProvider } = require('../../providers/resolve-provider');
 const {
     TriggerDatabaseMigrationUseCase,
     ValidationError: TriggerValidationError,
@@ -34,43 +31,53 @@ const {
     ValidationError: GetValidationError,
     NotFoundError,
 } = require('../../database/use-cases/get-migration-status-use-case');
-// Lazy-loaded from provider-aws to avoid pulling in @aws-sdk/client-lambda on non-AWS platforms
-function getLambdaInvoker() {
-    return require('@friggframework/provider-aws').LambdaInvoker;
-}
 const {
     GetDatabaseStateViaWorkerUseCase,
 } = require('../../database/use-cases/get-database-state-via-worker-use-case');
 
 const router = Router();
 
-// Dependency injection — lazy-initialized on first request to avoid
-// pulling in AWS SDKs at module load time on non-AWS platforms.
+// Dependency injection — lazy-initialized on first request.
+// Uses resolveProvider() to get the correct adapters for the active platform.
 let _migrationStatusRepository = null;
 let _triggerMigrationUseCase = null;
 let _getStatusUseCase = null;
-let _lambdaInvoker = null;
+let _functionInvoker = null;
 
 function getMigrationDeps() {
     if (!_migrationStatusRepository) {
-        const MigrationStatusRepositoryS3 = getMigrationStatusRepositoryS3();
+        const provider = resolveProvider();
+
+        // Migration status storage (AWS: S3, others: provider-specific)
+        const MigrationStatusRepository = provider.MigrationStatusRepositoryS3;
+        if (!MigrationStatusRepository) {
+            throw new Error(
+                `Provider '${provider.name}' does not export a MigrationStatusRepository`
+            );
+        }
         const bucketName =
             process.env.S3_BUCKET_NAME || process.env.MIGRATION_STATUS_BUCKET;
-        _migrationStatusRepository = new MigrationStatusRepositoryS3(bucketName);
+        _migrationStatusRepository = new MigrationStatusRepository(bucketName);
         _triggerMigrationUseCase = new TriggerDatabaseMigrationUseCase({
             migrationStatusRepository: _migrationStatusRepository,
         });
         _getStatusUseCase = new GetMigrationStatusUseCase({
             migrationStatusRepository: _migrationStatusRepository,
         });
-        const LambdaInvoker = getLambdaInvoker();
-        _lambdaInvoker = new LambdaInvoker();
+
+        // Function invoker (AWS: LambdaInvoker, Netlify: HTTP-based)
+        _functionInvoker = provider.invokeFunctionAdapter;
+        if (!_functionInvoker) {
+            throw new Error(
+                `Provider '${provider.name}' does not export an invokeFunctionAdapter`
+            );
+        }
     }
     return {
         migrationStatusRepository: _migrationStatusRepository,
         triggerMigrationUseCase: _triggerMigrationUseCase,
         getStatusUseCase: _getStatusUseCase,
-        lambdaInvoker: _lambdaInvoker,
+        lambdaInvoker: _functionInvoker,
     };
 }
 let _getDatabaseStateUseCase = null;

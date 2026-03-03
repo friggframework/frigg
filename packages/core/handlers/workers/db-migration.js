@@ -52,15 +52,22 @@ const {
 // Inject prisma-runner as dependency
 const prismaRunner = require('../../database/utils/prisma-runner');
 
-// S3 repository is lazy-loaded from provider-aws to avoid pulling in
-// @aws-sdk/client-s3 on non-AWS platforms.
+// Migration status repository is loaded from the resolved provider.
+const { resolveProvider } = require('../../providers/resolve-provider');
+
 let _migrationStatusRepository = null;
 function getMigrationStatusRepository() {
     if (!_migrationStatusRepository) {
-        const { MigrationStatusRepositoryS3 } = require('@friggframework/provider-aws');
+        const provider = resolveProvider();
+        const MigrationStatusRepository = provider.MigrationStatusRepositoryS3;
+        if (!MigrationStatusRepository) {
+            throw new Error(
+                `Provider '${provider.name}' does not export a MigrationStatusRepository`
+            );
+        }
         const bucketName =
             process.env.S3_BUCKET_NAME || process.env.MIGRATION_STATUS_BUCKET;
-        _migrationStatusRepository = new MigrationStatusRepositoryS3(bucketName);
+        _migrationStatusRepository = new MigrationStatusRepository(bucketName);
     }
     return _migrationStatusRepository;
 }

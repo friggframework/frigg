@@ -4,32 +4,26 @@
  * Provides scheduling capabilities for one-time jobs.
  * Follows hexagonal architecture with interface + adapters pattern.
  *
- * Providers:
- * - eventbridge: AWS EventBridge Scheduler (production on AWS)
- * - netlify: Netlify poll-and-dispatch scheduler (production on Netlify)
- * - mock: In-memory mock scheduler (local development)
+ * Use createSchedulerService() to get the correct adapter for the
+ * active provider. The factory uses resolveProvider() internally.
  *
- * IMPORTANT: Adapter classes are lazily loaded via getters so that
- * requiring this barrel does NOT pull in heavy SDK deps
- * (e.g. @aws-sdk/client-scheduler) unless the adapter is actually used.
+ * Adapters:
+ * - AWS EventBridge: via @friggframework/provider-aws (SchedulerAdapter)
+ * - Netlify: NetlifySchedulerAdapter (ships with core, no AWS deps)
+ * - Mock: MockSchedulerAdapter (local development)
  */
 
 const { SchedulerServiceInterface } = require('./scheduler-service-interface');
 const {
     createSchedulerService,
     SCHEDULER_PROVIDERS,
-    determineProvider,
 } = require('./scheduler-service-factory');
 
-// Lazy-loaded adapter classes — only resolved on first property access
 module.exports = {
     // Interface (Port)
     SchedulerServiceInterface,
 
-    // Adapters — lazy to avoid eager require of @aws-sdk/client-scheduler
-    get EventBridgeSchedulerAdapter() {
-        return require('@friggframework/provider-aws').EventBridgeSchedulerAdapter;
-    },
+    // Core adapters (no external SDK dependencies)
     get MockSchedulerAdapter() {
         return require('./mock-scheduler-adapter').MockSchedulerAdapter;
     },
@@ -37,8 +31,7 @@ module.exports = {
         return require('./netlify-scheduler-adapter').NetlifySchedulerAdapter;
     },
 
-    // Factory (also lazy-loads adapters internally)
+    // Factory — resolves the correct adapter via provider plugin system
     createSchedulerService,
     SCHEDULER_PROVIDERS,
-    determineProvider,
 };

@@ -93,30 +93,32 @@ const validateApiKey = (req, res, next) => {
 
 router.use(validateApiKey);
 
-// AWS-specific health checks (VPC, KMS) are lazy-loaded from provider-aws
-// to avoid pulling in @aws-sdk on non-AWS platforms.
-function getAwsHealthChecks() {
+// Provider-specific health checks are loaded via resolveProvider()
+// so core doesn't hardcode any provider package names.
+const { resolveProvider } = require('../../providers/resolve-provider');
+
+function getResolvedProvider() {
     try {
-        return require('@friggframework/provider-aws/health/kms-health-check');
+        return resolveProvider();
     } catch {
         return null;
     }
 }
 
 const checkKmsDecryptCapability = async () => {
-    const awsHealth = getAwsHealthChecks();
-    if (!awsHealth) {
-        return { status: 'skipped', reason: 'AWS provider not available' };
+    const provider = getResolvedProvider();
+    if (!provider?.checkKmsDecryptCapability) {
+        return { status: 'skipped', reason: 'Provider does not support KMS health checks' };
     }
-    return awsHealth.checkKmsDecryptCapability();
+    return provider.checkKmsDecryptCapability();
 };
 
 const detectVpcConfiguration = async () => {
-    const awsHealth = getAwsHealthChecks();
-    if (!awsHealth) {
-        return { status: 'skipped', reason: 'AWS provider not available' };
+    const provider = getResolvedProvider();
+    if (!provider?.detectVpcConfiguration) {
+        return { status: 'skipped', reason: 'Provider does not support VPC detection' };
     }
-    return awsHealth.detectVpcConfiguration();
+    return provider.detectVpcConfiguration();
 };
 
 router.get('/health', async (_req, res) => {
