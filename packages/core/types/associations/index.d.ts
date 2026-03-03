@@ -1,7 +1,5 @@
 declare module "@friggframework/associations/model" {
-  import { Model } from "mongoose";
-
-  export class Association extends Model {
+  export interface Association {
     integrationId: string;
     name: string;
     type: string;

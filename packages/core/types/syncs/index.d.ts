@@ -1,7 +1,5 @@
 declare module "@friggframework/syncs/model" {
-  import { Model } from "mongoose";
-
-  export class Sync extends Model {
+  export interface Sync {
     entities: any[];
     hash: string;
     name: string;

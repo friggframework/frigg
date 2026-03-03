@@ -8,18 +8,13 @@ const {
     collectionExists,
 } = require('./mongodb-collection-utils');
 
-// Mock mongoose
-const mockMongoose = {
-    connection: {
-        db: {
-            listCollections: jest.fn(),
-            createCollection: jest.fn(),
-        },
-    },
+// Mock prisma
+const mockPrisma = {
+    $runCommandRaw: jest.fn(),
 };
 
-jest.mock('../mongoose', () => ({
-    mongoose: mockMongoose,
+jest.mock('../prisma', () => ({
+    prisma: mockPrisma,
 }));
 
 describe('MongoDB Collection Utilities', () => {
@@ -30,43 +25,44 @@ describe('MongoDB Collection Utilities', () => {
     describe('ensureCollectionExists', () => {
         it('should create collection if it does not exist', async () => {
             // Mock: collection doesn't exist
-            mockMongoose.connection.db.listCollections.mockReturnValue({
-                toArray: jest.fn().mockResolvedValue([]),
-            });
-            mockMongoose.connection.db.createCollection.mockResolvedValue(true);
+            mockPrisma.$runCommandRaw
+                .mockResolvedValueOnce({ cursor: { firstBatch: [] } }) // listCollections
+                .mockResolvedValueOnce({ ok: 1 }); // create
 
             await ensureCollectionExists('TestCollection');
 
-            expect(mockMongoose.connection.db.listCollections).toHaveBeenCalledWith({
-                name: 'TestCollection',
+            expect(mockPrisma.$runCommandRaw).toHaveBeenCalledWith({
+                listCollections: 1,
+                filter: { name: 'TestCollection' },
             });
-            expect(mockMongoose.connection.db.createCollection).toHaveBeenCalledWith(
-                'TestCollection'
-            );
+            expect(mockPrisma.$runCommandRaw).toHaveBeenCalledWith({
+                create: 'TestCollection',
+            });
         });
 
         it('should not create collection if it already exists', async () => {
             // Mock: collection exists
-            mockMongoose.connection.db.listCollections.mockReturnValue({
-                toArray: jest.fn().mockResolvedValue([{ name: 'TestCollection' }]),
+            mockPrisma.$runCommandRaw.mockResolvedValueOnce({
+                cursor: { firstBatch: [{ name: 'TestCollection' }] },
             });
 
             await ensureCollectionExists('TestCollection');
 
-            expect(mockMongoose.connection.db.listCollections).toHaveBeenCalledWith({
-                name: 'TestCollection',
+            expect(mockPrisma.$runCommandRaw).toHaveBeenCalledWith({
+                listCollections: 1,
+                filter: { name: 'TestCollection' },
             });
-            expect(mockMongoose.connection.db.createCollection).not.toHaveBeenCalled();
+            expect(mockPrisma.$runCommandRaw).toHaveBeenCalledTimes(1);
         });
 
         it('should not throw if collection creation fails with NamespaceExists error', async () => {
             // Mock: collection doesn't exist in list, but creation fails (race condition)
-            mockMongoose.connection.db.listCollections.mockReturnValue({
-                toArray: jest.fn().mockResolvedValue([]),
+            mockPrisma.$runCommandRaw.mockResolvedValueOnce({
+                cursor: { firstBatch: [] },
             });
             const error = new Error('Collection already exists');
             error.codeName = 'NamespaceExists';
-            mockMongoose.connection.db.createCollection.mockRejectedValue(error);
+            mockPrisma.$runCommandRaw.mockRejectedValueOnce(error);
 
             // Should not throw
             await expect(ensureCollectionExists('TestCollection')).resolves.not.toThrow();
@@ -76,9 +72,7 @@ describe('MongoDB Collection Utilities', () => {
             const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
             // Mock: listCollections fails
-            mockMongoose.connection.db.listCollections.mockReturnValue({
-                toArray: jest.fn().mockRejectedValue(new Error('Connection error')),
-            });
+            mockPrisma.$runCommandRaw.mockRejectedValueOnce(new Error('Connection error'));
 
             // Should not throw
             await expect(ensureCollectionExists('TestCollection')).resolves.not.toThrow();
@@ -91,30 +85,32 @@ describe('MongoDB Collection Utilities', () => {
     describe('ensureCollectionsExist', () => {
         it('should ensure multiple collections exist', async () => {
             // Mock: no collections exist
-            mockMongoose.connection.db.listCollections.mockReturnValue({
-                toArray: jest.fn().mockResolvedValue([]),
+            mockPrisma.$runCommandRaw.mockImplementation((cmd) => {
+                if (cmd.listCollections) {
+                    return Promise.resolve({ cursor: { firstBatch: [] } });
+                }
+                if (cmd.create) {
+                    return Promise.resolve({ ok: 1 });
+                }
             });
-            mockMongoose.connection.db.createCollection.mockResolvedValue(true);
 
             await ensureCollectionsExist(['Collection1', 'Collection2', 'Collection3']);
 
-            expect(mockMongoose.connection.db.createCollection).toHaveBeenCalledTimes(3);
-            expect(mockMongoose.connection.db.createCollection).toHaveBeenCalledWith(
-                'Collection1'
+            // 3 listCollections + 3 creates = 6 calls
+            const createCalls = mockPrisma.$runCommandRaw.mock.calls.filter(
+                ([cmd]) => cmd.create
             );
-            expect(mockMongoose.connection.db.createCollection).toHaveBeenCalledWith(
-                'Collection2'
-            );
-            expect(mockMongoose.connection.db.createCollection).toHaveBeenCalledWith(
-                'Collection3'
-            );
+            expect(createCalls).toHaveLength(3);
+            expect(createCalls[0][0]).toEqual({ create: 'Collection1' });
+            expect(createCalls[1][0]).toEqual({ create: 'Collection2' });
+            expect(createCalls[2][0]).toEqual({ create: 'Collection3' });
         });
     });
 
     describe('collectionExists', () => {
         it('should return true if collection exists', async () => {
-            mockMongoose.connection.db.listCollections.mockReturnValue({
-                toArray: jest.fn().mockResolvedValue([{ name: 'TestCollection' }]),
+            mockPrisma.$runCommandRaw.mockResolvedValueOnce({
+                cursor: { firstBatch: [{ name: 'TestCollection' }] },
             });
 
             const exists = await collectionExists('TestCollection');
@@ -123,8 +119,8 @@ describe('MongoDB Collection Utilities', () => {
         });
 
         it('should return false if collection does not exist', async () => {
-            mockMongoose.connection.db.listCollections.mockReturnValue({
-                toArray: jest.fn().mockResolvedValue([]),
+            mockPrisma.$runCommandRaw.mockResolvedValueOnce({
+                cursor: { firstBatch: [] },
             });
 
             const exists = await collectionExists('TestCollection');
@@ -135,9 +131,7 @@ describe('MongoDB Collection Utilities', () => {
         it('should return false on error', async () => {
             const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
 
-            mockMongoose.connection.db.listCollections.mockReturnValue({
-                toArray: jest.fn().mockRejectedValue(new Error('Connection error')),
-            });
+            mockPrisma.$runCommandRaw.mockRejectedValueOnce(new Error('Connection error'));
 
             const exists = await collectionExists('TestCollection');
 

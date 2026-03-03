@@ -13,7 +13,7 @@
  *
  * Database-Agnostic Design:
  * - Uses repository pattern for raw database access (getRawCredentialById)
- * - MongoDB: Uses Mongoose for raw collection access
+ * - MongoDB: Uses Prisma $runCommandRaw for raw collection access
  * - PostgreSQL: Uses Prisma $queryRaw for raw SQL queries
  * - Field names match Prisma schema (userId, externalId, not user_id/entity_id)
  * - Uses externalId (string) for test data instead of userId (ObjectId reference)
@@ -46,7 +46,6 @@ jest.mock('../config', () => ({
 
 const { prisma, connectPrisma, disconnectPrisma } = require('../prisma');
 const { createHealthCheckRepository } = require('../repositories/health-check-repository-factory');
-const { mongoose } = require('../mongoose');
 
 describe('Field-Level Encryption Integration Tests', () => {
     const testExternalId = 'test-encryption-integration-id';
@@ -74,10 +73,6 @@ describe('Field-Level Encryption Integration Tests', () => {
 
     beforeAll(async () => {
         await connectPrisma();
-        // Connect mongoose for raw database queries
-        if (mongoose.connection.readyState === 0) {
-            await mongoose.connect(process.env.DATABASE_URL);
-        }
         repository = createHealthCheckRepository({ prismaClient: prisma });
     });
 
@@ -86,7 +81,6 @@ describe('Field-Level Encryption Integration Tests', () => {
         await prisma.credential.deleteMany({
             where: { externalId: { startsWith: 'test-encryption-' } },
         });
-        await mongoose.disconnect();
         await disconnectPrisma();
     });
 
@@ -488,7 +482,6 @@ describe('Field-Level Encryption Integration Tests', () => {
         it('should handle malformed encrypted data gracefully', async () => {
             let created;
             try {
-                // Create a credential first to get a valid ID
                 created = await prisma.credential.create({
                     data: {
                         externalId: 'test-encryption-malformed-entity',
@@ -499,47 +492,30 @@ describe('Field-Level Encryption Integration Tests', () => {
                     },
                 });
 
-                // Manually corrupt the encrypted data in the database
-                // Use realistic corrupted format: 4 colon-separated parts (passes _isEncrypted check)
-                // but contains invalid base64 that will fail during decryption
+                // Manually corrupt the encrypted data using $runCommandRaw
                 const { ObjectId } = require('mongodb');
-                const dbType = 'mongodb';
-                if (dbType === 'mongodb') {
-                    const { mongoose } = require('../mongoose');
-                    // Ensure mongoose is connected
-                    if (mongoose.connection.readyState !== 1) {
-                        await mongoose.connect(process.env.DATABASE_URL);
-                    }
-                    await mongoose.connection.db.collection('Credential').updateOne(
-                        { _id: new ObjectId(created.id) },
-                        { $set: { 'data.access_token': 'CORRUPT:INVALID:DATA:FAKE=' } }
-                    );
-                } else {
-                    // PostgreSQL - use raw query to corrupt data
-                    await prisma.$executeRaw`
-                        UPDATE "Credential"
-                        SET data = jsonb_set(data, '{access_token}', '"CORRUPT:INVALID:DATA:FAKE="')
-                        WHERE id = ${created.id}
-                    `;
-                }
+                await prisma.$runCommandRaw({
+                    update: 'Credential',
+                    updates: [{
+                        q: { _id: { $oid: created.id } },
+                        u: { $set: { 'data.access_token': 'CORRUPT:INVALID:DATA:FAKE=' } },
+                    }],
+                });
 
-                // Attempt to read should fail with decryption error
-                // Fix: Remove async wrapper - expect needs the promise directly for .rejects to work
                 await expect(
                     prisma.credential.findUnique({
                         where: { id: created.id },
                     })
                 ).rejects.toThrow();
             } finally {
-                // Cleanup - ensure it runs even if test throws
-                // Use raw database delete to bypass Prisma encryption extension
-                // (the encrypted data is corrupted so Prisma delete would fail)
                 if (created) {
-                    const { ObjectId } = require('mongodb');
-                    const { mongoose } = require('../mongoose');
-                    await mongoose.connection.db.collection('Credential').deleteOne(
-                        { _id: new ObjectId(created.id) }
-                    );
+                    await prisma.$runCommandRaw({
+                        delete: 'Credential',
+                        deletes: [{
+                            q: { _id: { $oid: created.id } },
+                            limit: 1,
+                        }],
+                    });
                 }
             }
         });

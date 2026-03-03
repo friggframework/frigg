@@ -8,10 +8,8 @@ const {
 } = require('./mongodb-schema-init');
 
 // Mock dependencies
-const mockMongoose = {
-    connection: {
-        readyState: 1, // connected
-    },
+const mockPrisma = {
+    $runCommandRaw: jest.fn().mockResolvedValue({ ok: 1 }),
 };
 
 const mockEnsureCollectionsExist = jest.fn().mockResolvedValue(undefined);
@@ -21,8 +19,8 @@ const mockGetCollectionsFromSchemaSync = jest.fn().mockReturnValue([
     'Association', 'AssociationObject', 'State', 'WebsocketConnection'
 ]);
 
-jest.mock('../mongoose', () => ({
-    mongoose: mockMongoose,
+jest.mock('../prisma', () => ({
+    prisma: mockPrisma,
 }));
 
 jest.mock('./mongodb-collection-utils', () => ({
@@ -43,7 +41,7 @@ describe('MongoDB Schema Initialization', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         mockConfig.DB_TYPE = 'mongodb';
-        mockMongoose.connection.readyState = 1;
+        mockPrisma.$runCommandRaw.mockResolvedValue({ ok: 1 });
         console.log = jest.fn();
         console.error = jest.fn();
         console.warn = jest.fn();
@@ -83,7 +81,7 @@ describe('MongoDB Schema Initialization', () => {
         });
 
         it('should throw error if database not connected', async () => {
-            mockMongoose.connection.readyState = 0; // disconnected
+            mockPrisma.$runCommandRaw.mockRejectedValueOnce(new Error('Connection refused'));
 
             await expect(initializeMongoDBSchema()).rejects.toThrow(
                 'Cannot initialize MongoDB schema - database not connected'

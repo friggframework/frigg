@@ -14,17 +14,9 @@ const {
     createHandler,
 } = require('./core/index');
 const {
-    mongoose,
-    connectToDatabase,
-    disconnectFromDatabase,
-    createObjectId,
-    IndividualUser,
-    OrganizationUser,
-    State,
-    Token,
-    UserModel,
-    WebsocketConnection,
     prisma,
+    connectPrisma,
+    disconnectPrisma,
     TokenRepository,
     WebsocketConnectionRepository,
 } = require('./database/index');
@@ -95,8 +87,6 @@ const {
 const application = require('./application');
 const utils = require('./utils');
 
-// const {Sync } = require('./syncs/model');
-
 const { QueuerUtil } = require('./queues');
 
 module.exports = {
@@ -116,17 +106,9 @@ module.exports = {
     createHandler,
 
     // database
-    mongoose,
-    connectToDatabase,
-    disconnectFromDatabase,
-    createObjectId,
-    IndividualUser,
-    OrganizationUser,
-    State,
-    Token,
-    UserModel,
-    WebsocketConnection,
     prisma,
+    connectPrisma,
+    disconnectPrisma,
     TokenRepository,
     WebsocketConnectionRepository,
     createUserRepository,

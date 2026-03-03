@@ -32,7 +32,6 @@ const bcrypt = require('bcryptjs');
 const { LoginUser } = require('../use-cases/login-user');
 const { createUserRepository } = require('../repositories/user-repository-factory');
 const { prisma, connectPrisma, disconnectPrisma } = require('../../database/prisma');
-const { mongoose } = require('../../database/mongoose');
 
 describe('Password Hashing Verification - Both Databases', () => {
     const dbType = process.env.DB_TYPE || 'mongodb';
@@ -49,23 +48,18 @@ describe('Password Hashing Verification - Both Databases', () => {
 
     beforeAll(async () => {
         await connectPrisma();
-        // Connect mongoose for raw database queries
-        if (mongoose.connection.readyState === 0) {
-            await mongoose.connect(process.env.DATABASE_URL);
-        }
         userRepository = createUserRepository();
-    }, 30000); // 30 second timeout for database connection
+    }, 30000);
 
     afterAll(async () => {
         if (testUserId) {
             await userRepository.deleteUser(testUserId).catch(() => {});
         }
-        await mongoose.disconnect();
         await disconnectPrisma();
-    }, 30000); // 30 second timeout for cleanup
+    }, 30000);
 
     describe(`${dbType.toUpperCase()} - Password Hashing`, () => {
-        test('✅ Password is bcrypt hashed on user creation', async () => {
+        test('Password is bcrypt hashed on user creation', async () => {
             const user = await userRepository.createIndividualUser({
                 username: TEST_USERNAME,
                 hashword: TEST_PASSWORD,
@@ -78,37 +72,31 @@ describe('Password Hashing Verification - Both Databases', () => {
             expect(user.hashword).toMatch(/^\$2[ab]\$\d{2}\$/);
             expect(user.hashword.length).toBeGreaterThan(50);
             expect(user.hashword).not.toContain(':');
-
-            console.log('✅ Password hashed correctly:', user.hashword.substring(0, 20) + '...');
         });
 
-        test('✅ Stored hashword is bcrypt format, NOT encrypted', async () => {
+        test('Stored hashword is bcrypt format, NOT encrypted', async () => {
             const user = await userRepository.findIndividualUserByUsername(TEST_USERNAME);
 
             expect(user.hashword).toMatch(/^\$2[ab]\$\d{2}\$/);
             expect(user.hashword).not.toContain(':');
             expect(user.hashword.split(':')).toHaveLength(1);
-
-            console.log('✅ Stored password has bcrypt format (not encrypted)');
         });
 
-        test('✅ bcrypt.compare() verifies correct password', async () => {
+        test('bcrypt.compare() verifies correct password', async () => {
             const user = await userRepository.findIndividualUserByUsername(TEST_USERNAME);
             const isValid = await bcrypt.compare(TEST_PASSWORD, user.hashword);
 
             expect(isValid).toBe(true);
-            console.log('✅ bcrypt.compare() successfully verified password');
         });
 
-        test('✅ bcrypt.compare() rejects incorrect password', async () => {
+        test('bcrypt.compare() rejects incorrect password', async () => {
             const user = await userRepository.findIndividualUserByUsername(TEST_USERNAME);
             const isValid = await bcrypt.compare('WrongPassword', user.hashword);
 
             expect(isValid).toBe(false);
-            console.log('✅ bcrypt.compare() correctly rejected wrong password');
         });
 
-        test('✅ Login succeeds with correct password', async () => {
+        test('Login succeeds with correct password', async () => {
             const loginUser = new LoginUser({ userRepository, userConfig });
             const user = await loginUser.execute({
                 username: TEST_USERNAME,
@@ -117,10 +105,9 @@ describe('Password Hashing Verification - Both Databases', () => {
 
             expect(user).toBeDefined();
             expect(user.getId()).toBe(testUserId);
-            console.log('✅ Login successful with correct password');
         });
 
-        test('✅ Login fails with incorrect password', async () => {
+        test('Login fails with incorrect password', async () => {
             const loginUser = new LoginUser({ userRepository, userConfig });
 
             await expect(
@@ -129,11 +116,9 @@ describe('Password Hashing Verification - Both Databases', () => {
                     password: 'WrongPassword123',
                 })
             ).rejects.toThrow('Incorrect username or password');
-
-            console.log('✅ Login correctly rejected incorrect password');
         });
 
-        test('✅ Password update also hashes the new password', async () => {
+        test('Password update also hashes the new password', async () => {
             const newPassword = 'NewSecurePassword456!';
 
             const updatedUser = await userRepository.updateIndividualUser(testUserId, {
@@ -149,11 +134,9 @@ describe('Password Hashing Verification - Both Databases', () => {
 
             const isOldPasswordValid = await bcrypt.compare(TEST_PASSWORD, updatedUser.hashword);
             expect(isOldPasswordValid).toBe(false);
-
-            console.log('✅ Password update correctly hashed new password');
         });
 
-        test('📊 Raw database check: bcrypt hash stored directly', async () => {
+        test('Raw database check: bcrypt hash stored directly', async () => {
             let rawUser;
             if (dbType === 'postgresql') {
                 const userId = parseInt(testUserId, 10);
@@ -162,26 +145,16 @@ describe('Password Hashing Verification - Both Databases', () => {
                 `;
                 rawUser = rawUser[0];
             } else {
-                rawUser = await prisma.$queryRawUnsafe(
-                    `db.User.findOne({ _id: ObjectId("${testUserId}") })`
-                ).catch(() => {
-                    return userRepository.findIndividualUserById(testUserId);
-                });
+                rawUser = await userRepository.findIndividualUserById(testUserId);
             }
-
-            console.log('\n📊 RAW DATABASE HASHWORD:');
-            console.log('Format:', rawUser.hashword.substring(0, 30) + '...');
-            console.log('Length:', rawUser.hashword.length);
 
             expect(rawUser.hashword).toMatch(/^\$2[ab]\$\d{2}\$/);
             expect(rawUser.hashword).not.toContain(':');
-
-            console.log('✅ Raw database stores bcrypt hash (not encrypted)');
         });
     });
 
     describe(`${dbType.toUpperCase()} - Encryption Isolation`, () => {
-        test('📊 COMPARISON: Credential tokens encrypted, passwords hashed', async () => {
+        test('COMPARISON: Credential tokens encrypted, passwords hashed', async () => {
             const credential = await prisma.credential.create({
                 data: {
                     userId: dbType === 'postgresql' ? parseInt(testUserId, 10) : testUserId,
@@ -207,27 +180,15 @@ describe('Password Hashing Verification - Both Databases', () => {
                 });
             }
 
-            console.log('\n📊 ENCRYPTION COMPARISON:');
-            console.log('Credential token (should be encrypted):');
-            console.log('  Format:', rawCred.data.access_token.substring(0, 50) + '...');
-            console.log('  Has ":" separators:', rawCred.data.access_token.includes(':'));
-            console.log('\nUser password (should be bcrypt hashed):');
-            console.log('  Format:', user.hashword.substring(0, 30) + '...');
-            console.log('  Has ":" separators:', user.hashword.includes(':'));
-
             const encryptionEnabled = rawCred.data.access_token !== 'secret-access-token-12345';
 
             if (encryptionEnabled) {
                 expect(rawCred.data.access_token).toContain(':');
                 expect(rawCred.data.access_token.split(':')).toHaveLength(4);
-                console.log('✅ Credential token is encrypted');
-            } else {
-                console.log('⚠️  Encryption disabled in this environment');
             }
 
             expect(user.hashword).toMatch(/^\$2[ab]\$\d{2}\$/);
             expect(user.hashword).not.toContain(':');
-            console.log('✅ Password is bcrypt hashed (NOT encrypted)');
 
             await prisma.credential.delete({ where: { id: credential.id } });
         });

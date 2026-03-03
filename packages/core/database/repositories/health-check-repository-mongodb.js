@@ -1,4 +1,3 @@
-const { mongoose } = require('../mongoose');
 const {
     HealthCheckRepositoryInterface,
 } = require('./health-check-repository-interface');
@@ -19,7 +18,7 @@ class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface {
     async getDatabaseConnectionState() {
         let isConnected = false;
         let stateName = 'unknown';
-        
+
         try {
             await this.prisma.$runCommandRaw({ ping: 1 });
             isConnected = true;
@@ -30,7 +29,6 @@ class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface {
 
         return {
             readyState: isConnected ? 1 : 0,
-            readyState: isConnected ? 1 : 0,
             stateName,
             isConnected,
         };
@@ -38,22 +36,21 @@ class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface {
 
     async pingDatabase(maxTimeMS = 2000) {
         const pingStart = Date.now();
-        
-        // Create a timeout promise that rejects after maxTimeMS
-        const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Database ping timeout')), maxTimeMS)
-        );
-        
-        // Race between the database ping and the timeout
-        await Promise.race([
-            prisma.$queryRaw`SELECT 1`.catch(() => {
-                // For MongoDB, use runCommandRaw instead
-                return prisma.$runCommandRaw({ ping: 1 });
-            }),
-            timeoutPromise
-        ]);
+        let timeoutId;
 
-        return Date.now() - pingStart;
+        const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error('Database ping timeout')), maxTimeMS);
+        });
+
+        try {
+            await Promise.race([
+                this.prisma.$runCommandRaw({ ping: 1 }),
+                timeoutPromise
+            ]);
+            return Date.now() - pingStart;
+        } finally {
+            clearTimeout(timeoutId);
+        }
     }
 
     async createCredential(credentialData) {
@@ -69,14 +66,19 @@ class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface {
     }
 
     /**
+     * Get raw credential from database bypassing Prisma encryption extension.
+     * Uses $runCommandRaw to query MongoDB directly.
      * @param {string} id
      * @returns {Promise<Object|null>}
      */
     async getRawCredentialById(id) {
-        const { ObjectId } = require('mongodb');
-        return await mongoose.connection.db
-            .collection('Credential')
-            .findOne({ _id: new ObjectId(id) });
+        if (!id) return null;
+        const result = await this.prisma.$runCommandRaw({
+            find: 'Credential',
+            filter: { _id: { $oid: id } },
+            limit: 1,
+        });
+        return result.cursor?.firstBatch?.[0] || null;
     }
 
     async deleteCredential(id) {

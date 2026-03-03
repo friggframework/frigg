@@ -1,11 +1,13 @@
+const { ObjectId } = require('mongodb');
+
 const expectShallowEqualDbObject = (modelObject, compareObject) => {
     for (const key in compareObject) {
         let objVal = modelObject[key];
 
         if (objVal instanceof Date) {
             objVal = objVal.toISOString();
-        } else if (objVal instanceof mongoose.Types.ObjectId) {
-            objVal = objVal._id.toString();
+        } else if (objVal instanceof ObjectId) {
+            objVal = objVal.toString();
         }
 
         expect(compareObject[key]).toBe(objVal);

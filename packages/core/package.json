@@ -20,7 +20,7 @@
         "fs-extra": "^11.2.0",
         "lodash": "4.17.21",
         "lodash.get": "^4.4.2",
-        "mongoose": "6.11.6",
+        "mongodb": "^4.17.0",
         "node-fetch": "^2.6.7",
         "serverless-http": "^2.7.0",
         "uuid": "^9.0.1"

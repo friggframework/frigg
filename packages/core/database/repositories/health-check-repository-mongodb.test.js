@@ -7,7 +7,6 @@ describe('HealthCheckRepositoryMongoDB', () => {
     beforeEach(() => {
         mockPrismaClient = {
             $runCommandRaw: jest.fn(),
-            $queryRaw: jest.fn(),
         };
         
         repository = new HealthCheckRepositoryMongoDB({ 
@@ -66,7 +65,6 @@ describe('HealthCheckRepositoryMongoDB', () => {
 
     describe('pingDatabase()', () => {
         it('should return response time when ping succeeds', async () => {
-            mockPrismaClient.$queryRaw.mockRejectedValue(new Error('Not MongoDB'));
             mockPrismaClient.$runCommandRaw.mockResolvedValue({ ok: 1 });
 
             const responseTime = await repository.pingDatabase(2000);
@@ -78,15 +76,13 @@ describe('HealthCheckRepositoryMongoDB', () => {
 
         it('should throw error when ping fails', async () => {
             const error = new Error('Database unreachable');
-            mockPrismaClient.$queryRaw.mockRejectedValue(new Error('Not MongoDB'));
             mockPrismaClient.$runCommandRaw.mockRejectedValue(error);
 
             await expect(repository.pingDatabase(2000)).rejects.toThrow('Database unreachable');
         });
 
         it('should measure actual response time', async () => {
-            mockPrismaClient.$queryRaw.mockRejectedValue(new Error('Not MongoDB'));
-            mockPrismaClient.$runCommandRaw.mockImplementation(() => 
+            mockPrismaClient.$runCommandRaw.mockImplementation(() =>
                 new Promise(resolve => setTimeout(() => resolve({ ok: 1 }), 50))
             );
 

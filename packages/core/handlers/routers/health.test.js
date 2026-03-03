@@ -7,16 +7,41 @@ jest.mock('../../database/config', () => ({
     PRISMA_QUERY_LOGGING: false,
 }));
 
-jest.mock('mongoose', () => ({
-    set: jest.fn(),
-    connection: {
-        readyState: 1,
-        db: {
-            admin: () => ({
-                ping: jest.fn().mockResolvedValue(true)
-            })
-        }
-    }
+const mockPrisma = {
+    $runCommandRaw: jest.fn().mockResolvedValue({ ok: 1 }),
+    credential: {
+        create: jest.fn(),
+        findUnique: jest.fn(),
+        delete: jest.fn(),
+    },
+};
+
+jest.mock('../../database/prisma', () => ({
+    prisma: mockPrisma,
+    connectPrisma: jest.fn(),
+    disconnectPrisma: jest.fn(),
+}));
+
+jest.mock('../../database/repositories/health-check-repository-factory', () => ({
+    createHealthCheckRepository: jest.fn(({ prismaClient }) => ({
+        prisma: prismaClient,
+        getDatabaseConnectionState: jest.fn(async () => {
+            try {
+                await prismaClient.$runCommandRaw({ ping: 1 });
+                return { readyState: 1, stateName: 'connected', isConnected: true };
+            } catch {
+                return { readyState: 0, stateName: 'disconnected', isConnected: false };
+            }
+        }),
+        pingDatabase: jest.fn(async () => 1),
+        createCredential: jest.fn(),
+        findCredentialById: jest.fn(),
+        getRawCredentialById: jest.fn(),
+        deleteCredential: jest.fn(),
+    })),
+    HealthCheckRepositoryMongoDB: jest.fn(),
+    HealthCheckRepositoryPostgreSQL: jest.fn(),
+    HealthCheckRepositoryDocumentDB: jest.fn(),
 }));
 
 jest.mock('./../backend-utils', () => ({
@@ -33,7 +58,6 @@ jest.mock('./../app-handler-helpers', () => ({
 }));
 
 const { router } = require('./health');
-const mongoose = require('mongoose');
 
 const mockRequest = (path, headers = {}) => ({
     path,
@@ -49,7 +73,7 @@ const mockResponse = () => {
 
 describe('Health Check Endpoints', () => {
     beforeEach(() => {
-        mongoose.connection.readyState = 1;
+        mockPrisma.$runCommandRaw.mockResolvedValue({ ok: 1 });
     });
 
     describe('Middleware - validateApiKey', () => {
@@ -122,7 +146,7 @@ describe('Health Check Endpoints', () => {
         });
 
         it('should return 503 when database is disconnected', async () => {
-            mongoose.connection.readyState = 0;
+            mockPrisma.$runCommandRaw.mockRejectedValue(new Error('Connection refused'));
 
             const req = mockRequest('/health/detailed', { 'x-frigg-health-api-key': 'test-api-key' });
             const res = mockResponse();
@@ -190,7 +214,7 @@ describe('Health Check Endpoints', () => {
         });
 
         it('should return 503 when database is not connected', async () => {
-            mongoose.connection.readyState = 0;
+            mockPrisma.$runCommandRaw.mockRejectedValue(new Error('Connection refused'));
 
             const req = mockRequest('/health/ready', { 'x-frigg-health-api-key': 'test-api-key' });
             const res = mockResponse();

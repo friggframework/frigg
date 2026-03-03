@@ -1,8 +1,7 @@
 declare module "@friggframework/module-plugin" {
-  import { Model } from "mongoose";
   import { Delegate, IFriggDelegate } from "@friggframework/core";
 
-  export class Credential extends Model {
+  export interface Credential {
     userId: string;
     authIsValid: boolean;
     externalId: string;
@@ -10,7 +9,7 @@ declare module "@friggframework/module-plugin" {
 
   interface IFriggEntityManager { }
 
-  export class Entity extends Model {
+  export interface Entity {
     credentialId: string;
     userId: string;
     name: string;
