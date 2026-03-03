@@ -1,16 +1,3 @@
-declare module "@friggframework/syncs/model" {
-  export interface Sync {
-    entities: any[];
-    hash: string;
-    name: string;
-    dataIdentifiers: {
-      entity: any;
-      id: object;
-      hash: string;
-    }[];
-  }
-}
-
 declare module "@friggframework/syncs/manager" {
   import Sync from "@friggframework/syncs/sync";
 

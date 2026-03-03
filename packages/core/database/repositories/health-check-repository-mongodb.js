@@ -67,18 +67,16 @@ class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface {
 
     /**
      * Get raw credential from database bypassing Prisma encryption extension.
-     * Uses $runCommandRaw to query MongoDB directly.
+     * Uses findRaw() to query MongoDB directly.
      * @param {string} id
      * @returns {Promise<Object|null>}
      */
     async getRawCredentialById(id) {
         if (!id) return null;
-        const result = await this.prisma.$runCommandRaw({
-            find: 'Credential',
+        const results = await this.prisma.credential.findRaw({
             filter: { _id: { $oid: id } },
-            limit: 1,
         });
-        return result.cursor?.firstBatch?.[0] || null;
+        return results[0] || null;
     }
 
     async deleteCredential(id) {

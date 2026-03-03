@@ -2,16 +2,6 @@
  * Tests for MongoDB Schema Initialization
  */
 
-const {
-    initializeMongoDBSchema,
-    getPrismaCollections,
-} = require('./mongodb-schema-init');
-
-// Mock dependencies
-const mockPrisma = {
-    $runCommandRaw: jest.fn().mockResolvedValue({ ok: 1 }),
-};
-
 const mockEnsureCollectionsExist = jest.fn().mockResolvedValue(undefined);
 const mockGetCollectionsFromSchemaSync = jest.fn().mockReturnValue([
     'User', 'Token', 'Credential', 'Entity', 'Integration',
@@ -19,8 +9,12 @@ const mockGetCollectionsFromSchemaSync = jest.fn().mockReturnValue([
     'Association', 'AssociationObject', 'State', 'WebsocketConnection'
 ]);
 
+const mockConfig = {
+    DB_TYPE: 'mongodb',
+};
+
 jest.mock('../prisma', () => ({
-    prisma: mockPrisma,
+    prisma: { $runCommandRaw: jest.fn().mockResolvedValue({ ok: 1 }) },
 }));
 
 jest.mock('./mongodb-collection-utils', () => ({
@@ -31,11 +25,13 @@ jest.mock('./prisma-schema-parser', () => ({
     getCollectionsFromSchemaSync: mockGetCollectionsFromSchemaSync,
 }));
 
-const mockConfig = {
-    DB_TYPE: 'mongodb',
-};
-
 jest.mock('../config', () => mockConfig);
+
+const { prisma: mockPrisma } = require('../prisma');
+const {
+    initializeMongoDBSchema,
+    getPrismaCollections,
+} = require('./mongodb-schema-init');
 
 describe('MongoDB Schema Initialization', () => {
     beforeEach(() => {
@@ -78,6 +74,14 @@ describe('MongoDB Schema Initialization', () => {
             expect(console.log).toHaveBeenCalledWith(
                 'Schema initialization skipped - not using MongoDB-compatible database'
             );
+        });
+
+        it('should initialize for DocumentDB', async () => {
+            mockConfig.DB_TYPE = 'documentdb';
+
+            await initializeMongoDBSchema();
+
+            expect(mockEnsureCollectionsExist).toHaveBeenCalled();
         });
 
         it('should throw error if database not connected', async () => {

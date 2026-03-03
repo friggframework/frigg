@@ -2,20 +2,16 @@
  * Tests for MongoDB Collection Utilities
  */
 
+jest.mock('../prisma', () => ({
+    prisma: { $runCommandRaw: jest.fn() },
+}));
+
+const { prisma: mockPrisma } = require('../prisma');
 const {
     ensureCollectionExists,
     ensureCollectionsExist,
     collectionExists,
 } = require('./mongodb-collection-utils');
-
-// Mock prisma
-const mockPrisma = {
-    $runCommandRaw: jest.fn(),
-};
-
-jest.mock('../prisma', () => ({
-    prisma: mockPrisma,
-}));
 
 describe('MongoDB Collection Utilities', () => {
     beforeEach(() => {
@@ -101,9 +97,14 @@ describe('MongoDB Collection Utilities', () => {
                 ([cmd]) => cmd.create
             );
             expect(createCalls).toHaveLength(3);
-            expect(createCalls[0][0]).toEqual({ create: 'Collection1' });
-            expect(createCalls[1][0]).toEqual({ create: 'Collection2' });
-            expect(createCalls[2][0]).toEqual({ create: 'Collection3' });
+            const createCommands = createCalls.map(([cmd]) => cmd);
+            expect(createCommands).toEqual(
+                expect.arrayContaining([
+                    { create: 'Collection1' },
+                    { create: 'Collection2' },
+                    { create: 'Collection3' },
+                ])
+            );
         });
     });
 

@@ -2,18 +2,21 @@ declare module "@friggframework/module-plugin" {
   import { Delegate, IFriggDelegate } from "@friggframework/core";
 
   export interface Credential {
-    userId: string;
-    authIsValid: boolean;
-    externalId: string;
+    id?: string;
+    userId?: string;
+    authIsValid?: boolean;
+    externalId?: string;
+    data?: any;
   }
 
-  interface IFriggEntityManager { }
-
   export interface Entity {
-    credentialId: string;
-    userId: string;
-    name: string;
-    externalId: string;
+    id?: string;
+    credentialId?: string;
+    userId?: string;
+    name?: string;
+    moduleName?: string;
+    externalId?: string;
+    data?: any;
   }
 
   export type MappedEntity = Entity & { id: string; type: any };

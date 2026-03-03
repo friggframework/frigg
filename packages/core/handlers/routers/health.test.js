@@ -22,35 +22,45 @@ jest.mock('../../database/prisma', () => ({
     disconnectPrisma: jest.fn(),
 }));
 
+const mockHealthCheckRepository = {
+    getDatabaseConnectionState: jest.fn().mockResolvedValue({
+        readyState: 1, stateName: 'connected', isConnected: true,
+    }),
+    pingDatabase: jest.fn().mockResolvedValue(1),
+    createCredential: jest.fn(),
+    findCredentialById: jest.fn(),
+    getRawCredentialById: jest.fn(),
+    deleteCredential: jest.fn(),
+};
+
 jest.mock('../../database/repositories/health-check-repository-factory', () => ({
-    createHealthCheckRepository: jest.fn(({ prismaClient }) => ({
-        prisma: prismaClient,
-        getDatabaseConnectionState: jest.fn(async () => {
-            try {
-                await prismaClient.$runCommandRaw({ ping: 1 });
-                return { readyState: 1, stateName: 'connected', isConnected: true };
-            } catch {
-                return { readyState: 0, stateName: 'disconnected', isConnected: false };
-            }
-        }),
-        pingDatabase: jest.fn(async () => 1),
-        createCredential: jest.fn(),
-        findCredentialById: jest.fn(),
-        getRawCredentialById: jest.fn(),
-        deleteCredential: jest.fn(),
-    })),
+    createHealthCheckRepository: jest.fn(() => mockHealthCheckRepository),
     HealthCheckRepositoryMongoDB: jest.fn(),
     HealthCheckRepositoryPostgreSQL: jest.fn(),
     HealthCheckRepositoryDocumentDB: jest.fn(),
 }));
 
-jest.mock('./../backend-utils', () => ({
-    moduleFactory: {
-        moduleTypes: ['test-module', 'another-module']
-    },
-    integrationFactory: {
-        integrationTypes: ['test-integration', 'another-integration']
-    }
+jest.mock('./../app-definition-loader', () => ({
+    loadAppDefinition: jest.fn(() => ({
+        integrations: [{ Definition: { name: 'test-integration' } }],
+    })),
+}));
+
+jest.mock('../../integrations/utils/map-integration-dto', () => ({
+    getModulesDefinitionFromIntegrationClasses: jest.fn(() => [
+        { moduleName: 'test-module' },
+        { moduleName: 'another-module' },
+    ]),
+}));
+
+jest.mock('../../modules/repositories/module-repository-factory', () => ({
+    createModuleRepository: jest.fn(() => ({})),
+}));
+
+jest.mock('../../modules/module-factory', () => ({
+    ModuleFactory: jest.fn().mockImplementation(({ moduleDefinitions }) => ({
+        moduleDefinitions,
+    })),
 }));
 
 jest.mock('./../app-handler-helpers', () => ({
@@ -73,7 +83,10 @@ const mockResponse = () => {
 
 describe('Health Check Endpoints', () => {
     beforeEach(() => {
-        mockPrisma.$runCommandRaw.mockResolvedValue({ ok: 1 });
+        mockHealthCheckRepository.getDatabaseConnectionState.mockResolvedValue({
+            readyState: 1, stateName: 'connected', isConnected: true,
+        });
+        mockHealthCheckRepository.pingDatabase.mockResolvedValue(1);
     });
 
     describe('Middleware - validateApiKey', () => {
@@ -146,7 +159,9 @@ describe('Health Check Endpoints', () => {
         });
 
         it('should return 503 when database is disconnected', async () => {
-            mockPrisma.$runCommandRaw.mockRejectedValue(new Error('Connection refused'));
+            mockHealthCheckRepository.getDatabaseConnectionState.mockResolvedValue({
+                readyState: 0, stateName: 'disconnected', isConnected: false,
+            });
 
             const req = mockRequest('/health/detailed', { 'x-frigg-health-api-key': 'test-api-key' });
             const res = mockResponse();
@@ -214,7 +229,9 @@ describe('Health Check Endpoints', () => {
         });
 
         it('should return 503 when database is not connected', async () => {
-            mockPrisma.$runCommandRaw.mockRejectedValue(new Error('Connection refused'));
+            mockHealthCheckRepository.getDatabaseConnectionState.mockResolvedValue({
+                readyState: 0, stateName: 'disconnected', isConnected: false,
+            });
 
             const req = mockRequest('/health/ready', { 'x-frigg-health-api-key': 'test-api-key' });
             const res = mockResponse();
