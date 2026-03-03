@@ -19,7 +19,7 @@
     "@friggframework/test": "*",
     "jest": "^29.7.0",
     "mongodb-memory-server": "^8.9.0",
-    "supertest": "^6.3.3"
+    "supertest": "^7.2.2"
   },
   "author": "",
   "license": "MIT"

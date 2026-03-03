@@ -1,8 +1,21 @@
-const lodashGet = require('lodash.get');
 const { RequiredPropertyError, ParameterTypeError } = require('../errors');
 
+/**
+ * Deep property access by dot-separated path string.
+ * Replaces lodash.get (deprecated).
+ */
+function deepGet(obj, path, defaultValue) {
+    const keys = typeof path === 'string' ? path.split('.') : path;
+    let result = obj;
+    for (const key of keys) {
+        if (result == null) return defaultValue;
+        result = result[key];
+    }
+    return result === undefined ? defaultValue : result;
+}
+
 const get = (o, key, defaultValue) => {
-    const value = lodashGet(o, key, defaultValue);
+    const value = deepGet(o, key, defaultValue);
 
     if (value !== undefined) {
         return value;
@@ -23,7 +36,7 @@ const getAll = (o, requiredKeys) => {
     const returnDict = {};
 
     for (const key of requiredKeys) {
-        const val = lodashGet(o, key);
+        const val = deepGet(o, key);
 
         if (val) {
             returnDict[key] = val;
