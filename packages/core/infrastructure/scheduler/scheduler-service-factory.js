@@ -11,9 +11,8 @@
  * - Default in other stages -> EventBridge scheduler
  */
 
-const { EventBridgeSchedulerAdapter } = require('./eventbridge-scheduler-adapter');
-const { MockSchedulerAdapter } = require('./mock-scheduler-adapter');
-const { NetlifySchedulerAdapter } = require('./netlify-scheduler-adapter');
+// Adapters are lazily required to avoid pulling in heavy SDK deps
+// (e.g. @aws-sdk/client-scheduler) when they won't be used.
 
 const SCHEDULER_PROVIDERS = {
     EVENTBRIDGE: 'eventbridge',
@@ -57,19 +56,25 @@ function createSchedulerService(options = {}) {
     const provider = options.provider || determineProvider();
 
     switch (provider) {
-        case SCHEDULER_PROVIDERS.EVENTBRIDGE:
+        case SCHEDULER_PROVIDERS.EVENTBRIDGE: {
+            const { EventBridgeSchedulerAdapter } = require('./eventbridge-scheduler-adapter');
             return new EventBridgeSchedulerAdapter({
                 region: options.region,
             });
-        case SCHEDULER_PROVIDERS.MOCK:
+        }
+        case SCHEDULER_PROVIDERS.MOCK: {
+            const { MockSchedulerAdapter } = require('./mock-scheduler-adapter');
             return new MockSchedulerAdapter({
                 verbose: options.verbose,
             });
-        case SCHEDULER_PROVIDERS.NETLIFY:
+        }
+        case SCHEDULER_PROVIDERS.NETLIFY: {
+            const { NetlifySchedulerAdapter } = require('./netlify-scheduler-adapter');
             return new NetlifySchedulerAdapter({
                 repository: options.repository,
                 queueProvider: options.queueProvider,
             });
+        }
         default:
             throw new Error(`Unknown scheduler provider: ${provider}`);
     }
