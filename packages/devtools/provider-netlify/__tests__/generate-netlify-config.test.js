@@ -33,6 +33,8 @@ describe('generateNetlifyToml', () => {
         expect(toml).toContain('[functions]');
         expect(toml).toContain('node_bundler = "esbuild"');
         expect(toml).toContain('node_modules/.prisma/**');
+        expect(toml).toContain('external_node_modules = ["express"');
+        expect(toml).toContain('backend/**');
     });
 
     test('generates redirect for v2 API routes', () => {
