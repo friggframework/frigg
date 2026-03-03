@@ -95,9 +95,21 @@ const utils = require('./utils');
 const {
     QueuerUtil,
     QueueProvider,
+    QueueClientInterface,
     createQueueProvider,
     QUEUE_PROVIDERS,
 } = require('./queues');
+
+const {
+    EncryptionKeyProviderInterface,
+} = require('./encrypt/encryption-key-provider-interface');
+const {
+    AesEncryptionKeyProvider,
+} = require('./encrypt/aes-encryption-key-provider');
+const {
+    WebSocketMessageSenderInterface,
+    StaleConnectionError,
+} = require('./websocket/websocket-message-sender-interface');
 
 const {
     resolveProvider,
@@ -200,8 +212,17 @@ module.exports = {
     // queues
     QueuerUtil,
     QueueProvider,
+    QueueClientInterface,
     createQueueProvider,
     QUEUE_PROVIDERS,
+
+    // encryption interfaces
+    EncryptionKeyProviderInterface,
+    AesEncryptionKeyProvider,
+
+    // websocket interfaces
+    WebSocketMessageSenderInterface,
+    StaleConnectionError,
 
     // providers
     resolveProvider,

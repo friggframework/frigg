@@ -1,11 +1,17 @@
 const { mongoose } = require('../mongoose');
-// AWS API Gateway SDK is lazy-loaded to avoid pulling in the SDK on non-AWS platforms.
-let _apigwModule = null;
-function getApigwModule() {
-    if (!_apigwModule) {
-        _apigwModule = require('@aws-sdk/client-apigatewaymanagementapi');
+const {
+    StaleConnectionError,
+} = require('../../websocket/websocket-message-sender-interface');
+
+// Default message sender lazy-loaded to avoid pulling in AWS SDK on non-AWS platforms.
+let _defaultMessageSender = null;
+function getDefaultMessageSender() {
+    if (!_defaultMessageSender) {
+        const { ApiGatewayMessageSender } =
+            require('@friggframework/provider-aws');
+        _defaultMessageSender = new ApiGatewayMessageSender();
     }
-    return _apigwModule;
+    return _defaultMessageSender;
 }
 
 const schema = new mongoose.Schema({
@@ -20,25 +26,19 @@ schema.statics.getActiveConnections = async function () {
             return [];
         }
 
+        const sender = getDefaultMessageSender();
         const connections = await this.find({}, 'connectionId');
         return connections.map((conn) => ({
             connectionId: conn.connectionId,
             send: async (data) => {
-                const apigwManagementApi = new (getApigwModule().ApiGatewayManagementApiClient)({
-                    endpoint: process.env.WEBSOCKET_API_ENDPOINT,
-                });
-
                 try {
-                    const command = new (getApigwModule().PostToConnectionCommand)({
-                        ConnectionId: conn.connectionId,
-                        Data: JSON.stringify(data),
-                    });
-                    await apigwManagementApi.send(command);
+                    await sender.send(
+                        conn.connectionId,
+                        data,
+                        process.env.WEBSOCKET_API_ENDPOINT
+                    );
                 } catch (error) {
-                    if (
-                        error.statusCode === 410 ||
-                        error.$metadata?.httpStatusCode === 410
-                    ) {
+                    if (error instanceof StaleConnectionError) {
                         console.log(`Stale connection ${conn.connectionId}`);
                         await this.deleteOne({
                             connectionId: conn.connectionId,

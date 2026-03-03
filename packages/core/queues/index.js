@@ -1,5 +1,6 @@
 const { QueuerUtil } = require('./queuer-util');
 const { QueueProvider } = require('./queue-provider');
+const { QueueClientInterface } = require('./queue-client-interface');
 const {
     createQueueProvider,
     determineProvider,
@@ -13,6 +14,7 @@ const {
 module.exports = {
     QueuerUtil,
     QueueProvider,
+    QueueClientInterface,
     createQueueProvider,
     determineProvider,
     QUEUE_PROVIDERS,

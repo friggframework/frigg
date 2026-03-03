@@ -1,70 +1,70 @@
 /**
  * Cryptor - Encryption Service Adapter
  *
- * Infrastructure Layer adapter for AWS KMS and local AES encryption.
- * Provides envelope encryption pattern for field-level encryption.
+ * Infrastructure Layer adapter for envelope encryption.
+ * Key management is delegated to an EncryptionKeyProviderInterface adapter:
+ * - KmsEncryptionKeyProvider (in @friggframework/provider-aws) for AWS KMS
+ * - AesEncryptionKeyProvider (in core) for local AES keys
  *
  * Envelope Encryption Pattern:
- * 1. Generate Data Encryption Key (DEK) via KMS or locally
+ * 1. Generate Data Encryption Key (DEK) via key provider
  * 2. Encrypt field value with DEK using AES-256-CTR
- * 3. Encrypt DEK with Master Key (KMS CMK or AES_KEY)
+ * 3. Store encrypted DEK alongside ciphertext
  * 4. Return format: "keyId:encryptedText:encryptedKey"
  *
- * Benefits:
- * - Reduces KMS API calls (unique DEK per operation)
- * - Master key never leaves KMS
- * - Enables key rotation without re-encrypting data
+ * Backward compatible: accepts { shouldUseAws } or { keyProvider }.
  */
 
-const crypto = require('crypto');
 const aes = require('./aes');
 
-// AWS KMS SDK is lazy-loaded only when shouldUseAws is true.
-// This avoids pulling in @aws-sdk/client-kms on non-AWS platforms.
-let _kmsModule = null;
-function getKmsModule() {
-    if (!_kmsModule) {
-        _kmsModule = require('@aws-sdk/client-kms');
-    }
-    return _kmsModule;
-}
-
 class Cryptor {
-    constructor({ shouldUseAws }) {
-        this.shouldUseAws = shouldUseAws;
+    /**
+     * @param {Object} options
+     * @param {boolean} [options.shouldUseAws] - Legacy flag: true = KMS, false = AES
+     * @param {EncryptionKeyProviderInterface} [options.keyProvider] - Explicit key provider
+     */
+    constructor({ shouldUseAws, keyProvider } = {}) {
+        this._keyProvider = keyProvider || null;
+        this._shouldUseAws = shouldUseAws;
+    }
+
+    /**
+     * Get the key provider, lazy-loading the appropriate default.
+     * @returns {EncryptionKeyProviderInterface}
+     */
+    _getKeyProvider() {
+        if (!this._keyProvider) {
+            if (this._shouldUseAws) {
+                const { KmsEncryptionKeyProvider } =
+                    require('@friggframework/provider-aws');
+                this._keyProvider = new KmsEncryptionKeyProvider();
+            } else {
+                const { AesEncryptionKeyProvider } =
+                    require('./aes-encryption-key-provider');
+                this._keyProvider = new AesEncryptionKeyProvider();
+            }
+        }
+        return this._keyProvider;
     }
 
     async generateDataKey() {
-        if (this.shouldUseAws) {
-            const { KMSClient, GenerateDataKeyCommand } = getKmsModule();
-            const kmsClient = new KMSClient({});
-            const command = new GenerateDataKeyCommand({
-                KeyId: process.env.KMS_KEY_ARN,
-                KeySpec: 'AES_256',
-            });
-            const dataKey = await kmsClient.send(command);
-
-            const keyId = Buffer.from(dataKey.KeyId).toString('base64');
-            const encryptedKey = Buffer.from(dataKey.CiphertextBlob).toString(
-                'base64'
-            );
-            const plaintext = dataKey.Plaintext;
-            return { keyId, encryptedKey, plaintext };
-        }
-
-        const { AES_KEY, AES_KEY_ID } = process.env;
-        const randomKey = crypto.randomBytes(32).toString('hex').slice(0, 32);
-
-        return {
-            keyId: Buffer.from(AES_KEY_ID).toString('base64'),
-            encryptedKey: Buffer.from(aes.encrypt(randomKey, AES_KEY)).toString(
-                'base64'
-            ),
-            plaintext: randomKey,
-        };
+        return this._getKeyProvider().generateDataKey();
     }
 
+    /**
+     * Look up an AES key by identifier from environment variables.
+     * Kept for backward compatibility.
+     *
+     * @param {string} keyId - Key identifier
+     * @returns {string} The master key
+     */
     getKeyFromEnvironment(keyId) {
+        const provider = this._getKeyProvider();
+        if (typeof provider.getKeyFromEnvironment === 'function') {
+            return provider.getKeyFromEnvironment(keyId);
+        }
+
+        // Fallback for providers that don't implement getKeyFromEnvironment
         const availableKeys = {
             [process.env.AES_KEY_ID]: process.env.AES_KEY,
             [process.env.DEPRECATED_AES_KEY_ID]: process.env.DEPRECATED_AES_KEY,
@@ -80,20 +80,7 @@ class Cryptor {
     }
 
     async decryptDataKey(keyId, encryptedKey) {
-        if (this.shouldUseAws) {
-            const { KMSClient, DecryptCommand } = getKmsModule();
-            const kmsClient = new KMSClient({});
-            const command = new DecryptCommand({
-                KeyId: keyId,
-                CiphertextBlob: encryptedKey,
-            });
-            const dataKey = await kmsClient.send(command);
-
-            return dataKey.Plaintext;
-        }
-
-        const key = this.getKeyFromEnvironment(keyId);
-        return aes.decrypt(encryptedKey, key);
+        return this._getKeyProvider().decryptDataKey(keyId, encryptedKey);
     }
 
     async encrypt(text) {

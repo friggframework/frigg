@@ -2,36 +2,36 @@ const _ = require('lodash');
 const { RequiredPropertyError } = require('../errors');
 const { get } = require('../assertions');
 
-// AWS SQS SDK is lazy-loaded to avoid pulling in @aws-sdk/client-sqs
-// on non-AWS platforms. The singleton client is created on first use.
-let _sqsModule = null;
-let _sqs = null;
-
-function getSqsModule() {
-    if (!_sqsModule) {
-        _sqsModule = require('@aws-sdk/client-sqs');
-    }
-    return _sqsModule;
-}
-
-function getSqs() {
-    if (!_sqs) {
-        const { SQSClient } = getSqsModule();
-        _sqs = new SQSClient({ region: process.env.AWS_REGION });
-    }
-    return _sqs;
-}
-
+/**
+ * Worker - Queue message producer/consumer base class.
+ *
+ * Subclass and override _run() to implement your worker logic.
+ * The queue transport (SQS, Netlify, etc.) is abstracted behind
+ * QueueClientInterface, injected via constructor options.
+ *
+ * Backward compatible: if no queueClient is provided, lazy-loads
+ * SqsQueueClient from @friggframework/provider-aws.
+ */
 class Worker {
+    constructor(options = {}) {
+        this._queueClient = options.queueClient || null;
+    }
+
+    /**
+     * Get the queue client, lazy-loading SQS default for backward compat.
+     * @returns {QueueClientInterface}
+     */
+    _getQueueClient() {
+        if (!this._queueClient) {
+            const { SqsQueueClient } =
+                require('@friggframework/provider-aws');
+            this._queueClient = new SqsQueueClient();
+        }
+        return this._queueClient;
+    }
+
     async getQueueURL(params) {
-        // Passing params in because there will be multiple QueueNames
-        // let params = {
-        //     QueueName:  process.env.QueueName
-        // };
-        const { GetQueueUrlCommand } = getSqsModule();
-        const command = new GetQueueUrlCommand(params);
-        const data = await getSqs().send(command);
-        return data.QueueUrl;
+        return this._getQueueClient().getQueueUrl(params);
     }
 
     async run(params, context = {}) {
@@ -65,9 +65,7 @@ class Worker {
     }
 
     async sendAsyncSQSMessage(params) {
-        const { SendMessageCommand } = getSqsModule();
-        const command = new SendMessageCommand(params);
-        const data = await getSqs().send(command);
+        const data = await this._getQueueClient().sendMessage(params);
         return data.MessageId;
     }
 

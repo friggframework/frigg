@@ -72,14 +72,11 @@ describe('Provider Resolver', () => {
     });
 
     describe('resolveProvider', () => {
-        it('throws with helpful message for uninstalled known provider', () => {
-            // 'aws' provider package doesn't exist yet, so it will fail to resolve
-            expect(() =>
-                resolveProvider({ provider: 'aws' })
-            ).toThrow(/provider-aws.*not installed/i);
-            expect(() =>
-                resolveProvider({ provider: 'aws' })
-            ).toThrow(/npm install/);
+        it('resolves installed known provider', () => {
+            // 'aws' provider package is installed in the monorepo
+            const provider = resolveProvider({ provider: 'aws' });
+            expect(provider).toBeDefined();
+            expect(provider.name).toBe('aws');
         });
 
         it('throws with different hint for unknown provider', () => {

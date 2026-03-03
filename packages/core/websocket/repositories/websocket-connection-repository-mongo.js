@@ -1,15 +1,21 @@
 const { prisma } = require('../../database/prisma');
-// AWS API Gateway SDK is lazy-loaded to avoid pulling in the SDK on non-AWS platforms.
-let _apigwModule = null;
-function getApigwModule() {
-    if (!_apigwModule) {
-        _apigwModule = require('@aws-sdk/client-apigatewaymanagementapi');
-    }
-    return _apigwModule;
-}
+const {
+    StaleConnectionError,
+} = require('../websocket-message-sender-interface');
 const {
     WebsocketConnectionRepositoryInterface,
 } = require('./websocket-connection-repository-interface');
+
+// Default message sender lazy-loaded to avoid pulling in AWS SDK on non-AWS platforms.
+let _defaultMessageSender = null;
+function getDefaultMessageSender() {
+    if (!_defaultMessageSender) {
+        const { ApiGatewayMessageSender } =
+            require('@friggframework/provider-aws');
+        _defaultMessageSender = new ApiGatewayMessageSender();
+    }
+    return _defaultMessageSender;
+}
 
 /**
  * MongoDB WebSocket Connection Repository Adapter
@@ -18,12 +24,13 @@ const {
  * MongoDB-specific characteristics:
  * - Uses String IDs (ObjectId)
  * - No ID conversion needed (IDs are already strings)
- * - AWS API Gateway Management API integration preserved
+ * - Message sending via injected WebSocketMessageSenderInterface
  */
 class WebsocketConnectionRepositoryMongo extends WebsocketConnectionRepositoryInterface {
-    constructor() {
+    constructor(messageSender = null) {
         super();
         this.prisma = prisma;
+        this._messageSender = messageSender;
     }
 
     /**
@@ -78,29 +85,22 @@ class WebsocketConnectionRepositoryMongo extends WebsocketConnectionRepositoryIn
                 select: { connectionId: true },
             });
 
+            const sender = this._messageSender || getDefaultMessageSender();
+
             return connections.map((conn) => ({
                 connectionId: conn.connectionId,
                 send: async (data) => {
-                    const apigwManagementApi =
-                        new (getApigwModule().ApiGatewayManagementApiClient)({
-                            endpoint: process.env.WEBSOCKET_API_ENDPOINT,
-                        });
-
                     try {
-                        const command = new (getApigwModule().PostToConnectionCommand)({
-                            ConnectionId: conn.connectionId,
-                            Data: JSON.stringify(data),
-                        });
-                        await apigwManagementApi.send(command);
+                        await sender.send(
+                            conn.connectionId,
+                            data,
+                            process.env.WEBSOCKET_API_ENDPOINT
+                        );
                     } catch (error) {
-                        if (
-                            error.statusCode === 410 ||
-                            error.$metadata?.httpStatusCode === 410
-                        ) {
+                        if (error instanceof StaleConnectionError) {
                             console.log(
                                 `Stale connection ${conn.connectionId}`
                             );
-                            // Delete stale connection
                             await this.prisma.websocketConnection.deleteMany({
                                 where: { connectionId: conn.connectionId },
                             });
